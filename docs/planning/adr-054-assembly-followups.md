@@ -2159,7 +2159,264 @@ skipping the second because the first was red is how a red test stays unseen.
 
 ### S4-D1 / S5-D1 (adversarial testing)
 
-_No entries yet._
+S5-D1 added three adversarial test files against ADR-054 spec 5's agent surface
+(42 tests: 37 green, 5 `xfail(strict=True)` defect markers). Each defect below
+is proved by a named test whose assertion is written unweakened; the `xfail`
+marker records that the current implementation does not satisfy it, keeps the
+assembly's CI honest about what is a *new* failure, and turns into a loud
+failure the moment the defect is fixed without the marker being removed.
+
+The three files are:
+
+- `tests/ai/test_workspace_focus_adversarial.py` — can the focus lie?
+- `tests/ai/test_mcp_tools_explore_adversarial.py` — the refusal as the
+  enforcement, and FR-024 derived rather than restated.
+- `tests/ai/test_tool_catalog_counts_adversarial.py` — counts derived, not
+  restated, plus meta-tests that the catalog assertions actually bite.
+
+Findings S5-D1-001 to S5-D1-003 are one family: **the focus is a report about a
+moment and is read as a fact about now, and nothing between the report and the
+read carries the difference.** They are the direct answer to the owner's hard
+requirement for spec 5 — the agent must always know whether the person is on
+the canvas or in an explore session — and each is a state in which the agent
+believes it knows, and is wrong.
+
+#### S5-D1-001 — An unreadable mode moves the agent's idea of the person onto the canvas
+
+- **Severity**: P2 — the agent is told the person is somewhere they are not.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_workspace_focus_adversarial.py::test_an_unreadable_mode_over_a_live_explore_focus_must_not_report_the_person_onto_the_canvas`
+  (`xfail(strict=True)`). Posting `{"mode": "diff"}` over a live explore focus
+  leaves `runtime.workspace_focus is None`, and `get_active_workflow_context`
+  then answers `mode="canvas"`, `focus_stale=False`.
+- **Why it happens**: `ApiRuntime._normalise_focus`
+  (`src/scistudio/api/runtime/_projects.py`) degrades an unrecognised mode to
+  `None`, and `scistudio.ai.agent.mcp._focus.effective_focus` reads `None` as
+  `MODE_CANVAS` over the persisted workflow (FR-003). Both halves are
+  deliberate and documented. Composed, they are not conservative: canvas is an
+  *assertion* about where the person is, not an admission of not knowing, and
+  the agent acts on it by proposing a workflow edit to somebody in a notebook.
+- **Why the existing test did not catch it**:
+  `test_an_unreadable_mode_is_not_persisted` posts the unreadable mode into a
+  workspace that has no focus at all, where degrading to canvas costs nothing.
+  It never posts one over a focus that was already explore.
+- **Suggested fix (either is acceptable)**: keep the last readable focus when a
+  report cannot be parsed, or carry a mode the agent can recognise as unknown.
+  Answering `canvas` is the one answer that is affirmatively wrong.
+- **Suggested title**: `fix(#2254): an unreadable workspace-focus mode must not report the person onto the canvas`
+
+#### S5-D1-002 — A focus restored after a backend restart is indistinguishable from a live one
+
+- **Severity**: P2.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_workspace_focus_adversarial.py::test_a_focus_restored_after_a_restart_must_be_distinguishable_from_a_live_one`
+  (`xfail(strict=True)`). Two sequential apps over one project: after the
+  restart, `GET /api/explore/sessions` is empty and the context tool still
+  answers `mode="explore"`, `focus_stale=False`.
+- **Why it happens**: FR-002 requires the restore and it works. But a restart is
+  the one moment at which the focus is guaranteed *not* to describe a live
+  session — the new process's `SessionService` holds none and the frontend has
+  reported nothing. `_focus.focus_is_stale` asks only whether the notebook file
+  exists, so it answers "live". `focus_reported_at` is returned but is not
+  usable alone: the agent has no backend start time to compare it against.
+- **Why the existing test did not catch it**:
+  `test_the_focus_survives_a_backend_restart` asserts the restored record is
+  *identical* to the reported one, `reported_at` included, and treats that
+  identity as the success condition. The identity is the problem.
+- **Suggested fix**: mark a focus that was restored rather than reported —
+  `focus_stale=True` is the cheapest, a dedicated field is the more useful.
+- **Suggested title**: `fix(#2254): a workspace focus restored from disk must be distinguishable from a reported one`
+
+#### S5-D1-003 — Closing the session does not make the focus stale
+
+- **Severity**: P2.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_workspace_focus_adversarial.py::test_a_focus_whose_session_has_been_closed_must_not_read_as_a_live_session`
+  (`xfail(strict=True)`). Opens a real session over a file through
+  `POST /api/explore/sessions`, reports the focus at its notebook path,
+  `DELETE`s the session, confirms it has left `GET /api/explore/sessions`, and
+  the context tool still answers `focus_stale=False`, `mode="explore"`.
+- **Why it happens**: FR-004 defines staleness as a question about the
+  **notebook file**, and `SessionService.close` leaves the file on disk — that
+  is what closing a notebook means. Every session tool then proceeds through
+  `SessionService.open_notebook`, which is idempotent and therefore opens a
+  *brand-new* session rather than refusing. The agent believes it is appending a
+  cell into the notebook the person is looking at; the person is looking at
+  nothing.
+- **Why the existing tests did not catch it**:
+  `tests/ai/test_workspace_focus.py` states the assumption in its own helper —
+  "staleness is a question about the file, not about the session service" — and
+  its notebook fixture is a file written directly to disk with no session ever
+  opened over it. Every staleness test in that module therefore already runs in
+  a world with no session, and calls it not stale.
+- **Suggested fix**: consult the session registry in `focus_is_stale`, or
+  require the frontend to clear the focus on close *and* stop the backend
+  trusting a focus that names a session the service does not hold. This is a
+  spec change as much as a code change: FR-004's definition is the narrow part.
+- **Suggested title**: `fix(#2254): a workspace focus naming a closed session must not read as live`
+
+#### S5-D1-004 — Two of the three bad explicit-session-path refusals hand the agent a dead end
+
+- **Severity**: P3 — the agent recovers in more than one step, and one message
+  leaks a backend absolute path.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_mcp_tools_explore_adversarial.py::test_every_explicit_path_refusal_names_how_to_open_a_session`
+  (`xfail(strict=True)`). Against a real `SessionService`:
+  - a path that is not there is translated by
+    `tools_explore._service.session_for` and names `open_explore_session` —
+    correct;
+  - `session_path="../outside.ipynb"` raises `PathEscapesProjectError`, whose
+    message cites *another spec's* FR-002 at an agent that has never read it;
+  - `session_path="data/spectra.csv"` raises `NotebookStoreError` carrying a
+    JSON parser message and the **absolute path of the file on the backend's
+    disk**.
+- **Why the existing tests did not catch it**: the scripted `_Service` in
+  `tests/ai/test_mcp_tools_explore.py` accepts every path and never raises, so
+  no test in that module has ever reached `session_for`'s translation layer.
+- **Suggested fix**: translate both in `session_for` the way the missing file is
+  already translated — the reason, then `_focus.OPEN_SESSION_HINT`.
+- **Suggested title**: `fix(#2254): every session-tool refusal names how to open a session, and none leaks a host path`
+
+#### S5-D1-005 — A tool acting through a detached session service does not tell the agent so
+
+- **Severity**: P2 — the agent reports work into a notebook nobody is reading.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_mcp_tools_explore_adversarial.py::test_a_tool_acting_through_a_detached_service_tells_the_agent_so`
+  (`xfail(strict=True)`). With a context that carries no session service,
+  `resolve_session_service()` reports `origin.is_detached`, and
+  `read_notebook().model_dump_json()` contains no trace of it.
+- **Why it happens**: `tools_explore/_service.py`'s own docstring says the
+  fallback happens "never quietly", because `resolve_session_service` "reports
+  the origin to any caller that asks". Nothing asks: `session_service()` is
+  `service, _origin = resolve_session_service()` and discards it, and no result
+  model in `tools_explore/_models.py` has a field for it. The only surviving
+  channel is a backend WARNING the agent cannot read.
+- **Why the existing tests did not catch it**:
+  `tests/ai/test_mcp_session_service_forwarding.py` asserts the origin at the
+  seam where it is correct and never asks whether it reaches a **tool result**;
+  the scripted context in `test_mcp_tools_explore.py` always carries a service,
+  so the detached branch never runs there.
+- **Suggested fix**: carry the origin (or at least a boolean) on the session
+  result models, populated from the value `resolve_session_service` already
+  returns.
+- **Suggested title**: `fix(#2254): a session tool answering through a detached service must say so in its result`
+
+#### S5-D1-006 — The catalogs' per-group and total counts were unasserted (now closed)
+
+- **Severity**: P3 — no defect today; the numbers are all correct. The gap was
+  that nothing would have noticed when they stopped being.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**: `src/scistudio/_skills/scistudio/SKILL.md` states the tool total
+  twice (`47 tools`) and a per-group count in each of eight headings
+  (`**Workflow (12)**` and so on); `docs/specs/embedded-coding-agent-spec.md`
+  restates the same eight. `tests/ai/test_tool_catalogs.py` searches those files
+  for every registered tool **name** and reads no digit, so a ninth session tool
+  would have updated the list and left the base skill telling every Codex agent
+  there are seven. The same holds for FR-009's task-skill count: the base skill
+  and `agent_provisioning/templates/claude_agents_md.md` both say "the seven
+  task skills" and `tests/agent_provisioning/test_skills.py` counts files
+  written, not sentences.
+- **Closed by**: `tests/ai/test_tool_catalog_counts_adversarial.py` —
+  `test_the_base_skills_prose_tool_total_matches_the_registry`,
+  `test_every_catalog_group_count_matches_the_registry` (parametrised over both
+  catalogs) and `test_the_prose_task_skill_counts_match_the_provisioned_skill_list`.
+  No production change is needed.
+- **Suggested title**: n/a — closed by the tests in this branch.
+
+#### S5-D1-007 — `test_mcp_server_skeleton.py` is named as a count-assertion site and is entirely skipped
+
+- **Severity**: P3 — documentation accuracy, no runtime effect.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**: ADR-054 spec 5 §4.2 lists `tests/ai/test_mcp_server_skeleton.py`
+  among the files whose count assertions FR-025 moves, and
+  `tests/mcp_tool_expectations.py` describes itself as the declaration "which
+  the five count-assertion sites read". That file carries `pytestmark =
+  pytest.mark.skip` (ADR-033-era shape, superseded by FastMCP; tracked by #1012
+  / #1539), holds its own copy of 25 tool names in four groups, and imports
+  nothing from `mcp_tool_expectations`. Thirty-seven of its tests are skipped.
+- **Why it is here and not done**: deleting or re-authoring the file is #1012's
+  scope, not spec 5's, and the skip means it costs nothing at runtime. What is
+  wrong is the spec sentence and the declaration module's docstring, which both
+  imply a live site.
+- **Suggested title**: `docs(#2254): stop naming the skipped MCP skeleton test as a live count-assertion site`
+
+#### S5-D1-008 — The context tool cannot distinguish a missing workflow from an untitled one
+
+- **Severity**: P3 — pre-existing (ADR-040 Addendum 5), and FR-003 requires the
+  existing fields to be unchanged, so it is out of spec 5's scope by design.
+- **Found by**: S5-D1, branch `test/2254-adversarial`.
+- **Evidence**:
+  `tests/ai/test_workspace_focus_adversarial.py::test_a_canvas_focus_over_a_workflow_that_no_longer_exists_is_reported_as_live`
+  (a **passing** characterisation test). `get_active_workflow_context` falls
+  `workflow_name` back to `workflow_id` both when the YAML carries no title and
+  when there is no YAML at all, and FR-004 scopes `focus_stale` to explore
+  focuses, so a canvas focus over a deleted workflow reads as live.
+- **Why it is here and not done**: FR-004 states the exclusion deliberately —
+  "a canvas focus over a deleted workflow is the existing tool's business". The
+  test pins the behaviour so the ambiguity is visible rather than rediscovered.
+- **Suggested title**: `fix(#2254): the context tool distinguishes a missing workflow from an untitled one`
+
+#### Where S5-D1 pushed and found the implementation correct
+
+Recorded so a later reader knows these were tried, not skipped. Each is a green
+test in one of the three files above.
+
+- **Containment of an explicit `session_path`.** `_focus.resolve_session_path`
+  deliberately does not confine the path; `SessionService._contained_relative`
+  refuses a `..` walk before any file is read, and does so for all six focused
+  tools, with a real readable notebook sitting outside the project.
+- **The never-reported refusal.** A live context whose `workspace_focus` is
+  `None` refuses, and the message names `open_explore_session`, both of its
+  sources, and the `session_path` escape hatch.
+- **Project switching.** Two projects that both contain `explore/qc.ipynb`
+  cannot be confused: `_load_active_workflow_id_from_disk` replaces both fields
+  from the newly opened project's own disk on every open, and switching back
+  restores the first project's focus.
+- **The persistence file edited underneath a live process.** Truncating it or
+  writing a different focus into it does not move the agent's answer, and the
+  next report rewrites the file whole rather than merging.
+- **Back-to-back reports.** The response echo, the runtime record and the file
+  agree after two reports in a row, and `reported_at` is stamped on arrival so
+  the later report cannot carry the earlier stamp.
+- **No project open.** `focus_is_stale` fails closed (stale, not live) and the
+  refusal says so.
+- **FR-019 on the failure path and on repetition.** A failed
+  `open_explore_session` and a doubled one both leave the focus byte-identical.
+- **FR-021 / FR-023 boundaries.** An exception outside the three anticipated
+  refusal classes propagates rather than being flattened into `completed=true`
+  with empty outputs; an `OSError` from the packaging write propagates rather
+  than reporting `packaged=true`, and no `packaged` event is published.
+- **FR-024 re-derived.** The forbidden-member set recomputed from
+  `ExploreSession` on every run (rather than the sibling module's frozen list of
+  sixteen names) still finds no reach; no module walks around the attribute rule
+  with `getattr(x, "queue")`; no module constructs a `NotebookStore`,
+  `ExecutionQueue`, `KernelBridge` or `NotebookDocument`; and the members the
+  tools *do* reach are pinned as a reviewed allowlist so a new reach must be
+  argued for.
+- **The scripted session stub.** `_Session` in `tests/ai/test_mcp_tools_explore.py`
+  exposes nothing `ExploreSession` does not, so the behavioural assertions built
+  on it are about the real API.
+- **The detached fallback itself.** Built once per project, reused, and
+  announced exactly once with a WARNING that names the consequence. Only its
+  invisibility to the agent is the defect (S5-D1-005).
+- **The catalog assertions bite.** A tool registered without a catalog entry
+  fails `test_catalog_lists_every_registered_tool` for both catalogs and the
+  static-fallback test; a tool added to a declared group, to an undeclared
+  group, and with no `category:` tag each fail the assertion meant to catch it.
+- **The declaration module is derived.** `EXPECTED_TOOL_COUNT`,
+  `EXPECTED_GROUP_COUNTS` and `EXPECTED_TOOL_NAMES` are computed rather than
+  written down (asserted over the module's own AST), and no other test module
+  restates the registry total as a literal.
+- **FR-015's harness-drift risk is already covered.**
+  `tests/ai/test_mcp_tools_panels.py::test_harness_is_generated_from_the_contract_module`
+  monkeypatches the contract module and asserts the generated harness follows,
+  and `test_contract_module_mirrors_the_host_contract` holds the Python mirror
+  against `frontend/src/panels/panelMessages.ts`. Nothing was added here.
 
 ### S4-E1 / S5-E1 / INT-E1 (audits)
 
