@@ -376,7 +376,12 @@ def test_a_focus_does_not_leak_across_a_project_switch(
     back = _context_result()
     assert back.mode == MODE_EXPLORE
     assert back.session_path == NOTEBOOK
-    assert back.workflow_id == "calibration"
+    # The workflow id is the runtime's, restored from A's own disk, not the copy
+    # the focus record carried ("calibration"): the runtime's active workflow
+    # wins over the focus's copy of it, because a workflow-only POST advances the
+    # runtime and deliberately leaves the focus alone (``_focus.effective_focus``).
+    # Either way it is *A's* value and never B's, which is what this test is about.
+    assert back.workflow_id == "wf-a"
 
 
 def test_editing_the_persistence_file_underneath_does_not_change_the_live_focus(
