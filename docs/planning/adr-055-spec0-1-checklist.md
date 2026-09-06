@@ -128,8 +128,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `.workflow/local/dispatch-a1-spec0.md` | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` | `[ ]` |
-| `A2` | `implementer` | `N/A` | `.workflow/local/dispatch-a2-spec1.md` | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` | `[ ]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` | `[ ]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` | `[ ]` |
 
 ## 7. Track: Spec 0 — Prefix Independence
 
