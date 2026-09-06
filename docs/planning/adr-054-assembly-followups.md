@@ -2564,6 +2564,49 @@ sufficient where two event types share one watermark.
   Jupyter's, rather than changing the order.
 - **Suggested title**: `docs(explore): say why the output renderer prefers an image over text/html`
 
+#### F-D1-018 — `ruff format --check` already fails on the assembly branch
+
+- **Severity**: P1 for the assembly's CI, and a one-command fix. Not S4-D1's
+  change; this is the state of `track/adr-054-integration` today.
+- **Found by**: S4-D1, running `gate_record check --mode pre-pr`.
+- **Evidence**: the `format_check` gate step
+  (`ruff format --check .`) exits 1 with
+  `Would reformat: tests/contracts/test_workspace_focus_wire_contract.py`.
+  That file arrived in `0a27ff64d` ("test(#2253): assert the workspace-focus
+  wire across the two specs that split it"), which is on the integration branch
+  and predates `test/2253-adversarial`. S4-D1's diff contains no Python at all.
+- **Fix**: `ruff format tests/contracts/test_workspace_focus_wire_contract.py`.
+  `tests/**` is outside every write set in this dispatch, so it is the
+  manager's to apply or to dispatch.
+- **Suggested title**: `chore: ruff format the workspace-focus wire contract test`
+
+#### F-D1-019 — Three workflow-execution tests time out under parallel load and pass in isolation
+
+- **Severity**: P2 — they make the gate's `python_tests` step red for reasons
+  unrelated to whatever branch is being checked, which is how a real failure
+  gets lost.
+- **Found by**: S4-D1, running the gate on a Python-free diff.
+- **Evidence**: `python_tests` reports
+  `3 failed, 9504 passed ... in 500.27s`, all three with
+  `AssertionError: Timed out waiting for condition`:
+  `tests/api/test_system_vertical.py::test_execute_broadcasts_runtime_lifecycle_events_to_websocket`,
+  `tests/api/test_system_vertical.py::test_multi_session_execute_broadcasts_terminal_state_and_get_matches`,
+  `tests/api/test_workflows.py::test_execute_after_completion_is_allowed`.
+  Re-run alone on the same commit, all three pass:
+  `python -m pytest <the three> -p no:randomly --no-cov -q` -> `3 passed`.
+  S4-D1's diff is three frontend test files, a register entry, a checklist row
+  and a gate record — no Python, no engine, no API.
+- **Reading**: these are wall-clock waits on engine lifecycle events, run under
+  `--timeout=60` inside an xdist pool on a machine with several agents on it.
+  Timing-sensitive rather than broken.
+- **Fix**: give the three an explicit generous wait or mark them `serial` so
+  they do not contend with the pool, rather than raising the global timeout.
+  `tests/**`, so out of every write set here.
+- **Related**: `M-005` in this register already records that the gate can
+  mis-read a timed-out run; this is the same class seen from the other side —
+  a run that is red for a reason the branch did not cause.
+- **Suggested title**: `test(api): stabilise the three execution-lifecycle tests that time out under xdist load`
+
 ##### Negative results — where S4-D1 pushed and found the implementation correct
 
 Recorded so the manager does not spend a second dispatch here. Each is a
