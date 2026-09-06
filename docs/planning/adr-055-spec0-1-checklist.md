@@ -129,7 +129,7 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A1) | Spec 0 prefix independence | `feat/2270-prefix-independence` | `.worktrees/feat-2270-prefix-independence` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2270` / PR #2274 | `[~]` |
-| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` | `[ ]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec0-1-dispatch-prompts.md` (A2) | Spec 1 WebMCP bridge | `feat/2271-webmcp-bridge` | `.worktrees/feat-2271-webmcp-bridge` | spec §4.2 files | `docs/ai-developer/**`, demo repo, other ADR-055 specs | `#2271` / PR #2275 | `[~]` |
 
 ## 7. Track: Spec 0 — Prefix Independence
 
@@ -161,8 +161,8 @@ language_source: en
 
 ### 7.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
+- [x] Audit agent assigned, or manager audit completed. -> AU1, with-context
+- [x] Audit report file path assigned. -> `docs/audit/2026-09-06-adr-055-spec0-with-context.md`
 - [ ] Audit report committed.
 - [ ] Audit report merged into final PR evidence path.
 - [ ] Findings recorded.
@@ -202,14 +202,14 @@ language_source: en
 
 ### 8.3 Implementation
 
-- [ ] Bridge router + adapter contract + audience filtering -> `<pending>`
-- [ ] Session middleware (loopback token) + project binding -> `<pending>`
-- [ ] Frontend registration module + tests -> `<pending>`
+- [x] Bridge router + adapter contract + audience filtering -> PR #2275 (`feat/2271-webmcp-bridge` @ 12096c0ab)
+- [x] Session middleware (loopback token) + project binding -> PR #2275 (409 stale_project_context, X-SciStudio-WebMCP-Token)
+- [x] Frontend registration module + tests -> PR #2275 (`frontend/src/webmcp/`, 8 lifecycle tests)
 
 ### 8.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
+- [x] Audit agent assigned, or manager audit completed. -> AU2, with-context
+- [x] Audit report file path assigned. -> `docs/audit/2026-09-06-adr-055-spec1-with-context.md`
 - [ ] Audit report committed.
 - [ ] Audit report merged into final PR evidence path.
 - [ ] Findings recorded.

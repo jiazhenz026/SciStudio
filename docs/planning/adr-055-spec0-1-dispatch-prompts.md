@@ -240,3 +240,133 @@ Follow spec §4.3 (T-001..T-006): adapter promotion + router + mount; audience t
 
 Stop and report back if: out-of-scope file needed; conflict with AGENTS.md/ADR/spec/gate record; unclear check failures; Spec 0 base branch missing what the spec says it provides; you cannot add required tests.
 ```
+
+---
+
+## AU1 — Audit PR #2274 (Spec 0), with-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-with-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: with-context
+- Task kind: maintenance (your own gate ledger)
+- Issue: #2270 (https://github.com/jiazhenz026/SciStudio/issues/2270)
+- Owner request: Verify the ADR-055 Spec 0 implementation PR before merge.
+- Umbrella PR: #2273 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-055-spec0-1
+- Audit branch: audit/2270-spec0-with-context (base: origin/feat/2270-prefix-independence) — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2270-spec0 — ALREADY CREATED at a707e138b
+- Gate record: init your own via gate_record (task_kind=maintenance, persona=audit_reviewer, runtime `agents:kimi-k2`, branch audit/2270-spec0-with-context, --issue 2270, --include docs/audit/2026-09-06-adr-055-spec0-with-context.md)
+- Checklist: docs/planning/adr-055-spec0-1-checklist.md (manager maintains — do NOT edit)
+- PR to audit: #2274 (feat/2270-prefix-independence @ a707e138b)
+- Audit report path: docs/audit/2026-09-06-adr-055-spec0-with-context.md
+
+## Required Reading
+
+- Issue #2270, spec `docs/specs/adr-055-prefix-independence.md` (FR-001..FR-009, SC-001..SC-004), ADR-055 §4/§8/§11, PR #2274 description + diff + CI (`gh pr view 2274`, `gh pr diff 2274`, `gh pr checks 2274`), the checklist.
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/specific_rules/agent-dispatch.md, docs/ai-developer/personas/audit-reviewer.md
+
+## Audit Goal
+
+Verify the claimed work against the issue, spec, code, tests, gate evidence, and CI. Report findings first. Severity: P1 blocks merge or breaks contract; P2 should fix before completion; P3 improvement/follow-up.
+
+Claims to verify (from the implementer's report):
+- root_path plumbing via FastAPI app-level root_path (uvicorn root_path deliberately unused — assess whether that deviation is sound and documented)
+- SPA bootstrap injection (index.html only, assets byte-identical, Cache-Control no-cache)
+- CLI --host/--root-path flags + env vars on serve and gui; defaults unchanged
+- frontend base-path.ts single source of truth; apiFetch/WS hooks/same-origin validators migrated; zero root-relative literals outside the helper (SC-004 guard)
+- worker callback URL from configured base (FR-006)
+- unprefixed root contract: 404 / WS close-1008
+- tests: tests/api/test_root_path.py (35), base-path.test.ts (18), existing suites unchanged
+- the Rich-help-width CI fix (COLUMNS=200 pin)
+
+Audit surfaces: the full PR #2274 diff, spec frontmatter governs move, ledger .workflow/records/2270-feat-2270-prefix-independence.json.
+
+Do not write feature code. MUST write the audit report to the path above, commit it on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Issue: #2270, Assisted-by: agents:kimi-k2), and push the branch (`git push -u origin audit/2270-spec0-with-context`). Do NOT open a PR. The manager integrates your report into the final PR evidence path.
+
+## Checks
+
+Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python for all python; from your worktree):
+- `python -m scistudio.qa.governance.gate_record check --mode local --base origin/feat/2270-prefix-independence --head HEAD` after committing your report
+- Targeted re-runs at your discretion (pytest tests/api/test_root_path.py etc.)
+- Sentrux MCP: unavailable in this runtime — record N/A.
+
+## Output Required
+
+Report path; commit sha containing the report; findings by severity; checklist/scope drift if any; missing tests/docs/gate evidence if any; CI status; recommendation: pass / pass-with-fixes / block.
+
+## Stop Conditions
+
+Stop and report if: you need to change implementation code; required evidence is unavailable; the audit scope conflicts with AGENTS.md/ADR/spec/gate record.
+```
+
+---
+
+## AU2 — Audit PR #2275 (Spec 1), with-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-with-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: with-context
+- Task kind: maintenance (your own gate ledger)
+- Issue: #2271 (https://github.com/jiazhenz026/SciStudio/issues/2271)
+- Owner request: Verify the ADR-055 Spec 1 WebMCP bridge implementation PR before merge.
+- Umbrella PR: #2273 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-055-spec0-1
+- Audit branch: audit/2271-spec1-with-context (base: origin/feat/2271-webmcp-bridge) — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2271-spec1 — ALREADY CREATED at 12096c0ab
+- Gate record: init your own (task_kind=maintenance, persona=audit_reviewer, runtime `agents:kimi-k2`, branch audit/2271-spec1-with-context, --base-ref feat/2271-webmcp-bridge, --issue 2271, --include docs/audit/2026-09-06-adr-055-spec1-with-context.md)
+- Checklist: docs/planning/adr-055-spec0-1-checklist.md (manager maintains — do NOT edit)
+- PR to audit: #2275 (feat/2271-webmcp-bridge @ 12096c0ab, stacked on #2274). Audit the Spec 1 delta: `git diff origin/feat/2270-prefix-independence...HEAD`.
+- Audit report path: docs/audit/2026-09-06-adr-055-spec1-with-context.md
+
+## Required Reading
+
+- Issue #2271, spec `docs/specs/adr-055-webmcp-bridge.md` (FR-001..FR-011, SC-001..SC-005), ADR-055 §4 + §9.2 robustness findings (each finding must be verifiably addressed), PR #2275 description + diff + CI, the checklist.
+- Demo transplant source (READ-ONLY, never modify/commit/push): `git -C /c/Users/jiazh/workspace/SciStudio/.scratch-design/webmcp-recovery/scistudio-web-demo show 952f697b:<path>` — compare transplant fidelity vs hardening requirements.
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/specific_rules/agent-dispatch.md, docs/ai-developer/personas/audit-reviewer.md
+
+## Audit Goal
+
+Verify the claimed work against the issue, spec, ADR-055 §9.2 findings, code, tests, gate evidence, and CI. Report findings first. Severity: P1 blocks merge or breaks contract; P2 should fix before completion; P3 improvement/follow-up.
+
+Claims to verify (from the implementer's report):
+- shared adapter `serialise_result`/`adapt_tool_result`: structured content preserved verbatim, non-text blocks explicitly marked substitutions, isError propagated, exceptions → isError content not 5xx (FR-002/FR-003)
+- router: catalogue parity with mcp.list_tools(), unknown-tool 404, no business logic (FR-001/FR-011)
+- audience tag filtering both directions, no router-internal tool synthesis (FR-004)
+- session middleware: one middleware, pluggable backend Protocol, loopback token via SPA bootstrap, header required, CORS preflight unaffected (FR-006)
+- project binding: stale mutation rejected 409, read policy declared (FR-005)
+- bounded logging: no full arguments anywhere (FR-007/SC-005)
+- frontend: dual modelContext probing, superseded-attempt abort + no stale success, per-tool failure tolerance, retry path, fire-and-forget wiring, all URLs via base-path helpers (FR-008/009/010)
+- tests: test_webmcp.py (17), test_mcp_fastmcp.py audience tests, register.test.ts (8)
+- ADR-055.md + spec frontmatter governs moves are minimal (only the two authorized entries each)
+- test_empty_prefix_is_a_noop rescope preserves Spec 0 FR-002 intent
+
+Audit surfaces: the Spec 1 delta diff, ledger .workflow/records/2271-feat-2271-webmcp-bridge.json.
+
+Do not write feature code. MUST write the audit report to the path above, commit on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Issue: #2271, Assisted-by: agents:kimi-k2), push (`git push -u origin audit/2271-spec1-with-context`). Do NOT open a PR.
+
+## Checks
+
+- `PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python -m scistudio.qa.governance.gate_record check --mode local --base origin/feat/2271-webmcp-bridge --head HEAD` after committing your report
+- Targeted re-runs at your discretion
+- Sentrux MCP: unavailable in this runtime — record N/A.
+
+## Output Required
+
+Report path; commit sha containing the report; findings by severity; checklist/scope drift if any; missing tests/docs/gate evidence if any; CI status; recommendation: pass / pass-with-fixes / block.
+
+## Stop Conditions
+
+Stop and report if: you need to change implementation code; required evidence is unavailable; the audit scope conflicts with AGENTS.md/ADR/spec/gate record.
+```
