@@ -36,7 +36,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "HEAD",
+    "shas": [
+      "HEAD"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -209,6 +215,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.365705Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.381413Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.397669Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.413318Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.429753Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.446222Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.493622Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.511391Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.527721Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.544208Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-06T07:25:18.561614Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -227,9 +299,9 @@
       ".workflow/records/track-adr-055-spec0-1-track-adr-055-spec0-1.json",
       "docs/planning/adr-055-spec0-1-checklist.md"
     ],
-    "diff_fingerprint": "sha256:d6243de81632dbd2b19bd8ad8ed9af16a47c6c5e54c238bb03849edc8c94bf6d",
+    "diff_fingerprint": "sha256:af42da5de8a0cb544cec92b360a88126fd94448b73716d3528a89312903324d3",
     "head": "HEAD",
-    "head_sha": "fb2904aa4",
+    "head_sha": "145451e70",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -246,7 +318,14 @@
   },
   "owner_directive": "Owner directive (chat, 2026-09-06): act as manager; implement ADR-055 Spec 0 (prefix independence, issue #2270) and Spec 1 (WebMCP bridge, issue #2271); deliver 2 PRs with CI green, no deferrals; scistudio-web-demo is a read-only reference (no modifications/commits; local blocking hooks installed). Issues are carried by the two implementer ledgers; this umbrella PR is [DO NOT MERGE] coordination evidence only.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2272
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-06T07:22:42.068396Z",
@@ -262,6 +341,14 @@
     {
       "at": "2026-09-06T07:25:02.757406Z",
       "diff_fingerprint": "sha256:d6243de81632dbd2b19bd8ad8ed9af16a47c6c5e54c238bb03849edc8c94bf6d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-06T07:25:18.561657Z",
+      "diff_fingerprint": "sha256:af42da5de8a0cb544cec92b360a88126fd94448b73716d3528a89312903324d3",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
