@@ -16,6 +16,7 @@ Covers the spec's verification plan (§4.4):
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -117,20 +118,26 @@ def test_normalize_root_path(raw: str | None, expected: str) -> None:
 
 
 def test_empty_prefix_is_a_noop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """With no configured prefix the SPA shell is served byte-identical (no
-    injection), API routes answer at the root, and no guard 404s appear."""
+    """With no configured prefix there is no base-path injection, API routes
+    answer at the root, and no guard 404s appear (Spec 0 FR-002).
+
+    ADR-055 Spec 1 (FR-006) extends the served shell with the per-launch
+    WebMCP bridge session token on every mount, so byte-identity no longer
+    holds; the no-op contract asserted here is scoped to the base-path
+    feature. Manager-authorized rescope recorded in the gate ledger for
+    #2271."""
     monkeypatch.delenv("SCISTUDIO_ROOT_PATH", raising=False)
     spa = _make_spa_dir(tmp_path / "static")
     monkeypatch.setattr(app_module, "_resolve_spa_static_dir", lambda: spa)
-    expected_html = (spa / "index.html").read_text(encoding="utf-8")
 
     app = create_app()
     assert app.state.root_path == ""
     with TestClient(app) as client:
         shell = client.get("/")
         assert shell.status_code == 200
-        assert shell.text == expected_html
         assert "__SCISTUDIO_BASE_PATH__" not in shell.text
+        token = app.state.webmcp_session_token
+        assert f'window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(token)};' in shell.text
         assert client.get("/api/version").status_code == 200
 
 

@@ -438,6 +438,14 @@
       "path": "docs/specs/adr-055-webmcp-bridge.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T10:40:01.015135Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-055.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -837,6 +845,18 @@
       "at": "2026-09-06T10:13:19.099476Z",
       "pattern": "docs/specs/adr-055-webmcp-bridge.md",
       "reason": "Manager-authorized scope addition: spec frontmatter lifecycle move (planned_governs -> governs) required by full_audit drift check now that the planned files exist"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T10:40:01.015101Z",
+      "pattern": "docs/adr/ADR-055.md",
+      "reason": "Manager-authorized cross-spec scope additions: ADR-055 frontmatter planned_governs lifecycle move + Spec 0 no-op test rescoped for Spec 1 FR-006 token bootstrap (A1 complete, sequenced)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-06T10:40:01.015128Z",
+      "pattern": "tests/api/test_root_path.py",
+      "reason": "Manager-authorized cross-spec scope additions: ADR-055 frontmatter planned_governs lifecycle move + Spec 0 no-op test rescoped for Spec 1 FR-006 token bootstrap (A1 complete, sequenced)"
     }
   ],
   "session_id": "0280f773-8d0b-4cf2-bd60-064aa5c33dc8",
@@ -864,6 +884,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/webmcp/register.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-06T10:40:01.015142Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_root_path.py",
       "rationale": null,
       "verified_in_diff": null
     }
