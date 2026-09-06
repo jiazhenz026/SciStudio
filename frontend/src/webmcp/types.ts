@@ -35,7 +35,10 @@ export interface ToolDefinition {
   description: string;
   /** JSON Schema for the tool's arguments. */
   inputSchema?: Record<string, unknown>;
-  execute: (args: Record<string, unknown>, options?: { signal?: AbortSignal }) => Promise<ToolResult>;
+  execute: (
+    args: Record<string, unknown>,
+    options?: { signal?: AbortSignal },
+  ) => Promise<ToolResult>;
 }
 
 export interface RegisterToolOptions {

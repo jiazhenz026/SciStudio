@@ -166,9 +166,7 @@ describe("registerSciStudioTools", () => {
     // Only B's batch reached the host.
     expect(host.registerTool).toHaveBeenCalledTimes(2);
     expect(host.tools.size).toBe(2);
-    expect(
-      loggerMock.info.mock.calls.some((c) => String(c[0]).includes("superseded")),
-    ).toBe(true);
+    expect(loggerMock.info.mock.calls.some((c) => String(c[0]).includes("superseded"))).toBe(true);
   });
 
   it("a host rejecting one tool of N leaves the rest registered and logs the name", async () => {
@@ -179,9 +177,7 @@ describe("registerSciStudioTools", () => {
     const count = await registerSciStudioTools();
     expect(count).toBe(2);
     expect([...host.tools.keys()].sort()).toEqual(["alpha", "gamma"]);
-    expect(
-      loggerMock.warn.mock.calls.some((c) => String(c[0]).includes("'beta'")),
-    ).toBe(true);
+    expect(loggerMock.warn.mock.calls.some((c) => String(c[0]).includes("'beta'"))).toBe(true);
   });
 
   it("reconnect re-registration aborts and replaces the previous attempt", async () => {
