@@ -429,9 +429,7 @@ def test_the_context_tool_reports_the_explore_mode(client: TestClient, project: 
     assert result.workflow_id == "calibration"
 
 
-def test_a_workflow_only_post_moves_what_the_context_tool_reports(
-    client: TestClient, project: Path
-) -> None:
+def test_a_workflow_only_post_moves_what_the_context_tool_reports(client: TestClient, project: Path) -> None:
     """FR-003: ``workflow_id`` is an existing field and the runtime owns it.
 
     The channel accepts a workflow-only POST with no ``focus`` key — that is

@@ -117,6 +117,59 @@ issues the directive permits:
   on Linux in the serial phase, because the serial phase is what gets skipped.
 - **Suggested title**: `fix(qa): gate_record must not record a timed-out python_tests as satisfied`
 
+#### S-1 - THE ONE DECISION THIS PR NEEDS FROM YOU: no producing panel is reachable for any type SciStudio ships
+
+- **Severity**: P1, and it is a **scope decision**, not a bug report. The
+  manager has deliberately not "fixed" it.
+- **Found by**: `INT-E1`, the no-context audit of the assembled whole. Neither
+  spec's own audit could have found it, which is what that dispatch was for.
+- **The claim at stake**: ADR-054 §1 - *"One panel contract serves display and
+  production... the same panel serves either."* §10.3 puts "a small set of
+  producing panels" in the **first** slice.
+- **What is actually on disk**, read straight off the registry:
+
+  | Panel | Capability | `target_types` |
+  |---|---|---|
+  | `core.array.basic`, `core.dataframe.basic`, `core.series.basic`, `core.text.basic`, `core.collection.basic`, `core.composite.basic`, `core.artifact.basic`, `core.plot.basic`, `core.base.fallback` | **displaying** | their type |
+  | `core.interactive.data_router`, `core.interactive.pair_editor` | **producing** | **`[]`** |
+
+  Every producing panel that ships is block-addressed and declares no type -
+  which is **correct** per spec 1 §3.3, because a block-addressed panel is
+  named by its block and no routing question arises.
+
+  `routes/panels.py:349` filters the catalogue to `spec.target_type ==
+  target_type` and appends block-addressed panels **only** when `target_type is
+  None`. So `GET /api/panels?target_type=X` can structurally never return a
+  producing row - also correct on its own terms.
+
+  `PanelSlots.tsx:137-152` asks that route by type and takes the first row with
+  the producing capability - **correct** per spec 4's FR-048/FR-049.
+- **Verified against the live registry, not inferred**: `DataFrame`, `Array`,
+  `Series`, `Text` and `Collection` each return 1 row with `producing
+  candidates: []`.
+- **Why this is a seam.** Neither half is wrong. Spec 1 shipped two producing
+  panels and routed them the way §3.3 says block-addressed panels are routed.
+  Spec 4 built the ladder call §3.3 says a notebook-bound producing panel uses.
+  **Nobody owned the question of whether a panel exists that both halves can
+  meet on**, and nothing in the repository records it as deferred.
+- **Consequence today**: clicking a live variable always mounts a *displaying*
+  panel. The emission path built beside it - the `emit` message, the AST
+  whitelist of §3.6, `POST /api/explore/sessions/{id}/snippets`,
+  `EmitSnippetResponse` - is complete, tested, and has nothing that can call
+  it.
+- **Two silences worth fixing whichever way you decide.** `fellBackToDisplay`
+  is computed at `PanelSlots.tsx:151` and read nowhere, so nothing tells the
+  person the panel they opened cannot produce. And a variable the kernel
+  reports only natively (`str`, `dict`) queries `?target_type=str`, gets zero
+  rows, and the click is a **silent no-op** with no diagnostic.
+- **The decision**: is ADR-054 landing incrementally, with the first
+  type-addressed producing panel to come (in which case this is expected
+  staging and should be **written down** - it currently is not), or is §1's
+  claim meant to hold on merge (in which case one producing panel for one
+  shipped type closes it)? The manager will not guess between those, because
+  the answer changes what the ADR means rather than what the code does.
+- **Suggested title**: `feat(panels): ship one type-addressed producing panel so ADR-054's central claim is reachable`
+
 #### E2E-1 - A bound DataFrame cannot be previewed: the panel mounts, the provider fails
 
 - **Severity**: P1. This is the one step of ADR-054's own loop that does not
