@@ -112,10 +112,13 @@ async def upload_data(
     exhaust process memory before the 413 ever fired.
 
     ADR-055 identity seam (#2328): an edition's upload listeners
-    (``scistudio.api.seam.add_upload_listener``) hear when the staged file
-    completes or is discarded. A failing listener never changes this answer.
+    (``scistudio.api.seam.add_upload_listener``) hear when the staged upload
+    starts, and when it completes or is discarded. A failing listener never
+    changes this answer.
     """
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
+    if app is not None:
+        await notify_upload_listeners(app, destination, size=file.size or 0, status="started")
     total = 0
     try:
         with staged_path.open("wb") as staged:

@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.api.seam import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (20 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
+Public surface — every symbol below is declared in this module's `__all__` (19 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators (ADR-052 §5/§7).
 
 ## `AUDIENCE_EXTERNAL_TAG` — _constant_
 
@@ -116,19 +116,6 @@ Public surface — every symbol below is declared in this module's `__all__` (20
 > **Stability:** `provisional` · **Since:** `0.3.5`
 
 ::: scistudio.api.seam.UpdateCapability
-    options:
-      show_root_heading: false
-      show_root_toc_entry: false
-      show_source: false
-      heading_level: 4
-      members_order: source
-      filters: ["!^_"]
-
-## `UploadEvent` — _class_
-
-> **Stability:** `provisional` · **Since:** `0.3.5`
-
-::: scistudio.api.seam.UploadEvent
     options:
       show_root_heading: false
       show_root_toc_entry: false

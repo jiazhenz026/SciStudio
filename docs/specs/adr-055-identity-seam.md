@@ -24,7 +24,7 @@ scope:
     - "The capability declaration (`identity`, `transfer`, `ai_chat_disabled`, `update`), versioned, delivered through the served page bootstrap and read by `frontend/src/lib/capabilities.ts`; the components that render it belong to `adr-055-enterprise-support` (#2322)."
     - "The runs-active read accessor `workflow_runs_active`."
     - "The registration of `/api/ai/pty/internal/` as a self-authenticating prefix, so AI Block worker callbacks pass any guard (#2322)."
-    - "Project access for an edition's routes and tools (#2328): `active_project_root`, `ToolRefusal`, `check_author_path`, `write_project_file`, and `add_upload_listener` with `UploadEvent`, as thin wrappers over the internals the workspace tools use."
+    - "Project access for an edition's routes and tools (#2328): `active_project_root`, `ToolRefusal`, `check_author_path`, `write_project_file`, and `add_upload_listener`, as thin wrappers over the internals the workspace tools use."
     - "The ADR-052 declaration of the enterprise edition's dependencies: new canonical roots `scistudio.api.app` and `scistudio.api.seam`, provisional since 0.3.5, with the shared MCP registry and `AUDIENCE_EXTERNAL_TAG` republished there."
     - "A test-only fake guard and a reusable guard contract suite, parametrized over a guard case and run at the root mount and under a mount prefix."
   out:
@@ -56,7 +56,6 @@ governs:
     - scistudio.api.seam.check_author_path
     - scistudio.api.seam.write_project_file
     - scistudio.api.seam.add_upload_listener
-    - scistudio.api.seam.UploadEvent
   entry_points: []
   files:
     - docs/specs/adr-055-identity-seam.md
@@ -465,12 +464,17 @@ edition's routes and tools need the open project. Both go through the seam.
 - **FR-023**: `active_project_root(app)` MUST return the open project's fully
   resolved root, or `None` when no project is open or before the runtime
   exists.
-- **FR-024**: `ToolRefusal(message, *, code, use_instead)` MUST be an
-  exception. Raised inside any tool on the shared registry, it MUST become a
-  Spec 1 error result: `isError: true`, the message as text content, and the
-  structured content `{"status": "refused", "refusal": {code, message, use_instead}}`
-  that the workspace tools use. That MUST hold across the WebMCP bridge, which
-  withholds other exceptions' text. It subclasses FastMCP's `ToolError`.
+- **FR-024**: `ToolRefusal(*, code, message, alternatives=None)` MUST be an
+  exception carrying the fields of the Spec 2 refusal. Raised inside any tool
+  on the shared registry, it MUST become a Spec 1 error result:
+  - `isError: true`;
+  - the message as text content;
+  - the structured content `{"status": "refused", "refusal": {code, message, use_instead}}`,
+    the shape the workspace tools already use. `alternatives` travels as
+    `use_instead`.
+
+  That MUST hold across the WebMCP bridge, which withholds other exceptions'
+  text. It subclasses FastMCP's `ToolError`.
 - **FR-025**: `check_author_path(project_root, rel_path)` MUST apply the
   author tools' own confinement and Spec 2 blacklist. It returns the resolved
   path, and otherwise raises `ToolRefusal` with their refusal code:
@@ -487,13 +491,17 @@ edition's routes and tools need the open project. Both go through the seam.
   project and raise `ToolRefusal` for no open project, a path outside it, or
   a refused write. The author blacklist is not applied; an edition calls
   FR-025 first for an agent's write.
-- **FR-027**: `add_upload_listener(app, callback)` MUST call `callback` with an
-  `UploadEvent` whenever a staged `POST /api/data/upload` completes or is
-  discarded. It returns a function that removes the listener.
-  - The event carries the destination's project-relative POSIX path, the
-    bytes received, and `status` `completed` or `discarded`.
+- **FR-027**: `add_upload_listener(app, callback)` MUST call
+  `callback(path, size, status)` for each staged `POST /api/data/upload`. It
+  returns a function that removes the listener.
+  - `path` is the destination's project-relative POSIX path.
+  - `status` is `started` when the staged upload begins, so an edition can
+    count uploads in flight as activity. It is then `completed` or
+    `discarded`.
+  - `size` is the size known at that point, or 0 when it is unknown when
+    starting, and the bytes received afterwards.
   - The callback may be a plain or a coroutine function.
-  - A listener that raises is logged and skipped; it MUST NOT change the
+  - A listener that raises is logged and skipped. It MUST NOT change the
     upload's answer or stop the other listeners.
 
 ### Key Entities
@@ -510,8 +518,9 @@ edition's routes and tools need the open project. Both go through the seam.
   routes for `ai_chat_disabled` by the application lifespan.
 - **ToolRefusal**: a refusal raised inside a tool or by the project-access
   helpers; transient.
-- **UploadEvent**: `{path, size, status}` for one staged upload; delivered to
-  listeners kept on `app.state.upload_listeners`, never persisted.
+- **Upload listener**: a callback kept on `app.state.upload_listeners` and
+  called with `(path, size, status)` for one staged upload; nothing is
+  persisted.
 - **GuardCase** (test tree): one guard under contract test.
 
 ## 4. Implementation Plan
@@ -609,8 +618,8 @@ on that object, so it reads the same through either path.
   guard and the default guard at both mounts; every internal route refuses a
   request without the IPC token.
 - `tests/api/test_seam_project_access.py`: FR-023 to FR-027 at both mounts,
-  including refusals over the WebMCP bridge and listeners on completed and
-  discarded uploads.
+  including refusals over the WebMCP bridge, listeners on started, completed
+  and discarded uploads, and removing a listener.
 - `gate_record check` for the tier-selected checks.
 
 ### 4.5 Running The Contract Suite From Another Package
@@ -671,9 +680,8 @@ wheel.
 - **SC-005**: With every capability off, the served page contains no
   capability assignment; with any on, the declaration parses back to the
   declared values and closes no script element.
-- **SC-006**: The freeze snapshot pins both new roots, twenty-one public
-  symbols in all (twenty stability-marked; `AUDIENCE_EXTERNAL_TAG` is a
-  constant).
+- **SC-006**: The freeze snapshot pins both new roots, twenty public symbols
+  in all (nineteen stability-marked; `AUDIENCE_EXTERNAL_TAG` is a constant).
 
 ## 6. Assumptions
 

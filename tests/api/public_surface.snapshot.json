@@ -684,10 +684,6 @@
       "tier": "provisional",
       "since": "0.3.5"
     },
-    "UploadEvent": {
-      "tier": "provisional",
-      "since": "0.3.5"
-    },
     "active_project_root": {
       "tier": "provisional",
       "since": "0.3.5"

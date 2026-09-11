@@ -30,6 +30,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from scistudio.api import app as app_module
 from scistudio.api.app import create_app
+from scistudio.api.routes.ai_pty import router as ai_pty_router
 from scistudio.api.routes.ai_pty.internal_routes import INTERNAL_ROUTE_PREFIX
 from scistudio.api.seam import is_self_authenticating_path, self_authenticating_prefixes
 from tests.api.fake_guard import FAKE_REJECTION, FakeCookieGuard
@@ -60,10 +61,17 @@ def _app(*, replacement: bool) -> FastAPI:
     return create_app(guard=FakeCookieGuard) if replacement else create_app()
 
 
-def _internal_route_paths(app: FastAPI) -> list[str]:
+def _internal_route_paths() -> list[str]:
+    """Every route the ai_pty router declares under the internal prefix.
+
+    Read from the router ``create_app`` includes rather than from
+    ``app.routes``: Starlette >= 1.3 nests an included router's routes instead
+    of flattening them (see ``tests/api/test_tutorial_project_visibility.py``),
+    while a router's own decorated routes are flat on every version.
+    """
     return sorted(
         path
-        for path in (getattr(route, "path", "") for route in app.routes)
+        for path in (getattr(route, "path", "") for route in ai_pty_router.routes)
         if path.startswith(INTERNAL_ROUTE_PREFIX.rstrip("/") + "/")
     )
 
@@ -91,7 +99,7 @@ def test_every_internal_route_refuses_a_request_without_the_ipc_token(
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
     app = _app(replacement=replacement)
     with TestClient(app, root_path=mount_prefix) as client:
-        paths = _internal_route_paths(app)
+        paths = _internal_route_paths()
         assert paths == ["/api/ai/pty/internal/notify", "/api/ai/pty/internal/request-tab"]
         for path in paths:
             for headers in ({}, {IPC_HEADER: "not-the-token"}):

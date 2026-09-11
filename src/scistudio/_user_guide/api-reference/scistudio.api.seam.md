@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.api.seam import ...`
 
-Self-contained public-API reference — 20 symbols from this module's `__all__`, with signatures and docstrings inlined (ADR-052 §7). Generated; do not hand-edit.
+Self-contained public-API reference — 19 symbols from this module's `__all__`, with signatures and docstrings inlined (ADR-052 §7). Generated; do not hand-edit.
 
 ## `AUDIENCE_EXTERNAL_TAG` — _constant_
 
@@ -141,18 +141,21 @@ protocol.
 
 ```python
 class ToolRefusal(ToolError)
-ToolRefusal(message: 'str', *, code: 'str' = 'refused', use_instead: 'Sequence[str]' = ()) -> 'None'
+ToolRefusal(*, code: 'str', message: 'str', alternatives: 'list[str] | None' = None) -> 'None'
 ```
 
 Raise inside an MCP tool to refuse the call with a message the agent can act on.
 
-The call then returns a Spec 1 error result instead of failing: the
-result carries ``isError: true``, the message as its text content, and the
-structured content ``{"status": "refused", "refusal": {"code", "message",
-"use_instead"}}`` the workspace tools use. It reaches every caller that
-way, the WebMCP bridge included, which withholds the text of any other
-exception. ``code`` is a machine-readable reason; ``use_instead`` names
-tools that own the refused operation.
+It carries the fields of the Spec 2 refusal the workspace tools return:
+``code`` is a machine-readable reason, ``message`` the explanation, and
+``alternatives`` the tools that own the refused operation. The call then
+returns a Spec 1 error result instead of failing. The result carries
+``isError: true``, the message as its text content, and the workspace
+tools' structured content
+``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
+where ``alternatives`` travels as ``use_instead``. It reaches every
+caller that way, including the WebMCP bridge, which withholds the text of
+any other exception.
 
 Outside a tool, `check_author_path` and `write_project_file`
 raise it too, so an edition's HTTP route can turn the same refusal into
@@ -203,23 +206,6 @@ focus. Restart asks for confirmation, warns while runs are active, then
 sends ``POST restart_url``, which answers ``{"location": ...}``, and
 navigates there. The frontend never restarts or reloads on its own.
 
-## `UploadEvent` — _class_
-
-**Stability:** `provisional` · Since `0.3.5`
-
-```python
-class UploadEvent
-UploadEvent(path: 'str', size: 'int', status: "Literal['completed', 'discarded']") -> None
-```
-
-What an upload listener hears when a staged ``POST /api/data/upload`` ends.
-
-``path`` is the destination's project-relative POSIX path (for example
-``data/raw/scan.tif``); ``size`` the bytes received; ``status``
-``"completed"`` when the file was placed and registered, or
-``"discarded"`` when the staged file was thrown away (too large, or the
-request failed). Fields may be added; existing ones keep their meaning.
-
 ## `active_project_root` — _function_
 
 **Stability:** `provisional` · Since `0.3.5`
@@ -239,16 +225,28 @@ the lifespan has created the runtime.
 **Stability:** `provisional` · Since `0.3.5`
 
 ```python
-add_upload_listener(app: 'FastAPI', callback: 'Callable[[UploadEvent], Any]') -> 'Callable[[], None]'
+add_upload_listener(app: 'FastAPI', callback: 'Callable[[str, int, str], Any]') -> 'Callable[[], None]'
 ```
 
-Call ``callback(event)`` whenever a staged upload completes or is discarded.
+Call ``callback(path, size, status)`` for each staged ``POST /api/data/upload``.
 
-``callback`` receives an `UploadEvent` and may be a plain function
-or a coroutine function; listeners run in the order they were added,
-before the upload's response is sent, so keep them quick. A listener that
-raises is logged and skipped: it never changes the upload's outcome or
-stops the other listeners. Returns a function that removes the listener.
+``path`` is the destination's project-relative POSIX path (for example
+``data/raw/scan.tif``). ``status`` is one of:
+
+- ``"started"``, when the staged upload begins, so an edition can count
+  uploads in flight as activity; ``size`` is the size known then, or 0;
+- ``"completed"``, when the file was placed and registered;
+- ``"discarded"``, when the staged file was thrown away (too large, or the
+  request failed).
+
+For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received.
+
+``callback`` may be a plain function or a coroutine function. Listeners
+run in the order they were added, before the upload's response is sent,
+so keep them quick. A listener that raises is logged and skipped. It never
+changes the upload's outcome or stops the other listeners. Returns a
+function that removes the listener; calling that function again is
+harmless.
 
 ## `check_author_path` — _function_
 
@@ -365,8 +363,8 @@ module. ``rel_path`` is resolved against the open project and confined to
 it; missing parent directories are created. The author blacklist does not
 apply here; call `check_author_path` first for an agent's write.
 
-A coroutine: ``await`` it from a route or tool. Raises `ToolRefusal`
-when no project is open, the path leaves the project, or the write is
-refused (the target is a directory, for example), and `TypeError`
-for data that is not bytes. A disk failure raises as it does for the
-editor.
+This is a coroutine: ``await`` it from a route or tool. It raises
+`ToolRefusal` when no project is open, the path leaves the project,
+or the write is refused (the target is a directory, for example). It
+raises `TypeError` for data that is not bytes. A disk failure
+raises as it does for the editor.

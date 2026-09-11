@@ -5,15 +5,17 @@ reach the project, as thin wrappers over the internals the workspace tools
 already use:
 
 * ``active_project_root(app)`` — the open project's root, or ``None``;
-* ``ToolRefusal`` — raised inside a tool, it becomes a Spec 1 ``isError``
-  result carrying its message and the workspace tools' refusal shape, also
-  across the WebMCP bridge, which withholds other exceptions' text;
+* ``ToolRefusal(code=, message=, alternatives=)`` — raised inside a tool, it
+  becomes a Spec 1 ``isError`` result carrying the workspace tools' refusal
+  shape, also across the WebMCP bridge, which withholds other exceptions'
+  text;
 * ``check_author_path`` — project confinement plus the Spec 2 author
   blacklist, refusing with the author tools' own codes;
 * ``write_project_file`` — bytes through the editor's shared write path,
   confined to the project;
-* ``add_upload_listener`` — hears every staged upload complete or be
-  discarded; a failing listener never breaks the upload.
+* ``add_upload_listener`` — ``callback(path, size, status)`` when a staged
+  upload starts, completes, or is discarded; a failing listener never breaks
+  the upload, and the returned function removes the listener.
 
 Each is exercised at the root mount and under ``/user/alice/scistudio``.
 Route paths are neutral fixtures (``/api/test-edition/...``).
@@ -39,7 +41,6 @@ from scistudio.api.app import create_app
 from scistudio.api.routes import data as data_routes
 from scistudio.api.seam import (
     ToolRefusal,
-    UploadEvent,
     active_project_root,
     add_upload_listener,
     check_author_path,
@@ -52,6 +53,7 @@ MOUNTS = pytest.mark.parametrize("mount_prefix", ["", PREFIXED_MOUNT], ids=["roo
 TOKEN_HEADER = "X-SciStudio-WebMCP-Token"
 REFUSE_TOOL = "seam_fixture_refuse"
 AUTHOR_TOOL = "seam_fixture_author_check"
+REFUSAL_MESSAGE = "The edition refused this call."
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +111,7 @@ def seam_tools() -> Iterator[dict[str, Any]]:
 
     @mcp.tool(name=REFUSE_TOOL, tags={"category:testing", "read"})
     def _refuse() -> dict[str, Any]:
-        raise ToolRefusal("The edition refused this call.", code="fixture_refused", use_instead=["other_tool"])
+        raise ToolRefusal(code="fixture_refused", message=REFUSAL_MESSAGE, alternatives=["other_tool"])
 
     @mcp.tool(name=AUTHOR_TOOL, tags={"category:testing", "read"})
     def _author_check(path: str) -> dict[str, Any]:
@@ -134,6 +136,29 @@ def _bridge_call(client: TestClient, mount_prefix: str, name: str, arguments: di
     assert response.status_code == 200, response.text
     body: dict[str, Any] = response.json()
     return body
+
+
+class _Heard:
+    """Records upload-listener calls as ``(listener, path, size, status)``."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, int, str]] = []
+
+    def plain(self, name: str) -> Any:
+        def listener(path: str, size: int, status: str) -> None:
+            self.calls.append((name, path, size, status))
+
+        return listener
+
+    def coroutine(self, name: str) -> Any:
+        async def listener(path: str, size: int, status: str) -> None:
+            await asyncio.sleep(0)
+            self.calls.append((name, path, size, status))
+
+        return listener
+
+    def statuses(self, name: str) -> list[tuple[str, str]]:
+        return [(path, status) for who, path, _size, status in self.calls if who == name]
 
 
 # ---------------------------------------------------------------------------
@@ -203,15 +228,21 @@ def test_check_author_path_refuses_an_absolute_path_elsewhere(tmp_path: Path) ->
 def test_a_data_refusal_names_the_tool_that_owns_the_surface(tmp_path: Path) -> None:
     with pytest.raises(ToolRefusal) as refused:
         check_author_path(tmp_path, "data/raw/scan.csv")
-    assert refused.value.use_instead == ("run_workflow",)
+    assert refused.value.alternatives == ["run_workflow"]
 
 
-def test_tool_refusal_is_a_tool_error_with_a_message() -> None:
-    refusal = ToolRefusal("No.", code="nope", use_instead=["x"])
+def test_tool_refusal_takes_the_spec_2_refusal_fields() -> None:
+    refusal = ToolRefusal(code="nope", message="No.", alternatives=["x"])
     assert isinstance(refusal, ToolError)
-    assert (str(refusal), refusal.code, refusal.use_instead) == ("No.", "nope", ("x",))
+    assert (str(refusal), refusal.code, refusal.message, refusal.alternatives) == ("No.", "nope", "No.", ["x"])
+    assert ToolRefusal(code="nope", message="No.").alternatives == []
+    untyped: Any = ToolRefusal
+    with pytest.raises(TypeError):
+        untyped("No.")  # the fields are keyword-only
     with pytest.raises(ValueError):
-        ToolRefusal("  ")
+        ToolRefusal(code="nope", message="  ")
+    with pytest.raises(ValueError):
+        ToolRefusal(code="", message="No.")
 
 
 # ---------------------------------------------------------------------------
@@ -223,14 +254,12 @@ def test_a_refusal_is_an_error_result_on_the_local_transport(seam_tools: dict[st
     result = asyncio.run(mcp.call_tool(REFUSE_TOOL, {}))
     wire = result.to_mcp_result()
     assert isinstance(wire, CallToolResult)
-    assert wire.isError is True
-    assert wire.structuredContent == {
+    # The wire (alias) keys read the same on MCP SDK 1.x and 2.x.
+    dumped = wire.model_dump(by_alias=True)
+    assert dumped["isError"] is True
+    assert dumped["structuredContent"] == {
         "status": "refused",
-        "refusal": {
-            "code": "fixture_refused",
-            "message": "The edition refused this call.",
-            "use_instead": ["other_tool"],
-        },
+        "refusal": {"code": "fixture_refused", "message": REFUSAL_MESSAGE, "use_instead": ["other_tool"]},
     }
 
 
@@ -247,8 +276,12 @@ def test_refusals_cross_the_webmcp_bridge_as_error_results(
         refused = _bridge_call(client, mount_prefix, REFUSE_TOOL, {})
         assert refused["isError"] is True
         # The message crosses the bridge, unlike an ordinary exception's text.
-        assert refused["content"] == [{"type": "text", "text": "The edition refused this call."}]
-        assert refused["structuredContent"]["refusal"]["code"] == "fixture_refused"
+        assert refused["content"] == [{"type": "text", "text": REFUSAL_MESSAGE}]
+        assert refused["structuredContent"]["refusal"] == {
+            "code": "fixture_refused",
+            "message": REFUSAL_MESSAGE,
+            "use_instead": ["other_tool"],
+        }
 
         blacklisted = _bridge_call(client, mount_prefix, AUTHOR_TOOL, {"path": "data/raw/scan.csv"})
         assert blacklisted["isError"] is True
@@ -330,34 +363,55 @@ def test_write_project_file_takes_bytes_only() -> None:
 
 
 @MOUNTS
-def test_upload_listeners_hear_a_completed_upload(
+def test_upload_listeners_hear_an_upload_start_and_complete(
     projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
 ) -> None:
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
     app = create_app()
-    heard: list[tuple[str, UploadEvent]] = []
+    heard = _Heard()
 
-    def plain(event: UploadEvent) -> None:
-        heard.append(("plain", event))
-
-    async def coroutine(event: UploadEvent) -> None:
-        await asyncio.sleep(0)
-        heard.append(("coroutine", event))
-
-    def failing(event: UploadEvent) -> None:
+    def failing(path: str, size: int, status: str) -> None:
         raise RuntimeError("a broken listener")
 
     add_upload_listener(app, failing)
-    add_upload_listener(app, plain)
-    add_upload_listener(app, coroutine)
+    add_upload_listener(app, heard.plain("plain"))
+    add_upload_listener(app, heard.coroutine("coroutine"))
     body = b"a,b\n1,2\n"
     with TestClient(app, root_path=mount_prefix) as client:
         project = _open_project(client, mount_prefix, projects_dir)
         response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("sample.csv", body, "text/csv")})
     assert response.status_code == 200, response.text
-    event = UploadEvent(path="data/raw/sample.csv", size=len(body), status="completed")
-    assert heard == [("plain", event), ("coroutine", event)], "a failing listener stops no other listener"
+    expected = [("data/raw/sample.csv", "started"), ("data/raw/sample.csv", "completed")]
+    # A failing listener stops no other listener, and plain and async ones both run.
+    assert heard.statuses("plain") == expected
+    assert heard.statuses("coroutine") == expected
+    sizes = {status: size for who, _path, size, status in heard.calls if who == "plain"}
+    assert sizes["started"] in (0, len(body)), "the size known at the start, or 0"
+    assert sizes["completed"] == len(body)
     assert (project / "data" / "raw" / "sample.csv").read_bytes() == body
+
+
+@MOUNTS
+def test_the_started_event_fires_before_the_file_is_placed(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    """``started`` marks an upload in flight: the destination does not exist yet."""
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    placed_at_start: list[bool] = []
+
+    def on_upload(path: str, size: int, status: str) -> None:
+        if status == "started":
+            root = active_project_root(app)
+            assert root is not None
+            placed_at_start.append((root / path).exists())
+
+    add_upload_listener(app, on_upload)
+    with TestClient(app, root_path=mount_prefix) as client:
+        _open_project(client, mount_prefix, projects_dir)
+        response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("scan.csv", b"x,y\n", "text/csv")})
+    assert response.status_code == 200
+    assert placed_at_start == [False]
 
 
 @MOUNTS
@@ -367,30 +421,40 @@ def test_upload_listeners_hear_a_discarded_upload(
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
     monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 4)
     app = create_app()
-    heard: list[UploadEvent] = []
-    add_upload_listener(app, heard.append)
+    heard = _Heard()
+    add_upload_listener(app, heard.plain("plain"))
     with TestClient(app, root_path=mount_prefix) as client:
         project = _open_project(client, mount_prefix, projects_dir)
         response = client.post(
             f"{mount_prefix}/api/data/upload", files={"file": ("big.csv", b"0123456789", "text/csv")}
         )
     assert response.status_code == 413
-    assert [(event.path, event.status) for event in heard] == [("data/raw/big.csv", "discarded")]
-    assert heard[0].size > 4
+    assert heard.statuses("plain") == [("data/raw/big.csv", "started"), ("data/raw/big.csv", "discarded")]
+    discarded_size = next(size for _who, _path, size, status in heard.calls if status == "discarded")
+    assert discarded_size > 4
     assert not (project / "data" / "raw" / "big.csv").exists()
 
 
-def test_an_upload_listener_can_be_removed(projects_dir: Path) -> None:
+def test_the_returned_function_removes_the_listener(projects_dir: Path) -> None:
     app = create_app()
-    heard: list[UploadEvent] = []
-    remove = add_upload_listener(app, heard.append)
-    remove()
-    remove()  # removing twice is harmless
+    heard = _Heard()
+    kept = add_upload_listener(app, heard.plain("kept"))
+    remove = add_upload_listener(app, heard.plain("removed"))
     with TestClient(app) as client:
         _open_project(client, "", projects_dir)
-        response = client.post("/api/data/upload", files={"file": ("sample.csv", b"a\n", "text/csv")})
-    assert response.status_code == 200
-    assert heard == []
+        assert client.post("/api/data/upload", files={"file": ("one.csv", b"a\n", "text/csv")}).status_code == 200
+        remove()
+        remove()  # removing twice is harmless
+        assert client.post("/api/data/upload", files={"file": ("two.csv", b"b\n", "text/csv")}).status_code == 200
+        kept()
+        assert client.post("/api/data/upload", files={"file": ("three.csv", b"c\n", "text/csv")}).status_code == 200
+    assert heard.statuses("removed") == [("data/raw/one.csv", "started"), ("data/raw/one.csv", "completed")]
+    assert heard.statuses("kept") == [
+        ("data/raw/one.csv", "started"),
+        ("data/raw/one.csv", "completed"),
+        ("data/raw/two.csv", "started"),
+        ("data/raw/two.csv", "completed"),
+    ]
 
 
 def test_add_upload_listener_takes_a_callable() -> None:

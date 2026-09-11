@@ -35,7 +35,8 @@ itself (``docs/specs/adr-055-identity-seam.md``):
   return a Spec 1 ``isError`` result with its message; :func:`check_author_path`
   (project confinement plus the Spec 2 author blacklist);
   :func:`write_project_file` (the editor's shared write path); and
-  :func:`add_upload_listener` with :class:`UploadEvent` for staged uploads.
+  :func:`add_upload_listener` for staged uploads that start, complete, or are
+  discarded.
   Each wraps the internal it names in its docstring rather than repeating it.
 * :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared FastMCP registry and
   the tag that keeps an external-only tool out of the local socket transport.
@@ -53,7 +54,7 @@ import logging
 import os
 import re
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
@@ -83,7 +84,6 @@ __all__ = [
     "ToolRefusal",
     "TransferCapability",
     "UpdateCapability",
-    "UploadEvent",
     "active_project_root",
     "add_upload_listener",
     "check_author_path",
@@ -573,26 +573,31 @@ def active_project_root(app: FastAPI) -> Path | None:
 class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an edition codes against
     """Raise inside an MCP tool to refuse the call with a message the agent can act on.
 
-    The call then returns a Spec 1 error result instead of failing: the
-    result carries ``isError: true``, the message as its text content, and the
-    structured content ``{"status": "refused", "refusal": {"code", "message",
-    "use_instead"}}`` the workspace tools use. It reaches every caller that
-    way, the WebMCP bridge included, which withholds the text of any other
-    exception. ``code`` is a machine-readable reason; ``use_instead`` names
-    tools that own the refused operation.
+    It carries the fields of the Spec 2 refusal the workspace tools return:
+    ``code`` is a machine-readable reason, ``message`` the explanation, and
+    ``alternatives`` the tools that own the refused operation. The call then
+    returns a Spec 1 error result instead of failing. The result carries
+    ``isError: true``, the message as its text content, and the workspace
+    tools' structured content
+    ``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
+    where ``alternatives`` travels as ``use_instead``. It reaches every
+    caller that way, including the WebMCP bridge, which withholds the text of
+    any other exception.
 
     Outside a tool, :func:`check_author_path` and :func:`write_project_file`
     raise it too, so an edition's HTTP route can turn the same refusal into
     its own response.
     """
 
-    def __init__(self, message: str, *, code: str = "refused", use_instead: Sequence[str] = ()) -> None:
+    def __init__(self, *, code: str, message: str, alternatives: list[str] | None = None) -> None:
+        if not isinstance(code, str) or not code.strip():
+            raise ValueError("ToolRefusal needs a machine-readable code")
         if not isinstance(message, str) or not message.strip():
             raise ValueError("ToolRefusal needs a message the agent can act on")
         super().__init__(message)
-        self.message = message
         self.code = code
-        self.use_instead: tuple[str, ...] = tuple(use_instead)
+        self.message = message
+        self.alternatives: list[str] = list(alternatives or [])
 
 
 def _refusal_result(refusal: ToolRefusal) -> ToolResult:
@@ -600,7 +605,7 @@ def _refusal_result(refusal: ToolRefusal) -> ToolResult:
     from scistudio.ai.agent.mcp.tools_workspace import FlaggedToolResult
     from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal as RefusalDetail
 
-    detail = RefusalDetail(code=refusal.code, message=refusal.message, use_instead=list(refusal.use_instead))
+    detail = RefusalDetail(code=refusal.code, message=refusal.message, use_instead=list(refusal.alternatives))
     result = FlaggedToolResult(
         content=[TextContent(type="text", text=refusal.message)],
         structured_content={"status": "refused", "refusal": detail.model_dump()},
@@ -642,15 +647,15 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
     from scistudio.ai.agent.mcp.tools_workspace import _RefusedError, _resolve_author_path
 
     if not isinstance(rel_path, str) or not rel_path.strip():
-        raise ToolRefusal("Name a file inside the project.", code="empty_path")
+        raise ToolRefusal(code="empty_path", message="Name a file inside the project.")
     try:
         resolved, _root, relative = _resolve_author_path(rel_path, project_root=Path(project_root))
     except _RefusedError as refused:
         raise ToolRefusal(
-            refused.refusal.message, code=refused.refusal.code, use_instead=refused.refusal.use_instead
+            code=refused.refusal.code, message=refused.refusal.message, alternatives=refused.refusal.use_instead
         ) from None
     if relative == ".":
-        raise ToolRefusal("That path is the project root itself. Name a file inside it.", code="project_root")
+        raise ToolRefusal(code="project_root", message="That path is the project root itself. Name a file inside it.")
     return resolved
 
 
@@ -665,64 +670,65 @@ async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, change
     it; missing parent directories are created. The author blacklist does not
     apply here; call :func:`check_author_path` first for an agent's write.
 
-    A coroutine: ``await`` it from a route or tool. Raises :class:`ToolRefusal`
-    when no project is open, the path leaves the project, or the write is
-    refused (the target is a directory, for example), and :class:`TypeError`
-    for data that is not bytes. A disk failure raises as it does for the
-    editor.
+    This is a coroutine: ``await`` it from a route or tool. It raises
+    :class:`ToolRefusal` when no project is open, the path leaves the project,
+    or the write is refused (the target is a directory, for example). It
+    raises :class:`TypeError` for data that is not bytes. A disk failure
+    raises as it does for the editor.
     """
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("write_project_file writes bytes; encode text before writing it")
     root = active_project_root(app)
     if root is None:
-        raise ToolRefusal(_NO_PROJECT_MESSAGE, code="no_active_project")
+        raise ToolRefusal(code="no_active_project", message=_NO_PROJECT_MESSAGE)
     if not isinstance(rel_path, str) or not rel_path.strip():
-        raise ToolRefusal("Name a file inside the project.", code="empty_path")
+        raise ToolRefusal(code="empty_path", message="Name a file inside the project.")
     files = app.state.runtime.project_files
     try:
         outcome: dict[str, Any] = await files.write_text(
             root / rel_path.strip(), bytes(data), create_parents=True, changed_by=changed_by
         )
     except PermissionError:
-        raise ToolRefusal("Only files inside the open project can be written.", code="outside_project") from None
+        raise ToolRefusal(
+            code="outside_project", message="Only files inside the open project can be written."
+        ) from None
     if outcome.get("status") != "ok":
         raise ToolRefusal(
-            str(outcome.get("message") or "The write was refused."),
             code=str(outcome.get("condition") or "conflict"),
+            message=str(outcome.get("message") or "The write was refused."),
         )
     return Path(os.path.realpath(root.joinpath(*str(outcome["entity_id"]).split("/"))))
 
 
+#: What a listener hears: the staged upload began, or ended one of two ways.
+_UploadStatus = Literal["started", "completed", "discarded"]
+
+
 @provisional(since="0.3.5")
-@dataclass(frozen=True)
-class UploadEvent:
-    """What an upload listener hears when a staged ``POST /api/data/upload`` ends.
+def add_upload_listener(app: FastAPI, callback: Callable[[str, int, str], Any]) -> Callable[[], None]:
+    """Call ``callback(path, size, status)`` for each staged ``POST /api/data/upload``.
 
     ``path`` is the destination's project-relative POSIX path (for example
-    ``data/raw/scan.tif``); ``size`` the bytes received; ``status``
-    ``"completed"`` when the file was placed and registered, or
-    ``"discarded"`` when the staged file was thrown away (too large, or the
-    request failed). Fields may be added; existing ones keep their meaning.
-    """
+    ``data/raw/scan.tif``). ``status`` is one of:
 
-    path: str
-    size: int
-    status: Literal["completed", "discarded"]
+    - ``"started"``, when the staged upload begins, so an edition can count
+      uploads in flight as activity; ``size`` is the size known then, or 0;
+    - ``"completed"``, when the file was placed and registered;
+    - ``"discarded"``, when the staged file was thrown away (too large, or the
+      request failed).
 
+    For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received.
 
-@provisional(since="0.3.5")
-def add_upload_listener(app: FastAPI, callback: Callable[[UploadEvent], Any]) -> Callable[[], None]:
-    """Call ``callback(event)`` whenever a staged upload completes or is discarded.
-
-    ``callback`` receives an :class:`UploadEvent` and may be a plain function
-    or a coroutine function; listeners run in the order they were added,
-    before the upload's response is sent, so keep them quick. A listener that
-    raises is logged and skipped: it never changes the upload's outcome or
-    stops the other listeners. Returns a function that removes the listener.
+    ``callback`` may be a plain function or a coroutine function. Listeners
+    run in the order they were added, before the upload's response is sent,
+    so keep them quick. A listener that raises is logged and skipped. It never
+    changes the upload's outcome or stops the other listeners. Returns a
+    function that removes the listener; calling that function again is
+    harmless.
     """
     if not callable(callback):
-        raise TypeError("add_upload_listener(callback=...) must be callable with an UploadEvent")
-    listeners: list[Callable[[UploadEvent], Any]] | None = getattr(app.state, "upload_listeners", None)
+        raise TypeError("add_upload_listener(callback=...) must be callable as callback(path, size, status)")
+    listeners: list[Callable[[str, int, str], Any]] | None = getattr(app.state, "upload_listeners", None)
     if listeners is None:
         listeners = []
         app.state.upload_listeners = listeners
@@ -735,9 +741,7 @@ def add_upload_listener(app: FastAPI, callback: Callable[[UploadEvent], Any]) ->
     return remove
 
 
-async def notify_upload_listeners(
-    app: FastAPI, destination: Path, *, size: int, status: Literal["completed", "discarded"]
-) -> None:
+async def notify_upload_listeners(app: FastAPI, destination: Path, *, size: int, status: _UploadStatus) -> None:
     """Tell ``app``'s upload listeners about one staged upload. Internal; never raises."""
     listeners = tuple(getattr(app.state, "upload_listeners", None) or ())
     if not listeners:
@@ -748,10 +752,9 @@ async def notify_upload_listeners(
         relative = resolved.relative_to(root).as_posix() if root is not None else destination.name
     except ValueError:
         relative = destination.name
-    event = UploadEvent(path=relative, size=size, status=status)
     for listener in listeners:
         try:
-            outcome = listener(event)
+            outcome = listener(relative, size, status)
             if inspect.isawaitable(outcome):
                 await outcome
         except Exception:

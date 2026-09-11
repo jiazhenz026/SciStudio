@@ -35,22 +35,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `docs/specs/adr-055-enterprise-support.md` and
   `docs/specs/adr-055-identity-seam.md`.
 - [#2328] **An edition can reach the open project through the seam.**
-  `scistudio.api.seam` adds six provisional names, each a thin wrapper over
+  `scistudio.api.seam` adds five provisional names, each a thin wrapper over
   the internals the workspace tools already use:
   - `active_project_root(app)` returns the open project's root.
-  - `ToolRefusal`, raised inside an MCP tool, returns a Spec 1 `isError`
-    result carrying its message and the workspace tools' refusal shape. Its
-    message reaches the caller, including over the WebMCP bridge, which hides
-    other exceptions' text.
+  - `ToolRefusal(code=..., message=..., alternatives=...)`, raised inside an
+    MCP tool, returns a Spec 1 `isError` result carrying the workspace tools'
+    refusal shape. Its message reaches the caller, including over the WebMCP
+    bridge, which hides other exceptions' text.
   - `check_author_path(project_root, rel_path)` applies project confinement
     and the Spec 2 author blacklist.
   - `write_project_file(app, rel_path, data)` is a coroutine that writes bytes
     through the editor's shared write path: an atomic write, `file.changed` to
     the UI, and confinement to the project.
-  - `add_upload_listener(app, callback)` calls a plain or async callback with
-    an `UploadEvent` (project-relative path, size, and `completed` or
-    `discarded`) whenever a staged upload ends. A failing listener never
-    breaks the upload.
+  - `add_upload_listener(app, callback)` calls a plain or async
+    `callback(path, size, status)` when a staged upload starts, completes or
+    is discarded, with the project-relative path. It returns a function that
+    removes the listener. A failing listener never breaks the upload.
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
   published as the open-source `scistudio` wheel, with the web frontend
   bundled, to PyPI and to the matching GitHub Release, so a server installs
