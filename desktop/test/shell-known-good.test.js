@@ -39,7 +39,10 @@ const code = main
 test("readiness alone no longer records the shell as known-good", () => {
   // The regression this guards is a one-line move back: putting the call next
   // to waitForHttpReady again restores exactly the blind spot.
-  const readyAt = code.indexOf("await waitForHttpReady");
+  // Anchored on the desktop boot path inside start(). #2280 put external-AI
+  // mode's own readiness wait (startBackgroundService) earlier in the file,
+  // which widened the slice this test meant to check (AU1 P3-2).
+  const readyAt = code.indexOf("await waitForHttpReady", code.indexOf("function start("));
   // lastIndexOf: `function createWindow(url)` is declared earlier in the file.
   const windowAt = code.lastIndexOf("createWindow(url);");
   assert.ok(readyAt > 0 && windowAt > readyAt, "the boot path changed shape");

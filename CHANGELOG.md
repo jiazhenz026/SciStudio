@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2280] **SciStudio can run in the background for an external AI tool.** The
+  desktop app now asks at launch whether to open the desktop window or run for
+  an external AI tool, with a "Don't ask again" box; File › Startup Mode, the
+  tray, and the connection window change the choice later. External AI mode
+  starts the same backend without the main window and, once the service is
+  ready, shows a small connection window with its local address
+  (`http://127.0.0.1:<port>`), Copy, Stop, Restart, and Open Desktop Window.
+  Closing that window leaves the service running: a tray icon (in this mode
+  only) reopens it, and launching SciStudio again reaches the running instance
+  instead of starting a second backend. Quitting stops the backend, the app
+  also quits once the service stops or crashes while no window is open, and an
+  update relaunches straight back into the same mode.
+
 - [#2112] **Previews open as canvas tabs, and the Data tree opens files for
   preview.** The DataPreview panel's maximize button used to float the preview
   over the workspace as an overlay; it now opens the preview as a tab in the

@@ -35,12 +35,122 @@ test("the asar carries the loader and a complete baseline shell", () => {
     "main.js",
     "ota.js",
     "runtime-port.js",
+    "background-mode.js",
     "preload.js",
+    "connection-preload.js",
     "splash.html",
-    "package.json"
+    "connection.html",
+    "package.json",
+    "assets/tray.png",
+    "assets/tray@2x.png",
+    "assets/trayTemplate.png",
+    "assets/trayTemplate@2x.png"
   ]) {
     assert.ok(pkg.build.files.includes(file), `build.files must include ${file}`);
   }
+});
+
+test("every file the shell loads from next to itself ships in the asar (#2280)", () => {
+  // A relative require, or a path.join(__dirname, ...) file, that is missing
+  // from build.files crashes the installed app on launch; the same file missing
+  // from SHELL_FILES crashes every patched launch (tests/scripts/
+  // test_ota_publish.py pins the two lists together).
+  // Every shipped module, not only main.js and menu.js (AU1/AU2 P3-1).
+  const shippedModules = pkg.build.files.filter((file) => file.endsWith(".js"));
+  assert.ok(shippedModules.includes("background-mode.js") && shippedModules.includes("ota.js"));
+  for (const name of shippedModules) {
+    const source = read(name);
+    for (const match of source.matchAll(/require\(["']\.\/([^"']+)["']\)/g)) {
+      const file = match[1].endsWith(".js") || match[1].endsWith(".json") ? match[1] : `${match[1]}.js`;
+      assert.ok(pkg.build.files.includes(file), `${name} requires ./${match[1]}, which build.files lacks`);
+    }
+  }
+  // Every file a shipped page references by relative path: a patched page
+  // resolves it against the patch directory (the #2097 broken-logo lesson).
+  for (const name of pkg.build.files.filter((file) => file.endsWith(".html"))) {
+    for (const match of read(name).matchAll(/\b(?:src|href)="([^"#:]+)"/g)) {
+      assert.ok(pkg.build.files.includes(match[1]), `${name} references ${match[1]}, which build.files lacks`);
+    }
+  }
+  const main = read("main.js");
+  const dirnameFiles = [...main.matchAll(/path\.join\(__dirname,((?:\s*"[^"]+",?)+)\)/g)].map((m) =>
+    [...m[1].matchAll(/"([^"]+)"/g)].map((part) => part[1]).join("/")
+  );
+  assert.ok(dirnameFiles.length >= 6, `expected the shell-relative files, found ${dirnameFiles}`);
+  for (const file of dirnameFiles) {
+    assert.ok(pkg.build.files.includes(file), `main.js loads ${file} next to itself, which build.files lacks`);
+  }
+  // Electron picks the @2x tray images up by itself, so no code names them.
+  for (const file of ["assets/tray@2x.png", "assets/trayTemplate@2x.png"]) {
+    assert.ok(pkg.build.files.includes(file), `build.files must include ${file}`);
+    assert.ok(fs.existsSync(path.join(desktopRoot, file)), `${file} must exist`);
+  }
+});
+
+test("the connection window, its preload, and the tray images stay __dirname-relative (#2280)", () => {
+  // Like splash.html, these travel with the shell: a patched shell must load
+  // its own copies, never depend on an older installed bundle having them.
+  const main = read("main.js");
+  assert.match(main, /path\.join\(__dirname, "connection\.html"\)/);
+  assert.match(main, /path\.join\(__dirname, "connection-preload\.js"\)/);
+  assert.match(main, /path\.join\(__dirname, "assets", "trayTemplate\.png"\)/);
+  assert.match(main, /path\.join\(__dirname, "assets", "tray\.png"\)/);
+});
+
+test("every relaunch stops the backend and carries the launch mode (#2280)", () => {
+  // Owner decision 5: OTA stop-then-relaunch includes the background instance,
+  // and the relaunch honours the mode. All three relaunch sites (package update,
+  // mandatory OTA, optional OTA) must go through the one helper that does both.
+  const main = read("main.js");
+  const helperAt = main.indexOf("async function stopRuntimeAndRelaunch()");
+  assert.ok(helperAt > 0, "main.js must define stopRuntimeAndRelaunch");
+  const helper = main.slice(helperAt, main.indexOf("\n}\n", helperAt));
+  assert.match(helper, /isQuitting = true/);
+  assert.match(helper, /stopRuntimeAndWait\(/);
+  assert.match(helper, /backgroundMode\.relaunchArgs\(process\.argv, launchMode\)/);
+
+  const relaunchCalls = [...main.matchAll(/app\.relaunch\(/g)].map((m) => m.index);
+  assert.ok(relaunchCalls.length > 0);
+  for (const at of relaunchCalls) {
+    assert.ok(
+      at > helperAt && at < helperAt + helper.length,
+      "app.relaunch() may only be called from stopRuntimeAndRelaunch"
+    );
+  }
+  assert.ok(
+    (main.match(/await stopRuntimeAndRelaunch\(\)/g) || []).length >= 3,
+    "the package-update and both OTA paths must use stopRuntimeAndRelaunch"
+  );
+});
+
+test("the tray is held by a module-level reference (#2280)", () => {
+  // A Tray that is garbage-collected disappears from the menu bar (owner
+  // decision 2 calls this out for macOS).
+  const main = read("main.js");
+  assert.match(main, /^let tray = null;$/m);
+  assert.match(main, /\n {4}tray = new Tray\(trayImage\(\)\);/);
+  assert.match(main, /image\.setTemplateImage\(true\)/);
+});
+
+test("external-AI mode vouches for the shell without a main window (#2280)", () => {
+  // Desktop mode records known-good once the main window paints (#2179).
+  // External-AI mode has no main window; without its own vouching path a
+  // working patched shell would be quarantined on the next launch.
+  const main = read("main.js");
+  const start = main.indexOf("function maybeVouchForShellInBackground()");
+  assert.ok(start > 0, "main.js must define maybeVouchForShellInBackground");
+  const fn = main.slice(start, main.indexOf("\n}\n", start));
+  assert.match(fn, /launchMode !== backgroundMode\.MODES\.EXTERNAL_AI/);
+  assert.match(fn, /connectionBridgeReady/);
+  assert.match(fn, /SERVICE_STATUS\.RUNNING/);
+  assert.match(fn, /recordKnownGood\(effectiveBuild\(\)\)/);
+});
+
+test("window-all-closed follows the launch mode instead of always quitting (#2280)", () => {
+  const main = read("main.js");
+  const handler = main.slice(main.indexOf('app.on("window-all-closed"'), main.indexOf('app.on("activate"'));
+  assert.match(handler, /backgroundMode\.windowAllClosedAction\(/);
+  assert.match(handler, /if \(action === "quit"\)/);
 });
 
 test("the shell exposes start() for the loader to call", () => {
@@ -101,22 +211,34 @@ test("the loader records the boot attempt before requiring the shell", () => {
   assert.ok(recordAt < startAt, "recordBootAttempt must precede startShell");
 });
 
-test("the shell clears the boot marker only from the known-good path", () => {
+test("the shell clears the boot marker only from known-good, or from a user's quit after the picker", () => {
   // Clearing it anywhere else would make the marker mean "we tried" rather than
   // "we succeeded", and a crash-looping shell would never be refused.
-  // #2179 moved *when* that path runs -- it now waits for the renderer to paint
-  // rather than for the backend to answer -- but the marker must still be
-  // cleared from recordKnownGood and nowhere else.
+  // #2179 moved *when* the known-good path runs -- it now waits for the
+  // renderer to paint rather than for the backend to answer.
+  // #2280 (AU1 P2-1) adds exactly one more door: releaseBootMarkerOnQuit, run
+  // from before-quit, and only once the launch-mode picker rendered with no
+  // shell fault standing. A crash runs no quit handler, so it still leaves the
+  // marker. Every call site must sit in one of these two functions.
   const main = read("main.js");
-  const clearAt = main.indexOf("host().clearBootAttempt()");
-  assert.ok(clearAt > 0, "main.js must clear the marker");
-  const declAt = main.lastIndexOf("function recordKnownGood", clearAt);
-  assert.ok(declAt > 0 && declAt < clearAt, "the marker must be cleared from recordKnownGood");
-  assert.equal(
-    main.slice(declAt, clearAt).indexOf("\nfunction "),
-    -1,
-    "another function declaration sits between recordKnownGood and the clear"
+  const sites = [...main.matchAll(/host\(\)\.clearBootAttempt\(\)/g)].map((m) => m.index);
+  assert.ok(sites.length > 0, "main.js must clear the marker");
+  for (const at of sites) {
+    const declAt = main.lastIndexOf("\nfunction ", at);
+    const owner = main.slice(declAt + 1, main.indexOf("(", declAt));
+    assert.ok(
+      ["function recordKnownGood", "function releaseBootMarkerOnQuit"].includes(owner),
+      `the boot marker is cleared from ${owner}`
+    );
+  }
+  const releaseAt = main.indexOf("function releaseBootMarkerOnQuit()");
+  const release = main.slice(releaseAt, main.indexOf("\n}\n", releaseAt));
+  assert.match(
+    release,
+    /backgroundMode\.releasesBootMarkerOnQuit\(\{ pickerRendered, shellFaulted: Boolean\(shellFault\) \}\)/
   );
+  const beforeQuit = main.slice(main.indexOf('app.on("before-quit"'), main.indexOf('app.on("window-all-closed"'));
+  assert.match(beforeQuit, /releaseBootMarkerOnQuit\(\)/);
 });
 
 test("the loader never clears the marker on the refusal or load-failure paths", () => {
