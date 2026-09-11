@@ -1,0 +1,65 @@
+{
+  "base_ref": "origin/feat/2279-agent-context-workspace",
+  "branch": "audit/2279-spec2-with-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec2-with-context.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T04:39:51.121219Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec2-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2279,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "AU3 with-context audit of the ADR-055 Spec 2 branch feat/2279-agent-context-workspace @ b1693f913 (dispatch prompt AU3, docs/planning/adr-055-spec2-3-dispatch-prompts.md)",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2279-audit-2279-spec2-with-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9a37042c-5e7e-41d2-bb1f-d0f7f752ec0b",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-11T04:39:51.121252Z",
+      "class": "docs-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; no code, schema, or behavior change",
+      "verified_in_diff": null
+    }
+  ]
+}
