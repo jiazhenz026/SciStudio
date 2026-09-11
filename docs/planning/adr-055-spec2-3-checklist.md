@@ -301,6 +301,12 @@ Append only.
 | 2026-09-11 | A1 | Spec-silent choices in `b1693f913`, recorded in the spec: refusals (blacklist, list_blocks-first, CLI denial, conflict) returned as `status` + refusal code/message/alternative tool rather than exceptions (bridge withholds exception text); `scaffold_block` gains two optional result fields; bridge marker is a context variable in `_context.py`; port-type warning runs the provisioned hook template's scanner via the provisioning loader (template unmodified); Windows `run_command` uses `asyncio.create_subprocess_shell` (CreateProcess quoting), POSIX `/bin/sh -c`; command env = desktop Python terminal env + `SCISTUDIO_PROJECT_DIR` + `PYTHONIOENCODING=utf-8` (user value respected), strips `SCISTUDIO_ENGINE_IPC_TOKEN`; extra `list_commands` tool; rename/move merged as `move_path`; CLI denial = hook pattern per shell segment + Windows paths/`.exe` + `python -m scistudio` | Audits AU3/AU4 assess them | N/A |
 | 2026-09-10 | A2 | Resolved spec-silent points in PR #2284 and wrote them into the spec: second launch passes only an explicit mode flag or remembered choice; desktop→external-AI switches in place on the same backend; last window closed in external-AI mode quits only once the service is stopped/crashed/failed; relaunch stops and waits up to 8 s then restarts in the running mode without the picker; external-AI known-good vouching; picker runs before the mandatory-update check; address is the bound `127.0.0.1:<port>`; stop with a desktop window attached asks for confirmation; CHANGELOG recorded N/A (outside write set). Five-scenario fake-Electron harness left uncommitted | Recorded for owner review; audits AU1/AU2 assess the choices and whether the harness scenarios need committed tests | Owner decided 2026-09-11: the new launch mode needs a CHANGELOG entry — bundled into A2's audit-fix round (`CHANGELOG.md` added to its write set, gate-amended first) |
 
+## 10.1 Umbrella Close-Out
+
+- Owner decision (2026-09-11): option A — the `[DO NOT MERGE]` umbrella PRs are closed unmerged, not merged; this checklist and the dispatch prompts stay on `track/adr-055-spec2-3` (branches are not deleted on merge).
+- [ ] #2273 (Spec 0-1 umbrella): close after #2275 merges, with an evidence comment; close #2272 manually (its `Closes` keyword does not fire on an unmerged PR).
+- [ ] #2283 (this umbrella): close after the Spec 2 PR merges, with an evidence comment (implementation PRs, audit reports, checklist path); close #2282 manually.
+
 ## 11. Final Readiness
 
 - [ ] All dispatched agents have final outputs.
