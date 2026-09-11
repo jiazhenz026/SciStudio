@@ -62,6 +62,12 @@ language_source: en
     - Backend refusal of agent-kind PTY providers when `ai_chat_disabled` is
       set.
     - Spec amendments for the dynamic `update` shape.
+    - Scope additions (manager, 2026-09-11):
+      - register `/api/ai/pty/internal/` as self-authenticating, after
+        verifying the IPC token on every route there;
+      - #2328, seam project access for editions: `active_project_root`,
+        `ToolRefusal`, `check_author_path`, `write_project_file`,
+        `add_upload_listener`.
   - **O2 (#2308):** the stdio MCP adapter over `/api/webmcp/*` and the per-user
     loopback token file (FR-008 to FR-011), with the adapter's spec details.
 - Out of scope:
@@ -136,6 +142,7 @@ language_source: en
 | `AU2` | `audit_reviewer` | `no-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-no-context.md` | product code | A1 PR | `[ ]` |
 | `AU3` | `audit_reviewer` | `with-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-with-context.md` | product code | A2 PR | `[ ]` |
 | `AU4` | `audit_reviewer` | `no-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-no-context.md` | product code | A2 PR | `[ ]` |
+| `A3` | `implementer` | `N/A` | prompts §A3 | O3: remove the GUI-disconnect auto-cancel without regressing #1500 | `fix/2327-run-lifetime` | `.worktrees/fix-2327-run-lifetime` | see prompts §A3 | `seam.py`, `spa.py`, `ai_pty/**`, `webmcp.py`, `cli/**`, `frontend/**` | `#2327` | `[~]` |
 
 ## 7. Track: O1 — Capability Extensions And Enterprise UI (#2322)
 
@@ -240,7 +247,43 @@ language_source: en
 - [ ] Scope compliance verified.
 - [ ] Track merged or integrated.
 
-## 9. Verification Evidence
+## 9. Track: O3 — Run Lifetime Without The GUI-Disconnect Cancel (#2327)
+
+### 9.1 Track Scope
+
+- Owner: `A3`
+- In scope:
+  - Remove the last-`/ws`-disconnect auto-cancel from `src/scistudio/api/ws.py`.
+  - Keep #1500's guarantee that no run's lineage stays `running`. Terminal
+    state must be reached on graceful shutdown, on the next startup after a
+    kill or crash, and when a worker dies.
+- Owner decision (2026-09-11, #2327): option 1, with the no-regression
+  constraint.
+- Out of scope: the seam, the frontend, the adapter, and `ai_pty`.
+  `src/scistudio/core/**` is a stop condition: report the exact change and the
+  manager asks the owner for `admin-approved:core-change`.
+- Required tests: a GUI disconnect no longer cancels runs; shutdown mid-run
+  leaves a terminal lineage state; a simulated crash is reconciled at the next
+  startup; the #1500 scenario is reproduced as a regression test.
+
+### 9.2 Dispatch
+
+- [x] Prompt recorded -> prompts §A3
+- [x] Agent branch/worktree assigned -> `fix/2327-run-lifetime`
+- [x] Write set, out of scope, TODO rule, and checks included in prompt.
+
+### 9.3 Implementation
+
+- [ ] Auto-cancel removed -> `<commit>`
+- [ ] Shutdown and startup terminal-state guarantees -> `<commit>`
+- [ ] Regression tests -> `<test command>`
+
+### 9.4 Audit and Integration
+
+- [ ] Reviewed by the manager; audited with O1/O2 or on its own.
+- [ ] Track merged.
+
+## 10. Verification Evidence
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
@@ -248,15 +291,19 @@ language_source: en
 | Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2321"` | `[ ]` | |
 | Track CI | per-track PR checks | `[ ]` | |
 
-## 10. Drift Log
+## 11. Drift Log
 
 Append only.
 
 | Date | Agent | Drift | Action | Follow-up |
 |---|---|---|---|---|
 | 2026-09-11 | manager | The umbrella issue #2321 and the issue map comment carry enterprise route names and track details in a public repository. | Reported to owner; enterprise prompts are kept in the private repository. | owner decision pending |
+| 2026-09-11 | manager | Owner chose to trim the public issues (option b). | Issue-map comment deleted; #2321 body reduced to open-source content; enterprise details moved to the private tracker. GitHub keeps body edit history. | done |
+| 2026-09-11 | manager | The enterprise guard track found that `/api/ai/pty/internal/*` worker callbacks are refused by any replacement guard. No other internal callback routes exist. | Added to A1's scope (inside `ai_pty/**`): verify the IPC token on every internal route, then register the prefix as self-authenticating. | #2322 |
+| 2026-09-11 | manager | The enterprise guard track found that `ws.py` cancels every active run 2 s after the last `/ws` disconnect, which conflicts with ADR-055 external-AI mode and editions. | Opened #2327. Owner chose option 1 with the #1500 no-regression constraint. New track O3 (A3). | #2327 |
+| 2026-09-11 | manager | An edition's transfer track stopped: the seam offers no public project root, tool-result error, author-blacklist check, shared write path, or upload event, and only internals reach them. | Opened #2328 and folded it into A1's scope, because it is the same seam module. The edition proceeds behind an adapter bound to the planned names. | #2328 |
 
-## 11. Final Readiness
+## 12. Final Readiness
 
 - [ ] All dispatched agents have final outputs.
 - [ ] Manager reviewed every changed file.

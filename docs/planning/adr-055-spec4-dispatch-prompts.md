@@ -386,3 +386,138 @@ Stop and report back if:
 - Another agent's work blocks yours.
 - You cannot add/update required tests.
 ```
+
+## A3 — O3: Run Lifetime Without The GUI-Disconnect Cancel (#2327)
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: remove the last-GUI-disconnect auto-cancel (#2327 option 1).
+  The problem #1500 fixed must not regress: in some cases a run's lineage
+  stayed stuck in `running`. (Owner, 2026-09-11.)
+- Task kind: bugfix
+- Persona: implementer
+- Issue: #2327
+- Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2327
+- Umbrella issue: #2321
+- Umbrella PR: #2323 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-055-spec4
+- Agent branch: fix/2327-run-lifetime (create it from origin/main)
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/fix-2327-run-lifetime
+- Gate record: .workflow/records/2327-fix-2327-run-lifetime.json
+- Checklist: docs/planning/adr-055-spec4-checklist.md (on track/adr-055-spec4)
+
+## Required Rules
+
+- Issue #2327 and the owner decision comment on it; issue #1500 and hotfix
+  commit 4ba26d2ff, for the original stuck-`running` scenarios.
+- AGENTS.md, docs/ai-developer/rules.md,
+  docs/ai-developer/specific_rules/agent-dispatch.md,
+  docs/ai-developer/specific_rules/gated-workflow.md,
+  docs/ai-developer/specific_rules/bug-fix.md,
+  docs/ai-developer/personas/implementer.md
+- ADR-055 §8, where browser disconnection and idleness never end work.
+
+## Scope
+
+You own only:
+
+- src/scistudio/api/ws.py
+- src/scistudio/api/runtime/** (run shutdown, startup reconciliation, run
+  bookkeeping)
+- The lineage or run-record module that stores run state, if it lives outside
+  `src/scistudio/core/**`. Name it in a `gate_record amend` first.
+- src/scistudio/api/app.py. Only a minimal lifespan hunk, and only if
+  shutdown or startup reconciliation cannot live in runtime/**. A1 may make
+  a small edit there too, so keep your hunk isolated and tell the manager.
+- Tests for these: tests/api/test_ws*.py, tests/api/runtime/**, and new
+  regression tests.
+- CHANGELOG.md, plus any doc that describes the disconnect cancel. Find them
+  with grep.
+
+You must not touch:
+
+- src/scistudio/api/seam.py, spa.py, routes/ai_pty/**, routes/webmcp.py,
+  src/scistudio/cli/**, frontend/** (A1 and A2)
+- src/scistudio/core/** is a stop condition. Report the exact change you
+  would need; the manager asks the owner for `admin-approved:core-change`.
+- docs/ai-developer/**
+
+If you need an out-of-scope path, stop and report back.
+
+## Coordination
+
+- You are not alone: A1 and A2 work in parallel.
+- MUST work only on your branch and worktree.
+- MUST NOT use `pip install -e .`. Use
+  C:/Users/jiazh/workspace/SciStudio/.venv/Scripts/python with
+  `PYTHONPATH=src`.
+- Do not revert other agents' work. Do not broaden scope.
+- Your final PR targets `main`. MUST NOT merge.
+- Report checklist evidence (§9.3) in your final message.
+- Run long commands in the foreground. Run `git add -A` before every commit.
+
+## TODO And Deferral Rule
+
+Deferred work must be tracked: `TODO(#NNN): <reason>` citing an issue, ADR,
+spec, or follow-up ticket.
+
+## Work To Do
+
+1. Worktree and branch from origin/main. Run `gate_record init` (bugfix,
+   implementer, issue 2327) and then `plan`.
+2. Read hotfix 4ba26d2ff and #1500. Write down exactly which scenarios left
+   lineage in `running`: GUI disconnect, app shutdown, anything else.
+3. Remove the last-GUI-disconnect auto-cancel from `ws.py`, including the
+   grace task, the client set, and the helpers only it used. Runs now end on
+   completion or an explicit cancel.
+4. Keep the #1500 guarantee. Every run reaches a terminal lineage state when:
+   - the backend shuts down gracefully: the lifespan shutdown cancels
+     active runs and waits for their terminal state within a bounded time;
+   - the backend was killed or crashed: at the next startup, runs that a
+     previous process left `running` are reconciled to an existing terminal
+     state with a clear reason. Do not invent a new lineage state or schema
+     without checking; a core change is a stop condition;
+   - a run's worker dies: verify the existing behavior and cover it with a
+     test.
+5. Tests:
+   - a GUI disconnect no longer cancels runs;
+   - reconnecting still shows the run;
+   - shutdown mid-run leaves a terminal lineage state;
+   - a simulated crash, meaning a stale `running` record from a dead process,
+     is reconciled at startup;
+   - a regression test for each #1500 scenario from step 2.
+6. Docs: CHANGELOG, and any doc describing the old behavior.
+7. Commit with trailers (Gate-Record, Task-Kind: bugfix, Issue: #2327,
+   Assisted-by, Co-Authored-By). Run the pre-PR check on the committed diff,
+   then pre-PR finalize with `--commit`. Open the PR with the wrapper
+   (Closes #2327, Refs #2321). Then post-PR finalize and push.
+
+## Required Tests And Checks
+
+- `PYTHONPATH=src <venv python> -m pytest <your new and touched test files> -q`
+- `python -m scistudio.qa.governance.gate_record check --mode pre-pr`
+- `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2327"`
+- `python scripts/scistudio_pr_create.py`
+- `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr <url> --pr-body-file <path>`
+- Sentrux: N/A (MCP not available in this runtime)
+
+## Output Required
+
+- Changed paths, tests and results, the scenarios from #1500, checklist
+  evidence, PR and commit, blockers.
+
+## Stop Conditions
+
+Stop and report back if:
+
+- a core path is needed;
+- the #1500 scenario cannot be reproduced or guaranteed without a schema
+  change;
+- checks fail unclearly;
+- another agent blocks you.
+```
