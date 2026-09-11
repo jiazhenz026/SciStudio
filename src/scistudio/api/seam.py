@@ -42,7 +42,6 @@ from collections.abc import Mapping
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
-from urllib.parse import urlsplit
 
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG
 from scistudio.ai.agent.mcp.server import mcp as _shared_mcp
@@ -292,22 +291,21 @@ def is_self_authenticating_path(path: str) -> bool:
 
 
 def _validate_logout_url(url: str) -> None:
-    """Accept a same-origin absolute path or an ``http(s)`` URL, nothing else.
+    """Accept an absolute same-origin path, nothing else.
 
-    The frontend renders this into a link, so a ``javascript:`` or other
-    scheme must never get through.
+    ``logout_url`` names the backend's own logout endpoint, and the frontend
+    sends it a same-origin ``POST`` under the service prefix. Another origin, a
+    protocol-relative ``//host`` form, and a ``javascript:`` or other scheme
+    must never get through.
     """
     if not isinstance(url, str) or not url or url != url.strip() or any(ord(ch) < 0x20 for ch in url):
         raise ValueError(
-            "IdentityCapability.logout_url must be a non-empty URL without whitespace or control characters"
+            "IdentityCapability.logout_url must be a non-empty path without whitespace or control characters"
         )
-    if url.startswith("/"):
-        if url.startswith("//"):
-            raise ValueError(f"IdentityCapability.logout_url {url!r}: use an absolute path or an http(s) URL")
-        return
-    parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.netloc:
-        raise ValueError(f"IdentityCapability.logout_url {url!r}: use an absolute path or an http(s) URL")
+    if not url.startswith("/") or url.startswith("//"):
+        raise ValueError(
+            f"IdentityCapability.logout_url {url!r}: name the backend's own logout endpoint as an absolute path"
+        )
 
 
 @provisional(since="0.3.5")
@@ -317,8 +315,12 @@ class IdentityCapability:
 
     ``user`` is the signed-in user's display name. In the enterprise edition's
     one-user-one-backend deployment it is fixed for the backend's lifetime.
-    ``logout_url`` is an absolute path (``/hub/logout``) or an ``http(s)`` URL;
-    the frontend uses it as given and does not apply the mount prefix to it.
+    ``logout_url`` names the backend's own logout endpoint as an absolute path
+    (for example ``/api/session/logout``). That endpoint ends the SciStudio
+    session before any identity-provider logout. The frontend sends it a
+    same-origin ``POST``, resolved under the service prefix, and then follows
+    the location the response returns; a plain GET navigation would let other
+    sites force a logout.
     """
 
     user: str

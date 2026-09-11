@@ -115,7 +115,7 @@ The open-source side therefore guarantees a seam rather than a deployment:
    `/api/panels/t/` are the first user (Section 3.5).
 4. **A capability declaration** (`create_app(capabilities=...)`). The backend
    tells the frontend at boot which enterprise capabilities are on: `identity`
-   (the signed-in user and a logout URL) and `transfer`. A typed accessor
+   (the signed-in user and the backend's own logout endpoint) and `transfer`. A typed accessor
    exposes them for capability-gated UI; this spec adds no UI.
 5. **A test-only fake guard and a reusable contract suite.** The suite checks
    any replacement guard, so the enterprise edition's real guard runs the same
@@ -335,9 +335,13 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
 
 - **FR-014**: `Capabilities(identity=None, transfer=False)` MUST be the default.
   `IdentityCapability(user, logout_url)` MUST reject an empty user and any
-  logout URL that is not an absolute path (not starting with `//`) or an
-  `http(s)` URL with a host; the frontend renders it into a link, so no other
-  scheme may pass.
+  `logout_url` that is not an absolute same-origin path (a leading `/`, not
+  `//`, no whitespace or control characters). `logout_url` names the
+  backend's own logout endpoint, which ends the SciStudio session before any
+  identity-provider logout. The frontend sends it a same-origin `POST`,
+  resolved under the service prefix, and then follows the location the
+  response returns; a plain GET navigation would let other sites force a
+  logout, so another origin or scheme can never pass.
 - **FR-015**: When at least one capability is on, the served `index.html`
   MUST carry `window.__SCISTUDIO_CAPABILITIES__ = {"identity": {"user", "logoutUrl"} | null, "transfer": bool}`,
   serialized so no value can close the script element (`<`, `>`, `&`, U+2028

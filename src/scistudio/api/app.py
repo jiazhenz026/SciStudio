@@ -388,7 +388,9 @@ def create_app(
             guard=hub_guard,  # (app, GuardContext) -> ASGI app
             lifespan_hooks=[validate_callback, report_activity],
             capabilities=Capabilities(
-                identity=IdentityCapability(user=hub_user, logout_url="/hub/logout"),
+                # The edition's own logout route: it ends the SciStudio
+                # session, then returns where the browser goes next.
+                identity=IdentityCapability(user=hub_user, logout_url="/api/session/logout"),
                 transfer=True,
             ),
             routers=[transfer_router],

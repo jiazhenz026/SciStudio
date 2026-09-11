@@ -35,9 +35,12 @@ export interface IdentityCapability {
   /** The signed-in user's display name. */
   readonly user: string;
   /**
-   * An absolute path (`/hub/logout`) or an http(s) URL. Use it as given: it
-   * usually points outside SciStudio's own mount, so never pass it through
-   * `apiUrl`.
+   * The backend's own logout endpoint, as an absolute path such as
+   * `/api/session/logout`. That endpoint ends the SciStudio session before any
+   * identity-provider logout. Logout sends it a same-origin `POST`, resolved
+   * through `apiUrl` so it lands under the service prefix, and then follows the
+   * location the response returns. A plain GET navigation would let other
+   * sites force a logout.
    */
   readonly logoutUrl: string;
 }
@@ -52,19 +55,13 @@ export type CapabilityName = keyof Capabilities;
 
 const ALL_OFF: Capabilities = Object.freeze({ identity: null, transfer: false });
 
-/** Same rule as the backend: an absolute path or an http(s) URL, nothing else. */
+/** Same rule as the backend: an absolute same-origin path, nothing else. */
 function isSafeLogoutUrl(url: string): boolean {
   if (url === "" || url !== url.trim()) return false;
   for (const ch of url) {
     if (ch.charCodeAt(0) < 0x20) return false;
   }
-  if (url.startsWith("/")) return !url.startsWith("//");
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
+  return url.startsWith("/") && !url.startsWith("//");
 }
 
 function readIdentity(raw: unknown): IdentityCapability | null {

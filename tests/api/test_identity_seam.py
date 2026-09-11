@@ -393,10 +393,9 @@ def test_capabilities_are_all_off_by_default() -> None:
     assert capabilities.to_bootstrap() == {"identity": None, "transfer": False}
 
 
-@pytest.mark.parametrize(
-    "url", ["/hub/logout", "https://hub.example.org/hub/logout", "http://127.0.0.1:8081/hub/logout"]
-)
-def test_identity_accepts_safe_logout_urls(url: str) -> None:
+@pytest.mark.parametrize("url", ["/api/session/logout", f"{PREFIXED_MOUNT}/api/session/logout"])
+def test_identity_accepts_same_origin_logout_paths(url: str) -> None:
+    """``logout_url`` names the backend's own logout endpoint (same-origin POST target)."""
     assert IdentityCapability(user="alice", logout_url=url).logout_url == url
 
 
@@ -406,14 +405,15 @@ def test_identity_accepts_safe_logout_urls(url: str) -> None:
         "",
         "javascript:alert(1)",
         "//evil.example/logout",
-        "hub/logout",
-        " /hub/logout",
-        "/hub/\nlogout",
+        "https://hub.example.org/hub/logout",
+        "http://127.0.0.1:8081/api/session/logout",
+        "api/session/logout",
+        " /api/session/logout",
+        "/api/session/\nlogout",
         "ftp://hub.example.org/logout",
-        "https:///no-host",
     ],
 )
-def test_identity_rejects_unsafe_logout_urls(url: str) -> None:
+def test_identity_rejects_logout_urls_that_are_not_same_origin_paths(url: str) -> None:
     with pytest.raises(ValueError):
         IdentityCapability(user="alice", logout_url=url)
 
@@ -421,7 +421,7 @@ def test_identity_rejects_unsafe_logout_urls(url: str) -> None:
 @pytest.mark.parametrize("user", ["", "   "])
 def test_identity_requires_a_user(user: str) -> None:
     with pytest.raises(ValueError):
-        IdentityCapability(user=user, logout_url="/hub/logout")
+        IdentityCapability(user=user, logout_url="/api/session/logout")
 
 
 def test_capabilities_reject_wrong_types() -> None:
@@ -436,14 +436,16 @@ def test_declared_capabilities_reach_the_served_page(
     seam_env: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
 ) -> None:
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
-    capabilities = Capabilities(identity=IdentityCapability(user="alice", logout_url="/hub/logout"), transfer=True)
+    capabilities = Capabilities(
+        identity=IdentityCapability(user="alice", logout_url="/api/session/logout"), transfer=True
+    )
     app = create_app(capabilities=capabilities)
     assert app.state.capabilities is capabilities
     with TestClient(app, root_path=mount_prefix) as client:
         shell = client.get(f"{mount_prefix}/projects/deep/route").text
     assert (
-        'window.__SCISTUDIO_CAPABILITIES__ = {"identity":{"user":"alice","logoutUrl":"/hub/logout"},"transfer":true};'
-        in shell
+        'window.__SCISTUDIO_CAPABILITIES__ = {"identity":{"user":"alice","logoutUrl":"/api/session/logout"},'
+        '"transfer":true};' in shell
     )
 
 
@@ -456,7 +458,9 @@ def test_transfer_alone_declares_no_identity(seam_env: Path) -> None:
 
 def test_capability_declaration_is_script_safe(seam_env: Path) -> None:
     user = "</script><script>alert(1)</script> & Alice Smith\u2028"
-    app = create_app(capabilities=Capabilities(identity=IdentityCapability(user=user, logout_url="/hub/logout")))
+    app = create_app(
+        capabilities=Capabilities(identity=IdentityCapability(user=user, logout_url="/api/session/logout"))
+    )
     with TestClient(app) as client:
         shell = client.get("/").text
     assert "<script>alert(1)" not in shell

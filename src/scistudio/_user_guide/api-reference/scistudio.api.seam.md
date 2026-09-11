@@ -90,8 +90,12 @@ The ``identity`` capability: who is signed in, and where to sign out.
 
 ``user`` is the signed-in user's display name. In the enterprise edition's
 one-user-one-backend deployment it is fixed for the backend's lifetime.
-``logout_url`` is an absolute path (``/hub/logout``) or an ``http(s)`` URL;
-the frontend uses it as given and does not apply the mount prefix to it.
+``logout_url`` names the backend's own logout endpoint as an absolute path
+(for example ``/api/session/logout``). That endpoint ends the SciStudio
+session before any identity-provider logout. The frontend sends it a
+same-origin ``POST``, resolved under the service prefix, and then follows
+the location the response returns; a plain GET navigation would let other
+sites force a logout.
 
 ## `LifespanHook` — _protocol_
 

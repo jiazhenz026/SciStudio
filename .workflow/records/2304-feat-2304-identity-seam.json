@@ -185,7 +185,13 @@
       "docs/adr/ADR-055.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T09:17:43.451699Z",
+      "owner_directive": "Owner authorized editing ADR-014 \u00a73.1 create_app signature block (2026-09-11, live session: \u6388\u6743\uff0c\u4f60\u53bb\u6539\u5c31\u884c)",
+      "reason": "Owner authorized the ADR-014 section 3.1 signature block update that the create_app seam parameters require (signature_drift blocker); only the create_app code block changes."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T08:16:08.263773Z",
@@ -473,6 +479,12 @@
       "at": "2026-09-11T08:52:48.754902Z",
       "pattern": "tests/api/test_user_docs.py",
       "reason": "The regenerated self-contained API reference adds scistudio.api.app and scistudio.api.seam pages to the user-guide tree, and tests/api/test_user_docs.py pins that sidebar row for row; its expected list gains the two rows."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T09:17:43.451715Z",
+      "pattern": "docs/adr/ADR-014.md",
+      "reason": "Owner authorized the ADR-014 section 3.1 signature block update that the create_app seam parameters require (signature_drift blocker); only the create_app code block changes."
     }
   ],
   "session_id": "59244846-8803-4924-a176-03f3120f2c51",

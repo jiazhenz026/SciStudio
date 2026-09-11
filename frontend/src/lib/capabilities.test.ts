@@ -34,9 +34,9 @@ describe("getCapabilities", () => {
   });
 
   it("reads a full declaration from the backend", () => {
-    declare({ identity: { user: "alice", logoutUrl: "/hub/logout" }, transfer: true });
+    declare({ identity: { user: "alice", logoutUrl: "/api/session/logout" }, transfer: true });
     expect(getCapabilities()).toEqual({
-      identity: { user: "alice", logoutUrl: "/hub/logout" },
+      identity: { user: "alice", logoutUrl: "/api/session/logout" },
       transfer: true,
     });
   });
@@ -46,14 +46,14 @@ describe("getCapabilities", () => {
     expect(getCapabilities()).toEqual({ identity: null, transfer: true });
   });
 
-  it("accepts an https logout URL", () => {
+  it("accepts a logout path that already carries the service prefix", () => {
     declare({
-      identity: { user: "alice", logoutUrl: "https://hub.example.org/hub/logout" },
+      identity: { user: "alice", logoutUrl: "/user/alice/scistudio/api/session/logout" },
       transfer: false,
     });
     expect(getCapabilities().identity).toEqual({
       user: "alice",
-      logoutUrl: "https://hub.example.org/hub/logout",
+      logoutUrl: "/user/alice/scistudio/api/session/logout",
     });
   });
 
@@ -63,8 +63,11 @@ describe("getCapabilities", () => {
     ["null", null],
     ["an array", []],
     ["a truthy non-boolean transfer", { transfer: "yes" }],
-    ["an identity without a user", { identity: { logoutUrl: "/hub/logout" } }],
-    ["an identity with a blank user", { identity: { user: "  ", logoutUrl: "/hub/logout" } }],
+    ["an identity without a user", { identity: { logoutUrl: "/api/session/logout" } }],
+    [
+      "an identity with a blank user",
+      { identity: { user: "  ", logoutUrl: "/api/session/logout" } },
+    ],
     ["an identity without a logout URL", { identity: { user: "alice" } }],
   ])("reads %s as off", (_label, value) => {
     declare(value);
@@ -74,11 +77,12 @@ describe("getCapabilities", () => {
   it.each([
     "javascript:alert(1)",
     "//evil.example/logout",
-    "hub/logout",
-    " /hub/logout",
-    "/hub/\nlogout",
+    "https://hub.example.org/hub/logout",
+    "api/session/logout",
+    " /api/session/logout",
+    "/api/session/\nlogout",
     "ftp://hub.example.org/logout",
-  ])("drops an identity whose logout URL is unsafe: %j", (logoutUrl) => {
+  ])("drops an identity whose logout URL is not a same-origin path: %j", (logoutUrl) => {
     declare({ identity: { user: "alice", logoutUrl }, transfer: true });
     expect(getCapabilities()).toEqual({ identity: null, transfer: true });
   });
