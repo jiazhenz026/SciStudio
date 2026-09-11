@@ -217,9 +217,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "0e27c72262d955826ac1e698bd220625e073dd36",
+    "sha": "d7b806ea81f35758503df3fca4b0eb70b62c56fe",
     "shas": [
-      "0e27c72262d955826ac1e698bd220625e073dd36"
+      "d7b806ea81f35758503df3fca4b0eb70b62c56fe"
     ],
     "trailers": []
   },
@@ -772,6 +772,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.354093Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.365352Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.377244Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.388559Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.399764Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.411051Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.422787Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.434729Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.446751Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:37.458659Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:38.082924Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.046400Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.057869Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.069057Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.080148Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.091123Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.101980Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.112884Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.123768Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.134898Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.145751Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:39.776658Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -785,7 +917,7 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "f564a8b1a",
+    "base_sha": "84643e354",
     "changed_files": [
       ".workflow/records/1646-gate-check-incrementality.json",
       ".workflow/records/1719-feat-1719-plot-card-actions.json",
@@ -1129,9 +1261,9 @@
       "docs/planning/phase3-bucket-d-checklist.md",
       "docs/planning/spectroscopy-package-checklist.md"
     ],
-    "diff_fingerprint": "sha256:53b281519bf2bf27122a8d11c01d19018ac6008b414699f4cde3d687ccd55e5d",
+    "diff_fingerprint": "sha256:67610b34a6c55bf08332479548284ef6d4d9901c701012e003006f2d8b84f3b0",
     "head": "HEAD",
-    "head_sha": "0e27c7226",
+    "head_sha": "d7b806ea8",
     "surfaces": {
       "docs": 148,
       "frontend": 0,
@@ -1217,6 +1349,22 @@
       "unsatisfied": [
         "scope.out-of-scope"
       ]
+    },
+    {
+      "at": "2026-09-11T05:55:38.082962Z",
+      "diff_fingerprint": "sha256:67610b34a6c55bf08332479548284ef6d4d9901c701012e003006f2d8b84f3b0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:55:39.776692Z",
+      "diff_fingerprint": "sha256:67610b34a6c55bf08332479548284ef6d4d9901c701012e003006f2d8b84f3b0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2289-repo-hygiene",
