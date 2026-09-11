@@ -239,11 +239,16 @@ class PreviewSessionManager:
         if requested:
             chain = self._router._specificity_chain(target)
             for spec in self._registry.all_specs():
-                if (
-                    spec.previewer_id == requested
-                    and spec.target_type in chain
-                    and bool(spec.supports_collection) == target.is_collection
-                ):
+                if spec.previewer_id != requested:
+                    continue
+                if bool(spec.supports_collection) != target.is_collection:
+                    continue
+                # An item-type previewer must claim a type in the item chain. The
+                # ``Collection`` sentinel is not an item type and never appears in
+                # the chain; it serves any collection, mirroring the router's core
+                # collection fallback (see PreviewRouter.resolve step 10).
+                serves_target = spec.target_type in chain or (target.is_collection and spec.target_type == "Collection")
+                if serves_target:
                     return spec
             raise UnknownPreviewerError(f"Previewer {requested!r} does not serve this target")
         return self._router.resolve(target)

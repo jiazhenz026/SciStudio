@@ -86,12 +86,21 @@ def media_type(path: Path) -> str:
 
 
 def content_policy(token_base_url: str) -> str:
-    """Restrict loads to this mount's token path and versioned CDN allowlist."""
+    """Restrict loads to this mount's own origin, its token path, and the CDN allowlist.
+
+    The panel document and its subresources (SDK, ``panel.js``, assets) are always
+    served from the same origin the browser used to load the iframe, so ``'self'``
+    is the correct, deployment-agnostic source for them. ``token_base_url`` (an
+    absolute URL the backend derives from its own view of the request) is kept as
+    a path-pinned source for direct deployments, but under a reverse proxy or the
+    dev vite proxy the browser's origin differs from the backend's
+    ``request.url.netloc``; ``'self'`` is what makes those deployments work.
+    """
     cdns = " ".join(f"https://{host}" for host in CDN_HOSTS)
     return (
-        f"default-src 'none'; script-src {token_base_url} 'unsafe-inline' {cdns}; "
-        f"style-src {token_base_url} 'unsafe-inline' {cdns}; font-src {token_base_url} {cdns}; "
-        f"img-src {token_base_url} data: blob:; connect-src 'none'; object-src 'none'; "
+        f"default-src 'none'; script-src 'self' {token_base_url} 'unsafe-inline' {cdns}; "
+        f"style-src 'self' {token_base_url} 'unsafe-inline' {cdns}; font-src 'self' {token_base_url} {cdns}; "
+        f"img-src 'self' {token_base_url} data: blob:; connect-src 'none'; object-src 'none'; "
         "base-uri 'none'; form-action 'none'; frame-src 'none'"
     )
 
