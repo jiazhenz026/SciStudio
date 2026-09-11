@@ -1,0 +1,66 @@
+{
+  "base_ref": null,
+  "branch": "audit/2327-no-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md",
+      ".workflow/records/2327-audit-2327-o3-no-context.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T12:08:42.939994Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2327,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch: no-context audit of workflow run lifetime (ADR-055 browser disconnection, lineage terminal state) on fix/2327-run-lifetime; write the audit report only.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2327-audit-2327-o3-no-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "6fa39d2a-27c2-4f44-896a-f118715e8305",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T12:08:42.940016Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only",
+      "verified_in_diff": null
+    }
+  ]
+}
