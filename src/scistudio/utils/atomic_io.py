@@ -5,7 +5,7 @@
 # Several SciStudio subsystems persist files that the system exists to
 # protect — pause/resume checkpoints (ADR-018 / ADR-012), SaveData
 # scientific artifacts (ADR-028 Addendum 1 §C9), and workflow YAML
-# definitions. The naive ``open(path, "w")`` / ``Path.write_text`` /
+# definitions. Direct ``open(path, "w")`` / ``Path.write_text`` /
 # ``json.dump(..., f)`` pattern writes **directly into the final path**:
 # a crash (SIGKILL, OOM, power loss) mid-write leaves a truncated file,
 # and when the destination already held a good copy the prior good bytes
@@ -14,7 +14,7 @@
 #
 # This module centralises the durable-write recipe:
 #
-# 1. Write the new bytes to a temporary sibling file in the **same
+# 1. Write the new bytes to a staging sibling file in the **same
 #    directory** as the destination (so the final :func:`os.replace` is a
 #    same-filesystem rename, which POSIX and Windows both make atomic).
 # 2. ``flush`` + :func:`os.fsync` the file so the bytes hit stable storage

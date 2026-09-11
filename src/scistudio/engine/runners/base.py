@@ -37,8 +37,6 @@ class BlockRunner(Protocol):
         -------
         dict[str, Any]
             Mapping of output port names to result data references.
-            In the future this may evolve to a RunHandle containing
-            a process_handle and an asyncio.Future for the result.
         """
         ...
 

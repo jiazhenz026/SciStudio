@@ -227,38 +227,14 @@ def _hook_script_needs_refresh(dest: Path, template_body: str) -> bool:
 
 
 def hook_interpreter() -> str:
-    """Absolute path of the interpreter that should run the hook scripts.
+    """Return the absolute interpreter path used by provisioned hook commands.
 
-    Baked into every provider's hook command at provisioning time, so it has to
-    outlive the process that did the provisioning. ``sys.executable`` does not:
-    it is whatever interpreter happened to run, and on the owner's machine that
-    was the gate's parity venv under ``.workflow/local/venv`` — a scratch
-    directory built to be thrown away. A hook pointing into it dies the
-    moment it is cleaned up, and nothing announces that.
+    Use the base interpreter when running inside a virtual environment, so the
+    standard-library-only hooks keep working after that environment is removed.
+    Outside a virtual environment, return ``sys.executable`` unchanged.
 
-    **Chosen: a stable absolute path, resolved once at provisioning**, rather
-    than re-resolving at hook time. Re-resolving would mean emitting a bare
-    ``python``, which is exactly the PATH dependence an earlier fix removed —
-    on Windows there is frequently no ``python`` on PATH at all, and when there
-    is it may be a Microsoft Store stub. An absolute path is also the only form
-    that behaves the same in all three shells the command may run under.
-
-    Stability then comes from *which* absolute path. When SciStudio is running
-    inside a virtual environment, this returns the **base** interpreter that
-    venv was created from. That is sound only because every one of the seven
-    hook scripts imports the standard library and nothing else — ``ast``,
-    ``json``, ``os``, ``re``, ``sys``, ``pathlib`` — so they gain nothing from
-    the venv's site-packages, while the base installation is strictly more
-    durable than a venv built on top of it.
-
-    Outside a venv — notably a packaged desktop build with a bundled runtime —
-    ``sys.prefix == sys.base_prefix`` and ``sys.executable`` is returned
-    unchanged, which is already the stable answer there.
-
-    This deliberately does **not** apply to the MCP server command in the same
-    generated files: that one runs ``-m scistudio``, so it needs the
-    environment SciStudio is installed in and cannot be moved to the base
-    interpreter. See the spec for that exposure.
+    The MCP server command still uses the environment containing SciStudio,
+    because it needs the installed package and its dependencies.
     """
     # Development references: #1994.
     if sys.prefix != sys.base_prefix:

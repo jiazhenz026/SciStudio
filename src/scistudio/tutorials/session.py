@@ -1377,8 +1377,7 @@ class TutorialRuntime:
 
         A session whose project is closed is dormant, not over. The record and
         its progress survive, and reopening the tutorial puts the reader back on
-        the same step in the same project, which is what the contract already
-        promises.
+        the same step in the same project.
 
         A tutorial with no ``bootstrap`` has no project of its own and is never
         gated: a reading tutorial belongs to no project, so there is nothing for
@@ -1509,10 +1508,9 @@ class TutorialRuntime:
         context: DriverContext,
         tutorial_dir: Path,
     ) -> bool:
-        """Run a step's entry and return whether it is satisfied on arrival.
+        """Run entry actions, evaluate the condition, and make the step readable.
 
-        The ordering the manager ruled on and the spec leaves open: the actions
-        land, then the condition is judged, then the step becomes readable.
+        Return whether the step's condition is satisfied on arrival.
         """
         step_id = context.step_id or ""
         # A ui_event belongs to the step that asked for it. See
@@ -1685,14 +1683,11 @@ class TutorialRuntime:
         *,
         satisfied: bool = False,
     ) -> StepView | None:
-        """Return the current step's view, or ``None`` when the session is not on one.
+        """Return the current step view, or ``None`` outside a step.
 
-        ``satisfied`` is supplied by the caller that just judged the step rather
-        than re-derived here, for the reason the contract gives: judging is a read of
-        the whole product, and rendering a response is not a place to run one
-        again. It is attached after the driver has produced the view because it
-        is not a driver's to report — it is the runtime's answer about the
-        driver's condition, and the contract keeps the driver's field set closed.
+        Use the caller's ``satisfied`` result instead of reading product state again.
+        Attach it after the driver produces the view, since condition evaluation
+        belongs to the runtime.
         """
         # Development references: FR-041, FR-055.
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:

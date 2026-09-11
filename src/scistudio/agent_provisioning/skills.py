@@ -58,7 +58,7 @@ skill location. A missing skill receives a notice in place of its content.
 #        base ``scistudio`` skill IF the multi-skill source is not yet present
 #        (Phase 2c relocates content into ``_skills/``).
 #     5. Placeholder body (marked with ``TODO(#1013)``) for any name that
-#        none of the above resolves to. Each placeholder embeds a
+#        none of the above resolves to. Each missing-content notice embeds a
 #        reference to the Phase 2c followup.
 #
 # # TODO(#1013): post-cascade cleanup once Skills track merges to main:

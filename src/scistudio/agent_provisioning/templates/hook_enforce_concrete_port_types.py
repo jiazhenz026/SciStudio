@@ -153,9 +153,6 @@ def _accepted_type_elements(value: ast.expr) -> list[ast.expr] | None:
           ``accepted_types=build_types()``, etc.) — caller must NOT flag these
           as generic/empty, since the runtime value is opaque to static AST
           analysis.
-
-    Codex P2 fix: previously returned ``[]`` for non-literal, causing
-    false generic-port warnings on valid patterns like ``accepted_types=MY_TYPES``.
     """
     # Development references: #1089.
     if isinstance(value, (ast.List, ast.Tuple)):

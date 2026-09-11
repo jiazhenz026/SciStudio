@@ -468,8 +468,7 @@ class DiscoveredTutorial:
 
     ``manifest`` is ``None`` only when the manifest could not be read at all,
     in which case ``unavailable_reason`` carries the message that says so. Every
-    other field is filled from the manifest, because the contract forbids any other
-    source for them.
+    other field is filled from the manifest.
     """
 
     # Development references: FR-018.
@@ -864,13 +863,10 @@ def build_catalogue(
     progress: ProgressStore,
     in_progress: Iterable[TutorialKey] = (),
 ) -> Catalogue:
-    """Turn a discovery pass into the grouped catalogue the Learning Center lists.
+    """Build the grouped Learning Center catalogue from discovered tutorials.
 
-    Groups keep :meth:`DiscoveryResult.sources`' order — core first —
-    and each carries only its own completed and total counts. No aggregate
-    across groups is computed anywhere in this function, because the contract forbids
-    reporting one and the cheapest way to keep that true is never to have the
-    number.
+    Groups retain :meth:`DiscoveryResult.sources` order, with core first. Each
+    group carries its own completed and total counts; there is no combined total.
     """
     # Development references: FR-076, FR-084.
     completed = progress.completed_keys()

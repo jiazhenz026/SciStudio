@@ -555,8 +555,7 @@ def _refresh_registries(runtime: ApiRuntime) -> bool:
     """Rebuild every registry the write invalidated.
 
     ``refresh_all_registries`` is the one entry point a caller naming this
-    *event* uses; refreshing a single registry here would reintroduce exactly
-    the drift the contract removed. A failure is reported to the caller rather than
+    *event* uses; refreshing a single registry here would leave inconsistent cached definitions. A failure is reported to the caller rather than
     raised: the file is already on disk, so failing the request would be a lie.
     """
     # Development references: FR-010, FR-062.

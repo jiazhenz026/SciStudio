@@ -345,7 +345,7 @@ class PtyProcess:
     def _read_windows(self, timeout: float) -> bytes:
         """Accumulate ``winpty`` output up to ``timeout`` seconds.
 
-        Per spike finding 2, ``winpty.PtyProcess.read`` returns
+        ``winpty.PtyProcess.read`` returns
         immediately with whatever's available — often the empty string.
         We loop with a short sleep so the banner accrues into one
         meaningful frame instead of being chopped into 50 empty WS
@@ -461,7 +461,7 @@ class PtyProcess:
                     logger.debug("Failed to clean up temp file %s", path, exc_info=True)
 
     def _kill_windows(self) -> None:
-        """Per spike finding 4: taskkill /T /F /PID covers the whole tree.
+        """Terminate the whole process tree with ``taskkill /T /F /PID``.
 
         We do NOT call ``self._impl.kill()`` here because pywinpty's
         ``kill`` blocks on internal locks while a concurrent ``read``

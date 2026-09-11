@@ -54,6 +54,19 @@ def _source(root: Path, text: str) -> Path:
         "T-012",
         "Phase 2a",
         "Task 18",
+        "owner directive",
+        "Owner decision",
+        "in the future",
+        "future work",
+        "fine for v1",
+        "audit AU4 P2-1",
+        "audit P1-2",
+        "Codex P2",
+        "User Story 5",
+        "spec assumption A-005",
+        "implementation audit",
+        "hard-scope rules",
+        "manager ruled",
     ],
 )
 def test_rejects_internal_markers(tmp_path: Path, marker: str) -> None:
@@ -120,6 +133,13 @@ def run():
 def test_decodes_escapes_and_concatenated_literals(tmp_path: Path) -> None:
     _source(tmp_path, 'def run():\n    ("FR-" "001 and ADR\\x2d050")\n')
     assert check(tmp_path).blocks_merge
+
+
+def test_conditional_attribute_documentation_is_checked(tmp_path: Path) -> None:
+    _source(tmp_path, 'if True:\n    setting = 1\n    """FR-001."""\n')
+    report = check(tmp_path)
+    assert report.blocks_merge
+    assert "setting:" in report.findings[0].message
 
 
 def test_parse_failure_blocks_audit(tmp_path: Path) -> None:

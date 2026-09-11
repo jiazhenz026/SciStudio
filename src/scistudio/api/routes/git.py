@@ -76,7 +76,7 @@ def _engine_for_request(request: Request) -> GitEngine:
     ``_git`` property is lazy) so a missing git surfaces as a
     structured ``503`` before any endpoint handler runs, rather than
     bubbling up as an uncaught 500 from the first subprocess call
-    inside a handler. Codex P1 on.
+    inside a handler.
     """
     # Development references: #927.
     runtime = request.app.state.runtime
@@ -374,34 +374,15 @@ async def _announce_registry_refresh(runtime: Any, op: str) -> None:
 
 
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
-    """Rebuild the in-process registries after a git op rewrote the tree.
+    """Refresh block, type, and previewer registries after a git operation.
 
-    Per-project custom blocks live under
-    ``<project>/blocks/`` (b "blocks alongside git"), so every git
-    operation that rewrites the working tree can change a block's source. The
-    registry holds the parsed spec — ports, config schema, and the definitions
-    ``start_workflow`` validates against — and is otherwise rebuilt only on
-    project open and package operations.
+    A rewritten working tree can change definitions under ``blocks/``, ``types/``,
+    and ``previewers/``. Refresh after the git operation succeeds and before
+    emitting ``workflow.changed``, so clients read the recovered definitions.
 
-    Without this call the registry keeps serving the *pre-op* block definitions
-    while the execution subprocess (which reloads source from disk)
-    runs the *post-op* code. A restore that correctly recovered a block's file
-    could then still be rejected by validation citing a definition that no
-    longer exists on disk, with no indication that the cause is a stale cache.
-
-    ``branch_switch`` has called this since the integration audit; the contract extends it to every other worktree-rewriting
-    endpoint. widens *what* it rebuilds:
-    a branch can rewrite ``<project>/types/`` and ``<project>/previewers/``
-    exactly as it rewrites ``<project>/blocks/``, so this refreshes all three
-    rather than the block registry alone. The two changes are orthogonal --
-    Both events and registries must stay current, and every
-    worktree-rewriting endpoint now gets both. Call it after the git operation succeeds and before the
-    ``workflow.changed`` emit, so the frontend's reload reads fresh specs.
-
-    Best-effort by design: the git operation has already landed on disk and a
-    failed refresh must not roll it back. Failures are logged; the registry
-    then stays stale until the next project open or restart, which is the
-    legacy behaviour rather than a regression.
+    Failures are logged without undoing the completed git operation. A failed
+    refresh can leave cached definitions stale until a subsequent refresh or
+    project restart.
     """
     # Development references: #2021, #2033, ADR-017, ADR-038, ADR-039, ADR-053, Addendum 1, FR-062.
     try:
@@ -592,10 +573,9 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     ``null``); the frontend ``BranchPicker`` surfaces a transient
     toast when it is non-null.
 
-    integration audit P2-2: after the branch switch lands,
+    After the branch switch lands,
     refresh the in-process block registry so per-project custom blocks
-    that ship under ``<project>/blocks/`` (per b "blocks
-    alongside git") pick up the new on-disk source. Without this call,
+    that ship under ``<project>/blocks/`` pick up the new on-disk source. Without this call,
     the registry continues to serve the previous branch's block bodies
     until the next ``open_project`` or process restart.
 
@@ -668,7 +648,7 @@ async def branch_create(request: Request, body: BranchCreateRequest) -> dict[str
 async def branch_delete(request: Request, name: str, force: bool = False) -> dict[str, str]:
     """Delete a local branch.
 
-    row — silent auto-tag safety net.
+    Preserve lineage-referenced commits with internal tags after deletion.
     The safety net is **two-phase**:
 
     1. Compute orphan candidates and lineage-reference intersection
@@ -681,12 +661,12 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
 
     This ordering means a failed request leaves the repository in
     its original state — pins are never created without a successful
-    delete (Codex P2 on). The window between delete success
+    delete. The window between delete success
     and pin writes is microseconds; ``git gc`` does not run mid-call,
     and the reflog keeps the formerly-branch SHA reachable until our
     pin lands.
 
-    Per owner decision 2026-05-21 this is intentionally silent: no
+    This is silent: no
     warn / confirm dialog, no response payload change.
 
     """

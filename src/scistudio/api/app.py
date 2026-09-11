@@ -64,8 +64,8 @@ __all__ = ["create_app"]
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and tear down the shared API runtime.
 
-    also starts the in-process MCP server (of the
-     embedded coding agent cascade). The server listens on a
+    Starts the in-process MCP server for the embedded coding agent.
+    The server listens on a
     project-local socket (POSIX) or TCP loopback port (Windows); the
     ``scistudio mcp-bridge`` subprocess proxies CC stdin/stdout into it.
     Server start is best-effort — if it fails, we log ERROR but let
@@ -304,11 +304,9 @@ def normalize_root_path(raw: str | None) -> str:
 class _RootPathGuardMiddleware:
     """Reject requests arriving OUTSIDE the configured mount prefix.
 
-    edge-case contract: while a prefix is configured, the
-    unprefixed root MUST NOT silently keep serving — the chosen behavior is
-    404 (HTTP) / close-1008 (WebSocket). Serving both forms is forbidden by
-    the spec, and redirecting API or WebSocket callers would hide proxy
-    misconfiguration behind a success-shaped response.
+    While a prefix is configured, requests outside it receive HTTP 404 or
+    WebSocket close code 1008. Rejecting these requests exposes proxy
+    misconfiguration instead of silently serving an unintended path.
 
     Pure ASGI (not BaseHTTPMiddleware) so WebSocket scopes are covered and
     no response-body buffering is added to the hot path. Installed only when

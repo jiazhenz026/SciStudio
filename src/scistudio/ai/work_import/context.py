@@ -139,7 +139,7 @@ class ImportSessionContext:
         """Whether ``question`` reaches the brief as skipped rather than answered.
 
         A question is skipped when the user pressed its skip control *or* left it
-        blank: the contract gives the brief two renderings, the answer and the skip
+        blank: the brief uses either the answer or the skip
         wording, so a blank answer can only be conveyed as "they did not say".
         """
         # Development references: FR-021.

@@ -140,7 +140,7 @@ async def agent_availability_report(
 ) -> dict[str, Any]:
     """Return graded agent availability for any surface that needs a working agent.
 
-    to. Where ``GET /api/ai/status`` reports
+    Where ``GET /api/ai/status`` reports
     whether each CLI is present and logged in, this endpoint answers the
     question a surface about to start an agent session actually has: will a
     call work *right now*? Response shape::
@@ -168,7 +168,7 @@ async def agent_availability_report(
     Two further fields are facts about the provider rather than grades of it.
     ``next_step`` is the one action that moves this provider out of this state —
     how to install it, or the command that signs it in — populated for the two
-    states the contract gives a guidance column to and null for the other two.
+    states ``not_installed`` and ``not_authenticated``; null for the other two.
     ``session_unsupported_reason``, when non-null, says the provider has no
     positional prompt argument and therefore cannot be handed the opening
     instruction every SciStudio-started session is delivered with; such a

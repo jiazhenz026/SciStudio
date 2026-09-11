@@ -185,7 +185,7 @@ def _save_collection_xlsx(collection: Collection, config: BlockConfig) -> None:
     Items are grouped by their originating workbook (``framework.source`` stem):
     each distinct source file becomes one multi-sheet workbook (sheets named by
     ``user['sheet_name']``); every item with no source is written into ONE
-    workbook named by the configured ``filename`` (owner decision). This makes
+    workbook named by the configured ``filename`` . This makes
     the load → save round-trip reproduce the original file ↔ sheet grouping.
     """
     # Development references: #1810.

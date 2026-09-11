@@ -984,7 +984,7 @@ async def cancel_command(
 
 
 def _command_failed(structured: dict[str, Any]) -> bool:
-    """A refusal, or a command that ended with a non-zero exit (owner decision 2026-09-11)."""
+    """A refusal, or a command that ended with a non-zero exit."""
     if status_is_failure(structured):
         return True
     return structured.get("state") == "exited" and structured.get("exit_code") not in (None, 0)

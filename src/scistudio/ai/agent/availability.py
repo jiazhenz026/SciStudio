@@ -154,7 +154,7 @@ class AvailabilityState(StrEnum):
     """The four availability states, in increasing order of usability.
 
     The wire values are the contract shared with the frontend client and every
-    consuming surface; they are the spec's own spellings.
+    consuming surface.
     """
 
     # Development references: FR-031.
@@ -200,17 +200,13 @@ class ProviderAvailability:
     # Development references: FR-034.
 
     next_step: str | None = None
-    """The one action that moves this provider out of this state.
+    """Actionable guidance for installing or authenticating this provider.
 
-    Populated for :attr:`AvailabilityState.NOT_INSTALLED` (how to install it)
-    and :attr:`AvailabilityState.NOT_AUTHENTICATED` (how to sign in), which are
-    exactly the two states the contract gives a guidance column to. ``None`` for
-    ``call_failed`` — there :attr:`cause` is the specific information, and the contract
-    forbids sending a user whose CLI demonstrably runs off to fix their install —
-    and ``None`` for ``ready``, which needs no action.
+    Populated for :attr:`AvailabilityState.NOT_INSTALLED` and
+    :attr:`AvailabilityState.NOT_AUTHENTICATED`. It is ``None`` for ``ready``
+    and ``call_failed``; a failed call is explained by :attr:`cause`.
 
-    A *sentence*, not a bare command, because the surface renders it next to a
-    provider label and a user has to be able to read it as an instruction.
+    The value is a sentence that the interface can show beside the provider label.
     """
     # Development references: FR-031, FR-034, SC-002.
 
@@ -858,7 +854,7 @@ async def _settle_live_calls(
     Whatever has not finished when the budget expires is written down as a
     timed-out provider and left running: a worker thread blocked in a
     subprocess cannot be cancelled, so the alternative to reporting around it is
-    waiting for it, which is the stuck surface the contract forbids. The stragglers
+    waiting indefinitely. The stragglers
     get a done-callback that consumes their eventual result so a late failure
     cannot surface as an unretrieved-exception warning.
     """

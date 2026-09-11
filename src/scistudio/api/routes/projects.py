@@ -246,9 +246,8 @@ async def read_project_file(
 ) -> FileReadResponse:
     """Read a project-relative file as UTF-8 text.
 
-    Sandbox + allowlist + size cap 搂3.2. The full rationale and
-    edge-case matrix lives in the ADR; the helper :func:`_resolve_project_file`
-    enforces sandbox + allowlist; size and UTF-8 checks happen here.
+    Enforce project containment, the extension allowlist, and the size limit.
+    Reject files that cannot be decoded as UTF-8.
     """
     # Development references: ADR-036.
     project_root, target = _resolve_project_file(runtime, project_id, path)
@@ -305,7 +304,7 @@ async def write_project_file(
 ) -> FileWriteResponse:
     """Write a project-relative file atomically.
 
-    Sandbox / allowlist / size cap 搂3.2. Size cap is checked
+    Sandbox, extension allowlist, and size limit. Size cap is checked
     BEFORE touching disk so 413 rejects never leave a partial tmpfile.
 
     Atomic write: ``tempfile.NamedTemporaryFile`` in the destination's

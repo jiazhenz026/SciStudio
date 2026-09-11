@@ -51,8 +51,7 @@ _LineageStoreDep = Depends(get_lineage_store)
 def runs_health(store: Any = _LineageStoreDep) -> dict[str, Any]:
     """Per-table row count for the active project's lineage DB.
 
-    Retained from the the update placeholder so the smoke-test invocation
-    used during the unified-store wire-up keeps working.
+    Returns counts for runs, block executions, data objects, and block I/O.
     """
     # Maintainer context:
     # Retained from the D38-2.2 placeholder so the smoke-test invocation
@@ -81,10 +80,8 @@ def list_runs(
     """List runs in reverse-chronological order.
 
     The store's ``list_runs`` returns rows already sorted ``started_at DESC``;
-    we slice in Python for pagination. The current row count is bounded by
-    project lifetime (KB-MB scale) so in-memory slicing is
-    fine for v1; a SQL ``LIMIT/OFFSET`` extension can replace this if it ever
-    matters.
+    this endpoint slices those rows using ``offset`` and ``limit`` and reports
+    whether another page is available.
     """
     # Development references: ADR-038.
     # Fetch one full page (offset+limit) so we can do slice + total count.
@@ -150,17 +147,14 @@ def validate_restore(
 def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
     """Return one run row plus its joined ``block_executions`` rows.
 
-    (Q3/Q4) we surface block_executions ordered by
+    The response contains block executions ordered by
     ``started_at`` so the UI can render the per-block timeline directly.
 
-    per-block I/O DataObjects are now **inlined** as
+    Per-block I/O DataObjects are **inlined** as
     ``block_executions[i].inputs`` / ``.outputs`` arrays.
-    Q4b "Per-block I/O DataObjects?" SQL is materialised via one
+    These objects are read with one
     batched query (``LineageStore.list_block_io_with_objects(run_id)``)
-    and bucketed in Python. Pre- the route returned a hand-waved
-    "clients fetch on demand" placeholder, but no separate endpoint was
-    ever wired up, so the Lineage tab block cards rendered "0 inputs /
-    0 outputs" for every block (a finding).
+    and grouped by block execution in Python.
 
     Each I/O entry has shape::
 

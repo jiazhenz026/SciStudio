@@ -308,29 +308,14 @@ def ui_event_target_arg(name: str) -> str | None:
 
 
 UI_EVENT_NAMES: frozenset[str] = frozenset(spec.name for spec in UI_EVENT_SPECS)
-"""The closed set of frontend events a ``ui_event`` condition may name.
+"""Frontend events accepted by a ``ui_event`` condition.
 
-Every member is the API's own motivating case: real product actions that leave
-No backend state behind, which is the entire reason that requirement exists.
-``run_selected`` is the newest and the clearest of the four after
-``node_selected``: History knows which runs exist, and the backend is never
-told which of them the reader is looking at. Its target is the selected run's
-*status* rather than its id, because run ids are minted at run time and a
-manifest cannot name one — while what a step actually wants to wait for is
-"they picked a run that succeeded", which the status says exactly.
-Selecting a node is the clearest of the three — the backend is told which
-*workflow* is being edited and never which node is selected, so "the reader
-clicked the block" is knowable nowhere else. Everything else a tutorial waits on
-is a backend fact and belongs to one of the other fifteen terms.
+These events record interface actions that leave no backend state, such as
+selecting a node or opening a tab. ``run_selected`` uses the selected run's
+status as its target, since a manifest cannot predict a generated run id.
 
-The set is closed for the reason the contract gives about terms. A free-form event
-name is a typo that fails the *user* on step nine — the step simply never
-advances, and nothing tells anyone why — instead of failing the author at
-validation. So an unlisted name is rejected while the tutorial is being listed.
-
-It grows by core change, not by a manifest author inventing a name: a new
-member is only meaningful once the frontend reports it, so adding one requires
-a matching frontend change in the same breath.
+Unknown event names are rejected during manifest validation. Adding an event
+also requires the frontend to report it.
 """
 # Development references: #2135, FR-049, FR-052.
 
@@ -1167,20 +1152,14 @@ this package may not import — are not keyed here; see
 
 @dataclass(frozen=True)
 class ExternalEventNames:
-    """The two event names that live under ``scistudio.api``.
+    """API event names supplied when wiring tutorial subscriptions.
 
-    ``engine/events.py`` is frozen by the /036 hard-scope rules, so
-    ``BLOCKS_RELOADED`` and ``FILE_CHANGED_EVENT_TYPE`` were declared at the
-    API and watcher layer instead. This package may not import that layer, and
-    The contract forbids subscribing by string literal, so the API layer constructs
-    this object from *its* constants and hands it in when it wires the
-    subscription:
+    The API layer constructs this object from its event constants and passes it
+    to the tutorial runtime, keeping subscriptions consistent without importing
+    the API layer here::
 
         ExternalEventNames(blocks_reloaded=BLOCKS_RELOADED,
                            file_changed=FILE_CHANGED_EVENT_TYPE)
-
-    The result is that neither event name appears as a literal anywhere inside
-    :mod:`scistudio.tutorials`, which a test asserts.
     """
 
     # Development references: ADR-035, FR-050.

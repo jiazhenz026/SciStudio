@@ -416,7 +416,7 @@ class _RecordedSignals:
     The other thirteen terms read something that exists anyway — a registry, the
     workflow file, the lineage database, git. These three do not, each for its
     own reason, and all three are still *backend* state by the time a condition
-    reads them, which is what the contract requires:
+    reads them:
 
     * ``ui_event`` is the one signal that originates in the frontend.
       It exists precisely because enlarging a preview or opening a tab leaves no

@@ -999,7 +999,7 @@ def perform_step_entry(
 
     ``defer`` is passed to :func:`execute_actions` for a replay to collect its
     bound actions into. Whatever lands there has not run and has not settled,
-    so a caller that defers owns running it — and settling it — later.
+    so a caller that defers must run and settle it when playback completes.
 
     ``run`` is the port a ``run`` action reaches. It is called after the settle
     and never before, so a workflow started here sees every file this step

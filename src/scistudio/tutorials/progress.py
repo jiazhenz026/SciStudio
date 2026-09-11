@@ -133,22 +133,12 @@ def _config_value(name: str, root: Path | None = None) -> Any:
 def work_import_milestone(root: Path | None = None) -> str | None:
     """Return the core tutorial id whose completion offers work import.
 
-    Resolved from three sources, first hit winning:
-    :data:`WORK_IMPORT_MILESTONE_ENV_VAR`, then ``work_import_milestone`` in
-    ``~/.scistudio/`` :data:`CONFIG_FILENAME`, then
-    :data:`DEFAULT_WORK_IMPORT_MILESTONE`. The contract requires the trigger to be
-    configuration rather than a constant, and spec assumption A-005 gives the
-    reason: the scenarios spec decides which tutorial this is and may revise that
-    choice, so it must be changeable without touching the unlock's logic.
+    Resolve the first configured value from :data:`WORK_IMPORT_MILESTONE_ENV_VAR`,
+    then ``work_import_milestone`` in ``~/.scistudio/`` :data:`CONFIG_FILENAME`,
+    then :data:`DEFAULT_WORK_IMPORT_MILESTONE`.
 
-    A **core tutorial id** rather than a full :class:`TutorialKey`, because
-    restricts product behavior to the core group. Making the milestone
-    structurally incapable of naming a package tutorial is stronger than
-    checking that it does not.
-
-    ``None`` means no milestone is configured, and the offer is then never
-    volunteered — the toolbar entry remains available regardless, so an
-    unconfigured milestone withholds a prompt rather than a capability.
+    The id names a core tutorial. ``None`` disables the completion prompt;
+    the toolbar entry remains available regardless of this setting.
     """
     # Development references: FR-079, FR-080, FR-081.
     from_env = os.environ.get(WORK_IMPORT_MILESTONE_ENV_VAR, "").strip()

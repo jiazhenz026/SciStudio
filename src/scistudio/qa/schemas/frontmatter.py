@@ -70,7 +70,7 @@ class GovernedSurfaces(BaseModel):
 
 
 class ADRFrontmatter(BaseModel):
-    """ADR frontmatter contract ."""
+    """Architecture decision record frontmatter schema."""
 
     # Development references: ADR-042.
 
@@ -129,7 +129,7 @@ class ADRFrontmatter(BaseModel):
 
 
 class ADRAddendumFrontmatter(ADRFrontmatter):
-    """Standalone ADR addendum frontmatter contract ."""
+    """Standalone architecture addendum frontmatter schema."""
 
     # Development references: ADR-042, Addendum 1.
 

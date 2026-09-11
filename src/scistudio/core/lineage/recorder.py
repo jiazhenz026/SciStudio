@@ -466,27 +466,12 @@ def _object_id_from_wire(wire: Any) -> str | None:
 
 
 def _extract_type_name(wire_dict: dict[str, Any]) -> str:
-    """Extract the leaf type name from a wire-format payload.
+    """Extract the concrete output type name from a wire-format payload.
 
-    ``type_chain`` is ordered from most general to most specific
-    (see ``scistudio.core.types.base.TypeIdentity``); the leaf — the
-    concrete output type that lineage queries / methods exports
-    expect — is the LAST element, not the first. Codex P1 reconcile
-    on.
-
-    handle Collection wire-wrappers. When a block emits
-    ``Collection[T]`` the serialised wire-dict has shape
-    ``{"kind": "collection", "item_type": "T", "items": [<T-wire-dict>, ...]}``
-    and the root-level ``metadata`` is absent — the per-item type info
-    lives at ``items[i].metadata.type_chain``. Pre- the helper
-    only inspected the root, so every Collection output landed in
-    ``data_objects.type_name`` as the literal ``"DataObject"`` fallback,
-    which surfaced in the Lineage tab Methods MD as
-    ``Type | DataObject`` instead of ``Image`` / ``Mask`` / etc. (a finding).
-
-    The fix probes the Collection wrapper FIRST so the homogeneous
-    Collection invariant is captured by a single
-    type-name read.
+    ``type_chain`` is ordered from general to specific, so its last element is
+    the leaf type. For a ``Collection[T]`` wrapper, inspect the per-item metadata
+    before the root metadata: collection roots do not carry ``type_chain``.
+    Fall back to ``DataObject`` when no type metadata is available.
     """
     # Development references: #979, #995, ADR-038.
     # Hotfix #995: Collection wrapper short-circuit.

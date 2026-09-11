@@ -65,7 +65,8 @@ attributes in constructors and additional consecutive documentation strings.
 The check rejects the internal identifier families listed above, numbered
 development phases and tasks, agent dispatch identifiers, internal document
 paths, and explicit development notes such as `TODO`, `FIXME`, implementation
-plans, and dispatch prompts. Each error names the file, source line, and owner.
+plans, dispatch prompts, owner decisions, and numbered review findings. Each
+error names the file, source line, and owner.
 Unreadable or invalid Python source also fails the check. Ordinary comments
 and executable string values are outside its scope; move maintainer references
 into `#` comments while preserving the behavior in the docstring.

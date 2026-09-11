@@ -784,28 +784,13 @@ def provider_keys() -> tuple[str, ...]:
 
 
 def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
-    """Why a SciStudio-started session cannot use *descriptor*, or ``None``.
+    """Return why a managed session cannot use this provider, or ``None``.
 
-    The single place this question is answered. Every SciStudio-started session
-    an AI Block run, a Bring In My Work session — hands its agent an opening
-    instruction as a positional command-line argument, because four of the five
-    registry agents have no per-session prompt channel at all. A CLI that parses
-    its first positional as a *subcommand* cannot be reached that way, and
-    :attr:`ProviderDescriptor.prompt_argv_prefix` records exactly that, with
-    :attr:`ProviderDescriptor.prompt_unsupported_reason` explaining it in the
-    user's terms.
-
-    Consumers ask here rather than reading ``prompt_argv_prefix`` themselves so
-    the meaning of that field is interpreted once. It sits in the registry
-    beside the field it interprets, and not in ``availability`` where it began,
-    because the contract gave it a second consumer in the block layer:
-    ``AIBlock.config_schema`` derives its ``provider`` enum from it, and
-    ``blocks`` may reach into ``scistudio.ai`` only through the one carved-out
-    lazy edge to this module (see the import-linter contracts in
-    ``pyproject.toml``). ``availability`` probes auth by running subprocesses;
-    a question that reads three descriptor fields and calls nothing should not
-    drag that into the block layer. ``availability`` re-exports it, so its own
-    callers and the API layer are unaffected.
+    Managed sessions deliver an opening instruction as a positional command-line
+    argument. A CLI that expects a subcommand in that position cannot receive it.
+    Read :attr:`ProviderDescriptor.prompt_argv_prefix` and
+    :attr:`ProviderDescriptor.prompt_unsupported_reason` to report this limitation
+    consistently for agent availability and AI Block provider choices.
     """
     # Development references: #2014.
     if descriptor.prompt_argv_prefix is not None:
@@ -876,8 +861,7 @@ def resolve_executable(
     to a sibling provider's binary: it simply removes that candidate.
 
     The well-known-directory scan runs on every platform, not just Windows:
-    Kimi Code and Qoder are off PATH everywhere, and the contract requires the chat
-    path and the AI Block path to agree on the result on every OS.
+    the chat path and the AI Block path use the same result on every OS.
     """
     # Development references: FR-005, FR-027.
     resolver = shutil.which if which is None else which

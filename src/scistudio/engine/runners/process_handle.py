@@ -113,8 +113,8 @@ class ProcessHandle:
         """True while terminating this handle can still reach a process the engine started.
 
         The default is the PID-identity check on the root process. A
-        handle that owns more than its root — an managed command's Job
-        Object or process group, whose background processes outlive the shell —
+        handle that owns more than its root — a managed command with a Job
+        Object or process group whose background processes outlive the shell —
         overrides it so shutdown's ``terminate_all`` still reaches them.
         """
         # Development references: #1542, ADR-055.

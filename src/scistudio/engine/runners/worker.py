@@ -99,13 +99,9 @@ def _emit_envelope(payload: dict[str, Any]) -> None:
 def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
     """Prepend block-local import roots after worker core startup.
 
-    the drop-in type tiers among these roots go on
-    ``sys.path`` permanently for the life of this process, so the collision
-    guard has to run here as well as during the palette scan. Without it a
-    block importing a name a ``{project}/types/<name>.py`` also claims gets
-    the installed module in the API process and the type file here — the
-    scan-time-versus-run-time divergence exists to eliminate, and the
-    one the contract says the rejection closes.
+    Drop-in type directories remain on ``sys.path`` for this worker's lifetime.
+    Reject name collisions before adding them so the API process and worker
+    resolve a module name to the same source.
     """
     # Development references: ADR-053, FR-013, FR-016.
     if not isinstance(raw_roots, list):
@@ -192,14 +188,14 @@ def _emit_storage_error(
 def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     """Reconstruct typed DataObject inputs from the JSON wire payload.
 
-    returns typed :class:`DataObject`
+    Returns typed :class:`DataObject`
     instances (e.g. a :class:`~scistudio.core.types.array.Array` or a
     plugin subclass like ``FluorImage``). Lazy loading is preserved
     at the method level: returned instances have ``storage_ref`` set
     but do not read payload data until ``to_memory()`` / ``sel()`` /
-    ``iter_over()`` is called (: ViewProxy eliminated).
+    ``iter_over()`` is called.
 
-    Three dispatch cases (per the ADR pseudocode):
+    Three payload cases:
 
     1. ``{"_collection": True, "items": [...], "item_type": "..."}``
        reconstruct each item via :func:`_reconstruct_one`, then wrap

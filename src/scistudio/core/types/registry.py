@@ -571,30 +571,13 @@ class TypeRegistry:
     # -- entry-point / built-in scanning ------------------------------------
 
     def scan_builtins(self) -> None:
-        """Register all built-in DataObject subclasses shipped with SciStudio.
+        """Register SciStudio's built-in DataObject subclasses.
 
-        the domain subtypes no longer live in core:
+        Domain types such as ``Image``, ``Spectrum``, and ``AnnData`` are registered
+        through the ``scistudio.types`` entry point of their installed plugins.
 
-        The contract removed the Array family (``Image``, ``FluorImage``,
-          ``MSImage``, ``SRSImage``) to ``scistudio-blocks-imaging``.
-        The contract removed the remaining Series/DataFrame/Composite
-          families (``Spectrum``, ``RamanSpectrum``, ``MassSpectrum``,
-          ``PeakTable``, ``MetabPeakTable``, ``AnnData``,
-          ``SpatialData``) to ``scistudio-blocks-spectral``,
-          ``scistudio-blocks-singlecell``, and
-          ``scistudio-blocks-spatial-omics`` respectively.
-
-        The registry therefore no longer auto-registers any of them.
-        They are re-registered via the ``scistudio.types`` entry-point
-        mechanism when the plugin is installed (see
-        :meth:`_scan_entrypoint_types`).
-
-        each built-in also passes through
-        :meth:`_validate_meta_class` so a future refactor that adds a
-        broken ``Meta`` ClassVar to a core type fails loudly here instead
-        of silently at worker-subprocess serialisation time. All six core
-        base classes ship with ``Meta = None`` today, so they
-        short-circuit without cost.
+        Validate each built-in's ``Meta`` declaration through
+        :meth:`_validate_meta_class` before it is used for serialization.
         """
         # Development references: ADR-027, Addendum 1.
         from scistudio.core.types.array import Array

@@ -162,8 +162,7 @@ def _enforce_final_commit_message(
     """Validate the FINAL commit's Conventional Commits subject.
 
     The commitizen commit-msg hook is removed; PR-gating modes validate the
-    final commit instead (owner decision: only the final commit, not the whole
-    branch range).
+    final commit instead of every commit in the branch range.
     """
     # Development references: #2150.
 

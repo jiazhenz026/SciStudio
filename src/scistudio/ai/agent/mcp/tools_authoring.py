@@ -456,25 +456,12 @@ async def scaffold_block(
 async def reload_blocks() -> ReloadBlocksResult:
     """Hot-reload the block and data-type registries.
 
-    Use when:
-      You've edited a block source file (existing or scaffolded) and
-        want the new code picked up without restarting the backend.
-      You've edited or added a drop-in data type under
-        ``{project}/types`` or the user library and want it resolvable.
+    Use after editing or adding a custom block or drop-in data type to make it
+    available without restarting the backend. Newly installed entry-point blocks
+    require a backend restart.
 
-    Do NOT use to:
-      Discover new entry-point blocks — pip installs require a
-        backend restart; this only rescans the in-process registry.
-
-    an agent block edit is an event that invalidates the
-    registry, and until the contract gave the agent a populated type registry there
-    was nothing on the type side for it to invalidate. What the event rebuilds
-    is defined once, in :mod:`scistudio.ai.agent.mcp._reload`, and shared with
-    ``promote_to_user_library``.
-
-    the broadcast keeps connected GUI clients' palette and schemas current
-    right after the agent edits and reloads a custom block, instead of the user
-    having to hit palette reload.
+    Rebuild through :mod:`scistudio.ai.agent.mcp._reload` and broadcast the update
+    so connected clients refresh their palettes and schemas.
     """
     # Development references: #9, ADR-053, FR-059, FR-062.
     ctx = get_context()

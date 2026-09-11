@@ -38,11 +38,10 @@ def _persist_output_metadata(
 ) -> None:
     """Persist DataObject identity rows to the unified ``data_objects`` table.
 
-    replaces the legacy
-    ``metadata.db`` write path. Writes go to the active
+    Writes go to the active
     :class:`~scistudio.core.lineage.LineageStore`.
 
-    **Recorder-aware split (Codex P1):** when a
+    When a
     :class:`LineageRecorder` is bound to this scheduler, the recorder
     owns the authoritative write of every ``data_objects`` row from
     its ``BLOCK_DONE`` handler. The recorder stamps the
@@ -50,8 +49,7 @@ def _persist_output_metadata(
     ``block_execution_id`` it writes to ``block_executions``. Letting
     the scheduler also pre-write would call ``upsert_data_object()``
     (which uses ``INSERT OR IGNORE``), permanently fixing the row's
-    ``produced_by_execution`` to ``NULL`` and breaking the lineage query invariant
-    Q4b join. So when a recorder is present this method is a no-op —
+    ``produced_by_execution`` to ``NULL`` and breaking the join between outputs and their producing executions. So when a recorder is present this method is a no-op —
     the recorder's pass writes the row with the correct producer.
 
     When the scheduler is constructed *without* a recorder (CLI /

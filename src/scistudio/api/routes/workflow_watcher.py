@@ -709,7 +709,7 @@ class WorkflowWatcher:
     #     3. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
     # Silently skipped when the project is not a git
     #        repo yet (no ``.git`` directory) — D39-2.2a/b's auto-init will
-    #        create it later.
+    #        create it on the first save.
     # Development references: ADR-034, ADR-039, ADR-045.
 
     def __init__(self, event_bus: EventBus) -> None:

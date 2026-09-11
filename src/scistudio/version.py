@@ -80,7 +80,7 @@ def repo_root() -> Path | None:
 def counter_path() -> Path | None:
     """Return the local build-counter file path, or ``None`` outside a source tree.
 
-    Codex P2: never fall back to the launch CWD. An installed/bundled app has no
+    Never fall back to the launch CWD. An installed/bundled app has no
     ancestor ``pyproject.toml``, and reading a stray ``.build-counter.json`` from
     the user's working directory would report an unrelated build number. Installed
     builds derive the build from packaged metadata instead (see

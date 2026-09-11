@@ -119,14 +119,6 @@ class FrameworkMeta(BaseModel):
         identity / provenance fields (``object_id``, ``derived_from``,
         ``created_at``, ``source``) are preserved verbatim on the copy.
 
-        introduces this helper. The corresponding scheduler
-        wiring that calls it end-to-end is tracked separately because it
-        requires aligning the ``LineageRecorder.block_execution_id``
-        allocation site with the recorder (today the recorder allocates the
-        id at terminal-event time; per the ADR the scheduler should
-        allocate it pre-dispatch and propagate). See escalation
-        comment for the cross-phase boundary.
-
         Args:
             lineage_id: The ``block_execution_id`` to stamp.
 

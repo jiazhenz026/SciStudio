@@ -15,7 +15,7 @@ _LOCK_TIMEOUT_SECONDS: float = 10.0
 # Development references: ADR-033.
 
 _MAX_PREVIEW_BYTES: int = 8 * 1024 * 1024
-"""8 MiB hard cap (the implementation audit)."""
+"""Maximum preview payload size: 8 MiB."""
 
 _THUMBNAIL_MAX_DIM: int = 256
 _DATAFRAME_PREVIEW_ROWS: int = 100

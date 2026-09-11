@@ -60,12 +60,12 @@ _HASH_CHUNK_BYTES = 1024 * 1024
 def hash_artifact_file(storage_path: str | None) -> str | None:
     """Return an xxhash digest of a regular artifact file, or ``None``.
 
-    A content digest lets lineage checks detect when a later run overwrites the
-    same storage path. Hashing is best effort: an empty path, missing file,
-    directory, or read failure returns ``None`` without breaking a workflow.
+    A content digest lets lineage checks detect when a subsequent run overwrites the
+        same storage path. Hashing is best effort: an empty path, missing file,
+        directory, or read failure returns ``None`` without breaking a workflow.
 
-    Directory-backed artifacts such as zarr stores are not hashed here.
-    :func:`artifact_size_bytes` still measures their size for retention accounting.
+        Directory-backed artifacts such as zarr stores are not hashed here.
+        :func:`artifact_size_bytes` still measures their size for retention accounting.
     """
     # Maintainer context (kept outside generated API documentation):
     # Return an xxhash digest of the file at *storage_path*, or ``None``.
@@ -78,7 +78,7 @@ def hash_artifact_file(storage_path: str | None) -> str | None:
     #     not a regular file (e.g. a directory-backed zarr store, or a path that
     #     does not exist), or cannot be read — lineage hashing is best-effort and
     #     must never break a workflow. Directory-backed backends are intentionally
-    #     not walked here; their integrity check is deferred (see TODO below).
+    #     not walked here; directory integrity work is tracked under #1984.
     #     :func:`artifact_size_bytes` *does* handle directories, so #1983's retention
     #     accounting works for zarr stores even while their digest stays ``None``.
     #
@@ -1117,12 +1117,11 @@ class LineageStore:
     def artifact_paths_produced_by(self, run_ids: Iterable[str]) -> set[str]:
         """Return the storage paths of artifacts produced by the given runs.
 
-        (owner directive): liveness is "produced by the retained run",
+        Artifact liveness is "produced by the retained run",
         deliberately **not** "referenced by" it. A partial re-run
         (``runs.execute_from_block_id``) therefore does not extend protection
         to the upstream artifacts it consumed from an earlier run; those are
-        reclaimed and the workflow must be re-run end to end. The owner chose
-        this rule for its simplicity over inherited-input protection.
+        reclaimed and the workflow must be re-run end to end. Consumed inputs do not inherit protection from the retained run.
 
         Args:
             run_ids: The retained run ids.

@@ -23,11 +23,15 @@ INTERNAL_MARKERS = re.compile(
     r"(?:[-_\u2010-\u2014]|\s)+\d+[a-z0-9_-]*"
     r"|\bAddendum\s+\d+"
     r"|(?<![\w/])#\d+\b"
-    r"|\b(?:TODO|FIXME|XXX)\b"
+    r"|\b(?:TODO|FIXME|XXX)\b"  # #2330: development-note spellings rejected in documentation.
     r"|\b(?:dispatch\s+prompt|skeleton\s+agent|implementation\s+plan|test\s+plan)\b"
     r"|\b(?:ADR|spec|checklist)\s+§\s*\d+(?:\.\d+)*"
     r"|\b(?:[IS]\d{2}[a-z]|D\d{2}-\d+(?:\.\d+)*[a-z]?|T-\d{3})\b"
     r"|\b(?:Phase|Task)\s+\d+[a-z]?(?:\.\d+)*\b"
+    r"|\b(?:owner\s+(?:directive|decision)|in\s+the\s+future|future\s+work|fine\s+for\s+v1)\b"
+    r"|\baudit\s+(?:AU\d+\s+)?P[0-3]-\d+\b"
+    r"|\b(?:Codex\s+P[0-3]|User\s+Story\s+\d+|spec\s+assumption\s+[A-Z]-\d+)\b"
+    r"|\b(?:implementation\s+audit|hard-scope\s+rules|manager\s+ruled)\b"
     r"|\bdocs/(?:adr|specs|planning|ai-developer)/[^\s`<>]+",
     re.IGNORECASE,
 )

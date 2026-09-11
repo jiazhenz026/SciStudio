@@ -40,7 +40,7 @@ def check(inputs: GuardInputs) -> AuditReport:
     """Hard-fail an unapproved architecture-document change in CI.
 
     ``admin-approved:bypass`` and ``human-authored`` release this guard exactly
-    as they release the others (owner decision). The evaluator applies
+    as they release the others . The evaluator applies
     them; this guard does not re-implement a bypass vocabulary.
     """
     # Development references: #2054.

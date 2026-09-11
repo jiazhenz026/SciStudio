@@ -354,23 +354,14 @@ def start_workflow(
     parent_run_id: str | None = None,
     overwrite_node_ids: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Schedule a workflow run.
+    """Schedule a workflow run and capture its provenance.
 
-    (P2): ``parent_run_id``
-    stamps the new run's ``runs.parent_run_id`` column, pointing at the
-    historical run whose outputs this run builds on.
+    ``parent_run_id`` links the new run to a historical run whose outputs it
+    builds on. It is ``None`` when no parent is supplied.
 
-    The contract removed the ``/api/runs/{run_id}/rerun``
-    endpoint, which was this parameter's only caller. The parameter and the
-    column stay: historical rows still carry a parent and the UI still renders
-    the link, and "Run from here" remains free to pass it. New runs
-    started through the current surfaces leave it ``None``.
-
-    integration: also drives the pre-run
-    auto-commit path. The captured SHA + the post-commit dirty
-    flag are threaded into :func:`_build_lineage_recorder` so the
-    ``runs`` row carries ``workflow_git_commit`` /
-    ``workflow_dirty`` at INSERT time.
+    Perform the pre-run auto-commit and pass the captured SHA and dirty flag to
+    :func:`_build_lineage_recorder`, which records ``workflow_git_commit`` and
+    ``workflow_dirty`` on the run.
     """
     # Maintainer context:
     # D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id``

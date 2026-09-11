@@ -127,7 +127,7 @@ async def inspect_data(
     Do NOT use to:
       - Read the payload — use ``preview_data``.
 
-    Honours the the implementation audit 8 MiB read-cap — this tool ONLY reads
+    Honours the 8 MiB read cap — this tool ONLY reads
     metadata, never the payload.
     """
     sref = _ref_from_dict(ref)
