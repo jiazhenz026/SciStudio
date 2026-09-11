@@ -97,6 +97,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T03:59:58.355783Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3eb8200d1a120964a4e5d8db7e52a5ddb8eae9f71edc9d6f057dd6abe14048f3",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T04:00:09.632133Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ecbae389a53e69be164d25b9d452c0fe7a4f0e90f394d75405c0479dd777e03d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -596,6 +628,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.685173Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.697099Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.708652Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.721504Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.733410Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.745157Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.757138Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.768808Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.780840Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.792397Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T04:00:09.806767Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -609,15 +707,15 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "f87c6ad40",
+    "base_sha": "ca54fe775",
     "changed_files": [
       ".workflow/records/2282-track-adr-055-spec2-3.json",
       "docs/planning/adr-055-spec2-3-checklist.md",
       "docs/planning/adr-055-spec2-3-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:de40b10eee7f53dcf91278bcf3fef0ade1765e723eaba261e9df979d392af601",
+    "diff_fingerprint": "sha256:afab03c49c32eeca822c4534d0351d0682f2805f9d2aaaaabd37a730ae2ded3b",
     "head": "HEAD",
-    "head_sha": "b9ebcfefb",
+    "head_sha": "1d0313726",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -697,6 +795,14 @@
     {
       "at": "2026-09-11T03:05:26.177925Z",
       "diff_fingerprint": "sha256:de40b10eee7f53dcf91278bcf3fef0ade1765e723eaba261e9df979d392af601",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T04:00:09.806800Z",
+      "diff_fingerprint": "sha256:afab03c49c32eeca822c4534d0351d0682f2805f9d2aaaaabd37a730ae2ded3b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
