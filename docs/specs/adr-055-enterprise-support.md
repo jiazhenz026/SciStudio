@@ -21,7 +21,7 @@ scope:
   in:
     - "The contract the open-source edition offers the enterprise package: a replaceable guard, a startup/background hook, a self-authenticating path registry, a capability declaration, a reusable guard contract suite, and ADR-052 provisional status for all of them. The detailed contract belongs to the identity-seam spec delivered by issue #2304; this spec records what it must cover and how the other changes here use it."
     - "Capability-gated enterprise UI in the open-source frontend: signed-in user and logout, laptop-to-server upload and download, an update-available notice, and hiding the in-app AI chat."
-    - "Backend refusal of AI-agent PTY sessions when the `ai_chat` capability is off, so the API matches the UI. The plain in-app terminal (`user-terminal`) is never gated."
+    - "Backend refusal of AI-agent PTY sessions when the `ai_chat_disabled` capability is set, so the API matches the UI. The plain in-app terminal (`user-terminal`) is never gated."
     - "A local stdio MCP adapter over the existing WebMCP HTTP bridge for AI apps that support local MCP servers but not WebMCP (issue #2308), including its local and server credentials."
     - "A per-user loopback token file so the adapter can authenticate to a local backend without the page."
     - "Publishing the open-source wheel to PyPI and GitHub Releases for every OTA build (issue #2307) so servers can install it."
@@ -97,7 +97,7 @@ Every item below is **planned**; none is implemented by this document.
 |---|---|---|
 | Identity seam: replaceable guard, startup/background hook, self-authenticating path registry, capability declaration, contract suite | The enterprise guard and background work attach to the backend without patching it | #2304 (in progress; it also carries the ADR-055 amendment and the detailed seam spec) |
 | Capability-gated enterprise UI | Signed-in user, logout, upload/download, and the update notice appear only on an enterprise backend | a UI issue opened from this spec |
-| `ai_chat` gating, UI and backend | The in-app AI chat is off by default on a lab server; the terminal stays | this spec, implemented with the UI work |
+| `ai_chat_disabled` gating, UI and backend | The in-app AI chat is off by default on a lab server; the terminal stays | this spec, implemented with the UI work |
 | Stdio MCP adapter over `/api/webmcp/*` | AI apps without WebMCP, such as Claude, reach SciStudio locally and on a lab server | #2308 |
 | Local loopback token file | The adapter authenticates to a local backend without the page | #2308 |
 | PyPI and GitHub Releases for every OTA build | Servers install `scistudio` with pip, and the enterprise package declares a compatible range | #2307 (in progress) |
@@ -123,7 +123,7 @@ here breaks every current user.
 **Independent Test**: Run the existing API, frontend and desktop suites with no
 replacement guard, no hook and no capabilities passed, and assert unchanged
 routes, headers, bootstrap output and UI. Snapshot the default capability
-declaration and assert every enterprise capability is off and `ai_chat` is on.
+declaration and assert that no capability is declared: every enterprise control is hidden and the AI chat is available.
 
 **Acceptance Scenarios**:
 
@@ -235,7 +235,7 @@ credential.
 ### User Story 6 - The in-app AI chat is off on a lab server unless the admin enables it; the terminal stays (Priority: P6)
 
 On an enterprise backend the AI Chat surface is hidden and the backend refuses
-to start AI-agent sessions, unless the administrator turned `ai_chat` on. The
+to start AI-agent sessions, unless the administrator enabled the AI chat, which omits `ai_chat_disabled`. The
 in-app Terminal is unaffected. On the server it opens a shell as the user's
 own Unix account, like JupyterLab's terminal.
 
@@ -251,19 +251,19 @@ privilege, because workflow blocks already run arbitrary code as that user.
 
 **Independent Test**:
 
-- With `ai_chat` off, assert that the bottom panel has no AI Chat surface and
+- With `ai_chat_disabled` set, assert that the bottom panel has no AI Chat surface and
   that spawning any agent-kind provider through `/api/ai` is refused with a
   clear error.
-- With `ai_chat` off, assert that a `user-terminal` session still starts.
-- With `ai_chat` on, assert today's behavior.
+- With `ai_chat_disabled` set, assert that a `user-terminal` session still starts.
+- With `ai_chat_disabled` absent, assert today's behavior.
 
 **Acceptance Scenarios**:
 
-1. **Given** `ai_chat` off, **When** a client requests an agent-kind provider
+1. **Given** `ai_chat_disabled` set, **When** a client requests an agent-kind provider
    session directly, **Then** it is refused and no process is spawned.
-2. **Given** `ai_chat` off, **When** the user opens the Terminal, **Then** a
+2. **Given** `ai_chat_disabled` set, **When** the user opens the Terminal, **Then** a
    shell starts as today.
-3. **Given** `ai_chat` on, **When** the user opens the AI chat, **Then** it
+3. **Given** `ai_chat_disabled` absent, **When** the user opens the AI chat, **Then** it
    works as it does today.
 
 ### User Story 7 - A lab user chooses when to restart into a new version (Priority: P7)
@@ -337,10 +337,10 @@ prefixed, guarded backend, and are refused after the context closes.
   naming the base URL. It never prints the credential.
 - The loopback token file is missing, stale, or not readable only by the
   current user: the adapter refuses to use it and says why.
-- `ai_chat` toggles while a session is open: the next session creation follows
+- `ai_chat_disabled` toggles while a session is open: the next session creation follows
   the new value, and an open session is not killed by the UI.
 - A tutorial replay tab adopted under the `user-terminal` provider while
-  `ai_chat` is off: it is still a terminal-kind session and is not refused.
+  `ai_chat_disabled` is set: it is still a terminal-kind session and is not refused.
   The frontend files it by `source`, as it does today.
 - An update notice arrives while the user is typing in the editor: the notice
   never steals focus or restarts anything.
@@ -351,7 +351,7 @@ prefixed, guarded backend, and are refused after the context closes.
 
 - **FR-001**: With no enterprise arguments passed to `create_app`, the backend,
   bootstrap output, frontend and CLI MUST behave exactly as before this spec.
-  All enterprise capabilities default off and `ai_chat` defaults on.
+  No capability is declared by default and absence means off, so the enterprise controls stay hidden and the AI chat stays available.
 - **FR-002**: The identity seam MUST cover everything the enterprise package
   needs: a replaceable guard, a startup/background hook inside the lifespan, a
   self-authenticating path registry matched after root-path handling, a
@@ -359,7 +359,7 @@ prefixed, guarded backend, and are refused after the context closes.
   guard contract suite with a test-only fake guard. Its detailed contract is
   the identity-seam spec of issue #2304.
 - **FR-003**: The capability declaration MUST be a typed, versioned object with
-  at least `identity`, `transfer`, `ai_chat` and `update` (Key Entities). The
+  at least `identity`, `transfer`, `ai_chat_disabled` and `update` (Key Entities). The
   frontend MUST ignore unknown capabilities and treat a missing capability as
   off.
 - **FR-004**: When `identity` is present, the frontend MUST show the user name.
@@ -377,11 +377,11 @@ prefixed, guarded backend, and are refused after the context closes.
   also offer a download action that sends the browser to the capability's
   download URL template for the chosen file, resolved under the service
   prefix. The open-source edition MUST NOT implement the download endpoint.
-- **FR-006**: When `ai_chat` is off, the frontend MUST hide the AI Chat surface
+- **FR-006**: When `ai_chat_disabled` is set, the frontend MUST hide the AI Chat surface
   in `BottomPanel` and the backend MUST refuse, with a clear error and no
   spawned process, any `/api/ai` PTY session whose provider is agent-kind in
   the provider registry. Terminal-kind sessions (`user-terminal`) MUST NOT be
-  gated in any mode. When `ai_chat` is on, behavior MUST be unchanged. Specs
+  gated in any mode. When `ai_chat_disabled` is absent, behavior MUST be unchanged. Specs
   and docs MUST describe the gate as a default and an administrator policy,
   not as a security boundary.
 - **FR-007**: When `update` is present, the frontend MUST show a non-blocking
@@ -433,7 +433,7 @@ prefixed, guarded backend, and are refused after the context closes.
   - `version` (integer).
   - `identity`: `{user, logout_url?}` or absent.
   - `transfer`: `{inline_max_bytes, download_url_template}` or absent.
-  - `ai_chat`: boolean, default true. It gates agent-kind providers only,
+  - `ai_chat_disabled`: boolean, absent means false. When true it gates agent-kind providers only,
     never the terminal.
   - `update`: `{running_version, installed_version, runs_active, restart_url}`
     or absent.
@@ -453,13 +453,13 @@ prefixed, guarded backend, and are refused after the context closes.
 
 The work splits along the issues in the Change Summary.
 
-- **Seam (#2304).** The seam lands first, because the UI, the `ai_chat`
+- **Seam (#2304).** The seam lands first, because the UI, the `ai_chat_disabled`
   gating and the adapter's guarded mode all consume it.
 - **Capability-gated UI.** One small `frontend/src/components/Enterprise/`
   area holds the identity chrome, the transfer controls and the update notice.
-  `BottomPanel` consults `ai_chat`. Everything reads the capability accessor
+  `BottomPanel` consults `ai_chat_disabled`. Everything reads the capability accessor
   that #2304 adds, and nothing renders when a capability is absent.
-- **Agent-session refusal.** The `ai_chat` backend check sits in the
+- **Agent-session refusal.** The `ai_chat_disabled` backend check sits in the
   provider dispatch of `scistudio.api.routes.ai_pty`. It keys on the
   registry's provider kind, so agent providers are refused and
   `user-terminal` passes, and the UI hides only the AI Chat surface.
@@ -482,11 +482,11 @@ handling — stays in the private repository.
 | `src/scistudio/api/app.py` | modify | Seam parameters (#2304); loopback token file on the default guard (FR-010) |
 | `src/scistudio/api/spa.py` | modify | Capability delivery at boot, if the seam spec chooses bootstrap injection |
 | `src/scistudio/api/routes/webmcp.py` | modify | Guard generalization (#2304); the bridge routes the adapter calls |
-| `src/scistudio/api/routes/ai_pty/_state.py`, `websocket.py` | modify | `ai_chat` refusal of agent-kind providers only (FR-006) |
+| `src/scistudio/api/routes/ai_pty/_state.py`, `websocket.py` | modify | `ai_chat_disabled` refusal of agent-kind providers only (FR-006) |
 | `src/scistudio/cli/main.py` | modify | Register the adapter subcommand |
 | `src/scistudio/cli/webmcp_adapter.py` | create | Stdio MCP adapter (FR-008 to FR-011) |
 | `frontend/src/components/Enterprise/**` | create | Identity chrome, transfer controls, update notice |
-| `frontend/src/components/BottomPanel.tsx` | modify | Hide the AI chat tab when `ai_chat` is off |
+| `frontend/src/components/BottomPanel.tsx` | modify | Hide the AI chat tab when `ai_chat_disabled` is set |
 | `frontend/src/lib/api/data.ts` | modify | Upload progress and cancel hooks for the transfer picker |
 | `README.md` | modify | Server install via pip (#2307) |
 | `docs/specs/adr-055-lab-deployment.md` | delete | After #2292 merges (#2303) |
@@ -497,7 +497,7 @@ handling — stays in the private repository.
 | Task | Title | Story | Issue | Depends on | Verification |
 |---|---|---|---|---|---|
 | T-001 | Identity seam, fake guard, contract suite, provisional API | US1, US2 | #2304 | — | seam suite; default-unchanged regression |
-| T-002 | Capability-gated identity chrome, update notice, and `ai_chat` UI plus backend refusal | US3, US6, US7 | new UI issue | T-001 | `EnterpriseChrome.test.tsx`, `test_ai_pty_capability.py` |
+| T-002 | Capability-gated identity chrome, update notice, and `ai_chat_disabled` UI plus backend refusal | US3, US6, US7 | new UI issue | T-001 | `EnterpriseChrome.test.tsx`, `test_ai_pty_capability.py` |
 | T-003 | Transfer controls (upload picker, progress, download action) | US4 | new UI issue | T-001; the enterprise transfer contract | frontend transfer tests |
 | T-004 | Stdio MCP adapter and loopback token file | US5 | #2308 | T-001 for guarded mode | `test_webmcp_adapter.py` |
 | T-005 | PyPI and GitHub Releases publishing | US8 | #2307 | — | #2307 workflow checks |
@@ -511,7 +511,7 @@ handling — stays in the private repository.
 - The #2304 contract suite against the fake guard, including root-path
   variants (US2, US9).
 - Frontend tests for each capability present and absent (US3, US4, US6, US7).
-- Backend tests that, with `ai_chat` off, agent providers spawn no process
+- Backend tests that, with `ai_chat_disabled` set, agent providers spawn no process
   and `user-terminal` still spawns.
 - Adapter tests: catalogue parity with the bridge, result-contract fixtures,
   stale-context handling, bearer credential, token-file permission refusal,
@@ -547,7 +547,7 @@ handling — stays in the private repository.
   guard.
 - **SC-003**: For each capability, tests cover both presence and absence,
   with zero enterprise controls rendered when absent.
-- **SC-004**: With `ai_chat` off, direct agent-provider session requests spawn
+- **SC-004**: With `ai_chat_disabled` set, direct agent-provider session requests spawn
   zero processes, while 100% of `user-terminal` session requests still start.
 - **SC-005**: An AI app using the adapter lists exactly the tools
   `GET /api/webmcp/tools` returns, with a successful round trip against a
