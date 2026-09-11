@@ -1,4 +1,5 @@
-"""Global opaque-origin refusal and startup CORS validation (ADR-054)."""
+"""Global opaque-origin refusal and startup CORS validation."""
+# Development references: ADR-054.
 
 from __future__ import annotations
 

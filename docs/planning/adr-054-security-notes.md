@@ -93,5 +93,20 @@ Real JupyterHub behavior is not claimed by the fake-guard contract.
   focused regression evidence, not a claim to the repository-wide coverage floor.
 - App/identity/root-path plus initial read/security tests: 210 tests passed.
 - Ruff check/format and `git diff --check`: passed on the changed Python files.
-- Gate-selected full checks and A1 installer/lifespan integration are pending;
-  final PR validation and CI belong to the manager's integrated candidate.
+- Initial full gate: 7812 Python tests passed, 6 failed, 82 skipped, 8 expected
+  failures; partial-run coverage was 87%. Three failures used module/test versions
+  loaded before edits finished; targeted reruns pass. Other failures were the
+  missing canonical panels package inventory, module-docstring maintainer text,
+  and a mypy Any return; all are corrected in the follow-up.
+- Full audit still requires manager-owned frontmatter migration from
+  planned_governs to governs for src/scistudio/panels/** in ADR-054 and both specs.
+- Manager approved adding only panels to the architecture placement inventory;
+  all unknown-package rejection assertions remain intact.
+- A1 installer/lifespan integration and final PR validation/CI belong to the
+  integrated candidate; this branch does not claim PR readiness.
+
+Second frozen gate run passed architecture, hygiene, deferral discipline, format,
+imports, lint, all Python test phases and mypy. Its only unsatisfied obligation is
+full_audit's three planned-governed-path migrations identified above. Later small
+cursor/extent fixes and the dependency integration receive targeted checks; final
+integrated gate/CI remains manager-owned.

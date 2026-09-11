@@ -980,7 +980,7 @@ class PreviewDataAccess:
             item_type=item_type,
             items=bounded,
             sampled=count > len(bounded),
-            next_cursor=next_collection_cursor(offset + len(bounded), len(items)),
+            next_cursor=(next_collection_cursor(offset + len(bounded), count) if count == len(items) else None),
         )
 
     # -- PNG helper (Internal, legacy-compat) -------------------------------

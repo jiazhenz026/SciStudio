@@ -1,4 +1,5 @@
-"""Storage-sliced numeric reads and their transport representation (ADR-054)."""
+"""Storage-sliced numeric reads and their transport representation."""
+# Development references: ADR-054.
 
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ class NumericRead:
     metadata: dict[str, Any]
 
     def to_bytes(self) -> bytes:
-        return self.values.tobytes(order="C")
+        return bytes(self.values.tobytes(order="C"))
 
     def to_json(self) -> dict[str, Any]:
         values = self.values.tolist()
@@ -104,7 +105,7 @@ def select_plane(access: Any, ref: Any, slice_index: int, axis_indices: dict[int
     return PlaneSelection(handle, shape, axes, selector, y, x, slice_axes)
 
 
-def _extent(selection: PlaneSelection, byte_budget: int) -> tuple[float | None, float | None]:
+def _extent(selection: PlaneSelection, byte_budget: int) -> tuple[int | float | None, int | float | None]:
     """Compute full-plane extrema in bounded tiles, including unsampled cells."""
     itemsize = max(8, np.dtype(selection.handle.dtype).itemsize)
     edge = max(1, min(256, math.isqrt(max(1, byte_budget // itemsize))))
@@ -114,7 +115,7 @@ def _extent(selection: PlaneSelection, byte_budget: int) -> tuple[float | None, 
             tile = selection.read(slice(y, y + edge), slice(x, x + edge))
             finite = tile[np.isfinite(tile)]
             if finite.size:
-                lo, hi = float(finite.min()), float(finite.max())
+                lo, hi = finite.min().item(), finite.max().item()
                 low = lo if low is None else min(low, lo)
                 high = hi if high is None else max(high, hi)
     return low, high

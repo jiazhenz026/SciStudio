@@ -231,3 +231,21 @@ def test_table_xy_streams_projected_columns_and_bounded_batches(
     assert result.metadata["y_column"] == "signal"
     assert result.metadata["sampled"]
     assert result.values[-1].tolist() == [999, 999]
+
+
+def test_partial_legacy_collection_sample_has_no_unusable_cursor() -> None:
+    page = PreviewDataAccess(max_items=2).collection_sample(
+        count=100, item_type="Text", items=[{"data_ref": str(i)} for i in range(5)]
+    )
+    assert len(page.items) == 2 and page.sampled
+    assert page.next_cursor is None
+
+
+def test_plane_extrema_preserve_large_integer_precision(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = np.array([[2**63 + 1, 2**63 + 7]], dtype=np.uint64)
+    access, ref, _ = array_reader(monkeypatch, source)
+    result = access.panel_array_plane(ref)
+    assert result.metadata["vmin"] == 2**63 + 1
+    assert result.metadata["vmax"] == 2**63 + 7
+    assert result.to_json()["values"] == [[2**63 + 1, 2**63 + 7]]
+    assert np.frombuffer(result.to_bytes(), dtype="<u8").tolist() == [2**63 + 1, 2**63 + 7]
