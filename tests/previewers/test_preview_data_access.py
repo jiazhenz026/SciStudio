@@ -483,3 +483,29 @@ def test_dataframe_page_caps_page_size(tmp_path: Path) -> None:
     access = PreviewDataAccess(max_rows=5)
     page = access.dataframe_page(ref, page_size=100)
     assert page.page_size == 5
+
+
+def test_table_cells_are_json_safe_and_keep_missing_values_visible() -> None:
+    """A cell JSON has no literal for must not take the whole page down.
+
+    A table holding NaN or a timestamp column used to fail to serialise, so the
+    preview reported "Out of range float values are not JSON compliant" instead
+    of showing the data. Non-finite numbers keep the sentinel spelling the array
+    reads use, so a missing measurement stays visible (#1886 item E).
+    """
+    import datetime
+    import decimal
+    import json
+
+    from scistudio.previewers.data_access import _json_safe_value
+
+    assert _json_safe_value(float("nan")) == "NaN"
+    assert _json_safe_value(float("inf")) == "Infinity"
+    assert _json_safe_value(float("-inf")) == "-Infinity"
+    assert _json_safe_value(1.5) == 1.5
+    assert _json_safe_value(datetime.datetime(2026, 9, 11, 23, 4, 33)) == "2026-09-11T23:04:33"
+    assert _json_safe_value(datetime.date(2026, 9, 11)) == "2026-09-11"
+    assert _json_safe_value(decimal.Decimal("1.25")) == "1.25"
+    assert _json_safe_value(b"\x00\x01") == "AAE="
+    # Nested containers are covered too, and the result is strict-JSON encodable.
+    json.dumps(_json_safe_value({"a": [float("nan"), datetime.date(2026, 1, 1)]}), allow_nan=False)

@@ -80,36 +80,8 @@ describe("core.series.basic — surfaces dropped NaN/inf points (#1886 D)", () =
   });
 });
 
-describe("core.dataframe.basic — plain pager, no truncation badge (#1886 Part 1)", () => {
-  it("shows rows range and page count with no incomplete badge", async () => {
-    const { root } = mount("core.dataframe.basic", {
-      input: { ref: "d" },
-      reads: {
-        "table.page": {
-          columns: ["a", "b"],
-          rows: [
-            { a: 1, b: 2 },
-            { a: 3, b: 4 },
-          ],
-          total: 2,
-          total_rows: 2,
-          page: 1,
-          page_size: 50,
-          total_pages: 1,
-          sort: {},
-        },
-      },
-    });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=dataframe-summary]")).toBeTruthy(),
-    );
-    expect(root().querySelector("[data-testid=dataframe-summary]")?.textContent).toBe(
-      "rows 1–2 of 2 · page 1/1",
-    );
-    expect(root().querySelector("[data-testid=preview-metadata-badges]")).toBeNull();
-    expect(root().textContent).not.toContain("incomplete");
-  });
-});
+// core.dataframe.basic is an ES module on the shared component set; it is
+// covered by dataframePanel.test.ts.
 
 describe("core.text.basic", () => {
   it("renders content and a truncation notice with the total size", async () => {

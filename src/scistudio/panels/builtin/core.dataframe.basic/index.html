@@ -4,28 +4,40 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Table preview</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
+      /* A table of values reads left-aligned, unlike the numeric grid. */
+      .dataframe-scroll { max-height: 360px; }
+      /* Fixed column geometry so the virtualizer's padding cells reserve the
+         off-window columns exactly and the scrollbar stays true to the table. */
+      .dataframe-table { min-width: 100%; font-size: 11px; text-align: left; table-layout: fixed; }
+      .dataframe-table th:not(.dataframe-pad),
+      .dataframe-table td:not(.dataframe-pad) {
+        width: 120px; min-width: 120px; max-width: 120px;
+        overflow: hidden; text-overflow: ellipsis;
       }
-      .wrap { padding: 8px; }
-      table { border-collapse: collapse; min-width: 100%; text-align: left; font-size: 11px; }
-      th, td { white-space: nowrap; padding: 3px 10px; border-bottom: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.08); }
-      th { position: sticky; top: 0; background: rgb(var(--ss-surface, 255 255 255)); cursor: pointer; user-select: none; font-weight: 600; }
-      .scroll { max-height: 360px; overflow: auto; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; }
-      .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 0; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
-      button { font: inherit; cursor: pointer; }
-      button:disabled { cursor: not-allowed; opacity: 0.5; }
-      .err { color: #b3261e; padding: 8px; }
+      .dataframe-table .dataframe-pad { padding: 0; border: 0; background: transparent; }
+      .dataframe-table th {
+        top: 0; text-align: left; cursor: pointer; white-space: nowrap;
+        padding: 4px 10px; font-size: 10px; letter-spacing: 0.04em;
+        color: rgb(var(--ink) / 0.6);
+      }
+      .dataframe-table td {
+        text-align: left; white-space: nowrap; padding: 3px 10px; font-size: 10px;
+        color: rgb(var(--ink) / 0.8); border-bottom: 1px solid rgb(var(--ink) / 0.06);
+      }
+      .dataframe-bar {
+        display: flex; align-items: center; justify-content: space-between; gap: 6px;
+        padding: 6px 4px 0; font-size: 10px; color: rgb(var(--ink) / 0.55);
+      }
+      .dataframe-pager { display: inline-flex; align-items: center; gap: 4px; }
+      .dataframe-pager .panel-button { padding: 1px 6px; line-height: 1.4; }
+      .dataframe-page-input { width: 3.5em; text-align: center; }
     </style>
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>

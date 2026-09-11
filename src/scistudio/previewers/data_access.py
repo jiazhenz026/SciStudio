@@ -20,6 +20,8 @@ indexed with explicit slices (``arr[plane_index, y0:y1, x0:x1]``) rather than
 from __future__ import annotations
 
 import base64
+import datetime
+import decimal
 import math
 import mimetypes
 from dataclasses import dataclass, field
@@ -28,6 +30,44 @@ from typing import TYPE_CHECKING, Any
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import internal, provisional
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Return one table cell in a form strict JSON can carry.
+
+    A stored table holds values JSON has no literal for: ``NaN`` and ``±inf``,
+    timestamps, dates, times, decimals, and raw bytes. Emitting them unchanged
+    made the whole page fail to serialise, so a single missing measurement or a
+    timestamp column took the preview down with it.
+
+    Non-finite numbers use the same sentinel strings the array reads use
+    (``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``), so a missing measurement is
+    shown as what it is rather than erased to an empty cell (#1886 item E).
+    Temporal and decimal values become their ISO / decimal text, and bytes
+    become base64 — each readable, and none of them silently dropped.
+    """
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, datetime.timedelta):
+        return str(value)
+    if isinstance(value, decimal.Decimal):
+        return "NaN" if value.is_nan() else str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(value)).decode("ascii")
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe_value(item) for item in value]
+    return str(value)
+
 
 if TYPE_CHECKING:
     from scistudio.previewers._read_arrays import NumericRead
@@ -403,7 +443,7 @@ class PreviewDataAccess:
         effective_page = max(1, min(int(page), total_pages))
         offset = (effective_page - 1) * effective_page_size
         page_table = table.slice(offset, effective_page_size)
-        rows = page_table.to_pylist()
+        rows = [{key: _json_safe_value(value) for key, value in row.items()} for row in page_table.to_pylist()]
         return DataFramePage(
             columns=columns,
             rows=rows,
