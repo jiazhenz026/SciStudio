@@ -23,7 +23,9 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import socket as socket_mod
+import stat
 import sys
 import tempfile
 import threading
@@ -259,13 +261,14 @@ def test_try_connect_attached_uses_project_socket_pointer(tmp_path: Path) -> Non
     from scistudio.cli.mcp_bridge import _try_connect_attached
 
     project = _make_project(tmp_path)
-    actual_socket = Path(tempfile.gettempdir()) / f"mcp-{os.getpid()}-{threading.get_ident()}.sock"
+    # #2333: the socket must sit in a directory other users cannot write to,
+    # as the server's private socket directory is; not in the shared temp dir.
+    socket_dir = Path(tempfile.mkdtemp(prefix="mbt-"))
+    actual_socket = socket_dir / f"mcp-{os.getpid()}-{threading.get_ident()}.sock"
     server_sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)  # type: ignore[attr-defined]
 
     client_sock = None
     try:
-        if actual_socket.exists():
-            actual_socket.unlink()
         server_sock.bind(str(actual_socket))
         server_sock.listen(1)
         (project / ".scistudio" / "mcp.sock.path").write_text(str(actual_socket), encoding="utf-8")
@@ -275,8 +278,58 @@ def test_try_connect_attached_uses_project_socket_pointer(tmp_path: Path) -> Non
         if client_sock is not None:
             client_sock.close()
         server_sock.close()
-        if actual_socket.exists():
-            actual_socket.unlink()
+        shutil.rmtree(socket_dir, ignore_errors=True)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX socket pointer only")
+@pytest.mark.parametrize("hostile", ["group-writable-socket-directory", "symlinked-pointer"])
+def test_try_connect_attached_refuses_a_pointer_another_user_could_control(
+    tmp_path: Path, capsys: pytest.CaptureFixture, hostile: str
+) -> None:
+    """#2333 audits: the bridge never follows a pointer to a socket another user controls."""
+    from scistudio.cli.mcp_bridge import _posix_socket_connect_path, _try_connect_attached
+
+    project = _make_project(tmp_path)
+    socket_dir = Path(tempfile.mkdtemp(prefix="mbt-"))
+    actual_socket = socket_dir / "mcp.sock"
+    server_sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)  # type: ignore[attr-defined]
+    pointer = project / ".scistudio" / "mcp.sock.path"
+    try:
+        server_sock.bind(str(actual_socket))
+        server_sock.listen(1)
+        if hostile == "group-writable-socket-directory":
+            socket_dir.chmod(0o775)
+            pointer.write_text(str(actual_socket), encoding="utf-8")
+        else:
+            real_pointer = tmp_path / "real-pointer"
+            real_pointer.write_text(str(actual_socket), encoding="utf-8")
+            pointer.symlink_to(real_pointer)
+        with pytest.raises(PermissionError, match="refusing"):
+            _posix_socket_connect_path(project / ".scistudio" / "mcp.sock")
+        assert _try_connect_attached(project) is None
+        assert "refusing" in capsys.readouterr().err
+    finally:
+        server_sock.close()
+        shutil.rmtree(socket_dir, ignore_errors=True)
+
+
+def test_pointer_and_socket_ownership_rules() -> None:
+    """The #2333 bridge rules, on every platform, with explicit stat values."""
+    from scistudio.cli.mcp_bridge import pointer_file_problem, socket_target_problem
+
+    def fake(kind: int, mode: int, uid: int) -> os.stat_result:
+        return os.stat_result((kind | mode, 0, 0, 1, uid, uid, 0, 0, 0, 0))
+
+    assert pointer_file_problem(fake(stat.S_IFREG, 0o644, 1000), uid=1000) is None
+    assert "symbolic link" in (pointer_file_problem(fake(stat.S_IFLNK, 0o777, 1000), uid=1000) or "")
+    assert "not by the current user" in (pointer_file_problem(fake(stat.S_IFREG, 0o600, 1001), uid=1000) or "")
+    private_dir = fake(stat.S_IFDIR, 0o700, 1000)
+    assert socket_target_problem(fake(stat.S_IFSOCK, 0o600, 1000), private_dir, uid=1000) is None
+    foreign = socket_target_problem(fake(stat.S_IFSOCK, 0o600, 1001), private_dir, uid=1000)
+    assert "not by the current user" in (foreign or "")
+    assert "not a Unix socket" in (socket_target_problem(fake(stat.S_IFREG, 0o600, 1000), private_dir, uid=1000) or "")
+    shared_dir = fake(stat.S_IFDIR, 0o775, 1000)
+    assert "mode 0775" in (socket_target_problem(fake(stat.S_IFSOCK, 0o600, 1000), shared_dir, uid=1000) or "")
 
 
 def test_attached_socket_path_matches_backend_convention(tmp_path: Path) -> None:
