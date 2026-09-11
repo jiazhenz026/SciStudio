@@ -1,0 +1,66 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-054-panels",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-054-panels-checklist.md",
+      "docs/planning/adr-054-panels-dispatch-prompts.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T06:32:27.754421Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-panels-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2296,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner (2026-09-11): as manager, implement ADR-054 and docs/specs/adr-054-panels.md; one PR per phase (A #2293, B #2294, C #2295); tokens without Lab session middleware (TODO); tutorial unchanged; Panels tab redesign with sample-based preview; Phase C closes #2013 and #2197 only.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2296-track-adr-054-panels",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "84e5ecc5-c83a-467f-9b8f-385b6e6f0dd5",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-09-11T06:32:27.754449Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager coordination branch carries only the dispatch checklist, dispatch prompts, and ledger; no product code",
+      "verified_in_diff": null
+    }
+  ]
+}
