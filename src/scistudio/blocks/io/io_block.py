@@ -272,7 +272,7 @@ class IOBlock(Block):
     def _detect_format(self, path: Path) -> str | None:
         """Look up the format identifier for *path* in :attr:`supported_extensions`.
 
-        ADR-028 §D8: matching is case-insensitive and prefers compound
+        matching is case-insensitive and prefers compound
         suffixes over single suffixes. For example, given a mapping that
         contains both ``".ome.tif"`` and ``".tif"``, a path ending in
         ``".ome.tif"`` resolves to the compound entry; a path ending in
@@ -283,6 +283,7 @@ class IOBlock(Block):
         is not declared (including the base-class default of an empty
         :attr:`supported_extensions` mapping).
         """
+        # Development references: ADR-028.
         if not self.supported_extensions:
             return None
         # Case-insensitive: normalize both the path suffixes and the keys.

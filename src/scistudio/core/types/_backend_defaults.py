@@ -1,22 +1,24 @@
-"""Default ``type -> backend`` wiring for SciStudio's six core data types.
-
-#1342 / round-4 no-cycles: this wiring used to live in
-``scistudio.core.storage._defaults`` and imported the six concrete type
-classes — a ``core.storage -> core.types`` edge that, together with
-``DataObject.save`` reaching into ``backend_router``, closed the
-``core.types <-> core.storage`` import cycle.
-
-Hosting it on the ``core.types`` side inverts that edge to the natural
-direction (``core.types -> core.storage``): the storage layer holds only a
-builder *callback* (see :func:`scistudio.core.storage.backend_router.set_default_builder`)
-and never imports a concrete type. Building stays lazy — ``get_router``
-invokes this builder on first access — so behaviour is identical to the
-pre-#1342 form. The ``type -> backend`` pairings themselves are unchanged;
-only their definition site moved.
-
-ADR-031 governs ``scistudio.core.storage``; this module only relocates the
-default wiring and does not change any storage contract.
-"""
+"""Default ``type -> backend`` wiring for SciStudio's six core data types."""
+# Maintainer context (kept outside generated API documentation):
+# Default ``type -> backend`` wiring for SciStudio's six core data types.
+#
+# #1342 / round-4 no-cycles: this wiring used to live in
+# ``scistudio.core.storage._defaults`` and imported the six concrete type
+# classes — a ``core.storage -> core.types`` edge that, together with
+# ``DataObject.save`` reaching into ``backend_router``, closed the
+# ``core.types <-> core.storage`` import cycle.
+#
+# Hosting it on the ``core.types`` side inverts that edge to the natural
+# direction (``core.types -> core.storage``): the storage layer holds only a
+# builder *callback* (see :func:`scistudio.core.storage.backend_router.set_default_builder`)
+# and never imports a concrete type. Building stays lazy — ``get_router``
+# invokes this builder on first access — so behaviour is identical to the
+# pre-#1342 form. The ``type -> backend`` pairings themselves are unchanged;
+# only their definition site moved.
+#
+# ADR-031 governs ``scistudio.core.storage``; this module only relocates the
+# default wiring and does not change any storage contract.
+# Development references: #1342, ADR-031.
 
 from __future__ import annotations
 

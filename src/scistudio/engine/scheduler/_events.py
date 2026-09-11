@@ -1,17 +1,19 @@
-"""EventBus subscriber handler implementations for :class:`DAGScheduler`.
-
-ADR-046 §3 (Event handlers group): extracted verbatim from the
-original ``engine/scheduler.py`` god-file. Pure structural move per
-umbrella #1427 Phase 3 — no behavior changes. ADR-018 Addendum 1
-cancellation semantics and ADR-038/039 emission contracts are
-preserved byte-identically.
-
-Each function is a free function whose first parameter is ``self`` —
-they are bound onto :class:`DAGScheduler` in
-``scheduler/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
-fact (see ADR-042 + the doc/closure audit walker).
-"""
+"""EventBus subscriber handler implementations for :class:`DAGScheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# EventBus subscriber handler implementations for :class:`DAGScheduler`.
+#
+# ADR-046 §3 (Event handlers group): extracted verbatim from the
+# original ``engine/scheduler.py`` god-file. Pure structural move per
+# umbrella #1427 Phase 3 — no behavior changes. ADR-018 Addendum 1
+# cancellation semantics and ADR-038/039 emission contracts are
+# preserved byte-identically.
+#
+# Each function is a free function whose first parameter is ``self`` —
+# they are bound onto :class:`DAGScheduler` in
+# ``scheduler/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
+# fact (see ADR-042 + the doc/closure audit walker).
+# Development references: #1427, ADR-018, ADR-038, ADR-042, ADR-046, Addendum 1.
 
 from __future__ import annotations
 
@@ -33,12 +35,13 @@ logger = logging.getLogger("scistudio.engine.scheduler")
 
 
 def _reap_cancelled_workers(terminations: list[tuple[str, Any]]) -> None:
-    """Terminate cancelled block subprocesses off the event loop (#1789).
+    """Terminate cancelled block subprocesses off the event loop.
 
     Run in a daemon thread by ``_on_cancel_workflow`` so the cancel request can
     return immediately instead of blocking on each ``terminate_tree`` grace
     period. Best-effort: a failure is logged, not raised.
     """
+    # Development references: #1789.
     for block_id, handle in terminations:
         try:
             handle.terminate()
@@ -49,13 +52,14 @@ def _reap_cancelled_workers(terminations: list[tuple[str, Any]]) -> None:
 def _event_is_for_run(self: DAGScheduler, event: EngineEvent) -> bool:
     """Return True when *event* targets this scheduler's own workflow.
 
-    #1517/#1596: ``ApiRuntime`` owns one process-global ``EventBus`` and fans
+    ``ApiRuntime`` owns one process-global ``EventBus`` and fans
     every event out to every live scheduler. A scheduler must only react to
     events for its own ``workflow_id``; otherwise a cancel or terminal event
     for one run mutates the state of every other concurrent run. Events that
     carry no ``workflow_id`` are treated as in-scope (fail-open) so event types
     that predate run scoping keep working.
     """
+    # Development references: #1517.
     if not isinstance(event.data, dict):
         return True
     event_wf = event.data.get("workflow_id")
@@ -68,17 +72,25 @@ async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> No
     Resolves the pending future for the block so that
     ``_run_interactive`` can proceed with the user's response.
 
-    #1517/#1596: the EventBus is process-global, so this handler is run-scoped
+    the EventBus is process-global, so this handler is run-scoped
     like the other lifecycle handlers — an ``interactive_complete`` that carries
     a ``workflow_id`` is only honoured by the matching run, preventing one
     browser confirm from resolving a colliding ``block_id`` future in a
-    different concurrent run (ADR-051 audit P2-1). ``_event_is_for_run`` is
+    different concurrent run. ``_event_is_for_run`` is
     fail-open on an absent ``workflow_id`` so legacy callers keep working.
 
     The scoping ``workflow_id`` is carried alongside the decision (the decision
     is nested under ``response`` by ``api/ws.py``); it is stripped here so it
     never leaks into ``interactive_response`` / lineage.
     """
+    # Maintainer context:
+    # the EventBus is process-global, so this handler is run-scoped
+    # like the other lifecycle handlers — an ``interactive_complete`` that carries
+    # a ``workflow_id`` is only honoured by the matching run, preventing one
+    # browser confirm from resolving a colliding ``block_id`` future in a
+    # different concurrent run (audit P2-1). ``_event_is_for_run`` is
+    # fail-open on an absent ``workflow_id`` so legacy callers keep working.
+    # Development references: #1517, ADR-051.
     block_id = event.block_id
     if block_id is None:
         return
@@ -131,14 +143,14 @@ async def _on_block_error(self: DAGScheduler, event: EngineEvent) -> None:
 async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle a block cancellation request.
 
-    Per ADR-018 Addendum 1 and the state table in
-    ``docs/architecture/ARCHITECTURE.md`` §5.2, ``CANCELLED`` is only
+    and the state table in
+    the block lifecycle rules, ``CANCELLED`` is only
     a valid transition from ``RUNNING`` or ``PAUSED``. A cancel
     request against a block in any other state is a **no-op** — the
     handler returns without emitting a lifecycle event or mutating
     state. This matches the executable spec in
     ``tests/engine/test_scheduler_state_machine_contract.py``
-    ``test_cancel_block_state_table`` (#1376).
+    ``test_cancel_block_state_table``.
 
     Concretely:
 
@@ -146,15 +158,15 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
       to transition into ``CANCELLED``. Branches on whether a
       ``ProcessHandle`` has been registered for the block yet:
 
-      - *Handle present* (executing inside a subprocess): call
+      *Handle present* (executing inside a subprocess): call
         ``handle.terminate()`` and let the worker unwind naturally.
         ``_run_and_finalize`` observes the ``CANCELLED`` state on
         its exception path and exits without emitting
         ``BLOCK_ERROR``.
-      - *Handle absent* (pre-subprocess setup window, or in-process
+      *Handle absent* (pre-subprocess setup window, or in-process
         interactive block waiting in ``PAUSED``): call
         ``task.cancel()`` on the active task. ``_run_and_finalize``
-        / ``_run_interactive`` receives ``CancelledError`` and
+        ``_run_interactive`` receives ``CancelledError`` and
         unwinds via its ``finally`` clause.
 
     * **IDLE / READY** — the block has not started yet. The state
@@ -177,6 +189,16 @@ async def _on_cancel_block(self: DAGScheduler, event: EngineEvent) -> None:
     * **Unknown block id** — ignored silently; the scheduler only
       cancels blocks it tracks.
     """
+    # Maintainer context:
+    # and the state table in
+    # ``docs/architecture/ARCHITECTURE.md`` §5.2, ``CANCELLED`` is only
+    # a valid transition from ``RUNNING`` or ``PAUSED``. A cancel
+    # request against a block in any other state is a **no-op** — the
+    # handler returns without emitting a lifecycle event or mutating
+    # state. This matches the executable spec in
+    # ``tests/engine/test_scheduler_state_machine_contract.py``
+    # ``test_cancel_block_state_table``.
+    # Development references: #1376, ADR-018, Addendum 1.
     if not _event_is_for_run(self, event):
         return
     if event.block_id is None:
@@ -255,10 +277,11 @@ async def _on_cancel_workflow(self: DAGScheduler, event: EngineEvent) -> None:
     """Handle a workflow cancellation: cancel all running blocks.
 
     Applies the same handle-vs-task branch as ``_on_cancel_block``
-    (ADR-018 Addendum 1). Any block still IDLE/READY at the time of
+    Any block still IDLE/READY at the time of
     the cancel request is transitioned to SKIPPED with reason
     "workflow cancelled".
     """
+    # Development references: ADR-018, Addendum 1.
     if not _event_is_for_run(self, event):
         return
     # Include both RUNNING and PAUSED blocks — interactive blocks

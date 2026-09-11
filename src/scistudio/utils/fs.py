@@ -1,26 +1,28 @@
-"""Filesystem helpers (cross-platform).
-
-``mount_pathlike`` exposes a single helper that materialises a "link"
-from one path to another using whichever native primitive is cheapest
-on the host platform:
-
-- POSIX: ``os.symlink`` (a true symbolic link).
-- Windows directories: ``_winapi.CreateJunction`` (a directory junction
-  — no Developer Mode / admin required).
-- Windows files: ``os.link`` (a hardlink — works on NTFS without admin).
-
-Callers should treat the helper as opportunistic: it raises ``OSError``
-when no native primitive succeeds (for example on Windows file shares
-that block both junctions and hardlinks). The recommended pattern is
-to call :func:`mount_pathlike` and fall back to a byte-copy
-(``shutil.copyfile`` / ``shutil.copytree``) on ``OSError``.
-
-ADR-028 §D8 / issue #1078: introduced for the
-``scistudio.engine.materialisation`` pass-through optimisation. The
-materialisation helper invokes :func:`mount_pathlike` when a source
-file already lives on disk in the target format, avoiding a redundant
-byte round-trip through the saver.
-"""
+"""Filesystem helpers (cross-platform)."""
+# Maintainer context (kept outside generated API documentation):
+# Filesystem helpers (cross-platform).
+#
+# ``mount_pathlike`` exposes a single helper that materialises a "link"
+# from one path to another using whichever native primitive is cheapest
+# on the host platform:
+#
+# - POSIX: ``os.symlink`` (a true symbolic link).
+# - Windows directories: ``_winapi.CreateJunction`` (a directory junction
+#   — no Developer Mode / admin required).
+# - Windows files: ``os.link`` (a hardlink — works on NTFS without admin).
+#
+# Callers should treat the helper as opportunistic: it raises ``OSError``
+# when no native primitive succeeds (for example on Windows file shares
+# that block both junctions and hardlinks). The recommended pattern is
+# to call :func:`mount_pathlike` and fall back to a byte-copy
+# (``shutil.copyfile`` / ``shutil.copytree``) on ``OSError``.
+#
+# ADR-028 §D8 / issue #1078: introduced for the
+# ``scistudio.engine.materialisation`` pass-through optimisation. The
+# materialisation helper invokes :func:`mount_pathlike` when a source
+# file already lives on disk in the target format, avoiding a redundant
+# byte round-trip through the saver.
+# Development references: #1078, ADR-028.
 
 from __future__ import annotations
 

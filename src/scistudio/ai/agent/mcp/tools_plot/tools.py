@@ -1,14 +1,16 @@
-"""Category (e) MCP tools — preview-side plot authoring (6 tools, ADR-048 SPEC 2).
-
-Read-class (4): ``list_plot_targets``, ``list_plot_examples``,
-``read_plot_source``, ``validate_plot``.
-Write/run-class (2): ``scaffold_plot``, ``run_plot_job`` (both expose
-``next_step`` per FR-009 / FR-030).
-
-All six register on the shared FastMCP instance with ``tags={"category:plot",
-...}`` (FR-002, FR-003). A plot job is PREVIEW-ONLY: it never becomes a workflow
-node, never edits workflow YAML, and never claims lineage (FR-025).
-"""
+"""MCP tools for preview-side plot authoring (6 tools)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (e) MCP tools — preview-side plot authoring (6 tools, ADR-048 SPEC 2).
+#
+# Read-class (4): ``list_plot_targets``, ``list_plot_examples``,
+# ``read_plot_source``, ``validate_plot``.
+# Write/run-class (2): ``scaffold_plot``, ``run_plot_job`` (both expose
+# ``next_step`` per FR-009 / FR-030).
+#
+# All six register on the shared FastMCP instance with ``tags={"category:plot",
+# ...}`` (FR-002, FR-003). A plot job is PREVIEW-ONLY: it never becomes a workflow
+# node, never edits workflow YAML, and never claims lineage (FR-025).
+# Development references: ADR-048, FR-002, FR-003, FR-009, FR-025, FR-030, SPEC 2.
 
 from __future__ import annotations
 
@@ -40,13 +42,14 @@ logger = logging.getLogger(__name__)
 
 
 def _plot_ctx() -> PlotRuntimeContext:
-    """Adapt the live MCP context to the plot engine's ``PlotRuntimeContext`` (#1824).
+    """Adapt the live MCP context to the plot engine's ``PlotRuntimeContext``.
 
     The runtime context (the FastAPI ``ApiRuntime`` adapter, or the agent
     context) structurally provides ``workflow_runs`` / ``register_plot_artifact``
     that the narrower ``MCPContext`` protocol does not declare; this boundary cast
     vouches for the richer shape the relocated plot engine reads.
     """
+    # Development references: #1824.
     return cast(PlotRuntimeContext, get_context())
 
 
@@ -99,21 +102,22 @@ async def scaffold_plot(
     title: Annotated[str | None, Field(description="Optional human title; defaults from plot_id.")] = None,
     overwrite: Annotated[bool, Field(description="Replace an existing plot directory if true (FR-008).")] = False,
 ) -> ScaffoldPlotResult:
-    """Scaffold ``plots/<plot_id>/plot.yaml`` + a render script (FR-007).
+    """Scaffold ``plots/<plot_id>/plot.yaml`` + a render script.
 
     Use when:
-      - ``list_plot_targets`` gave you a valid target_id and you want to start
+      ``list_plot_targets`` gave you a valid target_id and you want to start
         a new preview plot.
 
     Do NOT use to:
-      - Author a workflow block — that is ``scaffold_block``. A plot job is
+      Author a workflow block — that is ``scaffold_block``. A plot job is
         preview-only and never becomes a DAG node.
-      - Bind by block label — pass a discovered ``target_id``.
+      Bind by block label — pass a discovered ``target_id``.
 
     Refuses label-only selection and refuses to overwrite an existing plot
     unless ``overwrite=true``. Returns manifest/script paths, bytes written,
     warnings, and ``next_step``.
     """
+    # Development references: FR-007.
     ctx = _plot_ctx()
     root = resolve_project_root(ctx)
     target = _targets.resolve_target_by_id(ctx, target_id)
@@ -157,14 +161,15 @@ async def list_plot_examples(
     language: Annotated[str | None, Field(description="Filter by 'python' or 'r'.")] = None,
     library: Annotated[str | None, Field(description="Filter by 'matplotlib', 'seaborn', or 'ggplot2'.")] = None,
 ) -> ListPlotExamplesResult:
-    """List curated render-script examples (FR-019).
+    """List curated render-script examples.
 
     Use when:
-      - You want a starting point for a matplotlib, seaborn, or ggplot2 plot.
+      You want a starting point for a matplotlib, seaborn, or ggplot2 plot.
 
     Do NOT use to:
-      - Read an existing project plot — use ``read_plot_source``.
+      Read an existing project plot — use ``read_plot_source``.
     """
+    # Development references: FR-019.
     examples = _examples.list_examples(language=language, library=library)
     return ListPlotExamplesResult(examples=examples, count=len(examples))
 
@@ -179,16 +184,17 @@ async def read_plot_source(
     plot_id: Annotated[str | None, Field(description="Plot id under plots/. Provide this OR path, not both.")] = None,
     path: Annotated[str | None, Field(description="Project-relative manifest path. Provide this OR plot_id.")] = None,
 ) -> ReadPlotSourceResult:
-    """Read an existing plot manifest + render-script source (FR-020).
+    """Read an existing plot manifest + render-script source.
 
     Use when:
-      - You need to inspect or edit an existing plot before validating/running.
+      You need to inspect or edit an existing plot before validating/running.
 
     Do NOT use to:
-      - Discover targets — use ``list_plot_targets``.
+      Discover targets — use ``list_plot_targets``.
 
     Requires EXACTLY one of ``plot_id`` or ``path``.
     """
+    # Development references: FR-020.
     if (plot_id is None) == (path is None):
         raise ValueError("provide exactly one of plot_id or path.")
     ctx = _plot_ctx()
@@ -229,18 +235,19 @@ async def validate_plot(
     plot_id: Annotated[str | None, Field(description="Plot id under plots/. Provide this OR path, not both.")] = None,
     path: Annotated[str | None, Field(description="Project-relative manifest path. Provide this OR plot_id.")] = None,
 ) -> ValidatePlotResult:
-    """Validate a plot manifest + script (FR-021, FR-022).
+    """Validate a plot manifest + script.
 
     Use when:
-      - Before ``run_plot_job``, to catch broken targets, schema errors, path
+      Before ``run_plot_job``, to catch broken targets, schema errors, path
         traversal, unsupported output formats, and missing entrypoints.
 
     Do NOT use to:
-      - Run the plot — use ``run_plot_job``.
+      Run the plot — use ``run_plot_job``.
 
     R runner unavailability is reported as a warning, never an error: manifests
     validate everywhere. Requires EXACTLY one of ``plot_id`` or ``path``.
     """
+    # Development references: FR-021, FR-022.
     outcome = _validation.validate_plot(_plot_ctx(), plot_id=plot_id, path=path)
     return ValidatePlotResult(
         valid=outcome.valid,
@@ -267,22 +274,23 @@ async def run_plot_job(
         Field(description="Optional override of the manifest timeout (re-clamped to the absolute ceiling)."),
     ] = None,
 ) -> PlotRunResult:
-    """Run a plot job preview-side and write display-only artifacts (FR-023..FR-031).
+    """Run a plot job preview-side and write display-only artifacts.
 
     Use when:
-      - ``validate_plot`` passed and you want to render the figure into the
+      ``validate_plot`` passed and you want to render the figure into the
         preview panel.
 
     Do NOT use to:
-      - Produce workflow data — a plot job is PREVIEW-ONLY. It never registers
+      Produce workflow data — a plot job is PREVIEW-ONLY. It never registers
         a workflow node, edits workflow YAML, creates a downstream collection,
-        or claims lineage (FR-025).
+        or claims lineage.
 
     Writes ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/
     current.*`` + ``current.json``, overwriting any prior current artifacts.
     Enforces timeout, output-size, and file-count caps with sanitized errors.
     The artifact is consumable by the core PlotPreviewer.
     """
+    # Development references: FR-023, FR-025, FR-031.
     return _runtime.run_plot_job(_plot_ctx(), plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)
 
 

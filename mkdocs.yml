@@ -12,7 +12,7 @@
 #     for alpha). Followup: https://github.com/jiazhenz026/SciStudio/issues/1817
 
 site_name: SciStudio API Reference
-site_description: Generated public API contract (ADR-052) — public surface only, with stability badges.
+site_description: Public API reference with usage documentation and stability badges.
 docs_dir: docs/user/reference
 site_dir: build/mkdocs-site  # gitignored (build/); the script overrides via --site-dir
 use_directory_urls: false

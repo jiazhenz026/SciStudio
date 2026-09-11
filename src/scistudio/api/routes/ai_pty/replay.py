@@ -1,42 +1,45 @@
-"""The scripted byte source a tutorial replay plays into the AI Chat terminal.
-
-ADR-053 Learning Center spec, FR-061 … FR-061c
-(``docs/specs/adr-053-learning-center.md``), checklist §6.1.7.
-
-FR-061a fixes the delivery mechanism, not just the surface set: a replay is
-delivered "as a scripted session through that same path, so the tab strip, the
-terminal component, and the tab lifecycle stay the product's real ones and only
-the byte source changes". So nothing here renders anything, opens a WebSocket,
-or speaks the wire protocol. :class:`ScriptedReplaySession` implements the same
-small interface ``pty_endpoint`` already depends on — ``read``, ``is_alive``,
-``write``, ``resize``, ``kill_tree`` — and is registered in
-``_state._active_ptys`` under a fresh tab id carrying the ``_engine_prespawned``
-marker, which is the join predicate that route already reads. The frontend then
-connects ``WS /api/ai/pty/{tab_id}`` exactly as it does for a Bring In My Work
-tab and joins this object instead of spawning an agent.
-
-Three properties are the requirements rather than implementation choices:
-
-* **Input is discarded** (FR-061a, "a replay MUST NOT accept user input back
-  into the scripted session"). :meth:`ScriptedReplaySession.write` is where the
-  route's WS→PTY pump delivers keystrokes, and it drops them. The pump is left
-  running rather than suppressed so the tab behaves like every other tab —
-  resize frames still arrive and a disconnect still tears down.
-
-* **Nothing is buffered ahead of the session's sequencing** (FR-061b). Bytes
-  become readable when :meth:`deliver` is called, and
-  :func:`~scistudio.tutorials.actions.execute_replay` calls it only after that
-  segment's own write and copy actions have landed. This module never reads a
-  segment asset, so it has nothing it *could* run ahead with.
-
-* **Closing leaves no session object behind** (FR-061c). :meth:`close` pops
-  ``_active_ptys`` and terminates, which is the teardown ``pty_endpoint``
-  performs for a real PTY, so a session ended mid-replay converges on the same
-  state whether the WebSocket was attached or never arrived.
-
-This module imports no sibling under ``ai_pty`` except the ``_state`` leaf and
-:mod:`.engine`'s reaper, keeping the package's acyclic-siblings contract.
-"""
+"""The scripted byte source a tutorial replay plays into the AI Chat terminal."""
+# Maintainer context (kept outside generated API documentation):
+# The scripted byte source a tutorial replay plays into the AI Chat terminal.
+#
+# ADR-053 Learning Center spec, FR-061 … FR-061c
+# (``docs/specs/adr-053-learning-center.md``), checklist §6.1.7.
+#
+# FR-061a fixes the delivery mechanism, not just the surface set: a replay is
+# delivered "as a scripted session through that same path, so the tab strip, the
+# terminal component, and the tab lifecycle stay the product's real ones and only
+# the byte source changes". So nothing here renders anything, opens a WebSocket,
+# or speaks the wire protocol. :class:`ScriptedReplaySession` implements the same
+# small interface ``pty_endpoint`` already depends on — ``read``, ``is_alive``,
+# ``write``, ``resize``, ``kill_tree`` — and is registered in
+# ``_state._active_ptys`` under a fresh tab id carrying the ``_engine_prespawned``
+# marker, which is the join predicate that route already reads. The frontend then
+# connects ``WS /api/ai/pty/{tab_id}`` exactly as it does for a Bring In My Work
+# tab and joins this object instead of spawning an agent.
+#
+# Three properties are the requirements rather than implementation choices:
+#
+# * **Input is discarded** (FR-061a, "a replay MUST NOT accept user input back
+#   into the scripted session"). :meth:`ScriptedReplaySession.write` is where the
+#   route's WS→PTY pump delivers keystrokes, and it drops them. The pump is left
+#   running rather than suppressed so the tab behaves like every other tab —
+#   resize frames still arrive and a disconnect still tears down.
+#
+# * **Nothing is buffered ahead of the session's sequencing** (FR-061b). Bytes
+#   become readable when :meth:`deliver` is called, and
+#   :func:`~scistudio.tutorials.actions.execute_replay` calls it only after that
+#   segment's own write and copy actions have landed. This module never reads a
+#   segment asset, so it has nothing it *could* run ahead with.
+#
+# * **Closing leaves no session object behind** (FR-061c). :meth:`close` pops
+#   ``_active_ptys`` and terminates, which is the teardown ``pty_endpoint``
+#   performs for a real PTY, so a session ended mid-replay converges on the same
+#   state whether the WebSocket was attached or never arrived.
+#
+# This module imports no sibling under ``ai_pty`` except the ``_state`` leaf and
+# :mod:`.engine`'s reaper, keeping the package's acyclic-siblings contract.
+# Development references: ADR-053, FR-061, FR-061a, FR-061b, FR-061c, docs/specs/adr-053-learning-
+# center.md.
 
 from __future__ import annotations
 
@@ -61,15 +64,17 @@ __all__ = [
 
 
 class UnknownReplaySurfaceError(ValueError):
-    """A replay named a surface outside :data:`REPLAY_SURFACES` (FR-061a).
+    """A replay named a surface outside :data:`REPLAY_SURFACES`.
 
     The manifest parser rejects such a surface while the tutorial is being
     listed, so reaching this is a programming error rather than a bad tutorial.
     It is still checked here: this function is the one place that turns a
     surface name into a live byte source, and "a replay must not be able to
-    reach any surface other than the one the action names" (FR-061) is worth
+    reach any surface other than the one the action names" is worth
     more than one guard.
     """
+
+    # Development references: FR-061, FR-061a.
 
     def __init__(self, surface: str) -> None:
         self.surface = surface
@@ -140,13 +145,14 @@ class ScriptedReplaySession:
         return self._alive
 
     def write(self, data: bytes) -> None:
-        """Discard client input (FR-061a).
+        """Discard client input.
 
         A replay is scripted content playback, so a keystroke must not reach
         it. Dropping the bytes here rather than declining to run the route's
         WS→PTY pump keeps resize frames and disconnects working: the tab is a
         real tab that happens to ignore typing.
         """
+        # Development references: FR-061a.
 
     def resize(self, *, cols: int, rows: int) -> None:
         """Record the client's viewport. Scripted bytes do not reflow."""
@@ -176,31 +182,34 @@ class PtyReplayHandle:
 
     @property
     def is_open(self) -> bool:
-        """Whether this tab can still receive segments (#2089).
+        """Whether this tab can still receive segments.
 
         What a ``continue_tab`` replay checks before appending: the scripted
         session is alive *and* the tab is still registered — a WebSocket
         teardown pops the registry entry and kills the session, and appending
         into either half-gone state would deliver bytes nothing will read.
         """
+        # Development references: #2089.
         return self.session.is_alive() and _pkg._active_ptys.get(self.tab_id) is self.session
 
     def deliver(self, segment: ReplaySegment, payload: bytes) -> None:
         """Play one segment's bytes into the terminal.
 
         Called by :func:`~scistudio.tutorials.actions.execute_replay` after that
-        segment's bound write and copy actions have landed (FR-061b).
+        segment's bound write and copy actions have landed.
         """
+        # Development references: FR-061b.
         self.session.feed(payload)
 
     def close(self) -> None:
-        """Terminate the scripted session, leaving nothing behind (FR-061c).
+        """Terminate the scripted session, leaving nothing behind.
 
         The teardown ``pty_endpoint`` performs, in the same order: drop the
         registry entry first, then kill. Popping first is what makes this safe
         to call while a WebSocket is attached — that route pops with a default
         and kills again, and both halves are idempotent.
         """
+        # Development references: FR-061c.
         _pkg._active_ptys.pop(self.tab_id, None)
         self.session.kill_tree()
 

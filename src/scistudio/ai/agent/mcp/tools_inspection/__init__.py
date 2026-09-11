@@ -1,30 +1,32 @@
-"""Category (c) MCP tools — run and data inspection (7 tools).
-
-ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
-
-The 7 tools are:
-
-Read-class (6): ``get_block_output``, ``inspect_data``, ``preview_data``,
-``get_lineage``, ``get_block_config``, ``get_block_logs``.
-Write-class (1): ``update_block_config``.
-
-Per the Phase 2 audit checklist, ``inspect_data`` and ``preview_data``
-must never load > 8 MiB into RAM.
-
-Sub-package layout (#1431, umbrella #1427 — pure structural refactor):
-
-* :mod:`._helpers` — shared constants (caps, thumbnail dims, lock
-  timeout) and ``_ref_from_dict``.
-* :mod:`._models` — Pydantic envelopes for every tool return type.
-* :mod:`._preview` — preview helpers (``_preview_dataframe``,
-  ``_preview_array``, ``_preview_series``, ``_preview_text``,
-  ``_preview_artifact``, ``_grayscale_png``).
-* :mod:`.read` — 6 read-class tools.
-* :mod:`.write` — ``update_block_config`` (the lone write-class tool).
-
-The package-level API re-exports the canonical tool functions, Pydantic
-models, and test-visible helper constants used by the MCP server.
-"""
+"""MCP tools for run and data inspection (7 tools)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (c) MCP tools — run and data inspection (7 tools).
+#
+# ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
+#
+# The 7 tools are:
+#
+# Read-class (6): ``get_block_output``, ``inspect_data``, ``preview_data``,
+# ``get_lineage``, ``get_block_config``, ``get_block_logs``.
+# Write-class (1): ``update_block_config``.
+#
+# Per the Phase 2 audit checklist, ``inspect_data`` and ``preview_data``
+# must never load > 8 MiB into RAM.
+#
+# Sub-package layout (#1431, umbrella #1427 — pure structural refactor):
+#
+# * :mod:`._helpers` — shared constants (caps, thumbnail dims, lock
+#   timeout) and ``_ref_from_dict``.
+# * :mod:`._models` — Pydantic envelopes for every tool return type.
+# * :mod:`._preview` — preview helpers (``_preview_dataframe``,
+#   ``_preview_array``, ``_preview_series``, ``_preview_text``,
+#   ``_preview_artifact``, ``_grayscale_png``).
+# * :mod:`.read` — 6 read-class tools.
+# * :mod:`.write` — ``update_block_config`` (the lone write-class tool).
+#
+# The package-level API re-exports the canonical tool functions, Pydantic
+# models, and test-visible helper constants used by the MCP server.
+# Development references: #1427, #1431, ADR-040.
 
 from __future__ import annotations
 

@@ -1,53 +1,56 @@
-"""The driver interface, core's manifest driver, and package driver loading.
-
-ADR-053 Learning Center spec, FR-038 … FR-042 and FR-021/FR-044
-(``docs/specs/adr-053-learning-center.md``).
-
-One runtime, two drivers. The runtime knows nothing about YAML: it asks a
-driver four questions, which are exactly FR-038's four (view of the current
-step, satisfied given current product state, actions to perform on entering a
-step, and whether the tutorial has ended). Core ships :class:`ManifestDriver`,
-which answers them by reading a ``tutorial.yaml``, and is the driver for every
-core, user-level, and project-level tutorial (FR-039). A package may ship a
-class implementing the same interface and keep full control of its tutorial's
-logic (FR-040).
-
-**The runtime cannot tell which one it is talking to (FR-040).** No response
-field reveals the driver, because there is no field for it to reveal: what a
-driver returns is normalized into :class:`StepView` before anything else sees
-it, and :class:`StepView` is exactly FR-011's fields. That is FR-041 enforced
-structurally rather than by convention — :meth:`StepView.of` reads the seven
-names it knows and constructs a fresh :class:`StepView`, so a driver returning
-a subclass with extra attributes, or a mapping with extra keys, has those
-dropped at the boundary instead of leaking into an API response. A driver
-therefore cannot introduce a rendering primitive, supply a frontend asset, or
-address a surface the manifest format cannot address. Core owns what a step
-looks like.
-
-**Cursor position lives in the session, not the driver.** A driver is asked
-about the step a :class:`DriverContext` names rather than about "its" current
-step, which is what makes FR-037's survival across a backend restart possible
-without every package driver having to persist anything: the session persists
-the step id and hands it back. It is also why :meth:`TutorialDriver.advance`
-called with ``step_id=None`` returns the *first* step — the step after nothing
-is the beginning — so the same method covers starting, advancing, and FR-038's
-"whether the tutorial has ended", which is ``advance`` returning ``None``.
-
-**A package driver is imported only when the user starts that tutorial**
-(FR-021). :func:`load_driver` is the only import site in this package, it is
-reached from the session's start path and from nowhere in discovery, and an
-import failure is raised as :class:`DriverLoadError` naming the tutorial, which
-the session turns into a session-ending error contained to that tutorial
-(FR-044).
-
-**A package driver may call the core evaluator** (FR-042):
-:func:`scistudio.tutorials.conditions.evaluate` and
-:func:`~scistudio.tutorials.conditions.parse_condition` are public, so a driver
-implements only the conditions the vocabulary does not cover.
-
-This module may not import :mod:`scistudio.tutorials.session` or
-``scistudio.api`` (checklist §6.1.2).
-"""
+"""The driver interface, core's manifest driver, and package driver loading."""
+# Maintainer context (kept outside generated API documentation):
+# The driver interface, core's manifest driver, and package driver loading.
+#
+# ADR-053 Learning Center spec, FR-038 … FR-042 and FR-021/FR-044
+# (``docs/specs/adr-053-learning-center.md``).
+#
+# One runtime, two drivers. The runtime knows nothing about YAML: it asks a
+# driver four questions, which are exactly FR-038's four (view of the current
+# step, satisfied given current product state, actions to perform on entering a
+# step, and whether the tutorial has ended). Core ships :class:`ManifestDriver`,
+# which answers them by reading a ``tutorial.yaml``, and is the driver for every
+# core, user-level, and project-level tutorial (FR-039). A package may ship a
+# class implementing the same interface and keep full control of its tutorial's
+# logic (FR-040).
+#
+# **The runtime cannot tell which one it is talking to (FR-040).** No response
+# field reveals the driver, because there is no field for it to reveal: what a
+# driver returns is normalized into :class:`StepView` before anything else sees
+# it, and :class:`StepView` is exactly FR-011's fields. That is FR-041 enforced
+# structurally rather than by convention — :meth:`StepView.of` reads the seven
+# names it knows and constructs a fresh :class:`StepView`, so a driver returning
+# a subclass with extra attributes, or a mapping with extra keys, has those
+# dropped at the boundary instead of leaking into an API response. A driver
+# therefore cannot introduce a rendering primitive, supply a frontend asset, or
+# address a surface the manifest format cannot address. Core owns what a step
+# looks like.
+#
+# **Cursor position lives in the session, not the driver.** A driver is asked
+# about the step a :class:`DriverContext` names rather than about "its" current
+# step, which is what makes FR-037's survival across a backend restart possible
+# without every package driver having to persist anything: the session persists
+# the step id and hands it back. It is also why :meth:`TutorialDriver.advance`
+# called with ``step_id=None`` returns the *first* step — the step after nothing
+# is the beginning — so the same method covers starting, advancing, and FR-038's
+# "whether the tutorial has ended", which is ``advance`` returning ``None``.
+#
+# **A package driver is imported only when the user starts that tutorial**
+# (FR-021). :func:`load_driver` is the only import site in this package, it is
+# reached from the session's start path and from nowhere in discovery, and an
+# import failure is raised as :class:`DriverLoadError` naming the tutorial, which
+# the session turns into a session-ending error contained to that tutorial
+# (FR-044).
+#
+# **A package driver may call the core evaluator** (FR-042):
+# :func:`scistudio.tutorials.conditions.evaluate` and
+# :func:`~scistudio.tutorials.conditions.parse_condition` are public, so a driver
+# implements only the conditions the vocabulary does not cover.
+#
+# This module may not import :mod:`scistudio.tutorials.session` or
+# ``scistudio.api`` (checklist §6.1.2).
+# Development references: ADR-053, FR-011, FR-021, FR-037, FR-038, FR-039, FR-040, FR-041, FR-042, FR-044,
+# docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -86,16 +89,20 @@ __all__ = [
 
 
 class DriverError(RuntimeError):
-    """Base for every driver failure the session must contain (FR-044)."""
+    """Base for every driver failure the session must contain."""
+
+    # Development references: FR-044.
 
 
 class DriverLoadError(DriverError):
-    """A package driver could not be imported or constructed (FR-021, FR-044).
+    """A package driver could not be imported or constructed.
 
     Names the tutorial and the underlying exception, because the session's
     error message is the only place a user can learn that a package's tutorial
     is broken rather than absent.
     """
+
+    # Development references: FR-021, FR-044.
 
     def __init__(self, key: TutorialKey, reference: str, cause: BaseException) -> None:
         self.key = key
@@ -108,12 +115,14 @@ class DriverLoadError(DriverError):
 
 
 class DriverContractError(DriverError):
-    """A driver returned something the step view cannot carry (FR-041).
+    """A driver returned something the step view cannot carry.
 
     Raised at the boundary rather than tolerated, because the alternative to
     rejecting an unusable step view is rendering a step with no text and no
     explanation.
     """
+
+    # Development references: FR-041.
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +156,7 @@ STEP_VIEW_FIELDS: tuple[str, ...] = (
 @provisional(since="0.3.4")
 @dataclass(frozen=True)
 class StepView:
-    """What one step looks like, for every driver alike (FR-040, FR-041).
+    """What one step looks like, for every driver alike.
 
     The closed set of fields a driver may influence, and the return type of
     :meth:`TutorialDriver.step_view`. A driver may return this class, any object
@@ -171,6 +180,8 @@ class StepView:
     *is*; whether it currently holds is the runtime's answer, attached after
     the driver's view has been reduced.
     """
+
+    # Development references: FR-040, FR-041.
 
     id: str
     index: int
@@ -232,12 +243,13 @@ class StepView:
     def of(cls, raw: Any) -> StepView:
         """Return *raw* as a plain :class:`StepView`, dropping anything else.
 
-        The FR-041 boundary. Accepts an object with the attributes or a mapping
+        The boundary. Accepts an object with the attributes or a mapping
         with the keys, reads exactly :data:`STEP_VIEW_FIELDS`, and constructs a
         new instance — so a driver returning a richer object cannot smuggle a
         field through the runtime into an API response, and a subclass adding
         one is reduced to its base at the same point.
         """
+        # Development references: FR-041.
         if isinstance(raw, StepView) and type(raw) is StepView:
             return raw
         read = raw.get if isinstance(raw, Mapping) else (lambda name, default=None: getattr(raw, name, default))
@@ -285,8 +297,9 @@ def _optional_trigger(value: Any, *, step_id: str) -> Mapping[str, Any] | None:
     :class:`~scistudio.tutorials.manifest.TutorialTrigger`), or the wire
     mapping itself. Whatever arrives, only ``{"label": ...}`` leaves: the
     actions behind the button are asked for separately through the optional
-    ``trigger_actions`` capability, never through the view (FR-041).
+    ``trigger_actions`` capability, never through the view.
     """
+    # Development references: FR-041.
     if value is None:
         return None
     label = getattr(value, "label", None)
@@ -309,9 +322,10 @@ def _optional_say(value: Any, *, step_id: str) -> tuple[tuple[str, ...], tuple[s
 
     The expression is split off here rather than in the manifest parser alone,
     so a package driver writes a beat the same way a manifest author does
-    (FR-011f). A driver that already supplies ``say_moods`` itself is not
+    A driver that already supplies ``say_moods`` itself is not
     overruled — see :meth:`StepView.of`.
     """
+    # Development references: FR-011f.
     if value is None:
         return (), ()
     if isinstance(value, str):
@@ -367,8 +381,9 @@ def _optional_pages(value: Any, *, step_id: str) -> tuple[str, ...]:
     Names, not content: the reading surface fetches each page from the pages
     route, so what crosses this boundary is only which pages and in what
     order — which is why a driver cannot smuggle rendered content through the
-    field (FR-041).
+    field.
     """
+    # Development references: FR-041.
     if value is None:
         return ()
     if isinstance(value, str | bytes) or not isinstance(value, Sequence):
@@ -382,12 +397,13 @@ def _optional_pages(value: Any, *, step_id: str) -> tuple[str, ...]:
 
 
 def _optional_compacts(plural: Any, singular: Any, *, step_id: str, beats: int) -> tuple[bool, ...]:
-    """Reduce a driver's compact declaration to one flag per beat (FR-011e).
+    """Reduce a driver's compact declaration to one flag per beat.
 
     Empty counts as unsaid rather than as a length mismatch, for the reason
     :func:`_optional_highlights` gives: `StepView`'s own default is an empty
     tuple, so a driver that never touched the field arrives here with one.
     """
+    # Development references: FR-011e.
     slots = max(1, beats)
     if plural is None or (isinstance(plural, Sequence) and len(plural) == 0):
         return (bool(singular),) * slots
@@ -405,7 +421,7 @@ def _optional_compacts(plural: Any, singular: Any, *, step_id: str, beats: int) 
 def _optional_highlights(
     plural: Any, singular: Any, *, step_id: str, beats: int
 ) -> tuple[Mapping[str, Any] | None, ...]:
-    """Reduce a driver's highlights to one entry per beat (FR-089e).
+    """Reduce a driver's highlights to one entry per beat.
 
     Two spellings accepted, because two are already in use. A driver written
     before highlights were per beat returns ``highlight``, one for the whole
@@ -414,6 +430,7 @@ def _optional_highlights(
     a sequence read beside ``say``. Declaring both takes the plural, since a
     driver that bothered to say it per beat meant it.
     """
+    # Development references: FR-089e.
     slots = max(1, beats)
     # Empty counts as unsaid, not as a length mismatch: `StepView`'s own default
     # is an empty tuple, so every driver that constructs one without touching
@@ -509,9 +526,11 @@ class DriverContext:
 
     Deliberately not the session object: a driver reads position and location
     and nothing else, so it cannot advance the session, end it, or start
-    another one. That is what keeps FR-043's one-session rule and FR-044's
-    containment properties of the runtime rather than of every driver.
+    another one. The runtime owns session exclusivity and containment, so
+    individual drivers do not have to enforce them.
     """
+
+    # Development references: FR-043, FR-044.
 
     key: TutorialKey
     tutorial_dir: Path
@@ -522,17 +541,18 @@ class DriverContext:
     step_entered_at: str | None = None
     """ISO-8601 time the current step was entered, when the session knows it.
 
-    FR-046's session-supplied evaluation context (#2066): the two run terms
+    The API's session-supplied evaluation context: the two run terms
     read it for ``since_step_entry`` scoping. It rides on the context rather
     than on product state because it describes the reader's position in the
     tutorial, which only the session knows — and it survives a backend restart
     the way the step id does, by being persisted in the session record."""
+    # Development references: #2066, FR-046.
 
 
 @provisional(since="0.3.4")
 @runtime_checkable
 class TutorialDriver(Protocol):
-    """What a package implements to own its tutorial's logic (FR-038, FR-040).
+    """What a package implements to own its tutorial's logic.
 
     Most tutorials need none of this. A ``tutorial.yaml`` written against the
     published schema is run by core's :class:`ManifestDriver`, and that is the
@@ -547,25 +567,24 @@ class TutorialDriver(Protocol):
     one.
 
     Name the class from the manifest, and it is imported only when a reader
-    starts that tutorial (FR-021); an import failure ends that one session and
-    leaves every other tutorial listed and startable (FR-044).
+    starts that tutorial; an import failure ends that one session and
+    leaves every other tutorial listed and startable.
 
     Three properties are worth knowing before writing one, because each removes
     work rather than adding it:
 
     * **Core owns rendering.** Whatever :meth:`step_view` returns is normalized
       through :meth:`StepView.of` at the boundary, so extra attributes and extra
-      mapping keys are dropped rather than reaching a response (FR-041). A
+      mapping keys are dropped rather than reaching a response. A
       driver cannot introduce a display primitive or ship a frontend asset, and
       correspondingly never has to describe one.
     * **The session holds the cursor.** A driver is asked about the step a
       :class:`DriverContext` names, not about "its" current step, so it persists
-      nothing and survives a backend restart without any state of its own
-      (FR-037).
+      nothing and survives a backend restart without any state of its own.
     * **The core evaluator is available.** :func:`~scistudio.tutorials.conditions.evaluate`
       and :func:`~scistudio.tutorials.conditions.parse_condition` are public, so
       :meth:`is_satisfied` can defer every term the vocabulary already covers
-      and implement only the remainder (FR-042).
+      and implement only the remainder.
 
     A driver that answers most steps from its manifest and one step itself::
 
@@ -606,13 +625,16 @@ class TutorialDriver(Protocol):
     sees.
     """
 
+    # Development references: FR-021, FR-037, FR-038, FR-040, FR-041, FR-042, FR-044.
+
     def step_view(self, context: DriverContext) -> Any:
         """Return the view of ``context.step_id``.
 
         The return value is normalized through :meth:`StepView.of`, so it may
         be a :class:`StepView`, any object carrying its attributes, or a
-        mapping — and may carry nothing else (FR-041).
+        mapping — and may carry nothing else.
         """
+        # Development references: FR-041.
         ...
 
     def is_satisfied(self, context: DriverContext, product: ProductState) -> bool:
@@ -620,37 +642,42 @@ class TutorialDriver(Protocol):
 
         A package driver may answer by calling
         :func:`scistudio.tutorials.conditions.evaluate` for the conditions the
-        core vocabulary covers and implementing only the rest (FR-042).
+        core vocabulary covers and implementing only the rest.
         """
+        # Development references: FR-042.
         ...
 
     def entry_actions(self, context: DriverContext) -> Sequence[Action]:
-        """Return the actions to perform on entering ``context.step_id`` (FR-056)."""
+        """Return the actions to perform on entering ``context.step_id``."""
+        # Development references: FR-056.
         ...
 
     def advance(self, context: DriverContext) -> str | None:
         """Return the id of the step to enter after ``context.step_id``.
 
-        ``None`` means the tutorial has ended, which is FR-038's fourth
+        ``None`` means the tutorial has ended, which is the API's fourth
         question. Called with ``context.step_id is None`` to obtain the first
         step, so a tutorial with no steps ends the moment it starts rather than
         needing a separate emptiness check.
         """
+        # Development references: FR-038.
         ...
 
 
 @provisional(since="0.3.4")
 @runtime_checkable
 class DeclaresTriggerActions(Protocol):
-    """An optional capability: a driver whose steps can carry a trigger (#2061).
+    """An optional capability: a driver whose steps can carry a trigger.
 
-    Optional for the reason :class:`DeclaresConditions` is: FR-038 fixes the
+    Optional for the reason :class:`DeclaresConditions` is: the protocol fixes the
     driver interface at four questions, and a driver whose steps never declare
     a trigger owes no fifth answer. A driver that *does* put a trigger label in
     its step view answers this with the actions pressing it performs; one that
     labels a trigger but cannot answer has declared a button that does nothing,
     and the runtime refuses the press rather than pretending it worked.
     """
+
+    # Development references: #2061, FR-038.
 
     def trigger_actions(self, context: DriverContext) -> Sequence[Action]:
         """Return the actions behind ``context.step_id``'s trigger."""
@@ -662,17 +689,19 @@ class DeclaresTriggerActions(Protocol):
 class DeclaresConditions(Protocol):
     """An optional capability: a driver that can name a step's condition.
 
-    Not part of :class:`TutorialDriver`, because FR-038 fixes that interface at
+    Separate from :class:`TutorialDriver`, whose interface has
     four members and a package driver must be able to implement conditions the
     vocabulary cannot express — which by definition have no
     :class:`~scistudio.tutorials.conditions.Condition` to return.
 
     A driver that *can* answer lets the session skip re-evaluating on an event
-    that maps to none of the step's terms (FR-050). A driver that cannot is
+    that maps to none of the step's terms. A driver that cannot is
     re-evaluated on every mapped event instead. The two produce identical
-    responses, which is what FR-040 constrains; only the number of evaluations
-    differs, and evaluation is side-effect free (FR-055).
+    responses; only the number of evaluations
+    differs, and evaluation is side-effect free.
     """
+
+    # Development references: FR-038, FR-040, FR-050, FR-055.
 
     def condition(self, context: DriverContext) -> Condition | None:
         """Return the condition ``context.step_id`` is judged by, if it has one."""
@@ -686,13 +715,15 @@ class DeclaresConditions(Protocol):
 
 @dataclass(frozen=True)
 class ManifestDriver:
-    """The driver for every core, user-level, and project-level tutorial (FR-039).
+    """The driver for every core, user-level, and project-level tutorial.
 
     Holds the parsed manifest and nothing else. It has no cursor: every answer
     is a function of the manifest and the context it is handed, which is what
     lets a session resume after a backend restart by handing back a step id it
     read out of a file.
     """
+
+    # Development references: FR-039.
 
     manifest: TutorialManifest
 
@@ -706,7 +737,8 @@ class ManifestDriver:
         return step
 
     def step_view(self, context: DriverContext) -> StepView:
-        """Return FR-011's fields for the context's step."""
+        """Return the API's fields for the context's step."""
+        # Development references: FR-011.
         step = self._step(context)
         return StepView(
             id=step.id,
@@ -726,28 +758,31 @@ class ManifestDriver:
         )
 
     def is_satisfied(self, context: DriverContext, product: ProductState) -> bool:
-        """Return whether the step's ``done_when`` holds (FR-046, FR-054).
+        """Return whether the step's ``done_when`` holds.
 
-        A step with no ``done_when`` is never satisfied by state: FR-012 says it
+        A step with no ``done_when`` is never satisfied by state: it
         advances on an explicit user continue, which is the session's business
         and not a condition this can fake.
         """
+        # Development references: FR-012, FR-046, FR-054.
         step = self._step(context)
         if step.done_when is None:
             return False
         return evaluate(step.done_when, product, entered_at=context.step_entered_at)
 
     def entry_actions(self, context: DriverContext) -> tuple[Action, ...]:
-        """Return the step's declared ``do`` list, in declaration order (FR-056)."""
+        """Return the step's declared ``do`` list, in declaration order."""
+        # Development references: FR-056.
         return self._step(context).do
 
     def trigger_actions(self, context: DriverContext) -> tuple[Action, ...]:
-        """Return the actions behind the step's trigger, or nothing (#2061).
+        """Return the actions behind the step's trigger, or nothing.
 
         The optional capability :class:`DeclaresTriggerActions` describes; the
         runtime asks through it when the reader presses the button the step
         view's ``trigger`` label named.
         """
+        # Development references: #2061.
         trigger = self._step(context).trigger
         return () if trigger is None else trigger.do
 
@@ -776,7 +811,8 @@ class ManifestDriver:
         return steps[position + 1].id if position + 1 < len(steps) else None
 
     def condition(self, context: DriverContext) -> Condition | None:
-        """Return the step's ``done_when``, letting the session filter events (FR-050)."""
+        """Return the step's ``done_when``, letting the session filter events."""
+        # Development references: FR-050.
         return self._step(context).done_when
 
     def _index(self, step_id: str) -> int:
@@ -794,12 +830,14 @@ class ManifestDriver:
 class GuardedDriver:
     """Normalizes every answer a driver gives, whichever driver it is.
 
-    The session talks only to this, so the parity FR-040 requires is a property
+    The session talks only to this, so driver parity is a property
     of one wrapper rather than of every driver's good behavior. It normalizes
     and validates; it does not catch. A driver exception is the session's to
-    turn into a session-ending error naming the tutorial (FR-044), and
+    turn into a session-ending error naming the tutorial, and
     swallowing it here would make that impossible.
     """
+
+    # Development references: FR-040, FR-044.
 
     def __init__(self, inner: Any) -> None:
         missing = [
@@ -828,12 +866,13 @@ class GuardedDriver:
         return _normalised_actions(self._inner.entry_actions(context), method="entry_actions")
 
     def trigger_actions(self, context: DriverContext) -> tuple[Action, ...]:
-        """The actions behind the current step's trigger, normalized (#2061).
+        """The actions behind the current step's trigger, normalized.
 
         ``()`` when the wrapped driver lacks the optional capability, so the
         runtime can distinguish "no actions to run" from "no trigger declared"
         by the step view rather than by this answer.
         """
+        # Development references: #2061.
         declared = getattr(self._inner, "trigger_actions", None)
         if not callable(declared):
             return ()
@@ -892,7 +931,8 @@ class GuardedDriver:
 
     @property
     def declares_conditions(self) -> bool:
-        """Whether the wrapped driver can name a step's condition (FR-050 filtering)."""
+        """Whether the wrapped driver can name a step's condition (filtering)."""
+        # Development references: FR-050.
         return callable(getattr(self._inner, "condition", None))
 
 
@@ -900,9 +940,10 @@ def _normalised_actions(raw: Any, *, method: str) -> tuple[Action, ...]:
     """Reduce a driver's action list to core action objects, or refuse it.
 
     One reduction for both action-returning answers — entry and trigger — so
-    FR-041's "a driver cannot introduce an action kind" cannot hold at one
+    The API's "a driver cannot introduce an action kind" cannot hold at one
     door and not the other.
     """
+    # Development references: FR-041.
     if raw is None:
         return ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
@@ -923,8 +964,9 @@ def guarded(driver: Any) -> GuardedDriver:
 
     Every driver goes through this, core's included, so there is one code path
     and no way for a manifest tutorial and a package tutorial to diverge in what
-    the runtime sees (FR-040).
+    the runtime sees.
     """
+    # Development references: FR-040.
     return GuardedDriver(driver)
 
 
@@ -949,10 +991,11 @@ def load_driver(manifest: TutorialManifest, key: TutorialKey) -> GuardedDriver:
 
     This is the only place in :mod:`scistudio.tutorials` that imports a package
     module, and it is reached from the session's start path alone — never from
-    discovery, which is what FR-018 and FR-021 together require. Any failure
+    discovery. Any failure
     becomes a :class:`DriverLoadError` naming the tutorial, so a broken package
-    tutorial breaks itself and nothing else (FR-044).
+    tutorial breaks itself and nothing else.
     """
+    # Development references: FR-018, FR-021, FR-044.
     if not manifest.is_driver_driven:
         return guarded(ManifestDriver(manifest))
 

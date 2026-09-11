@@ -69,7 +69,8 @@ def _source_framework(path: Path) -> FrameworkMeta:
 
 
 def _is_xlsx_path(path: Any) -> bool:
-    """True when *path* points at an Excel ``.xlsx`` file (#1810)."""
+    """True when *path* points at an Excel ``.xlsx`` file."""
+    # Development references: #1810.
 
     return str(path).lower().endswith(".xlsx")
 
@@ -171,12 +172,13 @@ class LoadData(IOBlock):
     def _detect_format(self, path: Path) -> str | None:
         """Resolve *path* to a stable format id via the capability map.
 
-        ADR-043 / spec FR-003: the legacy ``supported_extensions``
+        spec: the legacy ``supported_extensions``
         ClassVar has been removed; the per-instance ``_detect_format``
         now consults :data:`_LOAD_EXTENSION_MAP`, which is derived from
         :attr:`format_capabilities` at module load time. Compound-suffix
         matching mirrors :meth:`IOBlock._detect_format`.
         """
+        # Development references: ADR-043, FR-003.
 
         if not _LOAD_EXTENSION_MAP:
             return None
@@ -300,7 +302,7 @@ class LoadData(IOBlock):
         return result
 
     def _load_xlsx_objects(self, config: BlockConfig, output_dir: str, type_name: str) -> list[DataObject]:
-        """Load one DataFrame/Series per sheet of an .xlsx workbook (#1810).
+        """Load one DataFrame/Series per sheet of an .xlsx workbook.
 
         Each sheet becomes its own DataObject carrying ``framework.source`` (the
         workbook path — shared by all of that file's sheets so the saver can
@@ -308,6 +310,7 @@ class LoadData(IOBlock):
         and the saver can re-name sheets on round-trip). Each sheet's table is
         persisted to its own ``storage_ref`` via :meth:`persist_table`.
         """
+        # Development references: #1810.
         path = _resolve_path(config)
         if not path.exists():
             raise FileNotFoundError(f"LoadData: {type_name} source not found: {path}")
@@ -357,9 +360,10 @@ class LoadData(IOBlock):
     def _load_array_with_persist(self, config: BlockConfig, output_dir: str) -> Array:
         """Load Array and persist to zarr storage.
 
-        ADR-031 Addendum 1: uses :meth:`persist_array` to write the numpy
+        uses :meth:`persist_array` to write the numpy
         array to storage and returns a reference-only Array.
         """
+        # Development references: ADR-031, Addendum 1.
         arr_obj = _load_array(config, block=self)
         # If the array already has a storage_ref (e.g. zarr source), skip persist.
         if arr_obj.storage_ref is not None:
@@ -375,9 +379,10 @@ class LoadData(IOBlock):
     def _load_dataframe_with_persist(self, config: BlockConfig, output_dir: str) -> DataFrame:
         """Load DataFrame and persist to arrow storage.
 
-        ADR-031 D4: uses :meth:`persist_table` to write the arrow table
+        uses :meth:`persist_table` to write the arrow table
         to storage and returns a reference-only DataFrame.
         """
+        # Development references: ADR-031.
         df = _load_dataframe(config, block=self)
         # If the dataframe has an in-memory table, persist it.
         table = getattr(df, "_arrow_table", None)
@@ -391,10 +396,11 @@ class LoadData(IOBlock):
     def _load_series_with_persist(self, config: BlockConfig, output_dir: str) -> Series:
         """Load Series and persist to arrow storage.
 
-        ADR-031: fixes the payload-loss bug where ``_load_series`` returned
+        fixes the payload-loss bug where ``_load_series`` returned
         a Series with no data. Now writes the underlying arrow table to
         storage via :meth:`persist_table`.
         """
+        # Development references: ADR-031.
         return _load_series(config, self, output_dir)
 
     def _load_composite_with_persist(self, config: BlockConfig, output_dir: str) -> CompositeData:
@@ -429,10 +435,11 @@ def _load_array(config: BlockConfig, block: LoadData | None = None) -> Array:
     actual chunked data stays lazy. Single-column .parquet falls back to
     pyarrow. Pickle support honours :func:`_check_pickle_allowed`.
 
-    ADR-043 / spec FR-003: format dispatch is routed through
+    spec: format dispatch is routed through
     :func:`_resolve_format` which derives the extension -> format_id
     mapping from :attr:`LoadData.format_capabilities`.
     """
+    # Development references: ADR-043, FR-003.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: array source not found: {path}")
@@ -575,10 +582,11 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
     csv_adapter / parquet_adapter convention) so downstream blocks can
     materialise data without re-parsing the file.
 
-    ADR-043 / spec FR-003: format dispatch is routed through
+    spec: format dispatch is routed through
     :func:`_resolve_format` which derives the extension -> format_id
     mapping from :attr:`LoadData.format_capabilities`.
     """
+    # Development references: ADR-043, FR-003.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: dataframe source not found: {path}")
@@ -678,7 +686,7 @@ def _load_dataframe(config: BlockConfig, block: LoadData | None = None) -> DataF
 def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -> Series:
     """Load Series from .csv / .tsv (single column) / .parquet / .pkl.
 
-    ADR-031: fixes the payload-loss bug. The underlying arrow table is
+    fixes the payload-loss bug. The underlying arrow table is
     now persisted to storage via ``block.persist_table()`` and the
     resulting :class:`Series` carries a ``storage_ref``.
 
@@ -687,6 +695,7 @@ def _load_series(config: BlockConfig, block: Any = None, output_dir: str = "") -
     :func:`_check_pickle_allowed` and uses :mod:`pickle` from the stdlib
     rather than pulling in pandas.
     """
+    # Development references: ADR-031.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: series source not found: {path}")
@@ -764,12 +773,13 @@ def _load_text(config: BlockConfig, block: LoadData | None = None) -> Text:
     Reads the file via :meth:`pathlib.Path.read_text` (UTF-8) and infers
     the ``format`` field from the extension via :data:`_TEXT_FORMAT_MAP`.
 
-    ADR-043 / spec FR-003: gate the suffix membership check against
+    spec: gate the suffix membership check against
     :attr:`LoadData.format_capabilities` (via ``_detect_format`` ->
     :data:`_LOAD_EXTENSION_MAP`) so the capability declarations remain
     the single source of truth, and tie the error message to
     :func:`_supported_load_extensions`.
     """
+    # Development references: ADR-043, FR-003.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: text source not found: {path}")
@@ -807,10 +817,11 @@ def _load_artifact(config: BlockConfig) -> Artifact:
     metadata dict (so callers can attach format-specific descriptors
     without subclassing :class:`Artifact`).
 
-    ADR-052 §7.2: ``mime_type`` is left ``None`` — it is non-load-bearing
+    ``mime_type`` is left ``None`` — it is non-load-bearing
     (only feeds a provenance sidecar; dispatch keys off extension->format-id,
     not MIME) and core must not infer types from extensions.
     """
+    # Development references: ADR-052.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: artifact source not found: {path}")
@@ -837,7 +848,7 @@ def _load_artifact(config: BlockConfig) -> Artifact:
 def _load_composite_data(config: BlockConfig, block: Any = None, output_dir: str = "") -> CompositeData:
     """Load CompositeData from a JSON manifest pointing at sidecar files.
 
-    ADR-031: accepts ``block`` and ``output_dir`` so that slot loaders
+    accepts ``block`` and ``output_dir`` so that slot loaders
     for DataFrame/Series types can persist data to storage.
 
     The manifest schema is::
@@ -859,6 +870,7 @@ def _load_composite_data(config: BlockConfig, block: Any = None, output_dir: str
     are portable. Slot type ``CompositeData`` is rejected to prevent
     unbounded recursion (manifests pointing at manifests).
     """
+    # Development references: ADR-031.
     path = _resolve_path(config)
     if not path.exists():
         raise FileNotFoundError(f"LoadData: composite manifest not found: {path}")

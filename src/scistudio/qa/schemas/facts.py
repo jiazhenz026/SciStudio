@@ -1,4 +1,5 @@
-"""Facts registry schema for ADR-042 generated repository facts."""
+"""Facts registry schema for generated repository facts."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

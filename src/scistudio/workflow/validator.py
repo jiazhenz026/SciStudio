@@ -44,7 +44,7 @@ def _effective_ports_for_node(
 ) -> tuple[list[Any], list[Any]]:
     """Return ``(effective_input_ports, effective_output_ports)`` for *node*.
 
-    ADR-028 Addendum 1 D6: when the registry can construct a real block
+    when the registry can construct a real block
     instance from the node's config, the validator must use that instance's
     :meth:`Block.get_effective_input_ports` /
     :meth:`Block.get_effective_output_ports` so dynamic blocks (e.g.
@@ -59,6 +59,7 @@ def _effective_ports_for_node(
     classes (where instantiation succeeds and effective ports drive the
     check) and test fixtures that bypass the import path entirely.
     """
+    # Development references: ADR-028, Addendum 1.
     try:
         instance = registry.instantiate(node.block_type, config=dict(node.config))
     except Exception:
@@ -71,9 +72,9 @@ def _effective_ports_for_node(
 
 
 def _is_codeblock_spec(spec: BlockSpec) -> bool:
-    """Return whether *spec* describes the ADR-041 CodeBlock runtime.
+    """Return whether *spec* describes the CodeBlock runtime.
 
-    Narrowed to the concrete CodeBlock identity (#1282): the previous
+    Narrowed to the concrete CodeBlock identity: the previous
     ``spec.base_category == "code"`` branch matched any code-category
     block (including custom or synthetic code-category specs) and ran
     CodeBlock v2 config validation against them, surfacing spurious
@@ -83,6 +84,7 @@ def _is_codeblock_spec(spec: BlockSpec) -> bool:
     ``scistudio.blocks.code.code_block.CodeBlock`` — any one of those
     three is sufficient to identify it; ``base_category`` alone is not.
     """
+    # Development references: #1282, ADR-041.
 
     return (
         spec.name == "Code Block"
@@ -101,12 +103,13 @@ def _project_dir_for_workflow(
     *project_dir* is the caller-supplied project root. It ranks below the
     per-node and per-workflow metadata (a flattened subworkflow node may carry
     its own) and above the ``Path.cwd()`` fallback. Passing it matters
-    (#1967): a persisted workflow never carries ``project_dir`` — the scheduler
+    a persisted workflow never carries ``project_dir`` — the scheduler
     injects it at dispatch, which is *after* run-start validation — so without
     it a project-relative ``script_path`` resolved against the process working
     directory. In the packaged desktop app that is the app's ``Resources``
     directory, so every relative ``script_path`` failed to validate.
     """
+    # Development references: #1967.
 
     params = node.config.get("params")
     if isinstance(params, dict) and params.get("project_dir"):
@@ -200,7 +203,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     3. **Edge node references** -- source / target nodes exist.
     4. **Cycle detection** -- delegates to :func:`~scistudio.engine.dag.build_dag`
        and :func:`~scistudio.engine.dag.topological_sort`.
-    4.5. **Unregistered block types, per node** (#1988) -- every node whose
+    4.5. **Unregistered block types, per node** -- every node whose
        ``block_type`` is absent from *registry* is reported once, as a
        ``Warning:``. Check 5 notices the same thing but walks edges, and a node
        that does not resolve has no ports and therefore no edges, so such nodes
@@ -218,8 +221,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
     8. **AppBlock duplicate output-port extensions** -- two output ports on
        a single variadic-output block declaring the same file extension
        (case-insensitive) would make extension-based binning ambiguous, so
-       such configurations are rejected at workflow save time
-       (issue #680).
+       such configurations are rejected at workflow save time.
 
     Parameters
     ----------
@@ -241,7 +243,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         the CodeBlock ``script_path`` of Check 9). Callers that know the active
         project MUST pass it; node/workflow ``project_dir`` metadata still wins
         when present, and the process working directory remains the last-resort
-        fallback for callers with no project context (#1967).
+        fallback for callers with no project context.
 
     Returns
     -------
@@ -249,6 +251,7 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         A (possibly empty) list of human-readable validation error or warning
         messages.  An empty list indicates a valid workflow.
     """
+    # Development references: #1967, #1988, #680.
     errors: list[str] = []
 
     # ------------------------------------------------------------------

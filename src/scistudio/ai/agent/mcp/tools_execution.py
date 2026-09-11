@@ -1,48 +1,50 @@
-"""External-audience managed command execution (ADR-055 Spec 2 §5.3, #2279).
-
-ADR-055 §5.3 makes arbitrary code an intended capability: the user authorizes
-their agent to run commands with the same ordinary OS permissions as their
-SciStudio instance, including installing dependencies. The hackathon demo's
-``run_bash`` got every part of the lifecycle wrong (§9.2): a synchronous
-``subprocess.run`` on the event loop, output clipped only after full capture,
-``cwd=None`` without a project, and no process-registry integration. This
-module is the production version:
-
-* ``run_command`` spawns through asyncio (never blocking the loop), registers
-  the command in the backend's
-  :class:`~scistudio.engine.runners.process_handle.ProcessRegistry` — the one
-  the backend's shutdown ``terminate_all`` runs on — and binds the active
-  project as working directory and ``SCISTUDIO_PROJECT_DIR``. No project, no
-  command: it refuses instead of running with an undefined directory.
-* A command owns every process it starts. On Windows each command runs in a
-  Job Object, because Windows does not reparent orphans and a tree walk from
-  the shell misses any descendant whose parent already exited. On POSIX the
-  command gets a new session, and its process group still names every
-  descendant after the shell is reaped. Cancel and backend shutdown stop the
-  whole job either way.
-* Exit is detected from the process itself, not from its pipes: a background
-  process the command started may hold stdout/stderr open indefinitely. Output
-  keeps draining for a bounded grace period after exit, then the job is
-  reported exited with a note that output may be incomplete. A background
-  process that is still running keeps the job registered, so cancel and
-  shutdown still reach it.
-* The environment is the desktop Python terminal's (``desktop/paths.py``): the
-  bundled interpreter's ``python``/``pip`` wrappers first on ``PATH`` and
-  ``PIP_TARGET`` at the shared user site, so a package installed here is the
-  one SciStudio imports afterwards.
-* Output is captured incrementally into bounded tails; the whole stream is
-  never held.
-* Every command is a managed job. The originating request ending — a browser
-  timeout or abort — does not end the job; ``list_commands``,
-  ``get_command_status`` and ``cancel_command`` reach it by id. Job state lives
-  in memory and is cleared when the backend restarts (#2279 owner decision 6).
-* Commands that invoke the ``scistudio`` CLI are refused, mirroring the
-  provisioned ``deny_scistudio_cli`` hook, with the MCP tools to use instead.
-  This is parity with the hook, not containment: arbitrary code can always
-  reach the CLI some other way (spec §4.5).
-
-Logging records job ids and outcomes only — never the command text (FR-012).
-"""
+"""External-audience managed command execution."""
+# Maintainer context (kept outside generated API documentation):
+# External-audience managed command execution (ADR-055 Spec 2 §5.3, #2279).
+#
+# ADR-055 §5.3 makes arbitrary code an intended capability: the user authorizes
+# their agent to run commands with the same ordinary OS permissions as their
+# SciStudio instance, including installing dependencies. The hackathon demo's
+# ``run_bash`` got every part of the lifecycle wrong (§9.2): a synchronous
+# ``subprocess.run`` on the event loop, output clipped only after full capture,
+# ``cwd=None`` without a project, and no process-registry integration. This
+# module is the production version:
+#
+# * ``run_command`` spawns through asyncio (never blocking the loop), registers
+#   the command in the backend's
+#   :class:`~scistudio.engine.runners.process_handle.ProcessRegistry` — the one
+#   the backend's shutdown ``terminate_all`` runs on — and binds the active
+#   project as working directory and ``SCISTUDIO_PROJECT_DIR``. No project, no
+#   command: it refuses instead of running with an undefined directory.
+# * A command owns every process it starts. On Windows each command runs in a
+#   Job Object, because Windows does not reparent orphans and a tree walk from
+#   the shell misses any descendant whose parent already exited. On POSIX the
+#   command gets a new session, and its process group still names every
+#   descendant after the shell is reaped. Cancel and backend shutdown stop the
+#   whole job either way.
+# * Exit is detected from the process itself, not from its pipes: a background
+#   process the command started may hold stdout/stderr open indefinitely. Output
+#   keeps draining for a bounded grace period after exit, then the job is
+#   reported exited with a note that output may be incomplete. A background
+#   process that is still running keeps the job registered, so cancel and
+#   shutdown still reach it.
+# * The environment is the desktop Python terminal's (``desktop/paths.py``): the
+#   bundled interpreter's ``python``/``pip`` wrappers first on ``PATH`` and
+#   ``PIP_TARGET`` at the shared user site, so a package installed here is the
+#   one SciStudio imports afterwards.
+# * Output is captured incrementally into bounded tails; the whole stream is
+#   never held.
+# * Every command is a managed job. The originating request ending — a browser
+#   timeout or abort — does not end the job; ``list_commands``,
+#   ``get_command_status`` and ``cancel_command`` reach it by id. Job state lives
+#   in memory and is cleared when the backend restarts (#2279 owner decision 6).
+# * Commands that invoke the ``scistudio`` CLI are refused, mirroring the
+#   provisioned ``deny_scistudio_cli`` hook, with the MCP tools to use instead.
+#   This is parity with the hook, not containment: arbitrary code can always
+#   reach the CLI some other way (spec §4.5).
+#
+# Logging records job ids and outcomes only — never the command text (FR-012).
+# Development references: #2279, ADR-055, FR-012, Spec 2.
 
 from __future__ import annotations
 
@@ -280,8 +282,9 @@ def _member_running(proc: psutil.Process) -> bool:
     Never ``wait()``: the shell is asyncio's own child, and a ``waitpid`` here
     could reap it before asyncio's child watcher records its exit, leaving the
     supervisor waiting forever with the job stuck in ``running`` (Codex review
-    on #2292). A zombie has exited; its parent reaps it.
+    on). A zombie has exited; its parent reaps it.
     """
+    # Development references: #2292.
     import psutil
 
     try:
@@ -490,7 +493,7 @@ def _shell_description() -> str:
 
 
 def build_command_environment(project_dir: Path) -> dict[str, str]:
-    """The environment a command runs with (ADR-055 Spec 2 FR-010).
+    """The environment a command runs with.
 
     The desktop Python terminal's contract (:func:`scistudio.desktop.paths.user_python_terminal_env`):
     the bundled interpreter's ``python``/``pip`` wrappers first on ``PATH``,
@@ -502,6 +505,7 @@ def build_command_environment(project_dir: Path) -> dict[str, str]:
     are decoded as UTF-8, show non-ASCII text — a Windows Python child would
     otherwise write its pipes in the ANSI code page.
     """
+    # Development references: ADR-055, FR-010, Spec 2.
     from scistudio.desktop.paths import user_python_terminal_env
 
     env = {key: value for key, value in os.environ.items() if key not in _STRIPPED_ENV_VARS}
@@ -600,8 +604,9 @@ def _close_transport(job: _Job) -> None:
     at backend shutdown, after ``terminate_all`` -- keeps the process and loses
     only the pipes nobody reads any more. Left open, those pipes would be
     closed again by the transport's finalizer on the closed loop, which raises
-    "Event loop is closed" on Python 3.11 (#2292 CI).
+    "Event loop is closed" on Python 3.11 (CI).
     """
+    # Development references: #2292.
     transport = getattr(job.process, "_transport", None)
     if transport is None:
         return
@@ -979,7 +984,7 @@ async def cancel_command(
 
 
 def _command_failed(structured: dict[str, Any]) -> bool:
-    """A refusal, or a command that ended with a non-zero exit (owner decision 2026-09-11)."""
+    """A refusal, or a command that ended with a non-zero exit."""
     if status_is_failure(structured):
         return True
     return structured.get("state") == "exited" and structured.get("exit_code") not in (None, 0)

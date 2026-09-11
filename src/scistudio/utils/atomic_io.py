@@ -1,45 +1,47 @@
-"""Atomic, crash-safe file writes (shared durability helper).
-
-Several SciStudio subsystems persist files that the system exists to
-protect — pause/resume checkpoints (ADR-018 / ADR-012), SaveData
-scientific artifacts (ADR-028 Addendum 1 §C9), and workflow YAML
-definitions. The naive ``open(path, "w")`` / ``Path.write_text`` /
-``json.dump(..., f)`` pattern writes **directly into the final path**:
-a crash (SIGKILL, OOM, power loss) mid-write leaves a truncated file,
-and when the destination already held a good copy the prior good bytes
-are already gone. See issues #1515 (checkpoint), #1516 (SaveData
-writers), and #1543 (workflow YAML).
-
-This module centralises the durable-write recipe:
-
-1. Write the new bytes to a temporary sibling file in the **same
-   directory** as the destination (so the final :func:`os.replace` is a
-   same-filesystem rename, which POSIX and Windows both make atomic).
-2. ``flush`` + :func:`os.fsync` the file so the bytes hit stable storage
-   before the rename is published.
-3. :func:`os.replace` the temp file onto the final path. ``os.replace``
-   atomically swaps the new file in; a concurrent reader either sees the
-   complete old file or the complete new file, never a half-written one.
-4. On any exception before the rename, the temp file is removed and the
-   original destination is left untouched.
-
-The functions here do **not** ``fsync`` the containing directory by
-default. A directory fsync is required only when an application must
-guarantee that the *rename itself* survives a power loss (as opposed to
-the file contents); SciStudio's durability requirement is "never observe
-a truncated/half-written artifact", which the same-directory
-``os.replace`` already satisfies. Callers that need rename-durability can
-pass ``fsync_dir=True``.
-
-Directory-style outputs (zarr stores, ``shutil.copytree`` targets) are
-handled by :func:`atomic_replace_dir`, which builds the new tree in a
-temp sibling directory and swaps it into place; see its docstring for the
-non-empty-destination caveat. Directory swaps carry a Windows-only
-hazard that files do not: a directory rename is denied while any handle
-is open anywhere in its subtree, and antimalware scanners open files the
-instant they are written. :func:`atomic_replace_dir` retries its renames
-for that reason — see issue #2148 and :func:`_replace_with_retry`.
-"""
+"""Atomic, crash-safe file writes (shared durability helper)."""
+# Maintainer context (kept outside generated API documentation):
+# Atomic, crash-safe file writes (shared durability helper).
+#
+# Several SciStudio subsystems persist files that the system exists to
+# protect — pause/resume checkpoints (ADR-018 / ADR-012), SaveData
+# scientific artifacts (ADR-028 Addendum 1 §C9), and workflow YAML
+# definitions. Direct ``open(path, "w")`` / ``Path.write_text`` /
+# ``json.dump(..., f)`` pattern writes **directly into the final path**:
+# a crash (SIGKILL, OOM, power loss) mid-write leaves a truncated file,
+# and when the destination already held a good copy the prior good bytes
+# are already gone. See issues #1515 (checkpoint), #1516 (SaveData
+# writers), and #1543 (workflow YAML).
+#
+# This module centralises the durable-write recipe:
+#
+# 1. Write the new bytes to a staging sibling file in the **same
+#    directory** as the destination (so the final :func:`os.replace` is a
+#    same-filesystem rename, which POSIX and Windows both make atomic).
+# 2. ``flush`` + :func:`os.fsync` the file so the bytes hit stable storage
+#    before the rename is published.
+# 3. :func:`os.replace` the temp file onto the final path. ``os.replace``
+#    atomically swaps the new file in; a concurrent reader either sees the
+#    complete old file or the complete new file, never a half-written one.
+# 4. On any exception before the rename, the temp file is removed and the
+#    original destination is left untouched.
+#
+# The functions here do **not** ``fsync`` the containing directory by
+# default. A directory fsync is required only when an application must
+# guarantee that the *rename itself* survives a power loss (as opposed to
+# the file contents); SciStudio's durability requirement is "never observe
+# a truncated/half-written artifact", which the same-directory
+# ``os.replace`` already satisfies. Callers that need rename-durability can
+# pass ``fsync_dir=True``.
+#
+# Directory-style outputs (zarr stores, ``shutil.copytree`` targets) are
+# handled by :func:`atomic_replace_dir`, which builds the new tree in a
+# temp sibling directory and swaps it into place; see its docstring for the
+# non-empty-destination caveat. Directory swaps carry a Windows-only
+# hazard that files do not: a directory rename is denied while any handle
+# is open anywhere in its subtree, and antimalware scanners open files the
+# instant they are written. :func:`atomic_replace_dir` retries its renames
+# for that reason — see issue #2148 and :func:`_replace_with_retry`.
+# Development references: #1515, #1516, #1543, #2148, ADR-012, ADR-018, ADR-028, Addendum 1.
 
 from __future__ import annotations
 
@@ -303,7 +305,7 @@ def _replace_with_retry(src: Path, dst: Path) -> None:
     Renaming a directory on Windows fails with ``ERROR_ACCESS_DENIED`` while
     *any* file inside its subtree is open — the share mode of that handle
     does not matter, so even a scanner that opened the file with
-    ``FILE_SHARE_DELETE`` blocks the rename (issue #2148). Antimalware and
+    ``FILE_SHARE_DELETE`` blocks the rename. Antimalware and
     the search indexer open files immediately after they are written, which
     is precisely the moment a freshly staged store is renamed into place, so
     the denial is common under load and absent on an idle machine.
@@ -313,6 +315,7 @@ def _replace_with_retry(src: Path, dst: Path) -> None:
     outlives the budget is re-raised unchanged so the caller still sees the
     original error.
     """
+    # Development references: #2148.
     delay = _SWAP_RETRY_INITIAL_DELAY
     for _ in range(_SWAP_RETRY_ATTEMPTS - 1):
         try:
@@ -354,7 +357,7 @@ def atomic_replace_dir(path: str | os.PathLike[str]) -> Iterator[Path]:
 
     Both renames go through :func:`_replace_with_retry` because Windows
     denies a directory rename while any handle is open in its subtree
-    (issue #2148); see that function for why the denial is transient.
+    see that function for why the denial is transient.
 
     Args:
         path: Final destination directory.
@@ -362,6 +365,7 @@ def atomic_replace_dir(path: str | os.PathLike[str]) -> Iterator[Path]:
     Yields:
         A :class:`~pathlib.Path` to the temp directory to populate.
     """
+    # Development references: #2148.
     dest = Path(path)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp_dir = Path(tempfile.mkdtemp(dir=str(dest.parent), prefix=f".{dest.name}.", suffix=".tmp"))

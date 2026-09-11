@@ -1,167 +1,171 @@
-"""One answer to "which drop-in directories does this process see?".
-
-ADR-053 / ``docs/specs/adr-053-personal-tool-library.md`` §2.6 + §10.3
-(FR-057 to FR-060). The same semantic used to be written out four times and no
-two copies agreed:
-
-============================================  =====================  ==================
-Registration point                            Blocks                 Types
-============================================  =====================  ==================
-``scistudio.api.runtime._projects``           project + user, both   project gated,
-                                              gated on a project     user unconditional
-``scistudio.ai.agent.mcp.runtime``            project + user, user   no scan dir at all
-                                              unconditional
-``scistudio.core.types.serialization``        --                     project + user
-``scistudio.blocks.io._unified_dispatch``     ``always_home=False``  ``always_home=True``
-============================================  =====================  ==================
-
-The synchronisation between them was maintained by a comment. This module
-replaces that comment with a single implementation that all four sites call.
-
-**FR-057.** Drop-in directory registration (:func:`register_block_scan_dirs`,
-:func:`register_type_scan_dirs`) and import-root injection
-(:func:`dropin_import_roots`) are provided here and consumed by every
-registration point. A call site MAY pass its own project directory and MAY
-declare whether a project context exists (by passing ``None``), but it MUST NOT
-decide which directories the tier comprises or which roots go on ``sys.path``.
-
-**FR-058.** Blocks and types resolve through the same tier definition:
-:func:`user_library_dir` is the single answer to "where does the user tier
-live", and both :func:`block_scan_dirs` and :func:`type_scan_dirs` are the same
-:func:`_tier_dirs` call with a different child directory name.
-
-**FR-060.** User-tier discovery is unconditional. The user library is defined
-by the user's home directory and has no relationship to which project happens
-to be open. Project-tier discovery still requires a project, since without one
-there is no project directory to scan.
-
-Ordering is load-bearing and identical for both kinds: the project tier comes
-first. The type registry's drop-in pass skips names already registered, so
-listing the project tier first is what makes a project type shadow a
-user-library type of the same name, and :func:`dropin_import_roots` keeps the
-same order so module-name resolution agrees with registration.
-
-Directories are returned whether or not they exist. Both registries skip
-missing scan directories at scan time and
-:func:`scistudio.desktop.paths.prepended_sys_paths` filters missing import
-roots, while returning declared paths is what makes the four registration
-points comparable in ``tests/api/test_registry_provisioning_parity.py``.
-
-Scan *order* and duplicate-resolution policy are deliberately **not** owned
-here: this module answers "which directories" and "which import roots", while
-each registry keeps its own discovery pass ordering. See
-:meth:`scistudio.core.types.registry.TypeRegistry.scan_all` for the FR-061
-record of why the two orders stay separate.
-
-**FR-016 lives here too, for the same reason FR-057 does.** A types directory
-on ``sys.path`` is a user-writable claim on the top-level module namespace: a
-``json.py`` or ``numpy.py`` there would be imported in preference to the real
-package by everything loaded afterwards.
-:func:`guard_dropin_type_roots` is the single definition of what counts as a
-collision *and* of the mitigation — binding the module the drop-in would
-shadow before the roots join ``sys.path``, so the installed package keeps
-winning while the user renames the file.
-
-The mitigation fails closed. A collided module that raises on import cannot be
-bound, and a suppressed binding failure would leave the name free for the
-drop-in file the guard just refused — FR-016 defeated in precisely the case it
-exists for, by the import health of an unrelated package. Such a name is
-refused outright instead, through :class:`_RefusedNameFinder`; see there for
-why refusing is the same answer the un-shadowed process gives.
-
-A refusal outlives the scan that discovered it but not the drop-in entry that
-caused it. Each one is held on the warrant of the type roots where the
-collision was found, and a subsequent pass over one of those roots withdraws
-its warrant once the entry is gone, dropping the refusal when the last warrant
-goes. Without that the product breaks an installed module it was never asked
-to touch, for the life of the process, in answer to the user doing exactly
-what the refusal asked — removing the file. The bound is the roots: a pass
-never withdraws a warrant held by a root it was not asked about, because it
-has no listing of that root and therefore no evidence the refusal is stale.
-
-The collision question is asked of every name the directory makes importable,
-including underscore-prefixed ones; :func:`_importable_entries` records why,
-and why that is a different question from whether a registry registers the
-file.
-
-:func:`evict_cached_bytecode` is here for the FR-057 reason rather than the
-FR-016 one: both drop-in scan passes must defeat CPython's bytecode-freshness
-key before they load a file, and a rule restated at two scan sites is a rule
-that drifts. See FR-062 and the function's own docstring.
-
-It is here rather than in either registry because the roots reach ``sys.path``
-from four processes and the answer must be the same in all of them. It
-previously lived in ``blocks.registry._scan`` and ran only during the palette
-scan, so a block resolved the installed module in the API process and the
-drop-in file in the worker — the scan-time-versus-run-time divergence FR-013
-exists to eliminate, reintroduced by the fix for it. The call sites are
-:func:`scistudio.blocks.registry._scan._scan_tier1` (palette scan),
-:meth:`scistudio.blocks.registry.BlockRegistry.instantiate` (in-process
-execution), :func:`scistudio.engine.runners.worker._prepend_runtime_import_roots`
-(worker subprocess), and :meth:`scistudio.core.types.registry.TypeRegistry._scan_filesystem_dirs`,
-which asks the same question with ``bind=False`` and refuses registration on
-the answer (§13 OQ-1: the refusal is a refusal, not a warning). That one call
-site needs no binding because it loads drop-in types by file path rather than
-through ``sys.path``, so binding would import a third-party package for no
-reason; every site that *does* touch ``sys.path`` takes the default.
-
-The guard takes *import* roots rather than type roots and picks the type tiers
-out of them itself, by the ``<tier-root>/`` :data:`TYPES_DIR_NAME` shape
-:func:`_tier_dirs` builds — exact rather than heuristic, because the same
-module writes the paths and reads them back. ``runtime_import_roots``
-interleaves the type tiers with the shared user dependency site, and a caller
-that had to separate them first would be deciding FR-016's scope on its own —
-the class of decision FR-057 removed.
-
-One consumer holds block scan directories rather than a project directory.
-:class:`scistudio.blocks.registry.BlockRegistry` is handed its directories
-through :func:`register_block_scan_dirs` and never learns the project root, but
-FR-012 requires the drop-in blocks it executes to import drop-in types by file
-name. Every tier is ``<root>/<child>`` (:func:`_tier_dirs`), so a block
-directory's tier root is its parent, and
-:func:`dropin_type_roots_for_block_dirs` / :func:`dropin_import_roots_for_block_dirs`
-turn a set of block directories back into the type directories and import roots
-of the same tiers, first occurrence winning so the project tier stays ahead of
-the user tier (FR-014). Deriving the roots from the directories the registry was
-given — rather than from an environment variable — is what makes the answer
-identical in the API, agent, worker, and IO dispatch processes (FR-057): none of
-them sets ``SCISTUDIO_PROJECT_DIR`` for the API server, but all four register
-their scan directories through this module.
-
-Previewers are the third consumer (#2044 / #2017). ``<project>/previewers``
-and ``~/.scistudio/previewers`` are the same user-writable claim on the
-top-level module namespace as the types directories, so the tier definition
-(:func:`previewer_scan_dirs`, :func:`previewer_import_roots`), the collision
-guard (:func:`guard_dropin_roots`, one implementation shared with
-the types guard), and :func:`evict_cached_bytecode` all live here rather than
-as a fourth copy of the rule in ``scistudio.previewers.project``. The user
-previewer tier exists at all because FR-060's rule — user-tier discovery is
-unconditional, project-tier requires a project — applies to previewers
-exactly as it does to types.
-
-**The Learning Center adds a third kind and a second user-tier root**
-(``docs/specs/adr-053-learning-center.md`` FR-016, FR-031, FR-070 to FR-073).
-Tutorials are discovered from ``<project>/tutorials`` and
-``~/.scistudio/tutorials`` through the same :func:`_tier_dirs` definition
-(:func:`tutorial_scan_dirs`), so every event that already refreshes the block
-and type registries reaches tutorial discovery too rather than needing a fourth
-provisioning path. And a project under :func:`tutorial_parent_dir` scans
-:func:`tutorial_library_dir` where a real project scans
-:func:`user_library_dir` — one root swapped by
-:func:`library_root_for_project`, not a new tier, which is why nothing above
-this module has to learn what a tutorial project is. The tutorial tier's
-absence from :func:`dropin_import_roots` is a decision rather than an omission;
-that function records it.
-
-Layering: this module lives in ``scistudio.core`` because
-:mod:`scistudio.core.types.serialization` is one of the four consumers and the
-``Core must not depend on blocks, engine, api, ai, or workflow`` import-linter
-contract forbids the reverse direction. It sits directly under ``core`` rather
-than under ``core.types`` so that ``core.types.serialization`` importing it is
-not a ``core.types`` sibling edge (the ``core.types submodules are acyclic``
-contract). ``core -> desktop.paths`` is an established edge
-(:mod:`scistudio.core.types.registry` already uses it).
-"""
+"""One answer to "which drop-in directories does this process see?"."""
+# Maintainer context (kept outside generated API documentation):
+# One answer to "which drop-in directories does this process see?".
+#
+# ADR-053 / ``docs/specs/adr-053-personal-tool-library.md`` §2.6 + §10.3
+# (FR-057 to FR-060). The same semantic used to be written out four times and no
+# two copies agreed:
+#
+# ============================================  =====================  ==================
+# Registration point                            Blocks                 Types
+# ============================================  =====================  ==================
+# ``scistudio.api.runtime._projects``           project + user, both   project gated,
+#                                               gated on a project     user unconditional
+# ``scistudio.ai.agent.mcp.runtime``            project + user, user   no scan dir at all
+#                                               unconditional
+# ``scistudio.core.types.serialization``        --                     project + user
+# ``scistudio.blocks.io._unified_dispatch``     ``always_home=False``  ``always_home=True``
+# ============================================  =====================  ==================
+#
+# The synchronisation between them was maintained by a comment. This module
+# replaces that comment with a single implementation that all four sites call.
+#
+# **FR-057.** Drop-in directory registration (:func:`register_block_scan_dirs`,
+# :func:`register_type_scan_dirs`) and import-root injection
+# (:func:`dropin_import_roots`) are provided here and consumed by every
+# registration point. A call site MAY pass its own project directory and MAY
+# declare whether a project context exists (by passing ``None``), but it MUST NOT
+# decide which directories the tier comprises or which roots go on ``sys.path``.
+#
+# **FR-058.** Blocks and types resolve through the same tier definition:
+# :func:`user_library_dir` is the single answer to "where does the user tier
+# live", and both :func:`block_scan_dirs` and :func:`type_scan_dirs` are the same
+# :func:`_tier_dirs` call with a different child directory name.
+#
+# **FR-060.** User-tier discovery is unconditional. The user library is defined
+# by the user's home directory and has no relationship to which project happens
+# to be open. Project-tier discovery still requires a project, since without one
+# there is no project directory to scan.
+#
+# Ordering is load-bearing and identical for both kinds: the project tier comes
+# first. The type registry's drop-in pass skips names already registered, so
+# listing the project tier first is what makes a project type shadow a
+# user-library type of the same name, and :func:`dropin_import_roots` keeps the
+# same order so module-name resolution agrees with registration.
+#
+# Directories are returned whether or not they exist. Both registries skip
+# missing scan directories at scan time and
+# :func:`scistudio.desktop.paths.prepended_sys_paths` filters missing import
+# roots, while returning declared paths is what makes the four registration
+# points comparable in ``tests/api/test_registry_provisioning_parity.py``.
+#
+# Scan *order* and duplicate-resolution policy are deliberately **not** owned
+# here: this module answers "which directories" and "which import roots", while
+# each registry keeps its own discovery pass ordering. See
+# :meth:`scistudio.core.types.registry.TypeRegistry.scan_all` for the FR-061
+# record of why the two orders stay separate.
+#
+# **FR-016 lives here too, for the same reason FR-057 does.** A types directory
+# on ``sys.path`` is a user-writable claim on the top-level module namespace: a
+# ``json.py`` or ``numpy.py`` there would be imported in preference to the real
+# package by everything loaded afterwards.
+# :func:`guard_dropin_type_roots` is the single definition of what counts as a
+# collision *and* of the mitigation — binding the module the drop-in would
+# shadow before the roots join ``sys.path``, so the installed package keeps
+# winning while the user renames the file.
+#
+# The mitigation fails closed. A collided module that raises on import cannot be
+# bound, and a suppressed binding failure would leave the name free for the
+# drop-in file the guard just refused — FR-016 defeated in precisely the case it
+# exists for, by the import health of an unrelated package. Such a name is
+# refused outright instead, through :class:`_RefusedNameFinder`; see there for
+# why refusing is the same answer the un-shadowed process gives.
+#
+# A refusal outlives the scan that discovered it but not the drop-in entry that
+# caused it. Each one is held on the warrant of the type roots where the
+# collision was found, and a subsequent pass over one of those roots withdraws
+# its warrant once the entry is gone, dropping the refusal when the last warrant
+# goes. Without that the product breaks an installed module it was never asked
+# to touch, for the life of the process, in answer to the user doing exactly
+# what the refusal asked — removing the file. The bound is the roots: a pass
+# never withdraws a warrant held by a root it was not asked about, because it
+# has no listing of that root and therefore no evidence the refusal is stale.
+#
+# The collision question is asked of every name the directory makes importable,
+# including underscore-prefixed ones; :func:`_importable_entries` records why,
+# and why that is a different question from whether a registry registers the
+# file.
+#
+# :func:`evict_cached_bytecode` is here for the FR-057 reason rather than the
+# FR-016 one: both drop-in scan passes must defeat CPython's bytecode-freshness
+# key before they load a file, and a rule restated at two scan sites is a rule
+# that drifts. See FR-062 and the function's own docstring.
+#
+# It is here rather than in either registry because the roots reach ``sys.path``
+# from four processes and the answer must be the same in all of them. It
+# previously lived in ``blocks.registry._scan`` and ran only during the palette
+# scan, so a block resolved the installed module in the API process and the
+# drop-in file in the worker — the scan-time-versus-run-time divergence FR-013
+# exists to eliminate, reintroduced by the fix for it. The call sites are
+# :func:`scistudio.blocks.registry._scan._scan_tier1` (palette scan),
+# :meth:`scistudio.blocks.registry.BlockRegistry.instantiate` (in-process
+# execution), :func:`scistudio.engine.runners.worker._prepend_runtime_import_roots`
+# (worker subprocess), and :meth:`scistudio.core.types.registry.TypeRegistry._scan_filesystem_dirs`,
+# which asks the same question with ``bind=False`` and refuses registration on
+# the answer (§13 OQ-1: the refusal is a refusal, not a warning). That one call
+# site needs no binding because it loads drop-in types by file path rather than
+# through ``sys.path``, so binding would import a third-party package for no
+# reason; every site that *does* touch ``sys.path`` takes the default.
+#
+# The guard takes *import* roots rather than type roots and picks the type tiers
+# out of them itself, by the ``<tier-root>/`` :data:`TYPES_DIR_NAME` shape
+# :func:`_tier_dirs` builds — exact rather than heuristic, because the same
+# module writes the paths and reads them back. ``runtime_import_roots``
+# interleaves the type tiers with the shared user dependency site, and a caller
+# that had to separate them first would be deciding FR-016's scope on its own —
+# the class of decision FR-057 removed.
+#
+# One consumer holds block scan directories rather than a project directory.
+# :class:`scistudio.blocks.registry.BlockRegistry` is handed its directories
+# through :func:`register_block_scan_dirs` and never learns the project root, but
+# FR-012 requires the drop-in blocks it executes to import drop-in types by file
+# name. Every tier is ``<root>/<child>`` (:func:`_tier_dirs`), so a block
+# directory's tier root is its parent, and
+# :func:`dropin_type_roots_for_block_dirs` / :func:`dropin_import_roots_for_block_dirs`
+# turn a set of block directories back into the type directories and import roots
+# of the same tiers, first occurrence winning so the project tier stays ahead of
+# the user tier (FR-014). Deriving the roots from the directories the registry was
+# given — rather than from an environment variable — is what makes the answer
+# identical in the API, agent, worker, and IO dispatch processes (FR-057): none of
+# them sets ``SCISTUDIO_PROJECT_DIR`` for the API server, but all four register
+# their scan directories through this module.
+#
+# Previewers are the third consumer (#2044 / #2017). ``<project>/previewers``
+# and ``~/.scistudio/previewers`` are the same user-writable claim on the
+# top-level module namespace as the types directories, so the tier definition
+# (:func:`previewer_scan_dirs`, :func:`previewer_import_roots`), the collision
+# guard (:func:`guard_dropin_roots`, one implementation shared with
+# the types guard), and :func:`evict_cached_bytecode` all live here rather than
+# as a fourth copy of the rule in ``scistudio.previewers.project``. The user
+# previewer tier exists at all because FR-060's rule — user-tier discovery is
+# unconditional, project-tier requires a project — applies to previewers
+# exactly as it does to types.
+#
+# **The Learning Center adds a third kind and a second user-tier root**
+# (``docs/specs/adr-053-learning-center.md`` FR-016, FR-031, FR-070 to FR-073).
+# Tutorials are discovered from ``<project>/tutorials`` and
+# ``~/.scistudio/tutorials`` through the same :func:`_tier_dirs` definition
+# (:func:`tutorial_scan_dirs`), so every event that already refreshes the block
+# and type registries reaches tutorial discovery too rather than needing a fourth
+# provisioning path. And a project under :func:`tutorial_parent_dir` scans
+# :func:`tutorial_library_dir` where a real project scans
+# :func:`user_library_dir` — one root swapped by
+# :func:`library_root_for_project`, not a new tier, which is why nothing above
+# this module has to learn what a tutorial project is. The tutorial tier's
+# absence from :func:`dropin_import_roots` is a decision rather than an omission;
+# that function records it.
+#
+# Layering: this module lives in ``scistudio.core`` because
+# :mod:`scistudio.core.types.serialization` is one of the four consumers and the
+# ``Core must not depend on blocks, engine, api, ai, or workflow`` import-linter
+# contract forbids the reverse direction. It sits directly under ``core`` rather
+# than under ``core.types`` so that ``core.types.serialization`` importing it is
+# not a ``core.types`` sibling edge (the ``core.types submodules are acyclic``
+# contract). ``core -> desktop.paths`` is an established edge
+# (:mod:`scistudio.core.types.registry` already uses it).
+# Development references: #2017, #2044, ADR-053, FR-012, FR-013, FR-014, FR-016, FR-031, FR-057, FR-058,
+# FR-060, FR-061, FR-062, FR-070, FR-073, OQ-1, docs/specs/adr-053-learning-center.md,
+# docs/specs/adr-053-personal-tool-library.md.
 
 from __future__ import annotations
 
@@ -271,7 +275,8 @@ class SupportsScanDirs(Protocol):
 
 
 def user_library_dir() -> Path:
-    """Return the user library root, ``~/.scistudio`` (FR-058)."""
+    """Return the user library root, ``~/.scistudio``."""
+    # Development references: FR-058.
     return Path.home() / USER_LIBRARY_DIR_NAME
 
 
@@ -312,39 +317,42 @@ def project_dir_from_env() -> Path | None:
 
 
 def tutorial_parent_dir() -> Path:
-    """Return the tutorial project parent, ``~/SciStudio Tutorials`` (FR-062)."""
+    """Return the tutorial project parent, ``~/SciStudio Tutorials``."""
+    # Development references: FR-062.
     return Path.home() / TUTORIAL_PARENT_DIR_NAME
 
 
 def tutorial_library_dir() -> Path:
-    """Return the tutorial-scoped library root (FR-070).
+    """Return the tutorial-scoped library root.
 
     The user tier a tutorial project sees *in place of* :func:`user_library_dir`.
     One scenario has the user save a custom type to My Library so the next
     scenario can reuse it, and that must not deposit a teaching type into every
-    real project the user opens afterwards (FR-071).
+    real project the user opens afterwards.
     """
+    # Development references: FR-070, FR-071.
     return tutorial_parent_dir() / TUTORIAL_LIBRARY_DIR_NAME
 
 
 def is_tutorial_location(path: str | Path) -> bool:
-    """Return whether *path* sits under :func:`tutorial_parent_dir` (FR-070).
+    """Return whether *path* sits under :func:`tutorial_parent_dir`.
 
     Location is the definition of a tutorial project, not a second opinion about
-    it: FR-062 puts every tutorial project under one parent and FR-070 puts the
+    it: every tutorial project lives under one parent, with the
     scoped library there too, so the answer to "does this project scan the
     tutorial library" is decidable from the path alone. It has to be, because
     this module may not import :mod:`scistudio.api` and the known-projects
-    marker (FR-064) lives there. The two markers answer different questions from
+    marker lives there. The two markers answer different questions from
     the same rule: this one selects the library tier for a directory, and the
     known-projects one records *which* tutorial a project belongs to so the
-    listing filter (FR-065) and the restart deletion (FR-066) can act on it.
+    listing filter and the restart deletion can act on it.
 
     Non-resolvable paths answer ``False`` rather than raising: a caller asking
     about a path the filesystem will not resolve gets the real-project answer,
     which is the conservative one — it never routes a real project's writes into
     the tutorial library.
     """
+    # Development references: FR-062, FR-064, FR-065, FR-066, FR-070.
     with suppress(OSError, ValueError):
         parent = tutorial_parent_dir().expanduser().resolve()
         return Path(path).expanduser().resolve().is_relative_to(parent)
@@ -352,7 +360,7 @@ def is_tutorial_location(path: str | Path) -> bool:
 
 
 def library_root_for_project(project_dir: str | Path | None) -> Path:
-    """Return the user-tier library root *project_dir* scans (FR-070, FR-071).
+    """Return the user-tier library root *project_dir* scans.
 
     :func:`tutorial_library_dir` for a project under the tutorial parent and
     :func:`user_library_dir` for every other project, including the no-project
@@ -364,31 +372,35 @@ def library_root_for_project(project_dir: str | Path | None) -> Path:
     correct for tutorial projects without any of them learning what a tutorial
     is.
     """
+    # Development references: FR-070, FR-071.
     if project_dir is not None and is_tutorial_location(project_dir):
         return tutorial_library_dir()
     return user_library_dir()
 
 
 def user_tutorials_dir() -> Path:
-    """Return the user tutorial tier, ``~/.scistudio/tutorials`` (FR-016)."""
+    """Return the user tutorial tier, ``~/.scistudio/tutorials``."""
+    # Development references: FR-016.
     return user_library_dir() / TUTORIALS_DIR_NAME
 
 
 def project_tutorials_dir(project_dir: str | Path) -> Path:
-    """Return the project tutorial tier, ``<project>/tutorials`` (FR-016)."""
+    """Return the project tutorial tier, ``<project>/tutorials``."""
+    # Development references: FR-016.
     return Path(project_dir) / TUTORIALS_DIR_NAME
 
 
 def _tier_dirs(child: str, project_dir: str | Path | None, user_root: Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in directories named *child* for a project context.
 
-    The one place the tier definition lives (FR-058): the project tier when a
-    project context exists, then the user tier unconditionally (FR-060).
+    The one place the tier definition lives: the project tier when a
+    project context exists, then the user tier unconditionally.
 
     *user_root* names the root the user tier lives under, defaulting to
     :func:`user_library_dir`. Only the three library kinds pass anything else —
     see :func:`library_root_for_project`.
     """
+    # Development references: FR-058, FR-060.
     dirs: list[Path] = []
     if project_dir is not None:
         dirs.append(Path(project_dir) / child)
@@ -400,8 +412,9 @@ def block_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in block scan dirs for *project_dir*'s context.
 
     A tutorial project's user tier is the tutorial-scoped library
-    (:func:`library_root_for_project`, FR-070/FR-071).
+    (:func:`library_root_for_project`).
     """
+    # Development references: FR-070, FR-071.
     return _tier_dirs(BLOCKS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
@@ -409,48 +422,51 @@ def type_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in type scan dirs for *project_dir*'s context.
 
     A tutorial project's user tier is the tutorial-scoped library
-    (:func:`library_root_for_project`, FR-070/FR-071).
+    (:func:`library_root_for_project`).
     """
+    # Development references: FR-070, FR-071.
     return _tier_dirs(TYPES_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in tutorial scan dirs for *project_dir*'s context.
 
-    FR-016's user and project tutorial sources, resolved through the same tier
+    The API's user and project tutorial sources, resolved through the same tier
     definition as blocks and types so package install, package uninstall, branch
     switch, and the working-tree rewrites that refresh the registries reach
-    tutorial discovery by the path they already travel (FR-031) rather than a
+    tutorial discovery by the path they already travel rather than a
     fourth one.
 
     The user tier is ``~/.scistudio/tutorials`` for **every** project, tutorial
     projects included: :func:`library_root_for_project` swaps the root the user
-    saves *into* during a tutorial (FR-070), and applying that swap here as well
+    saves *into* during a tutorial, and applying that swap here as well
     would make the user's own tutorials disappear from the catalogue for as long
     as a tutorial was running.
     """
+    # Development references: FR-016, FR-031, FR-070.
     return _tier_dirs(TUTORIALS_DIR_NAME, project_dir)
 
 
 def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the drop-in previewer scan dirs for *project_dir*'s context.
 
-    Same tier definition as :func:`type_scan_dirs` (FR-058): the project tier
-    when a project context exists, then the user tier unconditionally (FR-060).
+    Same tier definition as :func:`type_scan_dirs`: the project tier
+    when a project context exists, then the user tier unconditionally.
 
     A tutorial project's user tier is the tutorial-scoped library
-    (:func:`library_root_for_project`, FR-070/FR-071) — the same one-root swap
-    blocks and types make, extended to previewers by #2086 so a previewer saved
+    (:func:`library_root_for_project`) — the same one-root swap
+    blocks and types make, extended to previewers by so a previewer saved
     during one tutorial travels to the next tutorial project and never into
     ``~/.scistudio/previewers``.
     """
+    # Development references: #2086, FR-058, FR-060, FR-070, FR-071.
     return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Return the import roots to put on ``sys.path`` when running a drop-in.
 
-    FR-057: no call site decides which roots go on ``sys.path``. They are the
+    no call site decides which roots go on ``sys.path``. They are the
     project types dir (when a project context exists), the user types dir, and
     the shared user dependency site from
     :func:`scistudio.desktop.paths.user_python_import_roots` - third-party
@@ -459,19 +475,20 @@ def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ..
     shadows a user-library type of the same module name.
 
     For a tutorial project the type tiers come from the tutorial-scoped library
-    rather than ``~/.scistudio`` (:func:`library_root_for_project`), so FR-071
+    rather than ``~/.scistudio`` (:func:`library_root_for_project`), so
     holds for module resolution and not only for registration: a teaching type
     is importable inside the tutorial and nowhere else.
 
-    **The tutorial drop-in tier is deliberately not here** (ADR-053 Learning
-    Center FR-016 with FR-020a). A tutorial directory holds a ``tutorial.yaml``
+    **The tutorial drop-in tier is deliberately not here** (Learning
+    Center  with). A tutorial directory holds a ``tutorial.yaml``
     and an ``assets/`` tree, nothing the product imports by module name, so it
     has no claim to make on ``sys.path`` — and putting ``<project>/tutorials``
-    there would hand a project-level tutorial exactly the exposure FR-020a
+    there would hand a project-level tutorial exactly the exposure
     exists to close, since any ``.py`` beside a manifest would become an
     importable top-level module. Discovery reads those directories as files
     (:func:`tutorial_scan_dirs`); it never imports out of them.
     """
+    # Development references: ADR-053, FR-016, FR-020a, FR-057, FR-071.
     return (*type_scan_dirs(project_dir), *user_python_import_roots())
 
 
@@ -487,7 +504,7 @@ def previewer_import_roots(project_dir: str | Path | None = None) -> tuple[Path,
 
 
 def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
-    """Return the type dirs of the tiers *block_dirs* belong to (FR-012/FR-014).
+    """Return the type dirs of the tiers *block_dirs* belong to.
 
     An empty input yields no type roots, so a registry that was given no scan
     directory stays inert rather than reaching into the user's home.
@@ -496,8 +513,9 @@ def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[
     the block dir's parent, and :func:`type_scan_dirs` re-applies
     :func:`library_root_for_project` to it, so a registry handed a tutorial
     project's directories resolves the tutorial library's types and never the
-    user's (FR-071).
+    user's.
     """
+    # Development references: FR-012, FR-014, FR-071.
     roots = [root for block_dir in block_dirs for root in type_scan_dirs(Path(block_dir).parent)]
     return tuple(dict.fromkeys(roots))
 
@@ -510,17 +528,17 @@ def dropin_import_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tupl
 class _RefusedNameFinder:
     """``sys.meta_path`` entry that fails the import of an unguardable name.
 
-    FR-016's mitigation is to *bind* the module a drop-in would shadow, so the
+    The API's mitigation is to *bind* the module a drop-in would shadow, so the
     installed package keeps winning while the user renames the file. That
     mitigation has one hole: a collided module can have a perfectly good spec
     and still **raise** on import — a missing native dependency is the ordinary
     case — and then there is nothing to bind. Leaving the name unbound while
     the caller goes on to prepend the drop-in types directory hands the name to
-    the very file the guard just refused, so FR-016 fails in exactly the
+    the very file the guard just refused, so fails in exactly the
     situation it exists for and the product's safety becomes a function of an
     unrelated package's import health.
 
-    Refusing the name outright is what makes §13 OQ-1's "registration is
+    Refusing the name outright is what makes the API's "registration is
     refused, not merely warned" true in that case. It is also what the
     *unshadowed* process does: without the drop-in on ``sys.path`` that import
     raises, so raising is a restoration of the un-shadowed behaviour rather
@@ -545,8 +563,18 @@ class _RefusedNameFinder:
     collision set for those alone. :meth:`reconcile` therefore only ever adds or
     withdraws the warrants of the roots it is handed, and a warrant held by a
     root outside the pass survives untouched. Releasing more than that would
-    reopen FR-016 on the strength of not having looked.
+    reopen on the strength of not having looked.
     """
+
+    # Maintainer context:
+    # Refusing the name outright is what makes §13 the contract's "registration is
+    # refused, not merely warned" true in that case. It is also what the
+    # *unshadowed* process does: without the drop-in on ``sys.path`` that import
+    # raises, so raising is a restoration of the un-shadowed behaviour rather
+    # than a new failure. The refusal is scoped to the one colliding name, so the
+    # rest of the drop-in tier keeps working — dropping the whole root would
+    # punish every other type in it for one bad neighbour.
+    # Development references: FR-016, OQ-1.
 
     def __init__(self) -> None:
         #: Colliding stem to the sentence explaining the refusal.
@@ -568,8 +596,9 @@ class _RefusedNameFinder:
         and read as "no installed module owns this name". That root would be
         reported to nobody and would record no warrant, so removing the first
         root's file would release a refusal the second root's file still
-        warrants — the FR-016 hole reopened by the release rule itself.
+        warrants — the hole reopened by the release rule itself.
         """
+        # Development references: FR-016.
         previous = self._silent
         self._silent = True
         try:
@@ -677,7 +706,8 @@ class DropinTypeCollision:
 
     @property
     def message(self) -> str:
-        """The FR-015 text shown to the user for this refusal."""
+        """The text shown to the user for this refusal."""
+        # Development references: FR-015.
         return (
             f"{self.path.name} is rejected: the name {self.stem!r} already belongs to an "
             f"importable module ({self.origin}), which this drop-in would shadow once the "
@@ -689,7 +719,7 @@ class DropinTypeCollision:
 def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     """Run the body as if the drop-in tier had never been installed.
 
-    Every FR-016 question is "what would this name resolve to if the drop-in
+    Every question is "what would this name resolve to if the drop-in
     were not there", so every one of them is asked from inside this block. Two
     things have to go for that to be the question actually asked: *type_roots*
     leave ``sys.path``, and :data:`_REFUSED_NAMES` stops answering. The finder
@@ -706,9 +736,9 @@ def _sys_path_without(type_roots: tuple[Path, ...]) -> Iterator[None]:
     ``sys.path`` for a snapshot. The snapshot form clobbers a concurrent
     :func:`scistudio.desktop.paths.prepended_sys_paths` window — which is how a
     scan could end up asking this question against the wrong ``sys.path`` and
-    reporting a false verdict in either direction
-    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-1).
+    reporting a false verdict in either direction.
     """
+    # Development references: FR-016, adr-053-spec1-write-path.
     excluded = {str(root) for root in type_roots} | {str(root.resolve()) for root in type_roots}
     removed = [(index, entry) for index, entry in enumerate(sys.path) if entry in excluded]
     for index, _entry in reversed(removed):
@@ -780,8 +810,7 @@ def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
     package found anywhere on ``sys.path`` ahead of every namespace portion,
     so it can never displace an installed module.
 
-    **Underscore-prefixed names are in scope** (AUDIT-SEC P1-1,
-    ``docs/audit/2026-08-07-adr-053-spec1-write-path.md``). This function
+    **Underscore-prefixed names are in scope** (-SEC). This function
     answers the *collision* question — "which names does this directory claim
     on the top-level module namespace" — and a leading underscore does not
     stop ``import`` from finding a file. It is a convention meaning "private",
@@ -803,6 +832,20 @@ def _importable_entries(root: Path) -> Iterator[tuple[str, Path]]:
     that the names *not* in it are gone. A partial listing is not that evidence,
     and a truncated one would look like it.
     """
+    # Maintainer context:
+    # **Underscore-prefixed names are in scope** (AUDIT-SEC P1-1,
+    # ). This function
+    #     answers the *collision* question — "which names does this directory claim
+    #     on the top-level module namespace" — and a leading underscore does not
+    #     stop ``import`` from finding a file. It is a convention meaning "private",
+    #     and the two registries honour it for the separate *registration* question
+    #     by skipping such files. Skipping them here as well exempted exactly the
+    #     names that matter most: several of the standard library's private modules
+    #     are imported lazily by ordinary calls, long after any scan has run, so a
+    #     guard that only looks at public names never sees them. A user writing
+    #     ``types/_helpers.py`` collides with nothing and is unaffected; only a name
+    #     an installed module already owns is refused.
+    # Development references: adr-053-spec1-write-path.
     for entry in sorted(root.iterdir()):
         if entry.name in _NEVER_IMPORTABLE_BY_NAME:
             continue
@@ -822,7 +865,7 @@ def guard_dropin_type_roots(
 def guard_dropin_roots(
     import_roots: Iterable[str | Path], *, dir_name: str, bind: bool = True
 ) -> tuple[DropinTypeCollision, ...]:
-    """Return the FR-016 collisions in *import_roots*, binding what they shadow.
+    """Return the collisions in *import_roots*, binding what they shadow.
 
     The single definition of both the rule and its mitigation, shared by every
     drop-in kind; *dir_name* picks which drop-in roots are examined
@@ -851,6 +894,7 @@ def guard_dropin_roots(
     pass was not given, or was given and could not list, produces no evidence
     and so keeps whatever it warrants.
     """
+    # Development references: FR-016.
     type_roots = tuple(path for path in map(Path, import_roots) if path.name == dir_name)
     collisions: list[DropinTypeCollision] = []
     colliding_by_root: dict[str, set[str]] = {}
@@ -900,12 +944,13 @@ def guard_dropin_roots(
 def _bind_or_refuse(collision: DropinTypeCollision) -> None:
     """Bind the module *collision* shadows, or refuse the name if it raises.
 
-    The mitigation half of FR-016, and the reason it cannot be written as
+    The mitigation half , and the reason it cannot be written as
     ``with suppress(Exception)``: a suppressed binding failure leaves the name
     free for the drop-in the guard just refused. See :class:`_RefusedNameFinder`
     for why refusing is the fail-closed answer rather than a second failure, and
     for how long the resulting refusal is allowed to stand.
     """
+    # Development references: FR-016.
     try:
         importlib.import_module(collision.stem)
     except Exception as exc:
@@ -927,13 +972,14 @@ def transient_dropin_modules(import_roots: Iterable[str | Path]) -> Iterator[Non
     when its window closes but not what the window imported: a sibling
     ``import helpers`` stays cached under its bare stem, where the *next*
     tier's scan or render resolves that stale binding instead of its own
-    file. The result is cross-tier wrong-code execution and false FR-016
-    refusals that survive even closing the project (PR #2072 audit, #2017).
+    file. The result is cross-tier wrong-code execution and false
+    refusals that survive even closing the project.
     On exit, every entry *added* inside the window whose ``__file__`` lives
     under one of *import_roots* is removed. Entries that predate the window
     are left alone: their verdicts belong to :func:`guard_dropin_roots`, not
     to this window.
     """
+    # Development references: #2017, #2072, FR-016.
     roots = tuple(Path(root) for root in import_roots)
     before = set(sys.modules)
     try:
@@ -952,7 +998,7 @@ def evict_cached_bytecode(py_file: Path) -> None:
     **seconds** — and source size both match. A drop-in edited within one second
     of its last load, to the same length, therefore re-executes the previous
     bytecode: a reload clears the registry and then registers the very
-    definition it was rebuilding to replace, with no error anywhere. FR-062
+    definition it was rebuilding to replace, with no error anywhere.
     exists to make an edit visible without a restart, so silently running the
     previous definition is the one outcome it cannot produce.
 
@@ -964,11 +1010,12 @@ def evict_cached_bytecode(py_file: Path) -> None:
     current source, so each subsequent by-path load (in-process instantiation,
     the worker subprocess) inherits a correct cache instead of needing this call.
 
-    Here rather than in either registry for the reason FR-057 gives: both scan
+    Shared by both registries: both scan
     passes need it, and a rule restated at two sites is a rule that drifts. Every
     failure is swallowed — a missing or unwritable cache entry means the loader
     compiles from source, which is exactly what this wants.
     """
+    # Development references: FR-057, FR-062.
     with suppress(OSError, NotImplementedError, ValueError):
         Path(importlib.util.cache_from_source(str(py_file))).unlink(missing_ok=True)
 

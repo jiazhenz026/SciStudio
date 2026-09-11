@@ -1,37 +1,39 @@
-"""``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio.
-
-Per ADR-033 §3 D2 / spec OQ2, an external MCP client (Claude Code, Codex,
-etc.) is configured (via the generated ``mcp.json``) to spawn this
-subprocess when the user opens a chat session. The bridge supports two
-modes:
-
-* **Attached mode** — if the SciStudio backend is already running and has
-  bound its in-process :class:`scistudio.ai.agent.mcp.server.MCPServer` to
-  the project-local socket (``<project>/.scistudio/mcp.sock`` on POSIX,
-  ``mcp.sock.port`` on Windows), the bridge connects to it and proxies
-  JSON-RPC frames bidirectionally between its own stdin/stdout and the
-  socket.
-
-* **Standalone mode** — if no backend is running (or the socket is
-  unreachable), the bridge spawns an in-process MCP server inside its
-  own event loop via
-  :func:`scistudio.ai.agent.mcp.runtime.start_inprocess_server` and proxies
-  through that. This lets external CLIs use SciStudio's MCP tools even
-  when the GUI/API isn't running, which is the model #787 introduced.
-
-Project discovery: the env var ``SCISTUDIO_PROJECT_DIR`` (set by the
-``mcp.json`` written by ``scistudio install``) tells the bridge which
-SciStudio project to scope the registries to. If unset, ``run()`` exits
-with code 2 so the calling CLI surfaces a clear configuration error
-rather than a silent fail-open.
-
-Framing: line-delimited JSON over the socket, matching
-:class:`MCPServer`'s framing.
-
-The proxy uses a threaded stdin reader because Windows asyncio's
-``loop.connect_read_pipe`` does not support ``sys.stdin``. Both
-platforms therefore share the same ``run_in_executor`` pump.
-"""
+"""``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio."""
+# Maintainer context (kept outside generated API documentation):
+# ``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio.
+#
+# Per ADR-033 §3 D2 / spec OQ2, an external MCP client (Claude Code, Codex,
+# etc.) is configured (via the generated ``mcp.json``) to spawn this
+# subprocess when the user opens a chat session. The bridge supports two
+# modes:
+#
+# * **Attached mode** — if the SciStudio backend is already running and has
+#   bound its in-process :class:`scistudio.ai.agent.mcp.server.MCPServer` to
+#   the project-local socket (``<project>/.scistudio/mcp.sock`` on POSIX,
+#   ``mcp.sock.port`` on Windows), the bridge connects to it and proxies
+#   JSON-RPC frames bidirectionally between its own stdin/stdout and the
+#   socket.
+#
+# * **Standalone mode** — if no backend is running (or the socket is
+#   unreachable), the bridge spawns an in-process MCP server inside its
+#   own event loop via
+#   :func:`scistudio.ai.agent.mcp.runtime.start_inprocess_server` and proxies
+#   through that. This lets external CLIs use SciStudio's MCP tools even
+#   when the GUI/API isn't running, which is the model #787 introduced.
+#
+# Project discovery: the env var ``SCISTUDIO_PROJECT_DIR`` (set by the
+# ``mcp.json`` written by ``scistudio install``) tells the bridge which
+# SciStudio project to scope the registries to. If unset, ``run()`` exits
+# with code 2 so the calling CLI surfaces a clear configuration error
+# rather than a silent fail-open.
+#
+# Framing: line-delimited JSON over the socket, matching
+# :class:`MCPServer`'s framing.
+#
+# The proxy uses a threaded stdin reader because Windows asyncio's
+# ``loop.connect_read_pipe`` does not support ``sys.stdin``. Both
+# platforms therefore share the same ``run_in_executor`` pump.
+# Development references: #787, ADR-033.
 
 from __future__ import annotations
 
@@ -300,7 +302,7 @@ def run(socket: str | None) -> int:
 
 
 def pointer_file_problem(st: os.stat_result, *, uid: int) -> str | None:
-    """Return why a ``mcp.sock.path`` pointer may not be followed, or ``None`` (#2333).
+    """Return why a ``mcp.sock.path`` pointer may not be followed, or ``None``.
 
     ``st`` comes from ``os.lstat``: the pointer must be a regular file, not a
     symbolic link, owned by ``uid``.
@@ -313,7 +315,7 @@ def pointer_file_problem(st: os.stat_result, *, uid: int) -> str | None:
 
 
 def socket_target_problem(st: os.stat_result, dir_st: os.stat_result, *, uid: int) -> str | None:
-    """Return why the bridge may not connect to a socket, or ``None`` (#2333).
+    """Return why the bridge may not connect to a socket, or ``None``.
 
     The socket (``st`` from ``os.lstat``) must be a Unix socket owned by
     ``uid``, in a directory (``dir_st``) that is not group- or world-writable,
@@ -332,7 +334,7 @@ def socket_target_problem(st: os.stat_result, dir_st: os.stat_result, *, uid: in
 def _posix_socket_connect_path(socket_path: Path) -> Path:
     """Return the socket to connect to for ``socket_path``, following ``mcp.sock.path``.
 
-    #2333: the pointer must be a regular file owned by the current user, and
+    The pointer must be a regular file owned by the current user, and
     the socket connected to (the pointer's target, or ``socket_path`` itself)
     must be a socket owned by the current user in a directory that is not
     group- or world-writable. Anything else raises :class:`PermissionError`,

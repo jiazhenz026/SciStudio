@@ -1,15 +1,17 @@
-"""Category (e) MCP tools — preview-side plot authoring (ADR-048 SPEC 2).
-
-Importing this package runs the ``@mcp.tool`` decorators in :mod:`tools` as a
-side effect, registering the six ``category:plot`` tools on the shared FastMCP
-instance (FR-002). The eager import lives in
-``scistudio.ai.agent.mcp.__init__`` alongside the other tool modules.
-
-A plot job is PREVIEW-ONLY: it never becomes a workflow block, never edits
-workflow YAML, and never claims lineage (FR-025). The plot tools deliberately
-do NOT reuse block-reuse / reload semantics — plot targets are workflow output
-ports, not reusable block types.
-"""
+"""MCP tools for preview-side plot authoring."""
+# Maintainer context (kept outside generated API documentation):
+# Category (e) MCP tools — preview-side plot authoring (ADR-048 SPEC 2).
+#
+# Importing this package runs the ``@mcp.tool`` decorators in :mod:`tools` as a
+# side effect, registering the six ``category:plot`` tools on the shared FastMCP
+# instance (FR-002). The eager import lives in
+# ``scistudio.ai.agent.mcp.__init__`` alongside the other tool modules.
+#
+# A plot job is PREVIEW-ONLY: it never becomes a workflow block, never edits
+# workflow YAML, and never claims lineage (FR-025). The plot tools deliberately
+# do NOT reuse block-reuse / reload semantics — plot targets are workflow output
+# ports, not reusable block types.
+# Development references: ADR-048, FR-002, FR-025, SPEC 2.
 
 from __future__ import annotations
 

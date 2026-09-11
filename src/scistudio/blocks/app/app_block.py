@@ -41,15 +41,17 @@ def _normalize_extension(raw: Any) -> str:
 class _PopenProcessAdapter:
     """Adapter wrapping subprocess.Popen with process_handle interface for FileWatcher.
 
-    Internal (ADR-052 §7.1, option b): :class:`FileWatcher` now accepts a plain
+    Internal (option b): :class:`FileWatcher` now accepts a plain
     ``subprocess.Popen`` directly (alive while ``poll()`` is None), so the public
     path no longer needs this wrapper. Kept internal for back-compat with
     out-of-tree callers mid-migration; not part of the public surface.
 
-    ADR-019: FileWatcher expects a process_handle with ``is_alive()`` and ``pid``
+    FileWatcher expects a process_handle with ``is_alive()`` and ``pid``
     attributes. ``subprocess.Popen`` has ``poll()`` and ``pid`` but no ``is_alive()``.
     This adapter bridges the two interfaces.
     """
+
+    # Development references: ADR-019, ADR-052.
 
     def __init__(self, proc: subprocess.Popen) -> None:  # type: ignore[type-arg]
         self._proc = proc
@@ -257,27 +259,27 @@ class AppBlock(Block):
     ) -> dict[str, Collection]:
         """Bin *output_files* into the configured output ports by file extension.
 
-        Issue #680 routing rules (case-insensitive):
+        routing rules (case-insensitive):
 
-        - A file whose suffix matches a port's declared ``extension`` is
+        A file whose suffix matches a port's declared ``extension`` is
           appended to that port's Collection.
-        - A required port that receives zero files raises ``ValueError``.
-        - A file whose extension matches no port emits a warning log and
+        A required port that receives zero files raises ``ValueError``.
+        A file whose extension matches no port emits a warning log and
           is otherwise ignored.
 
-        Issue #1079 (ADR-028 §D8): per-file item construction now goes
+        per-file item construction now goes
         through :func:`scistudio.blocks.io.materialisation.reconstruct_from_file`
         with ``target_type`` set to the port's declared first
         ``accepted_types`` entry. This replaces the previous silent
         downgrade of every non-Artifact declared port type to
         ``Artifact``. ``reconstruct_from_file`` handles three outcomes:
 
-        - A loader is registered for ``(declared_type, extension)`` —
+        A loader is registered for ``(declared_type, extension)`` —
           returns a typed :class:`DataObject` instance.
-        - No loader is registered but the declared type IS-A
+        No loader is registered but the declared type IS-A
           :class:`Artifact` — returns an :class:`Artifact` (legacy
           behavior preserved as an *intentional* fallback; no warning).
-        - No loader is registered and the declared type is a non-Artifact
+        No loader is registered and the declared type is a non-Artifact
           concrete type — raises :class:`LookupError`, which propagates
           out of this method. Upstream callers (``AppBlock.run``) treat
           this as a contract violation: the declared port type cannot be
@@ -286,7 +288,7 @@ class AppBlock(Block):
         The Collection ``item_type`` is computed from the actual
         constructed-item class (``Artifact`` when no typed loader
         matched, the declared type otherwise) so the existing
-        ``Collection.item_type`` homogeneity guarantee from #690 still
+        ``Collection.item_type`` homogeneity guarantee from still
         holds.
 
         Effective output ports are resolved from *config* first (so that
@@ -297,6 +299,7 @@ class AppBlock(Block):
         node config) and from direct ``block.run(config=...)`` test
         harnesses.
         """
+        # Development references: #1079, #680, #690, ADR-028.
         from scistudio.blocks.base.ports import ports_from_config_dicts
         from scistudio.blocks.io.materialisation import reconstruct_from_file
 

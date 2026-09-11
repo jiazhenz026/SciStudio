@@ -281,15 +281,15 @@ class RunDir:
         block_type: str,
         outputs: dict[str, str],
     ) -> Path:
-        """#1898: write ``reuse.json`` recording a reuse-last-output hit.
+        """Write ``reuse.json`` recording a reuse-last-output hit.
 
         A reuse hit re-emits the previous run's output files without spawning
         the agent, so this run dir gets a ``reuse.json`` marker instead of a
         ``manifest.json`` + ``signals/``. The presence of this marker (and the
         absence of a manifest) is the durable, per-execution audit signal that
-        distinguishes a reused result from a genuine agent run — see ADR-035
-        Addendum 1 §4.3. Atomic write via tempfile + ``os.replace``.
+        distinguishes a reused result from a genuine agent run — see. Atomic write via tempfile + ``os.replace``.
         """
+        # Development references: #1898, ADR-035, Addendum 1.
         marker = {
             "reused_last_output": True,
             "block": {"name": block_name, "type": block_type},
@@ -311,7 +311,7 @@ class RunDir:
 
     @staticmethod
     def _default_expected_path(block_name: str, port: OutputPort) -> str:
-        """Compute ``./{block_name}_outputs/{port.name}.{ext}`` per ADR-035 §3.3.
+        """Compute ``./{block_name}_outputs/{port.name}.{ext}``.
 
         Picks an extension based on the first accepted type:
             DataFrame  -> .csv
@@ -321,6 +321,7 @@ class RunDir:
             Artifact   -> .bin
             other      -> .dat
         """
+        # Development references: ADR-035.
         ext_map = {
             "DataFrame": "csv",
             "Series": "csv",

@@ -1,10 +1,12 @@
-"""Argparse CLI for ``python -m scistudio.qa.governance.gate_record``.
-
-ADR-042 Addendum 6 workflow surface: ``init`` / ``plan`` / ``amend`` /
-``check`` / ``finalize``, with ``check --mode local|pre-commit|commit-msg|
-pre-push|pre-pr|ci``. Compatibility aliases (§5.8) delegate to the new code; no
-alias owns a validation decision.
-"""
+"""Argparse CLI for ``python -m scistudio.qa.governance.gate_record``."""
+# Maintainer context (kept outside generated API documentation):
+# Argparse CLI for ``python -m scistudio.qa.governance.gate_record``.
+#
+# ADR-042 Addendum 6 workflow surface: ``init`` / ``plan`` / ``amend`` /
+# ``check`` / ``finalize``, with ``check --mode local|pre-commit|commit-msg|
+# pre-push|pre-pr|ci``. Compatibility aliases (§5.8) delegate to the new code; no
+# alias owns a validation decision.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

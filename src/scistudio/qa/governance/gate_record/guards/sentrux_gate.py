@@ -1,19 +1,21 @@
-"""sentrux_gate calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: advisory or blocking findings on Sentrux free-tier evidence.
-
-Ported from the legacy ``sentrux_gate`` (deleted on this branch). The
-``SentruxEvidence`` model and ``parse_sentrux_result`` normalizer are carried
-forward verbatim as the canonical evidence normalizer (spec §4 / digest). The
-standalone ``sentrux_applies_to_changes`` predicate is dropped in favor of the
-single ``surfaces.sentrux_applies`` classifier (resolving the §4.1 asymmetry).
-
-Active-addendum semantics (ADR-042 Addendum 3, as exercised by the CI tests):
-Sentrux is opt-in. Missing evidence for an applicable change is advisory (an
-INFO finding), not blocking. A recorded non-passing / pro-required / invalid
-evidence payload blocks (ERROR). The evaluator supplies normalized or raw
-evidence via ``GuardInputs.extras['sentrux_evidence']``.
-"""
+"""Sentrux_gate calculator."""
+# Maintainer context (kept outside generated API documentation):
+# sentrux_gate calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: advisory or blocking findings on Sentrux free-tier evidence.
+#
+# Ported from the legacy ``sentrux_gate`` (deleted on this branch). The
+# ``SentruxEvidence`` model and ``parse_sentrux_result`` normalizer are carried
+# forward verbatim as the canonical evidence normalizer (spec §4 / digest). The
+# standalone ``sentrux_applies_to_changes`` predicate is dropped in favor of the
+# single ``surfaces.sentrux_applies`` classifier (resolving the §4.1 asymmetry).
+#
+# Active-addendum semantics (ADR-042 Addendum 3, as exercised by the CI tests):
+# Sentrux is opt-in. Missing evidence for an applicable change is advisory (an
+# INFO finding), not blocking. A recorded non-passing / pro-required / invalid
+# evidence payload blocks (ERROR). The evaluator supplies normalized or raw
+# evidence via ``GuardInputs.extras['sentrux_evidence']``.
+# Development references: ADR-042, Addendum 3, Addendum 6.
 
 from __future__ import annotations
 
@@ -194,7 +196,7 @@ def _finding(rule_id: str, message: str, *, severity: Severity = Severity.ERROR,
 
 
 def check(inputs: GuardInputs) -> AuditReport:
-    """Validate Sentrux evidence with active-addendum (opt-in) semantics."""
+    """Validate Sentrux evidence with the configured opt-in policy."""
 
     applies = surfaces.sentrux_applies_to_changes(inputs.changed_files)
     raw_evidence = inputs.extras.get("sentrux_evidence")

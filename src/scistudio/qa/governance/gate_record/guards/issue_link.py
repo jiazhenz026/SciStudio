@@ -1,15 +1,17 @@
-"""issue_link calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: no linked issue; structurally invalid issue; PR body missing a closing
-keyword for a deliverable issue.
-
-Ported from the legacy ``issue_link`` (deleted on this branch). The closing
-keyword regex now comes from the evaluator's single ``surfaces.CLOSING_KEYWORD_RE``
-vocabulary instead of a private copy. Issues come from the ledger ``IssueRef``
-records the evaluator supplies (no GitHub integration / ``resolve_or_create``
-side concern lives here). Closing-keyword coverage is only enforced when a PR
-body is supplied (pre-PR / CI modes).
-"""
+"""Issue_link calculator."""
+# Maintainer context (kept outside generated API documentation):
+# issue_link calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: no linked issue; structurally invalid issue; PR body missing a closing
+# keyword for a deliverable issue.
+#
+# Ported from the legacy ``issue_link`` (deleted on this branch). The closing
+# keyword regex now comes from the evaluator's single ``surfaces.CLOSING_KEYWORD_RE``
+# vocabulary instead of a private copy. Issues come from the ledger ``IssueRef``
+# records the evaluator supplies (no GitHub integration / ``resolve_or_create``
+# side concern lives here). Closing-keyword coverage is only enforced when a PR
+# body is supplied (pre-PR / CI modes).
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

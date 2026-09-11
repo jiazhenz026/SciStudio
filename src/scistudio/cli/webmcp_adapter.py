@@ -1,8 +1,5 @@
 """``scistudio webmcp-adapter`` — a stdio MCP server over SciStudio's WebMCP HTTP bridge.
 
-ADR-055 Spec 4 (``docs/specs/adr-055-enterprise-support.md``, FR-008 to
-FR-011), issue #2308, owner option B of 2026-09-11.
-
 Several AI apps (Claude Desktop, Claude Code, Codex, Cursor) can launch a local
 MCP server over stdio but do not expose WebMCP in a browser. This adapter is
 that local server. The AI app launches it; it speaks MCP to the app on
@@ -14,13 +11,13 @@ stdin/stdout and forwards to the WebMCP HTTP bridge
 
 That is the catalogue and the result contract the browser registration uses,
 so the ``audience:external`` tools are included, and the adapter adds neither a
-second tool registry nor a new server transport (ADR-055 §4). It keeps no tool
+second tool registry nor a new server transport. It keeps no tool
 list of its own: every ``tools/list`` is fetched from the bridge, and a
 ``tools/call`` result is passed through unchanged (``isError``,
 ``structuredContent`` and the bridge's marked substitutions for non-text
 content survive as they are).
 
-**Project binding (Spec 1 FR-005).** Each call carries the project snapshot
+**Project binding.** Each call carries the project snapshot
 that was current when the adapter read the request, so calls queued behind
 others keep the project they were issued for. Only a ``tools/list`` adopts a
 new snapshot. When the bridge answers ``409 stale_project_context``, the
@@ -28,22 +25,25 @@ adapter sends ``notifications/tools/list_changed`` and reports the call as an
 ``isError`` result; calls still bound to the old snapshot fail the same way.
 It never retries or redirects a call.
 
-**Target and credentials (FR-009).** ``--base-url`` (or
+**Target and credentials.** ``--base-url`` (or
 ``SCISTUDIO_MCP_BASE_URL``) names the service and honors a service prefix, for
 example ``https://lab.example.org/user/alice/scistudio``. With ``--token`` (or
 ``SCISTUDIO_MCP_TOKEN``) every bridge request carries
 ``Authorization: Bearer <token>``; an edition's guard validates it (the lab
 uses a JupyterHub API token). With no token, the adapter uses the per-user
-loopback token file the local backend writes (FR-010), sent as the bridge's
+loopback token file the local backend writes, sent as the bridge's
 ``x-scistudio-webmcp-token`` header: the file for the port of a loopback
 ``--base-url``, or, with no base URL, the most recently started backend that
 is still running. The token file is never used for a non-loopback URL, and a
 missing, stale, or non-owner-only file is refused with a clear message.
 
-**Logging (FR-011, Spec 1 FR-007).** Operation identifiers and outcomes only,
-on stderr; never arguments and never a credential. ``--print-config`` prints a
-ready-to-paste configuration for Claude Desktop, Claude Code, or Codex.
+**Logging.** Operation identifiers and outcomes only, on stderr; never
+arguments and never a credential. ``--print-config`` prints a ready-to-paste
+configuration for Claude Desktop, Claude Code, or Codex.
 """
+# Development references: ADR-055 section 4; Spec 4 (adr-055-enterprise-support,
+# FR-008 to FR-011); Spec 1 FR-005 (project binding) and FR-007 (logging);
+# #2308; owner option B of 2026-09-11.
 
 from __future__ import annotations
 
@@ -225,7 +225,7 @@ def _read_token_file(port: int | None) -> LoopbackTokenFile:
 
 
 def resolve_target(base_url: str | None, token: str | None) -> BridgeTarget:
-    """Resolve the bridge target from the configured base URL and token (FR-009).
+    """Resolve the bridge target from the configured base URL and token.
 
     * a token: sent as a bearer credential to ``base_url``, which is required;
     * no token and no base URL: the newest running local backend's token file;
@@ -411,7 +411,7 @@ def _adapter_version() -> str:
 
 @dataclass(frozen=True)
 class _Bound:
-    """The project snapshot a request was bound to when the adapter read it (Spec 1 FR-005)."""
+    """The project snapshot a request was bound to when the adapter read it."""
 
     project_id: str | None
 
@@ -447,7 +447,7 @@ class WebMCPAdapter:
 
     @property
     def project_id(self) -> str | None:
-        """The current project snapshot: from ``connect`` or the last ``tools/list`` (FR-005)."""
+        """The current project snapshot: from ``connect`` or the last ``tools/list``."""
         with self._lock:
             return self._project_id
 

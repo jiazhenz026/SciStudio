@@ -1,103 +1,106 @@
-"""One answer to "how does a ``scistudio.*`` entry-point group get read?".
-
-ADR-053 / ``docs/specs/adr-053-learning-center.md`` §3 "Entry-point symmetry"
-(FR-025 to FR-035). Three registries read entry points and, before this module,
-no two of them agreed:
-
-============================  =====================  ======================  =====================
-Concern                       ``scistudio.blocks``   ``scistudio.types``     ``scistudio.previewers``
-============================  =====================  ======================  =====================
-Enumeration failure           caught, empty group    **propagated**          caught, empty group
-Load failure                  logged                 logged                  logged + diagnostic
-Payload shape                 class or callable      callable -> sequence    callable -> sequence
-``sys.path`` preparation      no                     no                      yes
-============================  =====================  ======================  =====================
-
-Adding a fourth group to three that disagree would make the disagreement the
-convention, so this module states the contract once and all four groups use it.
-Each registry keeps its own *registration* logic — what a block spec is, what a
-``Meta`` must declare, which previewer id wins a duplicate — and keeps none of
-its own enumeration, error containment, or diagnostic reporting (FR-025).
-
-**The live group set (FR-034).** :data:`LIVE_ENTRY_POINT_GROUPS` is the one
-place the set of live groups is written down. A fifth group is added by editing
-this tuple, which is also what makes
-``tests/packages/test_entry_point_symmetry.py`` cover it: that test parametrises
-over this tuple rather than naming groups, so a group added without meeting the
-contract below fails rather than diverging quietly.
-
-**Error containment (FR-026, FR-027).** :func:`enumerate_group` never raises:
-a failure to enumerate is logged, recorded as a diagnostic, and reported as an
-empty group. :func:`load_entry_point` and :func:`resolve_payload` contain a
-failure to the single entry point that caused it; the rest of the group still
-loads. The group that used to propagate — ``scistudio.types`` — is the reason
-this is stated as a rule rather than left to each registry: an enumeration
-failure there reached the caller, which for a registry scan means the whole
-process's type catalogue, not one plugin's contribution.
-
-**Diagnostics (FR-028).** Every failure is recorded as an
-:class:`EntryPointDiagnostic` in the caller-supplied sink as well as logged.
-Logging alone is not enough: the observable outcome of a silent failure is a
-package that installed successfully and contributed nothing, which a user
-cannot tell apart from a package that had nothing to contribute. Each registry
-turns the diagnostics into the ``diagnostics`` surface it exposes.
-
-**The payload contract (FR-029).** A group that contributes objects declares a
-*callable returning the contributed objects*. That is the single contract.
-
-``scistudio.blocks`` additionally accepts a **bare class** — an entry point
-whose value names a ``Block`` subclass directly rather than a factory. That
-form is already published and installed packages depend on it, so it is kept as
-a compatibility affordance, recorded here once rather than reproduced as a
-per-registry convention, and passed as ``allow_bare_class=True`` by the block
-registry alone. It MUST NOT be extended to any subsequent group: a new group
-has no published users to keep working, so accepting two shapes there would buy
-nothing and cost the contract.
-
-**The metadata-only exemption (FR-029a).** ``scistudio.tutorials`` is exempt
-from the callable contract and declares a *metadata-only* payload instead: the
-entry point's value resolves to a directory of tutorial directories, and
-:func:`resolve_entry_point_directory` resolves it from distribution metadata
-without importing anything.
-
-The exemption is required rather than convenient, and it is recorded beside
-FR-029 rather than in the tutorial code so it reads as a second contract rather
-than as one group ignoring the first. The callable contract is implemented by
-importing the entry point's target; FR-018 forbids importing a package module
-while listing the tutorial catalogue, because listing happens whenever the
-Learning Center opens and must not execute package code. A tutorial group
-satisfying both at once is impossible, so the payload rule is the one thing
-that gives way. Everything else — enumeration, error containment (FR-026,
-FR-027), diagnostics (FR-028), and import-root preparation (FR-030) — applies
-to ``scistudio.tutorials`` unchanged.
-
-**Import roots (FR-030).** :func:`prepared_plugin_import_roots` activates the
-user-installed plugin import roots for the duration of a scan. This used to be
-done by the previewer registry alone, which made the same installed package
-resolve for previewers and fail for blocks: the plugin's ``site-packages``
-carries its ``dist-info``, so with the roots off ``sys.path`` the canonical
-entry-point path finds nothing (#1752). If the preparation is needed for one
-group it is needed for all of them, so it is applied here rather than per
-registry.
-
-**The one permitted asymmetry (FR-032).** The previewer registry also scans the
-``scistudio.blocks`` and ``scistudio.types`` groups for a conventional
-``get_previewers()`` when a package declares no ``scistudio.previewers`` group.
-That fallback stays where it lives, in
-:mod:`scistudio.previewers.registry`, with its reason recorded there: it
-compensates for installed metadata that predates the previewer group, which is
-a history rather than a design. It is not a pattern to copy and is not extended
-to ``scistudio.tutorials``.
-
-This module lives under ``core/`` for the reasons ``core/dropins.py`` does: it
-is imported by the block, type, and previewer registries and must sit where all
-three reach it without a cycle, and the import-linter contract forbidding
-``scistudio.core`` from importing ``blocks``/``engine``/``api``/``ai``/
-``workflow`` is satisfied because it needs none of them. It deliberately knows
-nothing about ``PackageInfo``, ``BlockSpec``, ``TypeSpec``, or
-``PreviewerSpec``: interpreting a payload into registrations is each registry's
-own job.
-"""
+"""One answer to "how does a ``scistudio.*`` entry-point group get read?"."""
+# Maintainer context (kept outside generated API documentation):
+# One answer to "how does a ``scistudio.*`` entry-point group get read?".
+#
+# ADR-053 / ``docs/specs/adr-053-learning-center.md`` §3 "Entry-point symmetry"
+# (FR-025 to FR-035). Three registries read entry points and, before this module,
+# no two of them agreed:
+#
+# ============================  =====================  ======================  =====================
+# Concern                       ``scistudio.blocks``   ``scistudio.types``     ``scistudio.previewers``
+# ============================  =====================  ======================  =====================
+# Enumeration failure           caught, empty group    **propagated**          caught, empty group
+# Load failure                  logged                 logged                  logged + diagnostic
+# Payload shape                 class or callable      callable -> sequence    callable -> sequence
+# ``sys.path`` preparation      no                     no                      yes
+# ============================  =====================  ======================  =====================
+#
+# Adding a fourth group to three that disagree would make the disagreement the
+# convention, so this module states the contract once and all four groups use it.
+# Each registry keeps its own *registration* logic — what a block spec is, what a
+# ``Meta`` must declare, which previewer id wins a duplicate — and keeps none of
+# its own enumeration, error containment, or diagnostic reporting (FR-025).
+#
+# **The live group set (FR-034).** :data:`LIVE_ENTRY_POINT_GROUPS` is the one
+# place the set of live groups is written down. A fifth group is added by editing
+# this tuple, which is also what makes
+# ``tests/packages/test_entry_point_symmetry.py`` cover it: that test parametrises
+# over this tuple rather than naming groups, so a group added without meeting the
+# contract below fails rather than diverging quietly.
+#
+# **Error containment (FR-026, FR-027).** :func:`enumerate_group` never raises:
+# a failure to enumerate is logged, recorded as a diagnostic, and reported as an
+# empty group. :func:`load_entry_point` and :func:`resolve_payload` contain a
+# failure to the single entry point that caused it; the rest of the group still
+# loads. The group that used to propagate — ``scistudio.types`` — is the reason
+# this is stated as a rule rather than left to each registry: an enumeration
+# failure there reached the caller, which for a registry scan means the whole
+# process's type catalogue, not one plugin's contribution.
+#
+# **Diagnostics (FR-028).** Every failure is recorded as an
+# :class:`EntryPointDiagnostic` in the caller-supplied sink as well as logged.
+# Logging alone is not enough: the observable outcome of a silent failure is a
+# package that installed successfully and contributed nothing, which a user
+# cannot tell apart from a package that had nothing to contribute. Each registry
+# turns the diagnostics into the ``diagnostics`` surface it exposes.
+#
+# **The payload contract (FR-029).** A group that contributes objects declares a
+# *callable returning the contributed objects*. That is the single contract.
+#
+# ``scistudio.blocks`` additionally accepts a **bare class** — an entry point
+# whose value names a ``Block`` subclass directly rather than a factory. That
+# form is already published and installed packages depend on it, so it is kept as
+# a compatibility affordance, recorded here once rather than reproduced as a
+# per-registry convention, and passed as ``allow_bare_class=True`` by the block
+# registry alone. It MUST NOT be extended to any subsequent group: a new group
+# has no published users to keep working, so accepting two shapes there would buy
+# nothing and cost the contract.
+#
+# **The metadata-only exemption (FR-029a).** ``scistudio.tutorials`` is exempt
+# from the callable contract and declares a *metadata-only* payload instead: the
+# entry point's value resolves to a directory of tutorial directories, and
+# :func:`resolve_entry_point_directory` resolves it from distribution metadata
+# without importing anything.
+#
+# The exemption is required rather than convenient, and it is recorded beside
+# FR-029 rather than in the tutorial code so it reads as a second contract rather
+# than as one group ignoring the first. The callable contract is implemented by
+# importing the entry point's target; FR-018 forbids importing a package module
+# while listing the tutorial catalogue, because listing happens whenever the
+# Learning Center opens and must not execute package code. A tutorial group
+# satisfying both at once is impossible, so the payload rule is the one thing
+# that gives way. Everything else — enumeration, error containment (FR-026,
+# FR-027), diagnostics (FR-028), and import-root preparation (FR-030) — applies
+# to ``scistudio.tutorials`` unchanged.
+#
+# **Import roots (FR-030).** :func:`prepared_plugin_import_roots` activates the
+# user-installed plugin import roots for the duration of a scan. This used to be
+# done by the previewer registry alone, which made the same installed package
+# resolve for previewers and fail for blocks: the plugin's ``site-packages``
+# carries its ``dist-info``, so with the roots off ``sys.path`` the canonical
+# entry-point path finds nothing (#1752). If the preparation is needed for one
+# group it is needed for all of them, so it is applied here rather than per
+# registry.
+#
+# **The one permitted asymmetry (FR-032).** The previewer registry also scans the
+# ``scistudio.blocks`` and ``scistudio.types`` groups for a conventional
+# ``get_previewers()`` when a package declares no ``scistudio.previewers`` group.
+# That fallback stays where it lives, in
+# :mod:`scistudio.previewers.registry`, with its reason recorded there: it
+# compensates for installed metadata that predates the previewer group, which is
+# a history rather than a design. It is not a pattern to copy and is not extended
+# to ``scistudio.tutorials``.
+#
+# This module lives under ``core/`` for the reasons ``core/dropins.py`` does: it
+# is imported by the block, type, and previewer registries and must sit where all
+# three reach it without a cycle, and the import-linter contract forbidding
+# ``scistudio.core`` from importing ``blocks``/``engine``/``api``/``ai``/
+# ``workflow`` is satisfied because it needs none of them. It deliberately knows
+# nothing about ``PackageInfo``, ``BlockSpec``, ``TypeSpec``, or
+# ``PreviewerSpec``: interpreting a payload into registrations is each registry's
+# own job.
+# Development references: #1752, ADR-053, FR-018, FR-025, FR-026, FR-027, FR-028, FR-029, FR-029a, FR-030,
+# FR-032, FR-034, FR-035, docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -157,7 +160,7 @@ STAGE_REGISTER = "register"
 
 @dataclass(frozen=True)
 class EntryPointDiagnostic:
-    """One thing that went wrong while reading an entry-point group (FR-028).
+    """One thing that went wrong while reading an entry-point group.
 
     Attributes:
         group: The ``scistudio.*`` group being read.
@@ -168,6 +171,8 @@ class EntryPointDiagnostic:
             :data:`STAGE_INVOKE`, :data:`STAGE_REGISTER`.
         message: A short human-readable cause.
     """
+
+    # Development references: FR-028.
 
     group: str
     entry_point: str
@@ -232,7 +237,7 @@ def enumerate_group(
     *,
     diagnostics: DiagnosticSink | None = None,
 ) -> tuple[importlib.metadata.EntryPoint, ...]:
-    """Return every entry point declared for *group* (FR-026).
+    """Return every entry point declared for *group*.
 
     Never raises. A failure to read installed metadata is logged, recorded as a
     diagnostic, and reported as an empty group, because one unreadable
@@ -245,6 +250,7 @@ def enumerate_group(
     which is the shape the block registry's own compatibility shim used to
     handle privately.
     """
+    # Development references: FR-026.
     try:
         raw: Any = importlib.metadata.entry_points(group=group)
         selected = raw.select(group=group) if hasattr(raw, "select") else raw
@@ -261,16 +267,17 @@ def load_entry_point(
     *,
     diagnostics: DiagnosticSink | None = None,
 ) -> object | None:
-    """Load one entry point, containing its failure to itself (FR-027).
+    """Load one entry point, containing its failure to itself.
 
     Returns the loaded object, or ``None`` when loading failed — in which case
     a diagnostic has been recorded and the caller should move to the next entry
     point rather than reporting the failure again.
 
     Not valid for :data:`METADATA_ONLY_GROUPS`: loading imports the value's
-    module, which FR-018 forbids while listing the tutorial catalogue. Use
+    module, which is not allowed while listing the tutorial catalogue. Use
     :func:`resolve_entry_point_directory` for those groups.
     """
+    # Development references: FR-018, FR-027.
     name = entry_point_name(ep)
     try:
         loaded: object = ep.load()
@@ -289,7 +296,7 @@ def resolve_payload(
     allow_bare_class: bool,
     diagnostics: DiagnosticSink | None = None,
 ) -> object | None:
-    """Turn a loaded entry point into the objects it contributes (FR-029).
+    """Turn a loaded entry point into the objects it contributes.
 
     The contract is one callable returning the contributed objects, so *loaded*
     is invoked and its return value handed back untouched. What that value is
@@ -308,6 +315,7 @@ def resolve_payload(
     way: a group member that contributes nothing at all is a fault worth
     surfacing, not a quiet success.
     """
+    # Development references: FR-029.
     if allow_bare_class and isinstance(loaded, type):
         return loaded
 
@@ -349,11 +357,12 @@ def resolve_payload(
 
 
 def plugin_import_roots() -> tuple[Path, ...]:
-    """Return the user-installed plugin import roots (FR-030).
+    """Return the user-installed plugin import roots.
 
     Never raises: a discovery scan must still run when the desktop package
     directories cannot be read.
     """
+    # Development references: FR-030.
     try:
         return tuple(installed_package_import_roots())
     except Exception:  # pragma: no cover - defensive; never fail discovery
@@ -363,13 +372,14 @@ def plugin_import_roots() -> tuple[Path, ...]:
 
 @contextmanager
 def prepared_plugin_import_roots() -> Iterator[None]:
-    """Activate the plugin import roots for the duration of a scan (FR-030).
+    """Activate the plugin import roots for the duration of a scan.
 
     Wrap every entry-point scan in this, not only the previewer one. A plugin's
     ``site-packages`` carries the ``dist-info`` that makes its entry points
     visible at all, so a group scanned without the roots active reports the
     package as absent rather than as broken.
     """
+    # Development references: FR-030.
     with prepended_sys_paths(plugin_import_roots()):
         yield
 
@@ -381,7 +391,7 @@ def resolve_entry_point_directory(
 ) -> Path | None:
     """Resolve an entry point's value to a directory, without importing it.
 
-    FR-029a. The metadata-only payload: the value names a package whose
+    The metadata-only payload: the value names a package whose
     directory holds the contributed content, and the directory is found through
     the declaring distribution's own metadata — ``EntryPoint.dist`` plus
     ``Distribution.locate_file`` and ``Distribution.files``.
@@ -389,13 +399,14 @@ def resolve_entry_point_directory(
     This function must not call ``EntryPoint.load()``,
     ``importlib.import_module``, or ``importlib.util.find_spec``. The first two
     import the target; ``find_spec`` imports the target's *parent* packages in
-    order to ask them, so it is no safer. FR-018 forbids importing a package
+    order to ask them, so it is no safer. Listing must not import a package
     module while listing the tutorial catalogue, which happens every time the
     Learning Center opens.
 
     Returns ``None``, with a diagnostic recorded, when the value cannot be
     resolved from metadata alone.
     """
+    # Development references: FR-018, FR-029a.
     group = getattr(ep, "group", "") or TUTORIALS_ENTRY_POINT_GROUP
     name = entry_point_name(ep)
     module = entry_point_module(ep)

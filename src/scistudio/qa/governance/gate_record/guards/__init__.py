@@ -1,17 +1,19 @@
-"""Evaluator-owned guard calculators for ADR-042 Addendum 6 (spec §4).
-
-Each guard is a pure function ``check(inputs: GuardInputs) -> AuditReport``
-that takes evaluator-built inputs (ledger facts + observed diff + classified
-surfaces + repo state + PR context) and returns findings via the shared
-``qa.schemas.report`` types. No guard reads the ledger itself, runs its own git
-diff, or keeps its own task-kind rules, required-check sets, bypass vocabulary,
-or protected-path lists — the evaluator owns those and supplies them.
-
-This module defines the :class:`GuardInputs` bundle, the ``Guard`` callable
-type, and the ``GUARD_REGISTRY`` the evaluator iterates. Calculators here are
-STUBS returning empty reports; B2 (#1509) replaces them with real logic. The
-interface signature is frozen so B2/B3/B4 build against it without churn.
-"""
+"""Evaluator-owned guard calculators."""
+# Maintainer context (kept outside generated API documentation):
+# Evaluator-owned guard calculators for ADR-042 Addendum 6 (spec §4).
+#
+# Each guard is a pure function ``check(inputs: GuardInputs) -> AuditReport``
+# that takes evaluator-built inputs (ledger facts + observed diff + classified
+# surfaces + repo state + PR context) and returns findings via the shared
+# ``qa.schemas.report`` types. No guard reads the ledger itself, runs its own git
+# diff, or keeps its own task-kind rules, required-check sets, bypass vocabulary,
+# or protected-path lists — the evaluator owns those and supplies them.
+#
+# This module defines the :class:`GuardInputs` bundle, the ``Guard`` callable
+# type, and the ``GUARD_REGISTRY`` the evaluator iterates. Calculators here are
+# STUBS returning empty reports; B2 (#1509) replaces them with real logic. The
+# interface signature is frozen so B2/B3/B4 build against it without churn.
+# Development references: #1509, ADR-042, Addendum 6.
 
 from __future__ import annotations
 

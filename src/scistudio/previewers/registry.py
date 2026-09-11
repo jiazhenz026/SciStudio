@@ -1,28 +1,30 @@
-"""PreviewerRegistry — core / package / project / user discovery (FR-002).
-
-Loads :class:`PreviewerSpec` declarations from four tiers, in registration
-order:
-
-1. **core** — always loaded, unconditionally, from
-   :func:`scistudio.previewers.fallbacks.core_previewer_specs`.
-2. **package** — installed packages that ship a ``scistudio.previewers``
-   entry point (``importlib.metadata.entry_points(group="scistudio.previewers")``),
-   plus companion ``get_previewers()`` factories re-exported by installed
-   block/type packages, plus bundled desktop source packages (FR-030).
-3. **project** — project-local specs registered via
-   :mod:`scistudio.previewers.project`.
-4. **user** — user-library specs from ``~/.scistudio/previewers`` (#2017),
-   registered via :func:`scistudio.previewers.project.load_user_previewers`.
-
-Registration is first-wins in this order, so a project spec shadows a
-same-id user spec — the mirror of routing precedence, which the router
-orders project > user > package > core.
-
-Duplicate ``previewer_id`` across the loaded set is recorded as a diagnostic
-and the subsequent registration is rejected (FR-006); a broken entry point is
-logged and skipped, never crashing the registry (mirrors the block/type
-registries).
-"""
+"""PreviewerRegistry — core / package / project / user discovery."""
+# Maintainer context (kept outside generated API documentation):
+# PreviewerRegistry — core / package / project / user discovery (FR-002).
+#
+# Loads :class:`PreviewerSpec` declarations from four tiers, in registration
+# order:
+#
+# 1. **core** — always loaded, unconditionally, from
+#    :func:`scistudio.previewers.fallbacks.core_previewer_specs`.
+# 2. **package** — installed packages that ship a ``scistudio.previewers``
+#    entry point (``importlib.metadata.entry_points(group="scistudio.previewers")``),
+#    plus companion ``get_previewers()`` factories re-exported by installed
+#    block/type packages, plus bundled desktop source packages (FR-030).
+# 3. **project** — project-local specs registered via
+#    :mod:`scistudio.previewers.project`.
+# 4. **user** — user-library specs from ``~/.scistudio/previewers`` (#2017),
+#    registered via :func:`scistudio.previewers.project.load_user_previewers`.
+#
+# Registration is first-wins in this order, so a project spec shadows a
+# same-id user spec — the mirror of routing precedence, which the router
+# orders project > user > package > core.
+#
+# Duplicate ``previewer_id`` across the loaded set is recorded as a diagnostic
+# and the subsequent registration is rejected (FR-006); a broken entry point is
+# logged and skipped, never crashing the registry (mirrors the block/type
+# registries).
+# Development references: #2017, FR-002, FR-006, FR-030.
 
 from __future__ import annotations
 
@@ -80,11 +82,12 @@ class PreviewerRegistry:
     # -- registration -------------------------------------------------------
 
     def register(self, spec: PreviewerSpec) -> bool:
-        """Register *spec*; reject duplicates with a diagnostic (FR-006).
+        """Register *spec*; reject duplicates with a diagnostic.
 
         Returns ``True`` when the spec was added, ``False`` when a spec with
         the same ``previewer_id`` was already present.
         """
+        # Development references: FR-006.
         if not spec.previewer_id:
             self._diagnostics.append("previewer spec rejected: empty previewer_id")
             return False
@@ -99,25 +102,28 @@ class PreviewerRegistry:
         return True
 
     def set_project_default(self, target_type: str, previewer_id: str) -> None:
-        """Declare a project default previewer for *target_type* (FR-005)."""
+        """Declare a project default previewer for *target_type*."""
+        # Development references: FR-005.
         self._project_default_previewers[target_type] = previewer_id
 
     def set_previewer_choices(self, choices: dict[str, str]) -> None:
-        """Install the person's per-type previewer choices (#2049).
+        """Install the person's per-type previewer choices.
 
         Replaces the set wholesale, because the caller loads both layers and
         resolves them together; a partial update here would let a cleared
         project-layer choice keep shadowing the user-layer one it overrode.
         """
+        # Development references: #2049.
         self._previewer_choices = dict(choices)
 
     def record_diagnostic(self, message: str) -> None:
         """Record a discovery-scan diagnostic from an external scan pass.
 
-        Used by the drop-in previewer scan (#2044) so a refused or broken
+        Used by the drop-in previewer scan so a refused or broken
         drop-in is surfaced through :attr:`diagnostics` rather than only
         logged — the same surfacing the block/type scans get.
         """
+        # Development references: #2044.
         self._diagnostics.append(message)
 
     # -- accessors ----------------------------------------------------------
@@ -135,11 +141,13 @@ class PreviewerRegistry:
         return self._project_default_previewers.get(target_type)
 
     def choice_for(self, target_type: str) -> str | None:
-        """Return the previewer id chosen for *target_type*, if any (#2049)."""
+        """Return the previewer id chosen for *target_type*, if any."""
+        # Development references: #2049.
         return self._previewer_choices.get(target_type)
 
     def previewer_choices(self) -> dict[str, str]:
-        """Return a copy of the installed per-type choices (#2049)."""
+        """Return a copy of the installed per-type choices."""
+        # Development references: #2049.
         return dict(self._previewer_choices)
 
     @property
@@ -155,14 +163,15 @@ class PreviewerRegistry:
     # -- discovery ----------------------------------------------------------
 
     def load_core(self) -> None:
-        """Load the core fallback previewer specs unconditionally (FR-002)."""
+        """Load the core fallback previewer specs unconditionally."""
+        # Development references: FR-002.
         from scistudio.previewers.fallbacks import core_previewer_specs
 
         for spec in core_previewer_specs():
             self.register(spec)
 
     def load_packages(self) -> None:
-        """Load package previewers from entry points (FR-002/FR-030).
+        """Load package previewers from entry points.
 
         The entry-point scans run with the user-installed plugin import roots
         activated on ``sys.path`` (their ``site-packages`` carry the dist-info),
@@ -170,27 +179,29 @@ class PreviewerRegistry:
         plugins' ``scistudio.previewers`` entry points. Without this the
         canonical entry-point path silently finds nothing in the packaged app —
         the plugin ``site-packages`` is off ``sys.path`` — and previewer
-        discovery falls entirely to the source-dir scan fallback (#1752).
+        discovery falls entirely to the source-dir scan fallback.
 
-        ADR-053 FR-030: that activation is no longer this registry's private
+        that activation is no longer this registry's private
         arrangement. :func:`scistudio.core.entry_points.prepared_plugin_import_roots`
         is the one answer and the block and type scans now use it too, so the
         same installed package cannot resolve for previewers and vanish for
         blocks.
         """
+        # Development references: #1752, ADR-053, FR-002, FR-030.
         with prepared_plugin_import_roots():
             self._scan_entry_points()
             self._scan_companion_entry_point_packages()
         self._scan_package_src_dirs()
 
     def _scan_entry_points(self) -> None:
-        """Scan the canonical ``scistudio.previewers`` group (FR-002).
+        """Scan the canonical ``scistudio.previewers`` group.
 
-        ADR-053 FR-025: enumeration, load, and error containment come from
+        enumeration, load, and error containment come from
         :mod:`scistudio.core.entry_points`. What stays here is registration —
         which ids win, what a :class:`PreviewerSpec` must be — in
         :meth:`_register_from_factory`.
         """
+        # Development references: ADR-053, FR-002, FR-025.
         diagnostics: list[EntryPointDiagnostic] = []
         eps = enumerate_group(PREVIEWER_ENTRY_POINT_GROUP, diagnostics=diagnostics)
         for ep in eps:
@@ -210,7 +221,7 @@ class PreviewerRegistry:
         ``get_previewers()`` factory when present. Explicit previewer entry
         points remain authoritative because existing ids are skipped silently.
 
-        **This is the one permitted asymmetry (ADR-053 FR-032), and it is
+        **This is the one permitted asymmetry, and it is
         history rather than a pattern.** Reading one group's entry points to
         find another group's contribution exists only because installed
         metadata written before ``scistudio.previewers`` existed cannot declare
@@ -219,12 +230,13 @@ class PreviewerRegistry:
         generalise. A subsequent group has no such history, so this fallback
         MUST NOT be extended to ``scistudio.tutorials`` or to any other new
         group — for tutorials it could not be, in any case, because it works by
-        importing the companion module and FR-018 forbids importing a package
+        importing the companion module and the listing must not import a package
         module while listing the catalogue.
 
         Enumeration still goes through the shared helper: the exemption is
         about *what* is scanned, never about error containment.
         """
+        # Development references: ADR-053, FR-018, FR-032.
         diagnostics: list[EntryPointDiagnostic] = []
         seen_modules: set[str] = set()
         for group in COMPANION_ENTRY_POINT_GROUPS:
@@ -337,10 +349,11 @@ def _entry_point_root_module(ep: importlib.metadata.EntryPoint) -> str | None:
 
     The companion fallback wants the distribution's *root* package so it can
     try ``pkg`` and ``pkg.previewers``, where the rest of the product wants the
-    module the value actually names. ADR-053 FR-025 puts that shared parse in
+    module the value actually names. The shared parser is in
     :func:`scistudio.core.entry_points.entry_point_module`; the extra step here
     is the truncation to the first segment, which is this fallback's own.
     """
+    # Development references: ADR-053, FR-025.
     module_name = entry_point_module(ep)
     if not module_name:
         return None

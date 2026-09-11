@@ -1,22 +1,24 @@
-"""Advisory checks run before a git restore (ADR-038 §3.6, Addendum 1 §11.3).
-
-ADR-038 §3.6 specified two checks in executable pseudocode — inputs unchanged,
-environment not drifted — and bound them to the Re-run affordance. Neither was
-ever implemented: the client returned a hardcoded empty-warnings object and the
-backend route was never written, so the dialog reported "no drift detected"
-whatever the environment had done.
-
-Addendum 1 (#2033) withdraws Re-run and moves both checks onto Restore, which
-is where they matter more: git restores the project tree, and nothing else.
-SciStudio's own version, installed packages, and the Python environment all
-live outside the project repository, so a restore cannot roll them back. When a
-user restores because something "worked yesterday and fails today", the second
-possible cause is that the environment moved rather than the code — and this is
-the one place equipped to say so.
-
-Both checks are **advisory**. Nothing here blocks a restore; the caller renders
-the warnings and the user decides.
-"""
+"""Advisory checks run before a git restore."""
+# Maintainer context (kept outside generated API documentation):
+# Advisory checks run before a git restore (ADR-038 §3.6, Addendum 1 §11.3).
+#
+# ADR-038 §3.6 specified two checks in executable pseudocode — inputs unchanged,
+# environment not drifted — and bound them to the Re-run affordance. Neither was
+# ever implemented: the client returned a hardcoded empty-warnings object and the
+# backend route was never written, so the dialog reported "no drift detected"
+# whatever the environment had done.
+#
+# Addendum 1 (#2033) withdraws Re-run and moves both checks onto Restore, which
+# is where they matter more: git restores the project tree, and nothing else.
+# SciStudio's own version, installed packages, and the Python environment all
+# live outside the project repository, so a restore cannot roll them back. When a
+# user restores because something "worked yesterday and fails today", the second
+# possible cause is that the environment moved rather than the code — and this is
+# the one place equipped to say so.
+#
+# Both checks are **advisory**. Nothing here blocks a restore; the caller renders
+# the warnings and the user decides.
+# Development references: #2033, ADR-038, Addendum 1.
 
 from __future__ import annotations
 
@@ -60,10 +62,10 @@ def _recorded_environment(run: dict[str, Any]) -> dict[str, Any]:
 
 
 def _input_warnings(store: LineageStore, run_id: str) -> list[dict[str, str]]:
-    """ADR-038 §3.6 Check 1 — boundary inputs unchanged since the run.
+    """Check 1 — boundary inputs unchanged since the run.
 
     Compares each workflow-boundary input against the size and mtime recorded
-    when the run consumed it. Per §7.3 the mtime comparison is deliberately a
+    when the run consumed it.  the mtime comparison is deliberately a
     warning and not an error: filesystem mtime resolution is OS-dependent and a
     copied file legitimately carries a new mtime.
 
@@ -71,6 +73,12 @@ def _input_warnings(store: LineageStore, run_id: str) -> list[dict[str, str]]:
     is reported as unreadable rather than silently skipped — the user should
     know the check could not cover it.
     """
+    # Maintainer context:
+    # Compares each workflow-boundary input against the size and mtime recorded
+    # when the run consumed it. Per §7.3 the mtime comparison is deliberately a
+    # warning and not an error: filesystem mtime resolution is OS-dependent and a
+    # copied file legitimately carries a new mtime.
+    # Development references: ADR-038.
     warnings: list[dict[str, str]] = []
     for obj in store.workflow_boundary_inputs(run_id):
         raw_path = obj.get("storage_path")
@@ -108,8 +116,8 @@ def _parse_recorded_mtime(recorded: str) -> datetime | None:
     ``data_objects.mtime_at_write`` holds **two** formats and both are live.
     :meth:`LineageStore.upsert_data_object` fills a missing value with
     ``str(path.stat().st_mtime)`` — a bare epoch float like ``"1786092443.98"``
-    — and that is the only writer, so every row the recorder produces is in
-    epoch form. ADR-038 §3.6's pseudocode assumes ISO, and the column's type is
+    and that is the only writer, so every row the recorder produces is in
+    epoch form. The API's pseudocode assumes ISO, and the column's type is
     TEXT with no format stated on the field, so an ISO value from a caller that
     supplies its own is equally valid.
 
@@ -120,6 +128,7 @@ def _parse_recorded_mtime(recorded: str) -> datetime | None:
     both forms are parsed here rather than migrating the writer — historical
     rows are already epoch and a writer change cannot reach them.
     """
+    # Development references: ADR-038.
     text = recorded.strip()
     try:
         parsed = datetime.fromisoformat(text)
@@ -146,9 +155,9 @@ def _mtime_is_newer(current_epoch: float, recorded: str) -> bool:
 
 
 def _env_warnings(recorded_env: dict[str, Any]) -> list[dict[str, str]]:
-    """ADR-038 §3.6 Check 2 — environment not drifted since the run.
+    """Check 2 — environment not drifted since the run.
 
-    Two deliberate refinements over the §3.6 pseudocode:
+    The checks apply two additional rules:
 
     * The pseudocode calls ``EnvironmentSnapshot.capture(full=True)`` and reads
       ``key_packages`` off it. ``capture`` resolves a *fixed default* package
@@ -168,6 +177,9 @@ def _env_warnings(recorded_env: dict[str, Any]) -> list[dict[str, str]]:
     ``"not installed"`` rather than an empty string, so the UI never renders a
     bare arrow pointing at nothing.
     """
+    # Maintainer context:
+    # Two deliberate refinements over the §3.6 pseudocode:
+    # Development references: ADR-038.
     warnings: list[dict[str, str]] = []
 
     recorded_python = recorded_env.get("python_version")
@@ -221,7 +233,7 @@ def evaluate_restore_target(
 ) -> dict[str, Any]:
     """Return the advisory preflight for restoring to *commit_sha*.
 
-    Applies the two ADR-038 §3.6 checks against the record of the run this
+    Applies the two checks against the record of the run this
     restore is anchored to.
 
     Args:
@@ -249,8 +261,9 @@ def evaluate_restore_target(
         for a manual commit or an ``auto: pre-restore`` commit. Callers MUST
         render that as "no run recorded here, so nothing could be checked",
         never as a clean result: reporting "no drift detected" for a comparison
-        that never happened is the exact defect Addendum 1 exists to remove.
+        that never happened is the exact defect exists to remove.
     """
+    # Development references: ADR-038, Addendum 1.
     run = store.get_run(run_id) if run_id else None
     if run is None:
         # Either no run was named, or the named row is gone (a retention sweep,

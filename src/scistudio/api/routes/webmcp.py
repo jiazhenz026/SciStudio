@@ -1,46 +1,49 @@
-"""ADR-055 Spec 1 — the WebMCP HTTP bridge over the shared FastMCP registry.
-
-An external AI host's page discovers tools over HTTP, registers browser
-callbacks with the host's WebMCP API (``document.modelContext`` /
-``navigator.modelContext``), and forwards invocations here. Both routes
-dispatch through the same module-level FastMCP registry
-(:data:`scistudio.ai.agent.mcp.server.mcp`) that serves the local socket
-transport — one tool definition, two front doors (ADR-055 §4). This module
-adds no business logic beyond dispatch, adaptation, binding checks, and
-logging (FR-011); router-internal tool synthesis is forbidden (spec decision
-1), so the demo's synthesized ``about_scistudio``/``import_data``/
-``write_file``/``read_file``/``run_bash`` tools are deliberately absent.
-
-Transplanted from the hackathon demo (``scistudio-web-demo`` commit
-``952f697b``, read-only reference) and hardened per ADR-055 §9.2:
-
-* results adapt through the shared, documented adapter
-  :func:`scistudio.ai.agent.mcp.server.adapt_tool_result` (FR-002/FR-003)
-  instead of a lossy text-only serialization;
-* tool visibility is tag-driven (:data:`AUDIENCE_EXTERNAL_TAG`, FR-004) —
-  this catalogue includes external-tagged tools, the socket transport
-  excludes them;
-* calls bind the caller's believed-active project, and mutation-tagged
-  calls with a stale selection are rejected (FR-005);
-* both endpoints sit behind one session middleware with a pluggable
-  identity-backend seam (FR-006); this spec ships the loopback token
-  backend, which ``create_app`` installs as its default guard. A replacement
-  guard passed to ``create_app`` (``adr-055-identity-seam``) takes its place
-  without router changes;
-* call logging records tool name, outcome, and bounded identifiers only —
-  never full arguments, file contents, or command bodies (FR-007).
-
-The default guard also publishes its loopback token in an owner-only file
-while a launcher arms it (ADR-055 Spec 4 FR-010, issue #2308), so the stdio
-MCP adapter ``scistudio webmcp-adapter`` can reach this bridge without the
-page; see the "Loopback token file" section below.
-
-Read-call policy (FR-005, declared explicitly): read-tagged calls are
-dispatched WITHOUT the staleness check — a read cannot silently redirect a
-write, and a read issued against a changed project simply observes current
-state. Read tools that require a project while none is open fail with the
-existing no-active-project error mapped through the adapter.
-"""
+"""The WebMCP HTTP bridge over the shared FastMCP registry."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-055 Spec 1 — the WebMCP HTTP bridge over the shared FastMCP registry.
+#
+# An external AI host's page discovers tools over HTTP, registers browser
+# callbacks with the host's WebMCP API (``document.modelContext`` /
+# ``navigator.modelContext``), and forwards invocations here. Both routes
+# dispatch through the same module-level FastMCP registry
+# (:data:`scistudio.ai.agent.mcp.server.mcp`) that serves the local socket
+# transport — one tool definition, two front doors (ADR-055 §4). This module
+# adds no business logic beyond dispatch, adaptation, binding checks, and
+# logging (FR-011); router-internal tool synthesis is forbidden (spec decision
+# 1), so the demo's synthesized ``about_scistudio``/``import_data``/
+# ``write_file``/``read_file``/``run_bash`` tools are deliberately absent.
+#
+# Transplanted from the hackathon demo (``scistudio-web-demo`` commit
+# ``952f697b``, read-only reference) and hardened per ADR-055 §9.2:
+#
+# * results adapt through the shared, documented adapter
+#   :func:`scistudio.ai.agent.mcp.server.adapt_tool_result` (FR-002/FR-003)
+#   instead of a lossy text-only serialization;
+# * tool visibility is tag-driven (:data:`AUDIENCE_EXTERNAL_TAG`, FR-004) —
+#   this catalogue includes external-tagged tools, the socket transport
+#   excludes them;
+# * calls bind the caller's believed-active project, and mutation-tagged
+#   calls with a stale selection are rejected (FR-005);
+# * both endpoints sit behind one session middleware with a pluggable
+#   identity-backend seam (FR-006); this spec ships the loopback token
+#   backend, which ``create_app`` installs as its default guard. A replacement
+#   guard passed to ``create_app`` (``adr-055-identity-seam``) takes its place
+#   without router changes;
+# * call logging records tool name, outcome, and bounded identifiers only —
+#   never full arguments, file contents, or command bodies (FR-007).
+#
+# Read-call policy (FR-005, declared explicitly): read-tagged calls are
+# dispatched WITHOUT the staleness check — a read cannot silently redirect a
+# write, and a read issued against a changed project simply observes current
+# state. Read tools that require a project while none is open fail with the
+# existing no-active-project error mapped through the adapter.
+#
+# The default guard also publishes its loopback token in an owner-only file
+# while a launcher arms it (ADR-055 Spec 4 FR-010, #2308), so the stdio MCP
+# adapter ``scistudio webmcp-adapter`` can reach this bridge without the page;
+# see the "Loopback token file" section below.
+# Development references: ADR-055, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-010, FR-011, Spec 1,
+# Spec 4, adr-055-identity-seam, #2308.
 
 from __future__ import annotations
 
@@ -107,9 +110,11 @@ class BridgeIdentityBackend(Protocol):
 
     A backend answers a header check. A deployment that needs more — login
     redirects, cookies, WebSocket and UI coverage — replaces the whole guard
-    through ``create_app(guard=...)`` instead (``adr-055-identity-seam``); the
+    through ``create_app(guard=...)`` instead; the
     router does not change either way.
     """
+
+    # Development references: adr-055-identity-seam.
 
     def authenticate(self, headers: dict[str, str]) -> BridgeIdentity | None:
         """Return the request's identity, or ``None`` to reject the call."""
@@ -119,10 +124,12 @@ class LoopbackTokenBackend:
     """Loopback identity backend: a per-launch random token.
 
     The token is generated once per backend launch and delivered through the
-    served page bootstrap (the ``adr-055-prefix-independence`` SPA injection),
+    served page bootstrap (the ```` SPA injection),
     so only the page this instance served can call the bridge. The threat
     model is single-user loopback; rotation happens on restart.
     """
+
+    # Development references: adr-055-prefix-independence.
 
     def __init__(self, token: str) -> None:
         self._token = token
@@ -140,12 +147,14 @@ class WebMCPSessionMiddleware:
     Scoped to ``/api/webmcp/*`` only; every other request passes through
     untouched. A deployment that protects more replaces this guard through
     ``create_app(guard=...)`` rather than widening this class. Requests under
-    a self-authenticating prefix (``adr-055-identity-seam``) pass through even
+    a self-authenticating prefix pass through even
     when this middleware is composed on its own; ``create_app`` also enforces
     that for whichever guard it installs. Pure ASGI — no response-body
     buffering — and added inside the CORS layer so preflight handling and
     CORS headers are unaffected.
     """
+
+    # Development references: adr-055-identity-seam.
 
     def __init__(
         self,
@@ -651,8 +660,10 @@ class ToolCallRequest(BaseModel):
     """One WebMCP tool invocation forwarded from the browser.
 
     ``project_id`` is the caller's believed-active project identifier,
-    acquired from the catalogue's context snapshot (FR-005).
+    acquired from the catalogue's context snapshot.
     """
+
+    # Development references: FR-005.
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -668,10 +679,11 @@ async def build_catalogue(active_project_id: str | None) -> dict[str, Any]:
     (``mcp.list_tools()``) with ``category``/``mutation`` derived from the
     tool's tags through the same helper the socket transport uses, so the
     two surfaces cannot drift. External-audience-tagged tools are INCLUDED
-    here (FR-004). The ``context`` snapshot identifies the active project
+    here. The ``context`` snapshot identifies the active project
     at catalogue-fetch time; the caller presents it back on each call so a
-    project switch is detectable (FR-005).
+    project switch is detectable.
     """
+    # Development references: FR-004, FR-005.
     from scistudio.ai.agent.mcp.server import mcp, tool_category_and_mutation
 
     tools: list[dict[str, Any]] = []

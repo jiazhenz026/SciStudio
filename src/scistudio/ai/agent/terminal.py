@@ -1,63 +1,65 @@
-"""Cross-platform PTY wrapper for ADR-034 PTY-tab agents.
-
-This module hosts the production successor to the Phase 1.1 spike
-(``scripts/spike_pty_claude.py``). It provides a platform-uniform
-bytes-in / bytes-out interface for embedding claude / codex CLIs
-inside SciStudio via xterm.js — the WebSocket route in
-:mod:`scistudio.api.routes.ai_pty` calls ``PtyProcess.read`` / ``write``
-/ ``resize`` and pipes the frames to the browser.
-
-Spike findings applied here (see Phase 1.1 spike report on issue #816):
-
-* **Ctrl+C must pass through verbatim** — claude and codex both require
-  *double* Ctrl+C to exit (first occurrence triggers the "Press Ctrl-C
-  again to exit" banner). The wrapper does NO byte filtering — every
-  byte the client sends goes to the PTY unchanged.
-* **``winpty.PtyProcess.read()`` is non-blocking** and returns whatever
-  is in the buffer right now (often nothing).  :meth:`PtyProcess.read`
-  therefore loops with ``time.sleep(0.05)`` between probes so we
-  accumulate banner output instead of returning empty strings.
-  POSIX uses ``select.select(timeout=…)`` which blocks until data
-  or timeout elapses.
-* **``winpty`` returns ``str``, POSIX ``os.read`` returns ``bytes``** —
-  normalised to ``bytes`` here so the route layer never has to care.
-* **Process-tree kill on Windows** uses ``taskkill /T /F /PID <pid>``
-  (the ``/T`` flag terminates the whole tree).  POSIX uses
-  ``os.killpg(pgid, SIGTERM)`` followed by ``SIGKILL`` after a 1 s
-  grace period.  ``start_new_session=True`` on :func:`subprocess.Popen`
-  gives us a fresh process group to target.
-* **codex.cmd on Windows** spawns cleanly via ``winpty.PtyProcess.spawn``
-  — no ``shell=True`` shim required.
-* **codex auto-reads ``~/.codex/config.toml``** for its MCP config and
-  does not accept ``--mcp-config``; the codex factory therefore omits
-  that flag (the user's ``scistudio install --target codex`` writes the
-  TOML entry).
-* **claude needs ``--append-system-prompt @<path>``** — claude does not
-  understand stdin-piped prompts in TUI mode; we write the composed
-  prompt to a temp file under ``<project>/.scistudio/.tmp/`` and pass
-  the absolute path via the ``@``-indirection.
-
-ADR-034 multi-provider (issue #1994): every per-CLI fact above now lives in
-:mod:`scistudio.ai.agent.providers_registry` instead of in per-provider spawn
-functions. This module keeps :class:`PtyProcess` unchanged and exposes one
-descriptor-driven :func:`spawn_agent` covering Claude Code, Codex, Kimi Code,
-and both Qoder channels, plus :func:`spawn_user_terminal` for the shell
-pseudo-provider. There is deliberately no ``if provider == …`` chain left here.
-
-macOS notes (verified separately by user):
-
-* NFD vs NFC unicode: macOS HFS+/APFS normalises filenames to NFD; tests
-  comparing CLI-reported cwd paths should normalise both sides through
-  :func:`unicodedata.normalize`.
-* ``/tmp`` is a symlink to ``/private/tmp``; resolve via
-  :meth:`Path.resolve` if asserting on paths.
-* App Sandbox: codex-cli builds signed for the App Sandbox may refuse
-  PTY spawn — users running from a sandboxed parent will see spawn
-  failure.  Document this in the user-facing error path.
-* SIGWINCH is delivered automatically on resize when we call
-  ``ioctl(TIOCSWINSZ)`` on POSIX, so the CLI repaints on viewport change
-  without further plumbing.
-"""
+"""Cross-platform PTY wrapper for PTY-tab agents."""
+# Maintainer context (kept outside generated API documentation):
+# Cross-platform PTY wrapper for ADR-034 PTY-tab agents.
+#
+# This module hosts the production successor to the Phase 1.1 spike
+# (``scripts/spike_pty_claude.py``). It provides a platform-uniform
+# bytes-in / bytes-out interface for embedding claude / codex CLIs
+# inside SciStudio via xterm.js — the WebSocket route in
+# :mod:`scistudio.api.routes.ai_pty` calls ``PtyProcess.read`` / ``write``
+# / ``resize`` and pipes the frames to the browser.
+#
+# Spike findings applied here (see Phase 1.1 spike report on issue #816):
+#
+# * **Ctrl+C must pass through verbatim** — claude and codex both require
+#   *double* Ctrl+C to exit (first occurrence triggers the "Press Ctrl-C
+#   again to exit" banner). The wrapper does NO byte filtering — every
+#   byte the client sends goes to the PTY unchanged.
+# * **``winpty.PtyProcess.read()`` is non-blocking** and returns whatever
+#   is in the buffer right now (often nothing).  :meth:`PtyProcess.read`
+#   therefore loops with ``time.sleep(0.05)`` between probes so we
+#   accumulate banner output instead of returning empty strings.
+#   POSIX uses ``select.select(timeout=…)`` which blocks until data
+#   or timeout elapses.
+# * **``winpty`` returns ``str``, POSIX ``os.read`` returns ``bytes``** —
+#   normalised to ``bytes`` here so the route layer never has to care.
+# * **Process-tree kill on Windows** uses ``taskkill /T /F /PID <pid>``
+#   (the ``/T`` flag terminates the whole tree).  POSIX uses
+#   ``os.killpg(pgid, SIGTERM)`` followed by ``SIGKILL`` after a 1 s
+#   grace period.  ``start_new_session=True`` on :func:`subprocess.Popen`
+#   gives us a fresh process group to target.
+# * **codex.cmd on Windows** spawns cleanly via ``winpty.PtyProcess.spawn``
+#   — no ``shell=True`` shim required.
+# * **codex auto-reads ``~/.codex/config.toml``** for its MCP config and
+#   does not accept ``--mcp-config``; the codex factory therefore omits
+#   that flag (the user's ``scistudio install --target codex`` writes the
+#   TOML entry).
+# * **claude needs ``--append-system-prompt @<path>``** — claude does not
+#   understand stdin-piped prompts in TUI mode; we write the composed
+#   prompt to a temp file under ``<project>/.scistudio/.tmp/`` and pass
+#   the absolute path via the ``@``-indirection.
+#
+# ADR-034 multi-provider (issue #1994): every per-CLI fact above now lives in
+# :mod:`scistudio.ai.agent.providers_registry` instead of in per-provider spawn
+# functions. This module keeps :class:`PtyProcess` unchanged and exposes one
+# descriptor-driven :func:`spawn_agent` covering Claude Code, Codex, Kimi Code,
+# and both Qoder channels, plus :func:`spawn_user_terminal` for the shell
+# pseudo-provider. There is deliberately no ``if provider == …`` chain left here.
+#
+# macOS notes (verified separately by user):
+#
+# * NFD vs NFC unicode: macOS HFS+/APFS normalises filenames to NFD; tests
+#   comparing CLI-reported cwd paths should normalise both sides through
+#   :func:`unicodedata.normalize`.
+# * ``/tmp`` is a symlink to ``/private/tmp``; resolve via
+#   :meth:`Path.resolve` if asserting on paths.
+# * App Sandbox: codex-cli builds signed for the App Sandbox may refuse
+#   PTY spawn — users running from a sandboxed parent will see spawn
+#   failure.  Document this in the user-facing error path.
+# * SIGWINCH is delivered automatically on resize when we call
+#   ``ioctl(TIOCSWINSZ)`` on POSIX, so the CLI repaints on viewport change
+#   without further plumbing.
+# Development references: #1994, #816, ADR-034.
 
 from __future__ import annotations
 
@@ -343,7 +345,7 @@ class PtyProcess:
     def _read_windows(self, timeout: float) -> bytes:
         """Accumulate ``winpty`` output up to ``timeout`` seconds.
 
-        Per spike finding 2, ``winpty.PtyProcess.read`` returns
+        ``winpty.PtyProcess.read`` returns
         immediately with whatever's available — often the empty string.
         We loop with a short sleep so the banner accrues into one
         meaningful frame instead of being chopped into 50 empty WS
@@ -459,7 +461,7 @@ class PtyProcess:
                     logger.debug("Failed to clean up temp file %s", path, exc_info=True)
 
     def _kill_windows(self) -> None:
-        """Per spike finding 4: taskkill /T /F /PID covers the whole tree.
+        """Terminate the whole process tree with ``taskkill /T /F /PID``.
 
         We do NOT call ``self._impl.kill()`` here because pywinpty's
         ``kill`` blocks on internal locks while a concurrent ``read``
@@ -529,8 +531,9 @@ def _ensure_mcp_config(project_dir: Path) -> Path:
     Whole-file replacement is correct **only** here: ``.scistudio/`` is
     SciStudio's own directory and no other tool writes into it. It is
     forbidden for provider-owned config files — see
-    :func:`_merge_provider_mcp_config` (FR-017a).
+    :func:`_merge_provider_mcp_config`.
     """
+    # Development references: FR-017a.
     from scistudio.cli.install import MCP_SERVER_NAME, _mcp_entry_payload
 
     config_path = project_dir / ".scistudio" / "mcp.json"
@@ -591,12 +594,12 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
     destroy configuration with no recovery path.
 
     This function therefore reads, merges only the SciStudio server entry, and
-    atomically replaces the file (FR-017a), following the merge-preserving
+    atomically replaces the file, following the merge-preserving
     precedent in :mod:`scistudio.cli.install` rather than the clobbering
     helper. A zero-byte or whitespace-only file carries no user content to
     preserve and is treated as absent.
 
-    Three shapes raise instead of being overwritten (FR-017b), because each
+    Three shapes raise instead of being overwritten, because each
     would otherwise destroy content SciStudio does not own and the user cannot
     recover: a document that does not parse as JSON, a document that parses to
     something other than an object, and an ``mcpServers`` key whose value is
@@ -606,7 +609,7 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
 
     The written payload is the provider-agnostic
     :func:`~scistudio.cli.install._mcp_entry_payload` used by every other
-    strategy (FR-018); only the location differs.
+    strategy; only the location differs.
 
     Both file operations tolerate a concurrent SciStudio process working on the
     same file: the read through :func:`_read_text_with_retry`, the write through
@@ -615,6 +618,7 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
     retried and then raises the OS error, the second raises immediately and is
     never retried, because waiting cannot make malformed JSON parse.
     """
+    # Development references: FR-017a, FR-017b, FR-018.
     from scistudio.cli.install import MCP_SERVER_NAME, _atomic_write_json, _mcp_entry_payload
 
     config_path = descriptor.mcp.project_file_path(project_dir)
@@ -702,7 +706,7 @@ def spawn_agent(
 ) -> PtyProcess:
     """Spawn any registered agent CLI inside a PTY, anchored at ``project_dir``.
 
-    This is the **single** spawn function for every agent provider (FR-007).
+    This is the **single** spawn function for every agent provider.
     It contains no ``if provider == …`` chain: every per-CLI difference — the
     binary name and where to find it, the system-prompt mechanism, the MCP
     injection mechanism, and the bypass-permission flag spelling — is read off
@@ -714,13 +718,13 @@ def spawn_agent(
                  [<bypass argv> | <manual argv>] [-- <prompt>]
 
     The ``--`` end-of-options separator before an AI Block prompt is required,
-    not cosmetic (#1789): ``--mcp-config`` is variadic, so without it Claude
+    not cosmetic: ``--mcp-config`` is variadic, so without it Claude
     Code swallows the trailing prompt as another MCP config path ("Invalid MCP
     configuration") and exits. Ordering it after the MCP argv is what makes
     ask mode work, not only bypass mode where the bypass flag happened to
     separate them.
 
-    #1994 changed two things about the tail of that line:
+    Two command-line details matter:
 
     * The permission fragment is now a *choice*, never an omission. Safe mode
       appends ``descriptor.manual_argv`` instead of appending nothing, so the
@@ -757,6 +761,7 @@ def spawn_agent(
         the provider needs regardless of argv — the system-prompt temp file and
         the MCP config write — still run, matching the previous behaviour.
     """
+    # Development references: #1789, #1994, FR-007.
     if descriptor.kind is not ProviderKind.AGENT:
         raise ValueError(f"spawn_agent requires an agent provider; {descriptor.key!r} is {descriptor.kind.value}")
 
@@ -819,7 +824,7 @@ def _is_batch_launcher(binary: str) -> bool:
 def _initial_prompt_argv(descriptor: ProviderDescriptor, prompt: str, binary: str) -> list[str]:
     """Render the trailing ``[-- <prompt>]`` fragment for *descriptor*.
 
-    Two #1994 live-test failures are handled here, both of which produced a
+    Two live-test failures are handled here, both of which produced a
     launch that looked like SciStudio's fault but was really a mismatch between
     one fixed argv shape and two very different CLI surfaces.
 
@@ -847,6 +852,7 @@ def _initial_prompt_argv(descriptor: ProviderDescriptor, prompt: str, binary: st
     real executable keep their exact multi-line prompt, so this changes nothing
     for them.
     """
+    # Development references: #1994.
     prefix = descriptor.prompt_argv_prefix
     if prefix is None:
         raise ValueError(
@@ -887,7 +893,7 @@ def _mcp_argv(descriptor: ProviderDescriptor, project_dir: Path) -> list[str]:
     """Apply ``descriptor``'s MCP injection strategy and return its argv share.
 
     Three observed shapes, all carrying the same provider-agnostic payload
-    (FR-018):
+    :
 
     ``FLAG``
         Pass ``--mcp-config <project>/.scistudio/mcp.json``. SciStudio owns
@@ -900,9 +906,10 @@ def _mcp_argv(descriptor: ProviderDescriptor, project_dir: Path) -> list[str]:
         discovery to find a non-stale file.
     ``PROJECT_FILE``
         Write the entry into the provider's own project-scope discovery
-        location before the process starts (FR-017), merge-preserving because
+        location before the process starts, merge-preserving because
         the file is provider-owned.
     """
+    # Development references: FR-017, FR-018.
     strategy = descriptor.mcp.strategy
     if strategy is McpStrategy.FLAG:
         flag = descriptor.mcp.flag

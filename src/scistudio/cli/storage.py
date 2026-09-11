@@ -1,15 +1,17 @@
-"""``scistudio storage`` — inspect and reclaim persisted workflow artifacts (#1983).
-
-Two subcommands:
-
-* ``storage usage`` reports how much disk each workflow's artifacts occupy.
-* ``storage gc`` applies the retention rule from
-  :mod:`scistudio.core.lineage.retention`: keep the artifacts produced by each
-  workflow's most recent successful run, reclaim the rest.
-
-``gc`` previews by default and only deletes when given ``--apply``, because a
-sweep is not reversible.
-"""
+"""``scistudio storage`` — inspect and reclaim persisted workflow artifacts."""
+# Maintainer context (kept outside generated API documentation):
+# ``scistudio storage`` — inspect and reclaim persisted workflow artifacts (#1983).
+#
+# Two subcommands:
+#
+# * ``storage usage`` reports how much disk each workflow's artifacts occupy.
+# * ``storage gc`` applies the retention rule from
+#   :mod:`scistudio.core.lineage.retention`: keep the artifacts produced by each
+#   workflow's most recent successful run, reclaim the rest.
+#
+# ``gc`` previews by default and only deletes when given ``--apply``, because a
+# sweep is not reversible.
+# Development references: #1983.
 
 from __future__ import annotations
 

@@ -1,47 +1,50 @@
-"""The completion-condition vocabulary, its parser, and its evaluator.
-
-ADR-053 Learning Center spec, FR-045 … FR-055
-(``docs/specs/adr-053-learning-center.md``).
-
-The vocabulary is **core-owned** (FR-045). Tutorials reference terms; they do
-not define them. It is the sixteen terms FR-047 originally required, plus the
-core-added ``config_matches``, ``run_failed``, and ``plot_rendered`` (FR-047
-sets a floor rather than a ceiling, and §4.5 records that core extends the
-vocabulary as tutorials find it short), plus the ``all`` and ``any``
-combinators of FR-048.
-
-**Negation is deliberately absent.** FR-048's reason, kept here because the
-next reader will otherwise assume it was an oversight: a step that advances
-when something is *absent* advances by the user doing nothing, which teaches
-nothing and is indistinguishable from a stuck step.
-
-Everything is judged on the backend against product truth (FR-046), read
-through the single injected :class:`ProductState` port. ``ui_event`` is the one
-term whose truth originates in the frontend (FR-052), and it still arrives here
-as backend state: the frontend reports the event and the API layer records it
-into the state object.
-
-Evaluation is side-effect free (FR-055). Every method on :class:`ProductState`
-is a pure read, ``file_exists`` only stats, and nothing here creates a file,
-mutates a registry, or triggers a run.
-
-An unknown term is rejected at **manifest validation**, not at evaluation
-(FR-049): :mod:`scistudio.tutorials.manifest` calls :func:`parse_condition`
-while validating, so a typo fails the tutorial's author rather than failing a
-user on step nine. ``manifest -> conditions`` is the only direction the module
-boundary allows (checklist §6.1.2); this module imports nothing else from
-:mod:`scistudio.tutorials`, and never imports ``scistudio.api``.
-
-No polling (FR-051)
--------------------
-
-This module creates no timer and no loop. Re-evaluation is caused by a mapped
-engine event (:data:`EVENT_TERM_MAP` / :func:`build_event_term_map`), by an
-explicit request (FR-053), or by entry into a step. A condition already true
-when its step is entered satisfies it immediately (FR-054) — which is simply
-what "entry evaluates" means, since these are statements about state and not
-about the user having just acted.
-"""
+"""The completion-condition vocabulary, its parser, and its evaluator."""
+# Maintainer context (kept outside generated API documentation):
+# The completion-condition vocabulary, its parser, and its evaluator.
+#
+# ADR-053 Learning Center spec, FR-045 … FR-055
+# (``docs/specs/adr-053-learning-center.md``).
+#
+# The vocabulary is **core-owned** (FR-045). Tutorials reference terms; they do
+# not define them. It is the sixteen terms FR-047 originally required, plus the
+# core-added ``config_matches``, ``run_failed``, and ``plot_rendered`` (FR-047
+# sets a floor rather than a ceiling, and §4.5 records that core extends the
+# vocabulary as tutorials find it short), plus the ``all`` and ``any``
+# combinators of FR-048.
+#
+# **Negation is deliberately absent.** FR-048's reason, kept here because the
+# next reader will otherwise assume it was an oversight: a step that advances
+# when something is *absent* advances by the user doing nothing, which teaches
+# nothing and is indistinguishable from a stuck step.
+#
+# Everything is judged on the backend against product truth (FR-046), read
+# through the single injected :class:`ProductState` port. ``ui_event`` is the one
+# term whose truth originates in the frontend (FR-052), and it still arrives here
+# as backend state: the frontend reports the event and the API layer records it
+# into the state object.
+#
+# Evaluation is side-effect free (FR-055). Every method on :class:`ProductState`
+# is a pure read, ``file_exists`` only stats, and nothing here creates a file,
+# mutates a registry, or triggers a run.
+#
+# An unknown term is rejected at **manifest validation**, not at evaluation
+# (FR-049): :mod:`scistudio.tutorials.manifest` calls :func:`parse_condition`
+# while validating, so a typo fails the tutorial's author rather than failing a
+# user on step nine. ``manifest -> conditions`` is the only direction the module
+# boundary allows (checklist §6.1.2); this module imports nothing else from
+# :mod:`scistudio.tutorials`, and never imports ``scistudio.api``.
+#
+# No polling (FR-051)
+# -------------------
+#
+# This module creates no timer and no loop. Re-evaluation is caused by a mapped
+# engine event (:data:`EVENT_TERM_MAP` / :func:`build_event_term_map`), by an
+# explicit request (FR-053), or by entry into a step. A condition already true
+# when its step is entered satisfies it immediately (FR-054) — which is simply
+# what "entry evaluates" means, since these are statements about state and not
+# about the user having just acted.
+# Development references: ADR-053, FR-045, FR-046, FR-047, FR-048, FR-049, FR-051, FR-052, FR-053, FR-054,
+# FR-055, docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -96,12 +99,14 @@ __all__ = [
 
 @provisional(since="0.3.4")
 class ConditionValidationError(ValueError):
-    """A ``done_when`` was rejected at manifest validation (FR-049).
+    """A ``done_when`` was rejected at manifest validation.
 
     Raised for an unknown term, a malformed shape, or missing term arguments.
     :mod:`scistudio.tutorials.manifest` re-raises it as a
     ``ManifestValidationError`` naming the file.
     """
+
+    # Development references: FR-049.
 
 
 # ---------------------------------------------------------------------------
@@ -233,32 +238,37 @@ _SPECS: tuple[TermSpec, ...] = (
 )
 
 TERM_SPECS: Mapping[str, TermSpec] = MappingProxyType({spec.name: spec for spec in _SPECS})
-"""Every term, each with the arguments it accepts: FR-047's sixteen plus the
-core-added ``config_matches``, ``run_failed``, and ``plot_rendered``."""
+"""Every term, each with the arguments it accepts: the API's sixteen plus the
+Core-added ``config_matches``, ``run_failed``, and ``plot_rendered``."""
+# Development references: FR-047.
 
 VOCABULARY: frozenset[str] = frozenset(TERM_SPECS)
-"""FR-045: the core-owned term set. This is the single declaration of it.
+"""The core-owned term set. This is the single declaration of it.
 
 The published manifest schema deliberately does not restate the names — a
 second copy is a second thing to keep in step — and defers to this module,
-which :mod:`scistudio.tutorials.manifest` calls during validation (FR-049).
+which :mod:`scistudio.tutorials.manifest` calls during validation.
 """
+# Development references: FR-045, FR-049.
 
 COMBINATORS: frozenset[str] = frozenset({"all", "any"})
-"""FR-048. Negation is not here and is not an omission; see the module docstring."""
+"""Negation is not here and is not an omission; see the module docstring."""
+# Development references: FR-048.
 
 
 @dataclass(frozen=True)
 class UiEventSpec:
     """One reportable frontend event, and the target argument it may carry.
 
-    ``target_arg`` follows the FR-089b precedent for highlight entities: an
+    ``target_arg`` follows the precedent for highlight entities: an
     event acting on one element among many of its kind declares the argument
     that says which one — ``block_type`` for a block acted on, ``plot_id`` for
     a plot — and an event whose surface is a singleton declares none. The
     argument is optional on both sides: a bare report satisfies a bare-name
     condition, and a condition naming a target waits for a report carrying it.
     """
+
+    # Development references: FR-089b.
 
     name: str
     target_arg: str | None = None
@@ -280,7 +290,8 @@ UI_EVENT_SPECS: tuple[UiEventSpec, ...] = (
     UiEventSpec(name="preview_item_opened"),
     UiEventSpec(name="run_selected", target_arg="status"),
 )
-"""Each reportable event with the target argument it may carry (FR-052, #2063)."""
+"""Each reportable event with the target argument it may carry."""
+# Development references: #2063, FR-052.
 
 _UI_EVENT_SPECS_BY_NAME: Mapping[str, UiEventSpec] = MappingProxyType({spec.name: spec for spec in UI_EVENT_SPECS})
 
@@ -297,30 +308,16 @@ def ui_event_target_arg(name: str) -> str | None:
 
 
 UI_EVENT_NAMES: frozenset[str] = frozenset(spec.name for spec in UI_EVENT_SPECS)
-"""The closed set of frontend events a ``ui_event`` condition may name (FR-052).
+"""Frontend events accepted by a ``ui_event`` condition.
 
-Every member is FR-052's own motivating case: real product actions that leave
-no backend state behind, which is the entire reason that requirement exists.
-``run_selected`` is the newest (#2135) and the clearest of the four after
-``node_selected``: History knows which runs exist, and the backend is never
-told which of them the reader is looking at. Its target is the selected run's
-*status* rather than its id, because run ids are minted at run time and a
-manifest cannot name one — while what a step actually wants to wait for is
-"they picked a run that succeeded", which the status says exactly.
-Selecting a node is the clearest of the three — the backend is told which
-*workflow* is being edited and never which node is selected, so "the reader
-clicked the block" is knowable nowhere else. Everything else a tutorial waits on
-is a backend fact and belongs to one of the other fifteen terms.
+These events record interface actions that leave no backend state, such as
+selecting a node or opening a tab. ``run_selected`` uses the selected run's
+status as its target, since a manifest cannot predict a generated run id.
 
-The set is closed for the reason FR-049 gives about terms. A free-form event
-name is a typo that fails the *user* on step nine — the step simply never
-advances, and nothing tells anyone why — instead of failing the author at
-validation. So an unlisted name is rejected while the tutorial is being listed.
-
-It grows by core change, not by a manifest author inventing a name: a new
-member is only meaningful once the frontend reports it, so adding one requires
-a matching frontend change in the same breath.
+Unknown event names are rejected during manifest validation. Adding an event
+also requires the frontend to report it.
 """
+# Development references: #2135, FR-049, FR-052.
 
 READING_TERMS: frozenset[str] = frozenset({"page_reached"})
 """Terms whose truth is the reader turning a page, not the user doing anything.
@@ -340,27 +337,29 @@ waiting on a run to succeed, because the claim is the conditions themselves.
 """
 
 LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
-"""The three kinds ``library_contains`` judges (FR-047), all satisfiable.
+"""The three kinds ``library_contains`` judges, all satisfiable.
 
 ``previewer`` spent its first months **specified but not satisfiable**: the
-scoped library created ``blocks/`` and ``types/`` only, and the previewer
+Scoped library created ``blocks/`` and ``types/`` only, and the previewer
 registry did not scan it, so the kind sat in
-:data:`UNSATISFIABLE_LIBRARY_KINDS` with its reason. #2086 gave the scoped
+:data:`UNSATISFIABLE_LIBRARY_KINDS` with its reason. The scoped library now has a
 library a ``previewers/`` tier riding the user-tier slot the previewer
-registry gained with #2017, so the kind is judgeable like the other two.
+registry gained with, so the kind is judgeable like the other two.
 """
+# Development references: #2017, #2086, FR-047.
 
 UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType({})
 """Library kinds the vocabulary declares but the product cannot yet satisfy.
 
 Empty today: ``previewer``, the one entry this mapping was built for, left it
-when the tutorial-scoped library grew a ``previewers/`` tier (#2086). The
-mechanism stays, and deliberately: FR-047's shape — a spec written against a
+When the tutorial-scoped library grew a ``previewers/`` tier. The
+mechanism stays, and deliberately: the API's shape — a spec written against a
 product that does not fully exist yet — can recur, and when it does the kind
 belongs here with its reason and tracking issue rather than being silently
 accepted (stranding the reader on a step that can never complete, the failure
-FR-049 exists to prevent) or silently removed from the vocabulary.
+ exists to prevent) or silently removed from the vocabulary.
 """
+# Development references: #2086, FR-047, FR-049.
 
 _CLOSED_ARG_VALUES: Mapping[tuple[str, str], frozenset[str]] = MappingProxyType(
     {
@@ -480,11 +479,12 @@ def _check_ui_event_target(args: Mapping[str, Any], *, field_name: str) -> None:
 
     The generic argument check has already confirmed membership in the term's
     argument set and ``_CLOSED_ARG_VALUES`` has confirmed the name, so what is
-    left is the per-name pairing (FR-052, #2063): ``block_type`` belongs to the
+    left is the per-name pairing: ``block_type`` belongs to the
     block-shaped events and ``plot_id`` to the plot-shaped one, and a condition
     pairing them wrongly would wait forever on a report no emitter sends —
-    which is FR-049's step-nine failure, caught at validation instead.
+    which is the API's step-nine failure, caught at validation instead.
     """
+    # Development references: #2063, FR-049, FR-052.
     spec = _UI_EVENT_SPECS_BY_NAME.get(str(args.get("name")))
     if spec is None:  # pragma: no cover - _CLOSED_ARG_VALUES rejects the name first
         return
@@ -502,8 +502,9 @@ def parse_condition(raw: Any, *, field_name: str = "done_when") -> Condition:
 
     The accepted shape is a single-key mapping: ``{term: {args}}`` for a term,
     ``{all: [condition, ...]}`` or ``{any: [...]}`` for a combinator. Called at
-    manifest validation (FR-049), never at evaluation.
+    manifest validation, never at evaluation.
     """
+    # Development references: FR-049.
     if not isinstance(raw, Mapping):
         raise ConditionValidationError(f"{field_name}: expected a mapping, got {type(raw).__name__}")
     if len(raw) != 1:
@@ -556,11 +557,12 @@ class RunSummary:
     succeeded: bool
     succeeded_node_ids: frozenset[str] = frozenset()
     started_at: str | None = None
-    """ISO-8601 start time, for ``since_step_entry`` scoping (#2066).
+    """ISO-8601 start time, for ``since_step_entry`` scoping.
 
     ``None`` when the projecting layer has no timestamp for the run; such a
     record is outside every since-scoped question, because a step asking for a
     *new* run must not advance on one whose time nobody knows."""
+    # Development references: #2066.
 
 
 @provisional(since="0.3.4")
@@ -568,14 +570,22 @@ class RunSummary:
 class ProductState(Protocol):
     """The one injected port through which conditions read product truth.
 
-    FR-046: judging is a backend concern, evaluated against the registries, the
+    judging is a backend concern, evaluated against the registries, the
     workflow definition, the run records, git, and the filesystem. This module
     reaches all of that through this protocol rather than by importing the API
     runtime, which keeps ``api -> tutorials`` a one-way edge and keeps the
-    package testable without a FastAPI app (checklist §6.1.2, §6.1.3).
+    package testable without a FastAPI app.
 
-    Every member is a pure read (FR-055).
+    Every member is a pure read.
     """
+
+    # Maintainer context:
+    # judging is a backend concern, evaluated against the registries, the
+    # workflow definition, the run records, git, and the filesystem. This module
+    # reaches all of that through this protocol rather than by importing the API
+    # runtime, which keeps ``api -> tutorials`` a one-way edge and keeps the
+    # package testable without a FastAPI app (checklist §6.1.2, §6.1.3).
+    # Development references: FR-046, FR-055.
 
     project_dir: Path | None
     tutorial_library_dir: Path | None
@@ -597,13 +607,14 @@ class ProductState(Protocol):
     def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
         """``(workflow_id, node_id, output_port, plot_id)`` for every plot with a rendered figure.
 
-        Product truth for the backend ``plot_rendered`` term (#2066): a figure
+        Product truth for the backend ``plot_rendered`` term: a figure
         exists as display artifacts in the preview cache, whoever caused the
         render and whether or not anyone was watching. The ``ui_event`` of the
         same name deliberately coexists with it and answers a different
         question — the *reader saw* it render on their screen — which is why
         neither replaces the other.
         """
+        # Development references: #2066.
         ...
 
     def run_records(self) -> tuple[RunSummary, ...]:
@@ -690,7 +701,7 @@ def _addressed_config_values(args: Mapping[str, Any], state: ProductState) -> It
 
     ``config_equals`` and ``config_matches`` differ only in how they compare a
     value once they have it. *Finding* it is one idea — no open workflow means
-    no match, then the ``node_id``/``block_type`` selection FR-047 gives both
+    no match, then the ``node_id``/``block_type`` selection applies to both
     terms, then the key being present on that node at all — and is written
     once, so a change to which nodes a config term addresses reaches both terms
     together.
@@ -710,11 +721,12 @@ def _addressed_config_values(args: Mapping[str, Any], state: ProductState) -> It
     a tutorial would ever name, and the step it guards can never advance. This
     follows the product's own rule rather than inventing one: the scheduler's
     pre-dispatch validation checks ``node.config["params"]`` and the top level
-    of ``node.config`` (``engine/scheduler/_dispatch.py``, #632), and the
+    of ``node.config`` (``engine/scheduler/_dispatch.py``), and the
     subworkflow flattener walks the same two containers. A term that addressed
     only one of them would disagree with the engine about what a node is
     configured as.
     """
+    # Development references: #632, FR-047.
     workflow = state.workflow()
     if workflow is None:
         return
@@ -757,7 +769,7 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
 
     The retired frontend predicate handled this by normalizing separators and
     accepting a trailing-suffix match, and that capability was lost when judging
-    moved to the backend (FR-046). This term restores it as a first-class part
+    moved to the backend. This term restores it as a first-class part
     of the vocabulary rather than as a special case hidden inside
     ``config_equals``, so a manifest that means "matches" says "matches" and a
     term named "equals" always means equality.
@@ -776,7 +788,7 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
     and is not recommended: ``PurePath.match`` treats it as a single ``*``.
 
     **A multi-file field holds a list, and each entry is judged on its own**
-    (#2135). ``path`` on an IO block is declared ``["string", "array"]`` and the
+    ``path`` on an IO block is declared ``["string", "array"]`` and the
     native file dialog writes a list the moment the reader selects more than one
     file, so a term that only looked at strings was blind to exactly the case a
     batch-processing step is about — it saw a list, skipped it, and the step
@@ -784,6 +796,7 @@ def _eval_config_matches(args: Mapping[str, Any], state: ProductState) -> bool:
     is enough, which is what lets a step name each expected file in its own
     ``config_matches`` under an ``all`` and so require *both*.
     """
+    # Development references: #2135, FR-046.
     pattern = _as_posix(str(args["pattern"]))
     for value in _addressed_config_values(args, state):
         for candidate in value if isinstance(value, list) else [value]:
@@ -804,12 +817,13 @@ def _addressed_node_ids(args: Mapping[str, Any], state: ProductState) -> frozens
     ``None`` means the term declared no node selector at all, which the run
     terms read as "the whole workflow". The two arguments filter conjunctively,
     exactly as :func:`_node_matches` treats them for ``node_exists`` and the
-    config terms: ``block_type`` alone reads "any node of that type" (#2062),
+    config terms: ``block_type`` alone reads "any node of that type",
     ``node_id`` alone names one node without touching the workflow, and both
     together name one node that must also be of that type. A ``block_type``
     naming no node in the open workflow addresses the empty set, which makes
     the condition false rather than an error.
     """
+    # Development references: #2062.
     node_id = args.get("node_id")
     block_type = args.get("block_type")
     if node_id is None and block_type is None:
@@ -846,16 +860,17 @@ def _runs_for(args: Mapping[str, Any], state: ProductState, entered_at: str | No
     written once: they ask different questions of the same list, and only the
     questions differ.
 
-    With ``since_step_entry: true`` (#2066), records that started before the
+    With ``since_step_entry: true``, records that started before the
     session-supplied step-entry time fall out, which is what lets a step whose
     text says "press Run" wait for the run the reader performs *here* rather
-    than being satisfied by the one they performed three steps ago. FR-054 is
+    than being satisfied by the one they performed three steps ago. The contract is
     untouched: at entry no run has started since entry, so the scoped condition
     is simply false. A session with no recorded entry time — one persisted
     before the field existed — applies no time filter, which fails towards
-    FR-054's own lean (an early-satisfied step) rather than towards a step that
+    The API's own lean (an early-satisfied step) rather than towards a step that
     can never finish.
     """
+    # Development references: #2066, FR-054.
     workflow_id = args.get("workflow_id")
     since = bool(args.get("since_step_entry")) and entered_at is not None
     for record in state.run_records():
@@ -898,13 +913,14 @@ def _started_at_or_after(started_at: str | None, entered_at: str | None) -> bool
 def _eval_run_failed(args: Mapping[str, Any], state: ProductState, entered_at: str | None = None) -> bool:
     """Did the most recent run end without succeeding?
 
-    Not the negation of ``run_succeeded``, which FR-048 rules out and which
+    Not the negation of ``run_succeeded``, which rules out and which
     would be true before the reader had run anything at all — a step advancing
     on that advances by doing nothing. This asks about a run that *happened*:
     the latest record exists and did not complete. That is the positive fact a
     step which breaks something and says "press Run and see what happens" is
     waiting for, and it goes false again once the reader fixes it and re-runs.
     """
+    # Development references: FR-048.
     for record in _runs_for(args, state, entered_at):
         return not record.succeeded
     return False
@@ -951,9 +967,10 @@ def _eval_port_has_output(args: Mapping[str, Any], state: ProductState) -> bool:
 
     With a bare ``node_id`` the addressed set is that id and the workflow is
     never read, which is the behavior the term had before ``block_type``
-    joined it (#2062). The selector cannot be absent: the term's ``one_of``
+    joined it. The selector cannot be absent: the term's ``one_of``
     requires one of ``node_id``/``block_type`` at validation.
     """
+    # Development references: #2062.
     port = str(args["port"])
     addressed = _addressed_node_ids(args, state)
     if addressed is None:  # pragma: no cover - one_of validation rejects this first
@@ -969,18 +986,13 @@ def _eval_interaction_completed(args: Mapping[str, Any], state: ProductState) ->
 
 
 def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
-    """Does a project-relative path exist?
+    """Check whether a project-relative path exists without creating it.
 
-    FR-053 is a requirement rather than a convenience *because of this term*.
-    The ``file.changed`` watcher event is filtered to ``ADR036_FILE_ALLOWLIST``
-    (``.py .r .txt .md .yaml .yml .json .csv .log``), so a ``file_exists``
-    condition on a TIFF, a Zarr store, or any other data file is never
-    event-driven and can only be re-checked through the explicit evaluate
-    request. A step whose completion turns on such a file must not be written
-    expecting the event map to reach it.
-
-    Reading the filesystem is a pure read; nothing is created (FR-055).
+    The file watcher reports only allowlisted text-file changes. Conditions on
+    other files, such as TIFF images or Zarr stores, require an explicit evaluate
+    request instead of relying on watcher events.
     """
+    # Development references: FR-053, FR-055.
     project_dir = state.project_dir
     if project_dir is None:
         return False
@@ -1041,17 +1053,18 @@ _TIME_SCOPED_TERMS: frozenset[str] = frozenset({"run_succeeded", "run_failed"})
 def evaluate(condition: Condition, state: ProductState, *, entered_at: str | None = None) -> bool:
     """Judge ``condition`` against ``state``.
 
-    Side-effect free (FR-055): no file is created, no registry is mutated, no
-    run is triggered. Called on step entry (FR-054), on a mapped event
-    (FR-050), and on an explicit request (FR-053) — never on a timer (FR-051).
+    Side-effect free: no file is created, no registry is mutated, no
+    run is triggered. Called on step entry, on a mapped event
+    and on an explicit request — never on a timer.
 
-    ``entered_at`` is FR-046's session-supplied evaluation context (#2066): the
+    ``entered_at`` is the API's session-supplied evaluation context: the
     ISO-8601 time the current step was entered, which the two run terms read
     when a condition declares ``since_step_entry: true``. It is context rather
     than product state because product state describes the world and this
     describes the reader's position in the tutorial — only the session knows
     it, and the session hands it in per evaluation.
     """
+    # Development references: #2066, FR-046, FR-050, FR-051, FR-053, FR-054, FR-055.
     if condition.term == "all":
         return all(evaluate(operand, state, entered_at=entered_at) for operand in condition.operands)
     if condition.term == "any":
@@ -1071,30 +1084,35 @@ def evaluate(condition: Condition, state: ProductState, *, entered_at: str | Non
 BLOCKS_RELOADED_TERMS: frozenset[str] = frozenset(
     {"block_registered", "type_registered", "previewer_registered", "library_contains"}
 )
-"""Terms re-evaluated when the registries reload.
+"""Condition terms re-evaluated when registries reload.
 
-The event's own name is ``BLOCKS_RELOADED`` in ``scistudio.api.ws``. This
-package may not import ``scistudio.api`` (checklist §6.1.2), and FR-050
-requires the runtime to subscribe using the *declared constant* rather than a
-string literal, so the name is not written down here at all: the API layer
-passes it in through :class:`ExternalEventNames` at wiring time. That is why
-this constant names only the terms.
+The API layer supplies the event name through :class:`ExternalEventNames`
+when wiring subscriptions. This constant identifies only the affected terms.
 """
+# Maintainer context:
+# The event's own name is ``BLOCKS_RELOADED`` in ``scistudio.api.ws``. This
+# Package may not import ``scistudio.api`` (checklist §6.1.2), and the contract
+# requires the runtime to subscribe using the *declared constant* rather than a
+# string literal, so the name is not written down here at all: the API layer
+# passes it in through :class:`ExternalEventNames` at wiring time. That is why
+# this constant names only the terms.
+# Development references: FR-050.
 
 FILE_CHANGED_TERMS: frozenset[str] = frozenset({"file_exists", "plot_exists"})
 """Terms re-evaluated on a watcher file event.
 
 ``plot_exists`` belongs here because a plot *is* files: creating one writes
 ``plots/<id>/plot.yaml`` and a render script, both inside the watched project
-and both in the allowlist. Without it, the reader created the plot the step
+And both in the allowlist. Without it, the reader created the plot the step
 asked for and the step went on saying no until they pressed Refresh by hand —
 the condition was true and nothing had asked it.
 
 Same arrangement as :data:`BLOCKS_RELOADED_TERMS`: the event name is
 ``FILE_CHANGED_EVENT_TYPE`` in ``scistudio.api.file_contracts`` and is supplied
 through :class:`ExternalEventNames`. See :func:`_eval_file_exists` for why this
-mapping does not cover every case FR-053 has to.
+mapping does not cover every case has to.
 """
+# Development references: FR-053.
 
 # ``plot_rendered`` rides the run events rather than ``file.changed``: the
 # figure lands as an image under ``.scistudio/previews/``, and image formats
@@ -1111,7 +1129,7 @@ EVENT_TERM_MAP: Mapping[str, frozenset[str]] = MappingProxyType(
         INTERACTIVE_COMPLETE: frozenset({"interaction_completed"}),
     }
 )
-"""FR-050's mapping, for the six events declared in ``scistudio.engine.events``.
+"""The API's mapping, for the six events declared in ``scistudio.engine.events``.
 
 Keyed by the imported constants, so the table cannot drift from the bus without
 the import failing. The two events that live outside ``engine/events.py`` —
@@ -1119,32 +1137,30 @@ the import failing. The two events that live outside ``engine/events.py`` —
 this package may not import — are not keyed here; see
 :func:`build_event_term_map`.
 """
+# Development references: FR-050.
 
 
 @dataclass(frozen=True)
 class ExternalEventNames:
-    """The two FR-050 event names that live under ``scistudio.api``.
+    """API event names supplied when wiring tutorial subscriptions.
 
-    ``engine/events.py`` is frozen by the ADR-035/036 hard-scope rules, so
-    ``BLOCKS_RELOADED`` and ``FILE_CHANGED_EVENT_TYPE`` were declared at the
-    API and watcher layer instead. This package may not import that layer, and
-    FR-050 forbids subscribing by string literal, so the API layer constructs
-    this object from *its* constants and hands it in when it wires the
-    subscription:
+    The API layer constructs this object from its event constants and passes it
+    to the tutorial runtime, keeping subscriptions consistent without importing
+    the API layer here::
 
         ExternalEventNames(blocks_reloaded=BLOCKS_RELOADED,
                            file_changed=FILE_CHANGED_EVENT_TYPE)
-
-    The result is that neither event name appears as a literal anywhere inside
-    :mod:`scistudio.tutorials`, which a test asserts.
     """
+
+    # Development references: ADR-035, FR-050.
 
     blocks_reloaded: str
     file_changed: str
 
 
 def build_event_term_map(external: ExternalEventNames) -> Mapping[str, frozenset[str]]:
-    """Return FR-050's full mapping, with the two API-layer events filled in."""
+    """Return the API's full mapping, with the two API-layer events filled in."""
+    # Development references: FR-050.
     complete = dict(EVENT_TERM_MAP)
     complete[external.blocks_reloaded] = BLOCKS_RELOADED_TERMS
     complete[external.file_changed] = FILE_CHANGED_TERMS
@@ -1162,9 +1178,10 @@ def event_types_for_condition(condition: Condition, external: ExternalEventNames
 
     A term reached by no event — ``page_reached`` and ``ui_event``, whose truth
     is reported directly, and ``file_exists`` for a path the watcher filters out
-    — contributes nothing here, which is exactly the gap FR-053's explicit
+    contributes nothing here, which is exactly the gap the explicit
     evaluate request exists to cover.
     """
+    # Development references: FR-053.
     mapping = EVENT_TERM_MAP if external is None else build_event_term_map(external)
     used = condition.terms()
     return frozenset(event for event, terms in mapping.items() if terms & used)

@@ -1,24 +1,26 @@
-"""Provision the in-project documentation set (#1850, ADR-052 §7).
-
-Copies two packaged doc trees into a project so the in-project human and the
-embedded agent read the authoritative public-API docs instead of reaching into
-internals:
-
-  - ``<project>/user-guide/**``                 <- ``scistudio/_user_guide/**``
-    (the human user guide *and* the self-contained API reference under
-    ``user-guide/api-reference/``)
-  - ``<project>/.scistudio/agent-reference/**`` <- ``scistudio/_agent_reference/**``
-    (terse, agent-facing contract reference the skills point at)
-
-Filesystem-only and wheel-safe (reads through ``importlib.resources`` exactly
-like ``skills.py``), idempotent (skips existing files unless ``force=True``), and
-run as a non-fatal sub-step by the orchestrator.
-
-Installed package reference docs are discovered from package-local
-``_scistudio_docs/`` trees and copied into managed project-local package
-reference indexes. Those managed package docs refresh when the installed package
-docs change; core-owned docs still preserve existing files unless ``force=True``.
-"""
+"""Provision the in-project documentation set."""
+# Maintainer context (kept outside generated API documentation):
+# Provision the in-project documentation set (#1850, ADR-052 §7).
+#
+# Copies two packaged doc trees into a project so the in-project human and the
+# embedded agent read the authoritative public-API docs instead of reaching into
+# internals:
+#
+#   - ``<project>/user-guide/**``                 <- ``scistudio/_user_guide/**``
+#     (the human user guide *and* the self-contained API reference under
+#     ``user-guide/api-reference/``)
+#   - ``<project>/.scistudio/agent-reference/**`` <- ``scistudio/_agent_reference/**``
+#     (terse, agent-facing contract reference the skills point at)
+#
+# Filesystem-only and wheel-safe (reads through ``importlib.resources`` exactly
+# like ``skills.py``), idempotent (skips existing files unless ``force=True``), and
+# run as a non-fatal sub-step by the orchestrator.
+#
+# Installed package reference docs are discovered from package-local
+# ``_scistudio_docs/`` trees and copied into managed project-local package
+# reference indexes. Those managed package docs refresh when the installed package
+# docs change; core-owned docs still preserve existing files unless ``force=True``.
+# Development references: #1850, ADR-052.
 
 from __future__ import annotations
 

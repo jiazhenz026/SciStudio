@@ -1,20 +1,22 @@
-"""CI-equivalent check selection and execution for ADR-042 Addendum 6 (§7.5).
-
-The required check set is derived from three inputs (§7.5):
-
-1. the strictness tier (task kind, escalated by observed diff per §7.6);
-2. the observed changed-file surfaces from git;
-3. the CI workflow graph.
-
-CI workflow YAML is the source of command truth. To keep the core importable
-without a YAML dependency, the canonical CI command snapshot from ADR-042
-Addendum 6 §7.5 is encoded as data here and cross-checked against the presence
-of the workflow files. When a required CI job cannot be mapped to a local
-command, the evaluator fails closed for PR readiness (§7.5, §7.10).
-
-Execution writes raw transcripts only under ``.workflow/local/**`` (gitignored)
-and returns sanitized :class:`CheckEvent` payloads.
-"""
+"""CI-equivalent check selection and execution."""
+# Maintainer context (kept outside generated API documentation):
+# CI-equivalent check selection and execution for ADR-042 Addendum 6 (§7.5).
+#
+# The required check set is derived from three inputs (§7.5):
+#
+# 1. the strictness tier (task kind, escalated by observed diff per §7.6);
+# 2. the observed changed-file surfaces from git;
+# 3. the CI workflow graph.
+#
+# CI workflow YAML is the source of command truth. To keep the core importable
+# without a YAML dependency, the canonical CI command snapshot from ADR-042
+# Addendum 6 §7.5 is encoded as data here and cross-checked against the presence
+# of the workflow files. When a required CI job cannot be mapped to a local
+# command, the evaluator fails closed for PR readiness (§7.5, §7.10).
+#
+# Execution writes raw transcripts only under ``.workflow/local/**`` (gitignored)
+# and returns sanitized :class:`CheckEvent` payloads.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -237,8 +239,9 @@ def _mirror_test_targets(repo_root: Path, module_path: str) -> str | None:
     ``test_<stem>.py`` file, or ``None`` when neither resolves. ``None`` means
     "cannot prove which tests cover this", which the caller turns into a
     full-suite run. Under-selection is the one failure mode that would let a
-    real break reach CI, so every unresolved case widens (spec FR-003).
+    real break reach CI, so every unresolved case widens.
     """
+    # Development references: FR-003.
 
     prefix = "src/scistudio/"
     if not module_path.startswith(prefix):
@@ -371,7 +374,9 @@ _BASELINE_BY_TIER: dict[int, tuple[str, ...]] = {
 
 
 def _surface_checks(changed_files: Sequence[str]) -> set[str]:
-    """Map observed surfaces to the CI jobs that cover them (§7.5 table)."""
+    """Map observed surfaces to the CI jobs that cover them."""
+    # Maintainer context:
+    # Map observed surfaces to the CI jobs that cover them (§7.5 table).
 
     selected: set[str] = set()
     has_python_src = any(surfaces.normalize_path(p).startswith("src/") and p.endswith(".py") for p in changed_files)
@@ -406,12 +411,14 @@ def select_checks(
     changed_files: Sequence[str],
     extra_checks: Sequence[str] = (),
 ) -> CheckSelection:
-    """Infer the tier-selected required check set (§7.5).
+    """Infer the tier-selected required check set.
 
     Tier 1 mirrors the full merge-blocking CI surface. Tier 2 runs the
     governance/lint/audit baseline plus changed-surface jobs. Tier 3 runs only
     mandatory checks for the observed diff.
     """
+    # Maintainer context:
+    # Infer the tier-selected required check set (§7.5).
 
     selection = CheckSelection()
     # Tier breadth lives entirely in ``_BASELINE_BY_TIER``: Tier 1 names the full
@@ -471,8 +478,14 @@ def detect_parity_cause(output: str) -> str | None:
     caused by the LOCAL environment not being CI-equivalent (missing optional
     plugin / dependency / interpreter / tool, or a pytest collection ImportError
     /ModuleNotFoundError). Returns ``None`` for genuine assertion/code failures so
-    they still read as code failures (§7.10).
+    they still read as code failures.
     """
+    # Maintainer context:
+    # Returns a short human-readable detail of what is missing when the failure is
+    # caused by the LOCAL environment not being CI-equivalent (missing optional
+    # plugin / dependency / interpreter / tool, or a pytest collection ImportError
+    # /ModuleNotFoundError). Returns ``None`` for genuine assertion/code failures so
+    # they still read as code failures (§7.10).
 
     if not output:
         return None
@@ -512,7 +525,7 @@ def _resolve_execution(
     spec: CheckSpec,
     command: Sequence[str] | None = None,
 ) -> tuple[list[str] | None, dict[str, str] | None]:
-    """Map a check spec to a concrete argv + env using the parity venv (§7.10).
+    """Map a check spec to a concrete argv + env using the parity venv.
 
     ``command`` overrides ``spec.command`` so the diff-scoped local variant runs
     through exactly the same tool resolution as the CI-mirror command.
@@ -526,6 +539,8 @@ def _resolve_execution(
     (CI mode, or a non-provisioned environment), preserving the prior behaviour.
     Returns ``(None, None)`` when the tool cannot be resolved anywhere (skipped).
     """
+    # Maintainer context:
+    # Map a check spec to a concrete argv + env using the parity venv (§7.10).
 
     effective = tuple(command) if command is not None else spec.command
     if not effective:
@@ -572,9 +587,10 @@ def _with_check_env(name: str, env: dict[str, str] | None) -> dict[str, str] | N
 
     No CI-only env knobs are currently required: plugin packages are
     discovered through their installed ``scistudio.*`` entry points (the
-    monorepo source-scan dev fallback was removed in #1770), so the local
+    monorepo source-scan dev fallback was removed in), so the local
     check environment matches CI without extra flags.
     """
+    # Development references: #1770.
     return env
 
 
@@ -591,7 +607,7 @@ def run_check(
 
     Raw stdout/stderr go ONLY to ``.workflow/local/**`` (gitignored). The
     committed event carries a sanitized one-line summary plus a repo-relative
-    ``raw_log_ref`` (§8).
+    ``raw_log_ref``.
 
     ``scope="diff"`` asks for the local variant narrowed to ``changed_files``.
     When the requested check has no diff-scoped strategy, or its strategy cannot
@@ -599,6 +615,10 @@ def run_check(
     command and records ``scope="repo"`` — the event always states which command
     actually ran, never which one was requested.
     """
+    # Maintainer context:
+    # Raw stdout/stderr go ONLY to ``.workflow/local/**`` (gitignored). The
+    # committed event carries a sanitized one-line summary plus a repo-relative
+    # ``raw_log_ref`` (§8).
 
     spec = CHECK_CATALOG[name]
     scoped_command = (
@@ -706,15 +726,18 @@ def event_is_valid_for(
     input_fingerprint: str | None,
     require_repo_scope: bool = False,
 ) -> bool:
-    """Return True when a prior check event remains valid (§7.2 incremental).
+    """Return True when a prior check event remains valid.
 
     Evidence stays valid only when the covered surface's input fingerprint is
     unchanged. A later edit to that surface invalidates only this event.
 
     ``require_repo_scope`` rejects diff-scoped evidence. A diff-scoped run proves
     the changed files, not the whole surface, so it cannot stand in for a
-    CI-mirror obligation (spec gate-local-incremental-checks FR-008).
+    CI-mirror obligation (spec gate-local-incremental-checks).
     """
+    # Maintainer context:
+    # Return True when a prior check event remains valid (§7.2 incremental).
+    # Development references: FR-008.
 
     if event.status != "pass":
         return False
@@ -782,7 +805,7 @@ def report_json_summary(repo_root: Path, name: str) -> list[str]:
     A check whose :attr:`CheckSpec.report_json` is set writes its findings to a
     file instead of printing them, so its transcript is empty and a tail of the
     raw log tells the reader nothing: the failure reads as "failed, no reason
-    given" while the reasons sit unread in the report file (#2143). This reads
+    given" while the reasons sit unread in the report file. This reads
     that file and returns the failing sub-reports with their findings.
 
     Returns ``[]`` when the check writes no report, the file is missing, or it
@@ -791,6 +814,7 @@ def report_json_summary(repo_root: Path, name: str) -> list[str]:
     purpose: the file is written by a separate process, and a schema mismatch
     must degrade to "no summary" rather than raise inside failure reporting.
     """
+    # Development references: #2143.
 
     spec = CHECK_CATALOG.get(name)
     if spec is None or not spec.report_json:

@@ -1,19 +1,21 @@
-"""Leaf-level types shared by guard calculators (ADR-042 Addendum 6 spec §4).
-
-``GuardInputs`` and the ``Guard`` callable type live here (not in
-``guards/__init__.py``) so individual guard modules can import them without
-creating an import cycle through the package ``__init__``.
-
-``guards/__init__.py`` re-exports both names for callers that import from the
-package (the evaluator imports ``GuardInputs`` and ``GUARD_REGISTRY`` from
-there). Guard submodules MUST import from this module directly:
-
-    from scistudio.qa.governance.gate_record.guards._base import GuardInputs
-
-Never import ``from scistudio.qa.governance.gate_record.guards import GuardInputs``
-inside a guard submodule — that path goes through ``__init__`` which imports
-the submodule back, creating a cycle.
-"""
+"""Leaf-level types shared by guard calculators."""
+# Maintainer context (kept outside generated API documentation):
+# Leaf-level types shared by guard calculators (ADR-042 Addendum 6 spec §4).
+#
+# ``GuardInputs`` and the ``Guard`` callable type live here (not in
+# ``guards/__init__.py``) so individual guard modules can import them without
+# creating an import cycle through the package ``__init__``.
+#
+# ``guards/__init__.py`` re-exports both names for callers that import from the
+# package (the evaluator imports ``GuardInputs`` and ``GUARD_REGISTRY`` from
+# there). Guard submodules MUST import from this module directly:
+#
+#     from scistudio.qa.governance.gate_record.guards._base import GuardInputs
+#
+# Never import ``from scistudio.qa.governance.gate_record.guards import GuardInputs``
+# inside a guard submodule — that path goes through ``__init__`` which imports
+# the submodule back, creating a cycle.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -34,11 +36,14 @@ from scistudio.qa.schemas.report import AuditReport
 
 @dataclass(frozen=True)
 class GuardInputs:
-    """The evaluator-built input bundle every guard calculator receives (§4).
+    """The evaluator-built input bundle every guard calculator receives.
 
     Guards must read ONLY from this bundle. They must not load the ledger, run
     git, or maintain independent rule sets.
     """
+
+    # Maintainer context:
+    # The evaluator-built input bundle every guard calculator receives (§4).
 
     repo_root: Path
     mode: str

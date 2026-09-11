@@ -1,11 +1,13 @@
 #!/usr/bin/env python
-"""hook_remind_poll_status.py — PostToolUse / run_workflow (ADR-040 §3.6).
-
-After ``mcp__scistudio__run_workflow`` returns, inject a reminder telling
-the agent to poll ``get_run_status`` until the run reaches a terminal
-state. PostToolUse hooks cannot block the call — they can only surface
-stderr feedback for the agent's next turn.
-"""
+"""hook_remind_poll_status.py — PostToolUse / run_workflow."""
+# Maintainer context (kept outside generated API documentation):
+# hook_remind_poll_status.py — PostToolUse / run_workflow (ADR-040 §3.6).
+#
+# After ``mcp__scistudio__run_workflow`` returns, inject a reminder telling
+# the agent to poll ``get_run_status`` until the run reaches a terminal
+# state. PostToolUse hooks cannot block the call — they can only surface
+# stderr feedback for the agent's next turn.
+# Development references: ADR-040.
 
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ import sys
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -31,6 +33,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}

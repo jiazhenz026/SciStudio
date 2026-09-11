@@ -1,15 +1,17 @@
-"""Typed signal that a worker subprocess reported a non-DONE terminal state.
-
-Issue #681: ``Block.transition()`` only mutates the block's in-process state;
-the worker subprocess must forward terminal state changes (CANCELLED/ERROR/
-SKIPPED) to the parent so the orchestrator records the correct outcome.
-
-The worker emits a ``final_state`` field on its stdout JSON envelope when it
-detects a terminal non-DONE state on the block instance after ``run()``
-returns. ``LocalRunner.run()`` translates that field into this exception
-so the scheduler's existing exception path can finalise the block to the
-reported state without changing the public ``BlockRunner`` return contract.
-"""
+"""Typed signal that a worker subprocess reported a non-DONE terminal state."""
+# Maintainer context (kept outside generated API documentation):
+# Typed signal that a worker subprocess reported a non-DONE terminal state.
+#
+# Issue #681: ``Block.transition()`` only mutates the block's in-process state;
+# the worker subprocess must forward terminal state changes (CANCELLED/ERROR/
+# SKIPPED) to the parent so the orchestrator records the correct outcome.
+#
+# The worker emits a ``final_state`` field on its stdout JSON envelope when it
+# detects a terminal non-DONE state on the block instance after ``run()``
+# returns. ``LocalRunner.run()`` translates that field into this exception
+# so the scheduler's existing exception path can finalise the block to the
+# reported state without changing the public ``BlockRunner`` return contract.
+# Development references: #681.
 
 from __future__ import annotations
 
