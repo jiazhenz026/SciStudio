@@ -73,6 +73,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
 
+    # #2327: on Windows the desktop shell asks for a graceful stop by closing
+    # stdin. A no-op unless the shell set SCISTUDIO_STOP_ON_STDIN_EOF.
+    from scistudio.api.runtime._stop_request import start_stop_request_watcher
+
+    start_stop_request_watcher()
+
     # ---- ADR-035 §3.10 IPC token ----
     # Audit P1-B (Codex #861-1): the engine must export
     # ``SCISTUDIO_ENGINE_IPC_TOKEN`` BEFORE any AI Block worker is spawned so

@@ -7,12 +7,16 @@ run was in flight. Its hotfix cancelled every run two seconds after the last
 says closing the browser must not stop an analysis, so #2327 removed the
 disconnect cancel. These tests pin what replaces it:
 
-* a GUI disconnect neither cancels a run nor strands its lineage: the run keeps
-  going, a reconnecting client still sees it, and it finishes normally;
+* a GUI disconnect neither cancels a run nor strands its lineage;
+* reopening the project, or switching to another one, mid-run keeps the run
+  and records its blocks and outcome in its own project;
 * graceful shutdown mid-run leaves a terminal lineage row, also for a run that
-  ignores cancellation;
+  ignores cancellation, and that run's own later completion does not
+  overwrite it;
 * a row that a killed or crashed process left ``running`` is reconciled when
-  the project is next opened, unless its owner is provably still alive;
+  the project is next opened, unless its owner may still be alive;
+* a run's terminal write is checked, retried through a reopened store, and
+  otherwise kept in its owner marker for the next open;
 * a worker process that dies finalises its run as ``failed``;
 * a run whose start fails after its row was inserted is finalised too.
 """
@@ -24,14 +28,17 @@ import json
 import logging
 import os
 import socket
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import quote
 
 import psutil
 import pytest
@@ -46,7 +53,10 @@ from scistudio.core.lineage.record import RunRecord
 from scistudio.core.lineage.store import LineageStore
 from scistudio.engine.events import WORKFLOW_COMPLETED
 from scistudio.engine.run_logging import run_log_path
+from scistudio.workflow.definition import WorkflowDefinition
 from tests.api.helpers import build_linear_workflow, wait_for_condition, wait_for_workflow_completion
+
+_LOGGER = "scistudio.api.runtime._run_lifetime"
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -114,13 +124,28 @@ def _seed_running_row(store: LineageStore, run_id: str, *, status: str = "runnin
     )
 
 
+def _owner(pid: int, create_time: float | None, **extra: Any) -> dict[str, Any]:
+    """An owner description on this machine, the way ``claim_run`` writes one."""
+    return {
+        "pid": pid,
+        "process_create_time": create_time,
+        "machine_id": _run_lifetime.machine_id(),
+        "host": socket.gethostname(),
+        **extra,
+    }
+
+
 def _write_marker(project: Path, run_id: str, owner: dict[str, Any]) -> Path:
     path = _run_lifetime.owner_marker_path(project, run_id)
     assert path is not None
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps({"schema": 1, "run_id": run_id, "workflow_id": "crashed-flow", **owner}), encoding="utf-8"
-    )
+    payload = {
+        "schema": 2,
+        "run_id": run_id,
+        "workflow_id": "crashed-flow",
+        "claimed_at": datetime.now(UTC).isoformat(),
+    }
+    path.write_text(json.dumps({**payload, **owner}), encoding="utf-8")
     return path
 
 
@@ -131,17 +156,28 @@ def _unused_pid() -> int:
     return pid
 
 
+def _start_gated_run(client: TestClient, runtime: ApiRuntime, project: Path, workflow_id: str) -> _GatedRunner:
+    payload = build_linear_workflow(project, workflow_id=workflow_id)
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+    gate = _GatedRunner(runtime.runner)
+    runtime.runner = gate  # type: ignore[assignment]
+    assert client.post(f"/api/workflows/{workflow_id}/execute").status_code == 200
+    assert gate.started.wait(10)
+    return gate
+
+
+def _finish(runtime: ApiRuntime, gate: _GatedRunner, workflow_id: str, run_id: str) -> None:
+    gate.release.set()
+    wait_for_workflow_completion(runtime, workflow_id, timeout=60)
+    wait_for_condition(lambda: run_id not in _run_lifetime.live_run_ids(), timeout=10)
+
+
 @pytest.fixture()
 def live_process() -> Iterator[dict[str, Any]]:
-    """A running process on this host, described the way an owner marker is."""
+    """A running process on this machine, described the way an owner marker is."""
     proc = subprocess.Popen([sys.executable, "-c", "import sys; sys.stdin.read()"], stdin=subprocess.PIPE)
     try:
-        owner = {
-            "pid": proc.pid,
-            "process_create_time": psutil.Process(proc.pid).create_time(),
-            "host": socket.gethostname(),
-        }
-        yield owner
+        yield _owner(proc.pid, psutil.Process(proc.pid).create_time())
     finally:
         proc.communicate(input=b"", timeout=30)
 
@@ -151,7 +187,7 @@ def live_process() -> Iterator[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 
-def test_gui_disconnect_keeps_run_going_and_reconnect_still_sees_it(
+def test_gui_disconnect_keeps_run_going_and_a_reconnect_sees_history_and_later_events(
     client: TestClient, runtime: ApiRuntime, opened_project: Path
 ) -> None:
     """The run outlives the removed 2 s grace period and finishes normally."""
@@ -171,6 +207,11 @@ def test_gui_disconnect_keeps_run_going_and_reconnect_still_sees_it(
     assert not gate.cancelled.is_set()
 
     with client.websocket_connect("/ws") as websocket:
+        # What a reconnecting page gets: no snapshot of the states it missed
+        # (the first frame answers its ping), the run in Run history, and the
+        # run's events from here on.
+        websocket.send_json({"type": "ping"})
+        assert websocket.receive_json() == {"type": "pong"}
         rows = _lineage_rows(client, "disconnect-flow")
         assert [row["status"] for row in rows] == ["running"]
         run_id = rows[0]["run_id"]
@@ -192,6 +233,74 @@ def test_gui_disconnect_keeps_run_going_and_reconnect_still_sees_it(
 
 
 # ---------------------------------------------------------------------------
+# Reopening the project, or switching projects, mid-run (audit P1)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("how", ["id", "path"])
+def test_reopening_the_project_mid_run_keeps_its_history(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path, how: str
+) -> None:
+    """A page reload reopens the project (Open Recent by id, the dialog by path)."""
+    gate = _start_gated_run(client, runtime, opened_project, "reopen-flow")
+    store_before = runtime.lineage_store
+    (run_id,) = store_before.runs_in_progress()
+
+    target = runtime.active_project.id if how == "id" else quote(opened_project.as_posix(), safe="/:")
+    assert client.get(f"/api/projects/{target}").status_code == 200
+    assert runtime.lineage_store is store_before, "reopening the active project keeps its store"
+    assert [row["status"] for row in _lineage_rows(client, "reopen-flow")] == ["running"]
+
+    _finish(runtime, gate, "reopen-flow", run_id)
+
+    row = runtime.lineage_store.get_run(run_id)
+    assert row["status"] == "completed"
+    assert row["provenance_degraded"] == 0
+    assert len(runtime.lineage_store.list_block_executions(run_id)) == 3
+    marker = _run_lifetime.owner_marker_path(opened_project, run_id)
+    assert marker is not None and not marker.exists()
+    # The next open has nothing to reconcile.
+    runtime.open_project(str(opened_project))
+    assert runtime.lineage_store.get_run(run_id)["status"] == "completed"
+
+
+def test_switching_projects_mid_run_keeps_the_run_and_its_history(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path, project_parent: Path
+) -> None:
+    """A switch does not end the run; it is visible on switching back and records in its own project."""
+    gate = _start_gated_run(client, runtime, opened_project, "switch-flow")
+    first_id = runtime.active_project.id
+    first_store = runtime.lineage_store
+    (run_id,) = first_store.runs_in_progress()
+
+    other = client.post(
+        "/api/projects/", json={"name": "Other Project", "description": "", "path": str(project_parent)}
+    )
+    assert other.status_code == 200
+    assert runtime.active_project.id != first_id
+    assert runtime.lineage_store is not first_store
+    assert not runtime.workflow_runs["switch-flow"].task.done(), "a project switch does not end the run"
+
+    assert client.get(f"/api/projects/{first_id}").status_code == 200
+    assert [row["status"] for row in _lineage_rows(client, "switch-flow")] == ["running"]
+    assert client.get(f"/api/projects/{other.json()['id']}").status_code == 200
+
+    _finish(runtime, gate, "switch-flow", run_id)
+
+    store = LineageStore(_run_lifetime.lineage_db_path(opened_project))
+    try:
+        row = store.get_run(run_id)
+        assert row is not None
+        assert row["status"] == "completed"
+        assert row["provenance_degraded"] == 0
+        assert len(store.list_block_executions(run_id)) == 3
+    finally:
+        store.close()
+    with pytest.raises(sqlite3.ProgrammingError):
+        first_store.count("runs")  # the retired store closed once its last run ended
+
+
+# ---------------------------------------------------------------------------
 # #1500 scenario 2: the app shuts down mid-run
 # ---------------------------------------------------------------------------
 
@@ -207,20 +316,14 @@ def test_graceful_shutdown_mid_run_leaves_terminal_lineage(tmp_path: Path, monke
         runtime = client.app.state.runtime
         created = client.post("/api/projects/", json={"name": "Shutdown", "description": "", "path": str(parent)})
         project = Path(created.json()["path"])
-        payload = build_linear_workflow(project, workflow_id="shutdown-flow")
-        assert client.post("/api/workflows/", json=payload).status_code == 200
-        gate = _GatedRunner(runtime.runner)
-        runtime.runner = gate
-
-        assert client.post("/api/workflows/shutdown-flow/execute").status_code == 200
-        assert gate.started.wait(10)
+        gate = _start_gated_run(client, runtime, project, "shutdown-flow")
         (run_id,) = runtime.lineage_store.runs_in_progress()
         marker = _run_lifetime.owner_marker_path(project, run_id)
         assert marker is not None and marker.is_file()
     # Leaving the client ran the lifespan shutdown.
 
     assert gate.cancelled.is_set()
-    store = LineageStore(project / ".scistudio" / "lineage.db")
+    store = LineageStore(_run_lifetime.lineage_db_path(project))
     try:
         row = store.get_run(run_id)
     finally:
@@ -232,12 +335,11 @@ def test_graceful_shutdown_mid_run_leaves_terminal_lineage(tmp_path: Path, monke
     assert run_id not in _run_lifetime.live_run_ids()
 
 
-def test_shutdown_finalises_a_run_that_ignores_cancellation(tmp_path: Path) -> None:
-    """A run still pending after the shutdown bound is finalised as cancelled."""
+def test_shutdown_finalises_a_run_that_ignores_cancellation_and_keeps_that_outcome(tmp_path: Path) -> None:
+    """A straggler is recorded cancelled; its own later completion does not overwrite it."""
 
     async def _run() -> None:
         release = asyncio.Event()
-
         entered = asyncio.Event()
 
         async def _stubborn() -> None:
@@ -253,7 +355,7 @@ def test_shutdown_finalises_a_run_that_ignores_cancellation(tmp_path: Path) -> N
         # real run task is always already executing when shutdown cancels it.
         await entered.wait()
         recorder = _FakeRecorder("run-stubborn")
-        _run_lifetime.claim_run(recorder, workflow_id="wf", project_dir=tmp_path)
+        _run_lifetime.claim_run(recorder, workflow_id="wf", project_dir=tmp_path, store=None)
         _run_lifetime.attach_task("run-stubborn", task)
         marker = _run_lifetime.owner_marker_path(tmp_path, "run-stubborn")
         assert marker is not None and marker.is_file()
@@ -265,8 +367,14 @@ def test_shutdown_finalises_a_run_that_ignores_cancellation(tmp_path: Path) -> N
         assert recorder.statuses == ["cancelled"]
         assert "run-stubborn" not in _run_lifetime.live_run_ids()
         assert not marker.exists()
+
         release.set()
         await task
+        # The task's own done-callback finalisation after the fact.
+        runtime = object.__new__(ApiRuntime)
+        scheduler = SimpleNamespace(block_states=lambda: {}, dispose=lambda: None)
+        runtime._finalize_lineage_run(recorder, task, scheduler)  # type: ignore[arg-type]
+        assert recorder.statuses == ["cancelled"]
 
     asyncio.run(_run())
 
@@ -288,7 +396,7 @@ def test_shutdown_with_no_live_runs_is_a_no_op() -> None:
 
 @pytest.mark.parametrize(
     "owner_kind",
-    ["crashed_process", "reused_pid", "no_marker", "this_process_not_live", "unreadable_marker"],
+    ["crashed_process", "reused_pid", "renamed_host", "no_marker", "this_process_not_live", "invalid_marker"],
 )
 def test_open_reconciles_run_left_running_by_a_dead_owner(
     runtime: ApiRuntime,
@@ -301,36 +409,29 @@ def test_open_reconciles_run_left_running_by_a_dead_owner(
     _seed_running_row(runtime.lineage_store, run_id)
     marker: Path | None = None
     if owner_kind == "crashed_process":
-        marker = _write_marker(
-            opened_project,
-            run_id,
-            {"pid": _unused_pid(), "process_create_time": time.time() - 60, "host": socket.gethostname()},
-        )
+        marker = _write_marker(opened_project, run_id, _owner(_unused_pid(), time.time() - 60))
     elif owner_kind == "reused_pid":
         marker = _write_marker(
             opened_project,
             run_id,
             {**live_process, "process_create_time": live_process["process_create_time"] - 1000},
         )
-    elif owner_kind == "this_process_not_live":
-        # A run this process started whose store was closed under it (for
-        # example by a project switch), so its own finalisation failed.
+    elif owner_kind == "renamed_host":
+        # Same machine id, a hostname this machine no longer has: judged here.
         marker = _write_marker(
             opened_project,
             run_id,
-            {
-                "pid": os.getpid(),
-                "process_create_time": psutil.Process(os.getpid()).create_time(),
-                "host": socket.gethostname(),
-            },
+            _owner(_unused_pid(), time.time() - 60, host=f"old-name-of-{socket.gethostname()}"),
         )
-    elif owner_kind == "unreadable_marker":
+    elif owner_kind == "this_process_not_live":
+        marker = _write_marker(opened_project, run_id, _owner(os.getpid(), psutil.Process(os.getpid()).create_time()))
+    elif owner_kind == "invalid_marker":
         marker = _run_lifetime.owner_marker_path(opened_project, run_id)
         assert marker is not None
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text("{not json", encoding="utf-8")
 
-    with caplog.at_level(logging.WARNING, logger="scistudio.api.runtime._run_lifetime"):
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
         runtime.open_project(str(opened_project))
 
     row = runtime.lineage_store.get_run(run_id)
@@ -347,6 +448,61 @@ def test_open_reconciles_run_left_running_by_a_dead_owner(
     assert "can no longer finish" in log_file.read_text(encoding="utf-8")
 
 
+def test_open_reconciles_a_run_whose_owner_is_a_zombie(
+    runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    zombie_pid = _unused_pid()
+    created = time.time() - 30
+    real_process = psutil.Process
+
+    class _Zombie:
+        def __init__(self, pid: int) -> None:
+            self.pid = pid
+
+        def create_time(self) -> float:
+            return created
+
+        def status(self) -> str:
+            return psutil.STATUS_ZOMBIE
+
+    def _process(pid: int | None = None) -> Any:
+        return _Zombie(zombie_pid) if pid == zombie_pid else real_process(pid)
+
+    monkeypatch.setattr(psutil, "Process", _process)
+    _seed_running_row(runtime.lineage_store, "run-zombie-owner")
+    _write_marker(opened_project, "run-zombie-owner", _owner(zombie_pid, created))
+
+    runtime.open_project(str(opened_project))
+
+    assert runtime.lineage_store.get_run("run-zombie-owner")["status"] == "failed"
+
+
+def test_open_leaves_a_run_whose_marker_cannot_be_read(
+    runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A read error is not proof that the owner is dead (with-context audit P3-1)."""
+    _seed_running_row(runtime.lineage_store, "run-unreadable")
+    marker = _write_marker(opened_project, "run-unreadable", _owner(_unused_pid(), time.time() - 60))
+    real_read_text = Path.read_text
+
+    def _read_text(self: Path, *args: Any, **kwargs: Any) -> str:
+        if self.name == marker.name:
+            raise PermissionError(13, "The process cannot access the file because it is being used")
+        return real_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", _read_text)
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        runtime.open_project(str(opened_project))
+    monkeypatch.setattr(Path, "read_text", real_read_text)
+
+    assert runtime.lineage_store.get_run("run-unreadable")["status"] == "running"
+    assert marker.is_file()
+    assert any(
+        "run-unreadable" in record.getMessage() and "could not be read" in record.getMessage()
+        for record in caplog.records
+    )
+
+
 def test_open_keeps_run_owned_by_a_live_process(
     runtime: ApiRuntime, opened_project: Path, live_process: dict[str, Any]
 ) -> None:
@@ -360,24 +516,34 @@ def test_open_keeps_run_owned_by_a_live_process(
     assert marker.is_file()
 
 
-def test_open_keeps_run_owned_by_another_host(runtime: ApiRuntime, opened_project: Path) -> None:
-    """A process on another machine cannot be checked, so it counts as alive."""
-    _seed_running_row(runtime.lineage_store, "run-other-host")
-    marker = _write_marker(
+def test_open_keeps_runs_owned_by_another_machine_and_reports_stale_ones(
+    runtime: ApiRuntime, opened_project: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Another machine's process cannot be checked; one older than the limit is reported."""
+    elsewhere = {"pid": _unused_pid(), "process_create_time": time.time(), "machine_id": "another-machine-id"}
+    _seed_running_row(runtime.lineage_store, "run-foreign-recent")
+    _seed_running_row(runtime.lineage_store, "run-foreign-stale")
+    _write_marker(opened_project, "run-foreign-recent", {**elsewhere, "host": "lab-node-1"})
+    stale_since = datetime.now(UTC) - _run_lifetime.FOREIGN_OWNER_STALE_AFTER - timedelta(hours=1)
+    _write_marker(
         opened_project,
-        "run-other-host",
-        {"pid": _unused_pid(), "process_create_time": time.time(), "host": f"not-{socket.gethostname()}"},
+        "run-foreign-stale",
+        {**elsewhere, "host": "lab-node-2", "claimed_at": stale_since.isoformat()},
     )
 
-    runtime.open_project(str(opened_project))
+    with caplog.at_level(logging.WARNING, logger=_LOGGER):
+        runtime.open_project(str(opened_project))
 
-    assert runtime.lineage_store.get_run("run-other-host")["status"] == "running"
-    assert marker.is_file()
+    assert runtime.lineage_store.get_run("run-foreign-recent")["status"] == "running"
+    assert runtime.lineage_store.get_run("run-foreign-stale")["status"] == "running"
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("run-foreign-stale" in message and "another machine" in message for message in messages)
+    assert not any("run-foreign-recent" in message for message in messages)
 
 
 def test_open_keeps_run_live_in_this_process(runtime: ApiRuntime, opened_project: Path) -> None:
     recorder = _FakeRecorder("run-live-here")
-    _run_lifetime.claim_run(recorder, workflow_id="crashed-flow", project_dir=opened_project)
+    _run_lifetime.claim_run(recorder, workflow_id="crashed-flow", project_dir=opened_project, store=None)
     try:
         _seed_running_row(runtime.lineage_store, "run-live-here")
 
@@ -391,11 +557,7 @@ def test_open_keeps_run_live_in_this_process(runtime: ApiRuntime, opened_project
 def test_open_removes_markers_of_runs_that_already_finished(runtime: ApiRuntime, opened_project: Path) -> None:
     """A process that died between finalising its row and removing its marker."""
     _seed_running_row(runtime.lineage_store, "run-finished", status="completed")
-    marker = _write_marker(
-        opened_project,
-        "run-finished",
-        {"pid": _unused_pid(), "process_create_time": time.time(), "host": socket.gethostname()},
-    )
+    marker = _write_marker(opened_project, "run-finished", _owner(_unused_pid(), time.time()))
 
     runtime.open_project(str(opened_project))
 
@@ -403,24 +565,121 @@ def test_open_removes_markers_of_runs_that_already_finished(runtime: ApiRuntime,
     assert not marker.exists()
 
 
-def test_a_started_run_is_claimed_before_its_row_is_visible(
-    client: TestClient, runtime: ApiRuntime, opened_project: Path
-) -> None:
-    """Reopening the project mid-run must not reconcile the run this process is executing."""
-    payload = build_linear_workflow(opened_project, workflow_id="claimed-flow")
-    assert client.post("/api/workflows/", json=payload).status_code == 200
-    gate = _GatedRunner(runtime.runner)
-    runtime.runner = gate  # type: ignore[assignment]
-    assert client.post("/api/workflows/claimed-flow/execute").status_code == 200
-    assert gate.started.wait(10)
-    (run_id,) = runtime.lineage_store.runs_in_progress()
-    assert run_id in _run_lifetime.live_run_ids()
+def test_open_removes_staging_files_of_claims_that_died(runtime: ApiRuntime, opened_project: Path) -> None:
+    owner_dir = opened_project / ".scistudio" / "run-owners"
+    owner_dir.mkdir(parents=True, exist_ok=True)
+    abandoned = owner_dir / "run-died.json.tmp"
+    abandoned.write_text("{}", encoding="utf-8")
+    an_hour_ago = time.time() - 3600
+    os.utime(abandoned, (an_hour_ago, an_hour_ago))
+    in_progress = owner_dir / "run-writing.json.tmp"
+    in_progress.write_text("{}", encoding="utf-8")
 
     runtime.open_project(str(opened_project))
 
-    assert runtime.lineage_store.get_run(run_id)["status"] == "running"
-    gate.release.set()
-    wait_for_workflow_completion(runtime, "claimed-flow", timeout=60)
+    assert not abandoned.exists()
+    assert in_progress.exists()
+
+
+def test_machine_id_is_stable_and_names_the_machine() -> None:
+    assert _run_lifetime.machine_id() == _run_lifetime.machine_id()
+    if sys.platform == "win32" or Path("/etc/machine-id").is_file():
+        assert not _run_lifetime.machine_id().startswith("hostname:")
+
+
+# ---------------------------------------------------------------------------
+# A run's terminal write is checked
+# ---------------------------------------------------------------------------
+
+
+def test_release_rewrites_the_outcome_through_a_reopened_store(runtime: ApiRuntime, opened_project: Path) -> None:
+    """The store a run wrote through failed; its outcome still lands."""
+    store = runtime.lineage_store
+    _seed_running_row(store, "run-stranded")
+    stranded = LineageStore(_run_lifetime.lineage_db_path(opened_project))
+    stranded.close()
+    _run_lifetime.claim_run(
+        _FakeRecorder("run-stranded"), workflow_id="crashed-flow", project_dir=opened_project, store=stranded
+    )
+    marker = _run_lifetime.owner_marker_path(opened_project, "run-stranded")
+    assert marker is not None and marker.is_file()
+
+    _run_lifetime.release_run("run-stranded", terminal_status="completed")
+
+    row = store.get_run("run-stranded")
+    assert row["status"] == "completed"
+    assert row["provenance_degraded"] == 1
+    assert not marker.exists()
+
+
+def test_an_unrecordable_outcome_waits_in_the_marker_for_the_next_open(
+    runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owner marker is never deleted unless the terminal write succeeded."""
+    store = runtime.lineage_store
+    _seed_running_row(store, "run-unrecorded")
+    stranded = LineageStore(_run_lifetime.lineage_db_path(opened_project))
+    stranded.close()
+    _run_lifetime.claim_run(
+        _FakeRecorder("run-unrecorded"), workflow_id="crashed-flow", project_dir=opened_project, store=stranded
+    )
+    marker = _run_lifetime.owner_marker_path(opened_project, "run-unrecorded")
+    assert marker is not None
+    original = _run_lifetime._open_store_by_path
+
+    def _no_store(project_dir: Path) -> Any:
+        raise OSError("the disk went away")
+
+    monkeypatch.setattr(_run_lifetime, "_open_store_by_path", _no_store)
+    _run_lifetime.release_run("run-unrecorded", terminal_status="completed")
+    monkeypatch.setattr(_run_lifetime, "_open_store_by_path", original)
+
+    assert store.get_run("run-unrecorded")["status"] == "running"
+    assert json.loads(marker.read_text(encoding="utf-8"))["unrecorded_status"] == "completed"
+
+    runtime.open_project(str(opened_project))
+
+    assert store.get_run("run-unrecorded")["status"] == "completed"
+    assert not marker.exists()
+
+
+def test_a_claim_is_live_before_its_marker_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A sweep that finds the marker must see the run as live (with-context audit P3-2)."""
+    seen: dict[str, bool] = {}
+    original = _run_lifetime._write_marker
+
+    def _spy(path: Path, payload: dict[str, Any]) -> None:
+        seen["live"] = payload["run_id"] in _run_lifetime.live_run_ids()
+        original(path, payload)
+
+    monkeypatch.setattr(_run_lifetime, "_write_marker", _spy)
+    _run_lifetime.claim_run(_FakeRecorder("run-order"), workflow_id="wf", project_dir=tmp_path, store=None)
+    try:
+        assert seen == {"live": True}
+    finally:
+        _run_lifetime.release_run("run-order")
+
+
+def test_a_run_whose_marker_cannot_be_written_runs_without_lineage(
+    runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Better no row than an unowned one another backend would take for interrupted."""
+
+    def _fail(path: Path, payload: dict[str, Any]) -> None:
+        raise PermissionError(13, "read-only project directory")
+
+    monkeypatch.setattr(_run_lifetime, "_write_marker", _fail)
+    before = _run_lifetime.live_run_ids()
+
+    with caplog.at_level(logging.WARNING):
+        recorder = runtime._build_lineage_recorder(
+            workflow_id="main", workflow=WorkflowDefinition(id="main"), execute_from=None
+        )
+
+    assert recorder is None
+    assert runtime.lineage_store.list_runs(workflow_id="main") == []
+    assert _run_lifetime.live_run_ids() == before
+    assert any("running it without lineage" in record.getMessage() for record in caplog.records)
 
 
 # ---------------------------------------------------------------------------

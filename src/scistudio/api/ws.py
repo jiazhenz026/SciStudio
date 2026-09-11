@@ -167,9 +167,9 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
 
     Closing a connection only unsubscribes that client. It never cancels a
     workflow run, however many clients remain: a run ends when it completes
-    or is cancelled explicitly (ADR-055 §7, #2327). Backend shutdown and
-    startup reconciliation keep a run's lineage from staying ``running``
-    (see ``scistudio.api.runtime._run_lifetime``).
+    or is cancelled explicitly (ADR-055 §7, #2327). Backend shutdown, and
+    reconciliation when a project is opened, keep a run's lineage from
+    staying ``running`` (see ``scistudio.api.runtime._run_lifetime``).
     """
     # Imported lazily so the module-level circular import (ai_pty
     # imports nothing from ws, ws imports nothing from ai_pty at module

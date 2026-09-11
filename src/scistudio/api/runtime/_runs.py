@@ -21,7 +21,7 @@ from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import WorkflowDefinition
 
 from ._helpers import _now_iso
-from ._run_lifetime import abandon_run, attach_task, claim_run, release_run
+from ._run_lifetime import abandon_run, attach_task, claim_run, consume_forced, release_run
 
 if TYPE_CHECKING:
     from . import ApiRuntime, WorkflowRun
@@ -132,10 +132,28 @@ def _build_lineage_recorder(
         )
         recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id, workflow_id=workflow_id)
         # #2327: the owner marker must exist before the ``running`` row does,
-        # so startup reconciliation never mistakes a run that has just started
-        # for one a dead process left behind.
+        # so reconciliation on project open never mistakes a run that has just
+        # started for one a dead process left behind.
         project = getattr(self, "active_project", None)
-        claim_run(recorder, workflow_id=workflow_id, project_dir=project.path if project is not None else None)
+        try:
+            claim_run(
+                recorder,
+                workflow_id=workflow_id,
+                project_dir=project.path if project is not None else None,
+                store=self.lineage_store,
+            )
+        except OSError:
+            # Without a marker another backend could take this live run for an
+            # interrupted one. Run without lineage, as when the store is
+            # unavailable, rather than leave an unowned ``running`` row.
+            recorder.dispose()
+            logger.warning(
+                "#2327: could not record ownership of run %s for workflow %s; running it without lineage",
+                run_id,
+                workflow_id,
+                exc_info=True,
+            )
+            return None
         recorder.begin_run(run)
         return recorder
     except Exception:
@@ -214,7 +232,9 @@ def _finalize_lineage_run(
     recorder: Any,
     task: asyncio.Task[None],
     scheduler: DAGScheduler,
-) -> None:
+    *,
+    project_dir: str | None = None,
+) -> str:
     """Update the ``runs`` row when the workflow task finishes.
 
     #1527 (BUG-6): ``recorder.finalize_run`` now persists the recorder's
@@ -223,19 +243,35 @@ def _finalize_lineage_run(
     back as a clean "completed". We additionally emit a warning here when the
     derived status would otherwise be a clean completion but provenance is
     degraded, so the loss is visible in logs and not only in the DB column.
+
+    #2327: returns the terminal status (``failed`` when it cannot be derived),
+    which ``release_run`` checks against the row. A run whose lineage backend
+    shutdown already finalised is not written again. *project_dir* is the
+    run's own project, which artifact retention sweeps even after a project
+    switch.
     """
+    status = "failed"
     try:
         status = self._derive_lineage_run_status(scheduler, task)
-        if getattr(recorder, "provenance_degraded", False):
-            logger.warning(
-                "ADR-038/#1527: run %s finished with status=%s but one or more "
-                "provenance writes failed; runs.provenance_degraded will be set.",
-                getattr(recorder, "run_id", "<unknown>"),
-                status,
-            )
-        recorder.finalize_run(status=status)
     except Exception:
-        logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
+        logger.warning(
+            "#2327: could not derive the terminal status of run %s; recording 'failed'",
+            getattr(recorder, "run_id", "<unknown>"),
+            exc_info=True,
+        )
+    forced = consume_forced(getattr(recorder, "run_id", None))
+    if not forced:
+        try:
+            if getattr(recorder, "provenance_degraded", False):
+                logger.warning(
+                    "ADR-038/#1527: run %s finished with status=%s but one or more "
+                    "provenance writes failed; runs.provenance_degraded will be set.",
+                    getattr(recorder, "run_id", "<unknown>"),
+                    status,
+                )
+            recorder.finalize_run(status=status)
+        except Exception:
+            logger.debug("ADR-038: lineage run finalisation failed", exc_info=True)
     try:
         recorder.dispose()
     except Exception:
@@ -246,13 +282,14 @@ def _finalize_lineage_run(
         scheduler.dispose()
     except Exception:
         logger.debug("#1517: scheduler dispose failed", exc_info=True)
-    if status == "completed":
+    if status == "completed" and not forced:
         try:
-            _schedule_artifact_retention(self)
+            _schedule_artifact_retention(self, project_dir=project_dir)
         except Exception:
             # A done-callback that raises is logged by asyncio and can mask the
             # run's own teardown; retention is never worth that.
             logger.debug("#1983: artifact retention could not start", exc_info=True)
+    return status
 
 
 # Set to ``0``/``false``/``off`` to keep every run's artifacts on disk. The
@@ -293,7 +330,7 @@ def _reclaim_artifacts_blocking(project_dir: str) -> None:
         store.close()
 
 
-def _schedule_artifact_retention(self: ApiRuntime) -> None:
+def _schedule_artifact_retention(self: ApiRuntime, *, project_dir: str | None = None) -> None:
     """Reclaim superseded artifacts after a successful run (#1983).
 
     Nothing removed artifacts before this hook, so ``data/zarr`` grew without
@@ -310,10 +347,13 @@ def _schedule_artifact_retention(self: ApiRuntime) -> None:
     """
     if not _artifact_retention_enabled():
         return
-    project = getattr(self, "active_project", None)
-    if project is None:
-        return
-    project_dir = str(project.path)
+    if project_dir is None:
+        # #2327: callers pass the run's own project; after a project switch the
+        # active project is a different one.
+        project = getattr(self, "active_project", None)
+        if project is None:
+            return
+        project_dir = str(project.path)
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
@@ -560,12 +600,18 @@ def start_workflow(
         attach_task(recorder_for_callback.run_id, task)
 
         def _on_done(finished: asyncio.Task[None]) -> None:
+            status: str | None = None
             try:
-                self._finalize_lineage_run(recorder_for_callback, finished, scheduler)
+                status = self._finalize_lineage_run(
+                    recorder_for_callback,
+                    finished,
+                    scheduler,
+                    project_dir=project_root_for_log,
+                )
             finally:
-                # #2327: release only after the terminal status is written, so
-                # reconciliation never sees this run as unowned and running.
-                release_run(recorder_for_callback.run_id)
+                # #2327: release only after the terminal write; release_run
+                # checks the row is terminal before it drops the owner marker.
+                release_run(recorder_for_callback.run_id, terminal_status=status)
 
         task.add_done_callback(_on_done)
     self.workflow_runs[workflow_id] = WorkflowRun(

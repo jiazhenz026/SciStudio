@@ -630,17 +630,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   external AI started over MCP after its user closed the WebMCP tab, and any
   server analysis whose user closed a laptop. ADR-055 §7 says the browser does
   not own the analysis, so a run now ends only when it completes or someone
-  cancels it. Reopen the page and the run is still there, in Run history and
-  on the canvas. The disconnect cancel was the #1500 fix for runs whose lineage
-  stayed `running` forever, so that guarantee now comes from the backend
-  itself. When the backend shuts down, it cancels live runs and waits up to 10
-  seconds for each run's history to record `cancelled`. It writes `cancelled`
-  itself for any run that has not stopped by then. If the backend was killed
-  or crashed, the next time the project is opened, any run a dead process left
-  `running` is recorded as `failed` and the reason is logged. A run whose
-  owning process is still alive (another backend with the same project open,
-  possibly on another machine) is left alone. Each run now keeps a small owner
-  file under `.scistudio/run-owners/` while it is in flight.
+  cancels it. Reopening its project or switching to another project does not
+  end it either. Come back and Run history lists it as running. Live block
+  updates reach the reopened page from then on, but the page is not sent the
+  states it missed. The disconnect cancel was the #1500 fix for runs whose
+  lineage stayed `running` forever, so the backend now provides that guarantee
+  itself. A run's history is written through a store that stays open until the
+  run ends, even across a project switch, and its final status is checked.
+  When the backend shuts down, it cancels live runs and waits up to 10 seconds
+  in total for their history to record `cancelled`. It writes `cancelled`
+  itself for any run still going after that. The desktop app now asks the
+  backend to shut down this way when it quits, and force-stops it only 15
+  seconds later. On Windows it asks by closing the backend's input, since
+  Windows has no graceful stop signal. Its windows close at once. If the
+  backend was killed or crashed, the next time the project is opened, any run
+  a dead process left `running` is recorded as `failed` and the reason is
+  logged. A run whose owner may still be alive (another backend with the same
+  project open, possibly on another machine) is left alone. Machines are told
+  apart by their machine ID, not their hostname. A run another machine has
+  owned for more than 24 hours is reported in the log, because it keeps
+  artifact cleanup from running. Each run keeps a small owner file under
+  `.scistudio/run-owners/` while it is in flight.
+
+- [#2327] **The MCP connection pointers can no longer be used to overwrite
+  another file.** `.scistudio/` may be shared by a group. The backend wrote
+  `mcp.sock.path` and `mcp.sock.port` there with a plain write, which followed a
+  symbolic link another user had planted and overwrote the file it pointed to.
+  Both are now written through a fresh private temporary file that replaces the
+  entry. A symlink, or a file another user owns, at either path is refused and
+  logged. Found by the no-context audit of #2329.
 
 - [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
   Browse anywhere — a block's path field, Open Project, Bring In My Work, the

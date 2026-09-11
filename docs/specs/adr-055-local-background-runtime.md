@@ -4,7 +4,7 @@ title: "ADR-055 Spec 3 — Local Startup Modes And The Background Runtime"
 status: Draft
 feature_branch: feat/2280-local-background-runtime
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode. Amended 2026-09-11 by the audit fixes on PR #2284 and the owner decision that external-AI mode quits when its service stops, crashes, or fails while no window is open."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode. Amended 2026-09-11 by the audit fixes on PR #2284 and the owner decision that external-AI mode quits when its service stops, crashes, or fails while no window is open. Amended 2026-09-11 by #2327 after the PR #2334 audits: stopRuntime requests a graceful backend stop (SIGTERM on macOS and Linux, a closed stdin on Windows) and force-kills only 15 s later; quitting waits for the backend; section 4.6 records how workflow runs end when the backend stops."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -21,7 +21,8 @@ scope:
     - "A connection window that can be closed without stopping the service and reopened to see the address, service status, and explicit stop and restart controls."
     - "A tray icon in external AI mode only, with a monochrome template image on macOS."
     - "One backend per machine: a second launch reaches the running instance through second-instance and reveals the connection window or attaches a desktop window."
-    - "Explicit shutdown through the existing stopRuntime tree-kill, with visible effect; crash surfacing with a restart action."
+    - "Explicit shutdown through stopRuntime, a graceful stop request followed by a tree-kill after a bound, with visible effect; crash surfacing with a restart action."
+    - "Workflow runs across a backend stop: every run reaches a terminal lineage status (section 4.6, #2327)."
     - "Per-mode window-closed semantics on all three platforms."
     - "OTA interplay: every relaunch stops the background instance first and comes back in the running mode; a patched shell is recorded as known-good in external AI mode too."
     - All three desktop platforms (Windows, macOS, Linux).
@@ -59,6 +60,8 @@ tests:
   - desktop/test/bootstrap.test.js
   - desktop/test/shell-known-good.test.js
   - tests/scripts/test_ota_publish.py
+  - tests/api/test_runtime_run_lifetime.py
+  - tests/api/test_runtime_stop_request.py
 acceptance_source: adr
 language_source: en
 ---
@@ -282,12 +285,13 @@ line.
   reopenable from the tray, from File › External AI Connection, from the macOS
   dock, and by launching the app again. It shows the address, the status, and
   stop/restart controls.
-- **FR-004**: Explicit stop MUST go through the existing `stopRuntime`
-  tree-kill contract and MUST make its effect visible in the connection window
-  and tray.
+- **FR-004**: Explicit stop MUST go through `stopRuntime`, which first asks the
+  backend for a graceful stop and tree-kills it only after the FR-007 bound, and
+  MUST make its effect visible in the connection window and tray.
 - **FR-005**: Backend lifetime MUST be decoupled from window lifetime in
   external AI mode on all platforms, and MUST end with the Electron process in
-  both modes: quitting runs `stopRuntime`; a force-killed Electron process is
+  both modes: quitting runs `stopRuntime` and waits for the backend to exit
+  (FR-015); a force-killed Electron process is
   covered by the unchanged POSIX parent watchdog on macOS/Linux and by the
   non-detached child's kill-on-close job on Windows.
 - **FR-006**: There MUST be exactly one backend per machine. A second launch
@@ -302,10 +306,14 @@ line.
 - **FR-007**: Every relaunch (mandatory OTA, optional OTA, package-update) MUST
   stop the backend, the background instance included, and wait for it -- and for
   any backend a Stop already signalled -- to actually exit before relaunching,
-  and MUST relaunch in the running mode. On macOS and Linux, a backend still
-  running 5 s after SIGTERM MUST be sent SIGKILL; liveness is judged by the
-  process's exit status, never by Node's `killed` flag, which only records that a
-  signal was sent. The wait is bounded at 15 s as a last resort.
+  and MUST relaunch in the running mode. Stopping MUST first request a graceful
+  stop: SIGTERM on macOS and Linux, and on Windows, where no graceful signal can
+  be delivered, closing the backend's stdin (FR-015). A backend still running
+  15 s later MUST be force-killed, with SIGKILL or `taskkill /T /F`. The 15 s
+  covers the backend's shutdown, which gives live workflow runs 10 s to record
+  their outcome (section 4.6). Liveness is judged by the process's exit status,
+  never by Node's `killed` flag, which only records that a signal was sent. The
+  wait is bounded at 20 s as a last resort.
 - **FR-008**: Backend crash or death in external AI mode MUST surface, while a
   window is open, in the connection window as a crashed status with a restart
   action, and in the tray as the crashed status; restart MUST reuse the
@@ -322,7 +330,8 @@ line.
 - **FR-011**: All behavior MUST ship on Windows, macOS, and Linux; per-platform
   differences are confined to those named in this spec: the macOS template tray
   image and `activate` routing, the Windows tray left-click, the Windows
-  `taskkill` stop versus the POSIX SIGTERM/SIGKILL stop, and reaching the
+  stdin stop request and `taskkill` escalation versus the POSIX SIGTERM/SIGKILL
+  stop, and reaching the
   instance by relaunch on a Linux desktop without a tray host.
 - **FR-012**: The tray icon MUST exist in external AI mode only. Its menu MUST
   offer: service status, open connection window, copy address, open in desktop
@@ -338,6 +347,16 @@ line.
   unless a shell fault was recorded (#2179). A shell that fails before the
   picker renders, or that crashes (no quit handler runs), MUST keep the marker,
   so the crash-loop guard still quarantines it.
+- **FR-015**: Quitting MUST ask the backend for a graceful stop and wait for it
+  to exit, within the FR-007 bounds, before the app quits. The windows MUST hide
+  at once so the quit stays responsive. On Windows the request is closing the
+  backend's stdin: the shell spawns the backend with a stdin pipe and
+  `SCISTUDIO_STOP_ON_STDIN_EOF=1`, and the backend treats end-of-file as a stop
+  request and raises SIGTERM in itself, so uvicorn runs the lifespan shutdown
+  (#2327). FR-005 still covers a force-killed Electron process.
+- **FR-016**: Every workflow run MUST reach a terminal lineage status across a
+  backend stop, a project reopen, and a project switch, as section 4.6
+  specifies (#2327).
 
 ## 4. Implementation Plan
 
@@ -409,11 +428,12 @@ Run for External AI).
 go through `stopRuntimeAndRelaunch`: `stopRuntime`, wait for every backend that
 is still exiting to exit, then `app.relaunch({ args })` with the running mode.
 `stopRuntime` records each backend it signals until that backend exits, so a
-Stop already in flight is waited for too. On macOS and Linux it sends SIGKILL if
-the backend is still running 5 s after SIGTERM, judged by its exit status. The
-escalation used to test Node's `killed` flag, which turns true as soon as
-SIGTERM is sent, so it never fired. The wait is bounded at 15 s as a last
-resort. Waiting lets the relaunched backend take the remembered port back, so
+Stop already in flight is waited for too. It asks for a graceful stop first
+(SIGTERM, or on Windows a closed stdin) and force-kills a backend still running
+15 s later, judged by its exit status. The escalation used to test Node's
+`killed` flag, which turns true as soon as SIGTERM is sent, so it never fired.
+The wait is bounded at 20 s as a last resort. A quit waits the same way, with
+its windows hidden (FR-015). Waiting lets the relaunched backend take the remembered port back, so
 the address an AI tool holds stays valid.
 
 **Shell OTA.** Every new shell file — `background-mode.js`,
@@ -445,6 +465,9 @@ no main window.
 | `tests/scripts/test_ota_publish.py` | modify | List parity and require/asset coverage for the published shell |
 | `docs/specs/desktop-shell-ota-hot-update.md` | modify | Section 6 shell list brought up to date |
 | `CHANGELOG.md` | modify | Unreleased entry |
+| `src/scistudio/api/runtime/_run_lifetime.py` | create (#2327) | Run lifetime across a backend stop, reopen and switch (section 4.6) |
+| `src/scistudio/api/runtime/_stop_request.py` | create (#2327) | The backend side of the Windows stdin stop request (FR-015) |
+| `tests/api/test_runtime_run_lifetime.py`, `tests/api/test_runtime_stop_request.py` | create (#2327) | Section 4.6 and FR-015 coverage |
 
 `src/scistudio/cli/main.py`, `src/scistudio/desktop/parent_watchdog.py`, and
 `desktop/runtime-port.js` are unchanged (owner decision 3).
@@ -479,6 +502,12 @@ no main window.
     exit, and quit when the service goes down with no window open.
   - SIGKILL escalation, and an in-flight stop, against a backend that ignores
     SIGTERM.
+  - #2327: a quit hides the windows at once and waits for the backend's
+    graceful stop (SIGTERM, or a closed stdin on Windows); on Windows a backend
+    that ignores the request is `taskkill`ed after the bound.
+- `tests/api/test_runtime_run_lifetime.py` and
+  `tests/api/test_runtime_stop_request.py`: section 4.6 and the backend side of
+  FR-015.
   - Restart immediately after a death during readiness.
   - Picker quit or close releasing the boot marker, a failure before the picker
     and a preload fault keeping it (judged by `desktop/ota.js`'s own marker
@@ -525,6 +554,64 @@ no main window.
 - Rollback: the mode branch is additive. With a remembered desktop choice the
   app behaves as before this spec; removing the branch restores today's
   startup. `launch-mode.json` is a plain preference file with no migration.
+
+### 4.6 Workflow Runs Across A Backend Stop (#2327)
+
+A workflow run belongs to the backend, not to a window or a browser. Closing
+either never ends it (ADR-055 section 7), and neither does reopening its project
+or switching to another project. A run ends when it completes, when someone
+cancels it explicitly, or when its backend stops. Its lineage `runs` row must
+reach a terminal status in every case (the #1500 guarantee), and a run that
+finished must be recorded as what it was. `src/scistudio/api/runtime/_run_lifetime.py`
+implements this contract.
+
+- **Graceful stop.** The backend's lifespan shutdown calls
+  `ApiRuntime.shutdown_workflow_runs()`. It cancels every live run and waits
+  10 s in total while each run records `cancelled`. For any run still going
+  after that, it records `cancelled` itself, and that run's own later
+  completion does not overwrite it. The desktop stop sequence (FR-007, FR-015)
+  leaves room for this before it force-kills.
+- **Store lifetime.** Reopening the active project, as a page reload does, keeps
+  its lineage store. Switching projects retires the previous store, which is
+  closed only after the last live run writing through it ends. A run of the
+  previous project therefore records its blocks and outcome in its own
+  project. It is listed as running when the user switches back.
+- **Owner markers.** A run first registers itself as live in its process. It
+  then writes `<project>/.scistudio/run-owners/<run_id>.json` (pid, process
+  creation time, machine id, host, claim time), and only then inserts its
+  `running` row. The marker is removed once the row is terminal. If the
+  terminal write failed, it is retried through a store opened by path. If that
+  fails too, the marker stays, annotated with the outcome, and the next open
+  records that outcome. A run whose marker cannot be written runs without a
+  lineage row, as when the store is unavailable.
+- **Reconciliation when a project opens.** Each `running` row that no live run
+  in this process owns is judged by its marker:
+  - Owner provably gone: no marker, invalid marker content, the PID gone, the
+    PID reused (the creation time differs), a zombie, or this process no
+    longer running it. The row is finalised `failed`, or with the outcome an
+    annotated marker records.
+  - Owner on another machine: left `running`, because a process on another
+    machine cannot be checked from here. The machine id is `/etc/machine-id`
+    or `/var/lib/dbus/machine-id` on Linux, `MachineGuid` on Windows, and
+    `IOPlatformUUID` on macOS, with the hostname as the fallback. A row owned
+    by another machine for more than 24 hours is reported in the backend log,
+    because it keeps artifact retention (#1983) blocked.
+  - Marker unreadable, for example a sharing violation or a network
+    filesystem error: left `running`, with a warning.
+
+  The `finished_at` of a reconciled row records when the problem was detected.
+  The reason goes to the backend log and to the run's `run-<run_id>.log`; the
+  lineage schema has no reason column.
+- **Worker death** is handled by the engine unchanged: the block fails and the
+  run records `failed`.
+- **Runs waiting on a person.** A run parked on user input (an interactive
+  block, or an engine-opened AI Block tab) keeps waiting while no browser is
+  connected. Its row stays `running`, and retention stays blocked, until
+  someone answers or cancels it or the backend stops.
+- **Known limits.** Ownership assumes one PID namespace per machine id. Two
+  containers that share an image's machine id and a project directory would
+  judge each other's PIDs locally. A reconnecting page is not sent the states it
+  missed; it sees the run in Run history and receives its later events.
 
 ## 5. Success Criteria
 

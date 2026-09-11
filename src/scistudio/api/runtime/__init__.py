@@ -375,6 +375,9 @@ class ApiRuntime:
         # ``open_project`` and closed when switching projects. ``None`` when
         # no project is open or when initialization failed (best-effort).
         self.lineage_store: Any = None
+        # #2327: the database ``lineage_store`` was opened on, so reopening the
+        # same project keeps the store its live runs write through.
+        self._lineage_db_path: Path | None = None
 
         # #827: structured stdlib-logging audit trail for every engine
         # event. Independent of ``_bind_event_logging`` below — that

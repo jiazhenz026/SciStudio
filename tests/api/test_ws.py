@@ -113,8 +113,9 @@ def test_last_gui_disconnect_leaves_active_workflow_running() -> None:
     """#2327: closing the last /ws client never cancels a run (ADR-055 §7).
 
     #1500 cancelled every active run two seconds after the last client left.
-    The guarantees that replace it (bounded shutdown, startup reconciliation,
-    worker death) are pinned in ``tests/api/test_runtime_run_lifetime.py``,
+    The guarantees that replace it (bounded shutdown, reconciliation when a
+    project is opened, worker death) are pinned in
+    ``tests/api/test_runtime_run_lifetime.py``,
     which also waits out the old grace period against the real endpoint.
     """
 

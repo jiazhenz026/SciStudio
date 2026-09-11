@@ -165,6 +165,11 @@
       "at": "2026-09-11T12:17:33.241091Z",
       "owner_directive": "Manager relay 2026-09-11 after no-context audit: fix P1 (reopen mid-run strands row), P2 desktop graceful quit (may edit desktop/main.js and desktop/test/** for the stop sequence only), P2 governing spec section, P3s inside the write set; merge the audit branch.",
       "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "at": "2026-09-11T12:47:10.413405Z",
+      "owner_directive": "Manager relay 2026-09-11 (with-context audit + follow-up): switching projects does not cancel previous project's runs and their store stays open until they finish; machine-id ownership plus 24 h stale-foreign warning; unreadable marker = unknown; guard sweep against concurrent claim; fix straggler double finalize; symlink-safe atomic MCP pointer writes (POSIX test, skip on Windows); document run-owners/ and mcp.sock.path in ARCHITECTURE.md 11.2 only if no admin label is needed.",
+      "reason": "Manager relay: add with-context audit items (switch keeps runs and store, machine-id ownership, unreadable marker = unknown, sweep/claim ordering, straggler double finalize), and harden _publish_mcp_port pointer writes against planted symlinks (#2329 no-context audit). ARCHITECTURE.md is owner-controlled: text proposed in the report, not edited."
     }
   ],
   "docs_events": [
@@ -173,6 +178,22 @@
       "class": null,
       "kind": "path",
       "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413424Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413429Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-local-background-runtime.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -806,6 +827,70 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_runtime_run_lifetime.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413432Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_run_lifetime.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413434Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_stop_request.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413435Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_mcp_pointer.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413438Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_lineage_finalize_status.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413439Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ws.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413441Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_import_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413442Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/main-orchestration.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:10.413443Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/bootstrap.test.js",
       "rationale": null,
       "verified_in_diff": null
     }

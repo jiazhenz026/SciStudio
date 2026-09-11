@@ -241,6 +241,30 @@ test("the shell clears the boot marker only from known-good, or from a user's qu
   assert.match(beforeQuit, /releaseBootMarkerOnQuit\(\)/);
 });
 
+test("stopping leaves the backend time to end workflow runs before any force-kill (#2327)", () => {
+  // The backend's lifespan shutdown gives live runs 10 s to record their
+  // outcome (ApiRuntime.shutdown_workflow_runs) and then stops their workers.
+  // A force-kill inside that window records the run as interrupted instead.
+  const main = read("main.js");
+  const constant = (name) => Number(main.match(new RegExp(`const ${name} = (\\d+);`))[1]);
+  const escalation = constant("STOP_ESCALATION_MS");
+  const bound = constant("RELAUNCH_STOP_TIMEOUT_MS");
+  assert.ok(escalation >= 12000, `STOP_ESCALATION_MS is ${escalation}; it must cover the backend's shutdown`);
+  assert.ok(bound > escalation, "the relaunch and quit wait must outlast the force-kill escalation");
+
+  const requestAt = main.indexOf("function requestGracefulStop(");
+  const request = main.slice(requestAt, main.indexOf("\n}\n", requestAt));
+  assert.match(request, /child\.stdin\.end\(\)/, "Windows asks for a graceful stop by closing stdin");
+  assert.match(request, /child\.kill\("SIGTERM"\)/, "POSIX asks with SIGTERM");
+  assert.doesNotMatch(request, /taskkill|SIGKILL/, "the request itself never force-kills");
+  assert.match(main, /env\.SCISTUDIO_STOP_ON_STDIN_EOF = "1"/);
+
+  const beforeQuit = main.slice(main.indexOf('app.on("before-quit"'), main.indexOf('app.on("window-all-closed"'));
+  assert.match(beforeQuit, /event\.preventDefault\(\)/, "the quit waits for the backend");
+  assert.match(beforeQuit, /hideWindowsForQuit\(\)/, "the windows hide at once");
+  assert.match(beforeQuit, /stopRuntimeAndWait\(RELAUNCH_STOP_TIMEOUT_MS\)/);
+});
+
 test("the loader never clears the marker on the refusal or load-failure paths", () => {
   // A quarantine must survive both a refusal and a failed require, because
   // active.json still points at the broken build. Clearing it on either path is

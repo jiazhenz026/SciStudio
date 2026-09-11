@@ -42,11 +42,16 @@ function makeHarness(spec) {
     "SCISTUDIO_DESKTOP_FRONTEND_URL",
     "ELECTRON_RUN_AS_NODE",
     "HARNESS_BACKEND_PLAN",
-    "HARNESS_IGNORE_SIGTERM"
+    "HARNESS_IGNORE_SIGTERM",
+    "HARNESS_IGNORE_STOP_REQUEST",
+    "HARNESS_GRACEFUL_STOP_MS",
+    "SCISTUDIO_STOP_ON_STDIN_EOF"
   ]) {
     delete process.env[name];
   }
   process.env.HARNESS_PID_FILE = pidFile;
+  const stopLog = path.join(tmp, "stops.txt");
+  process.env.HARNESS_STOP_LOG = stopLog;
   process.env.SCISTUDIO_DESKTOP_PYTHON = PYTHON_SENTINEL;
   Object.assign(process.env, spec.env || {});
 
@@ -157,6 +162,14 @@ function makeHarness(spec) {
     alive,
     killPid,
     sleep,
+    // #2327: "<pid> sigterm" or "<pid> stdin-eof" per graceful stop request.
+    stops() {
+      try {
+        return fs.readFileSync(stopLog, "utf8").split(/\r?\n/).filter(Boolean);
+      } catch {
+        return [];
+      }
+    },
     startMain(extraArgv = []) {
       process.argv = [process.execPath, DESKTOP, ...extraArgv];
       require(path.join(DESKTOP, "main.js")).start(hostFacts);
@@ -477,7 +490,8 @@ const SCENARIOS = {
       const pid = h.pids()[0];
       await h.act("stop");
       assert.equal(await h.status(), "stopping");
-      await h.until(async () => (await h.status()) === "stopped", 12000, "stopped after SIGKILL");
+      // #2327: the force-kill waits STOP_ESCALATION_MS (15 s) for a graceful stop.
+      await h.until(async () => (await h.status()) === "stopped", 25000, "stopped after SIGKILL");
       assert.equal(h.alive(pid), false);
     }
   },
@@ -611,7 +625,49 @@ const SCENARIOS = {
       await h.act("stop");
       h.connWin().close();
       assert.equal(stub.app.quitCalled, 0, "still stopping, so window-all-closed stays");
-      await h.until(() => stub.app.quitCalled >= 1, 12000, "quit once the stop completed");
+      await h.until(() => stub.app.quitCalled >= 1, 25000, "quit once the stop completed");
+    }
+  },
+
+  "quit-waits-for-graceful-stop": {
+    title: "quitting hides the windows at once and waits for the backend's graceful stop (#2327)",
+    env: { HARNESS_GRACEFUL_STOP_MS: "1500" },
+    async run(h) {
+      const { stub } = h;
+      h.startMain([EXTERNAL_AI_ARG]);
+      await h.untilRunning();
+      const pid = h.pids()[0];
+      const started = Date.now();
+      await h.act("stop-and-quit");
+      assert.equal(stub.app.quitCalled, 1);
+      assert.equal(stub.app.quitting, false, "the quit waits for the backend");
+      assert.ok(
+        stub.BrowserWindow.getAllWindows().every((window) => !window.visible),
+        "every window hid at once"
+      );
+      assert.ok(h.alive(pid), "the backend is still shutting down");
+      await h.until(() => !h.alive(pid), 10000, "backend exited");
+      await h.until(() => stub.app.quitting, 5000, "the quit resumed");
+      const asked = process.platform === "win32" ? "stdin-eof" : "sigterm";
+      assert.deepEqual(h.stops(), [`${pid} ${asked}`], "the backend was asked to stop, not killed");
+      assert.ok(Date.now() - started >= 1400, "the backend had its shutdown time");
+    }
+  },
+
+  "windows-stop-escalates-to-taskkill": {
+    title: "Windows: a backend that ignores the stop request is force-killed after the bound (#2327)",
+    onlyOn: "win32",
+    env: { HARNESS_IGNORE_STOP_REQUEST: "1" },
+    async run(h) {
+      h.startMain([EXTERNAL_AI_ARG]);
+      await h.untilRunning();
+      const pid = h.pids()[0];
+      await h.act("stop");
+      assert.equal(await h.status(), "stopping");
+      await h.sleep(3000);
+      assert.ok(h.alive(pid), "not force-killed before the bound");
+      await h.until(async () => (await h.status()) === "stopped", 25000, "stopped after taskkill");
+      assert.equal(h.alive(pid), false);
     }
   }
 };

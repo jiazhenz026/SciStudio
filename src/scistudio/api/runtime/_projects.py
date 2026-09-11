@@ -10,8 +10,12 @@ emits the canonical ``scistudio.api.runtime.ApiRuntime.<method>`` fact
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
+import stat
+import tempfile
 from dataclasses import asdict, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -28,7 +32,7 @@ from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.serializer import save_yaml
 
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
-from ._run_lifetime import reconcile_interrupted_runs
+from ._run_lifetime import is_same_path, lineage_db_path, reconcile_interrupted_runs, retire_store
 
 if TYPE_CHECKING:
     from . import ApiRuntime, KnownProject
@@ -182,24 +186,31 @@ def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
     is logged and the store is set to ``None``, which makes the lineage
     recorder a no-op for this project.
     """
+    db_path = lineage_db_path(project_path)
     prior = getattr(self, "lineage_store", None)
-    if prior is not None:
+    prior_path = getattr(self, "_lineage_db_path", None)
+    if prior is not None and prior_path is not None and is_same_path(prior_path, db_path):
+        # #2327: reopening the active project (a page reload does) keeps the
+        # store its live runs write through; replacing it would strand them.
+        logger.debug("ADR-038: LineageStore kept on reopen of %s", db_path)
+    else:
+        if prior is not None:
+            # #2327: a project switch does not end the previous project's runs.
+            # Their store stays open until the last of them has finished.
+            retire_store(prior)
+            self.lineage_store = None
+            self._lineage_db_path = None
         try:
-            prior.close()
-        except Exception:
-            logger.debug("ApiRuntime: closing prior LineageStore raised", exc_info=True)
-        self.lineage_store = None
-    try:
-        from scistudio.core.lineage.store import LineageStore
+            from scistudio.core.lineage.store import LineageStore
 
-        scistudio_dir = project_path / ".scistudio"
-        scistudio_dir.mkdir(parents=True, exist_ok=True)
-        db_path = scistudio_dir / "lineage.db"
-        self.lineage_store = LineageStore(db_path)
-        logger.info("ADR-038: LineageStore opened at %s", db_path)
-    except Exception:
-        logger.warning("ADR-038: Failed to initialize LineageStore (non-fatal)", exc_info=True)
-        self.lineage_store = None
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            self.lineage_store = LineageStore(db_path)
+            self._lineage_db_path = db_path
+            logger.info("ADR-038: LineageStore opened at %s", db_path)
+        except Exception:
+            logger.warning("ADR-038: Failed to initialize LineageStore (non-fatal)", exc_info=True)
+            self.lineage_store = None
+            self._lineage_db_path = None
     if self.lineage_store is not None:
         # #2327: opening the store is the first point this process can see
         # runs a killed or crashed process left ``running``; finish them here.
@@ -513,11 +524,50 @@ def set_mcp_port(self: ApiRuntime, port: int | None, *, socket_path: Path | None
         self._publish_mcp_port(Path(self.active_project.path))
 
 
+def _write_private_pointer(path: Path, text: str) -> bool:
+    """Replace *path* with *text* without following anything planted there.
+
+    ``.scistudio/`` may be group-shared, so another user can plant a symlink, or
+    a file of their own, at a pointer path; a plain write would follow the link
+    and overwrite whatever it names (no-context audit of #2329). The text goes
+    to a fresh ``O_CREAT | O_EXCL`` temporary file (mode 0600) in the same
+    directory, which then replaces the directory entry. An existing symlink, or
+    a file another user owns, is refused with a warning instead.
+
+    Returns:
+        Whether the pointer was written.
+    """
+    try:
+        existing = os.lstat(path)
+    except FileNotFoundError:
+        existing = None
+    if existing is not None:
+        if stat.S_ISLNK(existing.st_mode):
+            logger.warning("Refusing to write %s: it is a symbolic link", path)
+            return False
+        getuid = getattr(os, "getuid", None)
+        if getuid is not None and existing.st_uid != getuid():
+            logger.warning("Refusing to write %s: it is owned by another user", path)
+            return False
+    fd, staging = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        os.replace(staging, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(staging)
+        raise
+    return True
+
+
 def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
     """Publish the live MCP transport under ``<project>/.scistudio/``.
 
     Best-effort: failures are logged and swallowed (e.g. read-only
-    project root) so they cannot break ``open_project``.
+    project root) so they cannot break ``open_project``. Pointers are written
+    with :func:`_write_private_pointer` and removed with ``unlink``, neither of
+    which follows a symlink planted at the path.
     """
     try:
         target_dir = project_dir / ".scistudio"
@@ -525,22 +575,18 @@ def _publish_mcp_port(self: ApiRuntime, project_dir: Path) -> None:
         port_file = target_dir / "mcp.sock.port"
         path_file = target_dir / "mcp.sock.path"
         if self._mcp_port is not None:
-            port_file.write_text(str(self._mcp_port), encoding="utf-8")
-            if path_file.exists():
-                path_file.unlink()
+            _write_private_pointer(port_file, str(self._mcp_port))
+            path_file.unlink(missing_ok=True)
         elif self._mcp_socket_path is not None:
             conventional_socket = target_dir / "mcp.sock"
             if self._mcp_socket_path == conventional_socket:
-                if path_file.exists():
-                    path_file.unlink()
+                path_file.unlink(missing_ok=True)
             else:
-                path_file.write_text(str(self._mcp_socket_path), encoding="utf-8")
-            if port_file.exists():
-                port_file.unlink()
+                _write_private_pointer(path_file, str(self._mcp_socket_path))
+            port_file.unlink(missing_ok=True)
         else:
             for stale in (port_file, path_file):
-                if stale.exists():
-                    stale.unlink()
+                stale.unlink(missing_ok=True)
     except OSError:
         logger.warning(
             "ApiRuntime: could not publish MCP transport to %s/.scistudio/",
