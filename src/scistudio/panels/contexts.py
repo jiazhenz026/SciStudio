@@ -382,8 +382,10 @@ class PanelContexts:
             raise PanelError(403, "invalid_token", "Invalid or expired panel asset token")
 
     def authorize(self, context: PanelContext, ref: str) -> FrozenTarget:
-        if context.kind != "preview" or context.root is None:
-            raise PanelError(403, "unauthorized_ref", "Interactive contexts authorize no data references")
+        # A miniapp context authorizes reads on its target as a preview does; an
+        # interactive context authorizes no data references.
+        if context.kind not in ("preview", "miniapp") or context.root is None:
+            raise PanelError(403, "unauthorized_ref", "This context authorizes no data references")
         root = context.root
         root.validate(self.runtime)
         if ref == root.target.ref:
@@ -410,6 +412,8 @@ class PanelContexts:
         """Route an authorized child through either existing preview renderer."""
         with self.lock:
             context = self.get(context_id)
+            if context.kind != "preview":
+                raise PanelError(403, "unsupported", "Only a preview context provides open")
             root = self.authorize(context, ref)
             if root is context.root:
                 raise PanelError(403, "unauthorized_ref", "open requires a child of the preview target")

@@ -168,7 +168,7 @@
     api.libBaseUrl = payload.libBaseUrl;
     var operations = payload.operations || [];
     var services = payload.services || [];
-    if (api.context === "preview" && operations.indexOf("read") >= 0) {
+    if ((api.context === "preview" || api.context === "miniapp") && operations.indexOf("read") >= 0) {
       api.read = function (op, params) {
         params = params || {};
         var ref = params.ref || api.input.ref;
@@ -230,7 +230,23 @@
        */
       if (!sample) startReportingHeight();
     }
-    // call and sync are deliberately absent in preview/interactive contexts.
+    // ADR-054 MiniApp FR-016: call is defined only in the miniapp context, which
+    // is the only one whose host and backend accept it; it is deliberately
+    // absent in preview and interactive.
+    if (api.context === "miniapp" && operations.indexOf("call") >= 0) {
+      api.call = function (fn, args) {
+        if (typeof fn !== "string" || !fn) return Promise.reject(failure("invalid_request", "call needs a function name"));
+        if (sample) {
+          var calls = (sample.calls || {});
+          var key = JSON.stringify({ fn: fn, args: args || {} });
+          if (Object.prototype.hasOwnProperty.call(calls, key)) return Promise.resolve(calls[key]);
+          if (Object.prototype.hasOwnProperty.call(calls, fn)) return Promise.resolve(calls[fn]);
+          return Promise.reject(failure("not_found", "No sample call for " + fn));
+        }
+        return request("call", { fn: fn, args: args || {} });
+      };
+    }
+    // sync is deliberately absent in every context in this SDK major.
     applyTheme(payload.theme);
     initializedResolve(api);
   }
@@ -296,9 +312,11 @@
     }).then(function (value) {
       sample = value;
       var kind = value.context;
-      if (kind !== "preview" && kind !== "interactive") throw failure("unsupported", "Sample context must be preview or interactive");
+      var ops = { preview: ["read"], interactive: ["writeBack"], miniapp: ["read", "call"] };
+      var svc = { preview: ["open", "save"], interactive: ["save"], miniapp: ["save"] };
+      if (!ops[kind]) throw failure("unsupported", "Sample context must be preview, interactive or miniapp");
       configure({ context: kind, input: value.input || {}, viewState: value.viewState,
-        operations: kind === "preview" ? ["read"] : ["writeBack"], services: kind === "preview" ? ["open", "save"] : ["save"],
+        operations: ops[kind], services: svc[kind],
         apiVersion: "1.0", basePath: "", theme: value.theme || { mode: "light", tokens: {} } });
     }).catch(initializedReject);
   }
