@@ -477,6 +477,106 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:10:49.592354Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a374eb1d4c9163df10bfaaa4424cc51ce066022e09f9b941016a980bf7ac50da",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:10:51.059699Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d662555f0583b8638739ce86d78e41a0cf9e74aadbbb284712b2b5bf375c6ad1",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:10:51.087335Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/_context.py src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/ai/agent/mcp/tools_execution.py src/scistudio/ai/agent/mcp/tools_qa.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/ai/agent/mcp/tools_workflow/write.py src/scistudio/ai/agent/mcp/tools_workspace.py src/scistudio/api/app.py src/scistudio/api/routes/projects.py src/scistudio/api/routes/webmcp.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_file_writes.py src/scistudio/engine/runners/platform.py src/scistudio/engine/runners/process_handle.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_execution_tools.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_workflow.py tests/ai/test_mcp_workspace_tools.py tests/api/test_projects.py tests/contracts/test_runtime_import_contract.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b01c6afac91dd315775edfcba0697d47f1ffad2ffaea737cc1c7a71c823f9faa",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T08:11:02.290635Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:96a63b09d4d43715588a2249cbcd42410498ade0fd1602e5eeda2b724820e991",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:11:02.313485Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/_context.py src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/ai/agent/mcp/tools_execution.py src/scistudio/ai/agent/mcp/tools_qa.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/ai/agent/mcp/tools_workflow/write.py src/scistudio/ai/agent/mcp/tools_workspace.py src/scistudio/api/app.py src/scistudio/api/routes/projects.py src/scistudio/api/routes/webmcp.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_file_writes.py src/scistudio/engine/runners/platform.py src/scistudio/engine/runners/process_handle.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_execution_tools.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_workflow.py tests/ai/test_mcp_workspace_tools.py tests/api/test_projects.py tests/contracts/test_runtime_import_contract.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c8f3a812b036e27ea8b8453b0d890759ae4075a6d07cbefae2eb4334fdad021b",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T08:14:14.307141Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_execution_tools.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_workflow.py tests/ai/test_mcp_workspace_tools.py tests/api tests/api/routes tests/api/test_projects.py tests/contracts/test_runtime_import_contract.py tests/engine",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0d5cf4922d4fffed72f4a06fee7dc563bed0866448fb9acd9ca4cc5757b4881f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -2323,6 +2423,137 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.376356Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.394592Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/runners/platform.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/runners/platform.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/runners/process_handle.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/runners/process_handle.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.408038Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.421102Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.433990Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.446464Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.459089Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.471884Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.484110Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.496985Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:14:14.534965Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2335,7 +2566,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "c7b60f5775d131f614688e0f5f684bd1b6bfd8fb",
+    "base": "origin/main",
     "base_sha": "c7b60f577",
     "changed_files": [
       ".workflow/records/2279-audit-2279-spec2-with-context.json",
@@ -2369,9 +2600,9 @@
       "tests/api/test_projects.py",
       "tests/contracts/test_runtime_import_contract.py"
     ],
-    "diff_fingerprint": "sha256:5302d5368bf349eb74d1dfd491d1417aa2b613fbbeee4e64ebfc2ffe89772e17",
+    "diff_fingerprint": "sha256:be0aff8729dd5188bb8eb5c79ebbedb9b74371582795cf7ae8992fc431b92d00",
     "head": "HEAD",
-    "head_sha": "e88625803",
+    "head_sha": "7f6be2cff",
     "surfaces": {
       "docs": 4,
       "frontend": 0,
@@ -2534,6 +2765,14 @@
     {
       "at": "2026-09-11T07:57:01.083339Z",
       "diff_fingerprint": "sha256:5302d5368bf349eb74d1dfd491d1417aa2b613fbbeee4e64ebfc2ffe89772e17",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T08:14:14.534997Z",
+      "diff_fingerprint": "sha256:be0aff8729dd5188bb8eb5c79ebbedb9b74371582795cf7ae8992fc431b92d00",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
