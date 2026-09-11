@@ -185,6 +185,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.344957Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.357380Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.369820Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.382879Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.394659Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.407915Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.420982Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.433777Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.447290Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.460584Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:41.475870Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -204,9 +270,9 @@
       "docs/planning/adr-055-spec4-checklist.md",
       "docs/planning/adr-055-spec4-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:d73be177b467773db57f68058f8af3f1c242460509f3322ccf3c91bab7e71c02",
+    "diff_fingerprint": "sha256:203ed88a15d2a3d0fe3e870a8d175a9449543fc1a1ba40fe148c18dca620501d",
     "head": "HEAD",
-    "head_sha": "80efb8ad0",
+    "head_sha": "650339e5e",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -243,6 +309,14 @@
     {
       "at": "2026-09-11T10:43:38.753658Z",
       "diff_fingerprint": "sha256:d73be177b467773db57f68058f8af3f1c242460509f3322ccf3c91bab7e71c02",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T10:43:41.475905Z",
+      "diff_fingerprint": "sha256:203ed88a15d2a3d0fe3e870a8d175a9449543fc1a1ba40fe148c18dca620501d",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,

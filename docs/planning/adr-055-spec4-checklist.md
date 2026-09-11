@@ -35,7 +35,7 @@ language_source: en
     both based on `origin/main`.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-055-spec4`
-- Umbrella PR: `#UMBRELLA_PR`
+- Umbrella PR: `#2323`
 - Umbrella PR title: `[DO NOT MERGE] ADR-055 Spec 4 dispatch`
 - Final PR target: `main`. Each track opens its own final PR to `main`, as the
   Spec 2-3 dispatch did.
@@ -94,9 +94,9 @@ language_source: en
 - [x] Gate record started -> `.workflow/records/2321-track-adr-055-spec4.json`
 - [x] Scope include/exclude recorded in the gate record -> `init --include` for this checklist and the prompts file
 - [x] Umbrella branch created -> `track/adr-055-spec4`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened -> #2323
+- [x] Umbrella PR title includes `[DO NOT MERGE]` -> "[DO NOT MERGE] ADR-055 Spec 4 dispatch"
+- [x] Protected branch and umbrella PR number recorded in this checklist -> main, #2323
 - [x] No `pip install -e .` environment pollution found -> the shared `.venv` is untouched; agents are told not to install.
 - [x] Dispatch checklist copied from the template and committed -> this file.
 - [x] Dispatch prompts created from the correct prompt template and linked below -> `docs/planning/adr-055-spec4-dispatch-prompts.md`

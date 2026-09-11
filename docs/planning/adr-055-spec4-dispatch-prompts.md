@@ -32,7 +32,7 @@ Checklist: `docs/planning/adr-055-spec4-checklist.md`.
 - Issue: #2322
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2322
 - Umbrella issue: #2321 (it holds the shared capability contract; read it)
-- Umbrella PR: #UMBRELLA_PR `[DO NOT MERGE]`
+- Umbrella PR: #2323 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-055-spec4
 - Agent branch: feat/2322-enterprise-ui (create it from origin/main)
@@ -225,7 +225,7 @@ Stop and report back if:
 - Issue: #2308
 - Issue URL: https://github.com/jiazhenz026/SciStudio/issues/2308
 - Umbrella issue: #2321
-- Umbrella PR: #UMBRELLA_PR `[DO NOT MERGE]`
+- Umbrella PR: #2323 `[DO NOT MERGE]`
 - Protected branch: main
 - Umbrella branch: track/adr-055-spec4
 - Agent branch: feat/2308-webmcp-adapter (create it from origin/main)
