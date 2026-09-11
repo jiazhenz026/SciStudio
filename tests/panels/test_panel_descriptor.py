@@ -88,6 +88,22 @@ def test_resolve_panel_file_confines_nested_assets_and_symlinked_directories(tmp
         resolve_panel_file(root, "away/leak.js")
 
 
+def test_plotartifact_is_a_core_reserved_synthetic_type(tmp_path):
+    # core.plot.basic serves the synthetic catalog type PlotArtifact (see
+    # previewers.fallbacks.core_previewer_specs); it is not a TypeRegistry type.
+    folder = tmp_path / "core.plot.basic"
+    folder.mkdir()
+    (folder / "index.html").write_text("<p>Plot</p>")
+    (folder / "panel.json").write_text(
+        json.dumps({"id": "core.plot.basic", "contexts": ["preview"], "types": ["PlotArtifact"], "api_version": "1.0"})
+    )
+    panel, _ = parse_descriptor(folder, owner_kind=OwnerKind.CORE, owner_name="scistudio", registered_types=set())
+    assert panel.types == ("PlotArtifact",)
+    # A non-core panel may not claim the reserved synthetic type.
+    with pytest.raises(ValueError):
+        parse_descriptor(folder, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types=set())
+
+
 def test_external_reference_allowlist_and_pin_diagnostic(tmp_path):
     (tmp_path / "index.html").write_text('<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>')
     assert validate_external_references(tmp_path) == []

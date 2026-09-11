@@ -16,6 +16,12 @@ PANEL_API_VERSION = "1.0"
 _ID = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*\Z")
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
 _KEYS = {"id", "api_version", "contexts", "types", "priority", "name", "description", "version", "entry"}
+# Core-reserved type names that are not TypeRegistry entries: the catch-all
+# sentinels (``DataObject``/``Collection``) and the synthetic catalog record
+# types the built-in previewers serve (``PlotArtifact``; see
+# ``previewers.fallbacks.core_previewer_specs``). Only CORE-owned panels may
+# claim these; user panels must claim registered types.
+_CORE_SENTINEL_TYPES = ("DataObject", "Collection", "PlotArtifact")
 
 
 @internal()
@@ -108,12 +114,12 @@ def parse_descriptor(
     if "miniapp" in contexts and len(types) != 1:
         raise ValueError("MiniApp FR-001: miniapp requires exactly one type")
     for claim in types:
-        if claim in ("DataObject", "Collection"):
+        if claim in _CORE_SENTINEL_TYPES:
             if owner_kind is not OwnerKind.CORE:
                 raise ValueError("FR-002: sentinel types are reserved for core panels")
             continue
         name = claim[11:-1] if claim.startswith("Collection[") and claim.endswith("]") else claim
-        if name not in registered_types or name in ("DataObject", "Collection"):
+        if name not in registered_types or name in _CORE_SENTINEL_TYPES:
             raise ValueError(f"FR-002: unregistered panel type {claim!r}")
     if type(data.get("priority", 0)) is not int:
         raise ValueError("FR-002: priority must be an integer")

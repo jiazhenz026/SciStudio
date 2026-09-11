@@ -36,9 +36,9 @@ EXPECTED_TYPES = {
     "core.plot.basic": "PlotArtifact",
     "core.base.fallback": "DataObject",
 }
-# Panels whose declared type is a real TypeRegistry type or a core sentinel, so
-# they are discovered by the live registry today.
-REGISTRY_DISCOVERABLE = {pid for pid in EXPECTED_TYPES if pid != "core.plot.basic"}
+# Every core panel's declared type is a real TypeRegistry type or a core-reserved
+# sentinel (DataObject/Collection/PlotArtifact), so all nine are discovered live.
+REGISTRY_DISCOVERABLE = set(EXPECTED_TYPES)
 
 
 def _registered_types() -> set[str]:
@@ -59,8 +59,8 @@ def test_every_core_previewer_has_a_builtin_panel_folder() -> None:
 
 @pytest.mark.parametrize("pid", sorted(EXPECTED_TYPES))
 def test_descriptor_parses_as_core_preview_panel(pid: str) -> None:
-    # PlotArtifact is only accepted with an extended type set (see module docstring).
-    types = _registered_types() | {"PlotArtifact"}
+    # PlotArtifact parses without injecting it: it is a core-reserved sentinel.
+    types = _registered_types()
     descriptor, notes = parse_descriptor(
         BUILTIN_ROOT / pid, owner_kind=OwnerKind.CORE, owner_name="scistudio", registered_types=types
     )
