@@ -8,6 +8,7 @@ are supported.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
@@ -139,3 +140,19 @@ def test_template_hook_safety_is_provider_neutral(tmp_project_dir: Path) -> None
     # The user's data/ is protected and the no-internal-citation rule is present.
     assert "data/" in body
     assert "per scistudio's requirements" in body_lower or "rule-citation" in body_lower
+
+
+def test_template_does_not_hardcode_the_gui_address(tmp_project_dir: Path) -> None:
+    """#2311: the GUI address is a per-launch runtime fact, never guide text.
+
+    The desktop app binds a remembered, env-selected, or ephemeral port, so a
+    literal address in the provisioned guide goes stale: an external AI host
+    read "localhost:8000" through ``get_agent_context`` while the GUI served
+    on another port. The guide defers to ``open_gui``, which reports the live
+    ``SCISTUDIO_ENGINE_API_URL`` (ADR-040 §3.5 names no address).
+    """
+    write_claude_agents_md(tmp_project_dir, force=False)
+    body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
+    assert re.search(r"(localhost|127\.0\.0\.1)(:\d+)?", body) is None
+    assert "open_gui" in body
+    assert "do not start a second backend" in body.lower()
