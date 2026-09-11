@@ -362,3 +362,113 @@ Code reading, tests and probes confirm the following:
 - Sentrux: N/A (the Sentrux MCP server was not available).
 - `gate_record check --mode pre-pr` was run on this audit's ledger before
   the push.
+
+## Re-audit (head 26af14cf8)
+
+Scope and rules are unchanged from the first pass: no-context, the same
+allowed surfaces, and no commit message, PR text, issue, `docs/planning/**`,
+or other audit report or gate ledger read. The audit branch was updated by
+merging `origin/feat/2308-webmcp-adapter` at `26af14cf8`. Evidence comes from
+plain diffs against `f130ee558`, the current code, the test runs, and the
+re-run probes.
+
+**Updated recommendation: pass-with-fixes.** The P1 and two of the three P2
+findings are fixed and covered by new tests. One P2 remains in part: the
+runtime publisher still writes `mcp.sock.path` through a planted symbolic
+link. It should be fixed before completion. The rest are P3 follow-ups.
+
+### R.1 Verdicts on the first-pass findings
+
+| Finding | Verdict | Evidence at `26af14cf8` |
+|---|---|---|
+| P1-1 queued call re-stamped | **Fixed** | `serve_stdio` binds the snapshot when it reads a line (`work.put((message, adapter.bind()))`), and `_tools_call` posts that bound value. A stale 409 no longer adopts a new snapshot; only `tools/list` does. Probe P-b: `POST bodies: [('write_a', 'p1'), ('write_b', 'p1')]`, both `isError: true`, nothing ran on `p2`. New test: `test_queued_parallel_mutations_across_a_project_switch_never_run_on_the_new_project`. |
+| P2-1 second backend removes the token file | **Fixed** | `write_loopback_token_file` raises `kind="busy"` rather than replace a file owned by another live process, identified by PID plus the recorded `createTime`. Removal also requires this process's token. Real-process probe P-f: the second `serve` failed to bind, backend A's file survived with A's PID and token, and the adapter then connected to A (exit 0). New tests cover the busy port, a reused PID, and removal. |
+| P2-2 non-loopback URL from the token file | **Fixed** | `resolve_target(None, None)` refuses a recorded URL that is not loopback (probe P-a), and `_Bridge` sets `trust_env` only for a remote bearer target (probe P-h: token-file and loopback targets `trust_env=False`, 0 mounts; remote bearer `True`). Tests were added. |
+| P2-3 socket pointer in an untrusted directory | **Partially fixed, still P2** | See R.2-1. The reader is fixed: `_posix_socket_connect_path` refuses a pointer that is not a regular file owned by the user, and a socket not owned by the user or sitting in a group- or world-writable directory. Probe E-1 shows both refusals, and a legitimate private socket is still followed. The server's `_write_socket_pointer` now unlinks and then creates the pointer with `O_EXCL \| O_NOFOLLOW`, mode 0600; probe E-2 left the victim file intact. The runtime publisher is not fixed. |
+| P3-1 base URL refusal echoes input | **Fixed** | The scheme refusal no longer contains the input (probe P-c: `echoes secret: False` for both cases). |
+| P3-2 `--print-config` edge cases | **Fixed** | A token without a base URL exits 2 (probe P-d). The Claude Code snippet has no `--env` and tells the user to set the variable in Claude Code's environment. Tests were added. |
+| P3-3 IPv6 loopback base URL | **Fixed** | `_url_host` adds brackets. `serve --host ::1` records `http://[::1]:8932`, which normalizes (probe P-e). A test was added. |
+| P3-4 one bad file blocks discovery | **Fixed** | `find_loopback_token_file` skips `kind="malformed"` files with a warning and still refuses `unsafe` ones. Probe P-j resolved the valid backend beside a `version: 2` file. A test was added. |
+| P3-5 bearer over plain http | **Fixed** | `run` warns once on stderr (test added). A redirect is still reported as a likely browser login, which is minor and left as is. |
+| P3-6 private-directory edge cases | **Fixed** | Four sub-items. A new project `.scistudio` created 0700 is now documented in the CHANGELOG and in `adr-055-webmcp-bridge` FR-012. A taken `scistudio-<uid>` makes the server fall back to a unique `mkdtemp` directory (probe E-4). `XDG_RUNTIME_DIR` is used only when it is private (test added). The socket is bound under a 0077 umask (`_bind_owner_only`), and the umask is restored afterwards (probe E-3). The token reader adds `O_NONBLOCK` plus an `S_ISREG` re-check, and the token directory is refused when another user owns it. |
+| P3-7 Windows assumptions | **Partially fixed** | FR-012 now states that the Windows TCP transport is reachable by every local account, that a shared Windows host is unsupported, and that authenticating it is outside #2333. There is still no tracked follow-up issue (AGENTS.md §3.6). The Windows token file still relies on an unchecked profile ACL that follows `USERPROFILE`. |
+| P3-8 documentation drift | **Partially fixed** | ADR-055 §4 now describes the adapter as the bridge's second consumer. `adr-055-webmcp-bridge` FR-012 records the #2333 socket contract, and Spec 4 shows `loopback_token_file` as keyword-only. Still open: `docs/architecture/ARCHITECTURE.md` (about line 2007) lists `mcp.sock` and `.port` but not `mcp.sock.path` (owner-controlled; flagged only), and the Spec 4 frontmatter `tests:` list still omits `tests/api/test_webmcp.py`. |
+| P3-9 test gaps | **Partially fixed** | New tests cover queued calls, the non-loopback record, the busy port, proxies, IPv6, pointer ownership, shutdown bounds and the startup bound. Still untested: the mid-call `ReadError` restart path (`outcome_unknown=True`), `_fetch_catalogue` following a restarted backend, and an adapter run as a subprocess over stdio (probe P-g still covers it and passes). A mid-session 404 is still always "unknown tool". |
+
+### R.2 Findings still open or new
+
+#### R.2-1 (P2, residual of P2-3). `ApiRuntime._publish_mcp_port` still writes the pointer through a planted symbolic link
+
+Two writers produce `<project>/.scistudio/mcp.sock.path`. The server writer is
+fixed. The runtime publisher, which `ensure_project_mcp_server` calls right
+after `server.start()` through `runtime.set_mcp_port`, still uses
+`path_file.write_text(...)` (`src/scistudio/api/runtime/_projects.py:550`).
+That call follows a symbolic link. `port_file.write_text` at line 541 does the
+same on the Windows branch.
+
+Probe E-2 ran on Linux as one user. With `mcp.sock.path` planted as a symlink
+to a user-owned file, the server writer left the file intact. The runtime
+publisher then overwrote it:
+`after runtime publisher: victim = /tmp/.../xdg/scistudio/mcp-1-abc.sock`.
+
+In the group-shared `.scistudio` case that FR-012 and the CHANGELOG
+explicitly cover, a group member can plant that link. The next project open
+then truncates a file the victim owns, such as `~/.ssh/authorized_keys`. It
+does not disclose anything or grant access, but it destroys data.
+`adr-055-webmcp-bridge` FR-012 says the pointer is "written 0600 without
+following a symbolic link", which is true for only one of the two writers.
+
+A fix is to route the publisher through the same `O_EXCL | O_NOFOLLOW`
+helper, or to publish nothing when the server has already written the
+pointer.
+
+#### R.2-2 (P3, new). Stale and restart messages still say the tool list was refreshed
+
+The adapter no longer re-fetches the catalogue on a stale 409 or a restart;
+it only sends `list_changed`. The model-facing text still says otherwise, in
+`_INSTRUCTIONS` (`webmcp_adapter.py:116`), `_stale_result` (line 376) and
+`_restarted_result` (lines 393 and 398).
+
+Probe P-k: after a stale result, a re-issue with no `tools/list` in between
+is sent with the old snapshot and fails stale again. It succeeds only after
+the client re-lists. With a client that ignores `list_changed`, every
+mutation stays blocked until the client lists tools. That fails closed, so
+it is safe, but the text tells the model to re-issue as if nothing else were
+needed.
+
+A fix is to word it as "ask for the tool list again, then re-issue", or to
+adopt the new snapshot only when the client lists tools.
+
+#### R.2-3 (P3, new, informational). The owner-only bind changes the process-wide umask
+
+`_bind_owner_only` sets `os.umask(0o077)` around `sock.bind` and restores it
+afterwards (probe E-3 confirms the restore). The umask is per process, so any
+file another backend thread creates during that window is owner-only. That
+is the safe direction, but in a group-shared lab project it could leave a
+concurrently written file unreadable to collaborators. Keep the window as
+short as it is now, or document it.
+
+### R.3 Checks run for the re-audit
+
+- **Windows** (`.venv`, `PYTHONPATH=src`, `--no-cov`):
+  `tests/cli/test_webmcp_adapter.py`, `tests/api/test_webmcp.py`,
+  `tests/ai/test_mcp_socket_permissions.py`, `tests/cli/test_mcp_bridge.py`,
+  `tests/api/test_mcp_transport_publish.py` and
+  `tests/ai/test_mcp_server_stop.py` gave **109 passed, 19 skipped**. The
+  skips are the POSIX-only tests, plus the symlink test for lack of the
+  privilege.
+- **Linux** (WSL Ubuntu, Python 3.12.3, the same throwaway dependency-only
+  venv, source from `git archive HEAD`, umask 022): the same six files gave
+  **128 passed, 0 skipped**. It ran as a single account; "another user"
+  cases were exercised through stat-value tests and `chmod`-opened
+  directories. macOS was not run.
+- **Uncommitted probes re-run or added:**
+  - P-a to P-e and P-h to P-k (Windows, `httpx.MockTransport`, temporary
+    home);
+  - P-f and P-g (real `scistudio serve` and `scistudio webmcp-adapter`
+    subprocesses on Windows: 50 tools listed, `list_types` called, clean
+    stdout, no token on stderr);
+  - C-1 to C-4 and E-1 to E-4 (POSIX, under WSL).
+- Sentrux: N/A (the Sentrux MCP server was not available).
+- `gate_record check --mode pre-pr` was run on this audit's ledger before
+  the push.
