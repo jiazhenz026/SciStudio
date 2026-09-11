@@ -223,6 +223,7 @@ def test_legacy_entry_point_scan_preserves_core_namespace(monkeypatch):
 
     def factory():
         return [_spec("core.text.basic", target="Text"), _spec("lab.text.custom", target="Text")]
+
     entry = importlib.metadata.EntryPoint(name="legacy", value="fake:factory", group="scistudio.previewers")
     monkeypatch.setattr(registry_module, "enumerate_group", lambda *args, **kwargs: [entry])
     monkeypatch.setattr(registry_module, "load_entry_point", lambda *args, **kwargs: factory)
