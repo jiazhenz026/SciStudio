@@ -435,3 +435,57 @@ own pipe (`engine/runners/local.py:317-325`), so no concrete case was found.
 | Node- and Python-spawned watcher repro | N1 |
 | Real-uvicorn mid-run shutdown with no client, SSE, `/ws` | N2 |
 | Sentrux | N/A (MCP not available in this runtime) |
+
+## 6. Final Re-audit (head de11b2848)
+
+- Code: `origin/fix/2327-run-lifetime` at
+  `de11b2848a5641b5ae5e0b108d4ef30d326733b1`. The audit branch was
+  fast-forwarded to it. The head now contains `origin/main`, which brings a
+  repository-wide docstring rewrite (332 files). Only the run-lifetime and
+  backend-stop surfaces were audited.
+- Same no-context rules. Neither the with-context report nor the
+  implementation ledger was read.
+
+**Final recommendation: pass.** The P1 (N1) and the P2 (N2) are fixed and
+verified against a real Windows backend. P1-1 and every first-round finding
+remain fixed. The open items are all P3: N3 partial, N4 bundled scope, and the
+ADR-038 pointer. `AGENTS.md` §3.6 requires any of them that is deferred to be
+tracked.
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| N1 (P1): the stop watcher hangs children that inherit stdin | **Fixed** | `detach_standard_input` moves the pipe to a private, non-inheritable descriptor, and points descriptor 0 and the Win32 `STD_INPUT_HANDLE` at the null device. The watcher reads the private descriptor with `os.read` (`_stop_request.py:61-166`). My repro, spawned from Node as the desktop does and also from Python: under the watcher, `git --version` returns in 0.01 s and a grandchild reading stdin gets end-of-file in 0.03-0.04 s. No "Fatal Python error" at exit. Branch tests: `test_children_do_not_inherit_the_stop_request_pipe_and_the_backend_exits_cleanly`, and `test_runtime_backend_stop.py`, which runs the real `gui --bundled` backend with a git pre-run commit. Both pass on this Windows host. |
+| N2 (P2): the graceful stop never reaches the lifespan while a page is connected | **Fixed** | `arm_stop_notice` chains onto uvicorn's SIGTERM, SIGINT and SIGBREAK handlers. Each stop signal first calls `begin_shutdown`, which closes the log broadcaster (`sse.py` breaks on `END`) and kills AI terminal sessions (`app.py:80-87`). The `/ws` handler now returns when either loop ends (`ws.py:290-306`). Real-uvicorn probe, triggered by the desktop's own stdin-EOF request mid-run: no client 0.30 s, log stream open 0.35 s, `/ws` open 0.31 s. All rows are `cancelled` and all markers removed. The force-kill is now 25 s and the wait 30 s, covering a shutdown budget of at most 20 s. After a requested stop the backend exits with code 3 (Windows' default SIGTERM action). `trackRuntime` classifies that exit by `stopRequested` and `isQuitting`, not by the code (`desktop/main.js:1986-2012`). |
+| N3 (P3): deleting the active project mid-run resurrects it | **Partially fixed** | The lifetime retry no longer recreates the database (`_run_lifetime.py:375-383`, `_write_marker(create_parent=False)`; test `test_a_run_whose_project_was_deleted_does_not_recreate_it`). But probe PROBE5 (delete, then the run completes) still finds a fresh, empty `lineage.db` (zero `runs` rows) in the deleted project. The artifact-retention sweep creates it: this branch now points `_schedule_artifact_retention` at the run's own project, and `_reclaim_artifacts_blocking` opens `LineageStore` on that path. Before, it used the active project, which is `None` after the delete. With `SCISTUDIO_ARTIFACT_RETENTION=0`, no database appears. Retention refuses to sweep an empty database, so no data is lost. The branch test calls `release_run` directly and does not reach this path. The run's own writes into the deleted project (logs, checkpoint, `data/zarr`) predate the branch. |
+| N4 (P3): an unrelated change rides on the branch | **Documented, still bundled** | The CHANGELOG entry is now tagged `[#2333]` and says it ships with #2327 because both touch `_projects.py`. Whether that is acceptable is an owner decision. |
+| N5 (P3): stdin is a never-closed pipe on every platform | **Fixed** | `stdio: [process.platform === "win32" ? "pipe" : "ignore", "pipe", "pipe"]` (`desktop/main.js:1134-1136`), asserted in `desktop/test/bootstrap.test.js`. POSIX runtime behavior was not exercised on this Windows host; source and test only. |
+
+**AI terminal sessions on a graceful stop: they end.** The stop signal's
+`begin_shutdown`, and the lifespan's `terminate_ai_terminal_sessions(timeout_sec=3.0)`,
+pop every session, including engine-started ones with no socket, from
+`_active_ptys` and kill its tree. The PTY socket handler returns once
+`pty.is_alive()` turns false or the client disconnects
+(`ai_pty/websocket.py:160-258`), so it cannot hold the connection drain open.
+Branch tests `test_ai_terminal_sessions_are_killed_and_deregistered` and
+`test_a_graceful_stop_kills_an_ai_terminal_session_with_no_socket` pass. They
+use a stand-in session; no real provider CLI was run.
+
+**`tests/api/test_runtime_backend_stop.py`.** It starts the real desktop
+command (`gui --port 0 --bundled`) with a stdin pipe and the stop variable, a
+project-local slow block, and an open `/ws` plus log stream. It starts a run,
+whose pre-run auto-commit runs git with an inherited stdin, then closes stdin.
+It asserts that the process exits within 25 s, that the log stream ends, that
+no fatal stdin-lock error appears, and that the row is `cancelled`. It passed
+here. It covers N1 and N2 together on whatever platform runs it. On POSIX it
+still sets the Windows-only variable, so it exercises the stdin path there
+too, not SIGTERM.
+
+| Check | Result |
+|---|---|
+| `pytest` on `test_runtime_backend_stop`, `test_runtime_backend_streams`, `test_runtime_stop_request`, `test_runtime_run_lifetime`, `test_ws`, `test_runtime_import_surface`, `test_runtime_lineage_finalize_status`, `test_runtime_mcp_pointer` and `test_app` (`--no-cov`) | 73 passed, 2 skipped (POSIX-only pointer cases), exit 0 |
+| `node --test desktop/test/bootstrap.test.js desktop/test/main-orchestration.test.js` | exit 0, including the three #2327 cases |
+| PROBE1 to PROBE3 reruns | unchanged: reopen and switch keep `completed`; in-process shutdown gives `cancelled` in 0.09 s |
+| PROBE5 (delete mid-run, with retention on and off) | N3 partial, source confirmed |
+| Node- and Python-spawned watcher repro | N1 fixed |
+| Real-uvicorn stdin-EOF stop mid-run with no client, SSE, `/ws` | N2 fixed |
+| Sentrux | N/A (MCP not available in this runtime) |
