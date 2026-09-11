@@ -84,6 +84,7 @@ governs:
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md
+    - src/scistudio/agent_provisioning/skills.py
     - src/scistudio/tutorials/core/what-is-a-type/**
     - scripts/audit/check_package_contract_tables.py
     - frontend/src/components/DataPreview.tsx
@@ -143,13 +144,14 @@ language_source: en
 ## 1. Change Summary
 
 This spec implements ADR-054. It came from a manual owner request tracked as
-issue #2287, and it is the single implementation spec for that ADR; the
+issue #2287, and it is the implementation spec for Phases A to C of that ADR;
+Phase D, panel Python and MiniApps, is specified in `adr-054-miniapp`. The
 implementation itself is tracked in #2288.
 
 ADR-054 makes every surface for previewing data or deciding on it a **panel**: a
 user-customizable HTML page, mounted in a sandboxed frame, that reads the data it
 needs, writes the user's answer back where its context allows, and — in a
-notebook context another ADR will define — syncs one kernel variable. The ADR
+notebook context a later ADR may define — syncs one kernel variable. The ADR
 fixed the model and left the contracts to this spec: the `panel.json` schema, the
 SDK messages and channel, the read shapes and budgets, the token-scoped routes
 and content policy, the library set and CDN allowlist, tier conflicts, and theme
@@ -704,7 +706,9 @@ CDNs, and renders.
   package-development pages that mention previewers or `PanelManifest` MUST point
   to `panels.md`.
 - **FR-045**: A new embedded-agent skill
-  `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md` MUST teach the
+  `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md`, added to the
+  provisioned skill names in `src/scistudio/agent_provisioning/skills.py`, MUST
+  teach the
   agent to write, validate, and check a panel, preferring the local library set and
   staying within the CDN allowlist; the skills index, the `scistudio-write-block`
   and `scistudio-inspect-data` skills, and the `_agent_reference` pages MUST

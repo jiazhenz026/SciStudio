@@ -66,6 +66,11 @@ governs:
     - frontend/src/components/LearningCenter.parts/targets.ts
     - src/scistudio/tutorials/core/welcome-to-scistudio/tutorial.yaml
     - src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml
+    - docs/specs/adr-053-learning-center.md
+    - frontend/src/types/api.ts
+    - src/scistudio/api/schemas.py
+    - src/scistudio/api/routes/projects.py
+    - src/scistudio/ai/agent/mcp/__init__.py
   excludes: []
 planned_governs:
   modules:
@@ -296,6 +301,8 @@ state, Restart works, and closing kills the child.
    log.
 3. **Given** `panel.py` prints to stdout, **When** it is called, **Then** the output
    goes to the MiniApp's log and the call protocol is unaffected.
+4. **Given** a MiniApp is open, **When** the browser is reloaded or closed,
+   **Then** its context closes and its process ends after the grace period.
 
 ### User Story 8 - A MiniApp becomes an interactive block (Priority: P3)
 
@@ -361,8 +368,12 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   MUST NOT start `panel.py`. The SDK MUST NOT define `call` there, and the host and
   the backend MUST answer a `call` on such a context with `unsupported`.
 - **FR-004**: `POST /api/panels/contexts` MUST open a `miniapp` context from
-  `{panel_id, target}`, where `target` is a preview target (`adr-054-panels`
-  FR-009) whose type is the MiniApp's declared type or a subtype of it. The context
+  `{panel_id, source}`, where `source` is `{workflow_id, block_id, port}`. The
+  backend MUST resolve it to the output reference of that block's latest
+  successful run — a preview target as in `adr-054-panels` FR-009 — and MUST
+  refuse a source with no such output, or whose type is neither the MiniApp's
+  declared type nor a subtype of it. Context ids MUST be random, with at least 128
+  bits. The context
   MUST authorize the target and its slots or items as a preview context does, and
   MUST provide `read`, `call`, and `save`, and neither `writeBack` nor `open`.
 - **FR-005**: The `init` message of a `miniapp` context MUST carry the target
@@ -379,8 +390,9 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
 - **FR-007**: The subprocess MUST import `panel.py`, then call `setup(data)` if the
   module defines it, where `data` is the target reconstructed as a SciStudio data
   object by the engine's own reconstruction from its storage reference. Callable
-  functions are the module's public, module-level callables other than `setup`
-  and `teardown`.
+  functions are the functions defined in `panel.py` itself — whose `__module__` is
+  `panel.py`'s module — with names not starting with `_`, other than `setup` and
+  `teardown`. A name `panel.py` only imports MUST NOT be callable.
 - **FR-008**: The subprocess MUST be registered in the application's process
   registry — the instance the agent's `run_command` registers in and whose
   `terminate_all` runs at shutdown (`app.state.registry`), not the block runtime's
@@ -398,25 +410,34 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   or one that does not provide `call`, and MUST forward the call to the process.
   It MUST return `{result}` as JSON, or `application/octet-stream` with dtype and
   shape headers when the function returns a NumPy array, as `adr-054-panels`
-  FR-012 does for reads. The route MUST authenticate as the read route does.
-- **FR-011**: Calls on one context MUST run one at a time, in order. A call MUST
-  fail with `timeout` after a configurable limit (60 seconds by default) without
-  ending the process. An exception in a function MUST return
-  `{error: {type, message, traceback}}` and MUST NOT end the process.
+  FR-012 does for reads. The route MUST authenticate as the read route does and is
+  subject to the opaque-origin refusal of `adr-054-panels` FR-030 and the
+  application's CORS rules.
+- **FR-011**: Calls on one context MUST run one at a time, in order, with at most
+  16 waiting; a call beyond that MUST fail at once with `busy`. A call MUST fail
+  with `timeout` after a configurable limit (60 seconds by default); the process is
+  then marked `unresponsive`, later calls fail with `busy` until the running call
+  returns, and the tab offers Restart. A result larger than a configurable limit
+  (64 MiB by default) MUST fail with `too_large`. An exception in a function MUST
+  return `{error: {type, message, traceback}}` and MUST NOT end the process.
 - **FR-012**: `setup` MUST complete within a configurable startup limit (120
   seconds by default); otherwise the context MUST report `start_failed` and offer
   Restart and Stop.
 - **FR-013**: The process MUST end when its context closes — its tab closes, its
-  project closes or switches, or SciStudio shuts down — by calling `teardown()`
+  project closes or switches, SciStudio shuts down, or the workspace connection
+  that opened it is gone — by calling `teardown()`
   when defined, then terminating with a five-second grace period, then killing the
   process tree. Shutdown MUST include MiniApp processes in the registry's
-  `terminate_all`.
+  `terminate_all`. A `miniapp` context MUST be bound to the realtime (`/ws`) client
+  of the workspace that opened it and MUST close once that client has been
+  disconnected for a grace period (30 seconds by default), debounced as the
+  cancellation of browser-owned runs is in `src/scistudio/api/ws.py`.
 - **FR-014**: If the process exits unexpectedly, pending and later calls MUST fail
   with `process_exited`, and the host MUST show the exit code and the last lines of
   the log with Restart. Restart MUST start a new process for the same context and
   target.
-- **FR-015**: The host MUST show the process state — starting, running, stopped,
-  crashed — and its resident memory, refreshed at least every five seconds. Memory
+- **FR-015**: The host MUST show the process state — starting, running,
+  unresponsive, stopped, crashed — and its resident memory, refreshed at least every five seconds. Memory
   is displayed, not reserved.
 - **FR-016**: The SDK MUST expose `call(fn, args)`, returning a promise, only where
   the context provides `call`; the panel-to-host message types of `adr-054-panels`
@@ -427,19 +448,26 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
 **The MiniApp tab**
 
 - **FR-018**: The store's tab union MUST gain a `miniapp` tab kind carrying the
-  panel id, the target, and a display name, with the id
-  `miniapp:<panel_id>:<ref>`; opening an existing id MUST focus it.
+  panel id, the source `{workflow_id, block_id, port}`, and a display name, with
+  the id `miniapp:<panel_id>:<workflow_id>:<block_id>:<port>`; opening an existing
+  id MUST focus it.
 - **FR-019**: A MiniApp tab MUST stay open when another tab becomes active, MUST
   NOT be persisted across restarts, and closing it MUST close its context.
 - **FR-020**: When a MiniApp tab becomes active the right preview column MUST
   collapse, and when a tab of another kind becomes active the column MUST return to
   the size it had before; a column the user had already collapsed stays collapsed.
-  The user MAY drag the column open while the MiniApp is active.
+  The user MAY drag the column open while the MiniApp is active. The AI-host
+  presentation, which has no right column and shows the preview as a sidebar
+  card, collapses nothing.
 - **FR-021**: The tab toolbar MUST carry the process state and memory, Restart,
   Stop, and Convert to interactive block (FR-036).
-- **FR-022**: For MiniApps at the project and user tiers, the host MUST watch the
-  panel directory and reload the MiniApp — a new frame, context, and process on
-  the same target — when a file in it changes, debounced by 500 milliseconds.
+- **FR-022**: For MiniApps at the project and user tiers, the backend MUST watch
+  the panel directory of each open `miniapp` context — separately from the
+  project file watcher, which reports neither page file types nor the user tier —
+  and emit a `panel.files_changed` event with the panel id, added to the outbound
+  events of `src/scistudio/api/ws.py`; the host MUST then reload the MiniApp — a
+  new frame, context, and process on the same source — debounced by 500
+  milliseconds.
   Only `panel.json`, `panel.py`, and files of the page types the token route
   serves count; `__pycache__/` and every other file are ignored, so what
   `panel.py` writes into its own directory never triggers a reload.
@@ -451,9 +479,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   output in the open project, pre-filled from the context menu) and for what the
   user wants to see or do, and offers the agent provider and permission mode as
   "Bring in my work" does.
-- **FR-024**: `POST /api/panels/miniapps` MUST check agent availability first, with
-  the same graded reasons as `POST /api/work-import/sessions`, and create nothing
-  when a session cannot start. It MUST then create `<project>/panels/<id>/` from the
+- **FR-024**: `POST /api/panels/miniapps` MUST first check the chosen provider with
+  the graded availability of `GET /api/ai/availability` — which the dialog SHOULD
+  fetch when it opens, so that a slow first check does not delay the submit — and
+  MUST create nothing when it reports that a session cannot start. It MUST then create `<project>/panels/<id>/` from the
   MiniApp template — `panel.json` with `contexts: ["miniapp"]`, `types` set to the
   chosen output's type, a name, and the request as `description`; the template
   `index.html`; and a `panel.py` whose `setup` does nothing — choosing the next free
@@ -507,10 +536,15 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   diagnostics, and per-type choice controls — inside the preview column itself, in
   place of the current preview, with a control that returns to the preview. No
   dialog is opened. Opening the list while the column is collapsed, as the
-  tutorial route of FR-040 can, MUST expand the column first.
+  tutorial route of FR-040 can, MUST expand the column first. The list keeps the
+  Previewers tab's content — legacy previewers and panels declaring `preview`,
+  with the discovery diagnostics — while MiniApps are listed in the MiniApps tab
+  and panels declaring only `interactive` in neither, as today. In the AI-host
+  presentation the button sits in the sidebar's Preview card.
 - **FR-034**: Opening a MiniApp from its card MUST ask for a target, listing the
   outputs of the project's workflows whose latest successful run produced data of
-  the declared type or a subtype, by workflow, block, and port. Opening from a
+  the declared type or a subtype, by workflow, block, and port, as returned by
+  `GET /api/panels/miniapps/{panel_id}/sources`. Opening from a
   block's context menu MUST use that block's output, asking only when several ports
   match.
 - **FR-035**: Canvas block nodes MUST gain a context menu. For a block with outputs
@@ -556,20 +590,22 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   `docs/specs/adr-053-learning-center.md` that describe the Previewers tab, MUST be
   updated to the new location. The list stays in the preview column until the user
   returns to the preview and covers no other pane, so later steps that route
-  elsewhere are unaffected.
+  elsewhere are unaffected. This amends the `previewers` route target defined in
+  `docs/specs/adr-053-learning-center.md`.
 
 ### Key Entities
 
 - **PanelDescriptor** — gains `has_python` (whether `panel.py` is present) and the
   `miniapp` context value.
 - **MiniAppContext** — a panel context of kind `miniapp`: context id, panel id,
-  target, authorized references, operations (`read`, `call`, `save`), process.
+  source, resolved target, authorized references, operations (`read`, `call`,
+  `save`), owning realtime client, process.
 - **PanelProcess** — the resident subprocess of one context: context id, pid, state
-  (starting, running, stopped, crashed, start_failed), started at, resident memory,
+  (starting, running, unresponsive, stopped, crashed, start_failed), started at, resident memory,
   log path, exit code.
 - **CallRequest / CallResult** — `{fn, args}` and `{result}` or
   `{error: {type, message, traceback}}`, or a binary array with dtype and shape.
-- **MiniAppTab** — tab kind `miniapp`: id, panel id, target, display name.
+- **MiniAppTab** — tab kind `miniapp`: id, panel id, source, display name.
 - **MiniAppCreateRequest** — project, target (workflow, block, port), request text,
   provider, permission mode.
 - **MiniAppBrief** — the file under `<project>/.scistudio/miniapps/` handed to the
@@ -583,8 +619,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
 panel's subprocess with the block runtime's interpreter and import roots, a small
 bootstrap module that imports `panel.py`, calls `setup`, and serves calls over the
 pipe, and a `ProcessHandle` subclass registered in the process registry, modelled
-on the agent's command handle. The context service opens `miniapp` contexts,
-starts and stops their processes, and closes them with their tabs and projects. The
+on the agent's command handle. The context service opens `miniapp` contexts
+from a block output, starts and stops their processes, watches their panel
+directories, and closes them with their tabs, their projects, or the workspace
+connection that opened them. The
 panels router gains the call route and the create route; the create route reuses
 the brief-writing and pre-spawned session path of "Bring in my work". A new MCP
 module adds `validate_panel` and `open_miniapp`; `open_miniapp` emits an event on
@@ -618,6 +656,8 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | `src/scistudio/api/routes/user_library.py` | modify | Panel directory promotion |
 | `src/scistudio/ai/agent/mcp/tools_panels.py` | create | `validate_panel`, `open_miniapp` |
 | `src/scistudio/ai/agent/mcp/__init__.py` | modify | Register the new tool module |
+| `src/scistudio/api/schemas.py`, `frontend/src/types/api.ts` | modify | `UserLibraryTarget` gains panels; MiniApp source and create models |
+| `src/scistudio/api/routes/projects.py` | modify | Project path resolution for panel directories |
 | `src/scistudio/api/routes/work_import.py`, `src/scistudio/api/routes/ai_pty/engine.py` | modify if shared | Reuse the brief writer and the pre-spawned session path |
 | `docs/specs/adr-053-learning-center.md` | modify | Passages that describe the Previewers tab (FR-040) |
 | `src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md` | create | MiniApp skill |
@@ -700,14 +740,15 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 
 ### Measurable Outcomes
 
-- **SC-001**: After the create dialog is submitted, the template tab is visible in
-  under two seconds on the supported desktop build.
+- **SC-001**: After the create dialog is submitted, with the provider's
+  availability already known (FR-024), the template tab is visible in under two
+  seconds on the supported desktop build.
 - **SC-002**: A call returning a small JSON result completes in under 50
   milliseconds at the median after the process has started, measured locally.
 - **SC-003**: In 100% of preview and interactive context tests, no process is
   started and `call` is unavailable.
-- **SC-004**: Ten seconds after a MiniApp tab closes, no process of its tree is
-  alive, in 100% of lifecycle tests on Windows and POSIX, including a `panel.py`
+- **SC-004**: Ten seconds after a MiniApp tab closes — or after the grace period
+  once its browser has disconnected — no process of its tree is alive, in 100% of lifecycle tests on Windows and POSIX, including a `panel.py`
   that starts a child process.
 - **SC-005**: While a `panel.py` hangs or crashes, the API answers a health request
   within one second in 100% of the responsiveness tests.
@@ -731,7 +772,8 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
   and its availability check gives graded reasons, so the create route can reuse
   both. (source: existing-system)
 - No tool today opens a tab of the agent's choosing; the frontend opens a workflow
-  tab only on `workflow_started` and on a created `workflow.changed`
+  tab on `workflow_started` and on a created `workflow.changed`, and an AI block's
+  terminal tab on `block_pty_opened`
   (`frontend/src/hooks/useWebSocket.parts/handleLifecycle.ts`), so `open_miniapp`
   follows that event-to-dispatcher pattern with a new event. (source:
   existing-system)
