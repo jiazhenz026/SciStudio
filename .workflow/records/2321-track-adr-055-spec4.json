@@ -1,0 +1,57 @@
+{
+  "base_ref": null,
+  "branch": "track/adr-055-spec4",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/planning/adr-055-spec4-checklist.md",
+      "docs/planning/adr-055-spec4-dispatch-prompts.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2321,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner 2026-09-11: act as manager for implementing ADR-055 Spec 4 (open-source adr-055-enterprise-support and the private enterprise spec); push PRs in both repositories",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2321-track-adr-055-spec4",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "24994ed6-e15b-475f-a5e2-a10006bb9b65",
+  "strictness_tier": null,
+  "task_kind": "manager",
+  "test_events": [
+    {
+      "at": "2026-09-11T10:42:37.259877Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "manager checklist and dispatch prompts only",
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+---
+title: "ADR-055 Spec 4 Agent Dispatch Checklist"
+status: Approved
+owners:
+  - "@jiazhenz026"
+related_adrs:
+  - 55
+  - 52
+related_specs:
+  - adr-055-enterprise-support
+  - adr-055-identity-seam
+language_source: en
+---
+
+# ADR-055 Spec 4 Agent Dispatch Checklist
+
+> Mandatory tracking file. Every agent edits only rows it owns.
+> Drift is a protocol violation.
+> Source template:
+> `docs/ai-developer/templates/agent-dispatch-checklist-template.md`
+
+## 1. Change Summary
+
+- Owner request (2026-09-11): act as manager for implementing ADR-055 Spec 4.
+  That is the open-source `adr-055-enterprise-support` spec and its enterprise
+  counterpart. Finish by pushing PRs in both repositories.
+- Task kind: `manager` (this checklist); `feature` (implementation tracks)
+- Manager persona: `manager`
+- Issue: `#2321` (manager); implementation `#2322` (O1), `#2308` (O2)
+- Gate record: `.workflow/records/2321-track-adr-055-spec4.json`
+- Branch/worktree plan:
+  - manager umbrella `track/adr-055-spec4` at `.worktrees/track-adr-055-spec4`;
+  - agent branches `feat/2322-enterprise-ui` at `.worktrees/feat-2322-enterprise-ui`
+    and `feat/2308-webmcp-adapter` at `.worktrees/feat-2308-webmcp-adapter`,
+    both based on `origin/main`.
+- Protected branch: `main`
+- Umbrella branch: `track/adr-055-spec4`
+- Umbrella PR: `#UMBRELLA_PR`
+- Umbrella PR title: `[DO NOT MERGE] ADR-055 Spec 4 dispatch`
+- Final PR target: `main`. Each track opens its own final PR to `main`, as the
+  Spec 2-3 dispatch did.
+- Dispatch prompt templates:
+  - Work: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`
+  - Audit with context:
+    `docs/ai-developer/templates/agent-dispatch-audit-with-context-prompt-template.md`
+  - Audit no context:
+    `docs/ai-developer/templates/agent-dispatch-audit-no-context-prompt-template.md`
+- Filled prompts: `docs/planning/adr-055-spec4-dispatch-prompts.md`
+- Enterprise-side tracks are dispatched and tracked in the private enterprise
+  repository. This public checklist records only the open-source tracks, and
+  the enterprise tracks' dependencies on them.
+
+## 2. Scope
+
+- In scope:
+  - **O1 (#2322):** `docs/specs/adr-055-enterprise-support.md` T-002 and T-003.
+    - Additive capability extensions in `scistudio.api.seam`:
+      `ai_chat_disabled`, a `transfer` object, a dynamic `update`, and an
+      optional `identity.logout_url`.
+    - Capability-gated UI: identity chrome with a POST Logout, the update
+      notice, the transfer controls, and hiding the AI Chat surface.
+    - Backend refusal of agent-kind PTY providers when `ai_chat_disabled` is
+      set.
+    - Spec amendments for the dynamic `update` shape.
+  - **O2 (#2308):** the stdio MCP adapter over `/api/webmcp/*` and the per-user
+    loopback token file (FR-008 to FR-011), with the adapter's spec details.
+- Out of scope:
+  - Enterprise backend routes, guard, deployment, and runbook (private
+    repository).
+  - Panel prefix registration (#2288; ADR-054 is paused).
+  - The external-AI user-guide page (#2290).
+  - OTA publishing. PyPI `0.3.4a32` is already published (#2317 records the
+    numbering constraint).
+- Protected paths: any `src/scistudio/core/**` need is a stop condition.
+- Deferred work: N/A at dispatch. Agents record any deferral as
+  `TODO(#NNN)`.
+
+## 3. Conventions
+
+- `[ ]` not started
+- `[~]` in progress
+- `[x]` done
+- `[!]` blocked
+- Every completed row MUST include an artifact:
+  PR link, commit, test command, report path, or gate-record entry.
+- Chat messages are not checklist evidence.
+- Agents edit only their own rows.
+- Scope changes require gate-record amendment before work continues.
+
+## 4. Manager Preflight
+
+- [x] Dedicated manager branch and worktree created -> `track/adr-055-spec4`, `.worktrees/track-adr-055-spec4`
+- [x] Existing issue linked, or new issue created only if none exists -> `#2321` (new manager issue), `#2322` (new), `#2308` (existing)
+- [x] Gate record started -> `.workflow/records/2321-track-adr-055-spec4.json`
+- [x] Scope include/exclude recorded in the gate record -> `init --include` for this checklist and the prompts file
+- [x] Umbrella branch created -> `track/adr-055-spec4`
+- [ ] Umbrella PR opened.
+- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
+- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] No `pip install -e .` environment pollution found -> the shared `.venv` is untouched; agents are told not to install.
+- [x] Dispatch checklist copied from the template and committed -> this file.
+- [x] Dispatch prompts created from the correct prompt template and linked below -> `docs/planning/adr-055-spec4-dispatch-prompts.md`
+- [x] Sentrux baseline recorded, or N/A reason recorded -> N/A: Sentrux MCP is not available in this runtime; guard evidence is recorded by `gate_record check`.
+
+## 5. Local Gate Hook Bypass Evidence
+
+- Authorized bypass label: `N/A`
+- Owner authorization source: `N/A`
+- Reason: `N/A`
+
+| Hook | Command | Bypass label | Status | Evidence |
+|---|---|---|---|---|
+| Pre-commit | `python -m scistudio.qa.governance.gate_record check --mode pre-commit` | `N/A` | `[ ]` | |
+| Commit message | `python -m scistudio.qa.governance.gate_record check --mode commit-msg` | `N/A` | `[ ]` | |
+| Pre-push | `python -m scistudio.qa.governance.gate_record check --mode pre-push` | `N/A` | `[ ]` | |
+| Pre-PR reconcile | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `N/A` | `[ ]` | |
+
+## 5.1 Docs Impact Check
+
+- Wrapper/hook/gate-record/receipt/CI/runtime behavior changed: `no`
+- AI docs checked:
+  `docs/ai-developer/rules.md`,
+  `docs/ai-developer/specific_rules/gated-workflow.md`,
+  `docs/ai-developer/specific_rules/agent-dispatch.md`,
+  `docs/ai-developer/templates/*dispatch*.md`
+- Updated docs or N/A rationale: N/A. This dispatch changes product code and
+  specs only. `docs/ai-developer/**` is out of scope.
+
+## 6. Dispatch Matrix
+
+| Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `A1` | `implementer` | `N/A` | prompts §A1 | O1: capability extensions and enterprise UI | `feat/2322-enterprise-ui` | `.worktrees/feat-2322-enterprise-ui` | see prompts §A1 | `webmcp.py`, `cli/**`, enterprise code | `#2322` | `[ ]` |
+| `A2` | `implementer` | `N/A` | prompts §A2 | O2: stdio MCP adapter and loopback token file | `feat/2308-webmcp-adapter` | `.worktrees/feat-2308-webmcp-adapter` | see prompts §A2 | `seam.py`, `spa.py`, `app.py`, `ai_pty/**`, `frontend/**` | `#2308` | `[ ]` |
+| `AU1` | `audit_reviewer` | `with-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-with-context.md` | product code | A1 PR | `[ ]` |
+| `AU2` | `audit_reviewer` | `no-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-no-context.md` | product code | A1 PR | `[ ]` |
+| `AU3` | `audit_reviewer` | `with-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-with-context.md` | product code | A2 PR | `[ ]` |
+| `AU4` | `audit_reviewer` | `no-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-no-context.md` | product code | A2 PR | `[ ]` |
+
+## 7. Track: O1 — Capability Extensions And Enterprise UI (#2322)
+
+### 7.1 Track Scope
+
+- Owner: `A1`
+- In scope: see §2, O1. The shared capability contract is in #2321.
+- Out of scope: `src/scistudio/api/routes/webmcp.py`, `src/scistudio/cli/**`,
+  and anything enterprise.
+- Required docs:
+  - `docs/specs/adr-055-enterprise-support.md` (dynamic `update`);
+  - `docs/specs/adr-055-identity-seam.md` (FR-014 to FR-016);
+  - `CHANGELOG.md`;
+  - the public-surface reference.
+- Required tests:
+  - `tests/api/test_enterprise_capabilities.py`;
+  - `tests/api/test_ai_pty_capability.py`;
+  - `tests/api/test_identity_seam.py` (extended);
+  - `frontend/src/lib/capabilities.test.ts`;
+  - `frontend/src/components/Enterprise/*.test.tsx`.
+
+### 7.2 Dispatch
+
+- [ ] Prompt file created or dispatch prompt recorded.
+- [ ] Correct prompt template selected.
+- [ ] Audit mode recorded when persona is `audit_reviewer`.
+- [ ] Agent branch/worktree assigned.
+- [ ] Write set and out-of-scope paths included in prompt.
+- [ ] TODO rule included in prompt.
+- [ ] Required checks included in prompt.
+
+### 7.3 Implementation
+
+- [ ] Seam capability extensions and page injection -> `<commit>`
+- [ ] Frontend capability accessor and enterprise components -> `<commit>`
+- [ ] Agent-kind PTY refusal when `ai_chat_disabled` -> `<commit>`
+- [ ] Tests at the root mount and under `/user/alice/scistudio` -> `<test command>`
+- [ ] Spec, CHANGELOG, and public-surface updates -> `<commit>`
+
+### 7.4 Audit
+
+- [ ] Audit agents assigned (AU1 with-context, AU2 no-context).
+- [ ] Audit report file paths assigned.
+- [ ] Audit reports committed.
+- [ ] Audit reports merged into the final PR evidence path.
+- [ ] Findings recorded.
+- [ ] P1 findings fixed before integration.
+- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+
+### 7.5 Integration
+
+- [ ] Agent output reviewed by manager.
+- [ ] Scope compliance verified.
+- [ ] Conflicts resolved intentionally.
+- [ ] Track merged or integrated.
+
+## 8. Track: O2 — Stdio MCP Adapter (#2308)
+
+### 8.1 Track Scope
+
+- Owner: `A2`
+- In scope: see §2, O2.
+- Out of scope:
+  - `src/scistudio/api/seam.py`, `src/scistudio/api/spa.py`,
+    `src/scistudio/api/app.py`, `src/scistudio/api/routes/ai_pty/**`,
+    `frontend/**`;
+  - the local socket audience rule (#2275).
+- Required docs:
+  - `docs/specs/adr-055-enterprise-support.md` (adapter details);
+  - `CHANGELOG.md`;
+  - CLI help.
+- Required tests:
+  - `tests/cli/test_webmcp_adapter.py`;
+  - `tests/api/test_webmcp.py` (token file).
+
+### 8.2 Dispatch
+
+- [ ] Prompt file created or dispatch prompt recorded.
+- [ ] Correct prompt template selected.
+- [ ] Agent branch/worktree assigned.
+- [ ] Write set and out-of-scope paths included in prompt.
+- [ ] TODO rule included in prompt.
+- [ ] Required checks included in prompt.
+
+### 8.3 Implementation
+
+- [ ] Loopback token file (owner-only, per launch, removed on shutdown, not written with a replacement guard) -> `<commit>`
+- [ ] Adapter: `tools/list` and `tools/call` forwarding, stale-context handling, bearer credential, bounded logging -> `<commit>`
+- [ ] Config snippet command -> `<commit>`
+- [ ] Tests -> `<test command>`
+- [ ] Spec and CHANGELOG -> `<commit>`
+
+### 8.4 Audit
+
+- [ ] Audit agents assigned (AU3 with-context, AU4 no-context).
+- [ ] Audit reports committed and merged into the final PR evidence path.
+- [ ] P1 findings fixed before integration; P2/P3 fixed or tracked.
+
+### 8.5 Integration
+
+- [ ] Agent output reviewed by manager.
+- [ ] Scope compliance verified.
+- [ ] Track merged or integrated.
+
+## 9. Verification Evidence
+
+| Check | Command or tool | Status | Evidence |
+|---|---|---|---|
+| Gate ledger check (pre-PR) | `python -m scistudio.qa.governance.gate_record check --mode pre-pr --pr-body-file .workflow/local/pr-body.md` | `[ ]` | |
+| Gate finalize (pre-PR) | `python -m scistudio.qa.governance.gate_record finalize --commit <sha> --pr-body-file .workflow/local/pr-body.md --closes "#2321"` | `[ ]` | |
+| Track CI | per-track PR checks | `[ ]` | |
+
+## 10. Drift Log
+
+Append only.
+
+| Date | Agent | Drift | Action | Follow-up |
+|---|---|---|---|---|
+| 2026-09-11 | manager | The umbrella issue #2321 and the issue map comment carry enterprise route names and track details in a public repository. | Reported to owner; enterprise prompts are kept in the private repository. | owner decision pending |
+
+## 11. Final Readiness
+
+- [ ] All dispatched agents have final outputs.
+- [ ] Manager reviewed every changed file.
+- [ ] Gate record includes issue, scope, plan, docs, tests, checks, commit,
+      and PR evidence.
+- [ ] PR closes every issue fixed by the dispatch.
+- [ ] CI passed.
+- [ ] Checklist final state matches PR and gate record.
