@@ -290,3 +290,170 @@ with the `tests/api` fixtures:
 - P2-1 and P2-2 should be resolved before completion. The owner decides
   P2-1's identity and staleness design.
 - P3 items can be tracked as follow-ups.
+
+## 7. Re-verification (head 4d02f0423)
+
+Subject: fix commit `0ac9045cb`, head `4d02f0423`, with both audit branches
+merged in.
+- Audited diff: `git diff 2f2f7ea05...origin/fix/2327-run-lifetime`, 23 files,
+  +2589/-331.
+- Later head `5a2a3b8cf` (commit `1171e2ff6`) only rewords three comments for
+  the deferral ratchet. I checked that diff, and the verdicts below hold for it.
+- The one Codex inline comment on the PR (P1, on `d603c5d`) restates P1-1.
+
+Method: I re-ran probes C, C2 (switch A→B→A), C3 (switch and stay), B, B2, D,
+E, F1 and F2 against the new code. I also added probe J:
+- The real `gui --bundled` backend, started with
+  `SCISTUDIO_STOP_ON_STDIN_EOF=1` and stdin as a pipe.
+- A run in flight, then stdin closed.
+- Three variants: no open connection, `/ws` held open, and the log SSE stream
+  held open.
+
+### 7.1 Verdicts On The Original Findings
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| P1-1 | Fixed | Reopening the same database path keeps the store (`is_same_path`). A switch retires the previous store until its last live run is released (`retire_store`). `release_run` checks the row; if it is still `running` it rewrites the status through a store opened by path, or annotates the marker. Probe C: `completed`, `provenance_degraded=0`, 3 block rows, marker removed, and the next open leaves it `completed`. Probe C2: switching away and back by path creates a new store object, Run history shows `running`, the run finishes `completed` with 3 block rows, and the retired store closes after release. Probe C3: the same when the user stays in the other project. New tests read the row and the block rows: `test_reopening_the_project_mid_run_keeps_its_history[id/path]` and `test_switching_projects_mid_run_keeps_the_run_and_its_history`. |
+| P2-1 | Fixed, per the owner's chosen design | Markers carry `machine_id`: `/etc/machine-id` (or the D-Bus copy), `MachineGuid` or `IOPlatformUUID`, with a prefixed hostname fallback. Probe F1: a renamed host with the same machine id is reconciled `failed`. Probe F2: a foreign-machine marker claimed 25 h ago is logged by name, and one claimed 1 h ago is not. Both stay `running`, and retention stays blocked. This is by design and is documented under Spec 3 §4.6 "Known limits", together with containers that share an image's machine id. |
+| P2-2 | Partially fixed | The contract is now in Spec 3 §4.6 and FR-015/FR-016: marker path, contents and reconciliation rules. `ARCHITECTURE.md` §11.2 still has no `run-owners/` row. That file is a protected path (`PROTECTED_ARCHITECTURE_PATTERNS`), and checklist §9.4 holds the row for `admin-approved:architecture-doc`. It closes when the owner approves. |
+| P3-1 | Fixed | `_read_marker` separates `unreadable` (`OSError`) from `invalid`. An unreadable marker leaves the row `running`, with a warning. Probe E: live owner, injected `PermissionError`; the row stays `running`, a warning is logged, and the marker is kept. Test: `test_open_leaves_a_run_whose_marker_cannot_be_read`. |
+| P3-2 | Fixed | `claim_run` registers the live entry before it writes the marker. The sweep skips live runs and their staging files. Probe D: the run is live and its marker is kept. Test: `test_a_claim_is_live_before_its_marker_exists`. |
+| P3-3 | Fixed | Shutdown records the run ids it forced. When `consume_forced` returns true, `_finalize_lineage_run` skips its write and retention. Test: `test_shutdown_finalises_a_run_that_ignores_cancellation_and_keeps_that_outcome`. |
+| P3-4 | Partly | Staging `*.json.tmp` files older than 60 s are now swept (`test_open_removes_staging_files_of_claims_that_died`). The ledger still has `verified_in_diff: null` and `body_closes_issues: []`. Reconciliation passes, so this is ledger-tool behaviour and informational only. |
+
+Concurrency re-check:
+- Probe B: 150 in-process races, 0 overwrites.
+- Probe B2: 120 runs against 2,374 cross-process reconcile passes, 0
+  overwrites.
+
+### 7.2 New Issues In The Fix Round
+
+**N1 (P1): known, fix in progress.** Reported by the no-context re-audit. I
+corroborated it independently.
+- **Symptom.** With the flag set, the real backend froze on the first
+  `POST /api/workflows/{id}/execute` in all four probe J runs. Every later
+  request timed out.
+- **Where.** A `faulthandler` dump shows the event-loop thread in
+  `subprocess.run` → `communicate`, running git for `_status_ops._head_state`
+  (the pre-run auto-commit). The `_stop_request._watch` thread sits in its
+  stdin read at the same time.
+- **Control.** Without the flag, the same flow ran.
+- **Not isolated further.** Two standalone repros did not hang: `git --version`
+  with and without `CREATE_NO_WINDOW` or `stdin=DEVNULL`, and the real
+  `GitEngine` calls under a watcher thread. The trigger is specific to the
+  backend process.
+- **Why it escaped.** `test_runtime_stop_request.py` exercises the watcher in a
+  toy process. The desktop harness uses a fake backend. Nothing runs the real
+  backend with the flag, and the fix needs a test that does.
+
+**N2 (P2): known, fix in progress.** I corroborated it from the code:
+- uvicorn 0.48's `Server.shutdown` waits for every connection to close before
+  the lifespan shutdown. `timeout_graceful_shutdown` is `None`.
+- `/api/logs/stream` loops until its client disconnects.
+- `App.tsx` mounts `useLogStream` for the open workflow.
+- The quit hides the windows rather than closing them, so the renderer keeps
+  both connections.
+
+Not measured: N1 froze probe J before it reached the stop.
+
+N3 and N5 are the no-context re-audit's findings and are not repeated here. On
+N5, `spawnRuntimeCandidate` does give the backend a stdin pipe on every
+platform.
+
+**R1 (P3): Windows process-tree cleanup after a graceful exit. Unverified
+risk.**
+- `stopRuntime` used to run `taskkill /T /F` at once. The tree-kill now runs
+  only if the backend is still alive at 15 s.
+- After a graceful exit, anything the lifespan does not stop outlives the
+  backend. The lifespan stops workers (`registry.terminate_all`) and the MCP
+  server, but it has no AI PTY teardown.
+- A PTY tree ends when its WebSocket handler exits (`ai_pty/websocket.py`) or
+  its session closes. An engine-prespawned session registered in
+  `_active_ptys` with no socket attached has no shutdown path.
+- On quit, Electron's exit probably ends such trees through the job object
+  (FR-005). On an explicit Stop or Restart in external-AI mode, Electron keeps
+  running and they may survive. Not measured.
+- Options: close `_active_ptys` in the lifespan, or keep a Windows tree-kill
+  after the graceful exit.
+
+**R2 (P3): scope and traceability of the MCP pointer hardening.**
+- `_write_private_pointer` (symlink-safe `mcp.sock.port` and `mcp.sock.path`
+  writes) and `tests/api/test_runtime_mcp_pointer.py` come from the no-context
+  audit of #2329, not from #2327. They land here under a `[#2327]` CHANGELOG
+  entry.
+- The code looks correct:
+  - an `lstat` check refuses a symlink or another user's file;
+  - `mkstemp` creates the new file with mode 0600 in the same directory;
+  - `os.replace` swaps the directory entry without following a link;
+  - `unlink` never follows a link.
+- Both of its tests are POSIX-only and skip on Windows.
+- Whether it stays in this PR or moves under #2329 is the owner's call.
+
+### 7.3 Desktop Stop Sequence
+
+**Code:**
+- `requestGracefulStop` sends SIGTERM on POSIX and ends stdin on Windows.
+- `forceKillRuntime` (SIGKILL, or `taskkill /T /F`) fires only if the backend
+  is still running at `STOP_ESCALATION_MS` (15 s).
+- Relaunch and quit wait `RELAUNCH_STOP_TIMEOUT_MS` (20 s).
+- `before-quit` hides the windows, prevents the quit, and waits with
+  `stopRuntimeAndWait`. That promise never rejects; it resolves `false` on
+  timeout. The quit is then re-issued with `quitStopState = "done"`, and a
+  second quit during the wait is absorbed.
+- Errors on the child's stdin are swallowed, so a late write cannot raise
+  EPIPE.
+- `SCISTUDIO_STOP_ON_STDIN_EOF=1` is set only on win32.
+
+**Backend:**
+- `start_stop_request_watcher` starts in the lifespan only when the flag is
+  set, and only once per process.
+- End-of-file raises a SIGTERM that uvicorn handles. A read error is not a stop
+  request.
+- `gui` runs `uvicorn.run` on the main thread, so uvicorn's signal handlers are
+  installed.
+
+**Tests:**
+- `node --test test/*.test.js` in `desktop/` on Windows: 224 pass, 0 fail. This
+  includes the Windows-only `windows-stop-escalates-to-taskkill` and
+  `quit-waits-for-graceful-stop`, which expects `stdin-eof` on Windows.
+- `test_runtime_stop_request.py`: 4 pass.
+- Both suites use a fake backend or a toy process; see N1.
+
+**Probe J2:** without the flag, closing stdin leaves the backend running. After
+6 s the row is still `running`, as intended for backends not launched by the
+desktop on Windows.
+
+**Regressions found:** N1 and N2 (known), and R1.
+
+### 7.4 Tests, CI, And Gate
+
+- **Local tests on Windows at `4d02f0423`.** Files:
+  `test_runtime_run_lifetime.py`, `test_ws.py`,
+  `test_runtime_import_surface.py`, `test_runtime_stop_request.py`,
+  `test_runtime_mcp_pointer.py`, `test_runtime_lineage_finalize_status.py`.
+  Result: 48 passed, 2 skipped (the POSIX-only pointer tests), exit 0.
+- **CI at `4d02f0423`: two checks failed.**
+  - The Deferral discipline ratchet failed on three comment words: "temporary"
+    once and "later" twice. It is fixed at `5a2a3b8cf` by `1171e2ff6`.
+  - Frontend reported one unhandled rejection while all 198 test files passed.
+    The PR changes no frontend file and main's latest CI is green, so this
+    looks like a flake that needs a rerun.
+  - Test (Python 3.11) and Test (Python 3.13) had not finished.
+- **CI at `5a2a3b8cf`:** only CodeQL and Analyze had reported when this section
+  was written.
+- **Gate:** `gate_record check --mode pre-pr` on the audited ledger at
+  `4d02f0423` gives tier 2, reconciliation passed. The ledger change the check
+  wrote was discarded.
+- **Checklist:** §9.3 still shows placeholders. §9.4 is current: it records
+  both re-audits, N1 and N2, and the pending owner approvals.
+
+### 7.5 Updated Recommendation
+
+**Still block, on N1** (known, fix in progress). Every original finding is
+fixed except P2-2, which waits on the owner's architecture-doc approval. The
+next head needs:
+- a test that runs the real backend with `SCISTUDIO_STOP_ON_STDIN_EOF=1`
+  through a run and a stdin close, with `/ws` and the log stream open, and
+  asserts a `cancelled` row within the 15 s bound;
+- decisions on R1 and R2;
+- green CI, including a Frontend rerun.
