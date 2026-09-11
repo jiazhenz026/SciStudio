@@ -586,7 +586,7 @@
         {
           "path": "src/scistudio/previewers/models.py",
           "kind": "contains",
-          "pattern": "Resolved panel identity for the sandbox host (ADR-054)."
+          "pattern": "Resolved panel identity for the sandbox host."
         }
       ],
       "adr_evidence": [
@@ -1215,7 +1215,7 @@
       "id": "PV-09-011",
       "section": "09_previewer_contracts",
       "title": "Panel SDK communicates over one context-bound channel",
-      "contract": "A sandboxed frame has one MessageChannel; preview read/open and interactive one-shot writeBack follow context capabilities. The SDK exposes no call or sync in Phase A; save is host-mediated and standalone sample mode reads panel.sample.json.",
+      "contract": "A sandboxed frame has one MessageChannel; preview read/open and interactive one-shot writeBack follow context capabilities. The SDK exposes no call or sync in Phase A; save is host-mediated and standalone sample mode reads panel.sample.json. Initialization is delivered through the retained original-document bootstrap port only after an unpredictable context proof and intended-frame source match; load alone never authorizes input delivery.",
       "status": "partial",
       "severity": "error",
       "environments": [
@@ -1249,6 +1249,16 @@
           "path": "src/scistudio/panels/sdk/1/scistudio-panel.js",
           "kind": "contains",
           "pattern": "panel.sample.json"
+        },
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "def bootstrap_entry("
+        },
+        {
+          "path": "frontend/src/panels/PanelFrame.tsx",
+          "kind": "contains",
+          "pattern": "bootstrapPort.current.postMessage("
         }
       ],
       "adr_evidence": [
@@ -1268,6 +1278,16 @@
           "path": "frontend/src/panels/sdk.test.ts",
           "kind": "contains",
           "pattern": "loads panel.sample.json and answers read fixtures without any host"
+        },
+        {
+          "path": "frontend/src/panels/PanelFrame.test.tsx",
+          "kind": "contains",
+          "pattern": "never transfers input to a document without the first context-bound bootstrap"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_entry_bootstrap_precedes_author_markup_and_is_document_specific"
         }
       ],
       "adr_alignment": "aligned",

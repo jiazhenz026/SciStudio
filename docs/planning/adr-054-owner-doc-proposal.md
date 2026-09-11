@@ -14,13 +14,13 @@ language_source: en
 Exact proposed patches for manager/owner review under #2293. These patches are
 text only: the owner-controlled files have not been edited. They retain ADR
 Proposed/spec Draft status, the null acceptance date and all D-only planned
-paths. Frontend surface movement is conditional on integrating A2's existing
-`frontend/src/panels/**` implementation before applying the proposal. The
+paths. The reviewed A2 chain now supplies the existing
+`frontend/src/panels/**` implementation for this surface movement. The
 MiniApp spec owns shared existing surfaces without claiming its D behavior.
-Artifact transport wording is conditional on integrating A2 host materialization
-and SDK blob disposal, then verifying its checks; no PDF browser parity is claimed.
+Artifact transport wording matches the reviewed A2 host materialization
+and SDK blob disposal implementation; no PDF browser parity is claimed.
 
-The bootstrap patch is conditional on finalized A1/A2 implementation and checks.
+The bootstrap patch matches A1 `acdb1376` and A2 `45e52e05` source.
 The agreed wire field is `ContextResponse.bootstrap_proof`; the proof remains
 backend-owned. No extra operation is added to the canonical SDK channel.
 
@@ -227,7 +227,7 @@ backend-owned. No extra operation is added to the canonical SDK channel.
    | `composite.slots` | slot names, types, and child references |
    | `collection.items` | a page of item references with types, and the next cursor |
 
-@@ -611,6 +612,16 @@
+@@ -611,6 +612,17 @@
    `Referrer-Policy: no-referrer`; their file-type allowlist MUST add `.html`,
    `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ttf`, `.otf`, and `.wasm` to today's
    set. No other API route may send permissive CORS headers.
@@ -235,6 +235,7 @@ backend-owned. No extra operation is added to the canonical SDK channel.
 +  `artifact.file` result uses a separate grant bound to one context-authorized
 +  target; the host validates the local grant route and consumes it with no
 +  redirects, enforcing a 100 MiB limit against declared size and streamed bytes.
++  Body consumption has its own 30-second deadline after response headers.
 +  It transfers the bytes over the context's MessageChannel. The SDK creates a
 +  frame-local blob URL, revokes the previous artifact URL on replacement and all
 +  remaining URLs on disposal. Context close aborts host transfers and revokes

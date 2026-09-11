@@ -111,8 +111,7 @@ TODO(#2293): Resolve strict FR-002 `core.*` reservation versus ADR-054 same-id
 core customization before claiming that customization path. The current parser
 reserves core ids. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2293.
 
-TODO(#2293): Recheck SDK/bootstrap/artifact contract anchors after the finalized
-A1/A2 dependency chain; land reviewed protected-document proposals and reconcile
+TODO(#2293): Land reviewed protected-document proposals and reconcile
 package-validator enforcement evidence before Phase A acceptance. Follow-up:
 https://github.com/jiazhenz026/SciStudio/issues/2293.
 
@@ -157,3 +156,26 @@ to its real definition. PV-09-008 now also cites the dedicated four-tier registr
 test. The proposed bootstrap wording records the A1/A2 agreed
 `ContextResponse.bootstrap_proof` and document-bound bootstrap channel; its
 implementation and final evidence remain conditional until those commits land.
+
+### Final Source And Proposal Verification
+
+Reviewed A1 `acdb1376` and A2 `45e52e05` are imported. The three docstring
+references identified above are removed in that source. The bootstrap proposal
+now matches the actual context proof, trusted entry prelude and retained
+original-document channel; artifact wording matches the host byte cap,
+independent 30-second body deadline and frame-local SDK blob lifecycle.
+PV-09-011 and PV-12-005 cite those implementation and regression-test anchors.
+
+Final focused table check: **10 errors, 5 warnings**, all unchanged legacy
+section 09/12 evidence. Final full table check: **105 errors, 14 warnings**,
+with the same eight added proposal-only ADR-049 index errors and two repaired
+baseline errors described above. There are no new panel code/test-anchor or
+inventory errors. These are failing checks with classified causes, not passes.
+
+The canonical reference generator passed again after the final dependency
+imports. `git apply --check` accepts the complete proposed patch, including all
+four protected documents. `git diff --check` passes. Per manager instruction,
+the full gate is not repeated before owner-controlled proposal application;
+its earlier failure remains recorded, and the manager must run the final
+integrated checks after that application. No CI, runtime-test execution, browser
+rendering or Phase A acceptance is claimed by this documentation slice.

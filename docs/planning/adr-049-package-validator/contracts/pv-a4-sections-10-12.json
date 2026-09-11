@@ -948,7 +948,7 @@
       "id": "PV-12-005",
       "section": "12_security_isolation",
       "title": "Panel static token serving confines files and preserves the identity seam",
-      "contract": "Only the literal /api/panels/t/ prefix authenticates its own tokens. Static tokens load only their mounted panel assets, SDK and libraries, not artifact bytes or guarded operations. Paths reject traversal, symlink escape and source-code suffixes; URLs preserve the mount prefix. Artifact reads use a distinct context-bound grant.",
+      "contract": "Only the literal /api/panels/t/ prefix authenticates its own tokens. Static tokens load only their mounted panel assets, SDK and libraries, not artifact bytes or guarded operations. Paths reject traversal, symlink escape and source-code suffixes; URLs preserve the mount prefix. Artifact reads use a distinct context-bound grant. The host consumes artifact grants under a 100 MiB streamed-byte cap and independent 30-second body deadline, transferring ArrayBuffer bytes through the canonical channel; the SDK creates frame-local blob URLs and revokes them on replacement/disposal. The frame cannot fetch grant URLs under connect-src none.",
       "status": "partial",
       "severity": "error",
       "environments": [
@@ -983,6 +983,21 @@
           "path": "src/scistudio/panels/contexts.py",
           "kind": "contains",
           "pattern": "def grant_artifact("
+        },
+        {
+          "path": "frontend/src/panels/artifact.ts",
+          "kind": "contains",
+          "pattern": "DEFAULT_PANEL_ARTIFACT_LIMIT = 100 * 1024 * 1024"
+        },
+        {
+          "path": "frontend/src/panels/readBody.ts",
+          "kind": "contains",
+          "pattern": "timeoutMs = 30000"
+        },
+        {
+          "path": "src/scistudio/panels/sdk/1/scistudio-panel.js",
+          "kind": "contains",
+          "pattern": "createObjectURL"
         }
       ],
       "adr_evidence": [
@@ -1002,6 +1017,21 @@
           "path": "tests/api/test_panel_security.py",
           "kind": "contains",
           "pattern": "def test_real_mounted_panel_routes_and_lifecycle"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_text_and_artifact_grant_separated_from_static_token"
+        },
+        {
+          "path": "frontend/src/panels/readBody.test.ts",
+          "kind": "contains",
+          "pattern": "times out and cancels a body that stalls after response headers"
+        },
+        {
+          "path": "frontend/src/panels/sdk.test.ts",
+          "kind": "contains",
+          "pattern": "creates frame-local artifact Blob URLs and revokes on replacement and dispose"
         }
       ],
       "adr_alignment": "aligned",
