@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Plot preview</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: rgb(var(--ss-ink, 40 33 24));
+        background: rgb(var(--ss-surface, 255 255 255));
+      }
+      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+      .surface { max-height: 78vh; overflow: auto; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; background: #fff; padding: 6px; }
+      .zoom { transform-origin: top left; }
+      .zoom img, .zoom canvas { display: block; width: 100%; }
+      .bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgb(var(--ss-ink, 40 33 24) / 0.7); flex-wrap: wrap; }
+      .bar .fmt { text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ss-ink, 40 33 24) / 0.5); }
+      .bar .spacer { margin-left: auto; }
+      button, select { font: inherit; cursor: pointer; }
+      .err { color: #b3261e; padding: 8px; }
+      .note { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.5); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap"><div id="root"></div></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

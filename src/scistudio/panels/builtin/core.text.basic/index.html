@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Text preview</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: rgb(var(--ss-ink, 40 33 24));
+        background: rgb(var(--ss-surface, 255 255 255));
+      }
+      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+      pre { max-height: 340px; overflow: auto; margin: 0; padding: 10px; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; background: rgb(var(--ss-surface, 255 255 255)); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+      .meta { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.55); }
+      .trunc { border: 1px solid #e6a23c; background: rgba(230,162,60,0.12); border-radius: 8px; padding: 6px 10px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+      button { font: inherit; cursor: pointer; }
+      .err { color: #b3261e; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap"><div id="root"></div></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

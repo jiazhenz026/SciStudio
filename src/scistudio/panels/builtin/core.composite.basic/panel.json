@@ -1,0 +1,10 @@
+{
+  "id": "core.composite.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["CompositeData"],
+  "name": "Composite",
+  "description": "Slot inventory of a composite object; open drills into a slot (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

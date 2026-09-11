@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Array preview</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: rgb(var(--ss-ink, 40 33 24));
+        background: rgb(var(--ss-surface, 255 255 255));
+      }
+      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+      .info { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 8px; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; }
+      .info b { font-weight: 600; }
+      table.heat { border-collapse: collapse; font-size: 10px; font-variant-numeric: tabular-nums; }
+      table.heat th { position: sticky; background: rgb(var(--ss-ink, 40 33 24) / 0.08); padding: 1px 4px; font-weight: normal; color: rgb(var(--ss-ink, 40 33 24) / 0.5); }
+      table.heat th.corner { left: 0; top: 0; z-index: 2; }
+      table.heat thead th { top: 0; }
+      table.heat tbody th { left: 0; z-index: 1; }
+      table.heat td { padding: 1px 4px; text-align: right; white-space: nowrap; }
+      td.nonfinite { font-style: italic; color: #b3261e; }
+      .grid { max-height: 340px; overflow: auto; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; background: rgb(var(--ss-surface, 255 255 255)); }
+      .legend { display: flex; align-items: center; gap: 8px; font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
+      .legend .ramp { height: 8px; flex: 1; border-radius: 4px; }
+      .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 11px; }
+      .controls label { display: inline-flex; align-items: center; gap: 4px; }
+      .minimap { display: inline-flex; flex-direction: column; gap: 2px; font-size: 9px; color: rgb(var(--ss-ink, 40 33 24) / 0.55); }
+      .minimap canvas { border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.15); image-rendering: pixelated; cursor: crosshair; }
+      input[type="number"] { width: 5em; }
+      button { font: inherit; cursor: pointer; }
+      .err { color: #b3261e; padding: 8px; }
+      .note { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.5); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap"><div id="root"></div></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

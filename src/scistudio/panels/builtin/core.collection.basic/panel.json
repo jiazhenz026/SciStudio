@@ -1,0 +1,10 @@
+{
+  "id": "core.collection.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Collection"],
+  "name": "Collection",
+  "description": "Item cards for a collection, paged to every item; open drills into an item (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

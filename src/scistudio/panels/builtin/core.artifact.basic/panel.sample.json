@@ -1,0 +1,8 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-artifact", "kind": "data_ref", "recorded_type": "Artifact" },
+  "reads": {
+    "artifact.info": { "name": "report.bin", "mime_type": "application/octet-stream", "size": 20480, "sampled": false, "truncated": false, "complete": true },
+    "artifact.file": { "name": "report.bin", "mime_type": "application/octet-stream", "url": "data:application/octet-stream;base64,U2NpU3R1ZGlv", "sampled": false, "truncated": false, "complete": true }
+  }
+}

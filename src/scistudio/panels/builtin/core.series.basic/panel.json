@@ -1,0 +1,10 @@
+{
+  "id": "core.series.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Series"],
+  "name": "Series",
+  "description": "Line chart and table of a Series, with skipped NaN/inf points surfaced (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

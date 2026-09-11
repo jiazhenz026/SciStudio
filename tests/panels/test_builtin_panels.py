@@ -1,0 +1,135 @@
+"""Discovery, descriptor, and routing-shadow coverage for the core-tier panels.
+
+These panels (ADR-054 Phase B, T-014 / FR-040) rewrite the nine compiled core
+previewers as core-tier HTML panels. Discovery must find them, they must carry
+the same ids as the legacy ``core_previewer_specs`` so they shadow them in one
+namespace (FR-007), and each must reference only local assets (FR-042).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scistudio.panels.descriptor import parse_descriptor
+from scistudio.panels.files import validate_external_references
+from scistudio.panels.registry import discover_panels
+from scistudio.previewers.fallbacks import core_previewer_specs
+from scistudio.previewers.models import OwnerKind
+from scistudio.previewers.registry import PreviewerRegistry
+
+BUILTIN_ROOT = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "panels" / "builtin"
+
+# The core previewer id -> declared preview type. ``PlotArtifact`` is a synthetic
+# catalog type (plot artifacts carry type_chain ["DataObject", "PlotArtifact"]),
+# not a TypeRegistry type, so its panel is validated with an extended type set.
+EXPECTED_TYPES = {
+    "core.dataframe.basic": "DataFrame",
+    "core.array.basic": "Array",
+    "core.series.basic": "Series",
+    "core.text.basic": "Text",
+    "core.artifact.basic": "Artifact",
+    "core.composite.basic": "CompositeData",
+    "core.collection.basic": "Collection",
+    "core.plot.basic": "PlotArtifact",
+    "core.base.fallback": "DataObject",
+}
+# Panels whose declared type is a real TypeRegistry type or a core sentinel, so
+# they are discovered by the live registry today.
+REGISTRY_DISCOVERABLE = {pid for pid in EXPECTED_TYPES if pid != "core.plot.basic"}
+
+
+def _registered_types() -> set[str]:
+    from scistudio.core.types.registry import TypeRegistry
+
+    types = TypeRegistry()
+    types.scan_all()
+    return set(types.all_types().keys())
+
+
+def test_every_core_previewer_has_a_builtin_panel_folder() -> None:
+    for pid in EXPECTED_TYPES:
+        folder = BUILTIN_ROOT / pid
+        assert (folder / "panel.json").is_file(), f"{pid} missing panel.json"
+        assert (folder / "index.html").is_file(), f"{pid} missing index.html"
+        assert (folder / "panel.sample.json").is_file(), f"{pid} missing panel.sample.json (#2294)"
+
+
+@pytest.mark.parametrize("pid", sorted(EXPECTED_TYPES))
+def test_descriptor_parses_as_core_preview_panel(pid: str) -> None:
+    # PlotArtifact is only accepted with an extended type set (see module docstring).
+    types = _registered_types() | {"PlotArtifact"}
+    descriptor, notes = parse_descriptor(
+        BUILTIN_ROOT / pid, owner_kind=OwnerKind.CORE, owner_name="scistudio", registered_types=types
+    )
+    assert descriptor.id == pid
+    assert descriptor.api_version == "1.0"
+    assert descriptor.contexts == ("preview",)
+    assert descriptor.types == (EXPECTED_TYPES[pid],)
+    assert descriptor.entry == "index.html"
+    # No blocking notes; unpinned-CDN informational notes are not expected either.
+    assert [n for n in notes if "unpinned" in n] == []
+
+
+@pytest.mark.parametrize("pid", sorted(EXPECTED_TYPES))
+def test_panel_references_only_local_assets(pid: str) -> None:
+    # FR-042: raises on any off-allowlist external reference.
+    assert validate_external_references(BUILTIN_ROOT / pid) == []
+
+
+@pytest.mark.parametrize("pid", sorted(EXPECTED_TYPES))
+def test_sample_is_well_formed(pid: str) -> None:
+    sample = json.loads((BUILTIN_ROOT / pid / "panel.sample.json").read_text())
+    assert sample["context"] == "preview"
+    assert isinstance(sample.get("input"), dict)
+    assert isinstance(sample.get("reads"), dict) and sample["reads"], f"{pid} sample needs reads"
+    valid_ops = {
+        "metadata",
+        "table.page",
+        "table.xy",
+        "array.plane",
+        "array.tile",
+        "series.points",
+        "text.chunk",
+        "artifact.info",
+        "artifact.file",
+        "composite.slots",
+        "collection.items",
+    }
+    assert set(sample["reads"]).issubset(valid_ops), f"{pid} sample has unknown read ops"
+
+
+def test_base_fallback_keeps_the_lowest_priority() -> None:
+    descriptor, _ = parse_descriptor(
+        BUILTIN_ROOT / "core.base.fallback",
+        owner_kind=OwnerKind.CORE,
+        owner_name="scistudio",
+        registered_types=_registered_types(),
+    )
+    assert descriptor.priority == -100
+
+
+def test_registry_panels_discovered_as_core_tier() -> None:
+    registry = discover_panels()
+    for pid in REGISTRY_DISCOVERABLE:
+        panel = registry.get(pid)
+        assert panel is not None, f"{pid} not discovered"
+        assert panel.owner_kind is OwnerKind.CORE
+        assert "preview" in panel.contexts
+
+
+def test_panels_shadow_the_legacy_core_previewers() -> None:
+    # FR-007: a panel and a legacy previewer sharing an id at the same tier resolve
+    # to the panel; the legacy spec is shadowed.
+    legacy_ids = {spec.previewer_id for spec in core_previewer_specs()}
+    assert REGISTRY_DISCOVERABLE.issubset(legacy_ids)
+
+    preview = PreviewerRegistry()
+    preview.load_core()
+    preview.install_panels(discover_panels())
+    for pid in REGISTRY_DISCOVERABLE:
+        winners = [s for s in preview.all_specs() if s.previewer_id == pid]
+        assert winners, f"{pid} not routable"
+        assert all(getattr(s, "panel", None) for s in winners), f"{pid} legacy spec not shadowed by panel"

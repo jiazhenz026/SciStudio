@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Table preview</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: rgb(var(--ss-ink, 40 33 24));
+        background: rgb(var(--ss-surface, 255 255 255));
+      }
+      .wrap { padding: 8px; }
+      table { border-collapse: collapse; min-width: 100%; text-align: left; font-size: 11px; }
+      th, td { white-space: nowrap; padding: 3px 10px; border-bottom: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.08); }
+      th { position: sticky; top: 0; background: rgb(var(--ss-surface, 255 255 255)); cursor: pointer; user-select: none; font-weight: 600; }
+      .scroll { max-height: 360px; overflow: auto; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; }
+      .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 0; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
+      button { font: inherit; cursor: pointer; }
+      button:disabled { cursor: not-allowed; opacity: 0.5; }
+      .err { color: #b3261e; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap"><div id="root"></div></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>

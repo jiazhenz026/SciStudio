@@ -1,0 +1,23 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-dataframe", "kind": "data_ref", "recorded_type": "DataFrame" },
+  "reads": {
+    "table.page": {
+      "columns": ["id", "name", "value"],
+      "rows": [
+        { "id": 1, "name": "alpha", "value": 0.5 },
+        { "id": 2, "name": "beta", "value": 1.25 },
+        { "id": 3, "name": "gamma", "value": -0.75 }
+      ],
+      "total": 3,
+      "total_rows": 3,
+      "page": 1,
+      "page_size": 50,
+      "total_pages": 1,
+      "sort": { "by": null, "direction": null },
+      "sampled": false,
+      "truncated": false,
+      "complete": true
+    }
+  }
+}

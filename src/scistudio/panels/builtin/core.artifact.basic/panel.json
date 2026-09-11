@@ -1,0 +1,10 @@
+{
+  "id": "core.artifact.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Artifact"],
+  "name": "Artifact",
+  "description": "Name, MIME type, size, and safe inline display of an artifact via artifact.file (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}
