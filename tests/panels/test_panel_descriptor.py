@@ -72,6 +72,22 @@ def test_python_and_traversal_and_symlink_escape_refused(panel_runtime, tmp_path
     assert panel.has_python
 
 
+def test_resolve_panel_file_confines_nested_assets_and_symlinked_directories(tmp_path):
+    root = tmp_path / "panel"
+    (root / "assets").mkdir(parents=True)
+    nested = root / "assets" / "app.js"
+    nested.write_text("export const x = 1;")
+    # A legitimate nested asset resolves to the confined file.
+    assert resolve_panel_file(root, "assets/app.js") == nested.resolve()
+    # A symlinked directory that leaves the root is rejected by containment.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "leak.js").write_text("export const y = 2;")
+    (root / "away").symlink_to(outside)
+    with pytest.raises(ValueError):
+        resolve_panel_file(root, "away/leak.js")
+
+
 def test_external_reference_allowlist_and_pin_diagnostic(tmp_path):
     (tmp_path / "index.html").write_text('<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>')
     assert validate_external_references(tmp_path) == []

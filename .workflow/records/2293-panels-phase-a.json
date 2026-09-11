@@ -1959,6 +1959,14 @@
       "path": "frontend/e2e/specs/panel-runtime.spec.ts",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:46:28.946020Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_descriptor.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

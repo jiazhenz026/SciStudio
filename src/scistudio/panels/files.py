@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
@@ -60,10 +61,14 @@ def resolve_panel_file(root: Path, relative: str) -> Path:
     parts = PurePosixPath(relative)
     if parts.is_absolute() or ".." in parts.parts:
         raise ValueError("FR-026: asset path escapes confinement root")
-    root = Path(root).resolve()
-    candidate = (root / relative).resolve()
-    if not candidate.is_relative_to(root):
+    # Normalise both sides and confine the join with commonpath. This resolves
+    # symlinks and rejects any escape before the path reaches the filesystem;
+    # it is also a containment barrier static path-injection analysis models.
+    root_real = os.path.realpath(root)
+    resolved = os.path.realpath(os.path.join(root_real, relative))
+    if os.path.commonpath((root_real, resolved)) != root_real:
         raise ValueError("FR-026: asset symlink escapes confinement root")
+    candidate = Path(resolved)
     if candidate.suffix.lower() not in ASSET_SUFFIXES:
         raise ValueError("FR-026: file type is not a panel asset")
     if not candidate.is_file():
