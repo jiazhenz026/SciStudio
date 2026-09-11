@@ -97,13 +97,97 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T11:00:49.531874Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9832d83b2fe5de8996ce6af4453f84ef3d81f27d4ef722a53d9bbd609b208ba1",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T11:00:49.560009Z",
+      "command": "ruff format tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9406ca2e1d3fdb5141a74a70c5b694c2e1c6e3b4434aae41fc27ee26c4144d4d",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T11:00:59.816732Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d564c2f121372d5e900695fb90097f1cdff1cb9cd9b1b4d778eee5415f864a11",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T11:00:59.837889Z",
+      "command": "ruff check tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1b850e01033131283cbb6db9974685628ae5ce58d77949a3d406d203d5de795d",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T11:01:18.025821Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/test_user_docs.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9f1f9e424ffa6a0d1c68e220ff6ce90aba2fd5caa35919db0921afd3cd0cfa2c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "9f0513cdde5624b5978dd851ede88808ce83674e",
+    "sha": "610bc39cb339060e36c79a90380daddc23c3b0e4",
     "shas": [
-      "9f0513cdde5624b5978dd851ede88808ce83674e"
+      "610bc39cb339060e36c79a90380daddc23c3b0e4"
     ],
     "trailers": []
   },
@@ -143,6 +227,11 @@
       "at": "2026-09-11T11:00:11.403843Z",
       "owner_directive": "Verify Learning Center Reading against the shipped guide. Update its published navigation expectation and add an HTTP regression proving obsolete project-local docs cannot replace the current packaged guide. No runtime change is needed because both site and reader use the same packaged source.",
       "reason": "Owner requests verification that Learning Center reads the updated guide."
+    },
+    {
+      "at": "2026-09-11T11:01:50.861753Z",
+      "owner_directive": "All 30 reader API tests passed, including navigation parity and byte-for-text equality of the four updated guide pages with obsolete copies in an opened project. Packaging includes the entire guide tree and site staging copies the same tree. User visibility requires publishing this build and updating/restarting the installed app.",
+      "reason": "Learning Center consistency verified through its real HTTP endpoints."
     }
   ],
   "docs_events": [
@@ -998,6 +1087,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.105497Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.123996Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.142360Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.160360Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.177928Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.195751Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.214663Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.233623Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.257592Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.277558Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:18.302093Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.733943Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.751425Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.768733Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.785425Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.803712Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.821572Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.838635Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.857506Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.880036Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.897946Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:01:51.918931Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1010,7 +1275,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "8f90db3ef36a2101c926cbef36e6ce09d9db706f",
     "base_sha": "8f90db3ef",
     "changed_files": [
       ".workflow/records/2290-ai-app-guide.json",
@@ -1019,11 +1284,12 @@
       "src/scistudio/_user_guide/README.md",
       "src/scistudio/_user_guide/ai-assistant.md",
       "src/scistudio/_user_guide/getting-started.md",
-      "src/scistudio/_user_guide/using-with-ai-apps.md"
+      "src/scistudio/_user_guide/using-with-ai-apps.md",
+      "tests/api/test_user_docs.py"
     ],
-    "diff_fingerprint": "sha256:30fba0a507f368b57200ffdaf7ba784de1933e8d5364f016e721d13d130b8479",
+    "diff_fingerprint": "sha256:3c10e2ace5d4a8ffbb0ede0da405768b789b1772ad7e0ef950ce8b0044c451c0",
     "head": "HEAD",
-    "head_sha": "8b3a9f247",
+    "head_sha": "610bc39cb",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -1033,8 +1299,8 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 4,
-      "test": 0,
+      "sentrux": 5,
+      "test": 1,
       "workflow_ci": 0
     }
   },
@@ -1120,6 +1386,22 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T11:01:18.302127Z",
+      "diff_fingerprint": "sha256:3c10e2ace5d4a8ffbb0ede0da405768b789b1772ad7e0ef950ce8b0044c451c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T11:01:51.918963Z",
+      "diff_fingerprint": "sha256:3c10e2ace5d4a8ffbb0ede0da405768b789b1772ad7e0ef950ce8b0044c451c0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "2290-ai-app-guide",
@@ -1128,7 +1410,10 @@
     "admin_labels": [],
     "checks": [
       "commit_hygiene",
-      "full_audit"
+      "format_check",
+      "full_audit",
+      "lint_format",
+      "python_tests"
     ],
     "docs": [
       "docs_required_or_na"
@@ -1180,6 +1465,14 @@
     },
     {
       "at": "2026-09-11T11:00:12.162931Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:00:46.351023Z",
       "class": null,
       "kind": "path",
       "path": "tests/api/test_user_docs.py",
