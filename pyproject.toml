@@ -33,7 +33,7 @@ dependencies = [
     "pywinpty>=2.0; sys_platform == 'win32'",  # ADR-034 Phase 1.2: PTY-based terminal embedding for claude/codex TUIs
     "platformdirs>=4.2",  # ADR-037 desktop/user-scoped config, cache, logs, and plugin directories
     "packaging>=24.0",  # Desktop package installer parses plugin dependency requirements.
-    "fastmcp>=3.1,<4",  # ADR-040 §3.1: FastMCP migration — replaces hand-rolled JSON-RPC MCP server with FastMCP 3.x.
+    "fastmcp>=3.1,<5",  # ADR-040 §3.1: FastMCP migration — replaces hand-rolled JSON-RPC MCP server with FastMCP 3.x.
     "matplotlib>=3.8",  # ADR-048 SPEC 2: Python plot jobs import matplotlib in the core plot runtime.
     "pandas>=2.2",  # ADR-048 SPEC 2: Python plot jobs open DataFrame/Series inputs with pandas.
     "openpyxl>=3.1",  # #1810: core DataFrame/Series .xlsx read/write (pandas Excel engine).
