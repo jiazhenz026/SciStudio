@@ -1,0 +1,56 @@
+{
+  "base_ref": null,
+  "branch": "docs/2303-enterprise-support-spec",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/specs/adr-055-enterprise-support.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2303,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner 2026-09-11: write the open-source-side ADR-055 Spec 4 listing every change the public repository makes for the private enterprise lab deployment (identity seam summary, capability-gated enterprise UI in the OSS frontend, stdio MCP adapter over the WebMCP bridge, PyPI publishing, panel token registration, server-mode AI chat hiding); remove the old lab-deployment spec once PR #2292 merges.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2303-docs-2303-enterprise-support-spec",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "68368b08-788d-458b-9ef4-d9227771d643",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T08:41:41.653545Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "docs-only spec; no behavior change",
+      "verified_in_diff": null
+    }
+  ]
+}
