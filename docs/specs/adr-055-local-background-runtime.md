@@ -2,9 +2,9 @@
 spec_id: adr-055-local-background-runtime
 title: "ADR-055 Spec 3 — Local Startup Modes And The Background Runtime"
 status: Draft
-feature_branch: docs/2263-adr-055-specs
+feature_branch: feat/2280-local-background-runtime
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode. Amended 2026-09-11 by the audit fixes on PR #2284 and the owner decision that external-AI mode quits when its service stops, crashes, or fails while no window is open."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -54,8 +54,11 @@ planned_governs:
   excludes: []
 tests:
   - desktop/test/background-mode.test.js
+  - desktop/test/main-orchestration.test.js
   - desktop/test/menu.test.js
   - desktop/test/bootstrap.test.js
+  - desktop/test/shell-known-good.test.js
+  - tests/scripts/test_ota_publish.py
 acceptance_source: adr
 language_source: en
 ---
@@ -223,9 +226,11 @@ line.
 1. **Given** a running background backend, **When** an update is applied,
    **Then** the backend exits before the relaunch, the relaunched app starts in
    external AI mode, and the new backend reports the new build.
-2. **Given** a killed backend, **When** the app is resident, **Then** the
-   connection window and tray show the crashed status and the restart control
-   restores readiness.
+2. **Given** a killed backend, **When** a window is open, **Then** the
+   connection window shows the crashed status with a restart control that
+   restores readiness, and the tray shows the crashed status.
+3. **Given** a killed backend, **When** no window is open, **Then** the app
+   quits (owner decision 2026-09-11; see FR-008).
 
 ### Edge Cases
 
@@ -234,20 +239,30 @@ line.
   the backend's ready line (the bound port), never the remembered one.
 - The address uses `127.0.0.1`, the only interface the backend binds, rather
   than `localhost`, which some HTTP clients resolve to `::1` first.
-- The splash is closed while it is asking: that is a quit, and no backend is
-  started. If the picker cannot answer (a script error), the app falls back to
-  the desktop flow rather than refusing to start.
+- The splash is closed, or the app is quit, while the picker is asking: that is
+  a quit, and no backend is started. The quit also releases the shell-OTA boot
+  marker (FR-014), so a working patched shell is not quarantined by it. If the
+  splash fails to load, takes longer than 15 s, or has no working picker, the
+  app falls back to the desktop flow rather than refusing to start.
 - Ready-line timeout (existing 120 s) or HTTP-readiness timeout in external AI
   mode: the connection window shows "Failed to start" with the error, a restart
-  action, and a Show Logs button.
+  action, and a Show Logs button. A backend that exits during the readiness wait
+  fails at once with its exit status, and Restart works immediately.
 - Machine sleep/wake with a resident app: no action; the connection window
   re-validates the service on focus and shows "Not responding" when a running
   backend stops answering.
-- The service is stopped while a desktop window is attached to it: the app asks
-  for confirmation first, because that window stops working.
-- External AI mode with the service stopped, crashed, or failed and every window
-  closed: the app quits, since it has no backend left to own and, on a Linux
-  desktop without a tray host, would otherwise be invisible.
+- The service is stopped, or Stop and Quit is chosen, while a desktop window is
+  attached to it: the app asks for confirmation first, because that window
+  stops working.
+- External AI mode with no window open: when the service stops, crashes, or
+  fails -- whether every window was already closed, or a Stop was still in
+  progress when the connection window closed -- the app quits (owner decision
+  2026-09-11), since it has no backend left to own and, on a Linux desktop
+  without a tray host, would otherwise be invisible. The rule is re-evaluated on
+  every service status change, not only when the last window closes.
+- macOS: opening the running app again from Finder or the Dock activates the
+  existing process instead of starting a second one, so the running app routes
+  the `activate` event like a second launch (FR-006, FR-011).
 - Two OS users on one machine: per-user userData, port memory, and
   single-instance locks keep instances separate (existing behavior, unchanged).
 
@@ -281,13 +296,22 @@ line.
   a desktop window to the running backend (external AI running, desktop
   requested), focus the desktop window (desktop running), or switch the running
   desktop instance to external AI mode (desktop running, external AI requested).
-  Duplicate backends MUST NOT be spawned.
+  Duplicate backends MUST NOT be spawned. On macOS, where reopening the app
+  activates the running process instead, the `activate` event MUST be routed the
+  same way, except that it never switches a desktop session to external AI mode.
 - **FR-007**: Every relaunch (mandatory OTA, optional OTA, package-update) MUST
-  stop the backend, the background instance included, and wait for it to exit
-  (bounded) before relaunching, and MUST relaunch in the running mode.
-- **FR-008**: Backend crash or death while the app is resident MUST surface in
-  the connection window and tray as a crashed status with a restart action;
-  restart MUST reuse the readiness chain.
+  stop the backend, the background instance included, and wait for it -- and for
+  any backend a Stop already signalled -- to actually exit before relaunching,
+  and MUST relaunch in the running mode. On macOS and Linux, a backend still
+  running 5 s after SIGTERM MUST be sent SIGKILL; liveness is judged by the
+  process's exit status, never by Node's `killed` flag, which only records that a
+  signal was sent. The wait is bounded at 15 s as a last resort.
+- **FR-008**: Backend crash or death in external AI mode MUST surface, while a
+  window is open, in the connection window as a crashed status with a restart
+  action, and in the tray as the crashed status; restart MUST reuse the
+  readiness chain. With no window open, the app MUST quit instead (owner
+  decision 2026-09-11, on AU1 P2-3 / AU2 P2-1): a service that stops, crashes, or
+  fails while no window is open ends the app.
 - **FR-009**: Withdrawn by owner decision 3 (#2280). There is no watchdog
   opt-out; `scistudio gui` is unchanged.
 - **FR-010**: The connection window MUST present the address of the backend's
@@ -296,15 +320,24 @@ line.
   alone is the working URL. Loopback binding stays `127.0.0.1` and CORS stays
   restrictive.
 - **FR-011**: All behavior MUST ship on Windows, macOS, and Linux; per-platform
-  differences are confined to those named in this spec.
+  differences are confined to those named in this spec: the macOS template tray
+  image and `activate` routing, the Windows tray left-click, the Windows
+  `taskkill` stop versus the POSIX SIGTERM/SIGKILL stop, and reaching the
+  instance by relaunch on a Linux desktop without a tray host.
 - **FR-012**: The tray icon MUST exist in external AI mode only. Its menu MUST
   offer: service status, open connection window, copy address, open in desktop
   mode, the Startup Mode choice, and stop and quit. macOS MUST use a template
   (monochrome) image, and the Tray object MUST be held by a strong reference.
 - **FR-013**: In external AI mode the shell MUST record itself as known-good
-  once the connection window is proven (loaded, sandboxed preload exposed its
-  bridge) and the backend is running, so the shell-OTA crash-loop guard does not
-  quarantine a working patched shell in a mode with no main window.
+  once the connection window is proven -- its page sent its first action over
+  IPC, which takes the page script, the sandboxed preload, and the IPC handler
+  all working -- and the backend is running, so the shell-OTA crash-loop guard
+  does not quarantine a working patched shell in a mode with no main window.
+- **FR-014**: A user-initiated quit (a closed splash, Cmd+Q, Stop and Quit)
+  after the launch-mode picker rendered MUST release the shell-OTA boot marker,
+  unless a shell fault was recorded (#2179). A shell that fails before the
+  picker renders, or that crashes (no quit handler runs), MUST keep the marker,
+  so the crash-loop guard still quarantines it.
 
 ## 4. Implementation Plan
 
@@ -312,18 +345,25 @@ line.
 
 **Decision logic** lives as pure functions in `desktop/background-mode.js`
 (the `runtime-port.js` precedent): the persisted preference shape, startup-mode
-resolution, relaunch arguments, second-instance routing, the `window-all-closed`
-verdict per mode and platform, service-status transitions, the bound address,
-and the connection-window view. `desktop/main.js` gathers facts and acts.
+resolution, relaunch arguments, second-instance and `activate` routing, the
+`window-all-closed` verdict per mode and its re-evaluation on status changes,
+process liveness, the boot-marker release rule, service-status transitions, the
+bound address, and the connection-window view. `desktop/main.js` gathers facts
+and acts; `desktop/test/main-orchestration.test.js` drives the real `main.js`
+through those actions.
 
 **Mode choice.** The preference lives in `userData/launch-mode.json` as
 `{ version: 1, mode, askAtLaunch }`; `mode` is the last pick and preselects the
 picker. The picker runs on the splash before the mandatory-update check, so an
 update applied at startup relaunches straight into the chosen mode. The splash
 stays preload-free: `splash.html` exposes `__scistudioSplashPickMode()`, which
-returns a promise that `executeJavaScript` waits on. A relaunch carries the
-running mode as `--scistudio-launch-mode=<mode>`, which overrides both the
-picker and a remembered choice.
+returns a promise that `executeJavaScript` waits on. The picker counts as
+rendered once the splash confirms the function exists; a splash that fails to
+load, takes longer than 15 s, or has no picker falls back to the desktop flow.
+A quit after the picker rendered releases the boot marker from `before-quit`
+(FR-014). A relaunch carries the running mode as
+`--scistudio-launch-mode=<mode>`, which overrides both the picker and a
+remembered choice.
 
 **External AI mode.** After the update check, `main.js` creates the tray and the
 connection window, closes the splash, and runs `startRuntimeWithRollback` →
@@ -333,9 +373,12 @@ connection window (`connection.html` with the sandboxed `connection-preload.js`)
 renders the view the main process pushes over `scistudio:connection-state`, and
 sends actions over `scistudio:connection-action`: copy (main-process
 clipboard), open desktop window, stop, restart, show logs, set startup mode,
-stop and quit. Only the connection window's own webContents is answered. Its
-focus event re-probes the backend over HTTP. The backend's exit after readiness
-sets "Stopped" after an explicit stop and "Stopped unexpectedly" otherwise.
+stop and quit. Only the connection window's own webContents is answered, and
+the page's first action is the proof FR-013 vouches on. Its focus event
+re-probes the backend over HTTP. The backend's exit after readiness sets
+"Stopped" after an explicit stop and "Stopped unexpectedly" otherwise; an exit
+during the readiness wait ends that wait at once as "Failed to start". Stop and
+Stop and Quit both ask first while a desktop window is attached.
 
 **Tray.** `desktop/assets/tray.png` (+`@2x`) on Windows and Linux; the
 `trayTemplate.png` (+`@2x`) template image on macOS. Both are derived from the
@@ -345,8 +388,11 @@ is `menu.js`'s `buildTrayMenuTemplate`.
 **Window-closed semantics.** Desktop mode quits on `window-all-closed` on every
 platform, as before. External AI mode stays resident while its backend is
 starting, running, not responding, or stopping, and quits once the backend is
-stopped, crashed, or failed. On macOS a dock click reopens the connection
-window.
+stopped, crashed, or failed. The same rule is applied again on every service
+status change while no window is open (`quitOnServiceChange`, owner decision
+2026-09-11), so a stop or crash after the last window closed quits too. On
+macOS, `activate` (a dock click, or reopening the app from Finder) is routed
+like a second launch (`routeActivate`).
 
 **Single instance.** The app lock is unchanged. The second process passes the
 mode it would have started in (an explicit flag or a remembered choice; it quits
@@ -360,11 +406,15 @@ Mode radio submenu (Ask at Every Launch / Always Open the Desktop App / Always
 Run for External AI).
 
 **Relaunch.** The mandatory OTA, optional OTA, and package-update relaunches all
-go through `stopRuntimeAndRelaunch`: `stopRuntime`, wait for the backend to
-exit (bounded at 8 s; `stopRuntime`'s own SIGKILL escalation fires at 5 s),
-then `app.relaunch({ args })` with the running mode. Waiting lets the relaunched
-backend take the remembered port back, so the address an AI tool holds stays
-valid.
+go through `stopRuntimeAndRelaunch`: `stopRuntime`, wait for every backend that
+is still exiting to exit, then `app.relaunch({ args })` with the running mode.
+`stopRuntime` records each backend it signals until that backend exits, so a
+Stop already in flight is waited for too. On macOS and Linux it sends SIGKILL if
+the backend is still running 5 s after SIGTERM, judged by its exit status. The
+escalation used to test Node's `killed` flag, which turns true as soon as
+SIGTERM is sent, so it never fired. The wait is bounded at 15 s as a last
+resort. Waiting lets the relaunched backend take the remembered port back, so
+the address an AI tool holds stays valid.
 
 **Shell OTA.** Every new shell file — `background-mode.js`,
 `connection-preload.js`, `connection.html`, and the four tray images — is listed
@@ -388,8 +438,13 @@ no main window.
 | `scripts/ota_publish.py` | modify | `SHELL_FILES` lists the new shell files |
 | `desktop/test/background-mode.test.js` | create | Pure-logic coverage and cross-file contracts |
 | `desktop/test/menu.test.js` | modify | New File entries, Startup Mode radio, tray menu |
-| `desktop/test/bootstrap.test.js` | modify | Shell file lists, `__dirname`-relative files, relaunch helper, tray reference, background vouching |
+| `desktop/test/bootstrap.test.js` | modify | Shell file lists, every shipped module's requires and every page's assets, `__dirname`-relative files, relaunch helper, tray reference, boot-marker clear sites |
+| `desktop/test/main-orchestration.test.js` | create | Behavioural scenarios that drive the real `main.js` |
+| `desktop/test/harness/*.js` | create | Stubbed `electron`, Node fake backend, scenario runner for the orchestration tests |
+| `desktop/test/shell-known-good.test.js` | modify | Anchor the #2179 readiness check on the desktop boot path |
 | `tests/scripts/test_ota_publish.py` | modify | List parity and require/asset coverage for the published shell |
+| `docs/specs/desktop-shell-ota-hot-update.md` | modify | Section 6 shell list brought up to date |
+| `CHANGELOG.md` | modify | Unreleased entry |
 
 `src/scistudio/cli/main.py`, `src/scistudio/desktop/parent_watchdog.py`, and
 `desktop/runtime-port.js` are unchanged (owner decision 3).
@@ -408,11 +463,28 @@ no main window.
 ### 4.4 Verification Plan
 
 - `desktop/test/background-mode.test.js`: preference parsing and persistence
-  shape, startup resolution, relaunch round-trip, second-instance routing,
-  `window-all-closed` per mode and per platform, status transitions, the
-  connection view (address only while running), and the channel/action/mode
-  contracts shared with `connection-preload.js`, `connection.html`, and
-  `splash.html`.
+  shape, startup resolution, relaunch round-trip, second-instance and `activate`
+  routing, `window-all-closed` per mode and `quitOnServiceChange`, process
+  liveness, the boot-marker release rule, status transitions, the connection
+  view (address only while running), and the channel/action/mode contracts
+  shared with `connection-preload.js`, `connection.html`, and `splash.html`.
+- `desktop/test/main-orchestration.test.js`: the real `main.js`, driven through
+  a stubbed `electron` and a Node fake backend, one process per scenario.
+  - External AI start: no main window, and the address appears only after
+    readiness.
+  - The connection window: sender check, copy, second-instance reopen.
+  - Service control: stop, restart on the remembered port, crash with a window
+    open, attach, and stop confirmation.
+  - Quitting and relaunch: Stop and Quit confirmation, relaunch waiting for
+    exit, and quit when the service goes down with no window open.
+  - SIGKILL escalation, and an in-flight stop, against a backend that ignores
+    SIGTERM.
+  - Restart immediately after a death during readiness.
+  - Picker quit or close releasing the boot marker, a failure before the picker
+    and a preload fault keeping it (judged by `desktop/ota.js`'s own marker
+    functions), and a splash load failure falling back.
+  - Platform behaviour: macOS `activate` routing and the template image, and the
+    Windows tray left-click.
 - `desktop/test/menu.test.js`: the File entries, the Startup Mode radio group,
   and the tray menu (entries, enablement, actions).
 - `desktop/test/bootstrap.test.js` and `tests/scripts/test_ota_publish.py`:

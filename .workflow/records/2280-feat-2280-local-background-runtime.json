@@ -201,6 +201,11 @@
       "at": "2026-09-11T03:04:22.198934Z",
       "owner_directive": "Plan: T-001 desktop/background-mode.js pure logic (mode preference shape, startup-mode resolution, window-all-closed policy, second-instance routing, relaunch args, service status/view state) + unit tests; T-002 Windows lifetime verification via a Node-level repro (backstop only if the child survives); T-003 splash mode picker driven by executeJavaScript (no splash preload) + menu Startup Mode submenu and External AI connection entry; T-004 external-AI mode in main.js (existing startRuntimeWithRollback + readiness chain, no main window, tray + connection window, stop via stopRuntime, restart via readiness chain, crash surfaced); T-005 relaunch paths carry the running mode; T-006 shell file list parity (build.files and SHELL_FILES) and spec update. SpecKit N/A (spec already authored under #2263); ADR N/A (ADR-055 section 7 already governs; owner decisions recorded in #2280).",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T04:38:52.812300Z",
+      "owner_directive": "A2-fix1: fix AU1 P2-1 (picker quit leaves the shell boot marker), P2-2 (SIGKILL escalation + relaunch waits for real exit), P2-4 (behavioural main.js tests catching mutations M6-M10), P2-5 (CHANGELOG, owner decision 2026-09-11), and the fitting P3s; P2-3 residency after backend death is HELD for an owner decision",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
     }
   ],
   "docs_events": [
@@ -234,6 +239,22 @@
       "kind": "na",
       "path": null,
       "rationale": "no user guide page covers desktop launch modes today; the governing spec carries the behavior description",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T04:38:52.812356Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T04:38:52.812361Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-shell-ota-hot-update.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -912,7 +933,38 @@
   },
   "runtime": "claude-code:claude-opus-5",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:38:52.812325Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:38:52.812334Z",
+      "pattern": "docs/specs/desktop-shell-ota-hot-update.md",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:38:52.812341Z",
+      "pattern": "desktop/test/main-orchestration.test.js",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:38:52.812345Z",
+      "pattern": "desktop/test/harness/**",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:38:52.812348Z",
+      "pattern": "desktop/test/shell-known-good.test.js",
+      "reason": "A2-fix1 (audits AU1/AU2 of PR #2284): commit the fake-Electron harness as behavioural main.js tests (P2-4), a CHANGELOG entry per owner decision 2026-09-11 (P2-5), refresh the stale shell list in the shell-OTA spec section 6 (P3), and re-anchor shell-known-good.test.js on the desktop boot path (AU1 P3-2)"
+    }
+  ],
   "session_id": "e3b2e06f-d844-43d3-8f83-5c7fe0845501",
   "strictness_tier": 1,
   "task_kind": "feature",
@@ -946,6 +998,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T04:38:52.812366Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/main-orchestration.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T04:38:52.812369Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/shell-known-good.test.js",
       "rationale": null,
       "verified_in_diff": null
     }

@@ -281,15 +281,31 @@ def test_fake_desktop_covers_every_published_file(mod: ModuleType) -> None:
 
 
 def test_every_relative_require_of_the_shell_is_published(mod: ModuleType) -> None:
-    # #2280: a module main.js or menu.js requires that a patch does not carry
-    # crashes every patched launch before any window appears -- the failure the
-    # #2159 menu.js drift nearly shipped.
+    # #2280: a module the shell requires that a patch does not carry crashes
+    # every patched launch before any window appears -- the failure the #2159
+    # menu.js drift nearly shipped. Every published module is scanned, not only
+    # main.js and menu.js (AU1/AU2 P3-1).
     repo_root = Path(__file__).resolve().parents[2]
-    for name in ("main.js", "menu.js"):
+    modules = [name for name in mod.SHELL_FILES if name.endswith(".js")]
+    assert "background-mode.js" in modules and "ota.js" in modules
+    for name in modules:
         source = (repo_root / "desktop" / name).read_text(encoding="utf-8")
         for required in re.findall(r"""require\(["']\./([^"']+)["']\)""", source):
             file = required if required.endswith((".js", ".json")) else f"{required}.js"
             assert file in mod.SHELL_FILES, f"{name} requires ./{required}, which SHELL_FILES lacks"
+
+
+def test_every_asset_a_published_page_references_is_published(mod: ModuleType) -> None:
+    # #2280 (AU1/AU2 P3-1): a patched page resolves a relative src/href against
+    # the patch directory, so the asset has to travel with it -- the #2097
+    # broken splash logo, generalised to every published page.
+    repo_root = Path(__file__).resolve().parents[2]
+    pages = [name for name in mod.SHELL_FILES if name.endswith(".html")]
+    assert "connection.html" in pages and "splash.html" in pages
+    for name in pages:
+        source = (repo_root / "desktop" / name).read_text(encoding="utf-8")
+        for ref in re.findall(r'\b(?:src|href)="([^"#:]+)"', source):
+            assert ref in mod.SHELL_FILES, f"{name} references {ref}, which SHELL_FILES lacks"
 
 
 def test_snapshot_carries_the_tray_images(mod: ModuleType, tmp_path: Path) -> None:

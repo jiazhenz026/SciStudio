@@ -55,11 +55,21 @@ test("every file the shell loads from next to itself ships in the asar (#2280)",
   // from build.files crashes the installed app on launch; the same file missing
   // from SHELL_FILES crashes every patched launch (tests/scripts/
   // test_ota_publish.py pins the two lists together).
-  for (const name of ["main.js", "menu.js"]) {
+  // Every shipped module, not only main.js and menu.js (AU1/AU2 P3-1).
+  const shippedModules = pkg.build.files.filter((file) => file.endsWith(".js"));
+  assert.ok(shippedModules.includes("background-mode.js") && shippedModules.includes("ota.js"));
+  for (const name of shippedModules) {
     const source = read(name);
     for (const match of source.matchAll(/require\(["']\.\/([^"']+)["']\)/g)) {
       const file = match[1].endsWith(".js") || match[1].endsWith(".json") ? match[1] : `${match[1]}.js`;
       assert.ok(pkg.build.files.includes(file), `${name} requires ./${match[1]}, which build.files lacks`);
+    }
+  }
+  // Every file a shipped page references by relative path: a patched page
+  // resolves it against the patch directory (the #2097 broken-logo lesson).
+  for (const name of pkg.build.files.filter((file) => file.endsWith(".html"))) {
+    for (const match of read(name).matchAll(/\b(?:src|href)="([^"#:]+)"/g)) {
+      assert.ok(pkg.build.files.includes(match[1]), `${name} references ${match[1]}, which build.files lacks`);
     }
   }
   const main = read("main.js");
@@ -201,22 +211,34 @@ test("the loader records the boot attempt before requiring the shell", () => {
   assert.ok(recordAt < startAt, "recordBootAttempt must precede startShell");
 });
 
-test("the shell clears the boot marker only from the known-good path", () => {
+test("the shell clears the boot marker only from known-good, or from a user's quit after the picker", () => {
   // Clearing it anywhere else would make the marker mean "we tried" rather than
   // "we succeeded", and a crash-looping shell would never be refused.
-  // #2179 moved *when* that path runs -- it now waits for the renderer to paint
-  // rather than for the backend to answer -- but the marker must still be
-  // cleared from recordKnownGood and nowhere else.
+  // #2179 moved *when* the known-good path runs -- it now waits for the
+  // renderer to paint rather than for the backend to answer.
+  // #2280 (AU1 P2-1) adds exactly one more door: releaseBootMarkerOnQuit, run
+  // from before-quit, and only once the launch-mode picker rendered with no
+  // shell fault standing. A crash runs no quit handler, so it still leaves the
+  // marker. Every call site must sit in one of these two functions.
   const main = read("main.js");
-  const clearAt = main.indexOf("host().clearBootAttempt()");
-  assert.ok(clearAt > 0, "main.js must clear the marker");
-  const declAt = main.lastIndexOf("function recordKnownGood", clearAt);
-  assert.ok(declAt > 0 && declAt < clearAt, "the marker must be cleared from recordKnownGood");
-  assert.equal(
-    main.slice(declAt, clearAt).indexOf("\nfunction "),
-    -1,
-    "another function declaration sits between recordKnownGood and the clear"
+  const sites = [...main.matchAll(/host\(\)\.clearBootAttempt\(\)/g)].map((m) => m.index);
+  assert.ok(sites.length > 0, "main.js must clear the marker");
+  for (const at of sites) {
+    const declAt = main.lastIndexOf("\nfunction ", at);
+    const owner = main.slice(declAt + 1, main.indexOf("(", declAt));
+    assert.ok(
+      ["function recordKnownGood", "function releaseBootMarkerOnQuit"].includes(owner),
+      `the boot marker is cleared from ${owner}`
+    );
+  }
+  const releaseAt = main.indexOf("function releaseBootMarkerOnQuit()");
+  const release = main.slice(releaseAt, main.indexOf("\n}\n", releaseAt));
+  assert.match(
+    release,
+    /backgroundMode\.releasesBootMarkerOnQuit\(\{ pickerRendered, shellFaulted: Boolean\(shellFault\) \}\)/
   );
+  const beforeQuit = main.slice(main.indexOf('app.on("before-quit"'), main.indexOf('app.on("window-all-closed"'));
+  assert.match(beforeQuit, /releaseBootMarkerOnQuit\(\)/);
 });
 
 test("the loader never clears the marker on the refusal or load-failure paths", () => {

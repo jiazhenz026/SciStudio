@@ -62,9 +62,17 @@ const OTA_MANIFEST_TIMEOUT_MS = 8000;
 const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
 const OTA_MAX_REDIRECTS = 5;
 
-// #2280: how long a relaunch waits for the backend to exit before it goes
-// ahead anyway. stopRuntime's own SIGKILL escalation fires at 5 s.
-const RELAUNCH_STOP_TIMEOUT_MS = 8000;
+// #2280: stopRuntime escalates SIGTERM to SIGKILL after this long if the
+// backend is still running (POSIX; Windows uses `taskkill /T /F` at once).
+const STOP_ESCALATION_MS = 5000;
+// #2280: how long a relaunch waits for the backend to exit. The SIGKILL
+// escalation above ends a backend that ignored SIGTERM well inside it; the
+// bound exists only so a process the kernel cannot reap (stuck in
+// uninterruptible I/O) can never hang an update forever.
+const RELAUNCH_STOP_TIMEOUT_MS = 15000;
+// #2280: how long the splash may take to load before the launch-mode picker is
+// abandoned and the desktop flow starts instead.
+const SPLASH_PICKER_LOAD_TIMEOUT_MS = 15000;
 
 let mainWindow = null;
 let splashWindow = null;
@@ -92,9 +100,16 @@ let serviceState = {
 let serviceChild = null;
 let serviceStartInFlight = false;
 let stopRequested = false;
+// Set by the first action the connection page sends over IPC: proof that the
+// page script, its sandboxed preload and the IPC handler all work.
 let connectionBridgeReady = false;
 let backgroundShellVouched = false;
 let backgroundUpdateChecked = false;
+// #2280 (AU1 P2-1): set once the splash has rendered the launch-mode picker.
+let pickerRendered = false;
+// #2280: backends that were told to stop and have not exited yet. A relaunch
+// waits on every one of them, so a Stop that is still in flight counts too.
+const exitingRuntimeChildren = new Set();
 
 // #2097: facts injected by the frozen bootstrap loader (desktop/bootstrap.js).
 // Once this file runs from an OTA patch directory, `__dirname` no longer points
@@ -406,6 +421,24 @@ function recordKnownGood(build) {
     writeJsonAtomic(knownGoodPath(), { build });
   } catch (error) {
     safeError(`[scistudio] failed to record known-good build: ${error.message}`);
+  }
+}
+
+// #2280 (AU1 P2-1): the launch-mode picker is a pre-readiness stop the user can
+// end by quitting (Cmd+Q, or closing the splash). Without this, that quit left
+// the loader's boot marker set and the next launch quarantined a working
+// patched shell for good. Runs from before-quit only, so a crash -- which runs
+// no quit handler -- still leaves the marker; and releasesBootMarkerOnQuit
+// refuses while a shell fault stands (#2179) or before the picker rendered.
+// The host's clearBootAttempt is itself guarded by mayClearShellMarker.
+function releaseBootMarkerOnQuit() {
+  if (!backgroundMode.releasesBootMarkerOnQuit({ pickerRendered, shellFaulted: Boolean(shellFault) })) {
+    return;
+  }
+  try {
+    host().clearBootAttempt();
+  } catch (error) {
+    safeError(`[scistudio] failed to clear the shell boot marker on quit: ${error.message}`);
   }
 }
 
@@ -1293,9 +1326,14 @@ function probeHttp(url) {
   });
 }
 
-async function waitForHttpReady(url) {
+// #2280: `keepWaiting` lets a caller stop early -- the background service stops
+// polling as soon as its backend exits instead of spending the whole timeout.
+async function waitForHttpReady(url, keepWaiting = null) {
   const deadline = Date.now() + HTTP_READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    if (keepWaiting && !keepWaiting()) {
+      return;
+    }
     if (await probeHttp(url)) {
       return;
     }
@@ -1525,12 +1563,19 @@ function createWindow(url) {
 }
 
 function stopRuntime() {
-  if (!runtimeProcess || runtimeProcess.killed) {
+  if (!runtimeProcess) {
     return;
   }
 
   const child = runtimeProcess;
   runtimeProcess = null;
+  if (!backgroundMode.isChildRunning(child)) {
+    return;
+  }
+  exitingRuntimeChildren.add(child);
+  child.once("exit", () => {
+    exitingRuntimeChildren.delete(child);
+  });
 
   if (process.platform === "win32") {
     spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
@@ -1541,30 +1586,41 @@ function stopRuntime() {
   }
 
   child.kill("SIGTERM");
+  // #2280 (AU1/AU2 P2-2): escalate on liveness. The guard used to be
+  // `!child.killed`, but Node sets `killed` the moment SIGTERM is *sent*, so
+  // the escalation never fired and a backend that ignored SIGTERM kept running.
   setTimeout(() => {
-    if (!child.killed) {
+    if (backgroundMode.isChildRunning(child)) {
+      safeError(`[scistudio] runtime still running ${STOP_ESCALATION_MS} ms after SIGTERM; sending SIGKILL`);
       child.kill("SIGKILL");
     }
-  }, 5000).unref();
+  }, STOP_ESCALATION_MS).unref();
 }
 
-// #2280: stopRuntime, then wait (bounded) for the backend to actually exit. A
-// relaunch that raced the old backend would find the remembered port still
-// taken, come back on a new one, and invalidate the address an external AI
-// tool is holding.
+// #2280: stopRuntime, then wait for every backend that is still exiting --
+// including one an earlier Stop already signalled (AU2 P3-2) -- to actually
+// exit. A relaunch that raced the old backend would find the remembered port
+// still taken, come back on a new one, and invalidate the address an external
+// AI tool is holding. Resolves true once they have all exited, false if the
+// last-resort bound ran out first.
 function stopRuntimeAndWait(timeoutMs) {
-  const child = runtimeProcess;
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    stopRuntime();
-    return Promise.resolve();
+  stopRuntime();
+  const pending = [...exitingRuntimeChildren].filter((child) => backgroundMode.isChildRunning(child));
+  if (pending.length === 0) {
+    return Promise.resolve(true);
   }
   return new Promise((resolve) => {
-    const timer = setTimeout(resolve, timeoutMs);
-    child.once("exit", () => {
-      clearTimeout(timer);
-      resolve();
-    });
-    stopRuntime();
+    let remaining = pending.length;
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    for (const child of pending) {
+      child.once("exit", () => {
+        remaining -= 1;
+        if (remaining === 0) {
+          clearTimeout(timer);
+          resolve(true);
+        }
+      });
+    }
   });
 }
 
@@ -1574,7 +1630,10 @@ function stopRuntimeAndWait(timeoutMs) {
 // was running in rather than at the picker.
 async function stopRuntimeAndRelaunch() {
   isQuitting = true;
-  await stopRuntimeAndWait(RELAUNCH_STOP_TIMEOUT_MS);
+  const exited = await stopRuntimeAndWait(RELAUNCH_STOP_TIMEOUT_MS);
+  if (!exited) {
+    safeError(`[scistudio] the backend had not exited after ${RELAUNCH_STOP_TIMEOUT_MS} ms; relaunching anyway`);
+  }
   const args = backgroundMode.relaunchArgs(process.argv, launchMode);
   if (args) {
     app.relaunch({ args });
@@ -1650,10 +1709,16 @@ async function chooseLaunchMode() {
     safeLog(`[scistudio] launch mode ${decision.mode} (${decision.source})`);
     return decision.mode;
   }
-  const pick = await pickModeOnSplash(decision.suggested);
-  if (pick === null) {
+  const outcome = await pickModeOnSplash(decision.suggested);
+  if (outcome.kind === "closed") {
     return null;
   }
+  if (outcome.kind !== "picked") {
+    // The picker never became usable: fall back to today's flow rather than
+    // keep the app from starting.
+    return backgroundMode.MODES.DESKTOP;
+  }
+  const { pick } = outcome;
   writeModePreference(backgroundMode.preferenceAfterPick(pick));
   // The Startup Mode radio must reflect a fresh "don't ask again".
   installApplicationMenu();
@@ -1663,54 +1728,80 @@ async function chooseLaunchMode() {
 
 // Asks on the splash itself. splash.html's picker returns a promise that
 // executeJavaScript waits on, so the splash still needs no preload (#2068).
-// Resolves { mode, remember }; null when the splash was closed (a quit); and
-// the desktop flow when the answer is unusable, so a broken picker can never
-// keep the app from starting.
+// Resolves one of:
+//   { kind: "picked", pick }  - the user chose a mode
+//   { kind: "closed" }        - the splash was closed while asking (a quit)
+//   { kind: "unusable" }      - the splash failed to load, took too long, or
+//                               has no working picker; the caller starts the
+//                               desktop flow, so a broken picker can never keep
+//                               the app from starting (AU1 P3-4)
+// `pickerRendered` is set once the picker is confirmed on screen; see
+// releaseBootMarkerOnQuit.
 function pickModeOnSplash(suggested) {
   const splash = splashWindow;
-  const fallback = { mode: backgroundMode.MODES.DESKTOP, remember: false };
-  if (!splash || splash.isDestroyed()) {
-    return Promise.resolve(fallback);
+  if (!isOpen(splash)) {
+    return Promise.resolve({ kind: "unusable" });
   }
   safeLog("[scistudio] splash: asking for the launch mode");
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (value) => {
+    let loadTimer = null;
+    const finish = (outcome) => {
       if (settled) {
         return;
       }
       settled = true;
+      clearTimeout(loadTimer);
       splash.removeListener("closed", onClosed);
-      resolve(value);
+      resolve(outcome);
     };
-    const onClosed = () => finish(null);
+    const onClosed = () => finish({ kind: "closed" });
     splash.once("closed", onClosed);
+    const giveUp = (reason) => {
+      if (!settled) {
+        safeError(`[scistudio] launch-mode picker unavailable (${reason}); starting the desktop app`);
+      }
+      finish({ kind: "unusable" });
+    };
 
-    const ask = () => {
-      if (splash.isDestroyed()) {
-        finish(null);
+    const ask = async () => {
+      clearTimeout(loadTimer);
+      if (settled || splash.isDestroyed()) {
         return;
       }
+      const present = await splash.webContents
+        .executeJavaScript("typeof window.__scistudioSplashPickMode === 'function'", true)
+        .catch(() => false);
+      if (settled) {
+        return;
+      }
+      if (present !== true) {
+        giveUp("the splash has no picker");
+        return;
+      }
+      pickerRendered = true;
       splash.webContents
         .executeJavaScript(`window.__scistudioSplashPickMode(${JSON.stringify(suggested)})`, true)
         .then((raw) => {
           const pick = backgroundMode.parseModePick(raw);
           if (!pick) {
-            safeError("[scistudio] the splash returned no usable launch mode; starting the desktop app");
+            giveUp("the splash returned no usable launch mode");
+            return;
           }
-          finish(pick || fallback);
+          finish({ kind: "picked", pick });
         })
         .catch((error) => {
           if (splash.isDestroyed()) {
-            finish(null);
+            finish({ kind: "closed" });
             return;
           }
-          safeError(`[scistudio] launch-mode picker failed; starting the desktop app: ${error.message}`);
-          finish(fallback);
+          giveUp(error.message);
         });
     };
     if (splash.webContents.isLoading()) {
       splash.webContents.once("did-finish-load", ask);
+      splash.webContents.once("did-fail-load", () => giveUp("the splash failed to load"));
+      loadTimer = setTimeout(() => giveUp("the splash did not load in time"), SPLASH_PICKER_LOAD_TIMEOUT_MS);
     } else {
       ask();
     }
@@ -1740,6 +1831,11 @@ function handleSecondInstance(argv, additionalData) {
     mainWindowOpen: isOpen(mainWindow)
   });
   safeLog(`[scistudio] second launch (requested ${requestedMode || "no mode"}): ${route}`);
+  applyInstanceRoute(route);
+}
+
+// Acts on a routeSecondInstance / routeActivate verdict.
+function applyInstanceRoute(route) {
   if (route === "focus-main-window") {
     revealWindow(mainWindow);
   } else if (route === "show-connection-window") {
@@ -1748,7 +1844,7 @@ function handleSecondInstance(argv, additionalData) {
     openDesktopWindow();
   } else if (route === "promote-to-external-ai") {
     promoteToExternalAi();
-  } else {
+  } else if (isOpen(splashWindow) && splashWindow.isVisible()) {
     revealWindow(splashWindow);
   }
 }
@@ -1771,6 +1867,27 @@ function setServiceState(patch) {
   pushConnectionState();
   updateTray();
   maybeVouchForShellInBackground();
+  maybeQuitWithoutWindows();
+}
+
+// #2280, owner decision 2026-09-11 (AU1 P2-3 / AU2 P2-1 / Codex 3985756074):
+// window-all-closed only judges the moment the last window closes. A service
+// that stops, crashes, or fails afterwards -- or a Stop still in flight when
+// the connection window was closed -- must quit the app too, so the same rule
+// is applied on every status change while no window is open.
+function maybeQuitWithoutWindows() {
+  if (isQuitting) {
+    return;
+  }
+  const quit = backgroundMode.quitOnServiceChange({
+    mode: launchMode,
+    status: serviceState.status,
+    openWindowCount: BrowserWindow.getAllWindows().length
+  });
+  if (quit) {
+    safeLog(`[scistudio] service ${serviceState.status} with no window open; quitting`);
+    app.quit();
+  }
 }
 
 function markServiceRunning(ready) {
@@ -1784,8 +1901,9 @@ function markServiceRunning(ready) {
 
 // #2179/#2280: in desktop mode the shell vouches for itself once the main
 // window paints (createWindow). External-AI mode has no main window, so it
-// vouches once its own window is proven -- the connection window loaded and its
-// sandboxed preload exposed the bridge -- AND the backend is running. Readiness
+// vouches once its own window is proven -- the connection page sent its first
+// action over IPC, which takes its script, its sandboxed preload and the IPC
+// handler all working (AU1 P3-3) -- AND the backend is running. Readiness
 // alone never records it (desktop/test/shell-known-good.test.js). Without this
 // a patched shell would never be recorded as known-good in this mode, and the
 // loader would quarantine a working patch on the next launch.
@@ -1815,7 +1933,9 @@ function trackRuntime(child) {
       // the OS may already have handed to another process.
       runtimeProcess = null;
     }
-    if (isQuitting) {
+    // A death while a background start is still in flight is reported by
+    // startBackgroundService itself, with the exit status, in one state change.
+    if (isQuitting || serviceStartInFlight) {
       return;
     }
     const status = backgroundMode.statusAfterExit({ status: serviceState.status, stopRequested });
@@ -1828,6 +1948,25 @@ function trackRuntime(child) {
           : `The SciStudio service exited (code ${code}, signal ${signal}). The desktop log has the details.`
     });
   });
+}
+
+// Resolves once `child` has exited (at once if it already has).
+function childExited(child) {
+  return new Promise((resolve) => {
+    if (!backgroundMode.isChildRunning(child)) {
+      resolve();
+      return;
+    }
+    child.once("exit", () => resolve());
+  });
+}
+
+function throwIfExitedWhileStarting(child) {
+  if (!backgroundMode.isChildRunning(child)) {
+    throw new Error(
+      `The SciStudio service exited while starting (code ${child.exitCode}, signal ${child.signalCode}). The desktop log has the details.`
+    );
+  }
 }
 
 // External-AI mode's start and restart: the same chain the desktop flow uses --
@@ -1846,15 +1985,19 @@ async function startBackgroundService() {
     const { ready, child } = await startRuntimeWithRollback();
     trackRuntime(child);
     safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
-    await waitForHttpReady(ready.url);
-    if (serviceChild !== child) {
-      // Stopped or died while waiting; the exit handler already said which.
-      return;
-    }
+    // AU1 P3-5 / AU2 P3-1: a backend that dies during readiness ends the wait
+    // at once and fails with its real exit status, so Restart works
+    // immediately. It used to spend the whole 30 s readiness timeout, refuse
+    // Restart meanwhile, and then overwrite the exit reason with the timeout.
+    const httpReady = waitForHttpReady(ready.url, () => backgroundMode.isChildRunning(child));
+    httpReady.catch(() => {});
+    await Promise.race([httpReady, childExited(child)]);
+    throwIfExitedWhileStarting(child);
     // #1986: keep the origin stable across launches, and so the address.
     rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
     // A desktop window may attach later; it must not load a cached old bundle.
     await clearCacheOnBuildChange();
+    throwIfExitedWhileStarting(child);
     markServiceRunning(ready);
     if (isOpen(mainWindow)) {
       // A restart can come back on another port; keep an attached desktop
@@ -1889,24 +2032,35 @@ async function startBackgroundService() {
 
 // FR-004: explicit stop goes through the existing stopRuntime tree-kill, and
 // the exit it causes turns the status into a visible "Stopped".
+// Both ways of stopping the service -- Stop Service, and Stop and Quit (AU1
+// P3-7 / AU2 P3-3) -- ask first while a desktop window is attached, because
+// that window's unsaved work depends on the service. True when there is no such
+// window or the user agreed.
+async function confirmStopUnderDesktopWindow(quitting) {
+  if (!isOpen(mainWindow)) {
+    return true;
+  }
+  const choice = await dialog.showMessageBox(isOpen(connectionWindow) ? connectionWindow : undefined, {
+    type: "warning",
+    title: quitting ? "Quit SciStudio?" : "Stop the SciStudio service?",
+    message: quitting ? "Stop the SciStudio service and quit?" : "Stop the SciStudio service?",
+    detail: quitting
+      ? "The open desktop window will close. Save your work first."
+      : "The open desktop window uses this service and will stop working. Save your work first.",
+    buttons: [quitting ? "Stop and Quit" : "Stop Service", "Cancel"],
+    defaultId: 1,
+    cancelId: 1
+  });
+  return choice.response === 0;
+}
+
 async function stopBackgroundService() {
   const { RUNNING, UNRESPONSIVE, STOPPING, STOPPED } = backgroundMode.SERVICE_STATUS;
   if (![RUNNING, UNRESPONSIVE].includes(serviceState.status)) {
     return;
   }
-  if (isOpen(mainWindow)) {
-    const choice = await dialog.showMessageBox(isOpen(connectionWindow) ? connectionWindow : undefined, {
-      type: "warning",
-      title: "Stop the SciStudio service?",
-      message: "Stop the SciStudio service?",
-      detail: "The open desktop window uses this service and will stop working. Save your work first.",
-      buttons: ["Stop Service", "Cancel"],
-      defaultId: 1,
-      cancelId: 1
-    });
-    if (choice.response !== 0) {
-      return;
-    }
+  if (!(await confirmStopUnderDesktopWindow(false))) {
+    return;
   }
   stopRequested = true;
   if (!serviceChild) {
@@ -1978,8 +2132,12 @@ function openDesktopWindow() {
 }
 
 // Quitting runs before-quit, and so the existing stopRuntime.
-function stopAndQuit() {
+async function stopAndQuit() {
   safeLog("[scistudio] stop and quit requested");
+  if (!(await confirmStopUnderDesktopWindow(true))) {
+    safeLog("[scistudio] stop and quit cancelled");
+    return;
+  }
   app.quit();
 }
 
@@ -1990,6 +2148,13 @@ async function handleConnectionAction(event, action, payload) {
   if (!backgroundMode.CONNECTION_ACTIONS.includes(action)) {
     safeError(`[scistudio] ignoring unknown connection action ${String(action)}`);
     return currentConnectionView();
+  }
+  if (!connectionBridgeReady) {
+    // AU1 P3-3: the page's first action reaching this handler proves the page
+    // script, its preload and the IPC path -- more than the preload's bridge
+    // merely existing.
+    connectionBridgeReady = true;
+    maybeVouchForShellInBackground();
   }
   if (action === "copy-address") {
     copyServiceAddress();
@@ -2007,7 +2172,7 @@ async function handleConnectionAction(event, action, payload) {
   } else if (action === "set-startup") {
     setStartupSetting(payload);
   } else if (action === "stop-and-quit") {
-    stopAndQuit();
+    await stopAndQuit();
   }
   return currentConnectionView();
 }
@@ -2044,16 +2209,7 @@ function showConnectionWindow() {
   window.webContents.on("preload-error", (_event, preloadPath, error) => {
     noteShellFault(`preload ${path.basename(preloadPath)} failed: ${error.message}`);
   });
-  window.webContents.on("did-finish-load", async () => {
-    const bridged = await window.webContents
-      .executeJavaScript("Boolean(window.scistudioConnection)", true)
-      .catch(() => false);
-    if (bridged) {
-      connectionBridgeReady = true;
-      maybeVouchForShellInBackground();
-    } else {
-      safeError("[scistudio] the connection window loaded without its bridge");
-    }
+  window.webContents.on("did-finish-load", () => {
     pushConnectionState();
   });
   window.on("focus", () => {
@@ -2245,15 +2401,17 @@ function start(injectedHost) {
 
   app.on("before-quit", () => {
     isQuitting = true;
+    // #2280 (AU1 P2-1): before stopRuntime, while the quit is still ours.
+    releaseBootMarkerOnQuit();
     stopRuntime();
   });
 
   app.on("window-all-closed", () => {
     // #2280: desktop mode quits as it always has, on every platform; external-AI
-    // mode stays resident while it owns a live backend.
+    // mode stays resident while it owns a live backend. A status change after
+    // this point is judged again by maybeQuitWithoutWindows.
     const action = backgroundMode.windowAllClosedAction({
       mode: launchMode,
-      platform: process.platform,
       status: serviceState.status
     });
     if (action === "quit") {
@@ -2262,14 +2420,16 @@ function start(injectedHost) {
   });
 
   app.on("activate", () => {
-    if (mainWindow) {
-      mainWindow.show();
-      return;
-    }
-    // #2280: a dock click in external-AI mode reopens the connection window.
-    if (launchMode === backgroundMode.MODES.EXTERNAL_AI) {
-      showConnectionWindow();
-    }
+    // #2280 (AU1 P3-6 / AU2 P3-5): on macOS, opening the running app again from
+    // Finder or the Dock activates this process instead of starting a second
+    // one, so it is routed here like a second launch: the desktop window, the
+    // connection window, or a desktop window attached to the running backend.
+    const route = backgroundMode.routeActivate({
+      runningMode: launchMode,
+      requestedMode: backgroundMode.requestedModeForSecondLaunch({ preference: readModePreference() }),
+      mainWindowOpen: isOpen(mainWindow)
+    });
+    applyInstanceRoute(route);
   });
 
   // #1741: persist crashes that would otherwise vanish in a packaged app.

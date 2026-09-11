@@ -14,7 +14,7 @@ const bm = require("../background-mode");
 const { MODES, SERVICE_STATUS, STARTUP_SETTINGS } = bm;
 const desktopRoot = path.join(__dirname, "..");
 const read = (name) => fs.readFileSync(path.join(desktopRoot, name), "utf8");
-const PLATFORMS = ["win32", "darwin", "linux"];
+const { spawn } = require("node:child_process");
 
 // --------------------------------------------------------------------------- //
 // The remembered choice (owner decision 1).
@@ -259,38 +259,117 @@ test("routeSecondInstance: while the first instance is still at its picker", () 
   assert.equal(bm.routeSecondInstance({}), "focus-splash");
 });
 
+test("routeActivate: macOS reopening routes like a second launch (AU1 P3-6 / AU2 P3-5)", () => {
+  // External AI running: a remembered desktop choice attaches a desktop window,
+  // anything else reveals the connection window.
+  assert.equal(
+    bm.routeActivate({ runningMode: MODES.EXTERNAL_AI, requestedMode: MODES.DESKTOP }),
+    "attach-desktop-window"
+  );
+  assert.equal(bm.routeActivate({ runningMode: MODES.EXTERNAL_AI, requestedMode: null }), "show-connection-window");
+  // An open desktop window is simply revealed, in either mode.
+  assert.equal(
+    bm.routeActivate({ runningMode: MODES.EXTERNAL_AI, requestedMode: MODES.DESKTOP, mainWindowOpen: true }),
+    "focus-main-window"
+  );
+  assert.equal(bm.routeActivate({ runningMode: MODES.DESKTOP, mainWindowOpen: true }), "focus-main-window");
+});
+
+test("routeActivate: a dock click never switches a desktop session to external AI", () => {
+  assert.equal(
+    bm.routeActivate({ runningMode: MODES.DESKTOP, requestedMode: MODES.EXTERNAL_AI, mainWindowOpen: false }),
+    "focus-splash"
+  );
+  assert.equal(bm.routeActivate({ runningMode: null }), "focus-splash");
+});
+
 // --------------------------------------------------------------------------- //
-// Window-closed lifetime per mode and platform.
+// Process liveness and the loader's boot marker.
 // --------------------------------------------------------------------------- //
 
-test("windowAllClosedAction: desktop mode quits on every platform, as it always has", () => {
-  for (const platform of PLATFORMS) {
-    for (const status of Object.values(SERVICE_STATUS)) {
-      assert.equal(bm.windowAllClosedAction({ mode: MODES.DESKTOP, platform, status }), "quit", platform);
-    }
-    // Still at the picker: closing the splash is a quit.
-    assert.equal(bm.windowAllClosedAction({ mode: null, platform, status: SERVICE_STATUS.STARTING }), "quit");
+test("isChildRunning: judged by the exit status, not by `killed` (AU1/AU2 P2-2)", () => {
+  assert.equal(bm.isChildRunning({ killed: true, exitCode: null, signalCode: null }), true, "sent is not exited");
+  assert.equal(bm.isChildRunning({ killed: false, exitCode: 0, signalCode: null }), false);
+  assert.equal(bm.isChildRunning({ killed: true, exitCode: null, signalCode: "SIGKILL" }), false);
+  assert.equal(bm.isChildRunning(null), false);
+});
+
+test("Node marks a child `killed` before it has exited, which is why liveness uses the exit status", async () => {
+  const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 30000)"], { stdio: "ignore" });
+  await new Promise((resolve) => child.once("spawn", resolve));
+  child.kill("SIGTERM");
+  assert.equal(child.killed, true, "Node sets killed as soon as the signal is sent");
+  assert.equal(bm.isChildRunning(child), true, "the child has not exited yet");
+  await new Promise((resolve) => child.once("exit", resolve));
+  assert.equal(bm.isChildRunning(child), false);
+});
+
+test("releasesBootMarkerOnQuit: only after the picker rendered, and never over a shell fault (AU1 P2-1)", () => {
+  assert.equal(bm.releasesBootMarkerOnQuit({ pickerRendered: true, shellFaulted: false }), true);
+  assert.equal(bm.releasesBootMarkerOnQuit({ pickerRendered: false, shellFaulted: false }), false, "failed before the picker");
+  assert.equal(bm.releasesBootMarkerOnQuit({ pickerRendered: true, shellFaulted: true }), false, "#2179 fault stands");
+  assert.equal(bm.releasesBootMarkerOnQuit({}), false);
+});
+
+// --------------------------------------------------------------------------- //
+// Window-closed lifetime per mode. The verdict is the same on every platform;
+// what does differ by platform is exercised in main-orchestration.test.js.
+// --------------------------------------------------------------------------- //
+
+const LIVE = [
+  SERVICE_STATUS.STARTING,
+  SERVICE_STATUS.RUNNING,
+  SERVICE_STATUS.UNRESPONSIVE,
+  SERVICE_STATUS.STOPPING
+];
+const DOWN = [SERVICE_STATUS.STOPPED, SERVICE_STATUS.CRASHED, SERVICE_STATUS.FAILED];
+
+test("windowAllClosedAction: desktop mode quits, as it always has", () => {
+  for (const status of Object.values(SERVICE_STATUS)) {
+    assert.equal(bm.windowAllClosedAction({ mode: MODES.DESKTOP, status }), "quit", status);
   }
+  // Still at the picker: closing the splash is a quit.
+  assert.equal(bm.windowAllClosedAction({ mode: null, status: SERVICE_STATUS.STARTING }), "quit");
 });
 
 test("windowAllClosedAction: external-AI mode stays resident while it owns a live backend", () => {
-  for (const platform of PLATFORMS) {
-    for (const status of [
-      SERVICE_STATUS.STARTING,
-      SERVICE_STATUS.RUNNING,
-      SERVICE_STATUS.UNRESPONSIVE,
-      SERVICE_STATUS.STOPPING
-    ]) {
-      assert.equal(bm.windowAllClosedAction({ mode: MODES.EXTERNAL_AI, platform, status }), "stay", `${platform}/${status}`);
-    }
+  for (const status of LIVE) {
+    assert.equal(bm.windowAllClosedAction({ mode: MODES.EXTERNAL_AI, status }), "stay", status);
   }
 });
 
 test("windowAllClosedAction: external-AI mode quits once there is no backend left to own", () => {
-  for (const platform of PLATFORMS) {
-    for (const status of [SERVICE_STATUS.STOPPED, SERVICE_STATUS.CRASHED, SERVICE_STATUS.FAILED]) {
-      assert.equal(bm.windowAllClosedAction({ mode: MODES.EXTERNAL_AI, platform, status }), "quit", `${platform}/${status}`);
-    }
+  for (const status of DOWN) {
+    assert.equal(bm.windowAllClosedAction({ mode: MODES.EXTERNAL_AI, status }), "quit", status);
+  }
+});
+
+test("windowAllClosedAction takes no platform, so no test can pretend it varies by one (AU2 P3-4)", () => {
+  // It used to accept `platform` and discard it, which made per-platform loops
+  // over it unable to fail.
+  const signature = bm.windowAllClosedAction.toString().split(")")[0];
+  assert.doesNotMatch(signature, /platform/);
+});
+
+test("quitOnServiceChange: with no window open, a service that goes down quits (owner decision 2026-09-11)", () => {
+  for (const status of DOWN) {
+    assert.equal(bm.quitOnServiceChange({ mode: MODES.EXTERNAL_AI, status, openWindowCount: 0 }), true, status);
+  }
+  for (const status of LIVE) {
+    assert.equal(bm.quitOnServiceChange({ mode: MODES.EXTERNAL_AI, status, openWindowCount: 0 }), false, status);
+  }
+});
+
+test("quitOnServiceChange: an open window keeps the app and shows the state with Restart", () => {
+  for (const status of Object.values(SERVICE_STATUS)) {
+    assert.equal(bm.quitOnServiceChange({ mode: MODES.EXTERNAL_AI, status, openWindowCount: 1 }), false, status);
+  }
+});
+
+test("quitOnServiceChange: desktop mode never quits from a status change; its windows decide", () => {
+  for (const status of Object.values(SERVICE_STATUS)) {
+    assert.equal(bm.quitOnServiceChange({ mode: MODES.DESKTOP, status, openWindowCount: 0 }), false, status);
+    assert.equal(bm.quitOnServiceChange({ mode: null, status, openWindowCount: 0 }), false, status);
   }
 });
 

@@ -276,22 +276,88 @@ function routeSecondInstance({ runningMode = null, requestedMode = null, mainWin
 }
 
 /**
+ * Route the macOS `activate` event (#2280, AU1 P3-6 / AU2 P3-5).
+ *
+ * On macOS, opening an already-running app from Finder or the Dock activates
+ * the existing process instead of starting a second one, so `second-instance`
+ * never fires there. `activate` is routed like a second launch instead, with
+ * one difference: a dock click never switches a running desktop session to
+ * external-AI mode.
+ */
+function routeActivate({ runningMode = null, requestedMode = null, mainWindowOpen = false } = {}) {
+  if (mainWindowOpen) {
+    return "focus-main-window";
+  }
+  const route = routeSecondInstance({ runningMode, requestedMode, mainWindowOpen: false });
+  return route === "promote-to-external-ai" ? "focus-splash" : route;
+}
+
+/**
  * What `window-all-closed` does.
  *
  * Desktop mode keeps today's behaviour on every platform, macOS included:
- * quit, and quitting stops the backend. External-AI mode stays resident on
- * every platform while it owns a live backend -- that is the mode's whole
- * promise -- and quits once the service is stopped or dead, because a resident
- * process with no backend and no window has nothing left to own and, on a
- * Linux desktop without a tray host, would be invisible. `platform` is taken so
- * the verdict is pinned per platform in tests; it does not change the answer.
+ * quit, and quitting stops the backend. External-AI mode stays resident while
+ * it owns a live backend -- that is the mode's whole promise -- and quits once
+ * the service is stopped or dead, because a resident process with no backend
+ * and no window has nothing left to own and, on a Linux desktop without a tray
+ * host, would be invisible.
+ *
+ * The verdict is the same on every platform, so it takes no platform. What does
+ * differ by platform lives in main.js (macOS `activate` through routeActivate,
+ * the Windows tray left-click, the macOS template image) and is covered by
+ * desktop/test/main-orchestration.test.js.
  */
-function windowAllClosedAction({ mode = null, platform = null, status = null } = {}) {
-  void platform;
+function windowAllClosedAction({ mode = null, status = null } = {}) {
   if (normalizeMode(mode) !== MODES.EXTERNAL_AI) {
     return "quit";
   }
   return LIVE_STATUSES.includes(status) ? "stay" : "quit";
+}
+
+/**
+ * Should a service status change quit the app? (#2280, owner decision
+ * 2026-09-11 on AU1 P2-3 / AU2 P2-1 / Codex 3985756074.)
+ *
+ * The same rule as window-all-closed, applied on every status change while no
+ * window is open: in external-AI mode, a service that stops, crashes, or fails
+ * after the last window closed -- including a Stop still in flight when the
+ * connection window was closed -- quits the app. With a window open, the
+ * window shows the stopped or crashed state with Restart instead. Desktop mode
+ * never quits from here; its windows decide.
+ */
+function quitOnServiceChange({ mode = null, status = null, openWindowCount = 0 } = {}) {
+  if (normalizeMode(mode) !== MODES.EXTERNAL_AI || openWindowCount > 0) {
+    return false;
+  }
+  return windowAllClosedAction({ mode, status }) === "quit";
+}
+
+/**
+ * Is this child process still running? (#2280, AU1/AU2 P2-2)
+ *
+ * Node sets `ChildProcess.killed` as soon as a signal is *sent*, not when the
+ * process exits, so it cannot say whether SIGTERM worked. Only the exit status
+ * can.
+ */
+function isChildRunning(child) {
+  return Boolean(child) && child.exitCode === null && child.signalCode === null;
+}
+
+/**
+ * May a user-initiated quit release the frozen loader's shell boot marker?
+ * (#2280, AU1 P2-1)
+ *
+ * The loader writes the marker before it requires a patched shell, and a marker
+ * still set at the next launch quarantines that patch (ota.shellMarkerAction →
+ * "keep"). The launch-mode picker is a pre-readiness stop the user can end by
+ * quitting. A shell that rendered the picker and then handled the user's quit
+ * or close is not a shell fault, so the quit releases the marker. A shell that
+ * fails before the picker renders, or that recorded a fault (a preload that
+ * threw, #2179), keeps it. A crash never runs a quit handler at all, so it
+ * keeps it too.
+ */
+function releasesBootMarkerOnQuit({ pickerRendered = false, shellFaulted = false } = {}) {
+  return pickerRendered === true && shellFaulted !== true;
 }
 
 /**
@@ -378,16 +444,20 @@ module.exports = {
   applyStartupSetting,
   connectionAddress,
   connectionView,
+  isChildRunning,
   normalizeMode,
   normalizeStartupSetting,
   parseLaunchModeArg,
   parseModePick,
   parseModePreference,
   preferenceAfterPick,
+  quitOnServiceChange,
   relaunchArgs,
+  releasesBootMarkerOnQuit,
   requestedModeForSecondLaunch,
   requestedModeFromSecondInstance,
   resolveStartupMode,
+  routeActivate,
   routeSecondInstance,
   serializeModePreference,
   startupSettingOf,
