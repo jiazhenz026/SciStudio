@@ -90,6 +90,14 @@
       "path": "docs/adr/ADR-054.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T05:13:51.456859Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-054-panels-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -624,7 +632,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T05:13:51.456836Z",
+      "pattern": "docs/audit/2026-09-11-adr-054-panels-no-context.md",
+      "reason": "Carry the no-context audit report into the ADR PR and revise ADR-054 per the audit and the owner's post-audit decisions"
+    }
+  ],
   "session_id": "284d0f5c-528c-43ef-a362-eb452630a6b5",
   "strictness_tier": 3,
   "task_kind": "docs",
