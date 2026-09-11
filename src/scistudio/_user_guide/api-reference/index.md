@@ -27,7 +27,7 @@ A symbol marked **deprecated** keeps its tier and keeps working until the releas
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 symbols
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
-- [`scistudio.api.seam`](scistudio.api.seam.md) — 20 symbols
+- [`scistudio.api.seam`](scistudio.api.seam.md) — 19 symbols
 - [`scistudio.panels`](scistudio.panels.md) — 8 symbols
 
 ## Panel contract
