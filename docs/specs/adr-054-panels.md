@@ -19,6 +19,7 @@ related_specs:
   - adr-048-preview-system
   - adr-051-interactive-blocks
   - adr-052-public-api-surface
+  - adr-054-miniapp
   - adr-055-enterprise-support
   - adr-055-prefix-independence
 scope:
@@ -29,7 +30,7 @@ scope:
     - "Phase C — a panel authoring guide, a legacy migration guide, the embedded-agent panel skill, agent reference and spec updates, the ADR-049 and ADR-055 document notes, and proposed ARCHITECTURE.md text."
   out:
     - "Editing data from a preview, and the notebook context and `sync` operation (ADR-054 §9; tracked in #2288)."
-    - "Per-panel Python providers (ADR-054 §5; tracked in #2288)."
+    - "Per-panel Python providers for reads (ADR-054 §5; tracked in #2288). Panel Python (`panel.py`) and the `miniapp` context are specified separately, as Phase D, in `adr-054-miniapp`."
     - "Interactive panels reading the block's inputs; they receive only the `prepare_prompt` view (ADR-054 §2)."
     - "Editing a panel's source inside the application (tracked in #2288)."
     - "Removing the legacy previewer forms, the compiled core viewers kept for them, and the backend provider and envelope path; that happens in 0.6 (tracked in #2288)."
@@ -83,6 +84,7 @@ governs:
     - src/scistudio/_skills/scistudio/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md
+    - src/scistudio/agent_provisioning/skills.py
     - src/scistudio/tutorials/core/what-is-a-type/**
     - scripts/audit/check_package_contract_tables.py
     - frontend/src/components/DataPreview.tsx
@@ -142,13 +144,14 @@ language_source: en
 ## 1. Change Summary
 
 This spec implements ADR-054. It came from a manual owner request tracked as
-issue #2287, and it is the single implementation spec for that ADR; the
+issue #2287, and it is the implementation spec for Phases A to C of that ADR;
+Phase D, panel Python and MiniApps, is specified in `adr-054-miniapp`. The
 implementation itself is tracked in #2288.
 
 ADR-054 makes every surface for previewing data or deciding on it a **panel**: a
 user-customizable HTML page, mounted in a sandboxed frame, that reads the data it
 needs, writes the user's answer back where its context allows, and — in a
-notebook context another ADR will define — syncs one kernel variable. The ADR
+notebook context a later ADR may define — syncs one kernel variable. The ADR
 fixed the model and left the contracts to this spec: the `panel.json` schema, the
 SDK messages and channel, the read shapes and budgets, the token-scoped routes
 and content policy, the library set and CDN allowlist, tier conflicts, and theme
@@ -161,6 +164,7 @@ The work lands in three phases, in dependency order, each as one or more PRs:
 | A. Mechanism | Backend `scistudio.panels` package and routes, read-layer extensions, tokens, security controls, frontend panel host and bridge, the SDK, interactive checks, validator rows, legacy deprecation | ADR-054 |
 | B. Core migration | The nine core previewers and the two built-in interactive windows rewritten as core-tier panels; the two compiled interactive windows deleted; the compiled core viewers restricted to legacy envelopes | Phase A |
 | C. Docs and skills | Panel authoring guide, legacy migration guide, embedded-agent panel skill, agent reference and spec updates, ADR-049 and ADR-055 notes, proposed ARCHITECTURE.md text | Phases A and B |
+| D. Panel Python and MiniApps | Specified in `adr-054-miniapp`: `panel.py` and `call`, the `miniapp` context, and the MiniApp workspace, entries, promotion, and conversion | Phase A |
 
 Four existing user flows are carried across explicitly because they depend on how
 a preview is mounted: the preview panel's maximize button, which opens the
@@ -389,7 +393,7 @@ page, reload, and assert the project copy is resolved.
 **Acceptance Scenarios**:
 
 1. **Given** a project panel with the id of a core panel, **When** a matching type
-   is previewed, **Then** the project panel is mounted and the Previewers tab
+   is previewed, **Then** the project panel is mounted and the Previewers list
    shows the core panel as shadowed.
 
 ### User Story 10 - The agent writes a working panel (Priority: P3)
@@ -453,7 +457,8 @@ CDNs, and renders.
 - **FR-002**: `panel.json` MUST be a JSON object with: `id` (required; lowercase
   dotted segments; equal to the directory name; the `core.` prefix is reserved for
   the core tier), `api_version` (required; `"MAJOR.MINOR"`), `contexts`
-  (required; non-empty list drawn from `preview` and `interactive`), `types`
+  (required; non-empty list drawn from `preview` and `interactive`, and
+  `miniapp` as specified in `adr-054-miniapp`), `types`
   (required when `contexts` contains `preview`; each entry a registered type name
   or `Collection[<type>]`; the sentinel types `DataObject` and `Collection` are
   allowed only at the core tier), and optional `priority` (integer, default `0`),
@@ -470,8 +475,9 @@ CDNs, and renders.
   library swap (`library_root_for_project`).
 - **FR-005**: Discovery MUST run at startup, on the existing reload action
   (`POST /api/previews/reload`), and on project switch, and MUST surface panels
-  and their diagnostics in the previewer catalog listing and the Previewers tab
-  with tier, contexts, types, priority, and shadowing.
+  and their diagnostics in the previewer catalog listing and the Previewers list
+  — which `adr-054-miniapp` moves from its sidebar tab to the preview column's
+  All Previewers button — with tier, contexts, types, priority, and shadowing.
 
 **Phase A — routing**
 
@@ -700,7 +706,9 @@ CDNs, and renders.
   package-development pages that mention previewers or `PanelManifest` MUST point
   to `panels.md`.
 - **FR-045**: A new embedded-agent skill
-  `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md` MUST teach the
+  `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md`, added to the
+  provisioned skill names in `src/scistudio/agent_provisioning/skills.py`, MUST
+  teach the
   agent to write, validate, and check a panel, preferring the local library set and
   staying within the CDN allowlist; the skills index, the `scistudio-write-block`
   and `scistudio-inspect-data` skills, and the `_agent_reference` pages MUST

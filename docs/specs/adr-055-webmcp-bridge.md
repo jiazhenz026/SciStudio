@@ -339,6 +339,31 @@ dispatches.
 - **FR-011**: The router MUST be mounted through the standard
   `app.include_router` sequence with prefix `/api/webmcp`; the HTTP route adds
   no business logic beyond dispatch, adaptation, binding checks, and logging.
+- **FR-012** (#2333): On POSIX, the local socket transport's only access
+  control is the socket's file permissions, so they MUST be owner-only
+  whatever the process umask:
+  - the socket is bound, under a 0077 umask, in a directory that is a real
+    directory owned by the current user with no group or other permission
+    bits, and is then set to 0600;
+  - the requested `{project}/.scistudio/mcp.sock` is used when its directory
+    meets that rule, and a missing directory is created 0700. For the default
+    path that directory is the project's `.scistudio`, so a project whose
+    `.scistudio` the server creates is owner-only;
+  - a directory open to other users is never chmod-ed or reused. The socket
+    then goes in a private per-user directory: `$XDG_RUNTIME_DIR/scistudio`
+    when `XDG_RUNTIME_DIR` is private, else a 0700 `scistudio-<uid>`
+    directory under the temp dir, or a unique `mkdtemp` directory when
+    another user holds that name. `<requested>.path`, written 0600 without
+    following a symbolic link, names it;
+  - the `scistudio mcp-bridge` client follows `mcp.sock.path` only when the
+    pointer is a regular file owned by the current user, and connects only to
+    a socket owned by the current user in a directory that is not group- or
+    world-writable.
+
+  On Windows the transport is TCP loopback (`mcp.sock.port`), which every
+  local account can reach, so it assumes a single-user computer; a shared
+  Windows host is not a supported deployment, and authenticating that
+  transport is outside #2333.
 
 ### Key Entities
 

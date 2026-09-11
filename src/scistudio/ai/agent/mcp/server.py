@@ -24,7 +24,22 @@
 #    return promptly while a background task owns the serve loop.
 # 2. The bridge subprocess wants a single blocking ``await server.serve()``
 #    call. ``serve()`` is therefore the merge of ``start()`` + ``wait``.
-# Development references: ADR-033, ADR-040.
+#
+# Socket permissions (#2333): on POSIX the socket is the transport's only
+# access control, so it is owner-only whatever the process umask. It is
+# bound, under a 0077 umask, in a directory that is the current user's own
+# with mode 0700, then set to 0600. The requested path is used when it fits
+# ``sun_path`` and its directory is private; a missing directory is created
+# 0700 (for the default ``{project}/.scistudio`` that is the project's
+# metadata directory). Otherwise the socket goes in ``private_socket_dir()``
+# ($XDG_RUNTIME_DIR/scistudio when that directory is private, else a 0700
+# ``scistudio-<uid>`` under the temp dir, or a unique mkdtemp directory when
+# another user took that name), and ``<requested>.path`` names it;
+# ``scistudio mcp-bridge`` follows it after checking who owns the pointer and
+# the socket. A directory open to other users is never chmod-ed or reused.
+# On Windows the transport is TCP loopback, which every local account can
+# reach, so it assumes a single-user computer.
+# Development references: ADR-033, ADR-040, #2333.
 
 from __future__ import annotations
 
@@ -34,8 +49,11 @@ import hashlib
 import json
 import logging
 import os
+import socket as socket_mod
+import stat
 import sys
 import tempfile
+import threading
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -164,9 +182,9 @@ class MCPServer:
         """
         if self._server is not None:
             return
-        self.socket_path.parent.mkdir(parents=True, exist_ok=True)
 
         if sys.platform == "win32":
+            self.socket_path.parent.mkdir(parents=True, exist_ok=True)
             # TCP loopback fallback — asyncio's named-pipe API on
             # Windows is partial and varies by Python build.
             self._server = await asyncio.start_server(self._handle_client, host="127.0.0.1", port=0)
@@ -178,16 +196,19 @@ class MCPServer:
                 port_file.write_text(str(self._port), encoding="utf-8")
         else:
             requested_socket_path = self._requested_socket_path
+            # #2333: bind in an owner-only directory (the requested one when
+            # it is private, else the private per-user directory), so no other
+            # user can connect between bind and chmod; then make it 0600.
             socket_path = _posix_bind_socket_path(requested_socket_path)
+            pointer_path = _posix_socket_pointer_path(requested_socket_path)
             _unlink_if_present(requested_socket_path)
+            _unlink_if_present(pointer_path)
             if socket_path != requested_socket_path:
-                pointer_path = _posix_socket_pointer_path(requested_socket_path)
-                _unlink_if_present(pointer_path)
-                socket_path.parent.mkdir(parents=True, exist_ok=True)
                 _unlink_if_present(socket_path)
-                pointer_path.write_text(str(socket_path), encoding="utf-8")
+                _write_socket_pointer(pointer_path, socket_path)
             self.socket_path = socket_path
-            self._server = await asyncio.start_unix_server(self._handle_client, path=str(socket_path))
+            self._server = await asyncio.start_unix_server(self._handle_client, sock=_bind_owner_only(socket_path))
+            os.chmod(socket_path, 0o600)
 
         logger.info(
             "MCPServer: listening on %s (project_dir=%s)",
@@ -455,11 +476,158 @@ def _posix_socket_pointer_path(socket_path: Path) -> Path:
     return socket_path.with_suffix(socket_path.suffix + ".path")
 
 
+def socket_dir_problem(st: os.stat_result, *, uid: int) -> str | None:
+    """Return why a directory may not hold the MCP socket, or ``None`` when it is private.
+
+    The directory must be a real directory (not a symbolic link), owned
+    by ``uid``, with no group or other permission bits. ``st`` comes from
+    ``os.lstat``.
+    """
+    if not stat.S_ISDIR(st.st_mode):
+        return "is not a directory (or is a symbolic link)"
+    if st.st_uid != uid:
+        return f"is owned by uid {st.st_uid}, not by the current user (uid {uid})"
+    mode = stat.S_IMODE(st.st_mode)
+    if mode & 0o077:
+        return f"is open to other users (mode {mode:04o}); it must be 0700"
+    return None
+
+
+def _ensure_private_dir(path: Path) -> None:
+    """Create ``path`` as an owner-only (0700) directory whatever the umask, or verify it.
+
+    Raises :class:`PermissionError` when an existing ``path`` is not private;
+    an existing directory is never chmod-ed. POSIX only.
+    """
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("MCP socket directories exist on POSIX only")
+    try:
+        path.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    else:
+        # ``mkdir``'s mode is filtered by the umask; set it explicitly.
+        os.chmod(path, 0o700)
+    problem = socket_dir_problem(os.lstat(path), uid=os.getuid())
+    if problem is not None:
+        raise PermissionError(f"refusing MCP socket directory {path}: it {problem}")
+
+
+_fallback_lock = threading.Lock()
+_fallback_socket_dir: Path | None = None
+
+
+def private_socket_dir() -> Path:
+    """Return the private per-user directory for MCP sockets, creating it if needed (POSIX).
+
+    In order of preference:
+
+    * ``$XDG_RUNTIME_DIR/scistudio`` when ``XDG_RUNTIME_DIR`` is a private
+      directory of the current user. A ``scistudio`` entry in it that is not
+      private is refused with :class:`PermissionError`: only this user or root
+      could have put it there.
+    * ``scistudio-<uid>`` under the temp directory, created 0700 whatever the
+      umask.
+    * When another user has taken that predictable name, a unique ``mkdtemp``
+      directory under the temp directory, verified 0700. It is reused for the
+      life of the process, and the socket pointer records it.
+    """
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("MCP socket directories exist on POSIX only")
+    uid = os.getuid()
+    runtime_dir = os.environ.get("XDG_RUNTIME_DIR", "").strip()
+    if runtime_dir and os.path.isabs(runtime_dir):
+        try:
+            usable = socket_dir_problem(os.lstat(runtime_dir), uid=uid) is None
+        except OSError:
+            usable = False
+        if usable:
+            base = Path(runtime_dir) / "scistudio"
+            _ensure_private_dir(base)
+            return base
+    base = Path(tempfile.gettempdir()) / f"scistudio-{uid}"
+    try:
+        _ensure_private_dir(base)
+    except PermissionError as exc:
+        return _unique_socket_dir(str(exc))
+    return base
+
+
+def _unique_socket_dir(reason: str) -> Path:
+    """Return a unique private socket directory for this process (see :func:`private_socket_dir`)."""
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("MCP socket directories exist on POSIX only")
+    global _fallback_socket_dir
+    with _fallback_lock:
+        existing = _fallback_socket_dir
+        if existing is not None:
+            with contextlib.suppress(OSError):
+                if socket_dir_problem(os.lstat(existing), uid=os.getuid()) is None:
+                    return existing
+        path = Path(tempfile.mkdtemp(prefix=f"scistudio-{os.getuid()}-"))
+        problem = socket_dir_problem(os.lstat(path), uid=os.getuid())
+        if problem is not None:
+            raise PermissionError(f"refusing MCP socket directory {path}: it {problem}")
+        logger.warning("MCPServer: %s; using the private directory %s instead", reason, path)
+        _fallback_socket_dir = path
+        return path
+
+
+def _bind_owner_only(path: Path) -> socket_mod.socket:
+    """Bind a Unix socket at ``path`` under a 0077 umask, so it is never created open to others."""
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("Unix sockets are bound on POSIX only")
+    sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+    previous = os.umask(0o077)
+    try:
+        sock.bind(str(path))
+    except BaseException:
+        sock.close()
+        raise
+    finally:
+        os.umask(previous)
+    return sock
+
+
+def _requested_dir_is_private(directory: Path) -> bool:
+    """Return whether the requested socket directory is private, creating it 0700 when missing."""
+    try:
+        directory.parent.mkdir(parents=True, exist_ok=True)
+        _ensure_private_dir(directory)
+    except OSError as exc:
+        # A lab's shared project directory is left as it is; the socket moves.
+        logger.info("MCPServer: not binding in %s (%s); using the private per-user socket directory", directory, exc)
+        return False
+    return True
+
+
 def _posix_bind_socket_path(socket_path: Path) -> Path:
-    if len(str(socket_path).encode("utf-8")) <= _POSIX_SOCKET_PATH_LIMIT_BYTES:
+    """Return where to bind the socket requested at ``socket_path``.
+
+    The requested path when it fits AF_UNIX ``sun_path`` and its directory is
+    private; otherwise a per-server name in :func:`private_socket_dir`, which
+    the caller names at ``<requested>.path`` for ``scistudio mcp-bridge``.
+    """
+    fits = len(str(socket_path).encode("utf-8")) <= _POSIX_SOCKET_PATH_LIMIT_BYTES
+    if fits and _requested_dir_is_private(socket_path.parent):
         return socket_path
-    digest = hashlib.sha1(str(socket_path).encode("utf-8")).hexdigest()[:12]
-    return Path(tempfile.gettempdir()) / f"scistudio-mcp-{os.getpid()}-{digest}.sock"
+    # Only a short, unique file name; SHA-256 so no scanner reads it as weak hashing.
+    digest = hashlib.sha256(str(socket_path).encode("utf-8")).hexdigest()[:12]
+    return private_socket_dir() / f"mcp-{os.getpid()}-{digest}.sock"
+
+
+def _write_socket_pointer(pointer_path: Path, socket_path: Path) -> None:
+    """Name a relocated socket at ``<requested>.path``, where ``scistudio mcp-bridge`` looks."""
+    try:
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        _unlink_if_present(pointer_path)
+        # O_EXCL | O_NOFOLLOW: never write through a file or symlink someone
+        # else placed there; 0600 so only this user reads or edits it.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(pointer_path, flags, 0o600), "w", encoding="utf-8") as handle:
+            handle.write(str(socket_path))
+    except OSError as exc:
+        logger.warning("MCPServer: could not write the socket pointer %s (%s)", pointer_path, type(exc).__name__)
 
 
 def _unlink_if_present(path: Path) -> None:
