@@ -357,7 +357,13 @@
       ".workflow/records/2279-*.json"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T05:47:39.187562Z",
+      "owner_directive": "owner approved admin-approved:core-change for engine/runners/platform.py and process_handle.py (Job Object helpers, ProcessHandle.owns_live_process)",
+      "reason": "owner approved the engine/runners core change in chat 2026-09-11 (relayed to A1 by the coordinator); owner applies the label on the PR"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T03:10:49.921602Z",
@@ -1111,7 +1117,14 @@
     }
   ],
   "record_id": "2279-feat-2279-agent-context-workspace",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
   "required_obligations": {
     "admin_labels": [
       "admin-approved:core-change"
