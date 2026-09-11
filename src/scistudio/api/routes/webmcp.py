@@ -221,7 +221,7 @@ def loopback_token_guard(token: str) -> GuardFactory:
 # * owner-only: the directory is 0700 and the file 0600 on POSIX. On Windows
 #   the file lives in the user's profile, whose ACL grants the user, SYSTEM and
 #   Administrators only; POSIX mode bits do not apply there;
-# * written atomically (temporary file plus ``os.replace``) and removed when
+# * written atomically (a ``mkstemp`` file, then ``os.replace``) and removed when
 #   the server stops. A backend that is killed cannot remove its file, so a
 #   reader treats a file whose PID is no longer running as stale, and the next
 #   writer prunes such files;

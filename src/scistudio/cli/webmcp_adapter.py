@@ -675,8 +675,8 @@ class WebMCPAdapter:
         try:
             response = bridge.post_call({"name": name, "arguments": arguments, "projectId": self.project_id})
         except httpx.TransportError as exc:
-            # A refused connection never reached SciStudio; any later failure
-            # may have happened after the tool started.
+            # A refused connection never reached SciStudio; a failure once
+            # connected may have happened after the tool started.
             outcome_unknown = not isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
             if self._refresh_target() is not None:
                 self._refresh_catalogue_and_notify()

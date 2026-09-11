@@ -594,8 +594,9 @@ def test_bearer_target_unreachable_mid_session_is_an_error_naming_the_url() -> N
     state["up"] = False
     response = _rpc(adapter, "tools/call", {"name": "x", "arguments": {}})
     assert response["error"]["code"] == -32002
-    assert "https://lab.example.org" in response["error"]["message"]
-    assert "not delivered" in response["error"]["message"]
+    assert response["error"]["message"] == (
+        "SciStudio at https://lab.example.org is not reachable (ConnectError); the call was not delivered"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -708,7 +709,10 @@ def test_logs_and_stderr_never_carry_credentials_or_arguments(
     rendered = "\n".join([caplog.text, captured.err, captured.out])
     assert "adapter_fixture_write" in caplog.text, "operation identifiers are logged"
     assert "stale_project_context" in caplog.text, "outcomes are logged"
-    assert "http://lab.test" in captured.err
+    assert (
+        "scistudio webmcp-adapter: SciStudio at http://lab.test rejected the credential (HTTP 401); "
+        "check the token passed with --token or SCISTUDIO_MCP_TOKEN"
+    ) in captured.err.splitlines()
     for secret in (loopback_token, bearer, secret_argument):
         assert secret not in rendered
 
@@ -858,7 +862,7 @@ def test_print_config_command_never_prints_the_token() -> None:
     assert result.exit_code == 0
     assert "SECRET-PRINTED-4f" not in result.output
     assert TOKEN_PLACEHOLDER in result.output
-    assert "https://lab.example.org/user/alice/scistudio" in result.output
+    assert '"--base-url",' in result.output
 
 
 def test_webmcp_adapter_subcommand_is_registered() -> None:
