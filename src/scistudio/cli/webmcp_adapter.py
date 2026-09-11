@@ -113,8 +113,8 @@ _UNREACHABLE = -32002
 
 _INSTRUCTIONS = (
     "SciStudio's tools, served through its WebMCP bridge for the project open in SciStudio. "
-    "When a call reports that the active project changed, the tool list has been refreshed and "
-    "the call was not executed; re-issue it only if it is still intended."
+    "When a call reports that the tool list changed, the call was not executed: list the tools "
+    "again before retrying, and retry only if the call is still intended."
 )
 
 
@@ -371,9 +371,10 @@ def _stale_result(name: str, detail: dict[str, Any]) -> dict[str, Any]:
     presented = detail.get("presentedProjectId")
     active = detail.get("activeProjectId")
     text = (
-        "SciStudio's active project changed since the tool list was fetched (the call was bound to "
+        "SciStudio's open project changed since the tool list was fetched (the call was for "
         f"project {presented!r}; the open project is now {active!r}). The call to '{name}' was NOT executed. "
-        "The tool list has been refreshed; re-issue the call only if it is still intended for the open project."
+        "The tool list changed: list the tools again before retrying, and retry only if the call is still "
+        "meant for the open project."
     )
     return {
         "content": [{"type": "text", "text": text}],
@@ -390,12 +391,13 @@ def _restarted_result(name: str, *, outcome_unknown: bool) -> dict[str, Any]:
     if outcome_unknown:
         text = (
             f"SciStudio restarted while the call to '{name}' was in flight, so whether it ran is unknown. "
-            "The adapter reconnected and refreshed the tool list; check the project before re-issuing the call."
+            "The tool list changed: check the project, then list the tools again before retrying."
         )
     else:
         text = (
-            f"SciStudio restarted since the tool list was fetched, so the call to '{name}' was NOT executed. "
-            "The adapter reconnected and refreshed the tool list; re-issue the call only if it is still intended."
+            f"SciStudio restarted, so the call to '{name}' was NOT executed. "
+            "The tool list changed: list the tools again before retrying, and retry only if the call is "
+            "still intended."
         )
     return {"content": [{"type": "text", "text": text}], "isError": True}
 

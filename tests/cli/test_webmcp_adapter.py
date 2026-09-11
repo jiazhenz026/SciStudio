@@ -25,21 +25,24 @@ through :class:`ForwardingTransport`, which hands them to FastAPI's
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
 import io
 import json
 import logging
 import os
 import pathlib
+import queue
 import shlex
 import socket
+import subprocess
 import sys
 import threading
 import time
 import tomllib
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 import httpx
 import pytest
@@ -1112,3 +1115,157 @@ def test_bearer_over_plain_http_to_another_computer_warns_once(capsys: pytest.Ca
     )
     assert code == 0
     assert "plain http" not in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# Re-audit test gaps: model-facing wording, restart paths, a real stdio child.
+# ---------------------------------------------------------------------------
+
+
+def test_messages_tell_the_model_to_list_the_tools_again_before_retrying() -> None:
+    stale = adapter_module._stale_result("write_file", {"presentedProjectId": "p1", "activeProjectId": "p2"})
+    restarted = adapter_module._restarted_result("write_file", outcome_unknown=False)
+    unknown = adapter_module._restarted_result("write_file", outcome_unknown=True)
+    for text in (
+        stale["content"][0]["text"],
+        restarted["content"][0]["text"],
+        unknown["content"][0]["text"],
+        adapter_module._INSTRUCTIONS,
+    ):
+        assert "list the tools again" in text
+        assert "refreshed" not in text, "the adapter does not refresh the client's tool list itself"
+
+
+def test_restart_mid_call_reports_an_unknown_outcome_and_never_resends() -> None:
+    """The connection breaks after the request reached the old backend, which then restarted."""
+    targets = [BridgeTarget("http://127.0.0.1:8001", "old", "token-file")]
+    live = {"token": "old"}
+    posts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        token = request.headers.get(LOOPBACK_TOKEN_HEADER, "")
+        if request.method == "POST":
+            posts.append(token)
+            if token == "old" and live["token"] == "new":
+                raise httpx.ReadError("connection lost mid-call", request=request)
+            return httpx.Response(200, json={"content": [], "isError": False})
+        if token != live["token"]:
+            return httpx.Response(401, json={"detail": "webmcp bridge calls require a valid session token"})
+        return httpx.Response(200, json={"tools": [], "context": {"projectId": "p1"}})
+
+    emitted: list[dict[str, Any]] = []
+    adapter = WebMCPAdapter(lambda: targets[-1], transport=httpx.MockTransport(handler), emit=emitted.append)
+    adapter.connect(timeout=0)
+
+    live["token"] = "new"
+    targets.append(BridgeTarget("http://127.0.0.1:8002", "new", "token-file"))
+    result = _rpc(adapter, "tools/call", {"name": "write_file", "arguments": {}})["result"]
+    assert result["isError"] is True
+    text = result["content"][0]["text"]
+    assert "whether it ran is unknown" in text
+    assert "list the tools again" in text
+    assert posts == ["old"], "the call is never re-sent to the restarted backend"
+    assert emitted == [LIST_CHANGED]
+    assert adapter.base_url == "http://127.0.0.1:8002"
+
+
+@pytest.mark.parametrize("failure", ["auth-rejected", "connection-refused"])
+def test_tools_list_follows_a_restarted_backend_once(failure: str) -> None:
+    """A read is safe to retry: one failed attempt, then one attempt on the restarted backend."""
+    targets = [BridgeTarget("http://127.0.0.1:8001", "old", "token-file")]
+    restarted = {"value": False}
+    seen: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(f"{request.url.port}:{request.headers.get(LOOPBACK_TOKEN_HEADER)}")
+        if restarted["value"] and request.url.port == 8001:
+            if failure == "connection-refused":
+                raise httpx.ConnectError("refused", request=request)
+            return httpx.Response(401, json={"detail": "webmcp bridge calls require a valid session token"})
+        name = "after_restart" if restarted["value"] else "before_restart"
+        project = "p2" if restarted["value"] else "p1"
+        body = {"tools": [{"name": name, "inputSchema": {"type": "object"}}], "context": {"projectId": project}}
+        return httpx.Response(200, json=body)
+
+    adapter = WebMCPAdapter(lambda: targets[-1], transport=httpx.MockTransport(handler))
+    adapter.connect(timeout=0)
+    restarted["value"] = True
+    targets.append(BridgeTarget("http://127.0.0.1:8002", "new", "token-file"))
+
+    listed = _rpc(adapter, "tools/list")["result"]["tools"]
+    assert [tool["name"] for tool in listed] == ["after_restart"]
+    assert seen[-2:] == ["8001:old", "8002:new"]
+    assert adapter.base_url == "http://127.0.0.1:8002"
+    assert adapter.project_id == "p2", "the client's tools/list adopts the restarted backend's snapshot"
+
+
+def _collect_lines(stream: IO[bytes], sink: queue.Queue[bytes]) -> None:
+    for line in iter(stream.readline, b""):
+        sink.put(line)
+
+
+@pytest.mark.timeout(180)
+def test_real_subprocess_stdio_round_trip(fake_home: Path, fixture_tools: dict[str, list[str]]) -> None:
+    """``scistudio webmcp-adapter`` as a child process against a live test backend over HTTP."""
+    import uvicorn
+
+    from scistudio.api.app import create_app
+
+    token = "stdio-e2e-token-6c"
+    server = uvicorn.Server(
+        uvicorn.Config(create_app(guard=_bearer_guard(token)), host="127.0.0.1", port=0, log_level="warning")
+    )
+    backend_thread = threading.Thread(target=server.run, daemon=True)
+    backend_thread.start()
+    deadline = time.monotonic() + 30
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert server.started, "the test backend did not start"
+
+    port = server.servers[0].sockets[0].getsockname()[1]
+    env = {**os.environ, "PYTHONPATH": str(Path(adapter_module.__file__).resolve().parents[2]), TOKEN_ENV: token}
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        env.pop(name, None)
+    requests = [
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+        {"jsonrpc": "2.0", "method": "notifications/initialized"},
+        {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+        {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "adapter_fixture_structured"}},
+    ]
+    child = subprocess.Popen(
+        [sys.executable, "-m", "scistudio", "webmcp-adapter", "--base-url", f"http://127.0.0.1:{port}"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+    assert child.stdin is not None and child.stdout is not None and child.stderr is not None
+    lines: queue.Queue[bytes] = queue.Queue()
+    threading.Thread(target=_collect_lines, args=(child.stdout, lines), daemon=True).start()
+    responses: dict[int, dict[str, Any]] = {}
+    try:
+        child.stdin.write(b"".join(json.dumps(message).encode("utf-8") + b"\n" for message in requests))
+        child.stdin.flush()
+        deadline = time.monotonic() + 120
+        while len(responses) < 3 and time.monotonic() < deadline and child.poll() is None:
+            with contextlib.suppress(queue.Empty):
+                message = json.loads(lines.get(timeout=1))
+                if "id" in message:
+                    responses[message["id"]] = message
+        # Keep stdin open until every response is in, then close it: the client going away.
+        child.stdin.close()
+        exit_code = child.wait(timeout=30)
+        stderr = child.stderr.read().decode("utf-8", errors="replace")
+    finally:
+        if child.poll() is None:
+            child.kill()
+        server.should_exit = True
+        backend_thread.join(timeout=30)
+
+    assert set(responses) == {1, 2, 3}, stderr[-2000:]
+    assert exit_code == 0, stderr[-2000:]
+    assert responses[1]["result"]["protocolVersion"] == "2025-06-18"
+    assert "adapter_fixture_structured" in {tool["name"] for tool in responses[2]["result"]["tools"]}
+    assert responses[3]["result"]["isError"] is False
+    assert responses[3]["result"]["structuredContent"] == {"points": [{"x": 1, "y": [2, 3]}], "unit": "nm"}
+    assert token not in stderr, "the credential never reaches the adapter's logs"

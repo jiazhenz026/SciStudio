@@ -65,6 +65,7 @@ planned_governs:
   excludes: []
 tests:
   - tests/cli/test_webmcp_adapter.py
+  - tests/api/test_webmcp.py
   - tests/api/test_enterprise_capabilities.py
   - tests/api/test_ai_pty_capability.py
   - frontend/src/components/Enterprise/EnterpriseChrome.test.tsx
