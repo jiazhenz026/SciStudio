@@ -47,6 +47,10 @@ import {
 } from "./previewerHostApi";
 
 export interface PreviewHostProps {
+  /** Backend-resolved child; never reconstructed from an untrusted child ref. */
+  initialEnvelope?: PreviewEnvelope;
+  /** Resume a frozen session, including composite-local targets, on maximize. */
+  previewSessionId?: string;
   panelId?: string;
   initialViewState?: unknown;
   onPanelSnapshot?: (snapshot: PanelSnapshot | null) => void;
@@ -140,6 +144,8 @@ function cacheEnvelopeForQuery(
 }
 
 export function PreviewHost({
+  initialEnvelope,
+  previewSessionId,
   target,
   initialQuery,
   routingEpoch,
@@ -182,8 +188,15 @@ export function PreviewHost({
 
     setStatus("loading");
     setRequestError(null);
-    api
-      .createPreviewSession(target, query)
+    const sessionId = initialEnvelope?.session_id ?? previewSessionId;
+    const resolved = sessionId
+      ? coreOnly
+        ? api.patchPreviewSession(sessionId, { core_only: true })
+        : initialEnvelope
+          ? Promise.resolve(initialEnvelope)
+          : api.getPreviewSession(sessionId)
+      : api.createPreviewSession(target, query);
+    resolved
       .then((env) => {
         if (cancelled) return;
         setEnvelope(env);
@@ -203,7 +216,16 @@ export function PreviewHost({
     // deliberate dep: a choice change must re-create the session so the new
     // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch, coreOnly, panelId]);
+  }, [
+    target?.ref,
+    target?.kind,
+    initialQueryKey,
+    routingEpoch,
+    coreOnly,
+    panelId,
+    initialEnvelope?.session_id,
+    previewSessionId,
+  ]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
@@ -335,6 +357,14 @@ export function PreviewHost({
 
   // The envelope currently in focus (top of the drill-down stack, else root).
   const activeEnvelope = childStack[childStack.length - 1] ?? envelope;
+  useEffect(() => {
+    if (activeEnvelope && !activeEnvelope.panel) {
+      onPanelSnapshot?.({
+        target: activeEnvelope.target,
+        ...(activeEnvelope.session_id ? { previewSessionId: activeEnvelope.session_id } : {}),
+      });
+    }
+  }, [activeEnvelope, onPanelSnapshot]);
   const manifest = useMemo(() => readManifest(activeEnvelope), [activeEnvelope]);
   const manifestKey = useMemo(() => manifestIdentityKey(manifest), [manifest]);
   const dynamicMountKey =
@@ -531,18 +561,37 @@ export function PreviewHost({
 
   if (activeEnvelope.panel) {
     return (
-      <PanelPreview
-        key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`}
-        target={activeEnvelope.target}
-        panelId={panelId ?? activeEnvelope.panel.id}
-        previewSessionId={activeEnvelope.session_id}
-        initialViewState={initialViewState}
-        onSnapshot={onPanelSnapshot}
-        onFallback={() => {
-          onPanelSnapshot?.(null);
-          setCoreOnlyTarget(fallbackTargetKey);
-        }}
-      />
+      <div>
+        {childStack.length > 0 ? (
+          <button type="button" data-testid="preview-host-back" onClick={popChild}>
+            ← Back
+          </button>
+        ) : null}
+        <PanelPreview
+          key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`}
+          target={activeEnvelope.target}
+          panelId={activeEnvelope.panel.id}
+          previewSessionId={activeEnvelope.session_id}
+          initialViewState={initialViewState}
+          onSnapshot={onPanelSnapshot}
+          renderChild={(child, onSnapshot) => (
+            <PreviewHost
+              target={child.target}
+              initialEnvelope={child}
+              onPanelSnapshot={onSnapshot}
+              importer={importer}
+            />
+          )}
+          onFallback={() => {
+            onPanelSnapshot?.(null);
+            if (activeEnvelope.session_id && childStack.length > 0) {
+              void patchQuery({ core_only: true }).catch((err: unknown) => {
+                setHostDiagnostics((value) => [...value, String(err)]);
+              });
+            } else setCoreOnlyTarget(fallbackTargetKey);
+          }}
+        />
+      </div>
     );
   }
 

@@ -1,4 +1,5 @@
 /** Guarded host operations. Static tokens are never sent as operation credentials. */
+import type { PreviewEnvelope } from "../../types/api";
 import { readPanelBody } from "../../panels/readBody";
 import { materializePanelArtifact } from "../../panels/artifact";
 import { apiFetch, JSON_HEADERS } from "./core";
@@ -12,6 +13,13 @@ export const panelsApi = {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify(request),
+      timeoutMs: 15000,
+    }),
+  open: (id: string, ref: string) =>
+    apiFetch<PreviewEnvelope>(`${contextPath(id)}/open`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ ref }),
       timeoutMs: 15000,
     }),
   close: (id: string) => apiFetch<void>(contextPath(id), { method: "DELETE", keepalive: true }),

@@ -9,6 +9,7 @@
 // package-provided panel loads via the ADR-048 same-origin dynamic-import path
 // (`panel_manifest.module_url`) through <DynamicPanel> (FR-007).
 
+import { submitPanelDecision } from "../panels/decisions";
 import type { ReactElement } from "react";
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
@@ -81,16 +82,34 @@ export function InteractiveModals() {
   // user switched tabs while the prompt was open (codex P1).
   const promptWorkflowId = interactivePrompt.workflowId;
 
-  const onConfirm = (responseData: Record<string, unknown>, contextId?: string) => {
-    sendWebSocketMessage({
-      type: "interactive_complete",
-      block_id: interactivePrompt.blockId,
-      // ADR-051 audit P2-1: carry the prompt's workflow_id so the backend can
-      // run-scope the response and not resolve a colliding block_id in another run.
-      workflow_id: promptWorkflowId,
-      data: responseData,
-      ...(contextId ? { context_id: contextId } : {}),
-    });
+  const onConfirm = async (
+    responseData: Record<string, unknown>,
+    contextId?: string,
+    signal?: AbortSignal,
+  ) => {
+    const send = () =>
+      sendWebSocketMessage({
+        type: "interactive_complete",
+        block_id: interactivePrompt.blockId,
+        // ADR-051 audit P2-1: carry the prompt's workflow_id so the backend can
+        // run-scope the response and not resolve a colliding block_id in another run.
+        workflow_id: promptWorkflowId,
+        data: responseData,
+        ...(contextId ? { context_id: contextId } : {}),
+      });
+
+    if (contextId) {
+      await submitPanelDecision(
+        {
+          context_id: contextId,
+          workflow_id: promptWorkflowId,
+          block_id: interactivePrompt.blockId,
+        },
+        send,
+        signal,
+      );
+      if (useAppStore.getState().interactivePrompt !== interactivePrompt) return;
+    } else send();
 
     // ADR-051 interaction memory (Addendum 1): if this node has "remember and
     // skip" enabled, persist the decision + the run's input fingerprint into the

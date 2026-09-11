@@ -49,6 +49,7 @@ export function createOpenPreviewTab(
       openAs,
       initialQuery,
       panelId: panelSnapshot?.panelId,
+      previewSessionId: panelSnapshot?.previewSessionId,
       viewState: panelSnapshot?.viewState,
       openedAt: Date.now(),
     };

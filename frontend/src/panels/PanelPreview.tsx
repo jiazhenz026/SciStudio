@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { panelsApi } from "../lib/api/panels";
-import type { PreviewTarget } from "../types/api";
+import type { PreviewEnvelope, PreviewTarget } from "../types/api";
 import { PanelFrame } from "./PanelFrame";
 import type { PanelContext, PanelCreateRequest, PanelSnapshot } from "./types";
 
@@ -11,6 +12,10 @@ export interface PanelPreviewProps {
   initialViewState?: unknown;
   onSnapshot?: (snapshot: PanelSnapshot) => void;
   onFallback: () => void;
+  renderChild: (
+    envelope: PreviewEnvelope,
+    onSnapshot?: (snapshot: PanelSnapshot | null) => void,
+  ) => ReactNode;
 }
 export function PanelPreview({
   target,
@@ -19,9 +24,18 @@ export function PanelPreview({
   initialViewState,
   onSnapshot,
   onFallback,
+  renderChild,
 }: PanelPreviewProps) {
-  const [stack, setStack] = useState<PanelCreateRequest[]>([]);
-  const [busy, setBusy] = useState(false);
+  const [child, setChild] = useState<PreviewEnvelope | null>(null);
+  const busy = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const rootSnapshot = useRef<PanelSnapshot>();
   const root: PanelCreateRequest = {
     kind: "preview",
     target,
@@ -29,76 +43,61 @@ export function PanelPreview({
     view_state: initialViewState,
     ...(previewSessionId ? { preview_session_id: previewSessionId } : {}),
   };
-  const snapshots = useRef(new Map<number, PanelSnapshot>());
-  const requests = [root, ...stack];
-  const active = requests.length - 1;
-  const remember = (
-    index: number,
-    request: PanelCreateRequest,
-    context: PanelContext,
-    viewState?: unknown,
-  ) => {
+  const remember = (context: PanelContext, viewState?: unknown) => {
     const kind = context.input.kind;
     const snapshot: PanelSnapshot = {
       target: {
-        ...request.target!,
+        ...target,
         ...(kind === "data_ref" || kind === "collection_ref" || kind === "plot_artifact"
           ? { kind }
           : {}),
       },
       panelId: context.panel.id,
+      ...(previewSessionId ? { previewSessionId } : {}),
       viewState,
     };
-    snapshots.current.set(index, snapshot);
-    if (index === active) onSnapshot?.(snapshot);
+    rootSnapshot.current = snapshot;
+    if (!child) onSnapshot?.(snapshot);
   };
   return (
     <div data-testid="panel-preview">
-      {stack.length ? (
+      {child ? (
         <button
           type="button"
           onClick={() => {
-            setStack((value) => value.slice(0, -1));
-            const snapshot = snapshots.current.get(active - 1);
-            if (snapshot) onSnapshot?.(snapshot);
+            setChild(null);
+            if (rootSnapshot.current) onSnapshot?.(rootSnapshot.current);
           }}
         >
           ← Back
         </button>
       ) : null}
-      {requests.map((request, index) => (
-        <div
-          key={`${request.parent_context_id ?? "root"}:${request.target?.ref}`}
-          hidden={index !== active}
-        >
-          <PanelFrame
-            request={request}
-            onFallback={onFallback}
-            onContext={(context) => remember(index, request, context, request.view_state)}
-            onViewState={(state, context) => remember(index, request, context, state)}
-            onOpen={async (ref, contextId) => {
-              if (busy || index !== active)
-                throw new Error("Preview navigation already in progress");
-              setBusy(true);
-              try {
-                const childRequest: PanelCreateRequest = {
-                  kind: "preview",
-                  target: { kind: "data_ref", ref },
-                  parent_context_id: contextId,
-                };
-                // Validate before changing the stack. The live child mount creates its
-                // own context; this short validation context is immediately revoked.
-                const child = await panelsApi.create(childRequest);
-                await panelsApi.close(child.context_id);
-                setStack((value) => [...value, childRequest]);
-                return null;
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
-        </div>
-      ))}
+      <div hidden={child !== null}>
+        <PanelFrame
+          request={root}
+          onFallback={onFallback}
+          onContext={(context) => remember(context, initialViewState)}
+          onViewState={(state, context) => remember(context, state)}
+          onOpen={async (ref, contextId) => {
+            if (busy.current || child) throw new Error("Preview navigation already in progress");
+            busy.current = true;
+            try {
+              // The backend authorizes the child through the parent and freezes an
+              // independent preview session, including composite-local slot refs.
+              const envelope = await panelsApi.open(contextId, ref);
+              if (mounted.current) setChild(envelope);
+              return null;
+            } finally {
+              busy.current = false;
+            }
+          }}
+        />
+      </div>
+      {child
+        ? renderChild(child, (snapshot) => {
+            if (snapshot) onSnapshot?.(snapshot);
+          })
+        : null}
     </div>
   );
 }

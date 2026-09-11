@@ -10,7 +10,11 @@ import type { PanelContext, PanelCreateRequest } from "./types";
 export interface PanelFrameProps {
   request: PanelCreateRequest;
   onOpen?: (ref: string, contextId: string) => Promise<unknown>;
-  onWriteBack?: (response: Record<string, unknown>, contextId: string) => void;
+  onWriteBack?: (
+    response: Record<string, unknown>,
+    contextId: string,
+    signal?: AbortSignal,
+  ) => void | Promise<void>;
   onViewState?: (state: unknown, context: PanelContext) => void;
   onContext?: (context: PanelContext) => void;
   onFallback?: () => void;
@@ -136,8 +140,18 @@ export function PanelFrame(props: PanelFrameProps) {
         callbacks.current.onOpen?.(ref, context.context_id) ??
         Promise.reject(new Error("No preview host")),
       writeBack: async (response) => {
-        callbacks.current.onWriteBack?.(response, context.context_id);
-        return null;
+        try {
+          await callbacks.current.onWriteBack?.(
+            response,
+            context.context_id,
+            readsAbort.current?.signal,
+          );
+          return null;
+        } catch (error) {
+          if (!readsAbort.current?.signal.aborted)
+            fail(error instanceof Error ? error.message : String(error));
+          throw error;
+        }
       },
       save: savePanelBytes,
       viewState: (state) => callbacks.current.onViewState?.(state, context),

@@ -1,3 +1,4 @@
+import { dispatchWorkflowEvent } from "../hooks/useWebSocket.parts/dispatchEvent";
 import { bootstrapFrame } from "../panels/testUtils";
 /**
  * #2195 — the host must always offer a way out of an interactive block.
@@ -147,57 +148,110 @@ describe("<InteractiveModals> panel resolution", () => {
   });
 });
 
-it("sends a panel decision through the existing workflow event with its context id", async () => {
-  backend.restore();
-  backend = mockBackend({
-    "POST /api/panels/contexts": {
-      context_id: "pc-interactive",
-      bootstrap_proof: "a".repeat(64),
-      panel: { id: "lab.decision", api_version: "1.0", name: "Decision" },
-      kind: "interactive",
-      operations: ["writeBack"],
-      services: ["save"],
-      input: { question: "Choose" },
-      token: "token",
-      expires_at: 999999,
-      entry_url: "/api/panels/t/token/assets/lab.decision/index.html",
-      sdk_url: "/api/panels/t/token/sdk/1/scistudio-panel.js",
-      lib_base_url: "/api/panels/t/token/lib/",
-    },
-    "DELETE /api/panels/contexts/{context_id}": reply(204),
-  });
-  const port = {
-    onmessage: null,
-    postMessage: vi.fn(),
-    start: vi.fn(),
-    close: vi.fn(),
-  } as unknown as MessagePort;
-  vi.stubGlobal(
-    "MessageChannel",
-    class {
-      port1 = port;
-      port2 = {};
-    },
-  );
-  seedPrompt({ panel_id: "lab.decision", api_version: "1.0" });
-  render(<InteractiveModals />);
-  const iframe = (await screen.findByTitle("Decision")) as HTMLIFrameElement;
-  bootstrapFrame(iframe);
-  fireEvent.load(iframe);
-  const message = async (type: string, payload: unknown) => {
-    await act(async () => {
-      await port.onmessage?.({ data: { v: 1, id: type, type, payload } } as MessageEvent);
+it.each(["accepted", "rejected"])(
+  "waits for the server before closing or remembering a panel decision (%s)",
+  async (outcome) => {
+    backend.restore();
+    backend = mockBackend({
+      "POST /api/panels/contexts": {
+        context_id: "pc-interactive",
+        bootstrap_proof: "a".repeat(64),
+        panel: { id: "lab.decision", api_version: "1.0", name: "Decision" },
+        kind: "interactive",
+        operations: ["writeBack"],
+        services: ["save"],
+        input: { question: "Choose" },
+        token: "token",
+        expires_at: 999999,
+        entry_url: "/api/panels/t/token/assets/lab.decision/index.html",
+        sdk_url: "/api/panels/t/token/sdk/1/scistudio-panel.js",
+        lib_base_url: "/api/panels/t/token/lib/",
+      },
+      "DELETE /api/panels/contexts/{context_id}": reply(204),
     });
-  };
-  await message("ready", null);
-  await message("writeBack", { selected: [2] });
-  expect(sendWebSocketMessage).toHaveBeenCalledWith({
-    type: "interactive_complete",
-    workflow_id: "wf-1",
-    block_id: "block-1",
-    context_id: "pc-interactive",
-    data: { selected: [2] },
-  });
-  expect(useAppStore.getState().interactivePrompt).toBeNull();
-  vi.unstubAllGlobals();
-});
+    const port = {
+      onmessage: null,
+      postMessage: vi.fn(),
+      start: vi.fn(),
+      close: vi.fn(),
+    } as unknown as MessagePort;
+    vi.stubGlobal(
+      "MessageChannel",
+      class {
+        port1 = port;
+        port2 = {};
+      },
+    );
+    seedPrompt({ panel_id: "lab.decision", api_version: "1.0" });
+    const originalUpdate = useAppStore.getState().updateNodeConfig;
+    const remember = vi.fn();
+    useAppStore.setState({
+      workflowNodes: [
+        {
+          id: "block-1",
+          block_type: "lab.decision",
+          config: { interactive_memory: { enabled: true } },
+        },
+      ],
+      updateNodeConfig: remember,
+    });
+    render(<InteractiveModals />);
+    const iframe = (await screen.findByTitle("Decision")) as HTMLIFrameElement;
+    bootstrapFrame(iframe);
+    fireEvent.load(iframe);
+    const message = async (type: string, payload: unknown) => {
+      await act(async () => {
+        await port.onmessage?.({ data: { v: 1, id: type, type, payload } } as MessageEvent);
+      });
+    };
+    await message("ready", null);
+    act(() => {
+      void port.onmessage?.({
+        data: { v: 1, id: "decision", type: "writeBack", payload: { selected: [2] } },
+      } as MessageEvent);
+    });
+    expect(sendWebSocketMessage).toHaveBeenCalledWith({
+      type: "interactive_complete",
+      workflow_id: "wf-1",
+      block_id: "block-1",
+      context_id: "pc-interactive",
+      data: { selected: [2] },
+    });
+    expect(useAppStore.getState().interactivePrompt).not.toBeNull();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(remember).not.toHaveBeenCalled();
+    expect(backend.callsTo("DELETE /api/panels/contexts/{context_id}")).toHaveLength(0);
+    await act(async () => {
+      const accepted = {
+        type: outcome === "accepted" ? "panel_accepted" : "panel_error",
+        error: { code: "stale_context", message: "Decision rejected: remount the panel" },
+        context_id: "pc-interactive",
+        workflow_id: "wf-1",
+        block_id: "block-1",
+        data: {},
+        timestamp: "",
+      };
+      dispatchWorkflowEvent(accepted, {
+        appendLog: vi.fn(),
+        setWorkflow: vi.fn(),
+        setInteractivePrompt: vi.fn(),
+      });
+    });
+    if (outcome === "accepted") {
+      expect(useAppStore.getState().interactivePrompt).toBeNull();
+      expect(remember).toHaveBeenCalledWith("block-1", {
+        interactive_memory: { enabled: true, decision: { selected: [2] }, signature: {} },
+      });
+    } else {
+      expect(useAppStore.getState().interactivePrompt).not.toBeNull();
+      expect(remember).not.toHaveBeenCalled();
+      expect(await screen.findByRole("alert")).toHaveTextContent("Decision rejected");
+      expect(screen.getByText("Remount panel")).toBeInTheDocument();
+    }
+    await waitFor(() =>
+      expect(backend.callsTo("DELETE /api/panels/contexts/{context_id}")).toHaveLength(1),
+    );
+    useAppStore.setState({ updateNodeConfig: originalUpdate });
+    vi.unstubAllGlobals();
+  },
+);

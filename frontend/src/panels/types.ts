@@ -39,7 +39,8 @@ export interface PanelMessage {
 }
 export interface PanelSnapshot {
   target: PreviewTarget;
-  panelId: string;
+  panelId?: string;
+  previewSessionId?: string;
   viewState?: unknown;
 }
 export class PanelError extends Error {

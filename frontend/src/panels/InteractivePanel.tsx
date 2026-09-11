@@ -6,7 +6,11 @@ export interface InteractivePanelProps {
   workflowId: string;
   blockId: string;
   blockName?: string;
-  onConfirm: (data: Record<string, unknown>, contextId: string) => void;
+  onConfirm: (
+    data: Record<string, unknown>,
+    contextId: string,
+    signal?: AbortSignal,
+  ) => void | Promise<void>;
   onCancel: () => void;
 }
 export function InteractivePanel({

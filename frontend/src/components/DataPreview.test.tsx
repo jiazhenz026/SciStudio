@@ -28,7 +28,12 @@ vi.mock("../panels/PanelPreview", () => ({
   PanelPreview: (props: PanelPreviewProps) => (
     <button
       onClick={() =>
-        props.onSnapshot?.({ target: props.target, panelId: props.panelId, viewState: { zoom: 3 } })
+        props.onSnapshot?.({
+          target: props.target,
+          panelId: props.panelId,
+          previewSessionId: props.previewSessionId ?? undefined,
+          viewState: { zoom: 3 },
+        })
       }
     >
       Report panel state
@@ -367,6 +372,7 @@ it("maximizes a panel with its frozen resolved id and reported view state", asyn
     kind: "preview",
     target: { ref: "image-1" },
     panelId: "lab.custom",
+    previewSessionId: "session-image-1",
     viewState: { zoom: 3 },
   });
   fireEvent.click(screen.getByLabelText("Maximize preview"));

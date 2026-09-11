@@ -1596,6 +1596,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.134484Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.147866Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.162248Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.175190Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.188330Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.200912Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.214133Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.227440Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.241120Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.254518Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:06:38.290384Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1855,9 +1943,9 @@
       "src/scistudio/panels/sdk/1/scistudio-panel.js",
       "tests/contracts/openapi.json"
     ],
-    "diff_fingerprint": "sha256:378a3b65ff14a3dbf7ed09f9522d33ae1836fa9e8c04e2a4bc3659439a0d4693",
+    "diff_fingerprint": "sha256:4d29dd201f576f4f91f0d399c8b7dda70161434e1c14869c31b4a30b0ffe6f88",
     "head": "HEAD",
-    "head_sha": "46aa309b",
+    "head_sha": "e0b559a6",
     "surfaces": {
       "docs": 1,
       "frontend": 36,
@@ -2007,6 +2095,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T16:06:38.290443Z",
+      "diff_fingerprint": "sha256:4d29dd201f576f4f91f0d399c8b7dda70161434e1c14869c31b4a30b0ffe6f88",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2293-panel-frontend",
@@ -2053,6 +2149,18 @@
       "at": "2026-09-11T15:38:44.966924Z",
       "pattern": "tests/contracts/openapi.json",
       "reason": "Manager assigned generated OpenAPI snapshot a6fa1efa as the contract-test dependency; consume without manual schema edits."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:01:11.161194Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "reason": "Manager-approved audit fix: hold new panel decision context and interaction memory until matching backend WebSocket acknowledgement; legacy paths unchanged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:01:11.162720Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.test.ts",
+      "reason": "Manager-approved audit fix: hold new panel decision context and interaction memory until matching backend WebSocket acknowledgement; legacy paths unchanged."
     }
   ],
   "session_id": "1ec514ef-1bed-4820-9fad-78271879bfa4",
@@ -2160,6 +2268,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/panels/readBody.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:58:59.060195Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/PanelPreview.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:58:59.060331Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:01:11.162734Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/decisions.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

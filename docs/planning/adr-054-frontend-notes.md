@@ -40,17 +40,28 @@ state, and bounds concurrent operations to 64. Context references are authorized
 by the backend, including child navigation through `parent_context_id`.
 
 Interactive completion retains the existing `interactive_complete` WebSocket
-message and adds `context_id` outside its unchanged decision data. Existing
-interaction memory and Cancel remain in the host. The two compiled built-in
+message and adds `context_id` outside its unchanged decision data. A new-panel
+confirmation retains its dialog and context until the workflow socket returns
+`panel_accepted` with matching context, workflow and block identifiers. Only
+then does the host persist opted-in interaction memory and close the dialog.
+A matching `panel_error` or a 30 second acknowledgement timeout offers remount;
+Cancel aborts pending acknowledgement. Legacy compiled/module decisions retain
+their existing behavior. Interaction memory and Cancel remain in the host. The two compiled built-in
 interactive windows remain until Phase B #2294; other empty-module manifests
 resolve through backend panel contexts. Legacy module loads log deprecation once
 per URL. Legacy removal is tracked in #2288.
 
 The common preview host handles routed panel envelopes as well as legacy ones.
-Maximize captures resolved panel id and latest view state alongside the frozen
-target, using the existing `preview:<ref>` dedup and transient-tab rules. Child
-navigation keeps parent frames and contexts until Back or root disposal, so Back
-restores the parent's live state. Core fallback is an explicit reroute through
+Maximize captures the independently frozen preview session, optional resolved
+panel id and latest view state alongside the target, using the existing
+`preview:<ref>` dedup and transient-tab rules. The host resumes that session;
+it never assumes a composite-local `#slot` is a global catalog reference.
+Child navigation uses guarded `POST /api/panels/contexts/{id}/open {ref}`:
+the backend authorizes reachability and returns a canonical child envelope and
+independent preview session. The same PreviewHost renders a panel, retained
+legacy core viewer or legacy module. Parent frames and contexts stay mounted
+until Back or root disposal, so Back restores the parent's live state. A child
+session survives parent-context disposal for maximize. Core fallback is an explicit reroute through
 `query.core_only`; it can select the retained legacy core envelope during A.
 
 ## Artifact Mediation
