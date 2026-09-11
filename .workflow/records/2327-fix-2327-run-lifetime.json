@@ -160,6 +160,11 @@
       "at": "2026-09-11T11:24:35.958828Z",
       "owner_directive": "Plan: (1) delete the GUI-disconnect grace cancel from ws.py; (2) new api/runtime/_run_lifetime.py: per-run owner marker (pid+create_time+host) written before the runs row, released after finalize; reconcile_interrupted_runs() on lineage-store open finalizes running rows whose owner process is gone as failed; shutdown_workflow_runs() cancels live runs with a bounded wait and force-finalizes stragglers as cancelled; (3) app.py lifespan: minimal hunk replacing the unbounded cancel+gather loop with runtime.shutdown_workflow_runs(). No core/schema change: reuses LineageStore.runs_in_progress/get_run/finalize_run and the existing failed/cancelled states.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T12:17:33.241091Z",
+      "owner_directive": "Manager relay 2026-09-11 after no-context audit: fix P1 (reopen mid-run strands row), P2 desktop graceful quit (may edit desktop/main.js and desktop/test/** for the stop sequence only), P2 governing spec section, P3s inside the write set; merge the audit branch.",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
     }
   ],
   "docs_events": [
@@ -752,6 +757,36 @@
       "at": "2026-09-11T11:24:35.958848Z",
       "pattern": "src/scistudio/api/app.py",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:17:33.241107Z",
+      "pattern": "desktop/main.js",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:17:33.241112Z",
+      "pattern": "desktop/test/**",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:17:33.241114Z",
+      "pattern": "docs/specs/adr-055-local-background-runtime.md",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:17:33.241116Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:17:33.241118Z",
+      "pattern": ".workflow/records/2327-audit-2327-o3-no-context.json",
+      "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
     }
   ],
   "session_id": "20b0cc57-8266-46e0-a867-95aa4c7de0c5",
