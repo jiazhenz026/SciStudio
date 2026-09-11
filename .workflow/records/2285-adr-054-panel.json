@@ -97,6 +97,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:26:15.843128Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4a0693fc5ca0b8fa535b6db95dfe93815d74cf83fd861b41e54dfe41ca261e90",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:26:29.084841Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a89f2b0d273ff2fe3232d56cc812f9d24ac3322be920146a3d2d8ae2c4fb55f3",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -113,7 +145,13 @@
       "docs/adr/ADR-054.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T05:25:51.851376Z",
+      "owner_directive": "Fold the single ADR-054 implementation spec (docs/specs/adr-054-panels.md, issue #2287) into PR #2286 so ADR, audit, and spec land together and close #2285 and #2287.",
+      "reason": "Owner decision: fold the ADR-054 implementation spec (#2287) into this PR instead of a separate or stacked PR"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T04:02:06.837782Z",
@@ -128,6 +166,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-09-11-adr-054-panels-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T05:25:51.851480Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -639,6 +685,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.134468Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.146277Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.157640Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.168722Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.180941Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.195693Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.207907Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.219182Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.230637Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.241798Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:26:29.257908Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -646,6 +780,12 @@
       "close_in_pr": true,
       "followup_rationale": null,
       "number": 2285,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2287,
       "url": null
     }
   ],
@@ -658,9 +798,9 @@
       "docs/adr/ADR-054.md",
       "docs/audit/2026-09-11-adr-054-panels-no-context.md"
     ],
-    "diff_fingerprint": "sha256:01d3c8ca81b30b72ae28cfa288cbbb732344d430d62a6e547ac1885356155de5",
+    "diff_fingerprint": "sha256:5da30ec3afe24e87c2d3a918b8039bdc59796dff5832812e6f446f197abf0698",
     "head": "HEAD",
-    "head_sha": "0be320bec",
+    "head_sha": "c53a12ecd",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -733,6 +873,14 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:26:29.257942Z",
+      "diff_fingerprint": "sha256:5da30ec3afe24e87c2d3a918b8039bdc59796dff5832812e6f446f197abf0698",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "2285-adr-054-panel",
@@ -767,6 +915,12 @@
       "at": "2026-09-11T05:13:51.456836Z",
       "pattern": "docs/audit/2026-09-11-adr-054-panels-no-context.md",
       "reason": "Carry the no-context audit report into the ADR PR and revise ADR-054 per the audit and the owner's post-audit decisions"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T05:25:51.851393Z",
+      "pattern": "docs/specs/adr-054-panels.md",
+      "reason": "Owner decision: fold the ADR-054 implementation spec (#2287) into this PR instead of a separate or stacked PR"
     }
   ],
   "session_id": "284d0f5c-528c-43ef-a362-eb452630a6b5",
