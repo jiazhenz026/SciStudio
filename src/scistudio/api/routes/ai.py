@@ -32,6 +32,7 @@ from pydantic import BaseModel
 from scistudio.ai.agent import availability as agent_availability
 from scistudio.ai.agent.providers_registry import ProviderDescriptor, agent_descriptors, resolve_binary
 from scistudio.api.deps import get_runtime
+from scistudio.api.routes.ai_pty import _state as _pty_state
 from scistudio.api.runtime import ApiRuntime
 
 logger = logging.getLogger(__name__)
@@ -119,10 +120,29 @@ async def provider_status() -> dict[str, Any]:
 
 
 async def _status_rows() -> list[dict[str, Any]]:
-    """Probe every registered agent provider concurrently, in registry order."""
+    """Probe every registered agent provider concurrently, in registry order.
+
+    ADR-055 Spec 4 FR-006: while ``ai_chat_disabled`` refuses agent sessions,
+    no agent binary is run (no ``--version``, no auth-status command). Each
+    such provider is reported unavailable with ``disabled: true``.
+    """
     descriptors = agent_descriptors()
-    providers = await asyncio.gather(*(asyncio.to_thread(_probe_provider, d) for d in descriptors))
-    return list(providers)
+    probed = [d for d in descriptors if _pty_state.agent_session_refusal(d.key) is None]
+    rows = await asyncio.gather(*(asyncio.to_thread(_probe_provider, d) for d in probed))
+    by_key = {row["name"]: row for row in rows}
+    return [by_key.get(d.key) or _disabled_row(d) for d in descriptors]
+
+
+def _disabled_row(descriptor: ProviderDescriptor) -> dict[str, Any]:
+    """The status row of a provider ``ai_chat_disabled`` turns off; nothing is probed."""
+    return {
+        "name": descriptor.key,
+        "available": False,
+        "version": None,
+        "logged_in": False,
+        "label": descriptor.label,
+        "disabled": True,
+    }
 
 
 @router.get("/availability")

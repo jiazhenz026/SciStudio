@@ -179,10 +179,13 @@ def _templated_index_response(
         base_href = escape(f"{base_path}/", quote=True)
         injection += f'<base href="{base_href}">'
     assignments = ""
+    # Every value goes through the same script-safe serialization, so an
+    # operator-configured prefix containing ``</script>`` cannot close the
+    # element either (#2322 no-context audit P3-2).
     if base_path:
-        assignments += f"window.__SCISTUDIO_BASE_PATH__ = {json.dumps(base_path)};"
+        assignments += f"window.__SCISTUDIO_BASE_PATH__ = {_script_safe_json(base_path)};"
     if webmcp_session_token:
-        assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(webmcp_session_token)};"
+        assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {_script_safe_json(webmcp_session_token)};"
     if capabilities_json:
         assignments += f"window.__SCISTUDIO_CAPABILITIES__ = {capabilities_json};"
     injection += f"<script>{assignments}</script>"

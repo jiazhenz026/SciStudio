@@ -30,6 +30,21 @@ const UPDATE = {
 
 /** Route paths the backend would never declare; the accessor must refuse them too. */
 const NOT_ROUTE_PATHS = [
+  "/api/test-edition/../x",
+  "/api/./x",
+  "/../api/x",
+  "/api/test-edition/%2e%2e/x",
+  "/api/test-edition/%2E/x",
+  "/api/test-edition/.%2E/x",
+  "/api/%252e%252e/x",
+  "/\ufeffapi/test-edition/x",
+  "/api/test-edition/x\u200b",
+  "/api/test-edition/x\u00ad",
+  "/api/test-edition/x\u3000",
+  "/api/test-edition/x\u00a0",
+  "/api/test-edition/x\u1680",
+  "/api/test-edition/x\x85",
+  "/api/test-edition/x\x80",
   "",
   "api/test-edition/x",
   "//evil.example/x",

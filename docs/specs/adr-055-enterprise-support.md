@@ -362,7 +362,10 @@ prefixed, guarded backend, and are refused after the context closes.
   the new value, and an open session is not killed by the UI.
 - A tutorial replay tab adopted under the `user-terminal` provider while
   `ai_chat_disabled` is set: it is still a terminal-kind session and is not refused.
-  The frontend files it by `source`, as it does today.
+  The frontend files it by `source`, as it does today, so it lands under the
+  hidden AI Chat surface and cannot be seen. That gap, and Bring In My Work
+  answering the refusal with HTTP 500 after writing its brief, are tracked in
+  #2337.
 - An update notice arrives while the user is typing in the editor: the notice
   never steals focus or restarts anything.
 - The update status route fails, or answers something other than the status
@@ -392,9 +395,10 @@ prefixed, guarded backend, and are refused after the context closes.
   frontend MUST ignore unknown capabilities and treat a missing capability as
   off.
   - Every URL a capability carries MUST be a backend route path without the
-    service prefix: a leading `/`, not `//`, and no scheme, whitespace,
-    control characters or backslashes. The backend refuses anything else when
-    the edition builds the declaration, and the frontend reads it as off.
+    service prefix: a leading `/`, not `//`, no scheme, no whitespace,
+    invisible or control characters, no backslashes, and no `.` or `..`
+    segment, encoded or not. The backend refuses anything else when the
+    edition builds the declaration, and the frontend reads it as off.
   - The frontend MUST resolve each URL under the service prefix exactly as it
     resolves its API calls, and MUST read a malformed capability as off.
 - **FR-004**: When `identity` is present, the frontend MUST show the user name.
@@ -420,7 +424,8 @@ prefixed, guarded backend, and are refused after the context closes.
   in `BottomPanel` and the backend MUST refuse, with a clear error and no
   spawned process, any `/api/ai` PTY session whose provider is agent-kind in
   the provider registry. That covers every spawn path: the chat WebSocket, AI
-  Block tabs, and Bring In My Work sessions. Terminal-kind sessions (`user-terminal`) MUST NOT be
+  Block tabs, and Bring In My Work sessions. `GET /api/ai/status` MUST then
+  run no agent binary, and report each agent provider as disabled. Terminal-kind sessions (`user-terminal`) MUST NOT be
   gated in any mode. When `ai_chat_disabled` is absent, behavior MUST be unchanged. Specs
   and docs MUST describe the gate as a default and an administrator policy,
   not as a security boundary.
@@ -430,8 +435,14 @@ prefixed, guarded backend, and are refused after the context closes.
   While `update_available` is true, the frontend MUST show a non-blocking
   notice with the running and installed versions, and the notice MUST NOT
   take focus. Restart MUST require explicit confirmation and MUST warn when
-  runs are active. It then sends `POST restart_url`, which answers
-  `{"location": ...}`, and navigates there. The frontend MUST NOT restart or reload on its
+  runs are active. It then sends `POST restart_url` with
+  `{"confirm_active_runs": <bool>}`. The flag is `true` only after the user
+  has seen and accepted the runs-active warning, and `false` otherwise, so a
+  backend can enforce the warning itself. The route answers
+  `{"location": ...}`, and the frontend navigates there. A `409` answer means
+  runs became active after the status read, and its body names them. The
+  frontend then shows the warning with those names, requires confirmation
+  again, and retries with `true`. The frontend MUST NOT restart or reload on its
   own.
 - **FR-008**: The stdio MCP adapter (issue #2308) MUST serve MCP over stdio
   and forward `tools/list` to `GET /api/webmcp/tools` and `tools/call` to
@@ -487,8 +498,10 @@ prefixed, guarded backend, and are refused after the context closes.
     because update availability and active runs change while the backend
     runs. `GET status_url` answers an **UpdateStatus**,
     `{running_version, installed_version, update_available, runs_active}`,
-    which the frontend polls and never stores. `POST restart_url` answers
-    `{location}`. This replaces the earlier static shape
+    which the frontend polls and never stores. `POST restart_url` takes
+    `{"confirm_active_runs": <bool>}` and answers `{location}`, or `409`
+    naming the active runs when they are unconfirmed. This replaces the
+    earlier static shape
     `{running_version, installed_version, runs_active, restart_url}`
     (umbrella #2321).
 

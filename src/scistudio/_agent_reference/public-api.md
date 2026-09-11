@@ -22,7 +22,7 @@ unsupported, and liable to move or vanish without notice.
 | `scistudio.previewers.data_access` | bounded preview-read helpers |
 | `scistudio.tutorials` | tutorial authoring: `TutorialDriver`, `DriverContext`, `StepView`, the action and condition vocabulary |
 | `scistudio.api.app` | `create_app`, the backend factory an edition composes on (server composition, not block authoring) |
-| `scistudio.api.seam` | guard, lifespan-hook and capability types, the self-authenticating path registry, `workflow_runs_active`, the shared MCP registry (server composition, not block authoring) |
+| `scistudio.api.seam` | guard, lifespan-hook and capability types, the self-authenticating path registry, `workflow_runs_active`, project access (`active_project_root`, `ToolRefusal`, `check_author_path`, `write_project_file`, `add_upload_listener`), the shared MCP registry (server composition, not block authoring) |
 | `scistudio.stability` | `stable`, `provisional`, `internal` decorators |
 
 ```python

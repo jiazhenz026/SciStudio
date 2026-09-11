@@ -302,3 +302,43 @@ def test_the_policy_follows_the_application_lifespan(project_dir: Path, spawned:
     assert ai_pty.agent_session_refusal("claude-code") is None, "cleared at teardown"
     with TestClient(_app(disabled=False)):
         assert ai_pty.agent_session_refusal("claude-code") is None
+
+
+# ---------------------------------------------------------------------------
+# GET /api/ai/status runs no agent binary under ai_chat_disabled (no-context
+# audit P3-5).
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def probes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every agent binary probe the status route would run."""
+    from scistudio.api.routes import ai as ai_routes
+
+    ran: list[str] = []
+
+    def binary_status(descriptor: Any) -> tuple[str | None, bool, str | None]:
+        ran.append(descriptor.key)
+        return None, False, None
+
+    monkeypatch.setattr(ai_routes, "_binary_status", binary_status)
+    return ran
+
+
+def test_status_runs_no_agent_probe_while_agent_sessions_are_disabled(
+    project_dir: Path, spawned: list[str], probes: list[str]
+) -> None:
+    with TestClient(_app(disabled=True)) as client:
+        rows = client.get("/api/ai/status").json()["providers"]
+    assert probes == []
+    assert [row["name"] for row in rows] == list(AGENT_KEYS)
+    assert all(row["disabled"] is True and row["available"] is False for row in rows)
+
+
+def test_status_probes_agents_as_before_without_the_capability(
+    project_dir: Path, spawned: list[str], probes: list[str]
+) -> None:
+    with TestClient(_app(disabled=False)) as client:
+        rows = client.get("/api/ai/status").json()["providers"]
+    assert sorted(probes) == sorted(AGENT_KEYS)
+    assert all("disabled" not in row for row in rows)

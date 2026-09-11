@@ -275,6 +275,11 @@ export function Toolbar(props: ToolbarProps) {
              *
              * FR-002 — enabled when a project is open, disabled otherwise,
              * because a session writes its blocks into a project.
+             *
+             * TODO(#2337): with `ai_chat_disabled` the backend refuses the
+             *   session only after the brief is written (HTTP 500 from
+             *   work_import.py). Out of scope per the #2322 audit (P2-4).
+             *   Followup: https://github.com/jiazhenz026/SciStudio/issues/2337
              */}
             <Tooltip>
               <TooltipTrigger asChild>

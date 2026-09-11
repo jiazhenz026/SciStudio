@@ -109,10 +109,13 @@ async def _internal_request_tab(
         # Late-bound lookup on the ``engine`` module so tests can
         # monkeypatch.setattr(ai_pty.engine, "open_engine_initiated_tab", ...).
         tab_id = _engine.open_engine_initiated_tab(**_tab_open_kwargs(spec))
-    except _pkg.AgentSessionsDisabledError as exc:
+    except _pkg.AgentSessionsDisabledError:
         # ADR-055 Spec 4 FR-006: a soft failure the AI Block reports as its
-        # error, never mistaken for the cap branch below.
-        return {"tab_id": None, "error": str(exc)}
+        # error, never mistaken for the cap branch below. The sentence is
+        # rebuilt from the policy rather than read off the exception, so no
+        # exception text reaches the caller (CodeQL py/stack-trace-exposure).
+        refusal = _pkg.agent_session_refusal(str(spec.get("provider", "")))
+        return {"tab_id": None, "error": refusal or "AI agent sessions are turned off on this server."}
     except RuntimeError as exc:
         msg = str(exc)
         if "cap" in msg.lower():

@@ -46,7 +46,7 @@ from scistudio.api.schemas import (
     PreviewSessionCreate,
     PreviewSessionPatch,
 )
-from scistudio.api.seam import notify_upload_listeners
+from scistudio.api.seam import notify_upload_listeners, upload_relative_path
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.origins import CUSTOM_ORIGIN, PACKAGE_ORIGIN, PROJECT_ORIGIN, USER_ORIGIN
 from scistudio.core.storage.ref import StorageReference
@@ -112,13 +112,18 @@ async def upload_data(
     exhaust process memory before the 413 ever fired.
 
     ADR-055 identity seam (#2328): an edition's upload listeners
-    (``scistudio.api.seam.add_upload_listener``) hear when the staged upload
-    starts, and when it completes or is discarded. A failing listener never
-    changes this answer.
+    (``scistudio.api.seam.add_upload_listener``) hear ``started`` when the
+    upload is staged, and then ``completed`` or ``discarded``. FastAPI has
+    already received the whole request body by then, so an upload the client
+    cancels mid-transfer never reaches this handler and produces no event. A
+    failing listener never changes this answer.
     """
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
+    # Relative to the project the upload was staged into, even if the active
+    # project changes before it ends (#2322 audit P3-3).
+    upload_path = upload_relative_path(app, destination) if app is not None else ""
     if app is not None:
-        await notify_upload_listeners(app, destination, size=file.size or 0, status="started")
+        await notify_upload_listeners(app, upload_path, size=file.size or 0, status="started")
     total = 0
     try:
         with staged_path.open("wb") as staged:
@@ -134,10 +139,10 @@ async def upload_data(
     except Exception:
         runtime.discard_staged_upload(staged_path)
         if app is not None:
-            await notify_upload_listeners(app, destination, size=total, status="discarded")
+            await notify_upload_listeners(app, upload_path, size=total, status="discarded")
         raise
     if app is not None:
-        await notify_upload_listeners(app, destination, size=total, status="completed")
+        await notify_upload_listeners(app, upload_path, size=total, status="completed")
     return DataUploadResponse(**payload)
 
 

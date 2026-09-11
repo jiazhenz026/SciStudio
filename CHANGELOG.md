@@ -20,18 +20,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   "Download to this computer" to the project tree's context menu.
   `ai_chat_disabled` hides the AI Chat tab, and the backend then refuses every
   agent-kind PTY session before anything is spawned: the chat WebSocket, AI
-  Block tabs, and Bring In My Work sessions. The Terminal, and a tutorial
-  replay that plays into it, still work. This is a default and an
-  administrator policy, not a security boundary. `update` names a status route
+  Block tabs, and Bring In My Work sessions. `GET /api/ai/status` then runs
+  no agent binary and reports each agent as disabled. The Terminal still
+  works. A
+  tutorial replay is hidden along with the AI Chat tab, and Bring In My Work
+  reports the refusal only after it has written its session brief; both are
+  tracked in #2337. This is a default and an administrator policy, not a
+  security boundary. `update` names a status route
   the frontend polls every 60 seconds and whenever the window regains focus.
   When an update is available, a notice appears that never takes focus;
   Restart asks for confirmation, warns while workflow runs are active, and
-  then follows the restart route. Every capability URL is a backend route path
+  then follows the restart route. The restart request carries
+  `{"confirm_active_runs": …}`, which is `true` only after the user has
+  accepted the warning, so the edition can enforce it. A `409` answer names
+  the runs that became active meanwhile, and the notice shows them and asks
+  again. Every capability URL is a backend route path
   without the service prefix, resolved under the prefix the way API calls are.
   The declaration the page receives is now versioned. AI Block worker
   callbacks under `/api/ai/pty/internal/` are registered as
   self-authenticating, so a replacement guard lets them reach their routes,
-  which check the engine IPC token on every request. Specs:
+  which check the engine IPC token on every request. The terminal WebSocket
+  refuses the reserved tab id `internal`, so it can never answer that
+  prefix's own path. The served page's base-path and token bootstrap now use
+  the same script-safe serialization as the capability declaration. Specs:
   `docs/specs/adr-055-enterprise-support.md` and
   `docs/specs/adr-055-identity-seam.md`.
 - [#2328] **An edition can reach the open project through the seam.**
@@ -43,14 +54,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     refusal shape. Its message reaches the caller, including over the WebMCP
     bridge, which hides other exceptions' text.
   - `check_author_path(project_root, rel_path)` applies project confinement
-    and the Spec 2 author blacklist.
-  - `write_project_file(app, rel_path, data)` is a coroutine that writes bytes
-    through the editor's shared write path: an atomic write, `file.changed` to
-    the UI, and confinement to the project.
+    and the Spec 2 author blacklist. It takes the path literally (no `~`
+    expansion) and refuses control characters and, on Windows, NTFS stream
+    suffixes such as `::$DATA`.
+  - `write_project_file(app, rel_path, data, *, changed_by="edition")` is a
+    coroutine that writes bytes through the editor's shared write path: an
+    atomic write, and `file.changed` to the UI naming `changed_by` as the
+    writer. It runs the same resolver as `check_author_path` itself, so a
+    check and a write can never name different files.
   - `add_upload_listener(app, callback)` calls a plain or async
     `callback(path, size, status)` when a staged upload starts, completes or
-    is discarded, with the project-relative path. It returns a function that
-    removes the listener. A failing listener never breaks the upload.
+    is discarded. The path is relative to the project the upload was staged
+    into, even if another project opens meanwhile. `started` fires once the
+    backend has received the whole request body and staged it, so it does not
+    track the network transfer, and an upload the client cancels mid-transfer
+    produces no event. It returns a function that removes the listener. A
+    failing listener never breaks the upload.
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
   published as the open-source `scistudio` wheel, with the web frontend
   bundled, to PyPI and to the matching GitHub Release, so a server installs
@@ -477,6 +496,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   leading `/`, not `//`, no scheme, whitespace, control characters or
   backslashes. The injected declaration adds a `version` field and carries
   only the capabilities that are on.
+- [#2322] **Provisional seam change: a self-authenticating prefix exempts only
+  the paths strictly below it.** `is_self_authenticating_path("/api/panels/t")`
+  is now false, while `/api/panels/t/...` still matches. The bare prefix path
+  can fully match a parameterized sibling route: `/api/ai/pty/internal` is
+  the terminal WebSocket `/api/ai/pty/{tab_id}` with `tab_id="internal"`, and
+  that let an unauthenticated WebSocket past a replacement guard. Capability
+  URLs also now refuse `.` and `..` segments, percent-encoded or not, and
+  invisible or format characters such as a byte-order mark, so the backend
+  and the browser accept the same paths.
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say
   "the assistant". Mio is also the guide in the Learning Center dialogue, so the

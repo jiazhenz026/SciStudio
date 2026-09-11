@@ -135,7 +135,11 @@ _open_binary: Callable[[Path], Any] = functools.partial(open, mode="rb")
 
 
 class ToolRefusal(BaseModel):
-    """Why a tool call was refused or conflicted, and what to do instead."""
+    """Why a tool call was refused or conflicted, and what to do instead.
+
+    The structured refusal model. ``scistudio.api.seam.ToolRefusal`` is the
+    exception an edition raises inside a tool to return one of these.
+    """
 
     code: str = Field(description="Machine-readable reason, e.g. 'protected_data_dir' or 'stale_version'.")
     message: str = Field(description="Explanation the agent can act on.")

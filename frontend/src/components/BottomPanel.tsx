@@ -73,6 +73,10 @@ export function BottomPanel({
   // ADR-055 Spec 4 FR-006: an edition's `ai_chat_disabled` capability hides the
   // AI Chat surface for the page's lifetime; the backend refuses agent-kind
   // PTY sessions to match. The Terminal tab is never gated.
+  // TODO(#2337): a tutorial replay is filed under the AI Chat surface
+  //   (TerminalTabs files it by `source`), so it cannot be seen while that
+  //   surface is hidden. Out of scope per the #2322 audit (P2-3) and manager.
+  //   Followup: https://github.com/jiazhenz026/SciStudio/issues/2337
   const aiChatDisabled = getCapabilities().aiChatDisabled;
   const hideAiChat = isAi || aiChatDisabled;
   const activeTab = hideAiChat && requestedTab === "ai" ? "config" : requestedTab;

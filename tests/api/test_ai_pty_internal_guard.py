@@ -13,8 +13,11 @@ default guard and under the test-only fake replacement guard:
 * every route under the prefix refuses a request without a valid IPC token,
   with its own 401, never the guard's;
 * a callback carrying the token reaches its route;
-* the prefix is matched on segment boundaries, and the rest of ``/api/ai``
-  stays behind the replacement guard.
+* only paths strictly below the prefix are exempt, on segment boundaries, and
+  the rest of ``/api/ai`` stays behind the replacement guard;
+* the bare prefix path, which is also the terminal WebSocket route with
+  ``tab_id="internal"``, is refused with no process spawned, including its
+  encoded and ``..`` variants (#2322 audit P1-1).
 """
 
 from __future__ import annotations
@@ -22,14 +25,17 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from starlette.testclient import WebSocketDenialResponse
 from starlette.websockets import WebSocketDisconnect
 
 from scistudio.api import app as app_module
 from scistudio.api.app import create_app
+from scistudio.api.routes.ai_pty import _state as ai_pty_state
 from scistudio.api.routes.ai_pty import router as ai_pty_router
 from scistudio.api.routes.ai_pty.internal_routes import INTERNAL_ROUTE_PREFIX
 from scistudio.api.seam import is_self_authenticating_path, self_authenticating_prefixes
@@ -148,3 +154,51 @@ def test_the_rest_of_ai_pty_stays_behind_the_replacement_guard(
             client.websocket_connect(f"{mount_prefix}/api/ai/pty/tab-1?provider=user-terminal") as websocket,
         ):
             websocket.receive_json()
+
+
+# ---------------------------------------------------------------------------
+# #2322 audit P1-1: the bare prefix path is the terminal route with
+# tab_id="internal", so it must never be exempt and never spawn.
+# ---------------------------------------------------------------------------
+
+
+def test_the_bare_prefix_path_is_never_exempt() -> None:
+    assert not is_self_authenticating_path(INTERNAL_ROUTE_PREFIX)
+    assert is_self_authenticating_path(INTERNAL_ROUTE_PREFIX + "/notify")
+
+
+@MOUNTS
+@GUARDS
+@pytest.mark.parametrize("tab_id", ["internal", "INTERNAL", "%69nternal"])
+def test_the_terminal_route_refuses_the_reserved_tab_id_without_spawning(
+    backend_env: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str, replacement: bool, tab_id: str
+) -> None:
+    spawned: list[str] = []
+    monkeypatch.setattr(ai_pty_state, "_spawn", lambda **kwargs: spawned.append(kwargs["provider"]))
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    url = f"{mount_prefix}/api/ai/pty/{tab_id}?provider=user-terminal&project_dir={quote(str(backend_env))}"
+    with (
+        TestClient(_app(replacement=replacement), root_path=mount_prefix) as client,
+        pytest.raises((WebSocketDisconnect, WebSocketDenialResponse)),
+        client.websocket_connect(url) as websocket,
+    ):
+        websocket.receive_json()
+    assert spawned == [], "no process may start on the reserved tab id"
+
+
+@MOUNTS
+def test_http_requests_to_the_bare_prefix_reach_no_route_without_a_session(
+    backend_env: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    with TestClient(_app(replacement=True), root_path=mount_prefix) as client:
+        headers = {IPC_HEADER: os.environ["SCISTUDIO_ENGINE_IPC_TOKEN"]}
+        # The bare path (and its dot and case variants) meets the guard.
+        for path in ("/api/ai/pty/internal", "/api/ai/pty/internal/../internal", "/api/ai/pty/%69nternal"):
+            response = client.post(f"{mount_prefix}{path}", headers=headers)
+            assert response.status_code == 401, path
+            assert response.json() == {"detail": FAKE_REJECTION}, path
+        # Encoded dot segments below the prefix reach no route: a 404, never a 2xx.
+        for path in ("/api/ai/pty/internal/%2e%2e/internal", "/api/ai/pty/internal/..%2Fnotify"):
+            response = client.post(f"{mount_prefix}{path}", headers=headers)
+            assert response.status_code in (401, 404), path

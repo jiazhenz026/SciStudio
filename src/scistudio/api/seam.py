@@ -54,6 +54,7 @@ import logging
 import os
 import re
 import threading
+import unicodedata
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
@@ -266,11 +267,13 @@ def register_self_authenticating_prefix(prefix: str) -> str:
     """Register a route-path prefix whose routes authenticate requests themselves.
 
     Every guard, the default loopback guard and any replacement, skips its own
-    check for requests under the prefix and leaves authentication to the
-    owning route; ``create_app`` enforces this for whichever guard it installs.
-    Matching runs on the route path after root-path prefix handling, so
-    registering ``/api/panels/t/`` also covers
-    ``/user/<name>/scistudio/api/panels/t/...``.
+    check for requests strictly below the prefix and leaves authentication to
+    the owning route; ``create_app`` enforces this for whichever guard it
+    installs. Matching runs on the route path after root-path prefix handling,
+    so registering ``/api/panels/t/`` also covers
+    ``/user/<name>/scistudio/api/panels/t/...``. The bare prefix path
+    (``/api/panels/t``) is never exempt: it can be a full match for a
+    parameterized sibling route, so it stays behind the guard.
 
     The owning route MUST authenticate every request it serves. Register the
     narrowest prefix that covers those routes. Returns the normalized prefix
@@ -307,14 +310,17 @@ def self_authenticating_prefixes() -> tuple[str, ...]:
 
 @provisional(since="0.3.5")
 def is_self_authenticating_path(path: str) -> bool:
-    """Return whether a route path lies under a registered prefix.
+    """Return whether a route path lies strictly below a registered prefix.
 
     ``path`` is the router's path, the mount prefix already removed (see
-    :meth:`GuardContext.route_path`). A prefix matches itself and anything below
-    it on a segment boundary: ``/api/panels/t`` matches ``/api/panels/t/abc/x``
-    but not ``/api/panels/tx``.
+    :meth:`GuardContext.route_path`). A prefix exempts only the paths below
+    it, on a segment boundary: ``/api/panels/t`` exempts
+    ``/api/panels/t/abc/x`` but neither ``/api/panels/tx`` nor the bare
+    ``/api/panels/t``. The bare prefix path can be a full match for a
+    parameterized sibling route (``/api/ai/pty/{tab_id}`` with
+    ``tab_id="internal"``, for example), so it always stays behind the guard.
     """
-    return any(path == prefix or path.startswith(f"{prefix}/") for prefix in _self_authenticating)
+    return any(path.startswith(f"{prefix}/") for prefix in _self_authenticating)
 
 
 # ---------------------------------------------------------------------------
@@ -331,26 +337,62 @@ _BOOTSTRAP_VERSION = 1
 _PATH_MARKER = "{path}"
 
 
+#: Character categories a route path never contains: control (``Cc``), format
+#: (``Cf``: a BOM, a zero-width space, a soft hyphen) and separators (``Z*``).
+_INVISIBLE_CATEGORIES = frozenset({"Cc", "Cf", "Zs", "Zl", "Zp"})
+_PERCENT_ESCAPE = re.compile(r"%([0-9A-Fa-f]{2})")
+
+
+def _has_dot_segment(url: str) -> bool:
+    """Whether the path part of ``url`` has a ``.`` or ``..`` segment, encoded or not.
+
+    Percent escapes are decoded byte by byte, as a browser reads ``%2e%2e`` as
+    ``..``, and decoded again while that changes anything (three rounds at
+    most; a path still changing after that is refused). The frontend's
+    ``isRoutePath`` applies the same rule, so both sides agree.
+    """
+    route = url.split("?", 1)[0].split("#", 1)[0]
+    for _round in range(3):
+        if any(segment in (".", "..") for segment in re.split(r"[/\\]", route)):
+            return True
+        decoded = _PERCENT_ESCAPE.sub(lambda match: chr(int(match.group(1), 16)), route)
+        if decoded == route:
+            return False
+        route = decoded
+    return True
+
+
 def _validate_route_path(url: object, *, field: str) -> str:
     """Accept a backend route path without the service prefix, nothing else.
 
     Every URL a capability carries names a route on this backend, such as
     ``/api/enterprise/session/logout``. The frontend resolves it under the
     service prefix exactly as it resolves its API calls, so the value is the
-    route path alone: a leading ``/``, never ``//``, no scheme or host, and no
-    whitespace, control characters or backslashes. That keeps another origin,
-    a protocol-relative ``//host`` form, a ``\\``-for-``/`` variant browsers
-    also treat as a host, and a ``javascript:`` or other scheme out.
+    route path alone:
+
+    - a leading ``/``, never ``//``, and no scheme or host;
+    - no whitespace, control, format or separator characters (a BOM or a
+      zero-width space included), and no backslashes;
+    - no ``.`` or ``..`` segment, percent-encoded or not.
+
+    That keeps out another origin, a protocol-relative ``//host`` form, a
+    ``\\``-for-``/`` variant that browsers also treat as a host, a
+    ``javascript:`` or other scheme, and a path that climbs out of the service
+    prefix once the browser normalizes it.
     """
     if not isinstance(url, str) or not url:
         raise ValueError(f"{field} must be a non-empty backend route path such as /api/...")
-    if any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F or ch == "\\" for ch in url):
-        raise ValueError(f"{field} {url!r}: a route path has no whitespace, control characters or backslashes")
+    if any(ch.isspace() or ch == "\\" or unicodedata.category(ch) in _INVISIBLE_CATEGORIES for ch in url):
+        raise ValueError(
+            f"{field} {url!r}: a route path has no whitespace, invisible or control characters, or backslashes"
+        )
     if not url.startswith("/") or url.startswith("//"):
         raise ValueError(
             f"{field} {url!r}: name a route on this backend as an absolute path such as /api/..., "
             "without a scheme or host"
         )
+    if _has_dot_segment(url):
+        raise ValueError(f"{field} {url!r}: a route path has no '.' or '..' segments, encoded or not")
     return url
 
 
@@ -429,9 +471,14 @@ class UpdateCapability:
     whenever the window regains focus; it answers
     ``{"running_version", "installed_version", "update_available", "runs_active"}``.
     When an update is available the frontend shows a notice that never takes
-    focus. Restart asks for confirmation, warns while runs are active, then
-    sends ``POST restart_url``, which answers ``{"location": ...}``, and
-    navigates there. The frontend never restarts or reloads on its own.
+    focus. Restart asks for confirmation and warns while runs are active. It
+    then sends ``POST restart_url`` with ``{"confirm_active_runs": <bool>}``,
+    which is ``true`` only after the user has accepted the runs-active
+    warning, so the edition can enforce that warning itself. The route
+    answers ``{"location": ...}``, and the frontend navigates there. A ``409``
+    answer means runs became active after the status read; its body names
+    them, and the frontend shows the warning with those names, asks again, and
+    retries with ``true``. The frontend never restarts or reloads on its own.
     """
 
     status_url: str
@@ -586,6 +633,9 @@ class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an 
     Outside a tool, :func:`check_author_path` and :func:`write_project_file`
     raise it too, so an edition's HTTP route can turn the same refusal into
     its own response.
+
+    This exception is not ``scistudio.ai.agent.mcp.tools_workspace.ToolRefusal``,
+    the Pydantic model of the structured refusal the result carries.
     """
 
     def __init__(self, *, code: str, message: str, alternatives: list[str] | None = None) -> None:
@@ -632,23 +682,39 @@ class _ToolRefusalMiddleware(Middleware):
 _shared_mcp.add_middleware(_ToolRefusalMiddleware())
 
 
-@provisional(since="0.3.5")
-def check_author_path(project_root: Path | str, rel_path: str) -> Path:
-    """Resolve a path an agent wants to change, under the author tools' rules.
+_INVALID_PATH_MESSAGE = (
+    "That path cannot name a project file: it contains a control character or, on Windows, "
+    "a stream suffix such as ::$DATA or a drive-relative form such as C:name."
+)
 
-    ``rel_path`` is resolved against ``project_root`` (an absolute path must
-    lie inside it) and must stay inside the project after links are followed.
-    It is then checked against the Spec 2 author blacklist: ``data/`` and
-    ``workflows/*.yaml`` belong to the tools that own them. Returns the
-    resolved path; raises :class:`ToolRefusal` with the author tools' own
-    refusal code and message otherwise.
+
+def _resolve_in_project(project_root: Path, rel_path: str) -> Path:
+    """The one resolver behind :func:`check_author_path` and :func:`write_project_file`.
+
+    Both run exactly this, so a check followed by a write can never name
+    different files (#2322 no-context audit P2-3). ``rel_path`` is taken
+    literally: it is joined onto the root before the author tools' resolver
+    sees it, so a leading ``~`` is a directory name, never the home
+    directory. Control characters (NUL included) never name a file, and on
+    Windows a ``:`` after the drive is an NTFS stream suffix or a
+    drive-relative path, which would slip past the blacklist
+    (``workflows/new.yaml::$DATA`` creates ``workflows/new.yaml``). Internal.
     """
     from scistudio.ai.agent.mcp.tools_workspace import _RefusedError, _resolve_author_path
 
     if not isinstance(rel_path, str) or not rel_path.strip():
         raise ToolRefusal(code="empty_path", message="Name a file inside the project.")
+    raw = rel_path.strip()
+    if any(unicodedata.category(ch) == "Cc" for ch in raw):
+        raise ToolRefusal(code="invalid_path", message=_INVALID_PATH_MESSAGE)
+    if os.name == "nt":
+        drive, tail = os.path.splitdrive(raw)
+        if ":" in tail or (drive and not tail.startswith(("/", "\\"))):
+            raise ToolRefusal(code="invalid_path", message=_INVALID_PATH_MESSAGE)
+    root = Path(os.path.realpath(project_root))
+    candidate = raw if os.path.isabs(raw) else str(root / raw)
     try:
-        resolved, _root, relative = _resolve_author_path(rel_path, project_root=Path(project_root))
+        resolved, _root, relative = _resolve_author_path(candidate, project_root=root)
     except _RefusedError as refused:
         raise ToolRefusal(
             code=refused.refusal.code, message=refused.refusal.message, alternatives=refused.refusal.use_instead
@@ -659,33 +725,51 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
 
 
 @provisional(since="0.3.5")
+def check_author_path(project_root: Path | str, rel_path: str) -> Path:
+    """Resolve a path an agent wants to change, under the author tools' rules.
+
+    ``rel_path`` is taken literally (``~`` is not expanded) and resolved
+    against ``project_root``; an absolute path must lie inside it. It must
+    stay inside the project after links are followed, and it is checked
+    against the Spec 2 author blacklist: ``data/`` and ``workflows/*.yaml``
+    belong to the tools that own them. Returns the resolved path. Otherwise it
+    raises :class:`ToolRefusal` with the author tools' own refusal code, or
+    ``invalid_path`` for control characters and, on Windows, a stream suffix
+    such as ``::$DATA`` or a drive-relative path.
+    """
+    return _resolve_in_project(Path(project_root), rel_path)
+
+
+@provisional(since="0.3.5")
 async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, changed_by: str = "edition") -> Path:
     """Write ``data`` to a project file through the shared write path, and return its path.
 
     The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
     file's state version advanced, ``file.changed`` sent so the open UI
     updates, and a registry reload when the file is a lint-clean drop-in
-    module. ``rel_path`` is resolved against the open project and confined to
-    it; missing parent directories are created. The author blacklist does not
-    apply here; call :func:`check_author_path` first for an agent's write.
+    module. ``changed_by`` names the writer in that ``file.changed`` event.
+
+    ``rel_path`` goes through the same resolver as :func:`check_author_path`,
+    run here again: confinement to the open project and the author
+    blacklist. A check followed by a write therefore always names the same
+    file. Missing parent directories are created.
 
     This is a coroutine: ``await`` it from a route or tool. It raises
-    :class:`ToolRefusal` when no project is open, the path leaves the project,
-    or the write is refused (the target is a directory, for example). It
-    raises :class:`TypeError` for data that is not bytes. A disk failure
-    raises as it does for the editor.
+    :class:`ToolRefusal` when no project is open, the path is refused, or the
+    write is refused (the target is a directory, for example). It raises
+    :class:`TypeError` for data that is not bytes. A disk failure raises as it
+    does for the editor.
     """
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("write_project_file writes bytes; encode text before writing it")
     root = active_project_root(app)
     if root is None:
         raise ToolRefusal(code="no_active_project", message=_NO_PROJECT_MESSAGE)
-    if not isinstance(rel_path, str) or not rel_path.strip():
-        raise ToolRefusal(code="empty_path", message="Name a file inside the project.")
+    target = _resolve_in_project(root, rel_path)
     files = app.state.runtime.project_files
     try:
         outcome: dict[str, Any] = await files.write_text(
-            root / rel_path.strip(), bytes(data), create_parents=True, changed_by=changed_by
+            target, bytes(data), create_parents=True, changed_by=changed_by
         )
     except PermissionError:
         raise ToolRefusal(
@@ -707,16 +791,20 @@ _UploadStatus = Literal["started", "completed", "discarded"]
 def add_upload_listener(app: FastAPI, callback: Callable[[str, int, str], Any]) -> Callable[[], None]:
     """Call ``callback(path, size, status)`` for each staged ``POST /api/data/upload``.
 
-    ``path`` is the destination's project-relative POSIX path (for example
-    ``data/raw/scan.tif``). ``status`` is one of:
+    ``path`` is the destination's POSIX path relative to the project the
+    upload was staged into (for example ``data/raw/scan.tif``), even if
+    another project opens before the upload ends. ``status`` is one of:
 
-    - ``"started"``, when the staged upload begins, so an edition can count
-      uploads in flight as activity; ``size`` is the size known then, or 0;
+    - ``"started"``, when the upload is staged. FastAPI has already received
+      the whole request body by then, so this marks the staging copy, not the
+      network transfer; ``size`` is the size known then, or 0;
     - ``"completed"``, when the file was placed and registered;
     - ``"discarded"``, when the staged file was thrown away (too large, or the
       request failed).
 
-    For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received.
+    For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received. An
+    upload the client cancels mid-transfer never reaches the route, so it
+    produces no event.
 
     ``callback`` may be a plain function or a coroutine function. Listeners
     run in the order they were added, before the upload's response is sent,
@@ -740,20 +828,30 @@ def add_upload_listener(app: FastAPI, callback: Callable[[str, int, str], Any]) 
     return remove
 
 
-async def notify_upload_listeners(app: FastAPI, destination: Path, *, size: int, status: _UploadStatus) -> None:
+def upload_relative_path(app: FastAPI, destination: Path) -> str:
+    """The staged upload's POSIX path relative to the open project. Internal.
+
+    The upload route calls this once, when the upload is staged, so every
+    notification for that upload names the same path even if another project
+    opens meanwhile (#2322 audit P3-3).
+    """
+    root = active_project_root(app)
+    if root is None:
+        return destination.name
+    try:
+        return Path(os.path.realpath(destination)).relative_to(root).as_posix()
+    except ValueError:
+        return destination.name
+
+
+async def notify_upload_listeners(app: FastAPI, path: str, *, size: int, status: _UploadStatus) -> None:
     """Tell ``app``'s upload listeners about one staged upload. Internal; never raises."""
     listeners = tuple(getattr(app.state, "upload_listeners", None) or ())
     if not listeners:
         return
-    root = active_project_root(app)
-    resolved = Path(os.path.realpath(destination))
-    try:
-        relative = resolved.relative_to(root).as_posix() if root is not None else destination.name
-    except ValueError:
-        relative = destination.name
     for listener in listeners:
         try:
-            outcome = listener(relative, size, status)
+            outcome = listener(path, size, status)
             if inspect.isawaitable(outcome):
                 await outcome
         except Exception:

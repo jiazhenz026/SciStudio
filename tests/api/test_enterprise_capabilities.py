@@ -33,6 +33,7 @@ from fastapi import APIRouter
 from fastapi.testclient import TestClient
 
 from scistudio.api import app as app_module
+from scistudio.api import spa
 from scistudio.api.app import create_app
 from scistudio.api.seam import Capabilities, IdentityCapability, TransferCapability, UpdateCapability
 from tests.api.seam_contract import PREFIXED_MOUNT
@@ -50,9 +51,25 @@ UPDATE = UpdateCapability(status_url=STATUS_URL, restart_url=RESTART_URL)
 
 #: Every URL a route-path field must refuse. Each names a different way out of
 #: "a route on this backend": no leading slash, another host, a scheme,
-#: whitespace anywhere, control characters, and the backslash browsers read as
-#: a slash.
+#: whitespace anywhere, control and invisible characters, the backslash
+#: browsers read as a slash, and dot segments that climb out of the service
+#: prefix once a browser normalizes them, encoded or not.
 NOT_ROUTE_PATHS = [
+    "/api/test-edition/../x",
+    "/api/./x",
+    "/../api/x",
+    "/api/test-edition/%2e%2e/x",
+    "/api/test-edition/%2E/x",
+    "/api/test-edition/.%2E/x",
+    "/api/%252e%252e/x",
+    "/\ufeffapi/test-edition/x",
+    "/api/test-edition/x\u200b",
+    "/api/test-edition/x\u00ad",
+    "/api/test-edition/x\u3000",
+    "/api/test-edition/x\u00a0",
+    "/api/test-edition/x\u1680",
+    "/api/test-edition/x\x85",
+    "/api/test-edition/x\x80",
     "",
     "api/test-edition/x",
     "//evil.example/x",
@@ -334,3 +351,18 @@ def test_declared_route_paths_resolve_under_the_service_prefix(
         template = declared["transfer"]["downloadUrlTemplate"]
         download_url = template.replace("{path}", quote(relative_path, safe=""))
         assert client.get(f"{mount_prefix}{download_url}").json() == {"path": relative_path}
+
+
+def test_the_base_path_and_token_bootstrap_is_script_safe(tmp_path: Path) -> None:
+    """An operator-configured prefix cannot close the bootstrap script (no-context audit P3-2)."""
+    index = tmp_path / "index.html"
+    index.write_text("<!doctype html><html><head></head><body></body></html>", encoding="utf-8")
+    prefix = "/user/</script><script>alert(1)</script>"
+    response = spa._templated_index_response(str(index), prefix, "token</script>")
+    shell = bytes(response.body).decode("utf-8")
+    assert "<script>alert(1)" not in shell
+    assert shell.count("</script>") == 1, "only the bootstrap script element closes"
+    base = re.search(r"window\.__SCISTUDIO_BASE_PATH__ = (.*?);", shell)
+    token = re.search(r"window\.__SCISTUDIO_WEBMCP_TOKEN__ = (.*?);", shell)
+    assert base is not None and json.loads(base.group(1)) == prefix
+    assert token is not None and json.loads(token.group(1)) == "token</script>"
