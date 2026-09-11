@@ -289,7 +289,13 @@ language_source: en
 
 - [x] PR opened -> #2334. It uses the existing lineage APIs and states, per-run owner markers, reconciliation when the store opens, and a bounded shutdown finalize. No core or schema change.
 - [~] Audits dispatched on their own -> AU5 (with-context), AU6 (no-context). Each report is committed on its audit branch, and the manager merges it into `fix/2327-run-lifetime`.
-- [ ] P1 findings fixed; P2/P3 fixed or tracked.
+- [x] AU6 (no-context) -> **block**. The report is `docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md` on `audit/2327-no-context` (d50ef37b).
+  - P1: reopening a project with a run live closes its lineage store, so the terminal write is lost and the next open reconciles a completed run to `failed`.
+  - P2: desktop quit force-kills and skips graceful shutdown.
+  - P2: the run lifetime rules have no governing doc.
+  - Several P3s.
+- [ ] AU5 (with-context) report.
+- [~] P1 findings fixed; P2/P3 fixed or tracked. A3 is fixing after merging the audit branch.
 - [ ] Track merged.
 
 ## 10. Verification Evidence
@@ -315,6 +321,8 @@ Append only.
 | 2026-09-11 | manager | An edition security review found the open-source local MCP socket is protected only by file permissions, and its `/tmp` fallback name is predictable. | Opened #2333 and folded it into A2's scope (MCP transport files, no other owner). | #2333 |
 | 2026-09-11 | A1 | Three items outside its write set. With `ai_chat_disabled`, "Bring in my work" fails with a 500 after writing a session brief. Tutorial replays are hidden with the AI Chat tab. A mypy error sits at `tests/api/test_identity_seam.py:171` on an untouched line. | Opened #2337 for the first two. The mypy item goes to the audits and CI. | #2337 |
 | 2026-09-11 | A1 | `transfer=True` now raises `TypeError`, a provisional break per ADR-052, recorded in CHANGELOG "Changed". `ToolRefusal`'s `alternatives` is `use_instead` on the wire. `write_project_file` is async. | Recorded for the edition integration step. | N/A |
+| 2026-09-11 | manager | PR #2336's "Deferral discipline ratchet" failed on 4 false positives: "placeholder" meaning the download template's `{path}` marker in `seam.py`. | A1 rewords them to "`{path}` marker" (renaming `_PATH_PLACEHOLDER` to `_PATH_MARKER`), with no tracked-TODO noise. | N/A |
+| 2026-09-11 | manager | The AU6 audit of #2334 found desktop quit force-kills the backend, so graceful run shutdown never runs on desktop. | Scope amendment for A3, authorized by the manager: `desktop/main.js` (the stop sequence only) and `desktop/test/**`. The new sequence is a graceful request, a bounded wait of at least 12 s, then a force kill, keeping the ADR-055 Spec 3 guarantees. | #2327 |
 
 ## 12. Final Readiness
 
