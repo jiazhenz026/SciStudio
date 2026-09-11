@@ -120,6 +120,62 @@ def test_registry_panels_discovered_as_core_tier() -> None:
         assert "preview" in panel.contexts
 
 
+# ADR-054 Phase B / FR-041: the two built-in interactive windows rewritten as
+# core-tier interactive panels. They declare the `interactive` context and no
+# preview types (types are a preview-only requirement).
+INTERACTIVE_PANELS = ("core.interactive.data_router", "core.interactive.pair_editor")
+
+
+@pytest.mark.parametrize("pid", INTERACTIVE_PANELS)
+def test_interactive_panel_folder_and_descriptor(pid: str) -> None:
+    folder = BUILTIN_ROOT / pid
+    assert (folder / "panel.json").is_file(), f"{pid} missing panel.json"
+    assert (folder / "index.html").is_file(), f"{pid} missing index.html"
+    assert (folder / "panel.sample.json").is_file(), f"{pid} missing panel.sample.json (#2294)"
+
+    descriptor, notes = parse_descriptor(
+        folder, owner_kind=OwnerKind.CORE, owner_name="scistudio", registered_types=_registered_types()
+    )
+    assert descriptor.id == pid
+    assert descriptor.contexts == ("interactive",)
+    assert descriptor.types == ()  # interactive panels bind no preview type
+    assert descriptor.entry == "index.html"
+    assert [n for n in notes if "unpinned" in n] == []
+
+
+@pytest.mark.parametrize("pid", INTERACTIVE_PANELS)
+def test_interactive_panel_references_only_local_assets(pid: str) -> None:
+    # FR-042 / SC-007: only the SDK and the panel's own files, no network host.
+    assert validate_external_references(BUILTIN_ROOT / pid) == []
+
+
+@pytest.mark.parametrize("pid", INTERACTIVE_PANELS)
+def test_interactive_sample_is_well_formed(pid: str) -> None:
+    sample = json.loads((BUILTIN_ROOT / pid / "panel.sample.json").read_text())
+    assert sample["context"] == "interactive"
+    assert isinstance(sample.get("input"), dict) and sample["input"], f"{pid} sample needs a payload"
+
+
+def test_interactive_panels_discovered_as_core_tier_interactive() -> None:
+    registry = discover_panels()
+    for pid in INTERACTIVE_PANELS:
+        panel = registry.get(pid)
+        assert panel is not None, f"{pid} not discovered"
+        assert panel.owner_kind is OwnerKind.CORE
+        assert "interactive" in panel.contexts
+
+
+def test_block_manifests_resolve_to_the_registered_interactive_panels() -> None:
+    # FR-023: the block's PanelManifest now resolves to a real registered
+    # interactive panel — not the compiled window and not the legacy allowlist.
+    from scistudio.blocks.base.interactive import PanelManifest
+    from scistudio.panels.validation import validate_interactive_panel
+
+    registry = discover_panels()
+    for pid in INTERACTIVE_PANELS:
+        validate_interactive_panel(PanelManifest(panel_id=pid), registry)
+
+
 def test_panels_shadow_the_legacy_core_previewers() -> None:
     # FR-007: a panel and a legacy previewer sharing an id at the same tier resolve
     # to the panel; the legacy spec is shadowed.

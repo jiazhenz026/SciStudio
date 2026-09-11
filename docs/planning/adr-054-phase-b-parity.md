@@ -130,6 +130,63 @@ step.
 
 ---
 
+# Slice B2b — the two core interactive windows (FR-041 / FR-043)
+
+The two built-in interactive windows are rewritten as core-tier **interactive**
+panels under `src/scistudio/panels/builtin/`, declaring `"contexts":
+["interactive"]` and no preview types. Each opens through the sandboxed
+`<InteractivePanel>` / `<PanelFrame>` host (empty `module_url`) and submits its
+decision through the SDK `writeBack`, which the host maps to the existing
+`interactive_complete` frame — so the `interactive_response` the block's `run`
+reads is byte-for-byte what the compiled modal produced. After parity the
+compiled `DataRouterModal`, `PairEditorModal`, their parts, and the built-in
+`PANEL_REGISTRY` are deleted (FR-043); the compiled core viewers keep serving
+legacy (non-`.panel`) envelopes only.
+
+## core.interactive.data_router — replaces `DataRouterModal` (#591)
+
+| Behaviour | Compiled modal | Panel |
+|---|---|---|
+| Input reading | `panelPayload.input_ports` / `items_per_port` / `output_ports` | ✅ same, read from the interactive context `input` (the block's `panel_payload`) |
+| Layout | input panels left, output drop zones right, arrow divider | ✅ same |
+| Assign an item | drag chip from input onto an output port | ✅ same HTML5 drag-and-drop; drop on an output assigns, drop back on inputs unassigns |
+| Move between outputs | dropping re-homes the item | ✅ `assign` removes any prior assignment first |
+| Confirm gating | disabled until every item is assigned | ✅ same; status reads "N item(s) not yet assigned" / "All items assigned" |
+| Decision shape | `onConfirm({ assignments })` → `interactive_response.assignments` | ✅ `writeBack({ assignments })`; **every declared output port present** (empty `[]` when unrouted), matching the modal so the block emits each output |
+| Cancel | footer Cancel button | ✅ host chrome Cancel + ESC (the interactive host owns cancel/teardown) |
+
+**Response parity** asserted in `builtin.test.ts` ("writes back {assignments}"):
+`{ assignments: { kept: ["input_1:0", "input_2:0"], discarded: ["input_1:1"] } }`.
+
+## core.interactive.pair_editor — replaces `PairEditorModal` (#594)
+
+| Behaviour | Compiled modal | Panel |
+|---|---|---|
+| Input reading | `panelPayload.ports` / `items_per_port` / `collection_length` | ✅ same, from the interactive context `input` |
+| Layout | one column per port, one row per pairing index, paired rows share a colour | ✅ same (CSS grid, per-row pastel palette) |
+| Reorder | drag within a single column to reorder | ✅ same; a drop only moves within its own port |
+| Confirm | always enabled (any order is valid) | ✅ same |
+| Decision shape | `onConfirm({ reorder })` → `interactive_response.reorder` | ✅ `writeBack({ reorder })`, each port mapped to its new order as original item indices |
+| Cancel | footer Cancel button | ✅ host chrome Cancel + ESC |
+
+**Response parity** asserted in `builtin.test.ts` ("writes back {reorder}"):
+reordering `input_1`'s first item to the last row yields
+`{ reorder: { input_1: [1, 2, 0], input_2: [0, 1, 2] } }`.
+
+## Compiled-path retirement (FR-043 / T-016)
+
+Deleted: `frontend/src/components/DataRouterModal.tsx`,
+`frontend/src/components/DataRouterModal.parts/{types,ItemCard,InputPanels,OutputPanels}.tsx`,
+`frontend/src/components/PairEditorModal.tsx`, and
+`frontend/src/components/interactiveModals.designSystem.test.tsx`. Removed the
+built-in `PANEL_REGISTRY` and the two modal imports from
+`frontend/src/App.parts/InteractiveModals.tsx`; a core interactive manifest
+(empty `module_url`) now routes through `<InteractivePanel>` like every other
+core panel. `CoreFallbackRenderer` gained an explicit guard refusing any
+`.panel` envelope so the compiled core viewers render legacy envelopes only.
+
+---
+
 ## Offline (SC-007) and library use (FR-042)
 
 Every panel references only the SDK (`../../sdk/1/scistudio-panel.js`), its own

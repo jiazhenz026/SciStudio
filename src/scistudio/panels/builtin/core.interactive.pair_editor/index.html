@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pair Editor</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: rgb(var(--ss-ink, 40 33 24));
+        background: rgb(var(--ss-surface, 255 255 255));
+      }
+      .wrap { padding: 8px; }
+      .head { padding: 2px 2px 8px; }
+      .title { font-weight: 600; }
+      .hint { margin-top: 2px; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
+      .grid { display: grid; gap: 8px; }
+      .port-name { font-weight: 500; color: rgb(var(--ss-ink, 40 33 24) / 0.75); }
+      .port-name .count { color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
+      .cell {
+        display: flex; align-items: center; gap: 6px; cursor: grab;
+        border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.12);
+        border-radius: 6px; padding: 5px 8px;
+      }
+      .cell.over { outline: 2px solid rgb(var(--ss-ember, 240 106 68)); }
+      .cell .rownum { font-size: 10px; font-weight: 600; }
+      .cell .cname { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .cell .ctype { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
+      .foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 2px 2px; }
+      button { font: inherit; cursor: pointer; border-radius: 6px; padding: 5px 14px; border: 1px solid transparent; }
+      button.primary { background: rgb(var(--ss-ember, 240 106 68)); color: #fff; }
+      button:disabled { cursor: not-allowed; opacity: 0.5; }
+      .err { color: #b3261e; padding: 8px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap"><div id="root"></div></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>
