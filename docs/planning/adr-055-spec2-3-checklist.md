@@ -143,7 +143,9 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A1) | Spec 2 agent context, workspace, execution tools | `feat/2279-agent-context-workspace` | `.worktrees/feat-2279-agent-context-workspace` | prompt A1 "Scope" | `frontend/**`, `desktop/**`, `docs/ai-developer/**`, transfer, #2281 | `#2279` | `[~]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A1) | Spec 2 agent context, workspace, execution tools | `feat/2279-agent-context-workspace` | `.worktrees/feat-2279-agent-context-workspace` | prompt A1 "Scope" | `frontend/**`, `desktop/**`, `docs/ai-developer/**`, transfer, #2281 | `#2279` (branch pushed `b1693f913`; PR after #2275 merges) | `[x]` |
+| `AU3` | `audit_reviewer` | `with-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU3) | Audit the Spec 2 branch | `audit/2279-spec2-with-context` | `.worktrees/audit-2279-spec2-wc` | `docs/audit/2026-09-11-adr-055-spec2-with-context.md` | implementation code, checklist | `#2279` | `[~]` |
+| `AU4` | `audit_reviewer` | `no-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU4) | Independent audit of the Spec 2 surfaces | `audit/2279-spec2-no-context` | `.worktrees/audit-2279-spec2-nc` | `docs/audit/2026-09-11-adr-055-spec2-no-context.md` | implementation code, checklist, issue/PR/commit context | N/A (no-context) | `[~]` |
 | `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A2) | Spec 3 local startup modes and background runtime | `feat/2280-local-background-runtime` | `.worktrees/feat-2280-local-background-runtime` | prompt A2 "Scope" | `frontend/**`, `src/scistudio/**` (except conditional Windows backstop), `docs/ai-developer/**`, #2281 | `#2280` / PR #2284 | `[x]` |
 | `AU1` | `audit_reviewer` | `with-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU1) | Audit PR #2284 (Spec 3) | `audit/2280-spec3-with-context` | `.worktrees/audit-2280-spec3-wc` | `docs/audit/2026-09-10-adr-055-spec3-with-context.md` | implementation code, checklist | `#2280` / PR #2284 | `[~]` |
 | `AU2` | `audit_reviewer` | `no-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU2) | Independent audit of the Spec 3 surfaces | `audit/2280-spec3-no-context` | `.worktrees/audit-2280-spec3-nc` | `docs/audit/2026-09-10-adr-055-spec3-no-context.md` | implementation code, checklist, issue/PR/commit context | N/A (no-context) | `[~]` |
@@ -175,17 +177,17 @@ language_source: en
 
 ### 7.3 Implementation
 
-- [ ] Shared write helper extracted; editor route parity -> `<artifact>`
-- [ ] `get_agent_context` -> `<artifact>`
-- [ ] Inspect + author tools with hook blacklist and parity results -> `<artifact>`
-- [ ] `run_command` + managed job tools -> `<artifact>`
-- [ ] Spec 2 + Spec 4 spec text updated -> `<artifact>`
-- [ ] Tests -> `<artifact>`
+- [x] Shared write helper extracted; editor route parity -> `b1693f913` `src/scistudio/api/runtime/_file_writes.py` (`ApiRuntime.project_files`), editor PUT route delegates; tools reach it via `MCPContext.project_files` (no ai->api import; 13 import contracts kept)
+- [x] `get_agent_context` -> `b1693f913` `tools_qa.py`, `tests/ai/test_mcp_agent_context.py`
+- [x] Inspect + author tools with hook blacklist and parity results -> `b1693f913` `tools_workspace.py` (incl. `move_path`), `tests/ai/test_mcp_workspace_tools.py`; scaffold_block bridge check via a context variable set in `webmcp.py` dispatch
+- [x] `run_command` + managed job tools -> `b1693f913` `tools_execution.py` (+ `list_commands`), registers in `app.state.registry` (shutdown `terminate_all` test passes), `tests/ai/test_mcp_execution_tools.py`
+- [x] Spec 2 + Spec 4 spec text updated -> Spec 2 rewritten to #2279 decisions; Spec 4 gains US6, FR-012..FR-015, TransferRecord, T-007, SC-006 (lab-only)
+- [x] Tests -> Tier-1 `gate_record check --base origin/feat/2271-webmcp-bridge` exit 0 (arch, hygiene, deferral, format, full_audit, import contracts, lint, full xdist suite, type check) + pre-PR check exit 0; one real-pip test skips locally (uv venv has no pip) with stated reason, a pip-free `PIP_TARGET` import test runs everywhere
 
 ### 7.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
+- [x] Audit agent assigned, or manager audit completed. -> AU3 (with-context), AU4 (no-context)
+- [x] Audit report file path assigned. -> `docs/audit/2026-09-11-adr-055-spec2-with-context.md`, `docs/audit/2026-09-11-adr-055-spec2-no-context.md`
 - [ ] Audit report committed.
 - [ ] Audit report merged into final PR evidence path.
 - [ ] Findings recorded.
@@ -240,9 +242,9 @@ language_source: en
 
 - [x] Audit agent assigned, or manager audit completed. -> AU1 (with-context), AU2 (no-context)
 - [x] Audit report file path assigned. -> `docs/audit/2026-09-10-adr-055-spec3-with-context.md`, `docs/audit/2026-09-10-adr-055-spec3-no-context.md`
-- [ ] Audit report committed.
+- [~] Audit report committed. -> AU2 `caf5865e5` on `audit/2280-spec3-no-context`; AU1 pending
 - [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
+- [~] Findings recorded. -> AU2 (no-context): pass-with-fixes, P1 0 / P2 2 / P3 7. P2-1: external-AI app stays resident with no windows when the service stops or crashes after the last window closed (`windowAllClosedAction` evaluated only on `window-all-closed`, `main.js:2251`) — new in this branch. P2-2: `stopRuntime` SIGKILL escalation is dead (`if (!child.killed)` after SIGTERM, `main.js:1544-1545`; Node sets `killed` once the signal is sent) — pre-existing on main, now load-bearing for Stop and OTA relaunch. Both manager-verified. P3: restart unresponsive up to 30 s after a startup crash; `stopRuntimeAndWait` does not wait when a stop is in flight; Stop and Quit lacks the attached-desktop confirmation; lifecycle tests are source-regex and `windowAllClosedAction` ignores `platform`; macOS Dock/Finder reopen may bypass `second-instance`; `docs/specs/desktop-shell-ota-hot-update.md` §6 shell list stale and spec frontmatter `feature_branch`/`tests` inaccurate; external-AI known-good covers only the connection window. AU1 pending
 - [ ] P1 findings fixed before integration.
 - [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
 
@@ -276,7 +278,9 @@ Append only.
 | 2026-09-10 | A1 | Needs `src/scistudio/api/app.py` (outside write set): the production `MCPContext` is `_RuntimeAdapter` inside the lifespan, and `app.state.registry` (the registry `terminate_all` runs on at shutdown) is created there, distinct from `ApiRuntime.process_registry` (LocalRunner's). Verified by manager at `e817f9b82` (`app.py:63/121/207`, `api/runtime/__init__.py:365`) | Manager approved: add `process_registry` and `project_files` members to `_RuntimeAdapter` only, gate-amended first, matching optional `MCPContext` members, no other app.py edits; `run_command` registers in `app.state.registry` | #2281 corrected (comment): workers live in `ApiRuntime.process_registry`, which `terminate_all` does not cover |
 | 2026-09-10 | A1 | Needs `tests/ai/test_mcp_fastmcp.py` (outside write set): `test_fastmcp_lists_36_tools` pins the exact `mcp.list_tools()` name set, which includes external-tagged tools, so every new Spec 2 tool breaks it; the socket-transport count in `tests/integration/test_phase2_mcp_end_to_end.py` stays 36 (external tools filtered) | Manager approved: update the expected set only, gate-amended first | N/A |
 | 2026-09-11 | A1 | Two more exact registry-count assertions break with the 14 new external tools (50 total): `tests/ai/test_finish_ai_block_skeleton.py::test_registry_now_has_36_tools`, `tests/contracts/test_runtime_import_contract.py::test_mcp_server_exposes_36_tools` | Manager approved: count/name-set update and rename to `*_50_tools` only, gate-amended first; xdist concurrency-test failure must be classified with evidence (own defect vs pre-existing flake on the stacked base) | N/A |
-| 2026-09-10 | A2 | Resolved spec-silent points in PR #2284 and wrote them into the spec: second launch passes only an explicit mode flag or remembered choice; desktop→external-AI switches in place on the same backend; last window closed in external-AI mode quits only once the service is stopped/crashed/failed; relaunch stops and waits up to 8 s then restarts in the running mode without the picker; external-AI known-good vouching; picker runs before the mandatory-update check; address is the bound `127.0.0.1:<port>`; stop with a desktop window attached asks for confirmation; CHANGELOG recorded N/A (outside write set). Five-scenario fake-Electron harness left uncommitted | Recorded for owner review; audits AU1/AU2 assess the choices and whether the harness scenarios need committed tests | Owner decision on CHANGELOG entry pending |
+| 2026-09-11 | A1 | xdist failure classified: pre-existing `tests/ai/test_mcp_tools_disk_integration.py::test_concurrent_write_workflow_serialises` (one-off Windows atomic-replace race in `write_workflow` containment; not in the diff); `pytest -n auto tests/ai` 5/5 green on the base and 5/5 on the branch; matches closed-not-planned #2244 | Recorded; reopening #2244 left to the owner | Owner decision on #2244 pending |
+| 2026-09-11 | A1 | Spec-silent choices in `b1693f913`, recorded in the spec: refusals (blacklist, list_blocks-first, CLI denial, conflict) returned as `status` + refusal code/message/alternative tool rather than exceptions (bridge withholds exception text); `scaffold_block` gains two optional result fields; bridge marker is a context variable in `_context.py`; port-type warning runs the provisioned hook template's scanner via the provisioning loader (template unmodified); Windows `run_command` uses `asyncio.create_subprocess_shell` (CreateProcess quoting), POSIX `/bin/sh -c`; command env = desktop Python terminal env + `SCISTUDIO_PROJECT_DIR` + `PYTHONIOENCODING=utf-8` (user value respected), strips `SCISTUDIO_ENGINE_IPC_TOKEN`; extra `list_commands` tool; rename/move merged as `move_path`; CLI denial = hook pattern per shell segment + Windows paths/`.exe` + `python -m scistudio` | Audits AU3/AU4 assess them | N/A |
+| 2026-09-10 | A2 | Resolved spec-silent points in PR #2284 and wrote them into the spec: second launch passes only an explicit mode flag or remembered choice; desktop→external-AI switches in place on the same backend; last window closed in external-AI mode quits only once the service is stopped/crashed/failed; relaunch stops and waits up to 8 s then restarts in the running mode without the picker; external-AI known-good vouching; picker runs before the mandatory-update check; address is the bound `127.0.0.1:<port>`; stop with a desktop window attached asks for confirmation; CHANGELOG recorded N/A (outside write set). Five-scenario fake-Electron harness left uncommitted | Recorded for owner review; audits AU1/AU2 assess the choices and whether the harness scenarios need committed tests | Owner decided 2026-09-11: the new launch mode needs a CHANGELOG entry — bundled into A2's audit-fix round (`CHANGELOG.md` added to its write set, gate-amended first) |
 
 ## 11. Final Readiness
 

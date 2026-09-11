@@ -419,3 +419,148 @@ Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/p
 
 Stop and report back if: you are asked to read issue/checklist/PR context; the audit requires hidden context; you need to edit implementation code.
 ```
+
+---
+
+## AU3 — Audit the Spec 2 branch, with-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-with-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: with-context
+- Task kind: maintenance (your own gate ledger)
+- Issue: #2279 (https://github.com/jiazhenz026/SciStudio/issues/2279)
+- Owner request: Verify the ADR-055 Spec 2 implementation before its PR opens.
+- Umbrella PR: #2283 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-055-spec2-3
+- Audit branch: audit/2279-spec2-with-context (base: origin/feat/2279-agent-context-workspace) — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2279-spec2-wc — ALREADY CREATED at b1693f913
+- Gate record: init your own (task_kind=maintenance, persona=audit_reviewer, runtime `claude-code:claude-opus-5`, branch audit/2279-spec2-with-context, --base-ref feat/2279-agent-context-workspace, --issue 2279, --include docs/audit/2026-09-11-adr-055-spec2-with-context.md)
+- Checklist: docs/planning/adr-055-spec2-3-checklist.md on origin/track/adr-055-spec2-3 (`git fetch origin && git show origin/track/adr-055-spec2-3:docs/planning/adr-055-spec2-3-checklist.md`; do NOT edit it)
+- Work to audit: branch feat/2279-agent-context-workspace @ b1693f913, STACKED on feat/2271-webmcp-bridge (PR #2275, open). No PR exists yet. Audit the Spec 2 delta only: `git diff origin/feat/2271-webmcp-bridge...origin/feat/2279-agent-context-workspace`.
+- Audit report path: docs/audit/2026-09-11-adr-055-spec2-with-context.md
+
+## Required Reading
+
+- Issue #2279 (its "Owner decisions" override the spec), spec `docs/specs/adr-055-agent-context-workspace.md` (as rewritten by the branch), the Spec 4 additions in `docs/specs/adr-055-lab-deployment.md`, ADR-055 §5, §9.2 (robustness findings are requirements) and §11 (Workspace / Execution / Existing context rows), Spec 1 `docs/specs/adr-055-webmcp-bridge.md` (adapter contract FR-003, binding FR-005, logging FR-007), the checklist sections 7 and 10.
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/specific_rules/agent-dispatch.md, docs/ai-developer/personas/audit-reviewer.md
+
+## Audit Goal
+
+Verify the claimed work against the issue decisions, specs, code, tests, gate evidence. Report findings first. Severity: P1 blocks merge or breaks contract; P2 should fix before completion; P3 improvement/follow-up.
+
+Claims to verify (from the implementer's report and the checklist drift log):
+- Decisions 1-6 of #2279 implemented: no transfer tools in Spec 2 (moved to Spec 4 text); inspect tools read any OS-user-readable absolute path, bounded WHILE streaming; author tools project-confined with the `workflows/*.yaml|*.yml` and `data/` blacklist on source AND target; the four hook-parity behaviors (list_blocks-first per backend lifetime incl. scaffold_block via bridge only, port-type warning, CLI denial, run_workflow poll hint additive); optional expected `state_version` with the editor route unchanged; in-memory command status; `run_command` in `app.state.registry`.
+- Blacklist robustness on Windows and POSIX: case variants (`Workflows/X.YAML`), backslash separators, `./`, `..` segments, symlinks/junctions resolving into `data/` or `workflows/`, rename/move into and out of protected areas.
+- Refusals returned as `status` + refusal code instead of `isError`: assess against the Spec 1 adapter contract (FR-003) and ADR-055 §4 ("failure information" must be preserved) — would an external agent read a refusal as success?
+- Shared write helper extraction: editor PUT route behavior unchanged (parity tests real, not tautological); FILE_CHANGED and block reload still fire for both callers; no ai->api import.
+- `run_command`: event loop never blocked; bounded incremental capture; process-tree cancellation (Windows `create_subprocess_shell` — does cancellation kill the shell's children, not just cmd.exe?); request abort does not kill the job; `list_commands`/status/cancel semantics; env (IPC token stripped, user deps, `SCISTUDIO_PROJECT_DIR`); CLI denial bypasses you can find.
+- Bridge marker context variable: cannot leak across concurrent requests or into local-transport calls.
+- `get_agent_context`: every index path resolves; missing-asset diagnostics accurate; hook guidance honest.
+- Logging: no file contents, command bodies, or full arguments anywhere in new code.
+- Tests: find assertions weaker than what they claim (fixtures that never reach the failure path, stubs that bypass the real helper); the locally skipped real-pip test — is the skip justified and does CI run it?
+- Scope: every file outside the dispatch write set is covered by a manager approval or the dispatch's conditional scope (checklist drift log).
+
+Do not write feature code. Never kill a process you did not start. MUST write the audit report to the path above, commit it on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Issue: #2279, Assisted-by: claude-code:claude-opus-5, plus `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`), and push (`git push -u origin audit/2279-spec2-with-context`). Do NOT open a PR.
+
+## Checks
+
+Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python; from your worktree):
+- `pytest tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_workspace_tools.py tests/ai/test_mcp_execution_tools.py tests/api/test_projects.py tests/ai/test_mcp_fastmcp.py -q --no-cov` (plus targeted repros you write in your scratch space)
+- `lint-imports` (or the gate's import_contracts check)
+- `gate_record check --mode local --base origin/feat/2279-agent-context-workspace --head HEAD` after committing your report
+- Sentrux: unavailable in this runtime — record N/A. Frontend/browser smoke: N/A (no frontend change).
+
+## Output Required
+
+Report path; commit sha containing the report; findings by severity; checklist/scope drift if any; missing tests/docs/gate evidence if any; recommendation: pass / pass-with-fixes / block.
+
+## Stop Conditions
+
+Stop and report if: you need to change implementation code; required evidence is unavailable; the audit scope conflicts with AGENTS.md/ADR/spec/gate record.
+```
+
+---
+
+## AU4 — Independent audit of the Spec 2 surfaces, no-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-no-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: no-context
+- Audit branch: audit/2279-spec2-no-context — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2279-spec2-nc — ALREADY CREATED
+- Allowed audit surfaces:
+  - src/scistudio/ai/agent/mcp/** (especially tools_workspace.py, tools_execution.py, tools_qa.py, _context.py, tools_authoring.py, tools_workflow/**)
+  - src/scistudio/api/runtime/_file_writes.py, src/scistudio/api/runtime/__init__.py, src/scistudio/api/routes/projects.py, src/scistudio/api/routes/webmcp.py, src/scistudio/api/app.py
+  - src/scistudio/agent_provisioning/** (read only; the provisioned hooks define local agent rules)
+  - tests/ai/**, tests/api/test_projects.py, tests/contracts/test_runtime_import_contract.py
+  - docs/specs/adr-055-*.md, docs/adr/ADR-055.md, docs/adr/ADR-036.md, docs/adr/ADR-040.md
+- Change surface for reading diffs: `git diff origin/feat/2271-webmcp-bridge...HEAD`
+- Audit report path: docs/audit/2026-09-11-adr-055-spec2-no-context.md
+
+## Context Limits
+
+You must not read or use:
+
+- Any GitHub issue or PR (no `gh issue`, no `gh pr`).
+- Anything under docs/planning/** (manager checklists, dispatch prompts).
+- Commit messages: do not run `git log`, `git show <commit>` with messages, or `git blame`. Read changes with the `git diff` above and by reading files.
+- Gate ledgers under .workflow/records/ other than the one you create.
+- Chat summaries or manager summaries of what changed.
+
+You may read only repository docs, code, tests, committed generated facts or audit outputs, and output from commands you run yourself.
+
+## Required Reading
+
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/personas/audit-reviewer.md
+- Governing ADRs, specs, and docs discovered from the allowed surfaces.
+
+## Audit Goal
+
+Independently check whether docs, code, tests, and declared contracts agree. Do not assume what anyone intended to change.
+
+Look for:
+
+- Path handling defects: traversal, symlink/junction escapes, case and separator variants on Windows, writes landing outside the project, protected areas (`workflows/*.yaml`, `data/`) reachable by any mutation path including rename/move/delete.
+- Resource bounds: any read, search, or command-output path that materializes more than its documented cap.
+- Subprocess lifecycle: event-loop blocking, cancellation that leaves descendants alive (check Windows shell spawning specifically), jobs killed by a request ending, registry residue, which registry is terminated at shutdown.
+- Error signalling: tool outcomes an external caller could misread as success.
+- Concurrency: shared state (e.g. context variables, per-backend flags, command stores) that can leak between concurrent calls or transports.
+- Tests whose assertions are weaker than the behavior they claim to cover: stubs that bypass the real code path, fixtures that never reach the failure branch, skips.
+- Logging that records file contents, command bodies, or full arguments.
+- Docs/spec statements the code does not implement, and code behavior the docs do not describe.
+- For any suspected failure, reproduce it on the base (`origin/feat/2271-webmcp-bridge`, in a detached checkout under your scratch space) to decide whether it is new or pre-existing.
+
+## Coordination
+
+- Work only on your audit branch and worktree. MUST NOT use `pip install -e .`. MUST NOT merge any PR. MUST NOT edit implementation files or any checklist. Never kill a process you did not start.
+- MUST write the audit report to the path above, commit it on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Assisted-by: claude-code:claude-opus-5, plus `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`), and push (`git push -u origin audit/2279-spec2-no-context`). Do NOT open a PR.
+
+## Checks
+
+Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python):
+- the tests under the allowed test surfaces relevant to your findings (`-q --no-cov`)
+- `gate_record init --task-kind maintenance --persona audit_reviewer --runtime claude-code:claude-opus-5 --branch audit/2279-spec2-no-context --base-ref feat/2279-agent-context-workspace --include docs/audit/2026-09-11-adr-055-spec2-no-context.md --owner-directive "independent no-context audit of the agent workspace and execution tool surfaces"`, then after committing the report: `gate_record check --mode local --base origin/feat/2279-agent-context-workspace --head HEAD` (record any issue-linkage gap as a known gap; do not look up issues)
+- Sentrux: unavailable in this runtime — record N/A.
+
+## Output Required
+
+- Audit report path and the commit sha containing it.
+- Findings ordered by severity (P1 blocks merge or breaks contract; P2 should fix; P3 follow-up), each with evidence from docs, code, tests, or tool output.
+- No statement about anyone's intent unless it is visible in repository docs.
+- Recommendation: pass, pass-with-fixes, or block.
+
+## Stop Conditions
+
+Stop and report back if: you are asked to read issue/checklist/PR context; the audit requires hidden context; you need to edit implementation code.
+```
