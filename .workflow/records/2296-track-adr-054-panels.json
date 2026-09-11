@@ -36,7 +36,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "594f264d26f68ba9fb87d2482448296e9c605971",
+    "shas": [
+      "594f264d26f68ba9fb87d2482448296e9c605971"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -122,6 +128,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.508635Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.521940Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.535412Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.547761Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.559252Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.570440Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.582845Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.598908Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.613908Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.628590Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:06.642007Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -140,9 +212,9 @@
       ".workflow/records/2296-track-adr-054-panels.json",
       "docs/planning/adr-054-panels-checklist.md"
     ],
-    "diff_fingerprint": "sha256:8be1934ba7a5f8ffa202888a657aa96e3bcb58a9113059f46f15c4698f56ca08",
+    "diff_fingerprint": "sha256:01e18a2faff82be06e052c2f6af5873488f139e4c876d9dbb081ed6ceec61a0a",
     "head": "HEAD",
-    "head_sha": "e9506f8aa",
+    "head_sha": "594f264d2",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -159,11 +231,26 @@
   },
   "owner_directive": "Owner (2026-09-11): as manager, implement ADR-054 and docs/specs/adr-054-panels.md; one PR per phase (A #2293, B #2294, C #2295); tokens without Lab session middleware (TODO); tutorial unchanged; Panels tab redesign with sample-based preview; Phase C closes #2013 and #2197 only.",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2296
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-11T06:33:46.497771Z",
       "diff_fingerprint": "sha256:8be1934ba7a5f8ffa202888a657aa96e3bcb58a9113059f46f15c4698f56ca08",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T06:34:06.642044Z",
+      "diff_fingerprint": "sha256:01e18a2faff82be06e052c2f6af5873488f139e4c876d9dbb081ed6ceec61a0a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
