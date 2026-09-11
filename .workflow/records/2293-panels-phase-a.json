@@ -35,7 +35,13 @@
       ".workflow/records/2293-panel-*.json"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T15:37:18.515592Z",
+      "owner_directive": "Owner explicitly approved increasing the added-file size limit to 30 MB for the offline panel libraries; implement as 30 MiB (30720 KiB), retaining every other hook and setting.",
+      "reason": "Owner chose a repository-wide 30 MB added-file threshold instead of the proposed two-file exception."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T15:17:05.753043Z",
@@ -70,7 +76,7 @@
       "verified_in_diff": null
     }
   ],
-  "governance_touch": false,
+  "governance_touch": true,
   "guard_events": [],
   "issues": [
     {
@@ -115,6 +121,18 @@
       "at": "2026-09-11T15:26:31.961774Z",
       "pattern": "tests/architecture/test_placement.py",
       "reason": "New ADR-054 panels package must appear in the architecture placement inventory; preserve rejection of unknown packages."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:32:41.804011Z",
+      "pattern": "tests/contracts/openapi.json",
+      "reason": "Generate the canonical API snapshot from the integrated mounted app for contract-aware frontend panel tests."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:37:18.515745Z",
+      "pattern": ".pre-commit-config.yaml",
+      "reason": "Owner chose a repository-wide 30 MB added-file threshold instead of the proposed two-file exception."
     }
   ],
   "session_id": "b7020383-3e6d-40b9-a422-dd3acb4c8aa1",

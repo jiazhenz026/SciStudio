@@ -33,7 +33,7 @@ repos:
       - id: check-json
         stages: [manual]
       - id: check-added-large-files
-        args: ["--maxkb=1000"]
+        args: ["--maxkb=30720"]
         stages: [manual]
       - id: check-merge-conflict
         stages: [manual]
