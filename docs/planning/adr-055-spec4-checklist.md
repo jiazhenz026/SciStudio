@@ -339,7 +339,13 @@ CI is 17/17 green at f4e3199cf, and the PR is mergeable (CLEAN), ready for the o
   - CI is being watched.
   - AU5 final check at de11b2848: **pass** (53669434b, §8), provided Python 3.13 goes green. N1, N2 (worst case 18 s against a 20 s budget), R1, N3 and N5 are all fixed.
   - The uvicorn drain bound is tracked in #2351 per AGENTS §3.6.
-  - The AU6 final re-audit is in progress.
+  - AU6 final re-audit at de11b2848: **pass** (64bb6b47, §6).
+    - N1 and N2 are fixed and verified on a real Windows backend.
+    - N5 is fixed.
+    - N3 is partially fixed: artifact cleanup still creates an empty `lineage.db` in a deleted project, with no data loss.
+    - N4 (the bundled MCP pointer hardening) is kept by manager decision and documented.
+    - The N3 remainder and the missing POSIX SIGTERM end-to-end test are tracked in #2352, to land with A3's next main merge.
+  - Both audits pass. Remaining: Python 3.13 CI, and a main merge after #2329 and #2336 land (the `app.py` lifespan, plus #2351).
 - [~] AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
   - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
   - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
