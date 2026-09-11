@@ -44,10 +44,14 @@ scope:
     - "Mechanical conversion of a MiniApp into a block (ADR-054 §11.5)."
     - "Directory promotion through the agent's `promote_to_user_library` tool, and ADR-053's canvas promotion entry on the new block context menu (tracked in #2288)."
 governs:
-  modules: []
+  modules:
+    - scistudio.panels
   contracts: []
   entry_points: []
   files:
+    - src/scistudio/panels/**
+    - src/scistudio/api/routes/panels.py
+    - frontend/src/panels/**
     - docs/specs/adr-054-miniapp.md
     - src/scistudio/engine/runners/process_handle.py
     - src/scistudio/api/ws.py
@@ -73,16 +77,12 @@ governs:
     - src/scistudio/ai/agent/mcp/__init__.py
   excludes: []
 planned_governs:
-  modules:
-    - scistudio.panels
+  modules: []
   contracts: []
   entry_points: []
   files:
-    - src/scistudio/panels/**
-    - src/scistudio/api/routes/panels.py
     - src/scistudio/ai/agent/mcp/tools_panels.py
     - src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md
-    - frontend/src/panels/**
     - frontend/src/miniapps/**
   excludes: []
 tests:

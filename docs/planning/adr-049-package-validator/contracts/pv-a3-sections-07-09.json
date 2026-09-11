@@ -969,7 +969,7 @@
       "id": "PV-09-007",
       "section": "09_previewer_contracts",
       "title": "Panel descriptor schema and version are validated without running panel Python",
-      "contract": "panel.json requires a directory-matching id, served API major, nonempty distinct known contexts and registered preview types. MiniApp descriptors require one type, but preview/interactive never start panel.py. Current strict core-id reservation remains subject to the owner question in #2293.",
+      "contract": "panel.json requires a directory-matching id, served API major, nonempty distinct known contexts and registered preview types. MiniApp descriptors require one type, but preview/interactive never start panel.py. The core.* prefix is reserved for core; non-core descriptors cannot override a core id. Customized core previews use a new id with a concrete type claim or explicit per-type choice.",
       "status": "partial",
       "severity": "error",
       "environments": [

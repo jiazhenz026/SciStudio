@@ -65,6 +65,38 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T15:52:36.642125Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0b343f91bdfcec93a8ad7f8305c50d8c1c75430a20535ebe34197b4045a44215",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T15:52:42.851076Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:368fd0e9981aa5b3ae63d155b61bf8b6cde0dfa89cb865dbe5185daa93efc789",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -100,6 +132,16 @@
       "at": "2026-09-11T15:51:34.614324Z",
       "owner_directive": "Manager owns owner approval and protected proposal application, then integrated gate/CI. Documentation slice remains proposal-only.",
       "reason": "Imported reviewed finalized A1/A2 bootstrap and read-body deadline dependencies. Final source anchors now cover actual implementation; full gate deferred until owner-controlled proposal landing per manager."
+    },
+    {
+      "at": "2026-09-11T15:52:35.327040Z",
+      "owner_directive": "Apply focused reviewed Phase A proposal to ADR049, ADR054 and both ADR054 specs; retain Proposed/Draft and unresolved core-id rule; owner approval conveyed by manager.",
+      "reason": "Owner explicitly approved reviewed Phase A ADR/spec proposal; manager expanded documentation write set to four exact protected documents."
+    },
+    {
+      "at": "2026-09-11T15:54:42.803374Z",
+      "owner_directive": "Preserve FR002 strict core.* reservation. Same-id shadowing applies only to non-core ids; customize core previews with a new id plus type routing or explicit user choice. B-D remain paused.",
+      "reason": "Owner clarified existing behavior must continue refusing core-id overrides; reconcile contradictory same-id core customization prose without changing implementation."
     }
   ],
   "docs_events": [
@@ -204,6 +246,38 @@
       "class": null,
       "kind": "path",
       "path": "docs/planning/adr-054-contract-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:52:35.327197Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-049.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:52:35.327202Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:52:35.327204Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:52:35.327205Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -341,6 +415,204 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.874615Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.884393Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.893630Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.903517Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.913789Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.923466Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.932762Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.942202Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.951710Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.961056Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:52:42.971465Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.605616Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.617667Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.629912Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.641780Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.653460Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.665501Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.677579Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.689367Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.701217Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.713226Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:53:25.726769Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.322111Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.333491Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.345675Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.356942Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.368041Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.379214Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.390175Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.400979Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.411304Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.422827Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:54:43.434842Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -353,8 +625,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "defd2703",
-    "base_sha": "defd2703",
+    "base": "31c299ab",
+    "base_sha": "31c299ab",
     "changed_files": [
       ".workflow/records/2293-panel-contract-docs.json",
       "docs/planning/adr-049-package-validator/contracts/pv-a3-sections-07-09.json",
@@ -362,9 +634,9 @@
       "docs/planning/adr-054-contract-notes.md",
       "docs/planning/adr-054-owner-doc-proposal.md"
     ],
-    "diff_fingerprint": "sha256:dd027d8e203cb3c05a78418b7b9c3389913fdc127b36dfc489372e6edb6027b5",
+    "diff_fingerprint": "sha256:e8f3d2b36c13d86b37d3265110c91ff2e1030a5f8dc2c5d891d0fbcf46b253f1",
     "head": "HEAD",
-    "head_sha": "4ecca198",
+    "head_sha": "eef4e271",
     "surfaces": {
       "docs": 4,
       "frontend": 0,
@@ -402,6 +674,30 @@
       "unsatisfied": [
         "checks.full_audit"
       ]
+    },
+    {
+      "at": "2026-09-11T15:52:42.971516Z",
+      "diff_fingerprint": "sha256:e8f3d2b36c13d86b37d3265110c91ff2e1030a5f8dc2c5d891d0fbcf46b253f1",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T15:53:25.726852Z",
+      "diff_fingerprint": "sha256:e8f3d2b36c13d86b37d3265110c91ff2e1030a5f8dc2c5d891d0fbcf46b253f1",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T15:54:43.434898Z",
+      "diff_fingerprint": "sha256:e8f3d2b36c13d86b37d3265110c91ff2e1030a5f8dc2c5d891d0fbcf46b253f1",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "2293-panel-contract-docs",
@@ -442,6 +738,30 @@
       "at": "2026-09-11T15:46:12.712312Z",
       "pattern": "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
       "reason": "Manager authorized exact paired embedded references produced by canonical reference generator."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:52:35.327184Z",
+      "pattern": "docs/adr/ADR-049.md",
+      "reason": "Owner explicitly approved reviewed Phase A ADR/spec proposal; manager expanded documentation write set to four exact protected documents."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:52:35.327189Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "Owner explicitly approved reviewed Phase A ADR/spec proposal; manager expanded documentation write set to four exact protected documents."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:52:35.327191Z",
+      "pattern": "docs/specs/adr-054-panels.md",
+      "reason": "Owner explicitly approved reviewed Phase A ADR/spec proposal; manager expanded documentation write set to four exact protected documents."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:52:35.327192Z",
+      "pattern": "docs/specs/adr-054-miniapp.md",
+      "reason": "Owner explicitly approved reviewed Phase A ADR/spec proposal; manager expanded documentation write set to four exact protected documents."
     }
   ],
   "session_id": "017f198c-2c97-4545-a9fa-5c6e05dbd4fb",

@@ -13,9 +13,9 @@ language_source: en
 
 Documentation slice for #2293. Phase A retains the existing Previewers sidebar
 entry. Phase B core migration is #2294, Phase C author guides are #2295, and
-Phase D MiniApps/All Previewers is #2354. The protected ADR/spec changes remain
-exact proposals in `adr-054-owner-doc-proposal.md`; no acceptance or all-phase
-completion is implied.
+Phase D MiniApps/All Previewers is #2354. The protected ADR/spec changes were reviewed and owner-approved, then applied
+from `adr-054-owner-doc-proposal.md`; the exact patch remains recorded there.
+No acceptance or all-phase completion is implied.
 
 ## 2. Contract Inventory
 
@@ -107,12 +107,13 @@ parity have not been established here.
 
 ## 5. Tracked Decisions And Remaining Work
 
-TODO(#2293): Resolve strict FR-002 `core.*` reservation versus ADR-054 same-id
-core customization before claiming that customization path. The current parser
-reserves core ids. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2293.
+Owner clarification: preserve strict FR-002 `core.*` reservation and existing
+refusal of core-id overrides. Same-id shadowing applies only to non-core ids;
+customized core previews use a new id with the same concrete type or a per-type
+user choice. No implementation expansion is authorized.
 
-TODO(#2293): Land reviewed protected-document proposals and reconcile
-package-validator enforcement evidence before Phase A acceptance. Follow-up:
+TODO(#2293): Reconcile package-validator enforcement evidence before Phase A
+acceptance; the owner-approved protected-document proposal has landed. Follow-up:
 https://github.com/jiazhenz026/SciStudio/issues/2293.
 
 TODO(#2293): Classify and repair pre-existing ADR-049 table drift through a
@@ -179,3 +180,28 @@ the full gate is not repeated before owner-controlled proposal application;
 its earlier failure remains recorded, and the manager must run the final
 integrated checks after that application. No CI, runtime-test execution, browser
 rendering or Phase A acceptance is claimed by this documentation slice.
+
+
+## 6. Owner-Approved Landing
+
+The owner explicitly approved the reviewed Phase A patch. The ledger records
+that scope expansion before edits to ADR-049, ADR-054, `adr-054-panels` and
+`adr-054-miniapp`. The reviewed patch was applied, followed by the owner
+clarification preserving existing refusal of core-id overrides. Both ADRs remain Proposed, both specs remain Draft,
+ADR acceptance dates remain null and B/C/D-only planned paths remain planned.
+
+After application, the full ADR-049 table checker reports **97 errors,
+14 warnings**: all eight pending row-index errors are resolved. Compared with
+the unchanged main baseline (99 errors, 12 warnings), this slice repairs two
+old evidence anchors; two pre-existing warnings become visible after their
+blocking code-anchor failures are repaired. The remaining errors/warnings are
+unchanged baseline evidence outside this slice, tracked under #2293 above.
+
+The docs gate using dependency base `31c299ab` selected `commit_hygiene` and
+`full_audit`: **both passed; reconciliation passed**. All prior panel docstring
+and planned-surface errors are cleared. This is local Tier 3 documentation gate
+evidence; the manager still owns the full integrated candidate, PR and CI.
+
+The owner clarified the core-id rule after approval: ADR-054 §3/§6 and the
+copy-customization story now use non-core ids, and FR-007 explicitly retains
+FR-002 reservation. No unresolved core-id question remains in this slice.
