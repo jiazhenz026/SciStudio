@@ -55,7 +55,6 @@ _CHANNEL_AXIS = "c"
 _RGB = 3
 
 
-
 def _chunk(tag: bytes, body: bytes) -> bytes:
     """One PNG chunk: length, tag, body, CRC of tag and body."""
     return struct.pack(">I", len(body)) + tag + body + struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)
@@ -143,7 +142,9 @@ def render_image(request: Any) -> PreviewEnvelope:
         alt = "Slide preview"
     else:
         try:
-            rest = [_plane_matrix(request.data_access.array_plane(request.storage, slice_index=index)) for index in (1, 2)]
+            rest = [
+                _plane_matrix(request.data_access.array_plane(request.storage, slice_index=index)) for index in (1, 2)
+            ]
         except Exception as exc:
             return _error(request, f"could not read the color channels: {exc}")
         if any(channel.shape != first.shape for channel in rest):

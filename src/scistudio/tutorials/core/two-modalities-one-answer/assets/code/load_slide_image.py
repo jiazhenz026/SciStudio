@@ -67,6 +67,8 @@ class LoadSlideImage(SimpleLoader):
     type_name: ClassVar[str] = "load_slide_image"
     description: ClassVar[str] = "Read a JPEG or PNG slide picture into an HEImage or HEMask of RGB pixels."
     subcategory: ClassVar[str] = "io"
+    # Any lucide icon name; it draws this block's node on the canvas and its entry in the palette.
+    ui_icon: ClassVar[str] = "microscope"
 
     # Declared rather than synthesized: a SimpleLoader builds one capability
     # from output_type/format_id/extensions, and this block claims four — two
@@ -132,9 +134,7 @@ class LoadSlideImage(SimpleLoader):
 
     #: Which class each capability builds. Read off the declarations above so a
     #: capability added there cannot be forgotten here.
-    _TYPE_OF: ClassVar[dict[str, type]] = {
-        capability.id: capability.data_type for capability in format_capabilities
-    }
+    _TYPE_OF: ClassVar[dict[str, type]] = {capability.id: capability.data_type for capability in format_capabilities}
 
     def load_file(self, path: Path, config: dict[str, Any]) -> HEImage | HEMask:
         """Read one picture as the type whose capability was selected.

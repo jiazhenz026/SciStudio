@@ -56,6 +56,18 @@ bootstrap:
     - write:
         source: assets/code/image_preview.py
         destination: previewers/image_preview.py
+    # The analysis: annotate each spot with the region under it on the mask,
+    # normalize, then compare one region against the rest. The reader reads
+    # these; the level does not ask them to write them.
+    - write:
+        source: assets/code/annotate_regions.py
+        destination: blocks/annotate_regions.py
+    - write:
+        source: assets/code/normalize_expression.py
+        destination: blocks/normalize_expression.py
+    - write:
+        source: assets/code/compare_regions.py
+        destination: blocks/compare_regions.py
 
 steps:
   # 这一关的节奏跟关卡 1、2、3 一样：一句引导 + 一句指导，一步一件事，短句。
@@ -77,6 +89,14 @@ steps:
 
   # ---------------------------------------------------------------- opening
 
+  # What the data is before any of it is on screen: the level turns on the
+  # difference between the two subtypes, so both are named here, once.
+  - id: todays-data
+    title: Today's data
+    say:
+      - "success: Good to see you! Today we're analyzing breast cancer: spatial transcriptomics from four tumors, two of each of two subtypes."
+      - "explain: **ER-positive** tumors grow on the hormone estrogen, and most breast cancers are this kind. **Triple-negative (TNBC)** tumors lack the estrogen, progesterone and HER2 receptors, the three targets most breast-cancer drugs aim at."
+
   - id: two-instruments-one-question
     title: Two instruments, one tissue
     route_to: data
@@ -88,7 +108,7 @@ steps:
       - data
       - data
     say:
-      - "success: Good to see you! The lab just handed you today's spatial transcriptomics data to analyze."
+      - "explain: The lab just handed you the first two, both ER-positive."
       - "explain: Two H&E images of tumor tissue, the genes expressed across each slide, and a pathologist's mask of what is what."
       - "explain: They are waiting under **Data** — every file this project holds shows up there."
       - "curious: The question: how does gene expression in the cancer differ from the rest of the tissue?"
@@ -119,14 +139,442 @@ steps:
     auto_advance: true
     route_to: canvas
     compact: [false, true]
+    # A `node` ring lands on the first node of its block type the canvas
+    # draws, so the workflows list the mask Load first.
     highlight:
       - ~
       - node:
           block_type: load_data
     say:
       - "success: Read. The two slides, the regions a pathologist marked on them, and the two tables of counts."
-      - "focus: **Click a Load** to see what it holds."
+      - "focus: **Click the middle Load**, the masks."
     done_when:
       ui_event:
         name: node_selected
         block_type: load_data
+
+  - id: open-a-mask
+    title: Open a mask
+    compact: true
+    auto_advance: true
+    route_to: canvas
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - "focus: Now **click a mask** in the preview to see what the pathologist marked."
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  # ---------------------------------------------------------------- pairing
+
+  # The workflow file already exists from read-them-in, so `file_exists` would
+  # pass on arrival. The Pair Editor node is what only the new workflow has.
+  - id: write-the-analysis
+    title: The rest of the analysis
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Write the analysis for me
+      do:
+        - write:
+            source: assets/workflows/analysis.yaml
+            destination: workflows/main.yaml
+    say:
+      - "focus: Let me write the rest of the analysis for you."
+    done_when:
+      node_exists:
+        block_type: paireditor_block
+
+  - id: pair-them
+    title: Pair them
+    auto_advance: true
+    route_to: canvas
+    compact: [true, true]
+    highlight:
+      - node:
+          block_type: paireditor_block
+      - run_button
+    say:
+      - "curious: One catch: masks and tables are paired by position, first with first. And the tables were exported in the other order."
+      - "focus: **Press Run**. When **Pair Editor** opens, **drag** the rows until each mask sits beside its own table, then press **Confirm**."
+    done_when:
+      interaction_completed:
+        block_type: paireditor_block
+
+  # ------------------------------------------------------------- the answer
+
+  - id: read-the-answer
+    title: The answer, as a table
+    auto_advance: true
+    route_to: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - node:
+          block_type: compare_regions
+    say:
+      - "success: Paired, and the analysis ran through."
+      - "focus: **Click Compare Regions** to see the answer, one row per gene."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: compare_regions
+
+  # Stays on the canvas: a Plots tab already open when the cards are written
+  # does not pick them up. The next step routes there, after they exist.
+  - id: draw-the-plots
+    title: Two pictures
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Draw the plots for me
+      do:
+        - write:
+            source: assets/code/volcano_plot.yaml
+            destination: plots/cancer_vs_rest/plot.yaml
+        - write:
+            source: assets/code/volcano_render.py
+            destination: plots/cancer_vs_rest/render.py
+        - write:
+            source: assets/code/shared_genes_plot.yaml
+            destination: plots/shared_genes/plot.yaml
+        - write:
+            source: assets/code/shared_genes_render.py
+            destination: plots/shared_genes/render.py
+    say:
+      - "explain: A hundred-odd genes per tumor is a lot to read. Pictures are quicker."
+      - "focus: Let me draw them for you."
+    done_when:
+      all:
+        - plot_exists:
+            plot_id: cancer_vs_rest
+        - plot_exists:
+            plot_id: shared_genes
+
+  - id: run-the-volcano
+    title: Gene by gene
+    auto_advance: true
+    route_to: plots
+    compact: true
+    highlight:
+      plot_card:
+        plot_id: cancer_vs_rest
+    say:
+      - "focus: **Run** the first plot. Each dot is a gene: right is higher in the cancer, up is more certain."
+    done_when:
+      plot_rendered:
+        plot_id: cancer_vs_rest
+
+  - id: run-the-shared-genes
+    title: What both agree on
+    auto_advance: true
+    route_to: plots
+    compact: true
+    highlight:
+      plot_card:
+        plot_id: shared_genes
+    say:
+      - "focus: Now **run** the second one: only the genes both tumors agree on."
+    done_when:
+      plot_rendered:
+        plot_id: shared_genes
+
+  - id: the-conclusion
+    title: What it says
+    route_to: plots
+    say:
+      - "success: Both tumors agree. Their cancer is higher in the genes of breast epithelium: KRT8, KRT18, EPCAM, CDH1, GATA3, FOXA1."
+      - "explain: And lower in the genes of the stroma around it: CCDC80, SFRP4, DCN. That answers today's question."
+
+  # The reader makes the note; the tutorial fills it, as tutorial 1 does with
+  # its first block. New note has no prefill, so the name is in the text.
+  #
+  # New note saves to notes/ when the project has that directory and to the
+  # project root when it does not. A tutorial project has none, so the note
+  # lands at conclusion.md.
+  - id: name-the-note
+    title: Write it down
+    auto_advance: true
+    route_to: canvas
+    highlight: new_menu_button
+    say:
+      - "**Use the New menu to create a note.** Choose New note and name it `conclusion`."
+    done_when:
+      file_exists:
+        path: conclusion.md
+
+  # Filled on entry to this step rather than the last one: written earlier, the
+  # file would already exist and New note would refuse the name as taken.
+  # Routed nowhere, so the reader stays in the note's editor and watches it
+  # fill in.
+  - id: write-it-down
+    title: Write it down
+    do:
+      - write:
+          source: assets/notes/conclusion.md
+          destination: conclusion.md
+    say:
+      - "focus: Let me write the conclusion into it for you."
+
+  # ------------------------------------------------------- a second batch
+
+  - id: two-new-tumors
+    title: Two more tumors
+    route_to: canvas
+    say:
+      - "success: The lab just sent two more tumors, both triple-negative."
+      - "explain: They need a slightly different recipe. I'll show you why once they're loaded."
+
+  # Judged on the reader's own commit. The Git tab creates a branch at the last
+  # commit and then switches to it, so work left uncommitted here (the plot
+  # cards, the ER note) would stay behind on main.
+  - id: commit-first
+    title: Commit first
+    auto_advance: true
+    route_to: git
+    compact: [false, false, true]
+    highlight:
+      - ~
+      - ~
+      - git_commit_button
+    prefill:
+      - git_commit:
+          message: ER tumors, cancer vs the rest of the tissue
+    say:
+      - "curious: But the ER recipe has to stay runnable too. That's what a git branch is for."
+      - "explain: First, commit what you have, so the new branch starts from it."
+      - "focus: Press **Commit**. I've written the message for you, so press **Commit** again."
+    done_when:
+      ui_event:
+        name: git_committed
+
+  # The recipe difference is shown on the setting itself, once on each side of
+  # the branch: here what the ER recipe compares against, and in what-changed
+  # what the TNBC recipe compares against instead.
+  - id: see-the-er-setting
+    title: What the ER recipe compares
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight:
+      node:
+        block_type: compare_regions
+    say:
+      - "focus: Before branching, **click Compare Regions**."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: compare_regions
+
+  - id: the-er-setting
+    title: What the ER recipe compares
+    route_to: config
+    highlight:
+      config_field:
+        key: against
+    say:
+      - "explain: See **Compare against**? The ER recipe compares the cancer with the rest of the tissue."
+
+  - id: make-a-branch
+    title: A branch for the new batch
+    auto_advance: true
+    route_to: git
+    compact: true
+    highlight: git_branch_picker
+    say:
+      - "focus: Now click the **branch menu** and create a branch called **tnbc**."
+    done_when:
+      all:
+        - git_branch_exists:
+            branch: tnbc
+        - git_current_branch:
+            branch: tnbc
+
+  # data/ is not in git, so the TNBC files copied here stay on disk whichever
+  # branch is checked out. Only the recipe changes between branches.
+  - id: point-it-at-tnbc
+    title: The TNBC recipe
+    auto_advance: true
+    route_to: canvas
+    trigger:
+      label: Update the workflow for me
+      do:
+        - copy:
+            source: assets/data/tnbc
+            destination: data/raw
+        - write:
+            source: assets/workflows/analysis_tnbc.yaml
+            destination: workflows/main.yaml
+    say:
+      - "focus: Let me point the workflow at the new tumors."
+    done_when:
+      config_equals:
+        block_type: compare_regions
+        key: against
+        value: Stroma
+
+  - id: see-what-changed
+    title: What changed
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight:
+      node:
+        block_type: compare_regions
+    say:
+      - "focus: **Click Compare Regions** again."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: compare_regions
+
+  - id: what-changed
+    title: What changed
+    route_to: config
+    highlight:
+      config_field:
+        key: against
+    say:
+      - "explain: I changed one setting: **Compare against** is now **Stroma**. You'll see why in a moment."
+
+  # Judged on the run, not on the Pair Editor: the ER pairing already marked
+  # the `pair` node as submitted, and that marker is never cleared.
+  - id: run-tnbc
+    title: Run it
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight: run_button
+    say:
+      - "focus: **Press Run**, and confirm the pairs in **Pair Editor**."
+    done_when:
+      run_succeeded:
+        since_step_entry: true
+
+  # Why this batch compares against the stroma is shown on a mask before it is
+  # said: the reader opens one and sees the DCIS and the normal ducts. The ring
+  # lands on the mask Load because analysis_tnbc.yaml lists it first.
+  - id: look-at-a-tnbc-mask
+    title: Look at the new masks
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight:
+      node:
+        block_type: load_data
+    say:
+      - "focus: **Click the ringed Load**, the new masks."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: load_data
+
+  - id: open-a-tnbc-mask
+    title: Open one
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight:
+      preview_item:
+        index: 0
+    say:
+      - "focus: **Open CID44971**, the first mask."
+    done_when:
+      ui_event:
+        name: preview_item_opened
+
+  - id: why-the-stroma
+    title: Why the stroma
+    route_to: canvas
+    say:
+      - "explain: See the orange and the gray? That's DCIS, an early stage of cancer, and normal ducts."
+      - "explain: Compared against all the non-tumor tissue, regions like these would bias the answer. So this time we compare the cancer with the stroma only."
+
+  # The ER figures are still in the preview cache, so `plot_rendered` as a fact
+  # is already true. `ui_event` is forgotten at every step entry, so it judges
+  # these two presses and no earlier ones.
+  - id: rerun-the-plots
+    title: Draw them again
+    auto_advance: true
+    route_to: plots
+    compact: true
+    say:
+      - "focus: **Run** both plot cards again."
+    done_when:
+      all:
+        - ui_event:
+            name: plot_rendered
+            plot_id: cancer_vs_rest
+        - ui_event:
+            name: plot_rendered
+            plot_id: shared_genes
+
+  - id: tnbc-conclusion
+    title: A different answer
+    route_to: plots
+    say:
+      - "success: Both TNBC tumors agree: more MMP9, CXCL10, CXCL9 and KRT16 than the stroma, and less COL14A1, TNXB and AQP1."
+      - "explain: A different answer from the ER tumors, reached with a different recipe."
+
+  - id: name-the-tnbc-note
+    title: Write it down
+    auto_advance: true
+    route_to: canvas
+    highlight: new_menu_button
+    say:
+      - "focus: Write this one down too. **Create a new note** named `conclusion-tnbc`."
+    done_when:
+      file_exists:
+        path: conclusion-tnbc.md
+
+  - id: write-the-tnbc-note
+    title: Write it down
+    do:
+      - write:
+          source: assets/notes/conclusion_tnbc.md
+          destination: conclusion-tnbc.md
+    say:
+      - "focus: Let me write it in for you."
+
+  # ------------------------------------------------- back to the first batch
+
+  # Committed before switching, as before branching: the TNBC note was written
+  # after the last run, and it belongs on tnbc.
+  - id: commit-tnbc
+    title: Commit this batch
+    auto_advance: true
+    route_to: git
+    compact: [false, true]
+    highlight:
+      - ~
+      - git_commit_button
+    prefill:
+      - git_commit:
+          message: TNBC tumors, cancer vs the stroma
+    say:
+      - "explain: Two batches, two recipes, and both kept. Moving between them is one git switch."
+      - "focus: Commit this batch first: press **Commit**, then **Commit** again. The message is written."
+    done_when:
+      ui_event:
+        name: git_committed
+
+  - id: switch-back
+    title: Back to ER
+    auto_advance: true
+    route_to: git
+    compact: true
+    highlight: git_branch_picker
+    say:
+      - "focus: Now click the **branch menu** and switch back to **main**."
+    done_when:
+      git_current_branch:
+        branch: main
+
+  - id: er-is-back
+    title: The ER recipe is back
+    route_to: canvas
+    say:
+      - "success: The ER workflow is back, comparing against the rest, with its own note beside it."
+      - "success: That's the level. Well done!"

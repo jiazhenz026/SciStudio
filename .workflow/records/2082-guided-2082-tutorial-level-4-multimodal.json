@@ -181,6 +181,86 @@
       "at": "2026-09-11T16:51:17.615493Z",
       "owner_directive": "core \u9884\u89c8\u964d\u91c7\u6837\u8fdd\u53cd #1886 \u5fe0\u5b9e\u663e\u793a\u539f\u5219\u2014\u2014\u5199\u77ed prompt \u8f6c\u7ed9 ADR-054 \u91cd\u6784 agent \u5904\u7406 core \u4fa7\uff1b\u672c\u5173\u7ee7\u7eed\uff1a\u6e05\u7406\u6536\u5c3e\uff0c\u6559\u7a0b previewer \u5982\u5b9e\u6807\u6ce8 sampled\u3002",
       "reason": "Core array previews still decimate to 256 px despite #1886; owner routes the core fix to the ADR-054 agent and keeps this session on the tutorial"
+    },
+    {
+      "at": "2026-09-11T16:58:54.213573Z",
+      "owner_directive": "look-at-them \u8ba9\u8bfb\u8005\u70b9 mask \u7684\u90a3\u4e2a Load\uff0c\u597d\u770b\u5230 mask\u3002\u4e0b\u4e00\u6b65\u8ba9\u8bfb\u8005\u7528 Pair Editor \u914d\u5bf9\uff1a\u628a CSV Load \u7684\u6587\u4ef6\u987a\u5e8f\u548c\u56fe\u50cf Load \u8c03\u6362\uff0c\u903c\u8bfb\u8005\u624b\u52a8\u914d\u5bf9\u3002",
+      "reason": "Owner directed the next two beats: open the mask Load, then pair the two modalities by hand in the Pair Editor"
+    },
+    {
+      "at": "2026-09-11T17:10:35.843161Z",
+      "owner_directive": "\u914d\u5bf9\u8fd9\u4e00\u6b65\u987a\u4fbf\u628a\u5b8c\u6574 workflow \u505a\u51fa\u6765\uff1anormalize \u548c\u540e\u7eed\u5206\u6790\u3002",
+      "reason": "Owner asked for the full analysis workflow at the pairing beat: Pair Editor, Label Spots (region read off the mask), Normalize, Compare Regions"
+    },
+    {
+      "at": "2026-09-11T17:14:06.444662Z",
+      "owner_directive": "pair-them \u6cbf\u7528\u4e4b\u524d\u6559\u7a0b\u7684\u505a\u6cd5\uff1a\u7ed9\u7528\u6237\u4e00\u4e2a write workflow for me \u7684\u6309\u94ae\uff0c\u70b9\u4e86\u518d\u5199\u5165\u5b8c\u6574 workflow\u3002\u6587\u6848\u592a\u5570\u55e6\uff0c\u76f4\u63a5\u8bf4 Let me write the rest of the analysis for you\u3002",
+      "reason": "Owner live-tested: the analysis workflow landed with no reader action; it should arrive on a trigger press, with terser copy"
+    },
+    {
+      "at": "2026-09-11T17:16:25.361884Z",
+      "owner_directive": "Label Spots \u6539\u53eb Annotate Regions\u3002",
+      "reason": "Owner renamed the block that reads each spot's region off the mask"
+    },
+    {
+      "at": "2026-09-11T17:56:21.713627Z",
+      "owner_directive": "H&E \u9009 A\uff1a\u5206\u6790 workflow \u53bb\u6389 Load Slides\u3002\u56fe\u90fd\u7ed9\u4e00\u4e2a\u6309\u94ae\u5e2e\u7528\u6237\u5199\u3002\u7b14\u8bb0\u4e5f\u5e2e\u7528\u6237\u5199\uff0c\u7b14\u8bb0\u91cc\u5e26\u4e0a\u56fe\u7684\u94fe\u63a5\uff0c\u8ba9\u56fe\u51fa\u73b0\u5728\u7b14\u8bb0\u91cc\u3002",
+      "reason": "Owner settled the post-pairing beats: plots and the conclusion note are trigger-written, the note embeds the figures"
+    },
+    {
+      "at": "2026-09-11T18:03:33.638169Z",
+      "owner_directive": "\u7b14\u8bb0\u5148\u7528 A\uff1a\u53ea\u5199\u4e00\u4e2a\u7ed3\u8bba\uff0c\u4e0d\u505a markdown \u9884\u89c8\uff0c\u4e5f\u4e0d\u8ba9\u7528\u6237\u4fdd\u5b58\u56fe\u3002",
+      "reason": "Owner chose a text-only conclusion note written by a trigger; no figure embedding"
+    },
+    {
+      "at": "2026-09-11T18:08:56.857532Z",
+      "owner_directive": "Draw the plots\uff1a\u7528\u6237\u70b9\u5b8c draw \u4ee5\u540e\u518d\u5207\u5230 plot \u9875\uff0c\u5426\u5219 UI \u5237\u65b0\u4e0d\u51fa\u65b0\u7684 plot\u3002pair-them \u6ca1 run \u5c31\u8df3\u8d70\u4e86\uff08\u9a8c\u8bc1\u6709\u95ee\u9898\uff09\u3002",
+      "reason": "Owner live-tested: an open Plots tab misses trigger-written cards; pair-them passed on a stale interaction marker from an earlier run in the same backend process"
+    },
+    {
+      "at": "2026-09-11T18:09:43.990237Z",
+      "owner_directive": "\u5199 note \u90a3\u91cc\u8981\u5f15\u5bfc\u7528\u6237\u53bb New \u2192 New note\uff0c\u8ba9\u7528\u6237\u6539 note \u7684\u540d\u5b57\uff0c\u7b49\u65b0\u7684 note \u5728 canvas \u6253\u5f00\u4ee5\u540e\uff0c\u518d\u76f4\u63a5\u4e00\u6b65\u5199\u3002\u5199 note \u7684\u529e\u6cd5\u53c2\u8003 tutorial 1\u3002",
+      "reason": "Owner wants the reader to create and name the note themselves, with the tutorial filling it once it is open"
+    },
+    {
+      "at": "2026-09-11T18:21:24.831363Z",
+      "owner_directive": "\u5f15\u5165 git branching\uff1a\u544a\u8bc9\u7528\u6237\u6765\u4e86\u4e24\u4e2a\u65b0\u6570\u636e\uff0c\u9700\u8981\u7a0d\u5fae\u4e0d\u4e00\u6837\u7684\u5904\u7406\u65b9\u6cd5\uff1b\u8ba9\u7528\u6237\u5f00\u65b0 git branch\uff0c\u5e2e\u7528\u6237\u6539 workflow \u8dd1\uff0c\u91cd\u590d plot \u548c\u5199 note\uff1b\u544a\u8bc9\u7528\u6237\u5207 branch \u5c31\u80fd\u5728\u4e24\u6279\u6570\u636e\u7684 workflow \u95f4\u5207\u6362\uff0c\u8ba9\u7528\u6237\u5207\u56de\u7b2c\u4e00\u4e2a branch\uff0c\u544a\u8bc9\u7528\u6237\u7b2c\u4e00\u6279\u7684 workflow \u56de\u6765\u4e86\uff0c\u7136\u540e\u7ed3\u675f\u3002",
+      "reason": "Owner specified the closing git-branch segment of level 4"
+    },
+    {
+      "at": "2026-09-11T18:22:01.816642Z",
+      "owner_directive": "\u5207\u6362\u5206\u652f\u4e4b\u524d\u6307\u5bfc\u7528\u6237\u5148\u63d0\u4ea4\u4e00\u4e0b\u3002",
+      "reason": "Owner: commit before branching so the new branch starts from the reader's current work"
+    },
+    {
+      "at": "2026-09-11T18:25:38.589395Z",
+      "owner_directive": "\u6559\u7a0b\u81ea\u5df1\u7684 block \u5404\u81ea\u7ed9\u4e00\u4e2a\u56fe\u6807\u3002git_committed \u4e8b\u4ef6\uff08\u63d0\u4ea4\u6210\u529f\u65f6\u4e0a\u62a5\uff0c\u6559\u7a0b\u53ef\u5224\u5b9a\u5df2\u63d0\u4ea4\uff09\u548c\u8fd9\u4e2a PR \u4e00\u8d77\u505a\uff0c\u5728 scope \u8303\u56f4\u3002\u4ea4\u4e92\u8bb0\u5f55\u4e0d\u5206\u9879\u76ee\u3001\u65b0\u5efa\u5206\u652f\u4e0d\u5e26\u672a\u63d0\u4ea4\u6539\u52a8\u8fd9\u4e24\u4e2a core \u95ee\u9898\u4e0d\u505a\u3002",
+      "reason": "Owner widened this PR to a git_committed tutorial event and per-block icons; declined the other two core fixes"
+    },
+    {
+      "at": "2026-09-11T18:33:12.087183Z",
+      "owner_directive": "look-at-them \u4e0d\u53ea\u8981\u70b9 block\uff0c\u8fd8\u8981\u5728 preview \u91cc\u70b9\u4e00\u4e2a\u5361\u7247\u628a\u6570\u636e\u6253\u5f00\u3002two-new-tumors \u592a\u62bd\u8c61\uff1a\u8ba9\u7528\u6237\u70b9 mask \u770b\uff0c\u544a\u8bc9\u7528\u6237\u76f4\u63a5\u5bf9\u6bd4 non-tumor \u4f1a\u5f15\u5165\u65e9\u671f\u764c\u53d8\u533a\u57df\u7b49\u5e26\u6765\u7684 bias\uff0c\u6240\u4ee5\u8fd9\u6b21\u53ea\u5bf9\u6bd4\u764c\u548c stroma\u3002",
+      "reason": "Owner live-tested: the mask look needs an opened preview card, and the TNBC rationale must be shown on a mask rather than stated"
+    },
+    {
+      "at": "2026-09-11T18:34:39.734590Z",
+      "owner_directive": "Commit \u90a3\u53e5\u9700\u8981\u5207\u5230 git tab\uff0cfocus \u5230 commit \u6309\u94ae\u3002",
+      "reason": "Owner: the commit instruction must ring the Git tab's Commit button; needs a git_commit_button highlight target alongside git_committed"
+    },
+    {
+      "at": "2026-09-11T18:35:32.616389Z",
+      "owner_directive": "Commit \u7684 short message \u5e2e\u7528\u6237\u586b\u597d\u3002make-a-branch \u8981\u5f15\u5bfc + \u9ad8\u4eae\uff08\u5206\u652f\u9009\u62e9\u5668\uff09\uff0c\u8ddf\u4e4b\u524d\u4e00\u6837\u3002",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "at": "2026-09-11T18:37:25.278131Z",
+      "owner_directive": "run-tnbc \u4e4b\u524d\u5f15\u5bfc\u7528\u6237\u70b9 Compare Regions\uff0c\u7136\u540e\u9ad8\u4eae config \u91cc\u9762\u7684 stroma\uff0c\u544a\u8bc9\u7528\u6237\u4f60\u6539\u4e86\u8fd9\u4e2a\u3002commit \u4e4b\u540e\u3001\u6362 branch \u4e4b\u524d\u4e5f\u505a\u4e00\u4e2a\u5f15\u5bfc\uff0c\u544a\u8bc9\u7528\u6237\u539f\u6765\u662f\u5565\u3002",
+      "reason": "Owner wants the recipe difference shown on the Compare Regions setting on both sides of the branch"
+    },
+    {
+      "at": "2026-09-11T20:46:01.286810Z",
+      "owner_directive": "\u6ca1\u7ed9\u7528\u6237\u8bf4\u6e05\u695a ER \u548c TNBC \u662f\u4ec0\u4e48\u3002\u5728\u8bfb\u6570\u636e\u4e4b\u524d\u6700\u5f00\u59cb\u52a0\u4e24\u53e5\u8bdd\uff1a\u4eca\u5929\u5206\u6790\u4ec0\u4e48\u6570\u636e\uff0cER \u548c TNBC \u90fd\u662f\u4ec0\u4e48\u3002",
+      "reason": "Owner reviewed the full level: the subtypes the story turns on were never defined for the reader"
     }
   ],
   "docs_events": [
@@ -222,6 +302,22 @@
       "kind": "na",
       "path": null,
       "rationale": "no architectural decision changes; the level uses the existing manifest vocabulary and adds no runtime capability",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420411Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420424Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -306,6 +402,72 @@
       "at": "2026-09-11T13:48:59.986447Z",
       "pattern": ".pre-commit-config.yaml",
       "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077444Z",
+      "pattern": "src/scistudio/tutorials/conditions.py",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077576Z",
+      "pattern": "frontend/src/components/Git/CommitDialog.tsx",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077578Z",
+      "pattern": "tests/tutorials/test_conditions.py",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616530Z",
+      "pattern": "src/scistudio/tutorials/manifest.py",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616534Z",
+      "pattern": "frontend/src/components/LearningCenter.parts/targets.ts",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616535Z",
+      "pattern": "frontend/src/components/Git/GitTab.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616536Z",
+      "pattern": "frontend/src/components/Git/BranchPicker.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616538Z",
+      "pattern": "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616539Z",
+      "pattern": "tests/tutorials/test_manifest_schema.py",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616540Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T20:59:12.420293Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
+      "reason": "Pre-PR: ConfigPanel carries the config_field target; record the tests and docs this change updated"
     }
   ],
   "session_id": "d6328ecd-e6f7-47cb-9c27-1b1ba30f38df",
@@ -325,6 +487,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420427Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420428Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_conditions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420429Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_manifest_schema.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420430Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/tutorialTargets.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

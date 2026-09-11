@@ -14,6 +14,20 @@ workflow:
   version: 1.0.0
   description: Read every tumor's H&E slide and its spot-by-gene expression table.
   nodes:
+    # The mask Load comes first in this list, though it sits in the middle of
+    # the canvas: a tutorial ring on a Load lands on the first one drawn, and
+    # the level asks the reader to open the masks.
+    - id: load-masks
+      block_type: load_data
+      config:
+        params:
+          core_type: HEMask
+          path:
+            - data/raw/CID4535_mask.png
+            - data/raw/CID4290_mask.png
+      layout:
+        x: 140
+        y: 380
     - id: load-slides
       block_type: load_data
       config:
@@ -30,25 +44,17 @@ workflow:
       layout:
         x: 140
         y: 140
-    - id: load-masks
-      block_type: load_data
-      config:
-        params:
-          core_type: HEMask
-          path:
-            - data/raw/CID4535_mask.png
-            - data/raw/CID4290_mask.png
-      layout:
-        x: 140
-        y: 380
     - id: load-counts
       block_type: load_data
       config:
         params:
           core_type: DataFrame
+          # The sequencing core exported the tables in the other order. A
+          # Collection is paired by position, so the analysis step needs the
+          # Pair Editor to put them back beside their slides.
           path:
-            - data/raw/CID4535_counts.csv
             - data/raw/CID4290_counts.csv
+            - data/raw/CID4535_counts.csv
       layout:
         x: 140
         y: 620
