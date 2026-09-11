@@ -525,6 +525,28 @@ Stop and report if you need an out-of-scope file, the ledger refuses the amend, 
 
 ---
 
+## A1-fix2 — PR #2292 CI and Codex review fix round (sent to A1 via SendMessage)
+
+```markdown
+[DISPATCH-TEMPLATE-V1: fix]
+
+Same identity/scope/coordination as A1. PR #2292 is open against main (stacked by content on #2275). Fix, each with a test where behavior changes:
+
+1. Type Check: CI resolves fastmcp 4.0.3 / mcp 2.2.0 (main's `fastmcp<5`). `CallToolResult(structuredContent=..., isError=...)` at tools_workspace.py:278 is rejected by mcp 2.2. Make the error-result construction work on the versions CI installs (and keep working on fastmcp 3.x if the lower bound still allows it). Reproduce locally in a throwaway venv or with `uv pip install --target` in scratch space — never `pip install -e .`, never modify the shared .venv.
+2. POSIX cancel / Codex P1 (tools_execution.py:353): cancellation must not reap the shell process asyncio owns (the supervisor then waits forever and the job stays `running`). Fix `test_http_request_abort_through_the_bridge_leaves_the_job_running` on 3.11.
+3. Codex P1 (_file_writes.py:458): the expected-version check and the atomic replace must be one critical section — two writes carrying the same `expected_state_version` must not both succeed. Test with concurrent writers.
+4. Codex P1 (tools_execution.py:786): on Windows, refuse the command (isError result, no process left running) when Job Object creation or assignment fails; consider a suspended start if feasible. Test the failure path with an injected failure.
+5. Codex P2 (tools_workspace.py:919): check the search deadline / stop flag while scanning a file's contents; bound regex cost (e.g. per-file byte cap + timeout-aware iteration). Test with a slow/large file.
+6. Test (3.11) collection errors in tests/architecture/test_packaging.py and tests/packaging/test_wheel_spa.py ("distutils already imported"): find the root cause on this branch (they pass on main and #2275). Likely an import-time side effect from a new module or test (e.g. something importing pip/setuptools/distutils in-process). Fix the cause; do not skip or reorder tests to hide it. Report the cause.
+7. Deferral ratchet: reword the comment at tools_execution.py:256 (the word "later"), or cite a tracked issue if it is a real deferral.
+8. CodeQL alerts #274-276 (py/path-injection, _file_writes.py:190/244/469): prefer a code fix that makes the containment check visible to CodeQL (resolve + verify containment before any filesystem call on that path). If a genuine false positive remains, stop and report — dismissal is the owner's decision.
+9. Reply to each Codex comment on PR #2292 with the fix commit.
+
+Gate: amend before new files; `gate_record check --record <ledger> --mode pre-pr --base origin/feat/2271-webmcp-bridge --head HEAD --pr-body-file .workflow/local/pr-body.md` on the COMMITTED diff; commit; push; post-PR finalize `--record ... --pr 2292`; commit + push; wait for CI. Expected remaining red: Verify Workflow Compliance until the owner applies `admin-approved:core-change`. Run long commands in the foreground with output redirected to a log. Report: fix commits, root cause of item 6, CodeQL outcome, CI state.
+```
+
+---
+
 ## AU3 — Audit the Spec 2 branch, with-context
 
 ```markdown
