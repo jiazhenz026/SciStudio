@@ -61,7 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
     coroutine that writes bytes through the editor's shared write path: an
     atomic write, and `file.changed` to the UI naming `changed_by` as the
     writer. It runs the same resolver as `check_author_path` itself, so a
-    check and a write can never name different files.
+    check and a write can never name different files. That includes the
+    author blacklist: it refuses anything under `data/` and any
+    `workflows/*.yaml`. Files are placed under `data/` through the staged
+    `POST /api/data/upload` instead.
   - `add_upload_listener(app, callback)` calls a plain or async
     `callback(path, size, status)` when a staged upload starts, completes or
     is discarded. The path is relative to the project the upload was staged
