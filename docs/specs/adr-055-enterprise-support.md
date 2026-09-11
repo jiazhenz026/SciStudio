@@ -55,6 +55,7 @@ governs:
     - frontend/src/components/BottomPanel.tsx
     - frontend/src/lib/api/data.ts
     - frontend/src/lib/capabilities.ts
+    - frontend/src/components/Enterprise/**
     - frontend/src/components/Toolbar.tsx
     - frontend/src/components/ProjectTree.parts/ContextMenu.tsx
     - src/scistudio/api/seam.py
@@ -66,8 +67,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - frontend/src/components/Enterprise/**
+  files: []
   excludes: []
 tests:
   - tests/cli/test_webmcp_adapter.py
