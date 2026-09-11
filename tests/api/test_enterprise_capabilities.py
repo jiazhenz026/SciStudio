@@ -162,9 +162,9 @@ def test_every_capability_url_must_be_a_backend_route_path(build: Any, url: str)
         "/api/test-edition/transfer/download?path={path}&again={path}",
         "/api/test-edition/transfer/download?path={PATH}",
     ],
-    ids=["no-placeholder", "two-placeholders", "wrong-placeholder"],
+    ids=["no-marker", "two-markers", "wrong-marker"],
 )
-def test_download_template_needs_exactly_one_path_placeholder(template: str) -> None:
+def test_download_template_needs_exactly_one_path_marker(template: str) -> None:
     with pytest.raises(ValueError, match=r"\{path\}"):
         TransferCapability(inline_max_bytes=1, download_url_template=template)
 

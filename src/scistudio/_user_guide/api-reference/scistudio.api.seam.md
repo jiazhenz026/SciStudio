@@ -175,9 +175,9 @@ The ``transfer`` capability: moving files between the laptop and the server.
 Uploads reuse the existing staged ``POST /api/data/upload`` route, so they
 need no URL here. ``download_url_template`` names the edition's download
 route as a route path without the service prefix, with exactly one
-``{path}`` placeholder, for example
+``{path}`` marker, for example
 ``/api/enterprise/transfer/download?path={path}``. The frontend replaces the
-placeholder with the URL-encoded project-relative path of the chosen file,
+marker with the URL-encoded project-relative path of the chosen file,
 resolves the result under the service prefix, and sends the browser there
 with a ``GET``.
 

@@ -327,8 +327,8 @@ def is_self_authenticating_path(path: str) -> bool:
 #: that shape changes incompatibly. Version 1 is the first versioned shape.
 _BOOTSTRAP_VERSION = 1
 
-#: The placeholder a download URL template carries exactly once.
-_PATH_PLACEHOLDER = "{path}"
+#: The {path} substitution marker a download URL template carries exactly once.
+_PATH_MARKER = "{path}"
 
 
 def _validate_route_path(url: object, *, field: str) -> str:
@@ -390,9 +390,9 @@ class TransferCapability:
     Uploads reuse the existing staged ``POST /api/data/upload`` route, so they
     need no URL here. ``download_url_template`` names the edition's download
     route as a route path without the service prefix, with exactly one
-    ``{path}`` placeholder, for example
+    ``{path}`` marker, for example
     ``/api/enterprise/transfer/download?path={path}``. The frontend replaces the
-    placeholder with the URL-encoded project-relative path of the chosen file,
+    marker with the URL-encoded project-relative path of the chosen file,
     resolves the result under the service prefix, and sends the browser there
     with a ``GET``.
 
@@ -412,10 +412,9 @@ class TransferCapability:
         ):
             raise ValueError("TransferCapability.inline_max_bytes must be a non-negative integer number of bytes")
         template = _validate_route_path(self.download_url_template, field="TransferCapability.download_url_template")
-        if template.count(_PATH_PLACEHOLDER) != 1:
+        if template.count(_PATH_MARKER) != 1:
             raise ValueError(
-                f"TransferCapability.download_url_template {template!r} must contain exactly one "
-                f"{_PATH_PLACEHOLDER} placeholder"
+                f"TransferCapability.download_url_template {template!r} must contain exactly one {_PATH_MARKER} marker"
             )
 
 

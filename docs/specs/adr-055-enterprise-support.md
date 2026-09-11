@@ -412,7 +412,7 @@ prefixed, guarded backend, and are refused after the context closes.
   user-picked upload into the project through the existing
   `POST /api/data/upload` staged upload, with progress and cancel, whatever
   the file's size. It MUST also offer a download action: a `GET` on the
-  capability's `download_url_template`, whose single `{path}` placeholder is
+  capability's `download_url_template`, whose single `{path}` marker is
   replaced by the chosen file's URL-encoded project-relative path, resolved
   under the service prefix. The open-source edition MUST NOT implement the
   download endpoint.
@@ -478,7 +478,7 @@ prefixed, guarded backend, and are refused after the context closes.
   - `version` (integer; `1` for this shape).
   - `identity`: `{user, logout_url?}` or absent.
   - `transfer`: `{inline_max_bytes, download_url_template}` or absent. The
-    template carries exactly one `{path}` placeholder. `inline_max_bytes` is
+    template carries exactly one `{path}` marker. `inline_max_bytes` is
     the largest file the edition moves inline; the UI's own upload is always
     staged.
   - `ai_chat_disabled`: `true`, or absent (false). When true it gates agent-kind providers only,
