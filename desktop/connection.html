@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>SciStudio — External AI</title>
+    <style>
+      :root {
+        --bg: #f7f8fb;
+        --fg: #1c2333;
+        --muted: #6b7488;
+        --line: #dfe3ec;
+        --field: #ffffff;
+        --accent: #3b6ef5;
+        --accent-fg: #ffffff;
+        --ok: #1f9d55;
+        --warn: #c98a04;
+        --bad: #d64545;
+        --idle: #98a1b5;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #171a21;
+          --fg: #eef1f7;
+          --muted: #98a1b5;
+          --line: #2f3542;
+          --field: #1f232c;
+          --accent: #6d94ff;
+          --accent-fg: #0d1220;
+          --ok: #4cc38a;
+          --warn: #e0b341;
+          --bad: #f07070;
+          --idle: #6b7488;
+        }
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 18px 20px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+        cursor: default;
+        user-select: none;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      header img {
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+      }
+
+      h1 {
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .sub,
+      .hint,
+      footer label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--idle);
+      }
+
+      .dot[data-tone="ok"] { background: var(--ok); }
+      .dot[data-tone="warn"] { background: var(--warn); }
+      .dot[data-tone="bad"] { background: var(--bad); }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      #address {
+        flex: 1;
+        min-width: 0;
+        padding: 7px 9px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--field);
+        color: var(--fg);
+        font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+        font-size: 13px;
+        user-select: text;
+      }
+
+      .hint {
+        margin-top: 6px;
+        line-height: 1.4;
+      }
+
+      .detail {
+        color: var(--bad);
+        font-size: 12px;
+        line-height: 1.4;
+        max-height: 54px;
+        overflow: auto;
+        user-select: text;
+        white-space: pre-wrap;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      button,
+      select {
+        font: inherit;
+        color: var(--fg);
+      }
+
+      button {
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: var(--field);
+        cursor: pointer;
+      }
+
+      button.primary {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--accent-fg);
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      button:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      footer {
+        margin-top: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 10px;
+        border-top: 1px solid var(--line);
+      }
+
+      select {
+        padding: 4px 6px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--field);
+      }
+
+      footer .spacer {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="assets/icon.png" alt="" />
+      <div>
+        <h1>SciStudio</h1>
+        <p class="sub">Running in the background for an external AI tool</p>
+      </div>
+    </header>
+
+    <div class="status"><span id="dot" class="dot"></span><span id="status-label">Starting&#8230;</span></div>
+
+    <section>
+      <label for="address">Address</label>
+      <div class="row">
+        <input id="address" readonly value="" placeholder="Waiting for the service to be ready&#8230;" />
+        <button id="copy" type="button" class="primary" disabled>Copy</button>
+      </div>
+      <p class="hint">
+        Paste this address into your AI tool or a browser. Closing this window keeps the
+        service running; reopen it from the tray icon or by launching SciStudio again.
+      </p>
+    </section>
+
+    <p id="detail" class="detail" hidden></p>
+
+    <div class="actions">
+      <button id="open-desktop" type="button" disabled>Open Desktop Window</button>
+      <button id="stop" type="button" hidden>Stop Service</button>
+      <button id="restart" type="button" hidden>Restart Service</button>
+      <button id="show-logs" type="button" hidden>Show Logs</button>
+    </div>
+
+    <footer>
+      <label for="startup">At launch</label>
+      <select id="startup">
+        <option value="ask">Ask every time</option>
+        <option value="desktop">Open the desktop app</option>
+        <option value="external-ai">Run for external AI</option>
+      </select>
+      <span class="spacer"></span>
+      <button id="quit" type="button">Stop and Quit</button>
+    </footer>
+
+    <script>
+      // Issue #2280: the main process owns every decision (see connectionView in
+      // desktop/background-mode.js); this page only renders the view it is sent
+      // and forwards button presses through the preload bridge.
+      (() => {
+        const bridge = window.scistudioConnection;
+        const $ = (id) => document.getElementById(id);
+        const TONES = {
+          running: "ok",
+          starting: "warn",
+          stopping: "warn",
+          unresponsive: "warn",
+          crashed: "bad",
+          failed: "bad",
+          stopped: "idle"
+        };
+
+        const render = (view) => {
+          if (!view) {
+            return;
+          }
+          $("status-label").textContent = view.label;
+          $("dot").dataset.tone = TONES[view.status] || "idle";
+          $("address").value = view.address || "";
+          $("copy").disabled = !view.canCopy;
+          $("open-desktop").disabled = !view.canOpenDesktop;
+          $("stop").hidden = !view.canStop;
+          $("restart").hidden = !view.canRestart;
+          $("show-logs").hidden = !(view.canRestart || view.status === "unresponsive");
+          $("detail").hidden = !view.detail;
+          $("detail").textContent = view.detail || "";
+          $("startup").value = view.startupSetting;
+        };
+
+        if (!bridge) {
+          $("status-label").textContent = "The connection bridge did not load.";
+          return;
+        }
+
+        const act = (action, payload) => bridge.act(action, payload).then(render, () => {});
+
+        bridge.onState(render);
+        act("get-state");
+
+        $("copy").addEventListener("click", () => {
+          act("copy-address").then(() => {
+            const button = $("copy");
+            button.textContent = "Copied";
+            setTimeout(() => {
+              button.textContent = "Copy";
+            }, 1500);
+          });
+        });
+        $("open-desktop").addEventListener("click", () => act("open-desktop"));
+        $("stop").addEventListener("click", () => act("stop"));
+        $("restart").addEventListener("click", () => act("restart"));
+        $("show-logs").addEventListener("click", () => act("show-logs"));
+        $("quit").addEventListener("click", () => act("stop-and-quit"));
+        $("startup").addEventListener("change", (event) => act("set-startup", event.target.value));
+      })();
+    </script>
+  </body>
+</html>

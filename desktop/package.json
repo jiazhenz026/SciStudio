@@ -41,10 +41,17 @@
       "menu.js",
       "ota.js",
       "runtime-port.js",
+      "background-mode.js",
       "preload.js",
+      "connection-preload.js",
       "splash.html",
+      "connection.html",
       "package.json",
-      "assets/icon.png"
+      "assets/icon.png",
+      "assets/tray.png",
+      "assets/tray@2x.png",
+      "assets/trayTemplate.png",
+      "assets/trayTemplate@2x.png"
     ],
     "extraResources": [
       {

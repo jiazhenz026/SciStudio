@@ -222,13 +222,26 @@ module's existing "no Electron, no filesystem, unit tested directly" contract:
 
 ```
 backend-build<N>.tar.gz
-  src/scistudio/...        backend + embedded SPA   (unchanged)
+  src/scistudio/...              backend + embedded SPA   (unchanged)
   shell/main.js
+  shell/menu.js                  (#2159)
   shell/ota.js
   shell/runtime-port.js
+  shell/background-mode.js       (#2280)
   shell/preload.js
+  shell/connection-preload.js    (#2280)
   shell/splash.html
+  shell/connection.html          (#2280)
+  shell/assets/icon.png          referenced by the pages with a relative src
+  shell/assets/tray.png          (#2280, plus tray@2x.png)
+  shell/assets/trayTemplate.png  (#2280, plus trayTemplate@2x.png)
 ```
+
+The authoritative list is `SHELL_FILES` in `scripts/ota_publish.py`; this
+diagram only illustrates it. Tests keep it equal to `desktop/package.json`
+`build.files` minus `bootstrap.js` and `package.json`, and check that every
+relative `require` of a published module and every relative `src`/`href` of a
+published page is itself published.
 
 `bootstrap.js` is **never** published: it is the loader, it lives in the asar,
 and a patch able to replace it could disable its own rollback. `package.json` is
