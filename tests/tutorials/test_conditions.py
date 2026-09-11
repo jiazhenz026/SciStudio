@@ -204,6 +204,7 @@ def test_the_ui_event_name_set_is_the_declared_one() -> None:
         "plot_exported",
         "preview_item_opened",
         "run_selected",
+        "git_committed",
     }
 
 
@@ -860,6 +861,7 @@ def test_ui_event_target_arg_reads_the_declared_table() -> None:
         "plot_exported": None,
         "preview_item_opened": None,
         "run_selected": "status",
+        "git_committed": None,
     }
     assert ui_event_target_arg("node_selected") == "block_type"
     assert ui_event_target_arg("preview_expanded") is None

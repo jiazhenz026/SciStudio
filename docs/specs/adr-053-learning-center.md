@@ -679,10 +679,12 @@ and a reader who supplies something else MUST NOT be blocked, because the step's
 `done_when` judges the world rather than the dialog.
 
 The current members are `new_custom_block` and `new_data_type`, each seeding
-its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name; and
-`block_config`, the one settings-field target the next paragraph constrains.
-`new_data_type` joined as the type-side twin of `new_custom_block` (#2061),
-because the type-authoring levels name the file they are about to discuss.
+its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name;
+`git_commit`, seeding the Git tab's commit message; and `block_config`, the one
+settings-field target the next paragraph constrains. `new_data_type` joined as
+the type-side twin of `new_custom_block` (#2061), because the type-authoring
+levels name the file they are about to discuss. `git_commit` joined with core
+tutorial 4, which has the reader commit before each branch operation (#2082).
 
 A target that seeds a block's settings rather than a dialog MUST fill only a
 field the reader has left empty, and MUST NOT overwrite a value they supplied.

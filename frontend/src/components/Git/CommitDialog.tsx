@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 
 import { ApiError } from "../../lib/api";
 import { useAppStore } from "../../store";
+import { tutorialPrefillValue } from "../LearningCenter.parts/prefill";
 import type { GitStatus } from "../../types/api";
 import { WorkingTreeList } from "./CommitDialog.parts/WorkingTreeList";
 
@@ -77,6 +78,11 @@ export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
     if (open) {
       void loadStatus();
       setLocalError(null);
+      // ADR-053 FR-011b (#2082) — a tutorial step may seed the message. Read at
+      // open time so it is the step on screen now. A default, never a decision:
+      // the reader can edit it, and a message they already typed is kept.
+      const seeded = tutorialPrefillValue(useAppStore.getState().learningCenterSession, "git_commit", "message");
+      if (seeded) setMessage((current) => current || seeded);
     }
   }, [open, loadStatus]);
 
@@ -101,6 +107,12 @@ export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
       const sha = await commit(stripped, initialFiles);
       setMessage("");
       onCommitSuccess?.(sha);
+      // ADR-053 FR-052 — `git_committed`, in the closed `UI_EVENT_NAMES` set.
+      // Reported only after the commit landed, so a tutorial step that asks
+      // for a commit before a branch operation waits for the commit rather
+      // than for the dialog. Nothing on disk says the reader committed: a
+      // switch auto-commits a dirty tree and leaves the same history (#2082).
+      void useAppStore.getState().reportTutorialUiEvent("git_committed");
       onClose();
     } catch (err) {
       let msg: string;

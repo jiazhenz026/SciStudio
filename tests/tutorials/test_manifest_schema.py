@@ -349,6 +349,8 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "new_menu_button",
         "plots_new_button",
         "plot_export_button",
+        "git_commit_button",
+        "git_branch_picker",
         "preview_item",
         "view_source_button",
         "history_restore_button",
@@ -363,6 +365,7 @@ def test_the_highlight_target_set_is_the_declared_one() -> None:
         "type_palette",
         "palette_block",
         "node",
+        "config_field",
         "plot_card",
         "bottom_tab",
     }
@@ -382,6 +385,7 @@ def test_only_the_entity_targets_require_an_argument() -> None:
     assert {name: args for name, args in required.items() if args} == {
         "palette_block": ("block_type",),
         "node": ("block_type",),
+        "config_field": ("key",),
         "plot_card": ("plot_id",),
         "preview_item": ("index",),
         "bottom_tab": ("tab",),
@@ -484,7 +488,7 @@ def test_the_prefill_target_set_is_the_declared_one() -> None:
     A prefill only does anything once the frontend seeds the dialog it names,
     so a target with no consumer is a manifest line that silently does nothing.
     """
-    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_data_type", "new_plot", "block_config"}
+    assert set(PREFILL_TARGETS) == {"new_custom_block", "new_data_type", "new_plot", "git_commit", "block_config"}
 
 
 @pytest.mark.parametrize("spec", PREFILL_SPECS, ids=lambda spec: spec.name)

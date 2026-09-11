@@ -1,41 +1,35 @@
 """Core tutorial 4 — the multimodal, joint-analysis, git-branch level.
 
 ``test_core_tutorials.py`` already applies the format-level conformance every
-shipped tutorial gets. This file checks what only tutorial 4 promises (#2082,
-scenarios doc 关卡 3):
+shipped tutorial gets. This file checks what only tutorial 4 promises (#2082):
 
 * the beat order and each beat's judged condition survive edits;
-* the shipped data is deterministic — the section stack and both workbooks are
-  regenerated from the recipe recorded below and required to match, so the
-  numbers the steps quote cannot drift away from the files;
-* the level owes nothing to any other level: the ``Image`` type, the
-  ``segment_cells`` block and the ``Image`` previewer are landed by this
-  tutorial's own bootstrap and register into its project at the project tier;
-* the pairing hazard is genuine — the stack's page order and the workbook's
-  sheet order really do disagree, and every index pair is wrong;
-* the science is recomputed, not asserted: nine regions on every section, and
-  the four normalization/batch combinations produce exactly the cluster splits
-  the step texts quote — including the two that go wrong, in opposite ways;
-* the k-means is deterministic and order-independent;
-* the whole tutorial walks through the real runtime, beat by beat, git terms
-  included.
+* the level owes nothing to any other level: its two picture types, the reader
+  that turns a slide file into one, and their previewer are landed by its own
+  bootstrap and register into its project at the project tier;
+* the shipped data is what ``SOURCE.md`` says it is — the two ER tumors land at
+  bootstrap, the two triple-negative ones wait for the branch, and each
+  sample's slide, mask and count table describe the same spots;
+* the pre-built workflow reads only files the bootstrap lands;
+* the previewer says when it shows a sampled overview rather than every pixel;
+* the story so far walks through the real runtime, beat by beat.
 """
 
 from __future__ import annotations
 
-import functools
 import importlib.util
-import struct
+import re
 import sys
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pytest
+import yaml
+from PIL import Image
 
-from scistudio.blocks.base.config import BlockConfig
 from scistudio.tutorials.actions import iter_file_actions
 from scistudio.tutorials.manifest import TutorialManifest, TutorialSourceKind, load_manifest
 
@@ -44,145 +38,15 @@ from .conftest import say_text
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TUTORIAL_DIR = REPO_ROOT / "src" / "scistudio" / "tutorials" / "core" / "two-modalities-one-answer"
 ASSETS = TUTORIAL_DIR / "assets"
+DATA = ASSETS / "data"
 
-# ---------------------------------------------------------------------------
-# The recipe behind assets/data/, in full.
-#
-# The three files are committed as binaries, so their provenance has to be
-# executable: this recipe regenerates them and the tests below require
-# equality. Nine tissue domains per section on independent layouts, three
-# carrying each of three expression programs; a shallow first sequencing run
-# and a deeper second one whose two housekeeping genes soak up a wildly
-# variable share of every position's library.
-# ---------------------------------------------------------------------------
-SEED = 20260822
-SHAPE = (96, 96)
-SIGMA = 5.0
-PEAK = 130.0
-BACKGROUND = 22.0
-RAMP = 18.0
-NOISE = 2.0
+#: Which samples ship in which directory. The ER pair opens the level; the
+#: triple-negative pair arrives when the subtype changes and the analysis
+#: branches.
+SAMPLES = {"er": ("CID4535", "CID4290"), "tnbc": ("CID44971", "CID4465")}
+ALL_SAMPLES = tuple((subtype, sample) for subtype, samples in SAMPLES.items() for sample in samples)
 
-DOMAINS_PER_SECTION = 9
-MIN_SEPARATION = 22.0
-MARGIN = 12
-
-# The scanner recorded the slides in the order they were loaded; the
-# sequencing core sorted its sheets by section label. Every index pair is
-# wrong, which is the whole reason the Pair Editor is in this level.
-ACQUISITION_ORDER = ("S05", "S09", "S01")
-SHEET_ORDER = ("S01", "S05", "S09")
-
-POSITION_STEP = 4
-POSITION_START = 2
-
-GENES = ("hk_A", "hk_B", *[f"mk_{index:02d}" for index in range(1, 11)])
-PROGRAM_MARKERS = {
-    0: ("mk_01", "mk_02", "mk_03"),
-    1: ("mk_04", "mk_05", "mk_06"),
-    2: ("mk_07", "mk_08", "mk_09"),
-}
-PROGRAMS = {
-    "S01": (0, 1, 2, 0, 1, 2, 0, 1, 2),
-    "S05": (1, 0, 2, 2, 1, 0, 0, 2, 1),
-    "S09": (2, 2, 0, 1, 0, 1, 2, 0, 1),
-}
-
-RUN1_DEPTH = 0.25
-RUN2_DEPTH = 9.0
-RUN2_CARRY = 1.8
-BASE_HK = (12.0, 9.0)
-BASE_MARKER = 5.0
-BASE_OTHER = 1.0
-BASE_GRADIENT = 2.0
-
-# The numbers the step texts and this file both stand on, recomputed below.
-REGIONS_PER_SECTION = 9
-TOTAL_REGIONS = 27
-# (run, method) -> the cluster sizes the reader sees, largest-signal cluster first.
-EXPECTED_CLUSTER_SIZES = {
-    (1, "total_count"): [9, 9, 9],
-    (1, "median_ratio"): [7, 18, 2],
-    (2, "total_count"): [14, 8, 5],
-    (2, "median_ratio"): [9, 9, 9],
-}
-
-
-def _section_seed(section: str, salt: int = 0) -> int:
-    return SEED + salt + sum(ord(char) * (index + 1) for index, char in enumerate(section))
-
-
-@functools.cache
-def _domain_centres(section: str) -> tuple[tuple[int, int], ...]:
-    rng = np.random.default_rng(_section_seed(section))
-    low, high = MARGIN, SHAPE[0] - MARGIN
-    centers: list[tuple[int, int]] = []
-    attempts = 0
-    while len(centers) < DOMAINS_PER_SECTION:
-        attempts += 1
-        if attempts > 400:  # a corner the sampler cannot finish from; start over
-            centers, attempts = [], 0
-        cy = int(rng.integers(low, high))
-        cx = int(rng.integers(low, high))
-        if all((cy - y) ** 2 + (cx - x) ** 2 >= MIN_SEPARATION**2 for y, x in centers):
-            centers.append((cy, cx))
-    return tuple(centers)
-
-
-def _section_image(section: str) -> np.ndarray:
-    rng = np.random.default_rng(_section_seed(section, salt=7919))
-    height, width = SHAPE
-    yy, xx = np.mgrid[0:height, 0:width]
-    pixels = BACKGROUND + RAMP * (yy / (height - 1)) + rng.normal(0.0, NOISE, SHAPE)
-    for cy, cx in _domain_centres(section):
-        pixels += PEAK * np.exp(-(((yy - cy) ** 2 + (xx - cx) ** 2) / (2.0 * SIGMA**2)))
-    return np.clip(pixels, 0, 255).astype(np.uint8)
-
-
-def _positions() -> np.ndarray:
-    axis = np.arange(POSITION_START, SHAPE[0], POSITION_STEP)
-    yy, xx = np.meshgrid(axis, axis, indexing="ij")
-    return np.stack([yy.ravel(), xx.ravel()], axis=1)
-
-
-def _programme_at(section: str, y: int, x: int) -> int | None:
-    for index, (cy, cx) in enumerate(_domain_centres(section)):
-        if (y - cy) ** 2 + (x - cx) ** 2 <= (1.6 * SIGMA) ** 2:
-            return PROGRAMS[section][index]
-    return None
-
-
-def _counts_for(section: str, run: int) -> pd.DataFrame:
-    rng = np.random.default_rng(_section_seed(section, salt=101 * run))
-    coords = _positions()
-    rows = []
-    for y, x in coords:
-        program = _programme_at(section, int(y), int(x))
-        base = np.full(len(GENES), BASE_OTHER)
-        base[0], base[1] = BASE_HK
-        if program is not None:
-            for marker in PROGRAM_MARKERS[program]:
-                base[GENES.index(marker)] = BASE_MARKER
-            base[GENES.index("mk_10")] = BASE_GRADIENT
-        if run == 1:
-            lam = base * float(rng.lognormal(0.0, 0.35)) * RUN1_DEPTH
-        else:
-            carry = float(rng.lognormal(0.0, RUN2_CARRY))
-            lam = base * float(rng.lognormal(0.0, 0.25)) * RUN2_DEPTH
-            lam[0] *= carry * 14.0
-            lam[1] *= carry * 11.0
-        rows.append(rng.poisson(lam))
-    frame = pd.DataFrame(np.stack(rows), columns=list(GENES))
-    frame.insert(0, "x", coords[:, 1])
-    frame.insert(0, "y", coords[:, 0])
-    frame.insert(0, "section", section)
-    frame.insert(0, "position_id", [f"{section}_P{index:03d}" for index in range(len(coords))])
-    return frame
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
+GENE_PANEL_SIZE = 2000
 
 
 @pytest.fixture(scope="module")
@@ -191,18 +55,18 @@ def manifest() -> TutorialManifest:
 
 
 @pytest.fixture(scope="module")
-def assets(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
+def code(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
     """The shipped code assets, imported the way the drop-in scans import them.
 
-    ``image.py`` — tutorial 2's type, which this level consumes from the
-    library — must land in ``sys.modules`` under its bare stem first, because
-    every block here opens with ``from image import Image``: the exact import
-    they perform in a project, where the types directory joins ``sys.path``.
+    The two type modules must land in ``sys.modules`` under their bare stems
+    first, because the loader opens with ``from he_image import HEImage``: the
+    exact import it performs in a project, where the types directory joins
+    ``sys.path``.
     """
     bound: list[str] = []
 
-    def load(name: str, path: Path) -> ModuleType:
-        spec = importlib.util.spec_from_file_location(name, path)
+    def load(name: str, filename: str) -> ModuleType:
+        spec = importlib.util.spec_from_file_location(name, ASSETS / "code" / filename)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         sys.modules[name] = module
@@ -210,128 +74,20 @@ def assets(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
         spec.loader.exec_module(module)
         return module
 
-    modules = {"image": load("image", ASSETS / "code" / "image.py")}
-    modules["segment"] = load("_scistudio_t3_segment", ASSETS / "code" / "segment_cells.py")
-    modules["stack"] = load("_scistudio_t3_stack", ASSETS / "code" / "load_section_stack.py")
-    modules["normalize"] = load("_scistudio_t3_normalize", ASSETS / "code" / "normalize_expression.py")
-    modules["joint"] = load("_scistudio_t3_joint", ASSETS / "code" / "joint_region_profiles.py")
+    modules = {
+        "he_image": load("he_image", "he_image.py"),
+        "he_mask": load("he_mask", "he_mask.py"),
+    }
+    modules["loader"] = load("_scistudio_t4_loader", "load_slide_image.py")
+    modules["preview"] = load("_scistudio_t4_preview", "image_preview.py")
 
     request.addfinalizer(lambda: [sys.modules.pop(name, None) for name in bound])
     return modules
 
 
-@pytest.fixture(scope="module")
-def label_maps(assets: dict[str, ModuleType]) -> dict[str, np.ndarray]:
-    """The segmentation of every shipped page, by tutorial 2's own block."""
-    image_cls = assets["image"].Image
-    block = assets["segment"].SegmentCellsBlock()
-    pages = assets["stack"].read_section_stack(ASSETS / "data" / "sections.tif")
-    maps: dict[str, np.ndarray] = {}
-    for label, pixels in pages:
-        labels = block.process_item(image_cls(axes=["y", "x"], data=pixels), BlockConfig(params={}))
-        # Two channels out: the micrograph on c=0 so the preview can draw the
-        # labels over it, the labels on c=1. The regions are the second.
-        plane = np.asarray(labels.to_memory())
-        maps[label] = plane[-1] if plane.ndim == 3 else plane
-    return maps
-
-
-@pytest.fixture(scope="module")
-def analyses(
-    assets: dict[str, ModuleType],
-    label_maps: dict[str, np.ndarray],
-    tmp_path_factory: pytest.TempPathFactory,
-) -> dict[tuple[int, str], pd.DataFrame]:
-    """The joint analysis for every (run, method), correctly paired.
-
-    Computed once: four normalizations of three sections, each through the
-    joint block. Every numeric claim in this file reads out of here.
-    """
-    store = tmp_path_factory.mktemp("t3-analyses")
-    results: dict[tuple[int, str], pd.DataFrame] = {}
-    for run in (1, 2):
-        for method in ("total_count", "median_ratio"):
-            results[(run, method)] = _analyse(
-                assets, label_maps, store, run=run, method=method, expression_order=ACQUISITION_ORDER
-            )
-    return results
-
-
-def _persist(obj: Any, store: Path, name: str) -> Any:
-    """Give a freshly built DataObject somewhere to live.
-
-    In a real run the engine flushes each block's output to project storage.
-    These tests call the blocks directly, so they do the flush themselves.
-    """
-    obj.save(store / name)
-    return obj
-
-
-def _analyse(
-    assets: dict[str, ModuleType],
-    label_maps: dict[str, np.ndarray],
-    store: Path,
-    *,
-    run: int,
-    method: str,
-    expression_order: tuple[str, ...],
-) -> pd.DataFrame:
-    """Normalize one run and push it through the joint block against the maps."""
-    import pyarrow as pa
-
-    from scistudio.core.types import DataFrame
-    from scistudio.core.types.collection import Collection
-
-    image_cls = assets["image"].Image
-    normalizer = assets["normalize"].NormalizeExpressionBlock()
-    tag = f"{run}-{method}-{'-'.join(expression_order)}"
-
-    normalized: dict[str, Any] = {}
-    for section in SHEET_ORDER:
-        raw = _persist(
-            DataFrame(data=pa.Table.from_pandas(_workbook_sheet(run, section), preserve_index=False)),
-            store,
-            f"raw-{tag}-{section}",
-        )
-        normalized[section] = _persist(
-            normalizer.process_item(raw, BlockConfig(params={"method": method})),
-            store,
-            f"norm-{tag}-{section}",
-        )
-
-    outputs = (
-        assets["joint"]
-        .JointRegionProfilesBlock()
-        .run(
-            {
-                "labels": Collection([image_cls(axes=["y", "x"], data=label_maps[s]) for s in ACQUISITION_ORDER]),
-                "expression": Collection([normalized[section] for section in expression_order]),
-            },
-            BlockConfig(params={}),
-        )
-    )
-    table = _persist(next(iter(outputs["regions"])), store, f"regions-{tag}")
-    return table.to_memory().to_pandas()
-
-
-@functools.cache
-def _workbook(run: int) -> dict[str, pd.DataFrame]:
-    sheets: dict[str, pd.DataFrame] = pd.read_excel(ASSETS / "data" / f"run{run}_counts.xlsx", sheet_name=None)
-    return sheets
-
-
-def _workbook_sheet(run: int, section: str) -> pd.DataFrame:
-    return _workbook(run)[section]
-
-
-def _cluster_sizes(table: pd.DataFrame) -> list[int]:
-    return [int((table["cluster"] == cluster).sum()) for cluster in sorted(table["cluster"].dropna().unique())]
-
-
-def _say(manifest: TutorialManifest, step_id: str) -> str:
-    step = next(step for step in manifest.steps if step.id == step_id)
-    assert step.say, f"step {step_id!r} has no text to check"
-    return say_text(step)
+def _file(subtype: str, sample: str, kind: str) -> Path:
+    suffix = {"he": "_he.jpg", "mask": "_mask.png", "counts": "_counts.csv"}[kind]
+    return DATA / subtype / f"{sample}{suffix}"
 
 
 # ---------------------------------------------------------------------------
@@ -342,76 +98,22 @@ def _say(manifest: TutorialManifest, step_id: str) -> str:
 def test_the_beat_map_is_the_designed_one(manifest: TutorialManifest) -> None:
     """Beat -> step -> condition, as dispatched. A reorder or a swapped judge fails here.
 
-    The level is delivered in dialogue beats, so this list is longer than the
-    list of things the reader actually does. A step that declares
-    ``auto_advance`` leaves the instant its condition is met, so a payoff
-    written under the instruction would never be read: every payoff opens the
-    *following* step, and those reading steps judge nothing (``None`` below).
-    Folding one back into the step that instructs would hide it, and giving a
-    reading step a condition would take away the one pace only the reader sets.
-
-    Three entries judge ``ui_event`` where a product-state term would look more
-    natural, and the reason is the same in all three: ``re-render-batch-2``,
-    ``the-setting-this-batch-needs`` and ``rerun-the-plot`` all ask for a plot
-    the reader has already rendered once, so ``plot_rendered`` as a *fact* is
-    true before they arrive. ``ui_event`` is forgotten at every step entry, so
-    it judges this press and no earlier one.
+    A step that declares ``auto_advance`` leaves the instant its condition is
+    met, so a payoff written under the instruction would never be read: every
+    payoff opens the *following* step, and a reading step judges nothing
+    (``None`` below).
     """
     expected = [
         ("two-instruments-one-question", None),
-        ("what-came-back", None),
-        ("the-question", None),
-        ("load-the-slides", {"config_equals", "config_matches", "node_exists"}),
-        ("one-file-three-sections", {"run_succeeded"}),
+        ("read-them-in", {"run_succeeded"}),
         ("look-at-them", {"ui_event"}),
-        ("s05-s09-s01", None),
-        ("the-other-instrument", {"config_equals", "config_matches"}),
-        ("two-roots", None),
-        ("pair-before-you-use", {"node_exists"}),
-        ("it-arrives-empty", None),
-        ("connect-both-streams", {"edge_exists"}),
-        ("they-do-not-line-up", {"interaction_completed"}),
-        ("it-remembers", None),
-        ("segment-the-regions", {"edge_exists", "node_exists"}),
-        ("read-what-it-does", {"ui_event"}),
-        ("no-black-boxes", None),
-        ("the-other-branch", {"file_exists"}),
-        ("connect-the-normalization", {"edge_exists", "node_exists"}),
-        ("where-the-branches-meet", {"file_exists"}),
-        ("what-the-joint-block-does", {"edge_exists", "node_exists"}),
-        ("read-the-kmeans", None),
-        ("run-the-joint-analysis", {"run_succeeded"}),
-        ("read-the-table", {"ui_event"}),
-        ("nine-nine-nine", None),
-        ("put-it-back-on-the-slide", {"plot_exists"}),
-        ("draw-it", {"plot_rendered"}),
-        ("three-of-each", None),
-        ("the-second-run", None),
-        ("what-a-branch-is-for", {"git_branch_exists", "git_current_branch"}),
-        ("same-recipe-second-batch", {"config_matches", "run_succeeded"}),
-        ("re-render-batch-2", {"ui_event"}),
-        ("fourteen-eight-five", None),
-        ("the-setting-this-batch-needs", {"config_equals", "run_succeeded", "ui_event"}),
-        ("nine-nine-nine-again", None),
-        ("two-settings-neither-wrong", None),
-        ("go-back-to-batch-1", {"git_current_branch"}),
-        ("the-recipe-came-back", None),
-        ("git-stores-the-recipe", {"run_succeeded"}),
-        ("rerun-the-plot", {"ui_event"}),
-        ("git-stores-the-recipe-you-rerun", None),
-        ("two-variants-alive", None),
     ]
     actual = [(step.id, step.done_when.terms() if step.done_when else None) for step in manifest.steps]
     assert actual == expected
 
 
 def test_every_run_judge_is_scoped_to_its_own_step(manifest: TutorialManifest) -> None:
-    """The reader must run *here*, not be credited with a run from four beats ago.
-
-    Six steps in this level say "press Run", several of them in a row with the
-    same workflow. Without ``since_step_entry`` the second one is satisfied by
-    the first one's record before the reader has done anything.
-    """
+    """The reader must run *here*, not be credited with a run from an earlier beat."""
 
     def walk(condition: Any, step_id: str) -> None:
         if condition.is_combinator:
@@ -428,383 +130,174 @@ def test_every_run_judge_is_scoped_to_its_own_step(manifest: TutorialManifest) -
             walk(step.done_when, step.id)
 
 
-def test_the_two_blocks_this_level_writes_are_triggers(manifest: TutorialManifest) -> None:
-    """ "Press the button and we will write it" has to be a button, not an entry action.
-
-    The plot's ``render.py`` is deliberately excluded: tutorials 1 and 6 write
-    it on entry because the reader has already created the plot and the step
-    is about pressing Run on the card, not about producing a file.
-    """
-    triggered = {
-        action.destination for step in manifest.steps if step.trigger for action in iter_file_actions(step.trigger.do)
-    }
-    assert triggered == {"blocks/normalize_expression.py", "blocks/joint_region_profiles.py"}
-
-
 def test_what_the_level_does_not_teach_ships_at_bootstrap(manifest: TutorialManifest) -> None:
-    """The dataset and four files land before the first step, and none is a lesson.
+    """The ER data and the four picture files land before the first step.
 
-    The stack loader arrives the way a facility's reader does: with the
-    dataset. The other three are what an earlier draft pulled out of My
-    Library, which made this level unplayable until tutorial 2 had been
-    finished. They are landed here instead, so the level owes nothing to any
-    other level and its prose never claims the reader built them.
+    None of them is a lesson. Landing them here rather than pulling them from
+    My Library is what lets the level be played first.
     """
     assert manifest.bootstrap is not None
-    destinations = {action.destination for action in iter_file_actions(manifest.bootstrap.do)}
-    assert destinations == {
+    actions = list(iter_file_actions(manifest.bootstrap.do))
+    assert {action.destination for action in actions} == {
         "data/raw",
-        "blocks/load_section_stack.py",
-        "types/image.py",
+        "types/he_image.py",
+        "types/he_mask.py",
+        "blocks/load_slide_image.py",
         "previewers/image_preview.py",
-        "blocks/segment_cells.py",
     }
+    # Only the two ER tumors: the opening says "two" and means it.
+    assert {action.source for action in actions if action.destination == "data/raw"} == {"assets/data/er"}
+
+
+def test_the_workflow_arrives_prebuilt(manifest: TutorialManifest) -> None:
+    """This is not a wiring lesson: the step that asks for Run writes the workflow itself."""
+    step = next(step for step in manifest.steps if step.id == "read-them-in")
+    assert [action.destination for action in iter_file_actions(step.do)] == ["workflows/main.yaml"]
 
 
 def test_the_level_declares_no_tutorial_prerequisite(manifest: TutorialManifest) -> None:
-    """The premise is landed, not required.
-
-    ``requires.tutorials`` is how a level says "do that one first" (#2088).
-    This level used to name ``what-is-a-type`` because its first judged step
-    waited on a type it never built. It builds it now — quietly, at bootstrap —
-    so the declaration would gate a level that no longer needs gating.
-    """
+    """The premise is landed, not required (#2088)."""
     assert manifest.requires.tutorials == ()
 
 
 def test_no_step_claims_the_reader_built_the_landed_artifacts(manifest: TutorialManifest) -> None:
-    """Prose and premise have to agree, or a first-time reader is told a lie.
-
-    The three landed artifacts are ordinary project files a reader may open and
-    read. What the level must not do is narrate them as something they made in
-    an earlier level, because a reader starting here never did.
-    """
+    """A reader starting here never built anything in an earlier level."""
     text = "\n".join(say_text(step) for step in manifest.steps).lower()
     for claimed in ("last level", "my library", "your library", "you built", "you saved"):
         assert claimed not in text, f"a step claims {claimed!r}, which a reader starting here never did"
 
 
 def test_the_level_never_places_a_block_the_design_excludes(manifest: TutorialManifest) -> None:
-    """DataRouter, MergeCollection and MergeBlock are out of scope by design.
-
-    DataRouter competes with the git-branch lesson for the same idea, and the
-    two merge blocks are same-type concatenation, which is not what joining two
-    modalities is.
-    """
+    """DataRouter competes with the git-branch lesson; the merge blocks are not a join of modalities."""
     text = "\n".join(say_text(step) for step in manifest.steps).lower()
     for excluded in ("datarouter", "data router", "mergecollection", "merge collection", "merge block"):
         assert excluded not in text, f"the level mentions {excluded!r}, which its design excludes"
 
 
 # ---------------------------------------------------------------------------
-# The shipped data is its recipe
+# The shipped data is what SOURCE.md says it is
 # ---------------------------------------------------------------------------
 
 
-def test_the_shipped_stack_matches_its_recorded_recipe(assets: dict[str, ModuleType]) -> None:
-    """Three pages, in acquisition order, pixel-identical to the recipe above."""
-    pages = assets["stack"].read_section_stack(ASSETS / "data" / "sections.tif")
-    assert [label for label, _ in pages] == list(ACQUISITION_ORDER)
-    for label, pixels in pages:
-        assert pixels.shape == SHAPE
-        np.testing.assert_array_equal(pixels, _section_image(label))
+@pytest.mark.parametrize("subtype", sorted(SAMPLES))
+def test_each_sample_ships_a_slide_a_mask_and_a_table(subtype: str) -> None:
+    expected = {"SOURCE.md"} | {
+        f"{sample}{suffix}" for sample in SAMPLES[subtype] for suffix in ("_he.jpg", "_mask.png", "_counts.csv")
+    }
+    assert {path.name for path in (DATA / subtype).iterdir()} == expected
 
 
-def test_the_shipped_workbooks_match_their_recorded_recipe() -> None:
-    """Both runs, every sheet, in the sequencing core's own label order."""
-    for run in (1, 2):
-        book = _workbook(run)
-        assert list(book) == list(SHEET_ORDER)
-        for section, frame in book.items():
-            pd.testing.assert_frame_equal(
-                frame.reset_index(drop=True),
-                _counts_for(section, run).reset_index(drop=True),
-                check_dtype=False,
-            )
+@pytest.mark.parametrize("subtype", sorted(SAMPLES))
+def test_the_spot_counts_source_md_quotes_are_the_shipped_ones(subtype: str) -> None:
+    """The attribution file quotes a spot count per sample; the tables must agree."""
+    quoted = {
+        match.group(1): int(match.group(2).replace(",", ""))
+        for match in re.finditer(r"^\| (CID\d+) \| \w+ \| ([\d,]+) \|$", (DATA / subtype / "SOURCE.md").read_text(), re.M)
+    }
+    assert set(quoted) == set(SAMPLES[subtype])
+    for sample, spots in quoted.items():
+        table = pd.read_csv(_file(subtype, sample, "counts"), usecols=["barcode"])
+        assert len(table) == spots, f"{sample}: SOURCE.md quotes {spots} spots, the table has {len(table)}"
 
 
-def test_the_two_exports_disagree_about_order_on_every_position() -> None:
-    """The hazard the Pair Editor beat rests on is real, not narrated.
+def test_every_table_carries_the_same_gene_panel() -> None:
+    """One shared panel, so a comparison across tumors compares the same genes."""
+    headers = {sample: list(pd.read_csv(_file(subtype, sample, "counts"), nrows=0).columns) for subtype, sample in ALL_SAMPLES}
+    for sample, columns in headers.items():
+        assert columns[:3] == ["barcode", "x", "y"], f"{sample} does not open with barcode, x, y"
+        assert len(columns) - 3 == GENE_PANEL_SIZE, f"{sample} carries {len(columns) - 3} genes"
+    panels = {tuple(columns[3:]) for columns in headers.values()}
+    assert len(panels) == 1, "the four tables carry different gene panels"
 
-    If the two orders happened to share a position, one of the three pairs
-    would be right by accident and the step text would be overstating.
-    """
-    assert ACQUISITION_ORDER != SHEET_ORDER
-    assert sorted(ACQUISITION_ORDER) == sorted(SHEET_ORDER)
-    assert all(left != right for left, right in zip(ACQUISITION_ORDER, SHEET_ORDER, strict=True))
+
+@pytest.mark.parametrize(("subtype", "sample"), ALL_SAMPLES)
+def test_every_spot_falls_on_its_slide(subtype: str, sample: str) -> None:
+    """``x`` and ``y`` are pixels on the shipped image, so every spot must land inside it."""
+    width, height = Image.open(_file(subtype, sample, "he")).size
+    spots = pd.read_csv(_file(subtype, sample, "counts"), usecols=["x", "y"])
+    assert spots["x"].between(0, width - 1).all()
+    assert spots["y"].between(0, height - 1).all()
 
 
-def test_the_counts_are_hundreds_of_positions_by_tens_of_genes() -> None:
-    """The scale the design asked for, held against drift in the recipe."""
-    frame = _workbook_sheet(1, "S01")
-    assert 100 <= len(frame) <= 999
-    assert 10 <= len(GENES) <= 99
-    assert set(GENES) <= set(frame.columns)
-    assert {"position_id", "section", "y", "x"} <= set(frame.columns)
+@pytest.mark.parametrize(("subtype", "sample"), ALL_SAMPLES)
+def test_a_mask_is_its_slide_with_a_key_beneath(subtype: str, sample: str) -> None:
+    """Same width as the slide, taller by the key; the slide's rows keep their coordinates."""
+    slide = Image.open(_file(subtype, sample, "he")).size
+    mask = Image.open(_file(subtype, sample, "mask")).size
+    assert mask[0] == slide[0]
+    assert mask[1] > slide[1]
+
+
+def test_the_prebuilt_workflow_reads_only_what_the_bootstrap_lands() -> None:
+    """Every Load path names a file the bootstrap copied into ``data/raw``."""
+    from scistudio.workflow.schema import WorkflowFileModel
+
+    document = yaml.safe_load((ASSETS / "workflows" / "main.yaml").read_text(encoding="utf-8"))
+    WorkflowFileModel.model_validate(document)
+    landed = {f"data/raw/{path.name}" for path in (DATA / "er").iterdir()}
+    loads = [node for node in document["workflow"]["nodes"] if node["block_type"] == "load_data"]
+    assert {node["config"]["params"]["core_type"] for node in loads} == {"HEImage", "HEMask", "DataFrame"}
+    for node in loads:
+        paths = node["config"]["params"]["path"]
+        assert set(paths) <= landed, f"{node['id']} reads a file the bootstrap does not land"
 
 
 # ---------------------------------------------------------------------------
-# The stack loader
+# The reader and the previewer
 # ---------------------------------------------------------------------------
 
 
-def test_the_loader_names_every_page_from_the_file(assets: dict[str, ModuleType]) -> None:
-    """The names the Pair Editor's two lists show come from the file, not the test.
+def test_the_loader_claims_jpeg_and_png_for_both_picture_types(code: dict[str, ModuleType]) -> None:
+    capabilities = code["loader"].LoadSlideImage.format_capabilities
+    assert {(capability.data_type.__name__, capability.format_id) for capability in capabilities} == {
+        ("HEImage", "jpeg"),
+        ("HEImage", "png"),
+        ("HEMask", "jpeg"),
+        ("HEMask", "png"),
+    }
 
-    Without ``user["display_name"]`` the panel would offer three identical
-    filenames and the reader could not tell which row is which section — the
-    beat would be unplayable.
-    """
-    collection = (
-        assets["stack"].LoadSectionStack().load(BlockConfig(params={"path": str(ASSETS / "data" / "sections.tif")}))
+
+@pytest.mark.parametrize(
+    ("kind", "capability_id", "type_name"),
+    [
+        ("he", "tutorial.he_image.jpeg.load", "HEImage"),
+        ("mask", "tutorial.he_mask.png.load", "HEMask"),
+    ],
+)
+def test_the_loader_builds_the_type_its_capability_names(
+    code: dict[str, ModuleType], kind: str, capability_id: str, type_name: str
+) -> None:
+    path = _file("er", "CID4535", kind)
+    width, height = Image.open(path).size
+    loaded = code["loader"].LoadSlideImage().load_file(path, {"capability_id": capability_id})
+    assert type(loaded).__name__ == type_name
+    assert np.asarray(loaded.to_memory()).shape == (height, width, 3)
+
+
+def _preview_request(*, truncated: bool) -> SimpleNamespace:
+    """A request whose reader hands back one small RGB plane per channel."""
+    plane = SimpleNamespace(
+        matrix=[[10, 20], [30, 40]],
+        shape=[1000, 1000, 3],
+        axes=["y", "x", "c"],
+        dtype="uint8",
+        truncated=truncated,
     )
-    assert len(collection) == len(ACQUISITION_ORDER)
-
-    from scistudio.blocks.base.interactive import interactive_item_label
-
-    assert [interactive_item_label(item, i) for i, item in enumerate(collection)] == list(ACQUISITION_ORDER)
-
-
-def test_the_loader_declares_a_load_capability_for_image(assets: dict[str, ModuleType]) -> None:
-    """One declared capability: an Image, from a .tif, at a priority that breaks ties."""
-    (capability,) = assets["stack"].LoadSectionStack.get_format_capabilities()
-    assert capability.direction == "load"
-    assert capability.data_type is assets["image"].Image
-    assert ".tif" in capability.extensions
-    assert capability.priority > 0, "a tie with another Image/.tif reader must resolve, not raise"
+    return SimpleNamespace(
+        storage=object(),
+        spec=SimpleNamespace(previewer_id="project.heimage.view"),
+        target=None,
+        data_access=SimpleNamespace(array_plane=lambda storage, slice_index=0: plane),
+    )
 
 
-def test_the_loader_refuses_what_it_does_not_read(tmp_path: Path, assets: dict[str, ModuleType]) -> None:
-    """A narrow reader says what it cannot do, by name, rather than guessing."""
-    not_a_tiff = tmp_path / "notes.tif"
-    not_a_tiff.write_bytes(b"this is not a tiff at all, not even close")
-    with pytest.raises(ValueError, match="not a TIFF file"):
-        assets["stack"].read_section_stack(not_a_tiff)
-
-    compressed = tmp_path / "compressed.tif"
-    compressed.write_bytes(_one_page_tiff(compression=5))
-    with pytest.raises(ValueError, match="compressed"):
-        assets["stack"].read_section_stack(compressed)
-
-
-def _one_page_tiff(*, compression: int) -> bytes:
-    """A minimal single-page TIFF, so the refusal path can be driven honestly."""
-    pixels = np.zeros((4, 4), dtype=np.uint8)
-    header = struct.pack("<2sHI", b"II", 42, 8)
-    entries = [
-        (256, 4, 1, 4),
-        (257, 4, 1, 4),
-        (258, 3, 1, 8),
-        (259, 3, 1, compression),
-        (273, 4, 1, 8 + 2 + 12 * 7 + 4),
-        (277, 3, 1, 1),
-        (279, 4, 1, pixels.nbytes),
-    ]
-    chunk = struct.pack("<H", len(entries))
-    for tag, field_type, count, value in entries:
-        if field_type == 3:
-            chunk += struct.pack("<HHIHH", tag, field_type, count, value, 0)
-        else:
-            chunk += struct.pack("<HHII", tag, field_type, count, value)
-    chunk += struct.pack("<I", 0)
-    return header + chunk + bytes(pixels.tobytes())
-
-
-# ---------------------------------------------------------------------------
-# The reused segmentation, on new tissue
-# ---------------------------------------------------------------------------
-
-
-def test_the_segmentation_block_finds_nine_regions_on_every_section(label_maps: dict[str, np.ndarray]) -> None:
-    """The reuse claim, recomputed: the cell block finds tissue domains too.
-
-    Nine per section is the number two step texts quote. It is not configured
-    anywhere — it falls out of the shipped pixels through tutorial 2's own
-    default threshold — so a drift in either file breaks this.
-    """
-    assert set(label_maps) == set(ACQUISITION_ORDER)
-    for section, labels in label_maps.items():
-        assert int(labels.max()) == REGIONS_PER_SECTION, f"{section} segmented into {labels.max()} regions"
-        sizes = np.bincount(labels.ravel())[1:]
-        assert sizes.min() > 100, f"{section} produced a speck-sized region: {sorted(sizes.tolist())}"
-
-
-# ---------------------------------------------------------------------------
-# The joint block
-# ---------------------------------------------------------------------------
-
-
-def test_the_joint_analysis_produces_one_row_per_region(analyses: dict[tuple[int, str], pd.DataFrame]) -> None:
-    table = analyses[(1, "total_count")]
-    assert len(table) == TOTAL_REGIONS
-    assert list(table.columns[:6]) == ["section", "region", "cluster", "n_positions", "centroid_y", "centroid_x"]
-    assert set(table["section"]) == set(ACQUISITION_ORDER)
-    assert table["n_positions"].min() >= 4
-
-
-def test_the_pairing_is_positional_and_the_block_says_so(assets: dict[str, ModuleType]) -> None:
-    """Unequal collections are an error naming the counts, not a silent truncation."""
-    import pyarrow as pa
-
-    from scistudio.core.types import DataFrame
-    from scistudio.core.types.collection import Collection
-
-    image_cls = assets["image"].Image
-    labels = Collection([image_cls(axes=["y", "x"], data=np.ones((4, 4), dtype=int)) for _ in range(3)])
-    one_table = Collection([DataFrame(data=pa.Table.from_pandas(_workbook_sheet(1, "S01"), preserve_index=False))])
-    with pytest.raises(ValueError, match="pairing is positional"):
-        assets["joint"].JointRegionProfilesBlock().run(
-            {"labels": labels, "expression": one_table}, BlockConfig(params={})
-        )
-
-
-def test_the_kmeans_is_deterministic_and_order_independent(assets: dict[str, ModuleType]) -> None:
-    """A result a reader has to trust cannot depend on a seed or on row order.
-
-    The block's initialization is greedy rather than randomized precisely so
-    this holds; a switch to textbook k-means++ would fail here.
-    """
-    kmeans = assets["joint"].kmeans
-    rng = np.random.default_rng(11)
-    points = np.concatenate([rng.normal(center, 0.25, size=(12, 3)) for center in ([0, 0, 0], [5, 5, 0], [0, 5, 5])])
-    first = kmeans(points, 3)
-    assert np.array_equal(first, kmeans(points, 3)), "the same input gave two answers"
-
-    order = rng.permutation(len(points))
-    shuffled = kmeans(points[order], 3)
-    partition = {frozenset(np.flatnonzero(first == label).tolist()) for label in set(first.tolist())}
-    reshuffled = {frozenset(order[np.flatnonzero(shuffled == label)].tolist()) for label in set(shuffled.tolist())}
-    assert partition == reshuffled, "row order changed the partition"
-
-
-def test_kmeans_degenerates_gracefully_when_there_is_nothing_to_split(assets: dict[str, ModuleType]) -> None:
-    """Fewer points than clusters is a workflow that still runs."""
-    kmeans = assets["joint"].kmeans
-    assert kmeans(np.zeros((2, 3)), 3).tolist() == [0, 1]
-
-
-# ---------------------------------------------------------------------------
-# The science the step texts quote
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(("run", "method"), sorted(EXPECTED_CLUSTER_SIZES))
-def test_each_batch_and_method_gives_the_split_the_text_quotes(
-    run: int, method: str, analyses: dict[tuple[int, str], pd.DataFrame]
-) -> None:
-    """The four-way result, recomputed from the shipped files every run.
-
-    Two of these are the level's turning points and both are real statistics,
-    not staged: total-count normalization loses batch 2 to two runaway
-    housekeeping genes, and median-of-ratios loses batch 1 because a shallow,
-    zero-heavy run leaves its reference profile almost nothing to rest on.
-    """
-    assert _cluster_sizes(analyses[(run, method)]) == EXPECTED_CLUSTER_SIZES[(run, method)]
-
-
-@pytest.mark.parametrize(("run", "method"), [(1, "total_count"), (2, "median_ratio")])
-def test_the_right_method_gives_three_of_each_cluster_on_every_section(
-    run: int, method: str, analyses: dict[tuple[int, str], pd.DataFrame]
-) -> None:
-    """What the figure is supposed to show, checked as a fact rather than a hope.
-
-    Three sections of one tissue block carry three domains of each program,
-    so a clustering that found tissue rather than depth puts three of every
-    color on every panel. This is the reader's own check, so it has to be true.
-    """
-    table = analyses[(run, method)]
-    counts = pd.crosstab(table["section"], table["cluster"])
-    assert counts.to_numpy().tolist() == [[3, 3, 3]] * len(ACQUISITION_ORDER), counts.to_string()
-
-
-def test_the_step_texts_quote_the_recomputed_numbers(
-    manifest: TutorialManifest, analyses: dict[tuple[int, str], pd.DataFrame]
-) -> None:
-    """Every number a step states is derived here, so the prose cannot drift.
-
-    Tutorial 2's lesson: a step that quotes a count is making a promise about
-    the shipped data, and the only way that promise survives an edit is if the
-    test recomputes it.
-    """
-    words = {2: "two", 3: "three", 5: "five", 7: "seven", 8: "eight", 9: "nine", 14: "fourteen", 18: "eighteen"}
-
-    def spelled(values: list[int]) -> list[str]:
-        return [words[value] for value in values]
-
-    # Every number is quoted on the step that *pays it off*, never on the step
-    # that instructs: an auto-advancing step leaves before its last beat can be
-    # read, so a count written there is a count nobody sees.
-    payoff = _say(manifest, "nine-nine-nine").lower()
-    assert "twenty-seven in all" in payoff
-    assert len(analyses[(1, "total_count")]) == TOTAL_REGIONS
-    assert "nine regions on every section" in payoff
-    assert "nine, nine and nine" in payoff
-    assert _cluster_sizes(analyses[(1, "total_count")]) == [9, 9, 9]
-
-    batch_two = _say(manifest, "fourteen-eight-five").lower()
-    sizes = _cluster_sizes(analyses[(2, "total_count")])
-    assert ", ".join(spelled(sizes[:-1])) + " and " + spelled(sizes)[-1] in batch_two
-
-    fixed = _say(manifest, "nine-nine-nine-again").lower()
-    assert "nine, nine and nine" in fixed
-    assert _cluster_sizes(analyses[(2, "median_ratio")]) == [9, 9, 9]
-    wrong_for_batch_one = _cluster_sizes(analyses[(1, "median_ratio")])
-    assert ", ".join(spelled(wrong_for_batch_one[:-1])) + " and " + spelled(wrong_for_batch_one)[-1] in fixed
-
-    recreated = _say(manifest, "git-stores-the-recipe-you-rerun").lower()
-    assert "nine, nine and nine" in recreated
-
-
-def test_a_mispairing_is_silent_downstream_which_is_why_the_panel_exists(
-    assets: dict[str, ModuleType],
-    label_maps: dict[str, np.ndarray],
-    tmp_path: Path,
-) -> None:
-    """The claim the Pair Editor beat rests on, verified in both directions.
-
-    A mispaired run does not fail, does not warn, and does not even lose
-    coverage — the positions are the same grid either way. It just answers a
-    different question. That is the argument for fixing the order in the panel,
-    where the item names are still visible, rather than hoping to notice
-    downstream.
-    """
-    mispaired = _analyse(assets, label_maps, tmp_path, run=1, method="total_count", expression_order=SHEET_ORDER)
-    assert len(mispaired) == TOTAL_REGIONS, "a wrong pairing still produces a full, plausible table"
-    assert _cluster_sizes(mispaired) != [9, 9, 9], "the answer really is different"
-
-
-def test_the_plot_script_draws_the_real_region_table(analyses: dict[tuple[int, str], pd.DataFrame]) -> None:
-    """The shipped figure is drawn from the shipped analysis, not from a hope.
-
-    The plot script is written into the reader's project and run by the plot
-    card, which calls ``render(collection)`` and shows whatever comes back.
-    Driving it here on the actual table catches the faults that otherwise
-    surface as a red plot card several minutes into the level: a column that
-    was renamed, a cluster column that is nullable, a section count the layout
-    cannot take.
-    """
-    import matplotlib
-
-    matplotlib.use("Agg")
-
-    namespace: dict[str, Any] = {}
-    exec((ASSETS / "code" / "region_map_render.py").read_text(encoding="utf-8"), namespace)
-
-    class _Items:
-        def __init__(self, frame: pd.DataFrame) -> None:
-            self._frame = frame
-
-        def open_one(self) -> pd.DataFrame:
-            return self._frame
-
-    class _Collection:
-        def __init__(self, frame: pd.DataFrame) -> None:
-            self.items = _Items(frame)
-
-    figure = namespace["render"](_Collection(analyses[(1, "total_count")]))
-    assert figure.axes, "render returned a figure with no panels"
-    assert len(figure.axes) == len(ACQUISITION_ORDER), "one panel per section"
-    assert "9 / 9 / 9" in figure._suptitle.get_text()
+@pytest.mark.parametrize("truncated", [True, False])
+def test_the_previewer_says_when_it_shows_an_overview(code: dict[str, ModuleType], truncated: bool) -> None:
+    """A sampled picture must never be presented as the data itself (#1886)."""
+    envelope = code["preview"].render_image(_preview_request(truncated=truncated))
+    assert envelope.metadata.sampled is truncated
+    assert envelope.metadata.complete is (not truncated)
+    assert ("sampled overview" in envelope.payload["alt"]) is truncated
 
 
 # ---------------------------------------------------------------------------
@@ -813,20 +306,13 @@ def test_the_plot_script_draws_the_real_region_table(analyses: dict[tuple[int, s
 
 
 def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The three files the bootstrap writes have to become real product state.
+    """The four files the bootstrap writes have to become real product state.
 
-    Landing a file is not the same as the product knowing about it. The level
-    opens on a project that never built the ``Image`` type, the
-    ``segment_cells`` block or the ``Image`` previewer, and every one of them
-    is load-bearing before the reader does anything interesting: the Load
-    block's core_type list has to offer ``Image``, the palette has to carry the
-    segmentation block, and the preview panel has to draw a section as a
-    picture rather than as a table of numbers.
-
-    The previewer is the one worth pinning. It derives its tier from where it
-    sits rather than hard-coding one (#2125), so landed in the project's own
-    ``previewers/`` it must register at the project tier — the tier a tutorial
-    project's own files ride.
+    The Load block's core_type list has to offer ``HEImage`` and ``HEMask``,
+    dispatch has to find the slide reader, and the preview panel has to draw a
+    slide as a picture rather than as a table of numbers. The previewer derives
+    its tier from where it sits (#2125), so landed in the project's own
+    ``previewers/`` it must register at the project tier.
     """
     import shutil
 
@@ -841,19 +327,20 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
     # The drop-in guard refuses a type stem that already names an imported
-    # module, so the ``assets`` fixture's bare ``image`` binding would make the
-    # landed copy look like a shadowing collision. Take it out and let the scan
-    # import the project's own file, which is what the product does.
-    monkeypatch.delitem(sys.modules, "image", raising=False)
+    # module, so the ``code`` fixture's bare bindings would make the landed
+    # copies look like shadowing collisions. Let the scan import the project's
+    # own files, which is what the product does.
+    for stem in ("he_image", "he_mask"):
+        monkeypatch.delitem(sys.modules, stem, raising=False)
 
     project = dropins.tutorial_parent_dir() / "two-modalities-one-answer"
     for child in ("types", "blocks", "previewers"):
         (project / child).mkdir(parents=True, exist_ok=True)
     (project / "project.yaml").write_text("name: Two Modalities\n", encoding="utf-8")
-    # Exactly what the manifest's bootstrap does, from the same sources.
     for child, source in (
-        ("types", "image.py"),
-        ("blocks", "segment_cells.py"),
+        ("types", "he_image.py"),
+        ("types", "he_mask.py"),
+        ("blocks", "load_slide_image.py"),
         ("previewers", "image_preview.py"),
     ):
         shutil.copy(ASSETS / "code" / source, project / child / source)
@@ -861,47 +348,39 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
     types = TypeRegistry()
     dropins.register_type_scan_dirs(types, project)
     types.scan_all()
-    assert "Image" in set(types.all_types()), "the type the first Load block has to offer did not register"
+    assert {"HEImage", "HEMask"} <= set(types.all_types()), "the picture types the Loads ask for did not register"
 
     blocks = BlockRegistry()
     dropins.register_block_scan_dirs(blocks, project)
     blocks.scan()
-    assert blocks.get_spec("segment_cells") is not None, "the segmentation block did not register"
+    assert blocks.get_spec("load_slide_image") is not None, "the slide reader did not register"
 
     previewers = PreviewerRegistry()
     previewers.load_core()
     load_project_previewers(previewers, project)
-    claimed = [spec for spec in previewers.all_specs() if spec.target_type == "Image"]
-    assert claimed, "the Image previewer did not register, so a section previews as a number table"
-    assert {spec.owner_kind for spec in claimed} == {OwnerKind.PROJECT}, (
-        "a previewer landed in the project's own directory must register at the project tier"
-    )
+    for type_name in ("HEImage", "HEMask"):
+        claimed = [spec for spec in previewers.all_specs() if spec.target_type == type_name]
+        assert claimed, f"no previewer claims {type_name}, so it previews as a number table"
+        assert {spec.owner_kind for spec in claimed} == {OwnerKind.PROJECT}
 
 
 # ---------------------------------------------------------------------------
-# The whole session, walked through the real runtime
+# The story so far, walked through the real runtime
 # ---------------------------------------------------------------------------
 
 
-def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_story_so_far_walks_through_the_real_runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Every beat of the real manifest, driven end to end (#2082).
 
-    The runtime, session store, and progress store are the real ones; the
-    product-state port is stood in exactly as the API layer stands it in. The
-    walk asserts what the level exists for: a reader who has finished nothing
-    else arrives on a project that already holds everything the level does not
-    teach, the fork is built out of the reader's own drags, the pairing is the
-    reader's own interaction, the first render is judged by the backend
-    ``plot_rendered`` term while every re-render is judged on the reader's own
-    press, and both git beats — make the branch, then return to main — are
-    judged against real branch state.
+    The runtime, session store and progress store are the real ones; the
+    product-state port is stood in exactly as the API layer stands it in. A
+    reader who has finished nothing else arrives on a project that already
+    holds the ER data and every picture file, receives the workflow built, and
+    is judged on their own Run and their own click.
     """
     import ast
     import shutil
-    from dataclasses import dataclass
     from datetime import UTC, datetime, timedelta
-
-    import yaml
 
     from scistudio.tutorials import discovery
     from scistudio.tutorials.conditions import ExternalEventNames, RunSummary
@@ -909,7 +388,6 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     from scistudio.tutorials.progress import ProgressStore
     from scistudio.tutorials.projects import TutorialKey, TutorialProjectPlan
     from scistudio.tutorials.session import SessionStatus, SessionStore, TutorialRuntime
-    from scistudio.workflow.schema import WorkflowFileModel
 
     from .conftest import StubProductState
 
@@ -917,20 +395,6 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     fake_home.mkdir()
     monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
     monkeypatch.setattr(discovery, "core_tutorials_dir", lambda: TUTORIAL_DIR.parent)
-
-    @dataclass
-    class _ProjectBackedState(StubProductState):
-        """Reads the workflow off the project file, the way the product does."""
-
-        def workflow(self) -> Any:
-            self.reads.append("workflow")
-            if self.project_dir is None:
-                return None
-            path = Path(self.project_dir) / "workflows" / "main.yaml"
-            if not path.is_file():
-                return None
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-            return WorkflowFileModel.model_validate(data).workflow.to_definition()
 
     class _Provisioner:
         def create(self, plan: TutorialProjectPlan) -> Path:
@@ -942,7 +406,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
             if path.is_dir():
                 shutil.rmtree(path)
 
-    product = _ProjectBackedState()
+    product = StubProductState()
 
     def _settle(written: Any) -> None:
         """The API layer's registry re-scan, reduced to what the conditions read."""
@@ -962,27 +426,6 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
                         blocks.add(str(node.value.value))
         product.block_types = frozenset(blocks)
 
-    runtime = TutorialRuntime(
-        product_state=lambda: product,
-        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
-        project_dir=lambda: product.project_dir,
-        provisioner=_Provisioner(),
-        environment=DiscoveryEnvironment(
-            scistudio_version="0.3.1",
-            git_available=True,
-            # Nothing is stated about what the reader has finished, because
-            # the level requires nothing: it lands what it needs itself. An
-            # empty history is the harder case and the one this walks.
-            completed_tutorials=frozenset(),
-        ),
-        progress=ProgressStore(fake_home / ".scistudio"),
-        sessions=SessionStore(fake_home / ".scistudio"),
-        open_replay=lambda surface: pytest.fail(f"tutorial 4 declares no replay, yet one opened on {surface!r}"),
-        record_ui_event=lambda name, target: _record(name, target),
-        forget_ui_events=lambda: _forget(),
-        files_written=_settle,
-    )
-
     def _record(name: str, target: str | None) -> None:
         product.events = product.events | {name}
         if target is not None:
@@ -992,37 +435,29 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
         product.events = frozenset()
         product.targeted_events = frozenset()
 
-    nodes: dict[str, dict[str, Any]] = {}
-    edges: list[tuple[str, str]] = []
-
-    def _write_workflow() -> None:
-        assert product.project_dir is not None
-        path = Path(product.project_dir) / "workflows" / "main.yaml"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            yaml.safe_dump(
-                {
-                    "workflow": {
-                        "id": "main",
-                        "version": "1.0.0",
-                        "description": "Two modalities — built step by step by the walk.",
-                        "nodes": [
-                            {"id": node_id, "block_type": body["block_type"], "config": {"params": body["params"]}}
-                            for node_id, body in nodes.items()
-                        ],
-                        "edges": [{"source": source, "target": target} for source, target in edges],
-                    }
-                },
-                sort_keys=False,
-            ),
-            encoding="utf-8",
-        )
+    runtime = TutorialRuntime(
+        product_state=lambda: product,
+        external_events=ExternalEventNames(blocks_reloaded="blocks.reloaded", file_changed="file.changed"),
+        project_dir=lambda: product.project_dir,
+        provisioner=_Provisioner(),
+        environment=DiscoveryEnvironment(
+            scistudio_version="0.3.1",
+            git_available=True,
+            # The level requires nothing: it lands what it needs itself. An
+            # empty history is the harder case and the one this walks.
+            completed_tutorials=frozenset(),
+        ),
+        progress=ProgressStore(fake_home / ".scistudio"),
+        sessions=SessionStore(fake_home / ".scistudio"),
+        open_replay=lambda surface: pytest.fail(f"tutorial 4 declares no replay, yet one opened on {surface!r}"),
+        record_ui_event=_record,
+        forget_ui_events=_forget,
+        files_written=_settle,
+    )
 
     def _run() -> None:
-        # A millisecond past "now", not five seconds: several steps in this walk
-        # say "press Run", and a record stamped into the future would satisfy
-        # every subsequent step's ``since_step_entry`` before the reader ran
-        # anything — which is exactly the fault that scoping exists to stop.
+        # A millisecond past "now": a record stamped further ahead would satisfy
+        # a later step's ``since_step_entry`` before the reader ran anything.
         started = (datetime.now(UTC) + timedelta(milliseconds=1)).isoformat()
         product.runs = (
             RunSummary(run_id=f"r{len(product.runs) + 1}", workflow_id="main", succeeded=True, started_at=started),
@@ -1044,34 +479,22 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert view.step is not None and view.step.id == "two-instruments-one-question"
     project = Path(view.project_path or "")
     product.project_dir = project
-    for name in ("sections.tif", "run1_counts.xlsx", "run2_counts.xlsx"):
-        assert (project / "data" / "raw" / name).is_file(), f"the bootstrap did not land {name}"
-    # The four files the level never teaches, landed before the reader has read
-    # a word. `test_the_landed_artifacts_register_into_the_project` checks that
-    # the registries then pick them up; here the point is only that a fresh
-    # project already holds them.
-    assert (project / "blocks" / "load_section_stack.py").is_file(), "the instrument's reader ships with the data"
-    assert (project / "types" / "image.py").is_file(), "the level's image type is landed, not required"
-    assert (project / "previewers" / "image_preview.py").is_file(), "so is its previewer"
-    assert (project / "blocks" / "segment_cells.py").is_file(), "and the segmentation block"
-    assert {"load_section_stack", "segment_cells"} <= set(product.block_types), (
-        "the bootstrap settle registered both landed blocks"
-    )
 
-    _advance("what-came-back")
-    _advance("the-question")
+    raw = project / "data" / "raw"
+    for sample in SAMPLES["er"]:
+        for suffix in ("_he.jpg", "_mask.png", "_counts.csv"):
+            assert (raw / f"{sample}{suffix}").is_file(), f"the bootstrap did not land {sample}{suffix}"
+    for sample in SAMPLES["tnbc"]:
+        assert not any(raw.glob(f"{sample}_*")), f"{sample} arrived before the branch that introduces it"
+    for landed in ("types/he_image.py", "types/he_mask.py", "blocks/load_slide_image.py", "previewers/image_preview.py"):
+        assert (project / landed).is_file(), f"the bootstrap did not land {landed}"
+    assert "load_slide_image" in product.block_types, "the bootstrap settle registered the slide reader"
+    assert not (project / "workflows" / "main.yaml").exists(), "the workflow arrives with the step that runs it"
 
-    _advance("load-the-slides")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["load-images"] = {"block_type": "load_data", "params": {}}
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is False, "an unconfigured Load is not the step"
-    nodes["load-images"]["params"] = {"path": "data/raw/sections.tif", "core_type": "Image"}
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("one-file-three-sections")
-    assert _live(runtime.active_session()).satisfied is False
+    _advance("read-them-in")
+    written = project / "workflows" / "main.yaml"
+    assert written.read_bytes() == (ASSETS / "workflows" / "main.yaml").read_bytes()
+    assert _live(runtime.active_session()).satisfied is False, "the written workflow is not the run"
     _run()
     assert _live(runtime.evaluate_active()).satisfied is True
 
@@ -1079,171 +502,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert _live(runtime.active_session()).satisfied is False, "the run alone is not the look"
     assert _live(runtime.report_ui_event("node_selected", "load_data")).satisfied is True
 
-    _advance("s05-s09-s01")
-
-    _advance("the-other-instrument")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["load-counts"] = {
-        "block_type": "load_data",
-        "params": {"path": "data/raw/run1_counts.xlsx", "core_type": "DataFrame"},
-    }
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("two-roots")
-
-    _advance("pair-before-you-use")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["pair-1"] = {"block_type": "paireditor_block", "params": {}}
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True, "the drag is the whole step; the ports come next"
-
-    _advance("it-arrives-empty")
-
-    _advance("connect-both-streams")
-    assert _live(runtime.active_session()).satisfied is False
-    edges += [("load-images:data", "pair-1:port_1"), ("load-counts:data", "pair-1:port_2")]
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("they-do-not-line-up")
-    assert _live(runtime.active_session()).satisfied is False
-    product.interactions = frozenset({"pair-1"})
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("it-remembers")
-
-    _advance("segment-the-regions")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["segment-1"] = {"block_type": "segment_cells", "params": {}}
-    edges.append(("pair-1:out_1", "segment-1:image"))
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("read-what-it-does")
-    assert _live(runtime.active_session()).satisfied is False
-    assert _live(runtime.report_ui_event("block_source_viewed", "segment_cells")).satisfied is True
-
-    _advance("no-black-boxes")
-
-    _advance("the-other-branch")
-    assert _live(runtime.active_session()).satisfied is False
-    view = runtime.trigger_active()
-    assert (project / "blocks" / "normalize_expression.py").is_file()
-    assert "normalize_expression" in product.block_types, (
-        "the settle registered the block before the press reported done"
-    )
-    assert _live(view).satisfied is True, "the press is the step; wiring it is the next one"
-
-    _advance("connect-the-normalization")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["norm-1"] = {"block_type": "normalize_expression", "params": {}}
-    edges.append(("pair-1:out_2", "norm-1:counts"))
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("where-the-branches-meet")
-    view = runtime.trigger_active()
-    assert (project / "blocks" / "joint_region_profiles.py").is_file()
-    assert _live(view).satisfied is True
-
-    _advance("what-the-joint-block-does")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["joint-1"] = {"block_type": "joint_region_profiles", "params": {}}
-    edges.append(("segment-1:labels", "joint-1:labels"))
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is False, "one branch in is not a joint analysis"
-    edges.append(("norm-1:normalized", "joint-1:expression"))
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("read-the-kmeans")
-
-    _advance("run-the-joint-analysis")
-    assert _live(runtime.active_session()).satisfied is False
-    _run()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("read-the-table")
-    assert _live(runtime.active_session()).satisfied is False
-    assert _live(runtime.report_ui_event("node_selected", "joint_region_profiles")).satisfied is True
-
-    _advance("nine-nine-nine")
-
-    _advance("put-it-back-on-the-slide")
-    assert _live(runtime.active_session()).satisfied is False
-    product.plots = (("region_map", "joint-1", "regions"),)
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("draw-it")
-    assert (project / "plots" / "region_map" / "render.py").is_file(), "the entry action filled in the plot script"
-    assert _live(runtime.active_session()).satisfied is False, "writing the script is not rendering it"
-    product.rendered = (("main", "joint-1", "regions", "region_map"),)
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("three-of-each")
-    _advance("the-second-run")
-
-    _advance("what-a-branch-is-for")
-    assert _live(runtime.active_session()).satisfied is False
-    product.branches = frozenset({"main", "batch-2"})
-    assert _live(runtime.evaluate_active()).satisfied is False, "a branch that exists is not a branch you are on"
-    product.current_branch = "batch-2"
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("same-recipe-second-batch")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["load-counts"]["params"]["path"] = "data/raw/run2_counts.xlsx"
-    _write_workflow()
-    assert _live(runtime.evaluate_active()).satisfied is False, "the reader still has to run it"
-    _run()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    # The figure already exists from `draw-it`, so the three re-render steps
-    # below are judged on the reader's own press. If any of them regressed to
-    # the ``plot_rendered`` *term* this assertion is what catches it: the step
-    # would arrive already satisfied and skip past the reader.
-    _advance("re-render-batch-2")
-    assert _live(runtime.active_session()).satisfied is False, "the standing figure must not satisfy a re-render"
-    assert _live(runtime.report_ui_event("plot_rendered", "region_map")).satisfied is True
-
-    _advance("fourteen-eight-five")
-
-    _advance("the-setting-this-batch-needs")
-    assert _live(runtime.active_session()).satisfied is False
-    nodes["norm-1"]["params"] = {"method": "median_ratio"}
-    _write_workflow()
-    _run()
-    assert _live(runtime.evaluate_active()).satisfied is False, "the run is not the picture"
-    assert _live(runtime.report_ui_event("plot_rendered", "region_map")).satisfied is True
-
-    _advance("nine-nine-nine-again")
-    _advance("two-settings-neither-wrong")
-
-    _advance("go-back-to-batch-1")
-    assert _live(runtime.active_session()).satisfied is False
-    # Checking out main restores the recipe — and only the recipe.
-    nodes["load-counts"]["params"]["path"] = "data/raw/run1_counts.xlsx"
-    nodes["norm-1"]["params"] = {}
-    _write_workflow()
-    product.current_branch = "main"
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("the-recipe-came-back")
-
-    _advance("git-stores-the-recipe")
-    assert _live(runtime.active_session()).satisfied is False, "the stale figure is the point; the rerun is the lesson"
-    _run()
-    assert _live(runtime.evaluate_active()).satisfied is True
-
-    _advance("rerun-the-plot")
-    assert _live(runtime.active_session()).satisfied is False
-    assert _live(runtime.report_ui_event("plot_rendered", "region_map")).satisfied is True
-
-    _advance("git-stores-the-recipe-you-rerun")
-    _advance("two-variants-alive")
     assert runtime.continue_active().status is SessionStatus.COMPLETE
-
     # This is a level, not the milestone: completing it must not offer the work
     # import (FR-079 names the AI level).
     assert runtime.progress_store.work_import_offer_pending() is False

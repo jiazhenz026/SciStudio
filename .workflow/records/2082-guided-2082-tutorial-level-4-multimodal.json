@@ -56,6 +56,131 @@
       "at": "2026-09-11T13:48:59.986432Z",
       "owner_directive": "\u5f00\u4f8b\u5916\uff08\u7ed9\u5173\u53614\u7684\u6570\u636e\u76ee\u5f55\u5f00 check-added-large-files \u4f8b\u5916\uff09\u3002\u5148\u63d0\u4ea4\u4e00\u4e2a\u8fdc\u7aef\u5206\u652f\uff0c\u6211\u53bb\u53e6\u5916\u4e00\u4e2a\u7535\u8111\u4e0a\u7ee7\u7eed\u5f00\u53d1",
       "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    },
+    {
+      "at": "2026-09-11T15:15:04.880009Z",
+      "owner_directive": "\u91cd\u5199\u6559\u7a0b4\u5267\u60c5\u4ee5\u5339\u914d\u771f\u6570\u636e\uff08\u4e24\u5f20H&E\u80bf\u7624\u5207\u7247+\u914d\u5bf9Visium\u7a7a\u95f4\u8868\u8fbe\uff0c\u95ee\u9898=\u764c\u7ec4\u7ec7vs\u5176\u4ed6\u7ec4\u7ec7\u7684\u8868\u8fbe\u5dee\u5f02\uff09\u3002\u5148\u843d\u5730owner\u6279\u6ce8\u7684\u4e24\u5904\uff1asummary \u548c\u7b2c\u4e00\u6b65 two-instruments-one-question \u7684 say\u3002",
+      "reason": "Real Visium+H&E assets replaced the fake data; storyline must be rewritten. Owner annotated the summary and the opening step; write those first."
+    },
+    {
+      "at": "2026-09-11T15:19:42.223110Z",
+      "owner_directive": "\u6362\u7528\u5019\u90091\u6570\u636e\u96c6\uff1aWu et al. 2021 \u4e73\u817a\u764c Visium \u56fe\u8c31\uff08Zenodo 4739739, CC-BY-4.0\uff0c\u542b\u6bcf spot \u75c5\u7406\u6807\u6ce8 + annotated H&E\uff09\u3002\u53d6 4 \u4f8b\u5207\u7247\uff0c\u4fbf\u4e8e\u8bbe\u8ba1\u540e\u9762\u7684 pairing \u548c branching \u5267\u60c5\u3002",
+      "reason": "Current 10x Block A assets carry no pathologist annotation; owner chose to replace them with an annotated public dataset so the storyline can use a real cancer-region mask."
+    },
+    {
+      "at": "2026-09-11T15:23:17.705102Z",
+      "owner_directive": "\u9009\u5b9a 4 \u4f8b\uff1aCID4535(ER+)\u3001CID4290(ER+)\u3001CID44971(TNBC)\u3001CID4465(TNBC)\u3002\u75c5\u7406 Classification \u6807\u6ce8\u505a\u6210 mask \u56fe\u7247\uff08\u7531 spot \u7ea7\u6807\u7b7e\u6805\u683c\u5316\u6d3e\u751f\uff0c\u9700\u5728 SOURCE.md \u6ce8\u660e\u4e3a\u6d3e\u751f\u7269\uff09\u3002",
+      "reason": "Owner selected the four samples and chose rasterised mask images over a per-spot label column, so the tutorial can show a cancer-region mask on the H&E."
+    },
+    {
+      "at": "2026-09-11T15:28:23.462027Z",
+      "owner_directive": "mask \u505a\u6210\u591a\u7c7b\u3001\u6309\u989c\u8272\u533a\u5206\uff08\u4e0d\u662f\u4e8c\u503c\u764c/\u975e\u764c\uff09\u3002",
+      "reason": "Owner chose a multi-class colour mask over a binary cancer mask, so the mask asset must encode several pathology classes by colour."
+    },
+    {
+      "at": "2026-09-11T15:29:35.125389Z",
+      "owner_directive": "mask \u4fdd\u7559 spot \u70b9\u9635\uff08\u4e0d\u505a\u5f62\u6001\u5b66\u586b\u5145\uff09\uff1b5 \u7c7b\u5f52\u5e76\u65b9\u6848\u901a\u8fc7\uff1aInvasive cancer / DCIS / Stroma / Lymphocytes / Normal\uff0cUncertain+Artefact \u4e22\u5f03\u3002",
+      "reason": "Owner settled the two open mask-design questions so asset generation can start."
+    },
+    {
+      "at": "2026-09-11T15:34:55.103895Z",
+      "owner_directive": "\u8d44\u4ea7\u843d\u5730\uff1a\u628a 4 \u4f8b Wu 2021 \u8d44\u4ea7\uff08he.jpg / mask.png / counts.csv\uff09\u5199\u5165 assets/data\uff0c\u5220\u9664\u65e7\u7684\u5408\u6210\u6570\u636e\u4e0e 10x Block A \u6570\u636e\uff0c\u66f4\u65b0 SOURCE.md\u3002",
+      "reason": "Owner approved the generated assets; land them and retire the superseded synthetic and 10x Block A data."
+    },
+    {
+      "at": "2026-09-11T15:37:19.850553Z",
+      "owner_directive": "\u82f1\u5f0f\u62fc\u5199\u4e00\u5f8b\u6539\u7f8e\u5f0f\uff08analyse\u2192analyze \u7b49\uff09\u3002",
+      "reason": "Owner set the spelling convention for this tutorial's prose and code comments."
+    },
+    {
+      "at": "2026-09-11T15:39:32.163162Z",
+      "owner_directive": "\u5220\u6389\u5f00\u573a\u4e4b\u540e\u7684\u6240\u6709\u6b65\u9aa4\uff08\u4ece the-question \u8d77\u5230\u7ed3\u5c3e\uff09\uff0c\u6574\u6761\u5267\u60c5\u968f\u6570\u636e\u91cd\u5199\uff0c\u63a5\u4e0b\u6765\u8bf4\u5230\u54ea\u5199\u5230\u54ea\u3002",
+      "reason": "The new assets invalidate every downstream beat; owner scrapped them rather than patching, and will direct the rewrite beat by beat."
+    },
+    {
+      "at": "2026-09-11T15:42:31.392453Z",
+      "owner_directive": "\u6e05\u7406\u6389\u6b8b\u7559\u7684\u65e7\u5267\u60c5\u6ce8\u91ca\u3002\u7ed3\u6784\uff1a\u5f00\u573a\u5148\u5f15\u5165 2 \u4f8b\uff0c\u540e\u9762\u6362\u4e9a\u578b\u5207 git branch \u65f6\u518d\u5f15\u5165\u53e6\u5916 2 \u4f8b\u3002",
+      "reason": "Owner set the sample-reveal structure and asked for the stale comments to go with the deleted beats."
+    },
+    {
+      "at": "2026-09-11T15:44:30.108299Z",
+      "owner_directive": "\u5f00\u573a\u7528\u4e24\u4f8b ER\uff08CID4535\u3001CID4290\uff09\uff1b\u4e24\u4f8b TNBC \u7559\u5230\u5207\u5206\u652f\u65f6\u5f15\u5165\u3002",
+      "reason": "Owner picked which subtype opens the level."
+    },
+    {
+      "at": "2026-09-11T15:47:59.569976Z",
+      "owner_directive": "\u7b2c\u4e00\u6b65 focus \u5230 Data\uff0c\u5e76\u52a0\u4e00\u53e5\uff1a\u9879\u76ee\u91cc\u6240\u6709\u6570\u636e\u90fd\u80fd\u5728 Data \u5361\u7247\u4e0b\u770b\u5230\u3002\u7b2c\u4e8c\u6b65\uff1a\u5148\u7ed9\u8bfb\u8005\u5199\u597d\u4e00\u4e2a\u8bfb\u6570\u636e\u7684 workflow\uff0c\u518d\u8ba9\u8bfb\u8005\u770b\u6570\u636e\u3002",
+      "reason": "Owner directed the shape of the first two beats."
+    },
+    {
+      "at": "2026-09-11T15:49:22.839024Z",
+      "owner_directive": "core \u6ca1\u6709\u8bfb jpg/png \u6210\u50cf\u7d20\u7684\u80fd\u529b\uff0c\u7ed9\u8fd9\u4e2a project \u4e13\u95e8\u5199\u4e00\u4e2a io block \u8bfb jpg \u548c png\u3002",
+      "reason": "Core load_data only reaches jpg/png as opaque Artifacts, so the project needs its own pixel loader."
+    },
+    {
+      "at": "2026-09-11T15:51:13.520174Z",
+      "owner_directive": "\u7ed9\u8fd9\u4e2a project \u4e13\u95e8\u5199\u4e00\u4e2a image previewer\u3002",
+      "reason": "The shipped previewer renders grayscale micrographs; the Visium slides are RGB."
+    },
+    {
+      "at": "2026-09-11T15:54:34.655702Z",
+      "owner_directive": "\u7b2c\u4e00\u6b65\u7684 focus \u4e0d\u8981\u4e00\u4e0a\u6765\u5c31\u7f69\u5728 Data \u4e0a\uff0c\u7b49\u8bf4\u5230 'They are waiting under Data' \u8fd9\u53e5\u4e4b\u540e\u518d\u51fa\u73b0\u3002",
+      "reason": "Owner watched the step in the app and wants the Data ring to arrive with the line that names it."
+    },
+    {
+      "at": "2026-09-11T15:58:10.908294Z",
+      "owner_directive": "\u4e0d\u8981 4 \u4e2a Load\u2014\u2014SciStudio \u652f\u6301\u6279\u5904\u7406\uff0c\u7528 Collection\u3002",
+      "reason": "Four single-file Loads ignored the product's batch model; a multi-path Load emits a Collection and every downstream block runs once per item."
+    },
+    {
+      "at": "2026-09-11T16:00:27.301058Z",
+      "owner_directive": "read-them-in \u7b2c\u4e00\u62cd\u6539\u4e3a\uff1a\u8ba9\u6211\u4eec\u5148\u770b\u4e00\u4e0b\u6570\u636e\u957f\u5565\u6837\u3002\u6211\u5e2e\u4f60\u642d\u5efa\u4e86\u4e00\u4e2a workflow \u8bfb\u5165\u6570\u636e\u3002",
+      "reason": "Owner rewrote the beat; the shipped wording was too wordy."
+    },
+    {
+      "at": "2026-09-11T16:06:26.109719Z",
+      "owner_directive": "\u628a\u6559\u7a0b\u81ea\u5df1\u7684 Image \u7c7b\u578b\u6539\u540d\u4e3a HEImage\u3002",
+      "reason": "The imaging package's entry-point Image type shadows the tutorial's drop-in one; a distinct name removes the collision."
+    },
+    {
+      "at": "2026-09-11T16:09:16.328798Z",
+      "owner_directive": "\u4fee\u590d Load \u62a5 'no load capability registered for HEImage'\uff08loader block \u6ca1\u8fdb bootstrap\uff09\uff1bmask \u7528 HEMask \u7c7b\u578b\u3002",
+      "reason": "The new loader block was never added to bootstrap, so no capability reached the project; and the mask needs a type of its own."
+    },
+    {
+      "at": "2026-09-11T16:21:14.501561Z",
+      "owner_directive": "loader \u591a\u8def\u5f84\u7f3a\u9677\u6d3e implementer \u5355\u72ec\u5f00 PR \u4fee\uff1b\u65b9\u6848\u5b9a\u4e3a\uff1a\u9ed8\u8ba4\u94fa\u5f00\u5217\u8868\uff0c\u9664\u975e loader \u663e\u5f0f\u58f0\u660e\u81ea\u5df1\u5403\u5217\u8868\u3002",
+      "reason": "The multi-path loader defect is core work outside this guided session; owner directed a separate implementer PR."
+    },
+    {
+      "at": "2026-09-11T16:25:03.336814Z",
+      "owner_directive": "\u770b\u6570\u636e\u8fd9\u4e00\u6b65\u8981\u5e26\u4e0a mask \u4e00\u8d77\u3002",
+      "reason": "Owner wants the mask present when the reader first looks at the data, not held back."
+    },
+    {
+      "at": "2026-09-11T16:29:00.019832Z",
+      "owner_directive": "mask \u52a0\u989c\u8272 legend\uff1bmask \u663e\u793a\u65f6\u6700\u597d\u534a\u900f\u660e\u53e0\u52a0\u5230 H&E \u56fe\u4e0a\u3002",
+      "reason": "Owner asked for a colour key on the mask preview and a translucent overlay of the mask on its slide."
+    },
+    {
+      "at": "2026-09-11T16:33:46.466251Z",
+      "owner_directive": "\u53e0\u52a0\u914d\u8272\u5b9a\u65b9\u68482\uff1a\u5e95\u56fe\u53bb\u8272\u6210\u7070\u5ea6 + mask \u7528\u6ee1\u9971\u548c\u8272\uff1b\u65e0\u5f69\u8272\uff08Normal \u7070\uff09\u4fdd\u6301\u4e2d\u6027\u4e0d\u9971\u548c\u5316\u3002",
+      "reason": "Owner picked the overlay look from the rendered comparison."
+    },
+    {
+      "at": "2026-09-11T16:35:13.466201Z",
+      "owner_directive": "mask \u672c\u6765\u5c31\u662f\u6211\u4eec\u9020\u7684\u5047\u56fe\u2014\u2014\u76f4\u63a5\u628a\u53e0\u52a0\u597d\u7684\u56fe\u5f53 mask \u5b58\u6210\u8d44\u4ea7\u8bfb\u8fdb\u53bb\uff0c\u4e0d\u8981\u5728 previewer/block \u91cc\u73b0\u573a\u5408\u6210\u3002",
+      "reason": "The mask is an asset we author, so the overlay belongs in the file rather than in a render-time join the previewer cannot make."
+    },
+    {
+      "at": "2026-09-11T16:42:51.112324Z",
+      "owner_directive": "\u5148\u6e05\u7406\uff1a\u53bb\u6389\u8fc7\u65f6\u63cf\u8ff0\uff08mask \u80cc\u666f\u9ed1\u3001\u6bcf\u50cf\u7d20\u989c\u8272\u5373\u533a\u57df\uff09\u3001\u6b8b\u7559\u82f1\u5f0f\u62fc\u5199\u3001\u65e7\u5408\u6210\u6570\u636e\u7684 4 \u4e2a block\uff0c\u6d4b\u8bd5\u6539\u5230\u5f53\u524d\u5267\u60c5\u3002\u5408\u6210 mask PNG \u7684 legend \u5728\u9884\u89c8\u91cc\u5b8c\u5168\u7cca\u6389\uff0c\u8981\u4fee\u3002",
+      "reason": "Owner asked to clear the loose ends found on resume, and reported the baked-in mask legend is unreadable"
+    },
+    {
+      "at": "2026-09-11T16:51:17.615493Z",
+      "owner_directive": "core \u9884\u89c8\u964d\u91c7\u6837\u8fdd\u53cd #1886 \u5fe0\u5b9e\u663e\u793a\u539f\u5219\u2014\u2014\u5199\u77ed prompt \u8f6c\u7ed9 ADR-054 \u91cd\u6784 agent \u5904\u7406 core \u4fa7\uff1b\u672c\u5173\u7ee7\u7eed\uff1a\u6e05\u7406\u6536\u5c3e\uff0c\u6559\u7a0b previewer \u5982\u5b9e\u6807\u6ce8 sampled\u3002",
+      "reason": "Core array previews still decimate to 256 px despite #1886; owner routes the core fix to the ADR-054 agent and keeps this session on the tutorial"
     }
   ],
   "docs_events": [

@@ -1,31 +1,24 @@
 # Core tutorial 4 — "Two modalities, one answer" (scenarios doc, 关卡 3).
 #
-# The multimodal level, and the git level. A scanner and a sequencer looked at
-# the same three sections of tissue and neither can answer alone; the only link
-# between them is space. The reader meets index pairing as a real hazard, reads
-# a clustering computed in a block (never in a plot), and then meets the reason
-# a scientist keeps two branches alive: two sequencing runs that need two
-# different normalizations, both of which must stay runnable.
+# The multimodal level, and the git level. Four breast tumors, each one an H&E
+# image and a spatial expression table of the same slide, plus the region
+# labels a pathologist assigned. Two are ER, two are triple-negative.
+#
+# The reader opens on the two ER tumors. The other two arrive later, when the
+# subtype changes and the analysis has to branch: both recipes must stay
+# runnable.
 #
 # **This is not a wiring lesson.** Tutorials 1 and 2 taught dragging, Browse
-# and connecting. Here the workflow arrives built (assets/workflows/main.yaml)
-# and the reader spends the level changing it: pairing the sections, pointing
-# a Load at the second batch, switching the normalization, switching branches.
-#
-# **This level stands alone.** The Image type, its previewer, Segment Cells and
-# the two analysis blocks are landed by the bootstrap, quietly, before the first
-# step. Nothing in the prose claims the reader built them.
-#
-# Every number quoted in a step below is recomputed from the shipped assets by
-# tests/tutorials/test_core_tutorial_two_modalities.py.
+# and connecting. Here the reader spends the level changing a workflow, not
+# building one.
 manifest_version: 1
 id: two-modalities-one-answer
 title: Two modalities, one answer
 summary: >-
-  A scanner and a sequencer looked at the same tissue and neither can answer
-  alone. Pair the two streams before they silently mispair, cluster the regions
-  — then meet the second sequencing run, and the branch that keeps both
-  recipes alive.
+  SciStudio is built for multimodal scientific data. Here you analyze two
+  modalities of the same tumor at once — H&E tissue images and spatial gene
+  expression — running the two streams in parallel through one workflow, and
+  using git branches to keep more than one analysis alive.
 order: 4
 
 requires:
@@ -38,34 +31,31 @@ requires:
 bootstrap:
   project_name: Two Modalities
   do:
-    # The dataset: one three-page section stack in the scanner's acquisition
-    # order, and two workbooks — one sheet per section, in section-label
-    # order. The two orders disagree, which is the point.
+    # Per tumor, an H&E image, the pathologist's region mask, and a
+    # spot-by-gene expression table. See assets/data/er/SOURCE.md.
+    #
+    # Only the two ER tumors land here. The two triple-negative ones arrive
+    # later, in the step that branches, so the opening can say "two" and mean
+    # it.
     - copy:
-        source: assets/data
+        source: assets/data/er
         destination: data/raw
-    # The reader for this facility's stack format ships WITH the dataset: an
-    # instrument's reader is not a tool anybody carries between projects.
+    # The project's own picture types, the reader that turns a slide file into
+    # one, and the previewer that draws either of them. They land here rather
+    # than arriving from My Library so the level owes nothing to any other
+    # level.
     - write:
-        source: assets/code/load_section_stack.py
-        destination: blocks/load_section_stack.py
-    # Everything else the workflow uses. It lands here rather than arriving
-    # from My Library so the level owes nothing to any other level.
+        source: assets/code/he_image.py
+        destination: types/he_image.py
     - write:
-        source: assets/code/image.py
-        destination: types/image.py
+        source: assets/code/he_mask.py
+        destination: types/he_mask.py
+    - write:
+        source: assets/code/load_slide_image.py
+        destination: blocks/load_slide_image.py
     - write:
         source: assets/code/image_preview.py
         destination: previewers/image_preview.py
-    - write:
-        source: assets/code/segment_cells.py
-        destination: blocks/segment_cells.py
-    - write:
-        source: assets/code/normalize_expression.py
-        destination: blocks/normalize_expression.py
-    - write:
-        source: assets/code/joint_region_profiles.py
-        destination: blocks/joint_region_profiles.py
 
 steps:
   # 这一关的节奏跟关卡 1、2、3 一样：一句引导 + 一句指导，一步一件事，短句。
@@ -89,237 +79,54 @@ steps:
 
   - id: two-instruments-one-question
     title: Two instruments, one tissue
-    route_to: canvas
-    say:
-      - "success: Good to see you! Today, two instruments looked at the same piece of tissue."
-      - "explain: A scanner took pictures of three sections. A sequencer counted twelve genes at a few hundred spots on each."
-      - "curious: Neither result answers anything alone. What links them is where each spot sits on the slide."
-
-  - id: the-question
-    title: Today's question
     route_to: data
-    highlight: data
+    # The ring arrives with the line that names the Data section, not before:
+    # a highlight that precedes its sentence points at nothing yet.
+    highlight:
+      - ~
+      - ~
+      - data
+      - data
     say:
-      - "explain: Here is what came back: sections.tif from the scanner, run1_counts.xlsx from the sequencer."
-      - "explain: Today's question: which regions of the tissue share an expression program?"
+      - "success: Good to see you! The lab just handed you today's spatial transcriptomics data to analyze."
+      - "explain: Two H&E images of tumor tissue, the genes expressed across each slide, and a pathologist's mask of what is what."
+      - "explain: They are waiting under **Data** — every file this project holds shows up there."
+      - "curious: The question: how does gene expression in the cancer differ from the rest of the tissue?"
 
-  - id: the-workflow
-    title: The workflow
+  # ------------------------------------------------------------ reading them
+
+  - id: read-them-in
+    title: Read them in
+    auto_advance: true
     route_to: canvas
-    highlight: canvas
+    compact: [false, true]
+    highlight:
+      - ~
+      - run_button
     do:
       - write:
           source: assets/workflows/main.yaml
           destination: workflows/main.yaml
     say:
-      - "success: I've built the workflow for you."
-      - "explain: Two Loads, two branches, one per instrument. They meet in Joint Region Profiles, which clusters the regions."
-
-  # ------------------------------------------------------------- the pairing
-
-  - id: pair-them
-    title: Pair them first
-    auto_advance: true
-    route_to: canvas
-    compact: [false, true, true]
-    highlight:
-      - ~
-      - node:
-          block_type: paireditor_block
-      - run_button
-    say:
-      - "curious: One catch: two collections are paired by position — first with first, second with second."
-      - "error: But the scanner stored the sections as S05, S09, S01, and the sequencer sorted them S01, S05, S09. Every pair is wrong."
-      - "focus: **Press Run**. When **Pair Editor** opens, **drag** the rows until both sides match, then press **Confirm**."
+      - "explain: Let's see what the data looks like first. I've built you a workflow that reads it in."
+      - "focus: **Press Run**."
     done_when:
-      interaction_completed:
-        block_type: paireditor_block
+      run_succeeded:
+        since_step_entry: true
 
-  - id: paired
-    title: Paired
+  - id: look-at-them
+    title: Look at what came back
     auto_advance: true
     route_to: canvas
     compact: [false, true]
     highlight:
       - ~
       - node:
-          block_type: joint_region_profiles
+          block_type: load_data
     say:
-      - "success: Paired. The run picks up where it paused."
-      - "focus: When it finishes, **click Joint Region Profiles** to see its table."
+      - "success: Read. The two slides, the regions a pathologist marked on them, and the two tables of counts."
+      - "focus: **Click a Load** to see what it holds."
     done_when:
       ui_event:
         name: node_selected
-        block_type: joint_region_profiles
-
-  - id: nine-nine-nine
-    title: Nine, nine and nine
-    route_to: canvas
-    say:
-      - "explain: One row per region: its section, its size, its average expression, and its cluster."
-      - "success: Twenty-seven regions, and the three clusters split nine, nine and nine — three of each on every section."
-
-  # ------------------------------------------------------------- the picture
-
-  - id: the-map
-    title: Back on the slides
-    auto_advance: true
-    route_to: plots
-    compact: [false, true]
-    highlight:
-      - ~
-      - plot_card:
-          plot_id: region_map
-    do:
-      - write:
-          source: assets/code/region_map_plot.yaml
-          destination: plots/region_map/plot.yaml
-      - write:
-          source: assets/code/region_map_render.py
-          destination: plots/region_map/render.py
-    say:
-      - "curious: Twenty-seven rows are hard to read. I've set up a plot that puts them back on the slides."
-      - "focus: Press **Run** on the plot card."
-    done_when:
-      plot_rendered:
-        plot_id: region_map
-
-  - id: three-of-each
-    title: Three of each
-    route_to: plots
-    say:
-      - "success: Every region back where it came from, coloured by its cluster."
-      - "explain: The plot only draws the answer; the block decided it. Anything you would put in a paper should be computed in a block."
-
-  # ---------------------------------------------------------- the second run
-
-  - id: the-second-batch
-    title: The second batch
-    auto_advance: true
-    route_to: git
-    say:
-      - "explain: The same sections were sequenced again, deeper, on a new chemistry: run2_counts.xlsx."
-      - "curious: A new batch may need a different normalization. But batch 1's setting has to stay runnable too."
-      - "focus: That is what a branch is for. In the **Git** tab, create a branch called **batch-2**."
-    done_when:
-      all:
-        - git_branch_exists:
-            branch: batch-2
-        - git_current_branch:
-            branch: batch-2
-
-  - id: batch-2-counts
-    title: Point it at batch 2
-    auto_advance: true
-    route_to: config
-    highlight: config_panel
-    say:
-      - "success: You're on batch-2, and the workflow came with you."
-      - "focus: Select the counts **Load**, **Browse** to **data/raw/run2_counts.xlsx**, and **Run**. New file, so pair the sections once more."
-    done_when:
-      all:
-        - config_matches:
-            block_type: load_data
-            key: path
-            pattern: data/raw/run2_counts.xlsx
-        - run_succeeded:
-            since_step_entry: true
-
-  - id: rerender-batch-2
-    title: Look at it
-    auto_advance: true
-    route_to: plots
-    compact: true
-    highlight:
-      plot_card:
-        plot_id: region_map
-    say:
-      - "focus: Now **Run** the plot card again."
-    done_when:
-      # The reader's own render, not "a figure exists": the term is already
-      # true from `the-map`, and an auto_advance step whose condition holds on
-      # entry is skipped outright. ``ui_event`` is forgotten at every step
-      # entry, so it judges this press and no earlier one.
-      ui_event:
-        name: plot_rendered
-        plot_id: region_map
-
-  - id: fourteen-eight-five
-    title: Nothing broke
-    route_to: plots
-    say:
-      - "error: Fourteen, eight and five. One section has no third cluster at all."
-      - "curious: Nothing errored. The answer is simply wrong."
-      - "explain: In this run, two housekeeping genes took a random share of each spot's reads. Scaling by the total scaled by that noise."
-
-  - id: median-ratio
-    title: The setting this batch needs
-    auto_advance: true
-    route_to: config
-    highlight: config_panel
-    say:
-      - "explain: This batch needs a method that a couple of runaway genes cannot drag around."
-      - "focus: Select **Normalize Expression**, set method to **median_ratio**, then **Run** and run the plot card again."
-    done_when:
-      all:
-        - config_equals:
-            block_type: normalize_expression
-            key: method
-            value: median_ratio
-        - run_succeeded:
-            since_step_entry: true
-        - ui_event:
-            name: plot_rendered
-            plot_id: region_map
-
-  - id: nine-nine-nine-again
-    title: Neither one wrong
-    route_to: plots
-    say:
-      - "success: Nine, nine and nine again."
-      - "curious: It is not the better method, only the right one here. On batch 1 it splits the regions seven, eighteen and two."
-      - "explain: Two batches, two settings, neither wrong. A branch is a variant for a data situation, and it does not always need merging."
-
-  # -------------------------------------------------- the recipe, not results
-
-  - id: go-back
-    title: Go back
-    auto_advance: true
-    route_to: git
-    say:
-      - "focus: Now go back. In the **Git** tab, check out **main**."
-    done_when:
-      git_current_branch:
-        branch: main
-
-  - id: the-stale-figure
-    title: The stale figure
-    route_to: plots
-    say:
-      - "success: The workflow is back on batch 1's recipe: run1_counts.xlsx, total_count."
-      - "curious: But the plot still shows batch 2."
-      - "explain: Git only tracks the recipe. Results and plot images live in data/ and .scistudio/, which it leaves out on purpose."
-
-  - id: rerun
-    title: Rerun
-    auto_advance: true
-    route_to: canvas
-    compact: true
-    highlight: run_button
-    say:
-      - "focus: So rerun it: **Press Run**, then **Run** the plot card."
-    done_when:
-      all:
-        - run_succeeded:
-            since_step_entry: true
-        - ui_event:
-            name: plot_rendered
-            plot_id: region_map
-
-  - id: git-stores-the-recipe
-    title: Git stores the recipe
-    route_to: git
-    say:
-      - "success: Nine, nine and nine: batch 1's answer, rebuilt from batch 1's recipe."
-      - "explain: Git stores the recipe. You rerun."
-      - "success: Two branches, each right for its own batch. Switch whenever a question needs the other one."
+        block_type: load_data
