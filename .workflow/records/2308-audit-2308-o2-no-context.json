@@ -1,0 +1,66 @@
+{
+  "base_ref": null,
+  "branch": "audit/2308-no-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec4-o2-no-context.md",
+      ".workflow/records/2308-audit-2308-o2-no-context.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T12:35:00.292902Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec4-o2-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2308,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "No-context audit (audit_reviewer) of the ADR-055 Spec 4 stdio MCP adapter, loopback token file, WebMCP bridge contract, and local MCP socket permissions; deliver the report under docs/audit only.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2308-audit-2308-o2-no-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "a9733dd0-3106-45eb-a324-78a8cf51d8b1",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T12:35:00.292923Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only",
+      "verified_in_diff": null
+    }
+  ]
+}
