@@ -100,7 +100,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "35df95b9962dcc146067faaca85f50348a8c5741",
+    "shas": [
+      "35df95b9962dcc146067faaca85f50348a8c5741"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -379,6 +385,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.684143Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.700115Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.715647Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.748158Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.764374Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.778985Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.794550Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.809634Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.824417Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.839502Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:25:53.861276Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -401,9 +495,9 @@
       "docs/specs/adr-054-miniapp.md",
       "docs/specs/adr-054-panels.md"
     ],
-    "diff_fingerprint": "sha256:a7b6d321913b7328681473132b86f816ee9341d6825207a0219b3b8781f85523",
+    "diff_fingerprint": "sha256:a330e7e3c1f7e3059efe764e6deda0e91191192f27e008acaa4fee50a7cdc722",
     "head": "HEAD",
-    "head_sha": "e99370a24",
+    "head_sha": "35df95b99",
     "surfaces": {
       "docs": 5,
       "frontend": 0,
@@ -420,7 +514,14 @@
   },
   "owner_directive": "Owner (2026-09-11 design session): merge MiniApp into ADR-054 instead of a separate ADR; explicitly authorized editing the ADR-054 body (agent_editable false). MiniApp = AI-written HTML page + resident Python subprocess as a panel in a new miniapp context; record the owner-approved decisions listed in issue #2341 in ADR-054 and an ADR-054 spec.",
   "persona": "adr_author",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2341
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-11T13:00:01.042445Z",
@@ -441,6 +542,14 @@
     {
       "at": "2026-09-11T13:25:27.297100Z",
       "diff_fingerprint": "sha256:a7b6d321913b7328681473132b86f816ee9341d6825207a0219b3b8781f85523",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T13:25:53.861313Z",
+      "diff_fingerprint": "sha256:a330e7e3c1f7e3059efe764e6deda0e91191192f27e008acaa4fee50a7cdc722",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
