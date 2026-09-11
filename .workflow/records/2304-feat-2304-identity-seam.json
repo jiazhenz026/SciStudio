@@ -1,0 +1,184 @@
+{
+  "base_ref": null,
+  "branch": "feat/2304-identity-seam",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/webmcp.py",
+      "src/scistudio/api/spa.py",
+      "src/scistudio/api/seam.py",
+      "frontend/src/lib/capabilities.ts",
+      "frontend/src/lib/capabilities.test.ts",
+      "tests/api/test_identity_seam.py",
+      "tests/api/seam_contract.py",
+      "tests/api/fake_guard.py",
+      "docs/specs/adr-055-identity-seam.md",
+      "docs/adr/ADR-055.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T08:16:08.263773Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-identity-seam.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263780Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-055.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263782Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2304,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Issue #2304 owner decisions 2026-09-11 (option B): OSS keeps status quo (serve binds all interfaces, no login); multi-user Lab moves to private scistudio-enterprise with its own launch command built on create_app. OSS seam: (a) create_app accepts a replacement guard (default = today's loopback token on /api/webmcp/*); (b) startup/background lifespan hook with orderly teardown; (c) self-authenticating path registry honored by every guard, matched on the route path after root-path handling; (d) backend capability declaration read by a typed frontend accessor, default all off, no UI; (e) test-only fake guard plus a reusable guard contract suite. Declare the enterprise-relied surface provisional under ADR-052. Docs: new spec docs/specs/adr-055-identity-seam.md and ADR-055 amendment (status stays Proposed).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2304-feat-2304-identity-seam",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:08.263748Z",
+      "pattern": "src/scistudio/api/seam.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763029Z",
+      "pattern": "tests/api/test_public_surface.py",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763047Z",
+      "pattern": "tests/api/public_surface.snapshot.json",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763050Z",
+      "pattern": "scripts/docs/build_reference.py",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763052Z",
+      "pattern": "mkdocs.yml",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763053Z",
+      "pattern": "docs/user/reference/**",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763055Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763056Z",
+      "pattern": "src/scistudio/_agent_reference/public-api.md",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763058Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:48.754902Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "The regenerated self-contained API reference adds scistudio.api.app and scistudio.api.seam pages to the user-guide tree, and tests/api/test_user_docs.py pins that sidebar row for row; its expected list gains the two rows."
+    }
+  ],
+  "session_id": "59244846-8803-4924-a176-03f3120f2c51",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T08:16:08.263787Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_identity_seam.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263790Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/seam_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263792Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/fake_guard.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263794Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/capabilities.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263796Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

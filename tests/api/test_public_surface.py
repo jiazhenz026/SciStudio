@@ -61,12 +61,16 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.previewers.models",
     "scistudio.previewers.data_access",
     "scistudio.tutorials",
+    # ADR-055 identity seam (#2304): the surface the enterprise edition
+    # composes on, provisional since 0.3.5.
+    "scistudio.api.app",
+    "scistudio.api.seam",
 )
 
 _SNAPSHOT_PATH = Path(__file__).parent / "public_surface.snapshot.json"
 
 # ---------------------------------------------------------------------------
-# Non-markable public symbols (ADR-052 §15). These eleven are ``str`` constants,
+# Non-markable public symbols (ADR-052 §15). These twelve are ``str`` constants,
 # ``frozenset`` constants, or ``Literal`` / ``Callable`` / union type-aliases that
 # cannot carry a runtime
 # ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
@@ -90,6 +94,7 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.previewers.models", "PreviewerSpecList"),
         ("scistudio.tutorials", "Action"),
         ("scistudio.tutorials", "VOCABULARY"),
+        ("scistudio.api.seam", "AUDIENCE_EXTERNAL_TAG"),
     }
 )
 

@@ -24,8 +24,9 @@ Transplanted from the hackathon demo (``scistudio-web-demo`` commit
   calls with a stale selection are rejected (FR-005);
 * both endpoints sit behind one session middleware with a pluggable
   identity-backend seam (FR-006); this spec ships the loopback token
-  backend, and the Hub OAuth backend (``adr-055-lab-deployment``) plugs
-  into the same seam without router changes;
+  backend, which ``create_app`` installs as its default guard. A replacement
+  guard passed to ``create_app`` (``adr-055-identity-seam``) takes its place
+  without router changes;
 * call logging records tool name, outcome, and bounded identifiers only —
   never full arguments, file contents, or command bodies (FR-007).
 
@@ -47,6 +48,8 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from scistudio.api.seam import GuardContext, GuardFactory, is_self_authenticating_path, route_path
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +90,10 @@ class BridgeIdentity:
 class BridgeIdentityBackend(Protocol):
     """Identity-backend seam for the bridge session middleware.
 
-    ``adr-055-lab-deployment`` adds the Hub OAuth backend against this same
-    interface; the router and middleware do not change when it lands.
+    A backend answers a header check. A deployment that needs more — login
+    redirects, cookies, WebSocket and UI coverage — replaces the whole guard
+    through ``create_app(guard=...)`` instead (``adr-055-identity-seam``); the
+    router does not change either way.
     """
 
     def authenticate(self, headers: dict[str, str]) -> BridgeIdentity | None:
@@ -117,11 +122,14 @@ class LoopbackTokenBackend:
 class WebMCPSessionMiddleware:
     """Authenticate bridge requests through the configured identity backend.
 
-    Scoped to ``/api/webmcp/*`` only (the lab spec widens the scope by
-    configuration, not by editing this class); every other request passes
-    through untouched. Pure ASGI — no response-body buffering — and added
-    inside the CORS layer so preflight handling and CORS headers are
-    unaffected.
+    Scoped to ``/api/webmcp/*`` only; every other request passes through
+    untouched. A deployment that protects more replaces this guard through
+    ``create_app(guard=...)`` rather than widening this class. Requests under
+    a self-authenticating prefix (``adr-055-identity-seam``) pass through even
+    when this middleware is composed on its own; ``create_app`` also enforces
+    that for whichever guard it installs. Pure ASGI — no response-body
+    buffering — and added inside the CORS layer so preflight handling and
+    CORS headers are unaffected.
     """
 
     def __init__(
@@ -141,13 +149,12 @@ class WebMCPSessionMiddleware:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
-        path = scope.get("path", "")
         # Under a configured mount prefix (ADR-055 Spec 0 verbatim proxying)
-        # the scope path still carries the prefix; strip it before matching.
-        inner = path
-        if self._root_path and inner.startswith(f"{self._root_path}/"):
-            inner = inner[len(self._root_path) :]
-        if inner != self._route_prefix and not inner.startswith(f"{self._route_prefix}/"):
+        # the scope path still carries the prefix; match on the route path.
+        inner = route_path(scope, self._root_path)
+        if is_self_authenticating_path(inner) or (
+            inner != self._route_prefix and not inner.startswith(f"{self._route_prefix}/")
+        ):
             await self.app(scope, receive, send)
             return
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
@@ -161,6 +168,21 @@ class WebMCPSessionMiddleware:
             return
         scope.setdefault("state", {})["webmcp_identity"] = identity
         await self.app(scope, receive, send)
+
+
+def loopback_token_guard(token: str) -> GuardFactory:
+    """Return the guard ``create_app`` installs when no replacement is passed.
+
+    The WebMCP bridge's loopback token middleware on ``/api/webmcp/*``,
+    authenticated against ``token`` (the per-launch value the served page
+    carries) — the open-source edition's behavior before the identity seam,
+    unchanged.
+    """
+
+    def build(app: ASGIApp, context: GuardContext, /) -> ASGIApp:
+        return WebMCPSessionMiddleware(app, backend=LoopbackTokenBackend(token), root_path=context.root_path)
+
+    return build
 
 
 # ---------------------------------------------------------------------------
@@ -314,5 +336,6 @@ __all__ = [
     "ToolCallRequest",
     "WebMCPSessionMiddleware",
     "build_catalogue",
+    "loopback_token_guard",
     "router",
 ]
