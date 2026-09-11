@@ -40,14 +40,18 @@ def _spec_to_dict(spec: Any) -> dict[str, Any]:
 
 
 def _port_to_dict(port: Any) -> dict[str, Any]:
-    """Project a :class:`Port` to a JSON-safe dict."""
+    """Project a :class:`Port` to a JSON-safe dict.
+
+    ``type`` renders the port's ``accepted_types`` exactly as the
+    ``list_blocks`` signature does (``A|B``, ``Any``, a ``[]`` suffix for
+    collection ports). Ports have no ``.type`` attribute; reading one made
+    every type an empty string (#2315).
+    """
     if isinstance(port, dict):
         return port
-    type_obj = getattr(port, "type", None)
-    type_name = getattr(type_obj, "__name__", str(type_obj)) if type_obj is not None else ""
     return {
         "name": getattr(port, "name", ""),
-        "type": type_name,
+        "type": _render_port_type(port),
         "required": bool(getattr(port, "required", False)),
     }
 

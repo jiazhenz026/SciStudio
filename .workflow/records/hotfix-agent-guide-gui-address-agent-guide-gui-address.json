@@ -170,7 +170,18 @@
       "tests/agent_provisioning/test_claude_agents_md.py"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T09:32:46.973718Z",
+      "owner_directive": "Owner: fix #2315 (get_block_schema reports every port type as an empty string; a pre-existing MCP tool serializer bug, not a bridge bug) in the same hotfix PR as #2311.",
+      "reason": "Owner folded a second live-found bug into this hotfix batch"
+    },
+    {
+      "at": "2026-09-11T09:58:14.123971Z",
+      "owner_directive": "Owner chose option 1 for #2315: keep the {name, type, required} port shape and fill type with the list_blocks signature rendering (_render_port_type).",
+      "reason": "Record the #2315 format decision and docs N/A"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T09:02:32.738560Z",
@@ -178,6 +189,14 @@
       "kind": "na",
       "path": null,
       "rationale": "ADR-040 section 3.5 already specifies the guide sentence without an address; the fix restores the template to it, so no ADR, spec, or user-guide text changes",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T09:58:14.123994Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-033 already requires get_block_schema to return port types; no ADR, spec, skill, or user-guide text describes the per-port shape, and the fix keeps the existing fields",
       "verified_in_diff": null
     }
   ],
@@ -520,6 +539,12 @@
       "followup_rationale": null,
       "number": 2311,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2315,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -631,7 +656,20 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T09:32:46.973734Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py",
+      "reason": "Owner folded a second live-found bug into this hotfix batch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T09:32:46.973739Z",
+      "pattern": "tests/ai/test_mcp_tools_workflow.py",
+      "reason": "Owner folded a second live-found bug into this hotfix batch"
+    }
+  ],
   "session_id": "e7cbac02-2654-4023-96f9-bb00c9d9a354",
   "strictness_tier": 2,
   "task_kind": "hotfix",
@@ -641,6 +679,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/agent_provisioning/test_claude_agents_md.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T09:32:46.973797Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
       "rationale": null,
       "verified_in_diff": null
     }
