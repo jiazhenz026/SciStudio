@@ -1,0 +1,1204 @@
+"""External-audience workspace tools (ADR-055 Spec 2 §5.2, #2279).
+
+An external AI agent driving SciStudio through the WebMCP bridge has no
+filesystem of its own beside the backend. These tools give it one, under the
+owner decisions recorded on issue #2279:
+
+* **Inspect** (read-tagged) — ``list_directory``, ``get_file_info``,
+  ``search_files``, ``read_file``. They accept absolute paths and read anything
+  the backend's OS user can read; a project-relative path resolves against the
+  active project. Reads are bounded *while streaming* — a file is never
+  materialized to produce a slice of it — and every truncation is reported with
+  the file's total size.
+* **Author** (write-tagged) — ``write_file``, ``create_directory``,
+  ``patch_file``, ``move_path`` (rename or move), ``delete_path``. They are
+  confined to the active project and go through the editor's shared write path
+  (``MCPContext.project_files``: atomic write, ``file.changed`` to the UI,
+  block reload), never a bare write. A server-side blacklist mirrors the
+  provisioned local hooks: any mutation whose source or target is
+  ``workflows/*.yaml|*.yml`` or anything under ``data/`` is refused with a
+  pointer to the tool that owns that surface.
+
+Hook parity lives in the results: an author write to ``blocks/*.py`` is refused
+until ``list_blocks`` has run once in this backend lifetime, and a successful
+one carries non-blocking warnings for generic port types (the provisioned
+``enforce_concrete_port_types`` scan, reused rather than re-implemented).
+
+Every tool carries the ``audience:external`` tag, so local agents — which have
+native file tools — never see them. Policy refusals and conflicts come back as
+results (``status`` + ``refusal``) because the bridge withholds exception text
+from external hosts; unexpected failures still raise.
+
+Logging records the tool name and outcome only — never paths, contents, or
+arguments (FR-012).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import codecs
+import fnmatch
+import functools
+import logging
+import os
+import re
+import stat as stat_module
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, Field
+
+from scistudio.ai.agent.mcp._context import ProjectFileWriter, get_context, get_project_files
+from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
+from scistudio.ai.agent.mcp.tools_workflow.read import list_blocks_called
+
+logger = logging.getLogger(__name__)
+
+READ_DEFAULT_LIMIT_BYTES = 256 * 1024
+"""Default byte window ``read_file`` returns."""
+
+READ_MAX_LIMIT_BYTES = 1024 * 1024
+"""Largest window one ``read_file`` call may request; larger limits are clamped."""
+
+_READ_CHUNK_BYTES = 64 * 1024
+_BINARY_SNIFF_BYTES = 8192
+
+WRITE_CONTENT_CAP_BYTES = 10 * 1024 * 1024
+"""Largest content an author tool accepts — the ADR-036 editor cap."""
+
+LIST_DEFAULT_ENTRIES = 200
+LIST_MAX_ENTRIES = 1000
+_LIST_SCAN_CEILING = 100_000
+
+SEARCH_DEFAULT_RESULTS = 50
+SEARCH_MAX_RESULTS = 200
+_SEARCH_MAX_FILES = 20_000
+_SEARCH_FILE_BYTES_CAP = 2 * 1024 * 1024
+_SEARCH_MAX_LINE_BYTES = 64 * 1024
+_SEARCH_SNIPPET_CHARS = 200
+_SEARCH_HITS_PER_FILE = 20
+_SEARCH_SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__"})
+
+_TREE_POLICY_FILE_LIMIT = 2000
+"""Most files a directory move/delete is checked for; mirrors the shared write path's limit."""
+
+_AFFECTED_PATHS_CAP = 50
+
+_READ_TAGS = {"category:workspace", "read", AUDIENCE_EXTERNAL_TAG}
+_WRITE_TAGS = {"category:workspace", "write", AUDIENCE_EXTERNAL_TAG}
+
+# The provisioned enforce_list_blocks_before_block_write hook's block-file pattern.
+_BLOCK_FILE_RE = re.compile(r"(?:^|/)blocks/[^/]+\.py$", re.IGNORECASE)
+
+_WORKFLOW_YAML_MESSAGE = (
+    "workflows/*.yaml is managed by write_workflow (schema-validated) and update_block_config "
+    "(preserves comments); edit_workflow applies targeted edits. Direct file writes bypass "
+    "validation, so the workspace tools refuse them."
+)
+_DATA_DIR_MESSAGE = (
+    "The project's data/ directory is protected: the agent must not directly create, edit, move, "
+    "or delete files under data/. Produce or change data by running workflow blocks "
+    "(run_workflow). Reading data/ and editing files outside data/ is fine."
+)
+_LIST_BLOCKS_MESSAGE = (
+    "Authoring a custom block requires calling list_blocks first to confirm no existing block "
+    "matches your I/O contract. Call list_blocks now, then retry. (Tracked once per backend "
+    "lifetime; a backend restart resets it.)"
+)
+
+# Tests patch this to count the bytes a read pulls from disk.
+_open_binary: Callable[[Path], Any] = functools.partial(open, mode="rb")
+
+
+# ---------------------------------------------------------------------------
+# Result models.
+# ---------------------------------------------------------------------------
+
+
+class ToolRefusal(BaseModel):
+    """Why a tool call was refused or conflicted, and what to do instead."""
+
+    code: str = Field(description="Machine-readable reason, e.g. 'protected_data_dir' or 'stale_version'.")
+    message: str = Field(description="Explanation the agent can act on.")
+    use_instead: list[str] = Field(default_factory=list, description="Tools that own the refused operation.")
+
+
+class WorkspaceResult(BaseModel):
+    """Fields every workspace tool result carries."""
+
+    status: str = Field(
+        default="ok",
+        description="'ok', 'refused' (a rule stopped the call; nothing changed), or 'conflict' (see refusal).",
+    )
+    refusal: ToolRefusal | None = Field(default=None, description="Set when status is not 'ok'.")
+
+
+class DirectoryEntry(BaseModel):
+    """One entry of ``list_directory``."""
+
+    name: str
+    path: str = Field(description="Project-relative POSIX path inside the project, else absolute.")
+    type: str = Field(description="'file', 'directory', 'symlink', or 'other'.")
+    size_bytes: int | None = None
+    modified_at: float | None = Field(default=None, description="POSIX mtime.")
+
+
+class ListDirectoryResult(WorkspaceResult):
+    """Result envelope for ``list_directory``."""
+
+    path: str = ""
+    entries: list[DirectoryEntry] = Field(default_factory=list)
+    total_entries: int = Field(default=0, description="Entries in the directory (see total_is_lower_bound).")
+    total_is_lower_bound: bool = Field(default=False, description="True when counting stopped at the scan ceiling.")
+    truncated: bool = Field(default=False, description="True when entries holds fewer than total_entries.")
+
+
+class FileInfoResult(WorkspaceResult):
+    """Result envelope for ``get_file_info``."""
+
+    path: str = ""
+    absolute_path: str = ""
+    exists: bool = False
+    type: str | None = None
+    size_bytes: int | None = None
+    modified_at: float | None = None
+    readable: bool = False
+    within_project: bool = False
+    state_version: int | None = Field(
+        default=None,
+        description="Current state version for a project file; pass it as expected_state_version to author tools.",
+    )
+    looks_binary: bool | None = None
+    writable_by_author_tools: bool = False
+    author_tools_note: str | None = Field(default=None, description="Why author tools would refuse this path.")
+
+
+class SearchHit(BaseModel):
+    """One match from ``search_files``."""
+
+    path: str
+    line: int | None = Field(default=None, description="1-based line of a content match; None for name-only search.")
+    snippet: str | None = None
+
+
+class SearchFilesResult(WorkspaceResult):
+    """Result envelope for ``search_files``."""
+
+    root: str = ""
+    hits: list[SearchHit] = Field(default_factory=list)
+    files_scanned: int = 0
+    truncated: bool = Field(default=False, description="True when a result, file, or size bound stopped the search.")
+    notes: list[str] = Field(default_factory=list, description="Which bounds applied and what was skipped.")
+
+
+class ReadFileResult(WorkspaceResult):
+    """Result envelope for ``read_file``."""
+
+    path: str = ""
+    absolute_path: str = ""
+    encoding: str = "utf-8"
+    content: str = ""
+    offset: int = Field(default=0, description="Byte offset the returned content starts at.")
+    bytes_returned: int = Field(default=0, description="Bytes of the file the content covers.")
+    limit_applied: int = Field(default=0, description="Byte window actually used (requests above the max are clamped).")
+    truncated: bool = Field(default=False, description="True when the file continues past the returned window.")
+    next_offset: int | None = Field(default=None, description="Offset to pass to continue reading, when truncated.")
+    total_size_bytes: int | None = Field(default=None, description="Size of the whole file (None for special files).")
+    state_version: int | None = Field(default=None, description="Current state version for a project file.")
+
+
+class AuthorResult(WorkspaceResult):
+    """Result envelope for the author tools."""
+
+    path: str = ""
+    kind: str | None = Field(default=None, description="'created', 'modified', 'deleted', or 'moved'.")
+    state_version: int | None = Field(default=None, description="The file's state version after the write.")
+    size_bytes: int | None = None
+    replacements: int | None = Field(default=None, description="patch_file: occurrences replaced.")
+    affected_paths: list[str] = Field(
+        default_factory=list,
+        description="'<kind>:<project-relative path>' for each file-change event emitted to the UI.",
+    )
+    affected_truncated: bool = False
+    registry_refreshed: bool = Field(
+        default=False,
+        description="True when the change rebuilt the block/type registries (a lint-clean drop-in save).",
+    )
+    warnings: list[str] = Field(default_factory=list, description="Non-blocking advisories (e.g. generic port types).")
+    expected_state_version: int | None = None
+    current_state_version: int | None = None
+    next_step: str = Field(
+        default=(
+            "Re-read with read_file to verify. Pass the returned state_version as expected_state_version "
+            "on the next write to the same file so a concurrent change is detected."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Refusals and path resolution.
+# ---------------------------------------------------------------------------
+
+
+class _RefusedError(Exception):
+    """Internal: a policy refusal the tool turns into a result."""
+
+    def __init__(self, code: str, message: str, use_instead: list[str] | None = None, *, status: str = "refused"):
+        super().__init__(message)
+        self.status = status
+        self.refusal = ToolRefusal(code=code, message=message, use_instead=list(use_instead or []))
+
+
+def list_blocks_refusal() -> ToolRefusal:
+    """The server-side ``enforce_list_blocks_before_block_write`` refusal."""
+    return ToolRefusal(code="list_blocks_required", message=_LIST_BLOCKS_MESSAGE, use_instead=["list_blocks"])
+
+
+def _log_outcome(tool: str, status: str, refusal: ToolRefusal | None = None) -> None:
+    logger.info("workspace tool=%s outcome=%s code=%s", tool, status, refusal.code if refusal else "-")
+
+
+def _project_root() -> Path | None:
+    root = get_context().project_dir
+    return Path(os.path.realpath(root)) if root is not None else None
+
+
+def _within(root: Path, target: Path) -> bool:
+    try:
+        return os.path.commonpath([str(root), str(target)]) == str(root)
+    except ValueError:  # different drives on Windows
+        return False
+
+
+def _relative_posix(root: Path, target: Path) -> str:
+    rel = os.path.relpath(target, root).replace("\\", "/")
+    return "." if rel in ("", ".") else rel
+
+
+def _display_path(target: Path, root: Path | None) -> str:
+    if root is not None and _within(root, target):
+        return _relative_posix(root, target)
+    return str(target)
+
+
+def _resolve_inspect_path(path: str) -> tuple[Path, Path | None]:
+    """Absolute paths as given; relative paths against the active project."""
+    root = _project_root()
+    raw = Path(os.path.expanduser((path or ".").strip() or "."))
+    if not raw.is_absolute():
+        if root is None:
+            raise _RefusedError(
+                "no_active_project",
+                "Relative paths resolve against the active project, and no project is open. "
+                "Pass an absolute path, or open a project first.",
+                ["get_agent_context"],
+            )
+        raw = root / raw
+    return Path(os.path.realpath(raw)), root
+
+
+def _blacklist_refusal(rel_posix: str) -> _RefusedError | None:
+    """The server-side mirror of the protect_data_dir / protect_workflow_yaml hooks."""
+    parts = [part for part in rel_posix.split("/") if part not in ("", ".")]
+    if not parts:
+        return None
+    first = parts[0].casefold()
+    if first == "data":
+        return _RefusedError("protected_data_dir", _DATA_DIR_MESSAGE, ["run_workflow"])
+    if first == "workflows" and len(parts) >= 2 and parts[-1].casefold().endswith((".yaml", ".yml")):
+        return _RefusedError(
+            "protected_workflow_yaml",
+            _WORKFLOW_YAML_MESSAGE,
+            ["write_workflow", "update_block_config", "edit_workflow"],
+        )
+    return None
+
+
+def _resolve_author_path(path: str) -> tuple[Path, Path, str]:
+    """Resolve an author-tool path: project-confined, blacklist-checked.
+
+    Returns ``(target, project_root, project_relative_posix)``. Both the
+    lexical path and its symlink-resolved form are checked against the
+    blacklist, so a link cannot smuggle a write into ``data/``.
+    """
+    root = _project_root()
+    if root is None:
+        raise _RefusedError(
+            "no_active_project",
+            "Author tools write inside the active project, and no project is open. Open a project first.",
+        )
+    raw = Path(os.path.expanduser((path or "").strip()))
+    lexical = Path(os.path.normpath(raw if raw.is_absolute() else root / raw))
+    resolved = Path(os.path.realpath(lexical))
+    if not _within(root, resolved):
+        raise _RefusedError(
+            "outside_project",
+            "Author tools only change files inside the active project. Inspect tools can read other "
+            "paths; use run_command for changes elsewhere.",
+            ["run_command"],
+        )
+    rel = _relative_posix(root, resolved)
+    for candidate in (rel, _relative_posix(root, lexical) if _within(root, lexical) else None):
+        if candidate is None:
+            continue
+        refusal = _blacklist_refusal(candidate)
+        if refusal is not None:
+            raise refusal
+    return resolved, root, rel
+
+
+def _require_block_list(rel_posix: str) -> None:
+    if _BLOCK_FILE_RE.search(rel_posix) and not list_blocks_called():
+        refusal = list_blocks_refusal()
+        raise _RefusedError(refusal.code, refusal.message, refusal.use_instead)
+
+
+def _require_project_files() -> ProjectFileWriter:
+    files = get_project_files(get_context())
+    if files is None:
+        raise _RefusedError(
+            "write_path_unavailable",
+            "This SciStudio context has no shared write path (for example the standalone MCP bridge). "
+            "Author tools only write through the backend so the open UI stays in sync.",
+        )
+    return files
+
+
+def _tree_files(directory: Path) -> list[Path]:
+    found: list[Path] = []
+    for dirpath, _dirnames, filenames in os.walk(directory):
+        for name in filenames:
+            found.append(Path(dirpath) / name)
+            if len(found) > _TREE_POLICY_FILE_LIMIT:
+                raise _RefusedError(
+                    "too_many_entries",
+                    f"The directory holds more than {_TREE_POLICY_FILE_LIMIT} files; one author-tool call touches "
+                    "at most that many. Use run_command for bulk reorganization.",
+                    ["run_command"],
+                )
+    return found
+
+
+def _check_tree(root: Path, directory: Path, destination: Path | None = None) -> None:
+    """Apply the blacklist (and block rule for moves) to every file a tree operation touches."""
+    for path in _tree_files(directory):
+        refusal = _blacklist_refusal(_relative_posix(root, path))
+        if refusal is not None:
+            raise refusal
+        if destination is not None:
+            moved_rel = _relative_posix(root, destination / path.relative_to(directory))
+            refusal = _blacklist_refusal(moved_rel)
+            if refusal is not None:
+                raise refusal
+            _require_block_list(moved_rel)
+
+
+# ---------------------------------------------------------------------------
+# Hook parity: generic port types (enforce_concrete_port_types).
+# ---------------------------------------------------------------------------
+
+
+@functools.lru_cache(maxsize=1)
+def _port_type_scanner() -> tuple[Callable[..., Any], Callable[..., Any]] | None:
+    """Load the scanner from the provisioned hook template itself.
+
+    Reuse, not a copy: the template is read through the same loader
+    provisioning uses and executed in a private namespace (its ``main`` stays
+    behind the ``__main__`` guard), so the server-side warning can never drift
+    from what the local hook reports.
+    """
+    try:
+        from scistudio.agent_provisioning.hooks import _load_template
+
+        source = _load_template("hook_enforce_concrete_port_types.py")
+        namespace: dict[str, Any] = {"__name__": "scistudio_provisioned_hook_enforce_concrete_port_types"}
+        exec(compile(source, "hook_enforce_concrete_port_types.py", "exec"), namespace)
+        return namespace["_scan_for_generic_ports"], namespace["_format_message"]
+    except Exception:
+        logger.warning("port-type check unavailable: the provisioned hook template did not load", exc_info=True)
+        return None
+
+
+def port_type_warnings(rel_posix: str, content: str) -> list[str]:
+    """Non-blocking warnings for generic ``InputPort``/``OutputPort`` types in a block file."""
+    if not _BLOCK_FILE_RE.search(rel_posix):
+        return []
+    scanner = _port_type_scanner()
+    if scanner is None:
+        return []
+    scan, format_message = scanner
+    return [format_message(Path(rel_posix), lineno, port, reason) for lineno, port, reason in scan(content)]
+
+
+# ---------------------------------------------------------------------------
+# Bounded reads.
+# ---------------------------------------------------------------------------
+
+
+def _read_window(target: Path, offset: int, limit: int) -> tuple[bytes, int | None, bool]:
+    """Read at most *limit* bytes from *offset*; return ``(data, total_size, more)``.
+
+    Bounded while streaming: bytes land in a buffer sized to the window, in
+    chunks, and a one-byte probe decides whether the file continues — the
+    rest of the file is never read.
+    """
+    with _open_binary(target) as handle:
+        info = os.fstat(handle.fileno())
+        total = info.st_size if stat_module.S_ISREG(info.st_mode) else None
+        if offset:
+            handle.seek(offset)
+        size = limit if total is None else max(0, min(limit, total - offset))
+        buffer = bytearray(size)
+        view = memoryview(buffer)
+        filled = 0
+        while filled < size:
+            got = handle.readinto(view[filled : min(size, filled + _READ_CHUNK_BYTES)])
+            if not got:
+                break
+            filled += got
+        more = bool(handle.read(1)) if filled == size else False
+    return bytes(buffer[:filled]), total, more
+
+
+def _decode_window(data: bytes, *, at_start: bool, more: bool) -> tuple[str, int, int] | None:
+    """Decode a UTF-8 window; return ``(text, skipped_leading, consumed)`` or ``None`` if binary.
+
+    A window may start or end inside a multi-byte character. Leading
+    continuation bytes are skipped (and reported through the offset); an
+    incomplete trailing sequence is held back so ``next_offset`` resumes on a
+    character boundary.
+    """
+    if b"\x00" in data[:_BINARY_SNIFF_BYTES]:
+        return None
+    skip = 0
+    if not at_start:
+        while skip < min(3, len(data)) and (data[skip] & 0xC0) == 0x80:
+            skip += 1
+    body = data[skip:]
+    decoder = codecs.getincrementaldecoder("utf-8")("strict")
+    try:
+        text = decoder.decode(body, final=not more)
+    except UnicodeDecodeError:
+        return None
+    pending = len(decoder.getstate()[0])
+    return text, skip, len(body) - pending
+
+
+def _looks_binary(target: Path) -> bool | None:
+    try:
+        with _open_binary(target) as handle:
+            sample = handle.read(_BINARY_SNIFF_BYTES)
+    except OSError:
+        return None
+    if b"\x00" in sample:
+        return True
+    try:
+        codecs.getincrementaldecoder("utf-8")("strict").decode(sample, final=False)
+    except UnicodeDecodeError:
+        return True
+    return False
+
+
+def _entry_type(path: Path) -> str:
+    if path.is_symlink():
+        return "symlink"
+    if path.is_dir():
+        return "directory"
+    if path.is_file():
+        return "file"
+    return "other"
+
+
+# ---------------------------------------------------------------------------
+# Inspect tools.
+# ---------------------------------------------------------------------------
+
+
+def _list_directory_sync(target: Path, root: Path | None, max_entries: int) -> ListDirectoryResult:
+    if not target.exists():
+        raise _RefusedError("not_found", "The directory does not exist.")
+    if not target.is_dir():
+        raise _RefusedError("not_a_directory", "The path is a file, not a directory.", ["get_file_info", "read_file"])
+    scanned: list[os.DirEntry[str]] = []
+    lower_bound = False
+    with os.scandir(target) as iterator:
+        for entry in iterator:
+            scanned.append(entry)
+            if len(scanned) >= _LIST_SCAN_CEILING:
+                lower_bound = True
+                break
+
+    def _is_dir(entry: os.DirEntry[str]) -> bool:
+        try:
+            return entry.is_dir()
+        except OSError:
+            return False
+
+    scanned.sort(key=lambda entry: (not _is_dir(entry), entry.name.casefold()))
+    entries: list[DirectoryEntry] = []
+    for entry in scanned[:max_entries]:
+        path = Path(entry.path)
+        size: int | None = None
+        mtime: float | None = None
+        try:
+            info = entry.stat()
+            size = info.st_size if not _is_dir(entry) else None
+            mtime = info.st_mtime
+        except OSError:
+            pass
+        entries.append(
+            DirectoryEntry(
+                name=entry.name,
+                path=_display_path(path, root),
+                type="symlink" if entry.is_symlink() else ("directory" if _is_dir(entry) else "file"),
+                size_bytes=size,
+                modified_at=mtime,
+            )
+        )
+    return ListDirectoryResult(
+        path=_display_path(target, root),
+        entries=entries,
+        total_entries=len(scanned),
+        total_is_lower_bound=lower_bound,
+        truncated=len(entries) < len(scanned) or lower_bound,
+    )
+
+
+@mcp.tool(name="list_directory", tags=_READ_TAGS)
+async def list_directory(
+    path: Annotated[
+        str,
+        Field(
+            description="Directory to list: project-relative, or absolute (any directory the backend user can read)."
+        ),
+    ] = ".",
+    max_entries: Annotated[int, Field(description=f"Entries to return (1-{LIST_MAX_ENTRIES}).")] = LIST_DEFAULT_ENTRIES,
+) -> ListDirectoryResult:
+    """List a directory beside the SciStudio backend: names, types, sizes, mtimes.
+
+    Directories come first, then files, by name. Relative paths resolve
+    against the active project; absolute paths may point anywhere the backend's
+    OS user can read (for example a shared dataset directory, used in place).
+    ``truncated`` and ``total_entries`` say when the listing was cut.
+    """
+    try:
+        target, root = _resolve_inspect_path(path)
+        bounded = max(1, min(int(max_entries), LIST_MAX_ENTRIES))
+        result = await asyncio.to_thread(_list_directory_sync, target, root, bounded)
+    except _RefusedError as refused:
+        result = ListDirectoryResult(status=refused.status, refusal=refused.refusal, path=path)
+    except PermissionError:
+        result = ListDirectoryResult(
+            status="refused",
+            refusal=ToolRefusal(code="permission_denied", message="The backend user cannot read this directory."),
+            path=path,
+        )
+    _log_outcome("list_directory", result.status, result.refusal)
+    return result
+
+
+def _author_note(target: Path, root: Path | None) -> str | None:
+    if root is None:
+        return "No project is open; author tools need one."
+    if not _within(root, target):
+        return "Outside the active project; author tools only change files inside it."
+    refusal = _blacklist_refusal(_relative_posix(root, target))
+    return refusal.refusal.message if refusal is not None else None
+
+
+def _file_info_sync(target: Path, root: Path | None, files: ProjectFileWriter | None) -> FileInfoResult:
+    exists = target.exists()
+    within = root is not None and _within(root, target)
+    note = _author_note(target, root)
+    result = FileInfoResult(
+        path=_display_path(target, root),
+        absolute_path=str(target),
+        exists=exists,
+        within_project=within,
+        writable_by_author_tools=note is None,
+        author_tools_note=note,
+    )
+    if not exists:
+        return result
+    info = target.stat()
+    result.type = _entry_type(target)
+    result.modified_at = info.st_mtime
+    result.readable = os.access(target, os.R_OK)
+    if target.is_file():
+        result.size_bytes = info.st_size
+        result.looks_binary = _looks_binary(target) if result.readable else None
+        if within and files is not None:
+            result.state_version = files.state_version(target)
+    return result
+
+
+@mcp.tool(name="get_file_info", tags=_READ_TAGS)
+async def get_file_info(
+    path: Annotated[str, Field(description="File or directory: project-relative, or absolute.")],
+) -> FileInfoResult:
+    """Return metadata for one path: existence, type, size, mtime, readability.
+
+    For a project file it also returns ``state_version`` — pass it as
+    ``expected_state_version`` to an author tool so a concurrent change is
+    reported as a conflict instead of being overwritten — and whether the
+    author tools may change it (``writable_by_author_tools`` / ``author_tools_note``).
+    """
+    try:
+        target, root = _resolve_inspect_path(path)
+        files = get_project_files(get_context())
+        result = await asyncio.to_thread(_file_info_sync, target, root, files)
+    except _RefusedError as refused:
+        result = FileInfoResult(status=refused.status, refusal=refused.refusal, path=path)
+    except PermissionError:
+        result = FileInfoResult(
+            status="refused",
+            refusal=ToolRefusal(code="permission_denied", message="The backend user cannot inspect this path."),
+            path=path,
+        )
+    _log_outcome("get_file_info", result.status, result.refusal)
+    return result
+
+
+def _iter_lines(path: Path) -> Iterator[tuple[int, str]] | None:
+    """Yield ``(line_no, text)`` for at most the per-file byte cap; ``None`` for binary files."""
+    handle = _open_binary(path)
+    try:
+        head = handle.read(_BINARY_SNIFF_BYTES)
+        if b"\x00" in head:
+            handle.close()
+            return None
+        handle.seek(0)
+    except OSError:
+        handle.close()
+        return None
+
+    def _lines() -> Iterator[tuple[int, str]]:
+        consumed = 0
+        line_no = 0
+        try:
+            while consumed < _SEARCH_FILE_BYTES_CAP:
+                raw = handle.readline(_SEARCH_MAX_LINE_BYTES)
+                if not raw:
+                    return
+                consumed += len(raw)
+                line_no += 1
+                yield line_no, raw.decode("utf-8", errors="replace")
+        finally:
+            handle.close()
+
+    return _lines()
+
+
+def _search_sync(
+    root_dir: Path,
+    project_root: Path | None,
+    name_pattern: str,
+    content: str | None,
+    use_regex: bool,
+    case_sensitive: bool,
+    max_results: int,
+) -> SearchFilesResult:
+    if not root_dir.exists():
+        raise _RefusedError("not_found", "The search root does not exist.")
+    matcher: Callable[[str], int]
+    if content is not None and use_regex:
+        try:
+            pattern = re.compile(content, 0 if case_sensitive else re.IGNORECASE)
+        except re.error as exc:
+            raise _RefusedError(
+                "invalid_regex", f"The content pattern is not a valid regular expression: {exc}"
+            ) from exc
+
+        def matcher(line: str) -> int:
+            found = pattern.search(line)
+            return found.start() if found else -1
+
+    elif content is not None:
+        needle = content if case_sensitive else content.casefold()
+
+        def matcher(line: str) -> int:
+            return (line if case_sensitive else line.casefold()).find(needle)
+
+    name_glob = name_pattern if case_sensitive else name_pattern.casefold()
+    result = SearchFilesResult(root=_display_path(root_dir, project_root))
+    skipped_binary = 0
+    capped_files = 0
+
+    def _candidates() -> Iterator[Path]:
+        if root_dir.is_file():
+            yield root_dir
+            return
+        for dirpath, dirnames, filenames in os.walk(root_dir):
+            dirnames[:] = sorted(name for name in dirnames if name not in _SEARCH_SKIP_DIRS)
+            for name in sorted(filenames):
+                yield Path(dirpath) / name
+
+    for path in _candidates():
+        name = path.name if case_sensitive else path.name.casefold()
+        if not fnmatch.fnmatchcase(name, name_glob):
+            continue
+        if result.files_scanned >= _SEARCH_MAX_FILES:
+            result.truncated = True
+            result.notes.append(f"Stopped after scanning {_SEARCH_MAX_FILES} files; narrow path or name_pattern.")
+            break
+        result.files_scanned += 1
+        display = _display_path(path, project_root)
+        if content is None:
+            result.hits.append(SearchHit(path=display))
+        else:
+            try:
+                lines = _iter_lines(path)
+            except OSError:
+                continue
+            if lines is None:
+                skipped_binary += 1
+                continue
+            per_file = 0
+            last_line = 0
+            for line_no, text in lines:
+                last_line = line_no
+                column = matcher(text)
+                if column < 0:
+                    continue
+                start = max(0, column - 60)
+                snippet = text[start : start + _SEARCH_SNIPPET_CHARS].rstrip("\r\n").replace("\n", " ")
+                result.hits.append(SearchHit(path=display, line=line_no, snippet=snippet))
+                per_file += 1
+                if per_file >= _SEARCH_HITS_PER_FILE or len(result.hits) >= max_results:
+                    break
+            if last_line and path.stat().st_size > _SEARCH_FILE_BYTES_CAP:
+                capped_files += 1
+        if len(result.hits) >= max_results:
+            result.truncated = True
+            result.notes.append(f"Stopped at {max_results} results.")
+            break
+    if skipped_binary:
+        result.notes.append(f"Skipped {skipped_binary} binary file(s).")
+    if capped_files:
+        result.notes.append(
+            f"{capped_files} file(s) larger than {_SEARCH_FILE_BYTES_CAP} bytes were searched only in their first "
+            f"{_SEARCH_FILE_BYTES_CAP} bytes."
+        )
+        result.truncated = True
+    return result
+
+
+@mcp.tool(name="search_files", tags=_READ_TAGS)
+async def search_files(
+    path: Annotated[str, Field(description="Directory (or file) to search: project-relative, or absolute.")] = ".",
+    name_pattern: Annotated[str, Field(description="Glob matched against file names, e.g. '*.py'.")] = "*",
+    content: Annotated[
+        str | None,
+        Field(description="Text to find inside files. Omit to search by file name only."),
+    ] = None,
+    regex: Annotated[bool, Field(description="Treat content as a regular expression.")] = False,
+    case_sensitive: Annotated[bool, Field(description="Match case exactly.")] = False,
+    max_results: Annotated[
+        int, Field(description=f"Hits to return (1-{SEARCH_MAX_RESULTS}).")
+    ] = SEARCH_DEFAULT_RESULTS,
+) -> SearchFilesResult:
+    """Find files by name, and optionally by content, below a directory.
+
+    Bounded: stops at ``max_results`` hits, at 20000 scanned files, and reads at
+    most the first 2 MiB of each file; binary files are skipped and ``.git``,
+    ``node_modules``, and ``__pycache__`` are not descended. ``truncated`` and
+    ``notes`` say which bound applied.
+    """
+    try:
+        root_dir, project_root = _resolve_inspect_path(path)
+        bounded = max(1, min(int(max_results), SEARCH_MAX_RESULTS))
+        result = await asyncio.to_thread(
+            _search_sync, root_dir, project_root, name_pattern or "*", content, regex, case_sensitive, bounded
+        )
+    except _RefusedError as refused:
+        result = SearchFilesResult(status=refused.status, refusal=refused.refusal, root=path)
+    _log_outcome("search_files", result.status, result.refusal)
+    return result
+
+
+def _read_file_sync(
+    target: Path, root: Path | None, offset: int, limit: int, encoding: str, files: ProjectFileWriter | None
+) -> ReadFileResult:
+    if not target.exists():
+        raise _RefusedError("not_found", "The file does not exist.")
+    if target.is_dir():
+        raise _RefusedError("is_directory", "The path is a directory.", ["list_directory"])
+    data, total, more = _read_window(target, offset, limit)
+    state_version = (
+        files.state_version(target) if files is not None and root is not None and _within(root, target) else None
+    )
+    result = ReadFileResult(
+        path=_display_path(target, root),
+        absolute_path=str(target),
+        encoding=encoding,
+        offset=offset,
+        limit_applied=limit,
+        total_size_bytes=total,
+        state_version=state_version,
+    )
+    if encoding == "base64":
+        result.content = base64.b64encode(data).decode("ascii")
+        result.bytes_returned = len(data)
+        result.truncated = more
+        result.next_offset = offset + len(data) if more else None
+        return result
+    decoded = _decode_window(data, at_start=offset == 0, more=more)
+    if decoded is None:
+        raise _RefusedError(
+            "binary_content",
+            "The file is not UTF-8 text (it looks binary). Read a bounded raw slice with encoding='base64', "
+            "or use get_file_info for its metadata.",
+            ["read_file", "get_file_info"],
+        )
+    text, skipped, consumed = decoded
+    result.offset = offset + skipped
+    result.content = text
+    result.bytes_returned = consumed
+    held_back = len(data) - skipped - consumed
+    result.truncated = more or held_back > 0
+    result.next_offset = result.offset + consumed if result.truncated else None
+    return result
+
+
+@mcp.tool(name="read_file", tags=_READ_TAGS)
+async def read_file(
+    path: Annotated[str, Field(description="File to read: project-relative, or absolute.")],
+    offset: Annotated[int, Field(description="Byte offset to start at (use next_offset to continue).")] = 0,
+    limit: Annotated[
+        int,
+        Field(description=f"Bytes to read; default {READ_DEFAULT_LIMIT_BYTES}, at most {READ_MAX_LIMIT_BYTES}."),
+    ] = READ_DEFAULT_LIMIT_BYTES,
+    encoding: Annotated[
+        Literal["utf-8", "base64"],
+        Field(description="'utf-8' for text; 'base64' for a raw bounded slice of a binary file."),
+    ] = "utf-8",
+) -> ReadFileResult:
+    """Read a bounded byte range of a file as UTF-8 text (or base64).
+
+    The read stops at ``limit`` bytes while streaming — the rest of the file
+    is never loaded. ``truncated``, ``next_offset``, and ``total_size_bytes``
+    say whether more remains; continue with ``offset=next_offset``. A binary
+    file is refused with code ``binary_content``; use ``encoding='base64'``
+    for its raw bytes. Relative paths resolve against the active project;
+    absolute paths may be anywhere the backend user can read.
+    """
+    try:
+        target, root = _resolve_inspect_path(path)
+        bounded_limit = max(1, min(int(limit), READ_MAX_LIMIT_BYTES))
+        start = max(0, int(offset))
+        files = get_project_files(get_context())
+        result = await asyncio.to_thread(_read_file_sync, target, root, start, bounded_limit, encoding, files)
+    except _RefusedError as refused:
+        result = ReadFileResult(status=refused.status, refusal=refused.refusal, path=path)
+    except PermissionError:
+        result = ReadFileResult(
+            status="refused",
+            refusal=ToolRefusal(code="permission_denied", message="The backend user cannot read this file."),
+            path=path,
+        )
+    _log_outcome("read_file", result.status, result.refusal)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Author tools.
+# ---------------------------------------------------------------------------
+
+
+def _affected(changes: list[dict[str, Any]]) -> tuple[list[str], bool]:
+    rendered = [f"{change['kind']}:{change['entity_id']}" for change in changes]
+    return rendered[:_AFFECTED_PATHS_CAP], len(rendered) > _AFFECTED_PATHS_CAP
+
+
+def _author_result(outcome: dict[str, Any], rel: str, **extra: Any) -> AuthorResult:
+    """Map the shared write path's dict to a tool result."""
+    if outcome.get("status") == "conflict":
+        return AuthorResult(
+            status="conflict",
+            refusal=ToolRefusal(
+                code=str(outcome.get("condition")),
+                message=str(outcome.get("message")),
+                use_instead=["get_file_info", "read_file"],
+            ),
+            path=rel,
+            expected_state_version=outcome.get("expected_state_version"),
+            current_state_version=outcome.get("current_state_version"),
+        )
+    affected, truncated = _affected(outcome.get("changes", []))
+    if not affected and outcome.get("entity_id") and outcome.get("kind"):
+        affected = [f"{outcome['kind']}:{outcome['entity_id']}"]
+    return AuthorResult(
+        path=str(outcome.get("entity_id", rel)),
+        kind=outcome.get("kind"),
+        state_version=outcome.get("state_version"),
+        size_bytes=outcome.get("size_bytes"),
+        affected_paths=affected,
+        affected_truncated=truncated,
+        registry_refreshed=bool(outcome.get("registry_refreshed", False)),
+        **extra,
+    )
+
+
+def _check_content_size(content: str) -> None:
+    size = len(content.encode("utf-8"))
+    if size > WRITE_CONTENT_CAP_BYTES:
+        raise _RefusedError(
+            "content_too_large",
+            f"Content is {size} bytes, over the {WRITE_CONTENT_CAP_BYTES}-byte author-tool cap. "
+            "Produce large files with run_command or a workflow instead.",
+            ["run_command", "run_workflow"],
+        )
+
+
+def _refused_result(tool: str, refused: _RefusedError, path: str) -> AuthorResult:
+    result = AuthorResult(status=refused.status, refusal=refused.refusal, path=path)
+    _log_outcome(tool, result.status, result.refusal)
+    return result
+
+
+@mcp.tool(name="write_file", tags=_WRITE_TAGS)
+async def write_file(
+    path: Annotated[str, Field(description="Project-relative (or absolute, inside the project) file path.")],
+    content: Annotated[str, Field(description="Full UTF-8 text content of the file.")],
+    mode: Annotated[
+        Literal["overwrite", "create"],
+        Field(description="'create' refuses if the file exists; 'overwrite' creates or replaces."),
+    ] = "overwrite",
+    expected_state_version: Annotated[
+        int | None,
+        Field(description="State version from get_file_info/read_file; a changed file is reported as a conflict."),
+    ] = None,
+    create_parents: Annotated[bool, Field(description="Create missing parent directories.")] = False,
+) -> AuthorResult:
+    """Create or replace a text file in the active project, with UI sync.
+
+    The write goes through the editor's shared path: atomic replace, a
+    ``file.changed`` event so the open UI updates, and a registry reload after
+    a lint-clean save under ``blocks/`` or ``types/``. Refused: anything under
+    ``data/`` (use run_workflow), ``workflows/*.yaml`` (use write_workflow /
+    update_block_config), and a ``blocks/*.py`` write before list_blocks has
+    been called. A block write returns non-blocking warnings for generic port
+    types.
+    """
+    try:
+        files = _require_project_files()
+        target, _root, rel = _resolve_author_path(path)
+        _require_block_list(rel)
+        _check_content_size(content)
+        outcome = await files.write_text(
+            target,
+            content,
+            expected_state_version=expected_state_version,
+            create_only=mode == "create",
+            create_parents=create_parents,
+            changed_by="mcp.write_file",
+        )
+    except _RefusedError as refused:
+        return _refused_result("write_file", refused, path)
+    warnings = port_type_warnings(rel, content) if outcome.get("status") == "ok" else []
+    result = _author_result(outcome, rel, warnings=warnings)
+    _log_outcome("write_file", result.status, result.refusal)
+    return result
+
+
+@mcp.tool(name="create_directory", tags=_WRITE_TAGS)
+async def create_directory(
+    path: Annotated[str, Field(description="Project-relative directory to create.")],
+    parents: Annotated[bool, Field(description="Create missing parent directories too.")] = False,
+) -> AuthorResult:
+    """Create a directory in the active project (never under ``data/``)."""
+    try:
+        files = _require_project_files()
+        target, _root, rel = _resolve_author_path(path)
+        outcome = await files.make_directory(target, parents=parents, changed_by="mcp.create_directory")
+    except _RefusedError as refused:
+        return _refused_result("create_directory", refused, path)
+    result = _author_result(outcome, rel)
+    result.next_step = "Create files inside it with write_file."
+    _log_outcome("create_directory", result.status, result.refusal)
+    return result
+
+
+def _read_for_patch(target: Path) -> str:
+    size = target.stat().st_size
+    if size > WRITE_CONTENT_CAP_BYTES:
+        raise _RefusedError(
+            "content_too_large",
+            f"The file is {size} bytes, over the {WRITE_CONTENT_CAP_BYTES}-byte author-tool cap.",
+            ["run_command"],
+        )
+    raw = target.read_bytes()
+    try:
+        # Decoded without newline translation so CRLF files keep their endings.
+        return raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise _RefusedError("binary_content", "The file is not UTF-8 text and cannot be patched.") from exc
+
+
+@mcp.tool(name="patch_file", tags=_WRITE_TAGS)
+async def patch_file(
+    path: Annotated[str, Field(description="Project-relative file to edit.")],
+    old_text: Annotated[str, Field(description="Exact text to replace; must occur once unless replace_all.")],
+    new_text: Annotated[str, Field(description="Replacement text.")],
+    expected_state_version: Annotated[
+        int | None,
+        Field(description="State version the edit is based on; a changed file is reported as a conflict."),
+    ] = None,
+    replace_all: Annotated[bool, Field(description="Replace every occurrence of old_text.")] = False,
+) -> AuthorResult:
+    """Replace exact text in an existing project file, with UI sync.
+
+    Same rules and write path as write_file. ``old_text`` must match exactly
+    once (or pass ``replace_all``); a missing or ambiguous match is refused
+    without writing. The edit is applied to the file as it is on disk, and
+    written only if it has not changed in between.
+    """
+    try:
+        files = _require_project_files()
+        target, _root, rel = _resolve_author_path(path)
+        _require_block_list(rel)
+        if not target.is_file():
+            raise _RefusedError("missing_file", "The file does not exist; create it with write_file.", ["write_file"])
+        if not old_text:
+            raise _RefusedError("invalid_patch", "old_text must not be empty.")
+        base_version = expected_state_version if expected_state_version is not None else files.state_version(target)
+        text = await asyncio.to_thread(_read_for_patch, target)
+        occurrences = text.count(old_text)
+        if occurrences == 0:
+            raise _RefusedError("patch_target_not_found", "old_text does not occur in the file.", ["read_file"])
+        if occurrences > 1 and not replace_all:
+            raise _RefusedError(
+                "patch_target_ambiguous",
+                f"old_text occurs {occurrences} times; add surrounding context or pass replace_all=true.",
+                ["read_file"],
+            )
+        updated = text.replace(old_text, new_text) if replace_all else text.replace(old_text, new_text, 1)
+        _check_content_size(updated)
+        outcome = await files.write_text(
+            target,
+            updated,
+            expected_state_version=base_version,
+            require_existing=True,
+            changed_by="mcp.patch_file",
+        )
+    except _RefusedError as refused:
+        return _refused_result("patch_file", refused, path)
+    warnings = port_type_warnings(rel, updated) if outcome.get("status") == "ok" else []
+    result = _author_result(outcome, rel, warnings=warnings, replacements=occurrences if replace_all else 1)
+    _log_outcome("patch_file", result.status, result.refusal)
+    return result
+
+
+@mcp.tool(name="move_path", tags=_WRITE_TAGS)
+async def move_path(
+    path: Annotated[str, Field(description="Project-relative file or directory to rename or move.")],
+    destination: Annotated[str, Field(description="Full new project-relative path (never overwritten).")],
+    create_parents: Annotated[bool, Field(description="Create the destination's missing parent directories.")] = False,
+    expected_state_version: Annotated[
+        int | None,
+        Field(description="For a file: the state version the move is based on."),
+    ] = None,
+) -> AuthorResult:
+    """Rename or move a file or directory inside the active project, with UI sync.
+
+    Never overwrites an existing destination. Each moved file emits a
+    ``deleted`` event at its old path and ``created`` at its new one. Refused
+    when the source or destination touches ``data/`` or ``workflows/*.yaml``
+    (for a directory: any file inside it), or when a ``blocks/*.py`` would be
+    created before list_blocks has been called.
+    """
+    try:
+        files = _require_project_files()
+        source, root, source_rel = _resolve_author_path(path)
+        target, _root, target_rel = _resolve_author_path(destination)
+        if root in (source, target):
+            raise _RefusedError("project_root", "The project root itself cannot be moved.")
+        if source.is_dir():
+            await asyncio.to_thread(_check_tree, root, source, target)
+        else:
+            _require_block_list(target_rel)
+        outcome = await files.move(
+            source,
+            target,
+            create_parents=create_parents,
+            expected_state_version=expected_state_version,
+            changed_by="mcp.move_path",
+        )
+    except _RefusedError as refused:
+        return _refused_result("move_path", refused, path)
+    warnings: list[str] = []
+    if outcome.get("status") == "ok" and target.is_file():
+        try:
+            warnings = port_type_warnings(target_rel, await asyncio.to_thread(_read_for_patch, target))
+        except _RefusedError:
+            warnings = []
+    result = _author_result(outcome, source_rel, warnings=warnings)
+    if result.status == "ok":
+        result.kind = "moved"
+    _log_outcome("move_path", result.status, result.refusal)
+    return result
+
+
+@mcp.tool(name="delete_path", tags=_WRITE_TAGS)
+async def delete_path(
+    path: Annotated[str, Field(description="Project-relative file or directory to delete.")],
+    recursive: Annotated[bool, Field(description="Required to delete a non-empty directory.")] = False,
+    expected_state_version: Annotated[
+        int | None,
+        Field(description="For a file: the state version the delete is based on."),
+    ] = None,
+) -> AuthorResult:
+    """Delete a file or directory in the active project, with UI sync.
+
+    A ``deleted`` event is emitted for every removed file so an open editor tab
+    learns its file is gone. Refused for anything under ``data/`` and for
+    ``workflows/*.yaml`` (for a directory: any such file inside it). A
+    non-empty directory needs ``recursive=true``.
+    """
+    try:
+        files = _require_project_files()
+        target, root, rel = _resolve_author_path(path)
+        if target == root:
+            raise _RefusedError("project_root", "The project root itself cannot be deleted.")
+        if target.is_dir():
+            await asyncio.to_thread(_check_tree, root, target)
+        outcome = await files.delete(
+            target,
+            recursive=recursive,
+            expected_state_version=expected_state_version,
+            changed_by="mcp.delete_path",
+        )
+    except _RefusedError as refused:
+        return _refused_result("delete_path", refused, path)
+    result = _author_result(outcome, rel)
+    if result.status == "ok":
+        result.kind = "deleted"
+        result.next_step = "Confirm with list_directory; the UI received a file-deleted event for each removed file."
+    _log_outcome("delete_path", result.status, result.refusal)
+    return result
+
+
+__all__ = [
+    "READ_DEFAULT_LIMIT_BYTES",
+    "READ_MAX_LIMIT_BYTES",
+    "WRITE_CONTENT_CAP_BYTES",
+    "AuthorResult",
+    "FileInfoResult",
+    "ListDirectoryResult",
+    "ReadFileResult",
+    "SearchFilesResult",
+    "ToolRefusal",
+    "create_directory",
+    "delete_path",
+    "get_file_info",
+    "list_blocks_refusal",
+    "list_directory",
+    "move_path",
+    "patch_file",
+    "port_type_warnings",
+    "read_file",
+    "search_files",
+    "write_file",
+]

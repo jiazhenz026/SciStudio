@@ -45,6 +45,20 @@ from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 logger = logging.getLogger(__name__)
 
 
+class RunWorkflowStartedResult(RunWorkflowResult):
+    """``run_workflow`` result carrying the poll reminder (ADR-055 Spec 2, #2279).
+
+    Additive: every :class:`RunWorkflowResult` field is unchanged.
+    ``poll_hint`` puts the provisioned ``remind_poll_status`` hook's reminder in
+    the result itself, so a host that runs no hooks (a WebMCP host) still
+    receives it.
+    """
+
+    poll_hint: str = Field(
+        description="Reminder to poll get_run_status until the run reaches a terminal state.",
+    )
+
+
 # ---------------------------------------------------------------------------
 # (a.6) write_workflow  (write-class)
 # ---------------------------------------------------------------------------
@@ -479,7 +493,7 @@ async def _emit_agent_workflow_changed(
 @mcp.tool(name="run_workflow", tags={"category:workflow", "write"})
 async def run_workflow(
     path: str = Field(description="Project-relative path to the workflow YAML to execute."),
-) -> RunWorkflowResult:
+) -> RunWorkflowStartedResult:
     """Submit a workflow for execution and return its run identifier.
 
     Use when:
@@ -506,7 +520,14 @@ async def run_workflow(
     result = runtime.start_workflow(workflow_id)
     run_id = result.get("workflow_id", workflow_id) if isinstance(result, dict) else workflow_id
     logger.info("run_workflow: started run %s for %s", run_id, resolved)
-    return RunWorkflowResult(run_id=str(run_id), status="queued")
+    return RunWorkflowStartedResult(
+        run_id=str(run_id),
+        status="queued",
+        poll_hint=(
+            f"run_workflow has been kicked off (run_id={run_id}). Poll get_run_status periodically "
+            "until state is 'succeeded', 'failed', or 'cancelled' before proceeding."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

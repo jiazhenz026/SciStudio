@@ -4,7 +4,7 @@ title: "ADR-055 Spec 4 — Internal Lab Deployment: JupyterHub Identity, Native 
 status: Draft
 feature_branch: docs/2263-adr-055-specs
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 4 covers ADR-055 section 8. Owner decisions recorded: (1) SciStudio implements JupyterHub OAuth natively as the single-user server — SystemdSpawner directly spawns 'scistudio serve --hub'; jupyter-server-proxy standalone is rejected because ADR-055 section 8's raw-port bypass protection requires in-product authentication anyway (loopback is not isolation between users on a shared Linux host), the proxy hop adds SSE/WebSocket/large-file buffering and timeout risk, session cookies need SameSite=None;Secure under SciStudio's own control for external-AI-host iframes, and XSRF rules should be the product's own; (2) the server side splits into three ownership blocks — deployment assets at deploy/jupyterhub/ (configs, units, runbook; not Python import surface), the identity adapter at src/scistudio/deployment/jupyterhub/ (all JupyterHub knowledge confined there), and prefix independence staying in core as adr-055-prefix-independence; (3) the verification environment is the owner's WSL2 with systemd enabled, with declared caveats."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 4 covers ADR-055 section 8. Owner decisions recorded: (1) SciStudio implements JupyterHub OAuth natively as the single-user server — SystemdSpawner directly spawns 'scistudio serve --hub'; jupyter-server-proxy standalone is rejected because ADR-055 section 8's raw-port bypass protection requires in-product authentication anyway (loopback is not isolation between users on a shared Linux host), the proxy hop adds SSE/WebSocket/large-file buffering and timeout risk, session cookies need SameSite=None;Secure under SciStudio's own control for external-AI-host iframes, and XSRF rules should be the product's own; (2) the server side splits into three ownership blocks — deployment assets at deploy/jupyterhub/ (configs, units, runbook; not Python import surface), the identity adapter at src/scistudio/deployment/jupyterhub/ (all JupyterHub knowledge confined there), and prefix independence staying in core as adr-055-prefix-independence; (3) the verification environment is the owner's WSL2 with systemd enabled, with declared caveats. Amended 2026-09-10 by issue #2279 decision 1: file transfer between a laptop browser and a lab-server backend (user-picked upload reusing POST /api/data/upload, a streaming download endpoint authenticated by this spec's session cookie, inline transfer caps, TransferRecord) moves here from adr-055-agent-context-workspace; it is lab-only and local mode registers no upload/download tools."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -23,6 +23,7 @@ scope:
     - "The per-user instance contract: one user, one backend, one bundled Python, one runtime environment shared by that user's projects; persistent workspaces; writable per-user dependency state."
     - "Prefix integration: the Hub-provided service prefix drives the root-path contract from adr-055-prefix-independence."
     - "Lifetime behavior: browser disconnection and idle detection never terminate active analyses or transfers; projects survive service restart."
+    - "File transfer between the laptop browser and the lab-server backend (moved from adr-055-agent-context-workspace by #2279 decision 1): user-picked upload reusing POST /api/data/upload and its staged chunked service, a streaming download endpoint authenticated by the session cookie, inline transfer caps, and TransferRecord; lab-only, with no upload/download tools in local mode."
     - Verification on WSL2 with systemd enabled, including two-user isolation, raw-port bypass attempts, and resource-limit statements.
   out:
     - Public SaaS, public-demo hosting, tunnels, branded domains (excluded by ADR-055 sections 2 and 10).
@@ -43,6 +44,8 @@ governs:
     - src/scistudio/cli/main.py
     - src/scistudio/api/app.py
     - src/scistudio/api/ws.py
+    - src/scistudio/api/routes/data.py
+    - src/scistudio/api/runtime/_workflows.py
   excludes: []
 planned_governs:
   modules:
@@ -56,6 +59,7 @@ planned_governs:
 tests:
   - tests/deployment/test_hub_oauth.py
   - tests/deployment/test_hub_session_middleware.py
+  - tests/deployment/test_transfer.py
 acceptance_source: adr
 language_source: en
 ---
@@ -218,8 +222,50 @@ and demonstrate enforcement with a workload that crosses it.
    **Then** the configured enforcement is observed (OOM/swap behavior as
    configured), and the verification note records the result.
 
+### User Story 6 - A lab scientist moves files between the laptop and the lab server (Priority: P2)
+
+On a lab deployment the backend and its projects live on the server, while the
+scientist's browser — and the files on their laptop — are elsewhere. A file the
+user picks in the browser uploads through the existing staged upload; a
+project file or analysis output downloads through a streaming endpoint behind
+this spec's session; small payloads may travel inline under a declared cap.
+Local mode, where browser and backend share a filesystem, registers no upload
+or download tools.
+
+**Why this priority**: ADR-055 section 5.2 requires a bounded, streaming
+transfer path and forbids treating a private server URL as proof that a host
+retrieved a file. Issue #2279 decision 1 moved transfer here from
+`adr-055-agent-context-workspace` because its only real use case is a
+lab-server backend with a laptop browser.
+
+**Independent Test**: On a hub-mode instance, upload a 200 MB user-picked file
+and assert memory stays bounded and the staged upload service lands it;
+download a project output through the new endpoint with and without a valid
+session cookie; attempt an inline transfer above the cap and assert it is
+refused with a pointer to the streaming path; on a local-mode instance assert
+no upload/download tools are registered.
+
+**Acceptance Scenarios**:
+
+1. **Given** a large file the user picks in the browser, **When** the upload
+   runs, **Then** it lands through `POST /api/data/upload`'s staged chunked
+   path (`stage_upload_file` / `finish_staged_upload`) and the tool result
+   identifies the transfer (a TransferRecord) and its final status.
+2. **Given** a large analysis output, **When** the download endpoint is used
+   with a valid session cookie, **Then** the response streams with accurate
+   size headers and survives a client disconnect without corrupting server
+   state; **and without** the cookie, or with another user's, it is rejected
+   like every other endpoint (FR-004).
+3. **Given** a payload above the declared inline cap, **When** inline transfer
+   is requested, **Then** it is refused with a pointer to the streaming path.
+4. **Given** a local-mode instance, **When** the tool catalogue is listed,
+   **Then** no upload or download tools appear.
+
 ### Edge Cases
 
+- Transfer interrupted by a browser disconnect: a partial upload is discarded
+  through the existing staged-upload discard path, a download leaves server
+  state unchanged, and neither ends an active analysis (FR-010).
 - OAuth callback under the service prefix: the callback URL must be
   prefix-correct (consumes `adr-055-prefix-independence`); a wrong prefix must
   fail loudly at startup validation, not as a login loop.
@@ -280,6 +326,24 @@ and demonstrate enforcement with a workload that crosses it.
   execution through a backend crash (ADR-055 section 8).
 - **FR-011**: Startup validation MUST fail loudly on prefix/callback
   misconfiguration (detectable at spawn, not at first login).
+- **FR-012**: File transfer tools and endpoints MUST exist only in hub (lab)
+  mode; local mode MUST register no upload or download tools (#2279
+  decision 1).
+- **FR-013**: Upload MUST be user-picked in the browser and MUST reuse
+  `POST /api/data/upload` and its staged chunked service
+  (`stage_upload_file` / `finish_staged_upload`); no second upload path is
+  added.
+- **FR-014**: A new streaming download endpoint MUST serve project files and
+  outputs with accurate length headers and disconnect-safe behavior, placed
+  beside the existing project file route with the same sandbox resolution (and
+  without the editor allowlist, which governs the editor UI, not transfer),
+  and authenticated by the FR-003 session cookie through the FR-004
+  middleware. It is the contract a future web-UI manual transfer entry reuses.
+  A private server URL alone MUST NOT be treated as proof that a host retrieved
+  a file.
+- **FR-015**: Inline (base64) transfer in either direction is allowed only
+  under a declared small-file cap, with a clear pointer to the streaming path
+  above it; every transfer MUST surface a TransferRecord in its tool result.
 
 ### Key Entities
 
@@ -288,6 +352,10 @@ and demonstrate enforcement with a workload that crosses it.
 - **InstanceBinding**: owning user, service prefix, loopback port, systemd
   unit name; produced by the spawner configuration, consumed by startup
   validation.
+- **TransferRecord**: identifier, direction (upload/download), project-relative
+  target, byte count, status, terminal state; surfaced in tool results so the
+  host can report or retry. Persistence follows the existing staged-upload
+  behavior; no new store.
 
 ## 4. Implementation Plan
 
@@ -327,6 +395,10 @@ verification steps, and the WSL2-vs-bare-metal caveats.
 | `deploy/jupyterhub/RUNBOOK.md` | create | Install/configure/verify/operate guide |
 | `tests/deployment/test_hub_oauth.py` | create | OAuth flow against a Hub-API test double |
 | `tests/deployment/test_hub_session_middleware.py` | create | Coverage matrix: UI/API/WS/bridge/transfer, raw-port, cross-user |
+| `src/scistudio/api/routes/data.py` | modify | Hub-mode transfer wiring that reuses `POST /api/data/upload` |
+| `src/scistudio/api/runtime/_workflows.py` | modify | Expose the staged-upload helpers at the level the transfer tools consume |
+| `src/scistudio/api/routes/projects.py` | modify | Streaming download route beside the file route |
+| `tests/deployment/test_transfer.py` | create | Upload reuse, streaming download, inline caps, mode gating |
 
 ### 4.3 Implementation Sequence
 
@@ -341,6 +413,10 @@ verification steps, and the WSL2-vs-bare-metal caveats.
    pass producing recorded evidence.
 6. **T-006** (cross-cutting): ADR-055 section 11 Lab identity and Lab lifetime
    rows; resource-limit verification records.
+7. **T-007** (US6): transfer — hub-mode-only tools, upload reuse of
+   `POST /api/data/upload`, the streaming download endpoint behind the session
+   middleware, inline caps, and TransferRecord results (moved here from
+   `adr-055-agent-context-workspace` by #2279 decision 1).
 
 ### 4.4 Verification Plan
 
@@ -351,6 +427,10 @@ verification steps, and the WSL2-vs-bare-metal caveats.
   GPU statement; results recorded with the WSL2 caveat (NAT/localhost
   forwarding and cgroup behavior differ from bare metal; both are declared in
   the runbook, not waived).
+- Transfer: a 200 MB upload stays memory-bounded through the staged path; the
+  download streams with accurate length headers and is disconnect-safe;
+  cookie-less and cross-user downloads are rejected; inline transfers above the
+  cap are refused; a local-mode catalogue has no transfer tools.
 - Existing suites pass unchanged (local/desktop modes unaffected: hub mode is
   additive).
 - `gate_record check` tier-selected checks for the diff.
@@ -386,6 +466,9 @@ verification steps, and the WSL2-vs-bare-metal caveats.
   limit-crossing workload in the verification environment (result recorded).
 - **SC-005**: The runbook reaches a working deployment from a fresh
   systemd-enabled environment with zero undocumented steps.
+- **SC-006**: A 200 MB upload and a 200 MB download complete through the
+  streaming paths with bounded memory, and 100% of unauthenticated or
+  cross-user download attempts are rejected.
 
 ## 6. Assumptions
 

@@ -1,12 +1,14 @@
-"""Category (d) MCP tools — documentation and project Q&A (5 tools).
+"""Category (d) MCP tools — documentation and project Q&A (6 tools).
 
 ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
 
-The 5 tools (all read-class) are:
+The 6 tools (all read-class) are:
 
 ``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``,
 ``open_gui`` (the last added for #1947 so the agent can open the running
-GUI in a browser and self-debug plots / previewers / interactive blocks).
+GUI in a browser and self-debug plots / previewers / interactive blocks),
+and ``get_agent_context`` (ADR-055 Spec 2, #2279: the external-audience
+entry point to the project's already-provisioned agent assets).
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ import yaml as yaml_module
 from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
-from scistudio.ai.agent.mcp.server import mcp
+from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 from scistudio.core.lineage.store import artifact_size_bytes
 
 logger = logging.getLogger(__name__)
@@ -446,3 +448,399 @@ async def open_gui() -> OpenGuiResult:
             "SciStudio does not control the browser for you."
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# (d.6) get_agent_context  (ADR-055 Spec 2, #2279 — external audience)
+#
+# The one context tool ADR-055 §5.1 adds. It indexes what provisioning
+# (``scistudio.agent_provisioning``) already put in the project — AGENTS.md /
+# CLAUDE.md, ``.scistudio/agent-reference/``, the skills trees, the hook
+# scripts — plus the project's own ``docs/``, and says for each entry which
+# existing tool retrieves it: ``get_doc`` for ``docs/``, ``read_file`` for the
+# rest (FR-002: never "everything through get_doc", never copies into docs/).
+# Content stays in its files; the response is a bounded index.
+# ---------------------------------------------------------------------------
+
+_CONTEXT_INDEX_CAP_PER_CLASS = 100
+_CONTEXT_SCAN_CEILING = 5000
+_GUIDANCE_EXCERPT_CHARS = 4000
+_TITLE_SNIFF_BYTES = 4096
+
+#: (asset class, project-relative root, glob, retrieval tool)
+_CONTEXT_ASSET_CLASSES: tuple[tuple[str, str, str, str], ...] = (
+    ("project_docs", "docs", "**/*.md", "get_doc"),
+    ("agent_reference", ".scistudio/agent-reference", "**/*.md", "read_file"),
+    ("skills_claude", ".claude/skills", "*/SKILL.md", "read_file"),
+    ("skills_agents", ".agents/skills", "*/SKILL.md", "read_file"),
+    ("hooks", ".claude/hooks", "*.py", "read_file"),
+)
+
+_GUIDANCE_FILES = ("AGENTS.md", "CLAUDE.md")
+
+_HOOK_EXECUTION_LOCATION = (
+    "The provisioned hook scripts run only inside a local Claude Code or Codex CLI session that loads this "
+    "project's .claude/settings.json or .codex/config.toml, on the machine where that CLI runs. A WebMCP "
+    "host does not execute them, and SciStudio cannot observe whether any host did — reading a hook file "
+    "is not evidence that it ran. The server_side_equivalent of each hook is enforced by SciStudio on "
+    "every call, whichever host is connected."
+)
+
+#: (hook, host trigger, purpose, server-side equivalent) for the seven provisioned hooks.
+_HOOK_GUIDANCE: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "deny_scistudio_cli",
+        "PreToolUse: Bash",
+        "Blocks shell calls to the scistudio CLI.",
+        "run_command refuses commands that invoke the scistudio CLI and names the MCP tools to use.",
+    ),
+    (
+        "protect_workflow_yaml",
+        "PreToolUse: Edit|Write|MultiEdit",
+        "Blocks direct edits to workflows/*.yaml.",
+        "Author tools refuse any mutation whose source or target is workflows/*.yaml|*.yml; use "
+        "write_workflow, update_block_config, or edit_workflow.",
+    ),
+    (
+        "protect_data_dir",
+        "PreToolUse: Edit|Write|MultiEdit|Bash",
+        "Blocks direct edits and deletes under data/.",
+        "Author tools refuse any mutation under data/; produce data with run_workflow. Backend runtime "
+        "writes into data/ are unaffected.",
+    ),
+    (
+        "enforce_list_blocks_before_block_write",
+        "PreToolUse: Edit|Write|MultiEdit|Bash|scaffold_block",
+        "Requires list_blocks before authoring a blocks/*.py file.",
+        "Author-tool writes to blocks/*.py, and scaffold_block through the bridge, are refused until "
+        "list_blocks has run once in this backend lifetime (a backend restart resets it).",
+    ),
+    (
+        "mark_list_blocks_called",
+        "PostToolUse: list_blocks",
+        "Records that list_blocks ran.",
+        "list_blocks records the call server-side, from any transport, for the backend lifetime.",
+    ),
+    (
+        "enforce_concrete_port_types",
+        "PostToolUse: Edit|Write|MultiEdit|scaffold_block",
+        "Warns about generic DataObject or empty accepted_types ports.",
+        "Author-tool writes to blocks/*.py return the same warnings in the result's warnings list (non-blocking).",
+    ),
+    (
+        "remind_poll_status",
+        "PostToolUse: run_workflow",
+        "Reminds the agent to poll get_run_status.",
+        "run_workflow results carry a poll_hint field.",
+    ),
+)
+
+
+class RetrievalInstruction(BaseModel):
+    """How to fetch one indexed asset."""
+
+    tool: str = Field(description="Existing tool that retrieves the asset.")
+    arguments: dict[str, Any] = Field(default_factory=dict, description="Arguments to pass to that tool.")
+
+
+class ContextIndexEntry(BaseModel):
+    """One indexed asset with its real path."""
+
+    asset_class: str
+    path: str = Field(description="Project-relative POSIX path; exists on disk.")
+    title: str | None = Field(default=None, description="First heading, or a skill's name and description.")
+    retrieval: RetrievalInstruction
+
+
+class AssetClassStatus(BaseModel):
+    """Whether one class of provisioned asset is present."""
+
+    asset_class: str
+    root: str = Field(description="Project-relative directory (or '.' for root guidance files).")
+    available: bool
+    entry_count: int = 0
+    truncated: bool = Field(default=False, description="True when more entries exist than the index lists.")
+    retrieval_tool: str
+    diagnostic: str | None = Field(default=None, description="Why the class is unavailable, when it is.")
+
+
+class HookGuidanceEntry(BaseModel):
+    """One provisioned hook and what the server enforces in its place."""
+
+    hook: str
+    host_trigger: str
+    purpose: str
+    script_path: str
+    script_present: bool
+    server_side_equivalent: str
+
+
+class HookGuidance(BaseModel):
+    """Hook guidance with the execution location made explicit."""
+
+    execution_location: str
+    host_execution_observed: bool = Field(
+        default=False,
+        description="Always false: SciStudio never observes whether a host executed a hook.",
+    )
+    entries: list[HookGuidanceEntry] = Field(default_factory=list)
+
+
+class AgentContextResult(BaseModel):
+    """Result envelope for ``get_agent_context``."""
+
+    status: str = Field(description="'ok', or 'no_active_project' (no project index without a project).")
+    message: str | None = None
+    project: dict[str, Any] | None = Field(default=None, description="Project identity and active context.")
+    guidance_summary: str | None = Field(default=None, description="Bounded excerpt of the effective guidance file.")
+    guidance_source: str | None = None
+    guidance_truncated: bool = False
+    asset_classes: list[AssetClassStatus] = Field(default_factory=list)
+    index: list[ContextIndexEntry] = Field(default_factory=list)
+    hooks: HookGuidance | None = None
+    execution_environment: dict[str, Any] = Field(default_factory=dict)
+    capabilities: dict[str, Any] = Field(default_factory=dict)
+
+
+def _sniff_text(path: Path, max_bytes: int = _TITLE_SNIFF_BYTES) -> str:
+    try:
+        with path.open("rb") as handle:
+            return handle.read(max_bytes).decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _asset_title(path: Path) -> str | None:
+    text = _sniff_text(path)
+    if path.name == "SKILL.md" and text.startswith("---"):
+        fields: dict[str, str] = {}
+        for line in text.splitlines()[1:]:
+            if line.strip() == "---":
+                break
+            key, sep, value = line.partition(":")
+            if sep:
+                fields[key.strip()] = value.strip().strip("\"'")
+        name = fields.get("name")
+        if name:
+            description = fields.get("description", "")
+            return (f"{name}: {description}" if description else name)[:200]
+    if path.suffix == ".py":
+        return None
+    for line in text.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()[:200]
+    return None
+
+
+def _index_asset_class(
+    root: Path, asset_class: str, rel_root: str, pattern: str, tool: str
+) -> tuple[AssetClassStatus, list[ContextIndexEntry]]:
+    base = root / rel_root
+    if not base.is_dir():
+        return (
+            AssetClassStatus(
+                asset_class=asset_class,
+                root=rel_root,
+                available=False,
+                retrieval_tool=tool,
+                diagnostic=(
+                    f"{rel_root}/ is not present in this project, so nothing is indexed for this class. "
+                    "SciStudio provisions agent assets when a project is created or opened; they may "
+                    "also have been removed."
+                    if asset_class != "project_docs"
+                    else "The project has no docs/ directory; get_doc and search_docs have nothing to read."
+                ),
+            ),
+            [],
+        )
+    found: list[Path] = []
+    for path in base.glob(pattern):
+        if path.is_file():
+            found.append(path)
+            if len(found) >= _CONTEXT_SCAN_CEILING:
+                break
+    found.sort(key=lambda path: path.as_posix().casefold())
+    if not found:
+        return (
+            AssetClassStatus(
+                asset_class=asset_class,
+                root=rel_root,
+                available=False,
+                retrieval_tool=tool,
+                diagnostic=f"{rel_root}/ exists but holds no files matching {pattern}.",
+            ),
+            [],
+        )
+    entries = []
+    for path in found[:_CONTEXT_INDEX_CAP_PER_CLASS]:
+        rel = path.relative_to(root).as_posix()
+        entries.append(
+            ContextIndexEntry(
+                asset_class=asset_class,
+                path=rel,
+                title=_asset_title(path),
+                retrieval=RetrievalInstruction(tool=tool, arguments={"path": rel}),
+            )
+        )
+    return (
+        AssetClassStatus(
+            asset_class=asset_class,
+            root=rel_root,
+            available=True,
+            entry_count=len(found),
+            truncated=len(found) > _CONTEXT_INDEX_CAP_PER_CLASS,
+            retrieval_tool=tool,
+        ),
+        entries,
+    )
+
+
+def _guidance(root: Path) -> tuple[AssetClassStatus, list[ContextIndexEntry], str | None, str | None, bool]:
+    present = [name for name in _GUIDANCE_FILES if (root / name).is_file()]
+    entries = [
+        ContextIndexEntry(
+            asset_class="guidance",
+            path=name,
+            title=_asset_title(root / name),
+            retrieval=RetrievalInstruction(tool="read_file", arguments={"path": name}),
+        )
+        for name in present
+    ]
+    status = AssetClassStatus(
+        asset_class="guidance",
+        root=".",
+        available=bool(present),
+        entry_count=len(present),
+        retrieval_tool="read_file",
+        diagnostic=None
+        if present
+        else "Neither AGENTS.md nor CLAUDE.md is present at the project root, so no project guidance is summarized.",
+    )
+    if not present:
+        return status, entries, None, None, False
+    # AGENTS.md is the canonical instruction file; CLAUDE.md routes to it (#2137).
+    source = present[0]
+    text = _sniff_text(root / source, _GUIDANCE_EXCERPT_CHARS * 4)
+    return (
+        status,
+        entries,
+        text[:_GUIDANCE_EXCERPT_CHARS],
+        source,
+        len(text) > _GUIDANCE_EXCERPT_CHARS or ((root / source).stat().st_size > _GUIDANCE_EXCERPT_CHARS * 4),
+    )
+
+
+def _project_identity(ctx: Any, root: Path) -> dict[str, Any]:
+    identity: dict[str, Any] = {"path": str(root), "active_workflow_id": getattr(ctx, "active_workflow_id", None)}
+    project_file = root / "project.yaml"
+    if project_file.is_file():
+        try:
+            raw = yaml_module.safe_load(_sniff_text(project_file, 64 * 1024)) or {}
+        except yaml_module.YAMLError:
+            raw = {}
+        meta = raw.get("project", {}) if isinstance(raw, dict) else {}
+        if isinstance(meta, dict):
+            for key in ("id", "name", "description"):
+                if meta.get(key) is not None:
+                    identity[key] = meta[key]
+    workflows_dir = root / "workflows"
+    identity["workflows"] = sorted(path.stem for path in workflows_dir.glob("*.yaml")) if workflows_dir.is_dir() else []
+    return identity
+
+
+def _capabilities() -> dict[str, Any]:
+    return {
+        "read_scope": (
+            "Inspect tools (list_directory, get_file_info, search_files, read_file) accept absolute paths and read "
+            "anything the backend's OS user can read; relative paths resolve against the active project. Reads "
+            "are bounded; server-resident datasets are used in place by absolute path."
+        ),
+        "author_scope": (
+            "Author tools (write_file, create_directory, patch_file, move_path, delete_path) change files only "
+            "inside the active project, through the editor's write path (the open UI updates; drop-in blocks "
+            "reload). They refuse data/ (use run_workflow) and workflows/*.yaml (use write_workflow / "
+            "update_block_config)."
+        ),
+        "execution": (
+            "run_command runs shell commands in the active project with SciStudio's bundled Python first on PATH, "
+            "as managed jobs (list_commands, get_command_status, cancel_command). Commands that invoke the "
+            "scistudio CLI are refused."
+        ),
+        "transfer": "No upload or download tools are registered on this instance.",
+        "tools": {
+            "context": ["get_agent_context", "get_project_info", "search_docs", "get_doc"],
+            "inspect": ["list_directory", "get_file_info", "search_files", "read_file"],
+            "author": ["write_file", "create_directory", "patch_file", "move_path", "delete_path"],
+            "execution": ["run_command", "list_commands", "get_command_status", "cancel_command"],
+            "workflow": ["list_blocks", "get_block_schema", "write_workflow", "run_workflow", "get_run_status"],
+        },
+    }
+
+
+def _agent_context_sync(ctx: Any, root: Path) -> AgentContextResult:
+    from scistudio.ai.agent.mcp.tools_execution import describe_command_environment
+
+    guidance_status, index, excerpt, source, truncated = _guidance(root)
+    classes = [guidance_status]
+    for asset_class, rel_root, pattern, tool in _CONTEXT_ASSET_CLASSES:
+        status, entries = _index_asset_class(root, asset_class, rel_root, pattern, tool)
+        classes.append(status)
+        index.extend(entries)
+    hooks = HookGuidance(
+        execution_location=_HOOK_EXECUTION_LOCATION,
+        entries=[
+            HookGuidanceEntry(
+                hook=hook,
+                host_trigger=trigger,
+                purpose=purpose,
+                script_path=f".claude/hooks/{hook}.py",
+                script_present=(root / ".claude" / "hooks" / f"{hook}.py").is_file(),
+                server_side_equivalent=equivalent,
+            )
+            for hook, trigger, purpose, equivalent in _HOOK_GUIDANCE
+        ],
+    )
+    return AgentContextResult(
+        status="ok",
+        project=_project_identity(ctx, root),
+        guidance_summary=excerpt,
+        guidance_source=source,
+        guidance_truncated=truncated,
+        asset_classes=classes,
+        index=index,
+        hooks=hooks,
+        execution_environment=describe_command_environment(root),
+        capabilities=_capabilities(),
+    )
+
+
+@mcp.tool(name="get_agent_context", tags={"category:qa", "read", AUDIENCE_EXTERNAL_TAG})
+async def get_agent_context() -> AgentContextResult:
+    """Start here: the project's instructions, a docs/skills index, the execution environment, and hook guidance.
+
+    Returns project identity, a bounded excerpt of the project guidance
+    (AGENTS.md), and an index of the provisioned assets that actually exist —
+    project docs/, .scistudio/agent-reference/, the skills trees, the hook
+    scripts — each entry naming the tool that retrieves it (get_doc for docs/,
+    read_file for the rest). Missing asset classes are reported with a
+    diagnostic instead of being invented. Hook guidance states where hooks run
+    and what the server enforces in their place. With no project open it says
+    so and returns no project index.
+    """
+    import asyncio
+
+    ctx = get_context()
+    project_dir = ctx.project_dir
+    if project_dir is None:
+        from scistudio.ai.agent.mcp.tools_execution import describe_command_environment
+
+        return AgentContextResult(
+            status="no_active_project",
+            message=(
+                "No project is open in this SciStudio instance, so there is no project guidance or asset index. "
+                "Ask the user to open or create a project, then call get_agent_context again."
+            ),
+            execution_environment=describe_command_environment(None),
+            capabilities=_capabilities(),
+        )
+    return await asyncio.to_thread(_agent_context_sync, ctx, Path(os.path.realpath(project_dir)))
