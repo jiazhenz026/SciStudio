@@ -293,3 +293,253 @@ itself.
   WebSocket at both mounts, Windows path quirks, the `~` mismatch, dot-segment
   URLs, base-path script safety, and listener timing.
 - Sentrux: N/A, because the MCP server is not available in this session.
+
+## 6. Re-audit (head 07c474836)
+
+- Date: 2026-09-11. Same persona, same no-context rules.
+- The audit branch was fast-forwarded to `origin/feat/2322-enterprise-ui` at
+  `07c474836`. That head already carried this report and its ledger
+  unchanged.
+- Changes were read only as file diffs (`git diff 79cfe2b7d 07c474836 --
+  <paths>`). No commit messages, PR text, issue or checklist were read, and
+  no other audit report either.
+- Surfaces: those in the header, plus `src/scistudio/api/routes/ai.py` where
+  it meets `ai_chat_disabled`.
+
+**Updated recommendation: pass-with-fixes.**
+
+- The P1 is fixed, and probes confirm it.
+- Of the five P2 findings:
+  - three are fixed (P2-1, P2-3, P2-5);
+  - one is fixed at the seam but not in the internal it wraps (P2-2);
+  - one is deferred to #2337 with a tracked TODO (P2-4).
+- Five of the six P3 findings are fixed. The sixth (P3-6) is a generator
+  artifact, not a branch issue.
+- Three new P3 findings are below. None blocks.
+
+Merge readiness still depends on the owner accepting the #2337 deferral, and
+on CI, which this audit did not observe.
+
+### 6.1 Verdicts On The Earlier Findings
+
+| Finding | Verdict | Evidence at `07c474836` |
+|---|---|---|
+| P1-1 bare `/api/ai/pty/internal` reaches an unauthenticated PTY | **Fixed** | See §6.1.1. |
+| P2-1 capability URLs with dot segments | **Fixed** | See §6.1.2. |
+| P2-2 NTFS stream suffix passes the blacklist | **Partially fixed** | See §6.1.3. |
+| P2-3 check and write resolve `rel_path` differently | **Fixed** | See §6.1.4. |
+| P2-4 Bring In My Work writes a brief, then answers 500 | **Not fixed (deferred, tracked)** | See §6.1.5. |
+| P2-5 `started` fires after the whole body arrives | **Fixed (docs aligned)** | See §6.1.6. |
+| P3-1 route-path rule differs on non-ASCII whitespace | **Fixed** | Both sides refuse Unicode `Cc`, `Cf` and `Z*`, and both test suites share one list (BOM, `\u200b`, `\u00ad`, `\u3000`, `\u00a0`, `\u1680`, `\x85`, `\x80`). |
+| P3-2 base-path bootstrap not script-safe | **Fixed** | The base path and the token now use `_script_safe_json` (`spa.py:185-188`). Probe: `</script>` is emitted as `\u003c/script\u003e`. A test was added. |
+| P3-3 undocumented `changed_by` | **Fixed** | Identity-seam FR-026 and the changelog both give `write_project_file(app, rel_path, data, *, changed_by="edition")`. |
+| P3-4 NUL not refused | **Fixed** | NUL and every other `Cc` character answer `invalid_path`. Probe: `a\x00b` and `a\x1fb` are refused. Tests were added. |
+| P3-5 status probes run agent binaries | **Fixed for `/api/ai/status`** | See §6.1.7. |
+| P3-6 regenerated reference gains a blank line | **Unchanged, not a branch issue** | Regenerating adds one trailing line to all 26 pages; the content matches, including the regenerated seam page. Reverted. |
+
+#### 6.1.1 P1-1 — Fixed
+
+Two layers now close it.
+
+- `is_self_authenticating_path` exempts only paths strictly below a prefix
+  (`seam.py:323`).
+- The terminal WebSocket refuses the reserved tab id `internal` in any letter
+  case, with close code 1008, before it accepts (`websocket.py:43`,
+  `_state.py:132`).
+
+Probe: under the fake guard and the default guard, at the root mount and
+under `/user/alice/scistudio`:
+
+- `internal`, `Internal`, `INTERNAL` and `%69nternal` all close with 1008;
+- paths below the prefix reach no WebSocket route (close 1000);
+- HTTP to the bare path meets the guard: 401 from the fake guard, 404 under
+  the default guard;
+- below the prefix, only the two POST routes answer, each with its own IPC
+  401. Everything else is 404 or 405;
+- nothing was spawned in any case.
+
+Docs and tests:
+
+- Identity-seam FR-009, FR-011 and FR-022 and the edge cases are updated, and
+  the changelog records the provisional change.
+- The new tests cover the bare path, the reserved tab id at both mounts under
+  both guards, and bare-path HTTP.
+- New P3 N-3 covers what is left.
+
+#### 6.1.2 P2-1 — Fixed
+
+`_has_dot_segment` (`seam.py:346`) and its frontend mirror `hasDotSegment`
+(`capabilities.ts:97`) refuse `.` and `..` segments. They decode percent
+escapes up to three rounds.
+
+Probe:
+
+- refused: `/api/../../hub/logout`, `/%2e%2e/%2e%2e/hub/logout`,
+  `/%2E%2E/hub`, `/api/.%2e/hub`, `/api/%252e%252e/hub`,
+  `/api/%25252e%25252e/hub`, `/./api/x`, `/api/x/..`, `/api/x;/../y`;
+- accepted: dots in the query or fragment, which browsers do not resolve;
+- accepted: full-width `．．`, which WHATWG URL parsing percent-encodes
+  rather than resolves. This is harmless.
+
+Identity-seam FR-014, Spec 4 FR-003 and the changelog are updated. Both test
+suites carry the same cases.
+
+#### 6.1.3 P2-2 — Partially fixed
+
+At the seam, `_resolve_in_project` (`seam.py:692`) refuses a `:` after the
+drive on Windows, and control characters on every platform, with
+`invalid_path`.
+
+Probe results:
+
+- refused with `invalid_path`: `workflows/new.yaml::$DATA`,
+  `workflows/new.yaml:alt`, an absolute path ending in `::$DATA`, and `C:x`;
+- `\\?\C:\...` is refused as `outside_project`;
+- `\\.\C:\...\notes.md` resolves inside the project and still passes the
+  blacklist check;
+- the short name `WORKFL~1/new.yaml` is refused with
+  `protected_workflow_yaml`.
+
+A Windows-only test was added.
+
+What is left: `_resolve_author_path` in `tools_workspace.py`, the internal
+behind the built-in MCP author tools, gained no logic in this diff, only a
+docstring on the refusal model. The desktop author tools therefore still
+accept `workflows/new.yaml::$DATA` on Windows. This predates the branch and
+the blacklist is a guardrail, not a boundary, so it is a **P3 follow-up**: the
+same check could move into the shared internal.
+
+#### 6.1.4 P2-3 — Fixed
+
+`check_author_path` and `write_project_file` now run one resolver,
+`_resolve_in_project`, which takes `rel_path` literally.
+
+Probe:
+
+- `~/../data/x.csv` is refused with `protected_data_dir`;
+- `~/notes.md` names `<project>/~/notes.md`.
+
+Tests cover the old exploit string through both helpers. Identity-seam FR-025
+and FR-026 and the changelog are updated. The side effect is New P3 N-1.
+
+#### 6.1.5 P2-4 — Not fixed (deferred, tracked)
+
+`POST /api/work-import/sessions` still writes the brief before the refusal
+and answers 500.
+
+The deferral is visible in the repository:
+
+- a `TODO(#2337)` in `Toolbar.tsx:279`, which cites the out-of-scope decision
+  and a follow-up URL;
+- the Spec 4 edge case;
+- the changelog.
+
+Suggestion: the TODO sits beside the dialog entry, not in `work_import.py`,
+which is where the 500 comes from. A pointer there would help whoever picks
+up #2337. The same issue tracks the tutorial replay being hidden under the
+AI Chat surface (`BottomPanel.tsx:76`). That item is disclosed, but it was
+not one of this audit's findings.
+
+#### 6.1.6 P2-5 — Fixed (docs aligned)
+
+The behavior is unchanged, which the earlier probe showed: `started`
+carries the full body size. The docs now describe it:
+
+- identity-seam FR-027;
+- the `add_upload_listener` and `upload_data` docstrings;
+- the `data.ts` comment;
+- the changelog.
+
+Each now says `started` marks the staging copy, not the network transfer, and
+that an upload the client cancels mid-transfer produces no event. The test
+still accepts either `0` or the full size for `started`, which matches the
+docs.
+
+#### 6.1.7 P3-5 — Fixed for `/api/ai/status`
+
+`_status_rows` (`ai.py:122`) skips `_probe_provider` for providers the gate
+refuses, so neither `--version` nor the auth-status command runs. It returns
+`disabled: true` rows. Two tests were added.
+
+Probe, with every probe entry point replaced by a recorder: `/api/ai/status`
+and `/api/ai/availability?refresh=true` together ran nothing (`RAN []`).
+See New P3 N-2.
+
+### 6.2 New Findings
+
+**N-1 (P3) — `write_project_file` now applies the author blacklist, so an
+edition cannot place a file under `data/` through the seam.**
+
+- **What changed:** the P2-3 fix routes the write through the author
+  resolver, and the earlier test that wrote `data/raw/uploaded.csv` now
+  expects `409 protected_data_dir` (`test_seam_project_access.py:350-354`).
+  Probe: `data/raw/transferred.csv` and `workflows/new.yaml` are refused;
+  `results/out.bin` is written.
+- **Where it is documented:** identity-seam FR-026 and the `write_project_file`
+  docstring say so. The changelog says only that it "runs the same resolver as
+  `check_author_path`", and does not name the two refused areas.
+- **What it costs:** `TransferCapability.inline_max_bytes` describes files an
+  edition "moves inline (for example through an MCP tool)". Such a tool can no
+  longer write to `data/raw/` through the seam. Only the staged
+  `POST /api/data/upload` route reaches it.
+
+This is a design choice for the owner. The options are:
+
+- keep it and say so in the changelog;
+- add a separate data-placement helper;
+- let the resolver's blacklist be switched per call.
+
+**N-2 (P3) — Under `ai_chat_disabled`, `/api/ai/availability` tells the user
+to install the disabled CLIs.**
+
+- **Probe:** no binary runs, but every provider is graded `not_installed`,
+  the aggregate state is `not_installed`, and `next_step` reads "Install
+  Claude Code CLI so that `claude` is on your PATH…". The grading drops the
+  `disabled` flag from the status rows.
+- **Who shows it:** `agentAvailability.ts` requests `/api/ai/availability`.
+  The Learning Center's `ProviderIntro.tsx` requests `/api/ai/status`, and a
+  search of the frontend found no reader of the `disabled` field.
+- **Impact:** a lab user can be told to install an agent that the
+  administrator turned off, and installing it changes nothing.
+- **Spec:** Spec 4 FR-006 covers only `/api/ai/status`.
+
+It is misleading guidance, not a boundary problem.
+
+**N-3 (P3) — The P1 fix covers the one known collision, not the class.**
+
+- Nothing checks mechanically that a parameterized route cannot claim a path
+  strictly below a registered prefix. A future
+  `/api/ai/pty/{tab_id}/{action}` route would reopen the same bypass.
+- FR-011 now puts that duty on the registering module.
+- A test or startup check could make it mechanical, by testing every route's
+  path pattern against sample paths under each registered prefix.
+- Today the probe finds only the two IPC-checked POST routes under the
+  prefix.
+
+### 6.3 Checks Run At The Re-audit
+
+- `pytest` with `PYTHONPATH=src` and `--no-cov`: **542 passed, 0 failed**
+  (exit 0). Suites:
+  - `test_identity_seam`, `test_enterprise_capabilities`,
+    `test_seam_project_access`;
+  - `test_public_surface`, `test_webmcp`, `test_root_path`;
+  - `test_ai_active_context`, `test_ai_pty`, `test_ai_pty_audit_fixes`,
+    `test_ai_pty_capability`, `test_ai_pty_engine_spawn`,
+    `test_ai_pty_internal_guard`;
+  - `test_work_import_session`.
+- `npx vitest run` over `src/lib/capabilities.test.ts`,
+  `src/components/Enterprise`, `src/components/BottomPanel.test.tsx` and
+  `src/components/Toolbar`: **203 passed**, in 6 files.
+- `scripts/docs/build_reference.py --generate-only`: only the P3-6 artifact
+  differs. The output was reverted.
+- Throwaway probes outside the repository, not committed:
+  - every variant of the internal prefix, under both guards and at both
+    mounts;
+  - author paths on Windows, including stream suffixes, device paths, short
+    names and `~`;
+  - dot-segment and invisible-character URLs;
+  - base-path script safety;
+  - `write_project_file` against the blacklist;
+  - the status and availability routes under `ai_chat_disabled`, with
+    recorders in place of every binary probe.
+- Sentrux: N/A, because the MCP server is not available in this session.
