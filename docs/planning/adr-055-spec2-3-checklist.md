@@ -36,7 +36,7 @@ language_source: en
   `feat/2280-local-background-runtime` (base `origin/main`)
 - Protected branch: `main`
 - Umbrella branch: `track/adr-055-spec2-3`
-- Umbrella PR: `#pending`
+- Umbrella PR: `#2283`
 - Umbrella PR title: `[DO NOT MERGE] ADR-055 Spec 2-3 dispatch`
 - Final PR target: `main` (manager assigns both spec PRs as final PRs to the
   protected branch; the Spec 2 PR opens only once its base is `main`, so
@@ -103,9 +103,9 @@ language_source: en
 - [x] Gate record started. -> `.workflow/records/2282-track-adr-055-spec2-3.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created. -> `track/adr-055-spec2-3`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. -> #2283 (via `scripts/scistudio_pr_create.py`, pre-flight clean)
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. -> main / #2283
 - [x] No `pip install -e .` environment pollution found. -> gate CLI runs via
       `PYTHONPATH=src`, no editable install
 - [x] Dispatch checklist copied from the template and committed.
@@ -143,8 +143,8 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A1) | Spec 2 agent context, workspace, execution tools | `feat/2279-agent-context-workspace` | `.worktrees/feat-2279-agent-context-workspace` | prompt A1 "Scope" | `frontend/**`, `desktop/**`, `docs/ai-developer/**`, transfer, #2281 | `#2279` | `[ ]` |
-| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A2) | Spec 3 local startup modes and background runtime | `feat/2280-local-background-runtime` | `.worktrees/feat-2280-local-background-runtime` | prompt A2 "Scope" | `frontend/**`, `src/scistudio/**` (except conditional Windows backstop), `docs/ai-developer/**`, #2281 | `#2280` | `[ ]` |
+| `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A1) | Spec 2 agent context, workspace, execution tools | `feat/2279-agent-context-workspace` | `.worktrees/feat-2279-agent-context-workspace` | prompt A1 "Scope" | `frontend/**`, `desktop/**`, `docs/ai-developer/**`, transfer, #2281 | `#2279` | `[~]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A2) | Spec 3 local startup modes and background runtime | `feat/2280-local-background-runtime` | `.worktrees/feat-2280-local-background-runtime` | prompt A2 "Scope" | `frontend/**`, `src/scistudio/**` (except conditional Windows backstop), `docs/ai-developer/**`, #2281 | `#2280` | `[~]` |
 
 ## 7. Track: Spec 2 — Agent Context, Workspace, Execution
 
