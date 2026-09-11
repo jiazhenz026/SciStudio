@@ -40,6 +40,11 @@
       "at": "2026-09-11T15:37:18.515592Z",
       "owner_directive": "Owner explicitly approved increasing the added-file size limit to 30 MB for the offline panel libraries; implement as 30 MiB (30720 KiB), retaining every other hook and setting.",
       "reason": "Owner chose a repository-wide 30 MB added-file threshold instead of the proposed two-file exception."
+    },
+    {
+      "at": "2026-09-11T15:48:42.862504Z",
+      "owner_directive": "Complete Phase A integration and verification, preserve the current sidebar, adapt the ADR-055 identity/prefix seam, and apply the owner-approved 30 MiB file-size limit. Stop and wait for the owner before starting any Phase B, C, or D work. No merge authorization has been granted.",
+      "reason": "Owner explicitly set the stopping boundary before B-D; continue only Phase A."
     }
   ],
   "docs_events": [
