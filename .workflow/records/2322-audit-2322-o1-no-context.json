@@ -1,0 +1,66 @@
+{
+  "base_ref": "origin/feat/2322-enterprise-ui",
+  "branch": "audit/2322-no-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md",
+      ".workflow/records/2322-audit-2322-o1-no-context.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T12:18:49.073992Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2322,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch: no-context audit of the ADR-055 identity seam, edition capabilities, AI PTY gating and seam project-access helpers on feat/2322-enterprise-ui; deliver an audit report only, no implementation edits",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2322-audit-2322-o1-no-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "4e573cf4-bb92-49f9-bdc9-d47a6b2fa12e",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T12:18:49.074019Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only",
+      "verified_in_diff": null
+    }
+  ]
+}
