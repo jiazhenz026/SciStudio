@@ -8,8 +8,9 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, type RefObject, type ReactNode } from "react";
 
+import { usePresentation } from "../lib/presentation";
 import { useAppStore } from "../store";
 import { openDataFileAsPreview } from "../lib/openDataFile";
 import { buildPreviewCacheKey } from "../store/previewSlice";
@@ -65,7 +66,14 @@ export interface CanvasReadabilityWiring {
  * `project`; the union is widened here ahead of the pane so all section
  * surfaces read one union.
  */
-export type LeftTab = "blocks" | "types" | "previewers" | "workflows" | "data" | "project";
+export type LeftTab =
+  | "blocks"
+  | "types"
+  | "previewers"
+  | "workflows"
+  | "data"
+  | "project"
+  | "preview";
 
 /**
  * What the Data section opens with. Module-level so the reference is stable —
@@ -159,7 +167,7 @@ export interface ProjectWorkspaceProps {
   setPanelSize: (key: "palette" | "preview" | "bottom", size: number) => void;
 }
 
-function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
+function PaletteOrProjectPane(props: ProjectWorkspaceProps & { previewPane?: ReactNode }) {
   const {
     leftTab,
     onLeftTabChange,
@@ -195,7 +203,9 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps) {
           catalogue directly, so opening it neither waits for nor
           re-triggers a blocks fetch. #2113 — the Previewers pane reads its
           own catalogue the same way, one tier over. */}
-      {leftTab === "types" ? (
+      {leftTab === "preview" ? (
+        props.previewPane
+      ) : leftTab === "types" ? (
         <TypePalette />
       ) : leftTab === "previewers" ? (
         <PreviewerPalette />
@@ -425,6 +435,7 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
 }
 
 export function ProjectWorkspace(props: ProjectWorkspaceProps) {
+  const isAi = usePresentation() === "ai";
   const {
     tabs,
     activeTabId,
@@ -485,8 +496,175 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         }
       : undefined;
 
+  const previewPane = (
+    <DataPreview
+      blockOutputs={scopedBlockOutputs}
+      subworkflowPorts={subworkflowPorts}
+      selectedNodeId={selectedNodeId}
+      selectedNodeLabel={selectedNodeLabel}
+      // #1326 port-info panel: resolve effective per-instance ports for
+      // the selected node.
+      //
+      // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
+      // user-editable params live under ``node.config.params`` (see
+      // ``mergeNodeConfig``). The canvas-side BlockNode reads
+      // ``paramsOf(node) = node.config.params``; we mirror that here so
+      // both ``resolveVariadicPorts`` (variadic ports stored at
+      // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
+      // (dynamic-port driving key at ``params.core_type``) see the
+      // same config the canvas sees. Reading ``node.config`` directly
+      // was a pre-existing bug that hid newly-added variadic ports
+      // from the panel and froze dynamic-port types at their
+      // schema-static fallback ``DataObject``.
+      selectedInputPorts={
+        selectedNode && selectedSchema
+          ? computeEffectivePorts(
+              selectedSchema.dynamic_ports ?? null,
+              selectedSchema.dynamic_ports?.source_config_key
+                ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
+                    selectedSchema.dynamic_ports.source_config_key
+                  ] as string | undefined)
+                : undefined,
+              resolveVariadicPorts(
+                selectedSchema.input_ports,
+                (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                "input",
+                selectedSchema,
+              ),
+              "input",
+            )
+          : undefined
+      }
+      selectedOutputPorts={
+        selectedNode && selectedSchema
+          ? computeEffectivePorts(
+              selectedSchema.dynamic_ports ?? null,
+              selectedSchema.dynamic_ports?.source_config_key
+                ? (((selectedNode.config.params as Record<string, unknown> | undefined) ?? {})[
+                    selectedSchema.dynamic_ports.source_config_key
+                  ] as string | undefined)
+                : undefined,
+              resolveVariadicPorts(
+                selectedSchema.output_ports,
+                (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
+                "output",
+                selectedSchema,
+              ),
+              "output",
+            )
+          : undefined
+      }
+      selectedSchema={selectedSchema}
+    />
+  );
+
+  const sidebarPanel = (
+    <ResizablePanel
+      key="sidebar"
+      panelRef={leftPanelRef}
+      // Start collapsed when the persisted store says so, so reopening
+      // the app does not flash an open panel before the effect above
+      // can collapse it.
+      id="workspace-sidebar"
+      defaultSize={paletteCollapsed ? "0%" : isAi ? "28%" : "15%"}
+      minSize={isAi ? "180px" : "10%"}
+      maxSize={isAi ? "50%" : "28%"}
+      collapsible
+      collapsedSize="0%"
+      onResize={(size) => {
+        // Codex P2 on #2106 — dragging the separator below `minSize`
+        // collapses the panel internally without touching the store,
+        // leaving the activity bar's click decision stale. Mirror the
+        // panel's collapsed state back into `paletteCollapsed` (the
+        // reverse direction — store → panel — is the effect above).
+        const collapsed = size.asPercentage <= 0.5;
+        if (collapsed !== useAppStore.getState().paletteCollapsed) {
+          useAppStore.setState({ paletteCollapsed: collapsed });
+        }
+      }}
+    >
+      <PaletteOrProjectPane {...props} previewPane={previewPane} />
+    </ResizablePanel>
+  );
+  const stagePanel = (
+    <ResizablePanel
+      key="stage"
+      id="workspace-stage"
+      defaultSize={isAi ? "72%" : "63%"}
+      minSize="25%"
+    >
+      <div className="flex h-full flex-col">
+        <TabBar
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSwitchTab={switchTab}
+          onCloseTab={closeTab}
+          onNewTab={onNewWorkflowTab}
+        />
+        <ResizablePanelGroup
+          orientation="vertical"
+          className="min-h-0 flex-1"
+          onLayoutChanged={(layout) => {
+            const sizes = Object.values(layout);
+            const bottom = sizes[1];
+            if (bottom !== null && bottom !== undefined && bottom >= 10) {
+              setPanelSize("bottom", bottom);
+            }
+          }}
+        >
+          <ResizablePanel defaultSize="70%" minSize="20%">
+            {/*
+             * ADR-053 FR-089d — the box the tutorial's character stands in.
+             * The main area, not the canvas: a step can be delivered while
+             * a code editor is open over it, and anchoring to the canvas
+             * element left her standing in the corner of the *window*, over
+             * the left panel, when it was not on screen.
+             */}
+            <div className="h-full min-h-0" data-tutorial-target="workspace_stage">
+              <CanvasOrEditor {...props} />
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel
+            panelRef={bottomPanelRef}
+            // collapsedSize is in % of the canvas-column height. 8% on a
+            // typical 800–1000px column ≈ 64–80px, which accommodates the
+            // ~60px tab strip without clipping it. The previous 3%
+            // (~24–30px) cut off the bottom half of the tab buttons.
+            collapsedSize="8%"
+            collapsible
+            // 45% gives Git / Lineage / Logs tabs enough vertical room
+            // for their list + detail content out-of-the-box. 30% (prior
+            // default) made the Git history list unreadable on a 1080p
+            // canvas column.
+            defaultSize="45%"
+            minSize="10%"
+          >
+            <BottomPanel
+              activeTab={activeBottomTab}
+              blockOutputs={scopedBlockOutputs}
+              edges={workflowEdges}
+              logEntries={logEntries}
+              onTabChange={onBottomTabChange}
+              onTogglePin={toggleBottomPanelPinned}
+              onUpdateConfig={(patch) => {
+                if (selectedNodeId) {
+                  onUpdateNodeConfig(selectedNodeId, patch);
+                }
+              }}
+              pinned={bottomPanelPinned}
+              selectedNode={selectedNode}
+              selectedSchema={selectedSchema}
+              unreadLogsCount={unreadLogsCount}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    </ResizablePanel>
+  );
+
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1" data-presentation={isAi ? "ai" : "workbench"}>
       {/* #2090 — the VS Code-style icon rail sits OUTSIDE the resizable
           group: it never resizes and stays visible when the panel is
           collapsed, which is what makes the collapsed state discoverable. */}
@@ -495,9 +673,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         orientation="horizontal"
         className="min-h-0 flex-1"
         onLayoutChanged={(layout) => {
-          const sizes = Object.values(layout);
-          const palette = sizes[0];
-          const preview = sizes[2];
+          const palette = layout["workspace-sidebar"];
+          const preview = layout["workspace-preview"];
           if (palette !== null && palette !== undefined && palette >= 4) {
             setPanelSize("palette", palette);
           }
@@ -512,170 +689,24 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
             the block grid clipped its tiles and the tip card had no room for
             a title. The pane is still `collapsible` to 0%, so the narrow end
             of the range is a real collapse instead of an unusable sliver. */}
-        <ResizablePanel
-          panelRef={leftPanelRef}
-          // Start collapsed when the persisted store says so, so reopening
-          // the app does not flash an open panel before the effect above
-          // can collapse it.
-          defaultSize={paletteCollapsed ? "0%" : "15%"}
-          minSize="10%"
-          maxSize="28%"
-          collapsible
-          collapsedSize="0%"
-          onResize={(size) => {
-            // Codex P2 on #2106 — dragging the separator below `minSize`
-            // collapses the panel internally without touching the store,
-            // leaving the activity bar's click decision stale. Mirror the
-            // panel's collapsed state back into `paletteCollapsed` (the
-            // reverse direction — store → panel — is the effect above).
-            const collapsed = size.asPercentage <= 0.5;
-            if (collapsed !== useAppStore.getState().paletteCollapsed) {
-              useAppStore.setState({ paletteCollapsed: collapsed });
-            }
-          }}
-        >
-          <PaletteOrProjectPane {...props} />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
+        {isAi
+          ? [stagePanel, <ResizableHandle key="sidebar-divider" withHandle />, sidebarPanel]
+          : [sidebarPanel, <ResizableHandle key="sidebar-divider" withHandle />, stagePanel]}
+        {!isAi && <ResizableHandle withHandle />}
 
-        {/* Center: Tab Bar + Canvas + Bottom Panel vertical split */}
-        <ResizablePanel defaultSize="63%">
-          <div className="flex h-full flex-col">
-            <TabBar
-              tabs={tabs}
-              activeTabId={activeTabId}
-              onSwitchTab={switchTab}
-              onCloseTab={closeTab}
-              onNewTab={onNewWorkflowTab}
-            />
-            <ResizablePanelGroup
-              orientation="vertical"
-              className="min-h-0 flex-1"
-              onLayoutChanged={(layout) => {
-                const sizes = Object.values(layout);
-                const bottom = sizes[1];
-                if (bottom !== null && bottom !== undefined && bottom >= 10) {
-                  setPanelSize("bottom", bottom);
-                }
-              }}
-            >
-              <ResizablePanel defaultSize="70%" minSize="20%">
-                {/*
-                 * ADR-053 FR-089d — the box the tutorial's character stands in.
-                 * The main area, not the canvas: a step can be delivered while
-                 * a code editor is open over it, and anchoring to the canvas
-                 * element left her standing in the corner of the *window*, over
-                 * the left panel, when it was not on screen.
-                 */}
-                <div className="h-full min-h-0" data-tutorial-target="workspace_stage">
-                  <CanvasOrEditor {...props} />
-                </div>
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel
-                panelRef={bottomPanelRef}
-                // collapsedSize is in % of the canvas-column height. 8% on a
-                // typical 800–1000px column ≈ 64–80px, which accommodates the
-                // ~60px tab strip without clipping it. The previous 3%
-                // (~24–30px) cut off the bottom half of the tab buttons.
-                collapsedSize="8%"
-                collapsible
-                // 45% gives Git / Lineage / Logs tabs enough vertical room
-                // for their list + detail content out-of-the-box. 30% (prior
-                // default) made the Git history list unreadable on a 1080p
-                // canvas column.
-                defaultSize="45%"
-                minSize="10%"
-              >
-                <BottomPanel
-                  activeTab={activeBottomTab}
-                  blockOutputs={scopedBlockOutputs}
-                  edges={workflowEdges}
-                  logEntries={logEntries}
-                  onTabChange={onBottomTabChange}
-                  onTogglePin={toggleBottomPanelPinned}
-                  onUpdateConfig={(patch) => {
-                    if (selectedNodeId) {
-                      onUpdateNodeConfig(selectedNodeId, patch);
-                    }
-                  }}
-                  pinned={bottomPanelPinned}
-                  selectedNode={selectedNode}
-                  selectedSchema={selectedSchema}
-                  unreadLogsCount={unreadLogsCount}
-                />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-
-        {/* Data Preview — full height right column */}
-        <ResizablePanel
-          defaultSize="22%"
-          minSize="15%"
-          maxSize="42%"
-          collapsible
-          collapsedSize="0%"
-        >
-          <DataPreview
-            blockOutputs={scopedBlockOutputs}
-            subworkflowPorts={subworkflowPorts}
-            selectedNodeId={selectedNodeId}
-            selectedNodeLabel={selectedNodeLabel}
-            // #1326 port-info panel: resolve effective per-instance ports for
-            // the selected node.
-            //
-            // Hotfix 2026-05-23: ``node.config`` is a two-tier envelope where
-            // user-editable params live under ``node.config.params`` (see
-            // ``mergeNodeConfig``). The canvas-side BlockNode reads
-            // ``paramsOf(node) = node.config.params``; we mirror that here so
-            // both ``resolveVariadicPorts`` (variadic ports stored at
-            // ``params.{input,output}_ports``) AND ``computeEffectivePorts``
-            // (dynamic-port driving key at ``params.core_type``) see the
-            // same config the canvas sees. Reading ``node.config`` directly
-            // was a pre-existing bug that hid newly-added variadic ports
-            // from the panel and froze dynamic-port types at their
-            // schema-static fallback ``DataObject``.
-            selectedInputPorts={
-              selectedNode && selectedSchema
-                ? computeEffectivePorts(
-                    selectedSchema.dynamic_ports ?? null,
-                    selectedSchema.dynamic_ports?.source_config_key
-                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
-                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
-                      : undefined,
-                    resolveVariadicPorts(
-                      selectedSchema.input_ports,
-                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
-                      "input",
-                      selectedSchema,
-                    ),
-                    "input",
-                  )
-                : undefined
-            }
-            selectedOutputPorts={
-              selectedNode && selectedSchema
-                ? computeEffectivePorts(
-                    selectedSchema.dynamic_ports ?? null,
-                    selectedSchema.dynamic_ports?.source_config_key
-                      ? (((selectedNode.config.params as Record<string, unknown> | undefined) ??
-                          {})[selectedSchema.dynamic_ports.source_config_key] as string | undefined)
-                      : undefined,
-                    resolveVariadicPorts(
-                      selectedSchema.output_ports,
-                      (selectedNode.config.params as Record<string, unknown> | undefined) ?? {},
-                      "output",
-                      selectedSchema,
-                    ),
-                    "output",
-                  )
-                : undefined
-            }
-            selectedSchema={selectedSchema}
-          />
-        </ResizablePanel>
+        {/* The workbench has a separate preview; AI mode uses the Preview card. */}
+        {!isAi && (
+          <ResizablePanel
+            id="workspace-preview"
+            defaultSize="22%"
+            minSize="15%"
+            maxSize="42%"
+            collapsible
+            collapsedSize="0%"
+          >
+            {previewPane}
+          </ResizablePanel>
+        )}
       </ResizablePanelGroup>
     </div>
   );

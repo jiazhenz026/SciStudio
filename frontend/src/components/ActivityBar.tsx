@@ -11,6 +11,7 @@
 import {
   Database,
   Eye,
+  ScanEye,
   FolderTree,
   Puzzle,
   Shapes,
@@ -18,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { useSidebarSide } from "../lib/presentation";
 import { cn } from "@/lib/utils";
 
 import type { LeftTab } from "../App.parts/ProjectWorkspace";
@@ -56,13 +58,20 @@ export interface ActivityBarProps {
 }
 
 export function ActivityBar({ activeTab, panelOpen, onSelect }: ActivityBarProps) {
+  const isAi = useSidebarSide() === "right";
+  const entries = isAi
+    ? [...ACTIVITY_BAR_ENTRIES, { key: "preview" as const, label: "Preview", icon: ScanEye }]
+    : ACTIVITY_BAR_ENTRIES;
   return (
     <nav
       aria-label="Workspace sections"
-      className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] py-2"
+      className={cn(
+        "flex w-12 shrink-0 flex-col items-center gap-1 border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] py-2",
+        isAi ? "order-last border-l" : "border-r",
+      )}
       data-testid="activity-bar"
     >
-      {ACTIVITY_BAR_ENTRIES.map(({ key, label, icon: Icon }) => {
+      {entries.map(({ key, label, icon: Icon }) => {
         // A collapsed panel shows no active marker at all — same as VS Code.
         const active = panelOpen && activeTab === key;
         return (
@@ -89,12 +98,17 @@ export function ActivityBar({ activeTab, panelOpen, onSelect }: ActivityBarProps
                     is centered in the 48px rail, so -left-1 lands the bar on
                     the rail edge. */}
                 {active ? (
-                  <span className="absolute -left-1 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-ember" />
+                  <span
+                    className={cn(
+                      "absolute top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-full bg-ember",
+                      isAi ? "-right-1" : "-left-1",
+                    )}
+                  />
                 ) : null}
                 <Icon className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">{label}</TooltipContent>
+            <TooltipContent side={isAi ? "left" : "right"}>{label}</TooltipContent>
           </Tooltip>
         );
       })}

@@ -89,7 +89,7 @@ export function FileOperationsGroup({
             data-tutorial-target="new_menu_button"
           >
             <FilePlus2 className="size-3.5" />
-            <span className="hidden xl:inline">New</span>
+            <span className="toolbar-primary-label hidden xl:inline">New</span>
             <ChevronDown className="size-3" />
           </Button>
         </DropdownMenuTrigger>

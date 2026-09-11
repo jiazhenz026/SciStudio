@@ -7,6 +7,9 @@ import { usePackageUpdates } from "../hooks/usePackageUpdates";
 import { useAppStore } from "../store";
 import { shouldShowUnfinishedTutorialDot } from "../store/learningCenterSlice";
 import type { ProjectResponse } from "../types/api";
+import { isDesktopShell, usePresentation } from "../lib/presentation";
+import "./Toolbar.parts/presentation.css";
+import { PresentationToggle } from "./PresentationToggle";
 import { BringInMyWorkDialog } from "./BringInMyWorkDialog";
 import { ENTRY_LABEL, NO_PROJECT_MESSAGE } from "./BringInMyWorkDialog.parts/copy";
 import { LEARNING_CENTER_ENTRY_LABEL } from "./LearningCenter";
@@ -73,6 +76,7 @@ interface ToolbarProps {
 }
 
 export function Toolbar(props: ToolbarProps) {
+  const presentation = usePresentation();
   // ADR-036 §3.7 — kind-swap. When the active tab is a file (Monaco editor),
   // workflow-only buttons hide. v1: Find / Format / Goto-line are reached
   // via Monaco's built-in keybindings (Ctrl+F, Shift+Alt+F).
@@ -160,163 +164,172 @@ export function Toolbar(props: ToolbarProps) {
         // defensive fallback.
         className="flex min-w-0 items-center gap-2 overflow-hidden border-b border-stone-200 bg-white/85 px-3 py-3 backdrop-blur xl:gap-3 xl:px-5"
       >
-        <ProjectHeader
-          currentProject={currentProject}
-          workflowName={workflowName}
-          workflowDirty={workflowDirty}
-        />
-
-        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
-
-        <ProjectsDropdown
-          currentProject={currentProject}
-          recentProjects={recentProjects}
-          onNewProject={onNewProject}
-          onOpenProject={onOpenProject}
-          onSave={onSave}
-          onOpenRecent={onOpenRecent}
-          onCloseProject={onCloseProject}
-        />
-
-        <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
-
-        <FileOperationsGroup
-          currentProject={currentProject}
-          isFileTab={isFileTab}
-          onNewWorkflow={onNewWorkflow}
-          onNewCustomBlock={onNewCustomBlock}
-          onNewDataType={onNewDataType}
-          onNewNote={onNewNote}
-          onNewPlot={onNewPlot}
-          onInstallPackage={() => setPackageManagerOpen(true)}
-          onImport={onImport}
-          onSave={onSave}
-          onSaveAs={onSaveAs}
-        />
-
-        {!isFileTab && (
-          <WorkflowGroups
+        <div
+          className="toolbar-scroll flex min-w-0 flex-1 items-center gap-2 overflow-x-auto xl:gap-3"
+          data-presentation={presentation}
+        >
+          <ProjectHeader
             currentProject={currentProject}
-            workflowId={workflowId}
-            selectedNodeId={selectedNodeId}
-            isRunning={isRunning}
-            onRun={onRun}
-            onPause={onPause}
-            onStop={onStop}
-            onReset={onReset}
-            onDelete={onDelete}
-            onReloadBlocks={onReloadBlocks}
-            onAddAnnotation={onAddAnnotation}
-            onViewSource={onViewSource}
+            workflowName={workflowName}
+            workflowDirty={workflowDirty}
           />
-        )}
 
-        {/* Spacer */}
-        <div className="flex-1" />
+          <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
 
-        {/* #1784 — Packages: opens the in-app Package Manager. Badge marks
+          <ProjectsDropdown
+            currentProject={currentProject}
+            recentProjects={recentProjects}
+            onNewProject={onNewProject}
+            onOpenProject={onOpenProject}
+            onSave={onSave}
+            onOpenRecent={onOpenRecent}
+            onCloseProject={onCloseProject}
+          />
+
+          <Separator orientation="vertical" className="mx-0 h-8 xl:mx-1" />
+
+          <FileOperationsGroup
+            currentProject={currentProject}
+            isFileTab={isFileTab}
+            onNewWorkflow={onNewWorkflow}
+            onNewCustomBlock={onNewCustomBlock}
+            onNewDataType={onNewDataType}
+            onNewNote={onNewNote}
+            onNewPlot={onNewPlot}
+            onInstallPackage={() => setPackageManagerOpen(true)}
+            onImport={onImport}
+            onSave={onSave}
+            onSaveAs={onSaveAs}
+          />
+
+          {!isFileTab && (
+            <WorkflowGroups
+              currentProject={currentProject}
+              workflowId={workflowId}
+              selectedNodeId={selectedNodeId}
+              isRunning={isRunning}
+              onRun={onRun}
+              onPause={onPause}
+              onStop={onStop}
+              onReset={onReset}
+              onDelete={onDelete}
+              onReloadBlocks={onReloadBlocks}
+              onAddAnnotation={onAddAnnotation}
+              onViewSource={onViewSource}
+            />
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* #1784 — Packages: opens the in-app Package Manager. Badge marks
             available OTA updates found by the startup check. */}
-        <div className="flex shrink-0 items-center gap-2">
-          {/*
-           * ADR-053 FR-082 — the Learning Center's permanent entry.
-           *
-           * FR-086 — the dot marks unfinished core work. It appears only once
-           * the user has dismissed the first-run landing (pointing someone back
-           * at the panel they are looking at says nothing), clears on its own
-           * when the core group completes, and has no "dismiss forever": an
-           * unfinished tutorial hidden permanently would be indistinguishable
-           * from a finished one. Package groups never raise it (FR-080).
-           */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                aria-label={LEARNING_CENTER_ENTRY_LABEL}
-                className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
-                data-testid="toolbar-learning-center"
-                onClick={openLearningCenter}
-                type="button"
-              >
-                <GraduationCap className="size-4" />
-                <span className="hidden 2xl:inline">{LEARNING_CENTER_ENTRY_LABEL}</span>
-                {unfinishedTutorials ? (
-                  <span
-                    aria-label="Unfinished tutorials"
-                    className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-ember"
-                    data-testid="toolbar-learning-center-dot"
-                  />
-                ) : null}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {unfinishedTutorials
-                ? `${LEARNING_CENTER_ENTRY_LABEL} — you have tutorials left to finish`
-                : LEARNING_CENTER_ENTRY_LABEL}
-            </TooltipContent>
-          </Tooltip>
-          {/*
-           * ADR-053 spec 2 (#2001) / FR-001 — "Bring in my work" is a
-           * PERMANENT toolbar entry. It is not gated on Learning Center
-           * progress, project count, or elapsed time: ADR-053 §4.2's threshold
-           * governs when the product VOLUNTEERS this capability, never whether
-           * it can be reached. It is also rendered for both tab kinds, since a
-           * user editing a file has the same existing analysis to carry across
-           * as one looking at a canvas.
-           *
-           * FR-002 — enabled when a project is open, disabled otherwise,
-           * because a session writes its blocks into a project.
-           */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                aria-label={ENTRY_LABEL}
-                className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 disabled:hover:bg-transparent"
-                data-testid="toolbar-bring-in-my-work"
-                /* ADR-053 FR-011 (#2061) — the `bring_in_my_work_button`
-                 * highlight target: the work-import level ends by pointing
-                 * at the permanent entry the reader will use with their own
-                 * data. */
-                data-tutorial-target="bring_in_my_work_button"
-                disabled={!currentProject}
-                onClick={() => setBringInMyWorkOpen(true)}
-                type="button"
-              >
-                <FolderInput className="size-4" />
-                <span className="hidden 2xl:inline">{ENTRY_LABEL}</span>
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {currentProject
-                ? `${ENTRY_LABEL} — carry an analysis you already have into SciStudio`
-                : `${ENTRY_LABEL} — ${NO_PROJECT_MESSAGE}`}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                aria-label="Packages"
-                className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
-                onClick={() => setPackageManagerOpen(true)}
-                type="button"
-              >
-                <Package className="size-4" />
-                <span className="hidden xl:inline">Packages</span>
-                {updateCount > 0 ? (
-                  <span
-                    aria-label={`${updateCount} package update${updateCount === 1 ? "" : "s"} available`}
-                    className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pine px-1 text-[10px] font-semibold text-white"
-                  >
-                    {updateCount}
+          <div className="flex shrink-0 items-center gap-2">
+            {/*
+             * ADR-053 FR-082 — the Learning Center's permanent entry.
+             *
+             * FR-086 — the dot marks unfinished core work. It appears only once
+             * the user has dismissed the first-run landing (pointing someone back
+             * at the panel they are looking at says nothing), clears on its own
+             * when the core group completes, and has no "dismiss forever": an
+             * unfinished tutorial hidden permanently would be indistinguishable
+             * from a finished one. Package groups never raise it (FR-080).
+             */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={LEARNING_CENTER_ENTRY_LABEL}
+                  className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                  data-testid="toolbar-learning-center"
+                  onClick={openLearningCenter}
+                  type="button"
+                >
+                  <GraduationCap className="size-4" />
+                  <span className="toolbar-secondary-label hidden 2xl:inline">
+                    {LEARNING_CENTER_ENTRY_LABEL}
                   </span>
-                ) : null}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {updateCount > 0
-                ? `Packages — ${updateCount} update${updateCount === 1 ? "" : "s"} available`
-                : "Packages"}
-            </TooltipContent>
-          </Tooltip>
+                  {unfinishedTutorials ? (
+                    <span
+                      aria-label="Unfinished tutorials"
+                      className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-ember"
+                      data-testid="toolbar-learning-center-dot"
+                    />
+                  ) : null}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {unfinishedTutorials
+                  ? `${LEARNING_CENTER_ENTRY_LABEL} — you have tutorials left to finish`
+                  : LEARNING_CENTER_ENTRY_LABEL}
+              </TooltipContent>
+            </Tooltip>
+            {/*
+             * ADR-053 spec 2 (#2001) / FR-001 — "Bring in my work" is a
+             * PERMANENT toolbar entry. It is not gated on Learning Center
+             * progress, project count, or elapsed time: ADR-053 §4.2's threshold
+             * governs when the product VOLUNTEERS this capability, never whether
+             * it can be reached. It is also rendered for both tab kinds, since a
+             * user editing a file has the same existing analysis to carry across
+             * as one looking at a canvas.
+             *
+             * FR-002 — enabled when a project is open, disabled otherwise,
+             * because a session writes its blocks into a project.
+             */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label={ENTRY_LABEL}
+                  className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50 disabled:hover:bg-transparent"
+                  data-testid="toolbar-bring-in-my-work"
+                  /* ADR-053 FR-011 (#2061) — the `bring_in_my_work_button`
+                   * highlight target: the work-import level ends by pointing
+                   * at the permanent entry the reader will use with their own
+                   * data. */
+                  data-tutorial-target="bring_in_my_work_button"
+                  disabled={!currentProject}
+                  onClick={() => setBringInMyWorkOpen(true)}
+                  type="button"
+                >
+                  <FolderInput className="size-4" />
+                  <span className="toolbar-secondary-label hidden 2xl:inline">{ENTRY_LABEL}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {currentProject
+                  ? `${ENTRY_LABEL} — carry an analysis you already have into SciStudio`
+                  : `${ENTRY_LABEL} — ${NO_PROJECT_MESSAGE}`}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Packages"
+                  className="relative inline-flex items-center gap-2 rounded-full border border-stone-300 px-3 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100"
+                  onClick={() => setPackageManagerOpen(true)}
+                  type="button"
+                >
+                  <Package className="size-4" />
+                  <span className="toolbar-primary-label hidden xl:inline">Packages</span>
+                  {updateCount > 0 ? (
+                    <span
+                      aria-label={`${updateCount} package update${updateCount === 1 ? "" : "s"} available`}
+                      className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-pine px-1 text-[10px] font-semibold text-white"
+                    >
+                      {updateCount}
+                    </span>
+                  ) : null}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {updateCount > 0
+                  ? `Packages — ${updateCount} update${updateCount === 1 ? "" : "s"} available`
+                  : "Packages"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
+        {!isDesktopShell() && <Separator orientation="vertical" className="h-7" />}
+        <PresentationToggle />
       </header>
       <PackageManagerDialog
         onClose={() => setPackageManagerOpen(false)}

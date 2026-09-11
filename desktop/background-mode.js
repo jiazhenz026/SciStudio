@@ -375,7 +375,7 @@ function connectionAddress(readyUrl) {
     if (!parsed.port) {
       return null;
     }
-    return `${parsed.protocol}//${parsed.hostname}:${parsed.port}`;
+    return `${parsed.protocol}//${parsed.hostname}:${parsed.port}/?ui=ai`;
   } catch {
     return null;
   }
