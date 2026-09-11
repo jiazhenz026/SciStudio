@@ -159,15 +159,17 @@ the same suite against its real guard.
 ### User Story 3 - A lab user sees who they are signed in as and can log out (Priority: P3)
 
 On an enterprise backend the frontend shows the signed-in user's name and a
-Logout action that goes to the logout address the backend supplies.
+Logout action. Logout calls the backend's own logout endpoint, which ends the
+SciStudio session first, and then follows the address that endpoint returns.
 
 **Why this priority**: A shared server needs visible identity. Without it a
 user cannot tell which account a shared browser is using, or leave it.
 
 **Independent Test**: Boot the SPA with an `identity` capability carrying a
-user name and a logout URL, assert both render and that Logout navigates to
-the URL, which must resolve under the service prefix. Boot without the
-capability and assert nothing renders.
+user name and a logout URL, and assert both render. Assert that Logout sends a
+same-origin `POST` to the URL, which must resolve under the service prefix,
+and then navigates to the location it returns. Boot without the capability
+and assert nothing renders.
 
 **Acceptance Scenarios**:
 
@@ -360,9 +362,15 @@ prefixed, guarded backend, and are refused after the context closes.
   at least `identity`, `transfer`, `ai_chat` and `update` (Key Entities). The
   frontend MUST ignore unknown capabilities and treat a missing capability as
   off.
-- **FR-004**: When `identity` is present, the frontend MUST show the user name
-  and, if `logout_url` is given, a Logout action navigating to that URL. The
-  open-source edition MUST NOT add login screens or account management.
+- **FR-004**: When `identity` is present, the frontend MUST show the user name.
+  If `logout_url` is given, it MUST also show a Logout action.
+  - Logout sends a same-origin `POST` to `logout_url` and then navigates to
+    the location in the response.
+  - `logout_url` names the backend's own logout endpoint, which ends the
+    backend session before any identity-provider logout. A plain GET
+    navigation would let other sites force a logout.
+
+  The open-source edition MUST NOT add login screens or account management.
 - **FR-005**: When `transfer` is present, the frontend MUST offer a
   user-picked upload into the project through the existing
   `POST /api/data/upload` staged upload, with progress and cancel. It MUST
