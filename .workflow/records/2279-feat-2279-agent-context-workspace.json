@@ -2061,6 +2061,137 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.552298Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.564056Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/runners/platform.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/runners/platform.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/runners/process_handle.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/runners/process_handle.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.575537Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.586791Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.598015Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.609699Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.621735Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.632900Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.644301Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.655250Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:55:41.691328Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2073,8 +2204,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/feat/2271-webmcp-bridge",
-    "base_sha": "d7c3fab31",
+    "base": "origin/main",
+    "base_sha": "c7b60f577",
     "changed_files": [
       ".workflow/records/2279-audit-2279-spec2-with-context.json",
       ".workflow/records/2279-feat-2279-agent-context-workspace.json",
@@ -2107,9 +2238,9 @@
       "tests/api/test_projects.py",
       "tests/contracts/test_runtime_import_contract.py"
     ],
-    "diff_fingerprint": "sha256:bf014efd9406fb26f8025d03ae6951e5d8b407b140fa2ebc17e42607ac083cad",
+    "diff_fingerprint": "sha256:cc2723ab671f6709be9171b01116dea1c26b93bf13b0767593027ebd5fd8fbf6",
     "head": "HEAD",
-    "head_sha": "e23c75150",
+    "head_sha": "f616075ed",
     "surfaces": {
       "docs": 4,
       "frontend": 0,
@@ -2256,6 +2387,14 @@
     {
       "at": "2026-09-11T07:50:32.959479Z",
       "diff_fingerprint": "sha256:bf014efd9406fb26f8025d03ae6951e5d8b407b140fa2ebc17e42607ac083cad",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T07:55:41.691359Z",
+      "diff_fingerprint": "sha256:cc2723ab671f6709be9171b01116dea1c26b93bf13b0767593027ebd5fd8fbf6",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
