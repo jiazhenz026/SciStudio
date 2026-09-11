@@ -1254,6 +1254,11 @@
       "at": "2026-09-06T09:44:57.047386Z",
       "owner_directive": "Plan per spec section 4.3: T-001 shared adapter + router + mount; T-002 audience tag filtering; T-003 loopback session middleware + SPA token injection; T-004 project binding stale rejection; T-005 frontend registration module + matrix test; T-006 bounded logging + prefix sweep. SpecKit N/A (spec+ADR already exist: ADR-055, docs/specs/adr-055-webmcp-bridge.md). ADR N/A (ADR-055 sections 4/9.2 already govern). Sentrux MCP unavailable in this runtime (recorded per dispatch).",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T05:15:02.869947Z",
+      "owner_directive": "Owner decision 2026-09-11 (ADR-055 Spec 2 no-context audit P3-2): external-audience tools (AUDIENCE_EXTERNAL_TAG) must not be callable over the local socket MCP transport, not only hidden from its tools/list; socket tools/call rejects them with the unknown-tool error shape; the WebMCP bridge path (mcp.call_tool) is unaffected; land on PR #2275 before merge.",
+      "reason": "owner decision 2026-09-11: local socket rejects external-audience tools by name"
     }
   ],
   "docs_events": [
@@ -1286,6 +1291,14 @@
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-09-06-adr-055-spec1-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T05:15:02.869971Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-webmcp-bridge.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -2699,6 +2712,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.180733Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.192309Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.204181Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.216447Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.228105Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.239193Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.251571Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.262947Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.275295Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.286660Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:16:56.309200Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2735,9 +2836,9 @@
       "tests/api/test_root_path.py",
       "tests/api/test_webmcp.py"
     ],
-    "diff_fingerprint": "sha256:4fa93112b6154c4a4568bfbf6d169486f50dcd88976a7587a17b97832c6596f6",
+    "diff_fingerprint": "sha256:2ed6e8cf5016d27a8fb2cec308315a13e47afdb833adfd16394a499a9e4eadcf",
     "head": "HEAD",
-    "head_sha": "37121ad7c",
+    "head_sha": "e817f9b82",
     "surfaces": {
       "docs": 3,
       "frontend": 5,
@@ -2926,6 +3027,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:16:56.309229Z",
+      "diff_fingerprint": "sha256:2ed6e8cf5016d27a8fb2cec308315a13e47afdb833adfd16394a499a9e4eadcf",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2271-feat-2271-webmcp-bridge",
@@ -3002,6 +3111,12 @@
       "at": "2026-09-06T23:01:16.523180Z",
       "pattern": "tests/ai/test_system_prompt.py",
       "reason": "Codex P1+P2+CodeQL review fixes on PR #2275: P1 wires registration refresh to project changes (frontend store subscription in register.ts, in-scope files only); P2 applies the audience filter to the local-agent prompt catalogue (system_prompt.py, outside original write set); CodeQL bounds the bridge exception mapping. No deferrals (owner directive)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T05:15:02.869963Z",
+      "pattern": "docs/specs/adr-055-webmcp-bridge.md",
+      "reason": "owner decision 2026-09-11: local socket rejects external-audience tools by name"
     }
   ],
   "session_id": "0280f773-8d0b-4cf2-bd60-064aa5c33dc8",
@@ -3045,6 +3160,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/ai/test_system_prompt.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T05:15:02.869974Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
       "rationale": null,
       "verified_in_diff": null
     }
