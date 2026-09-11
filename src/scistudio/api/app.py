@@ -46,6 +46,7 @@ from scistudio.api.routes import (
 from scistudio.api.routes import (
     git as git_routes,
 )
+from scistudio.api.routes import panels as panel_routes
 from scistudio.api.routes import webmcp as webmcp_routes
 from scistudio.api.routes import workflow_watcher as workflow_watcher_module
 from scistudio.api.runtime import ApiRuntime
@@ -217,6 +218,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     hooks: tuple[LifespanHook, ...] = tuple(getattr(app.state, "lifespan_hooks", ()))
     try:
         async with AsyncExitStack() as hook_stack:
+            await hook_stack.enter_async_context(panel_routes.panels_lifespan(app))
             for hook in hooks:
                 await hook_stack.enter_async_context(hook(app))
             yield
@@ -502,6 +504,7 @@ def create_app(
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
     app.include_router(data.previews_router)
+    panel_routes.install_panels(app)
     # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
     # plot job and registers the produced artifact so the frontend can open a
     # routed plot_artifact preview session (producer -> PlotPreviewer link).

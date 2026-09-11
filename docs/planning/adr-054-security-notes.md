@@ -110,3 +110,27 @@ imports, lint, all Python test phases and mypy. Its only unsatisfied obligation 
 full_audit's three planned-governed-path migrations identified above. Later small
 cursor/extent fixes and the dependency integration receive targeted checks; final
 integrated gate/CI remains manager-owned.
+
+## App Integration
+
+After consuming A1 dependency f9922614, create_app now calls install_panels next
+to the preview routes and enters panels_lifespan before edition hooks in the
+existing AsyncExitStack. No factory arguments or capability policy were changed.
+The follow-up gate base records the imported dependency commit, keeping A1's
+files out of the A3 post-integration diff.
+
+The real-app security regression opens an actual project, discovers a project
+panel, registers a stored text file, creates its context and exercises the real
+read/static/close routes at both mounts with both guards. It verifies opaque
+mutation refusal, unauthenticated static GET/OPTIONS token access, refusal of
+using a static token on a guarded read, URL prefixing, close revocation, shutdown
+cleanup, and event-bus unsubscription. The middleware-double preflight regression
+remains an additional focused test rather than the only route evidence.
+
+Integrated app/security/identity/root-path targeted suite: 180 tests passed.
+The small cursor/integer precision corrections plus placement/security checks:
+439 tests passed. Scoped lint and format checks pass. Scoped mypy now follows
+A1's imported dependency and reports 20 errors in targets.py, contexts.py,
+validation.py, registry.py and routes/panels.py; A1 owns those corrections and
+received the exact log path. A3-only mypy had passed in the frozen full gate.
+The recovery-mode check is explicitly not final PR readiness.

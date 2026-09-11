@@ -135,3 +135,91 @@ def test_token_preflight_reaches_authentication_not_global_cors(prefix: str) -> 
     assert response.status_code == 401
     assert "access-control-allow-origin" not in response.headers
     assert client.options(prefix + "/api/panels/tx/valid-token/file.js", headers=headers).status_code == 400
+
+
+@pytest.mark.parametrize("prefix", ["", "/user/alice/scistudio"])
+@pytest.mark.parametrize("replacement", [False, True])
+def test_real_mounted_panel_routes_and_lifecycle(
+    tmp_path, monkeypatch: pytest.MonkeyPatch, prefix: str, replacement: bool
+) -> None:
+    import asyncio
+    import json
+    from pathlib import Path
+
+    from scistudio.core.dropins import panel_scan_dirs
+    from scistudio.engine.events import EngineEvent
+
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", prefix)
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr("scistudio.api.runtime.Path.home", classmethod(lambda cls: home))
+    factory = RecordingFakeGuardFactory()
+    app = create_app(guard=factory if replacement else None)
+    with TestClient(app) as client:
+        if replacement:
+            authenticate_fake_session(client)
+        created = client.post(prefix + "/api/projects/", json={"name": "Panel security", "path": str(tmp_path)})
+        assert created.status_code == 200, created.text
+        project = Path(created.json()["path"])
+        directory = panel_scan_dirs(project)[0] / "lab.security"
+        directory.mkdir(parents=True)
+        (directory / "panel.json").write_text(
+            json.dumps(
+                {
+                    "id": "lab.security",
+                    "api_version": "1.0",
+                    "contexts": ["preview"],
+                    "types": ["Text"],
+                }
+            )
+        )
+        (directory / "index.html").write_text("<!doctype html><p>Scientific text</p>")
+        (project / "data" / "security.txt").write_text("real authorized data")
+        app.state.runtime.refresh_preview_service()
+        registered = client.post(prefix + "/api/data/register-path", json={"path": "data/security.txt"})
+        assert registered.status_code == 200, registered.text
+        ref = registered.json()["ref"]
+        payload = {"kind": "preview", "panel_id": "lab.security", "target": {"kind": "data_ref", "ref": ref}}
+        response = client.post(prefix + "/api/panels/contexts", json=payload)
+        assert response.status_code == 200, response.text
+        context = response.json()
+        assert context["entry_url"].startswith(prefix + "/api/panels/t/")
+        assert context["entry_url"].count(prefix) == 1 if prefix else True
+        read_url = prefix + "/api/panels/contexts/" + context["context_id"] + "/read"
+        body = {"ref": ref, "op": "text.chunk", "params": {}}
+        assert client.post(read_url, json=body).status_code == 200
+        assert client.post(read_url, json=body, headers={"Origin": "null"}).status_code == 403
+        client.cookies.clear()
+        preflight = client.options(
+            context["entry_url"],
+            headers={
+                "Origin": "null",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+        assert preflight.status_code == 204, preflight.text
+        assert preflight.headers["access-control-allow-origin"] == "*"
+        asset = client.get(context["entry_url"], headers={"Origin": "null"})
+        assert asset.status_code == 200
+        assert "Scientific text" in asset.text
+        assert asset.headers["referrer-policy"] == "no-referrer"
+        assert "access-control-allow-credentials" not in asset.headers
+        if replacement:
+            assert (
+                client.post(read_url, json=body, headers={"Authorization": "Bearer " + context["token"]}).status_code
+                == 401
+            )
+            assert client.get(prefix + "/api/panels/catalog").status_code == 401
+            assert client.get(prefix + "/api/panels/tx/" + context["token"]).status_code == 401
+            authenticate_fake_session(client)
+        assert client.delete(prefix + "/api/panels/contexts/" + context["context_id"]).status_code == 204
+        assert client.get(context["entry_url"]).status_code in (403, 404)
+        # Keep a real context alive until lifespan exits, then prove revocation
+        # and that an emitted prompt cannot repopulate an unsubscribed store.
+        assert client.post(prefix + "/api/panels/contexts", json=payload).status_code == 200
+        store = app.state.runtime._panel_contexts
+        bus = app.state.runtime.event_bus
+        assert store.contexts
+    assert not store.contexts and not store.prompts
+    asyncio.run(bus.emit(EngineEvent(event_type="interactive_prompt", block_id="b", data={"workflow_id": "w"})))
+    assert not store.prompts

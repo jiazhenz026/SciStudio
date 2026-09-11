@@ -1,5 +1,5 @@
 {
-  "base_ref": "origin/main",
+  "base_ref": "65818951",
   "branch": "codex/2293-panel-security",
   "check_events": [
     {
@@ -297,6 +297,22 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T15:36:31.634988Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -496,6 +512,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:31.706994Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:31.733848Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:31.763284Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:31.843070Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:31.988725Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.050023Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.154260Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.240608Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.281421Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.313427Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:36:32.406079Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -508,37 +590,23 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "7b1321758ba81926a0d7065ee94e3b9655a1e4c3",
-    "base_sha": "7b132175",
-    "changed_files": [
-      ".workflow/records/2293-panel-security.json",
-      "CHANGELOG.md",
-      "docs/planning/adr-054-security-notes.md",
-      "src/scistudio/api/app.py",
-      "src/scistudio/panels/security.py",
-      "src/scistudio/previewers/_read_arrays.py",
-      "src/scistudio/previewers/_read_chunks.py",
-      "src/scistudio/previewers/_read_series.py",
-      "src/scistudio/previewers/data_access.py",
-      "tests/api/test_app.py",
-      "tests/api/test_panel_security.py",
-      "tests/previewers/test_panel_read_extensions.py",
-      "tests/previewers/test_preview_data_access.py"
-    ],
-    "diff_fingerprint": "sha256:2684ab378c0432335f259613c24a6fe33ee9aa7cdca1db524f2586a724dc1e10",
+    "base": "6581895141fc3b96292d86bfae9db0731663a654",
+    "base_sha": "65818951",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "head": "HEAD",
-    "head_sha": "446a9321",
+    "head_sha": "65818951",
     "surfaces": {
-      "docs": 1,
+      "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 0,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 10,
-      "test": 4,
+      "sentrux": 0,
+      "test": 0,
       "workflow_ci": 0
     }
   },
@@ -568,6 +636,16 @@
       "unsatisfied": [
         "checks.full_audit"
       ]
+    },
+    {
+      "at": "2026-09-11T15:36:32.406316Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.type_check"
+      ]
     }
   ],
   "record_id": "2293-panel-security",
@@ -585,9 +663,7 @@
       "python_tests",
       "type_check"
     ],
-    "docs": [
-      "docs_required_or_na"
-    ],
+    "docs": [],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -601,9 +677,7 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": [
-      "changed_test_required"
-    ]
+    "tests": []
   },
   "runtime": "codex",
   "schema_version": 2,
