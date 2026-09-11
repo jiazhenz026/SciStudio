@@ -24,10 +24,13 @@ import math
 import mimetypes
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import internal, provisional
+
+if TYPE_CHECKING:
+    from scistudio.previewers._read_arrays import NumericRead
 
 # Default budgets (Internal, ADR-052 §8.2): runtime budget defaults, not an
 # author contract — providers read the applied budgets through
@@ -165,8 +168,9 @@ class ArrayTile:
 class SeriesPoints:
     """The complete finite set of (x, y) chart points for a Series preview.
 
-    Unlike the bounded readers, this returns every plottable point so a line
-    preview and any point export match the stored data exactly.
+    Legacy calls return every plottable point. Explicit ``max_points`` opts
+    into bounded uniform-index decimation for panel display, with flags and
+    the method recorded so an export cannot mistake a sample for the source.
     """
 
     points: list[dict[str, float]]
@@ -174,9 +178,15 @@ class SeriesPoints:
     total: int
     """Total number of source values considered (including non-numeric ones)."""
     truncated: bool
-    """Always ``False`` — the point set is complete (kept for shape parity)."""
+    """True only when explicit decimation omitted source indices."""
     nonnumeric: int = 0
     """Count of values dropped because they were not finite numbers."""
+    sampled: bool = False
+    """Whether explicit panel decimation omitted source indices."""
+    complete: bool = True
+    """Whether every finite source point was included."""
+    decimation: str = "none"
+    """Applied decimation method; legacy complete reads use none."""
 
 
 @provisional(since="0.3.1")
@@ -212,8 +222,13 @@ class TextChunk:
     total_bytes: int
     """Total size of the source file in bytes."""
     language: str
-    """Language/format hint derived from the file extension (e.g. ``"py"``,
-    ``"txt"``)."""
+    """Language/format hint derived from the file extension."""
+    encoding: str = "utf-8"
+    """Encoding used for the decoded byte window."""
+    offset: int = 0
+    """Inclusive byte offset of this window."""
+    next_offset: int | None = None
+    """Next byte offset, or None at end of file."""
 
 
 @provisional(since="0.3.1")
@@ -258,6 +273,8 @@ class CollectionSample:
     """The sampled item descriptors (at most the item budget)."""
     sampled: bool
     """True when the collection has more items than the sample shows."""
+    next_cursor: str | None = None
+    """Cursor for the next page; None when every item has been reached."""
 
 
 @provisional(since="0.3.1")
@@ -576,48 +593,105 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage format is not a supported array store.
         """
+        result = self.panel_array_tile(
+            ref,
+            slice_index=slice_index,
+            y0=y0,
+            x0=x0,
+            height=height,
+            width=width,
+        )
+        meta = result.metadata
+        return ArrayTile(
+            y0=meta["y0"], x0=meta["x0"], height=meta["height"], width=meta["width"], matrix=result.to_json()["values"]
+        )
+
+    @internal()
+    def panel_array_plane(
+        self,
+        ref: StorageReference,
+        *,
+        slice_index: int = 0,
+        axis_indices: dict[int, int] | None = None,
+    ) -> NumericRead:
+        """Read a bounded dtype-preserving plane for the panel transport."""
+        from scistudio.previewers._read_arrays import read_plane
+
+        return read_plane(self, ref, slice_index, axis_indices)
+
+    @internal()
+    def panel_array_tile(
+        self,
+        ref: StorageReference,
+        *,
+        slice_index: int = 0,
+        axis_indices: dict[int, int] | None = None,
+        y0: int = 0,
+        x0: int = 0,
+        height: int | None = None,
+        width: int | None = None,
+    ) -> NumericRead:
+        """Read a tile directly from storage without materializing its plane."""
+        from scistudio.previewers._read_arrays import read_tile
+
+        return read_tile(
+            self, ref, slice_index=slice_index, axis_indices=axis_indices, y0=y0, x0=x0, height=height, width=width
+        )
+
+    @internal()
+    def panel_series_points(
+        self,
+        ref: StorageReference,
+        metadata: dict[str, Any],
+        *,
+        max_points: int = 4096,
+    ) -> NumericRead:
+        """Return interleaved x/y float64 values with explicit decimation flags."""
+        from dataclasses import asdict
+
         import numpy as np
 
-        handle, full_shape, _dtype = self._open_array_handle(ref)
-        axes = self._axes_from_ref(ref, full_shape)
-        ndim = len(full_shape)
-        if ndim <= 2:
-            y_idx, x_idx = (0, 1) if ndim == 2 else (0, 0)
-        elif axes and "y" in axes and "x" in axes:
-            y_idx, x_idx = axes.index("y"), axes.index("x")
-        else:
-            y_idx, x_idx = ndim - 2, ndim - 1
-        extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
-        slice_axis_idx = extra_dims[0] if extra_dims else None
-        tile_axis_indices = {slice_axis_idx: int(slice_index)} if slice_axis_idx is not None else {}
+        from scistudio.previewers._read_arrays import numeric_read
 
-        plane = self._read_bounded_plane(
-            handle,
-            full_shape=full_shape,
-            y_idx=y_idx,
-            x_idx=x_idx,
-            axis_indices=tile_axis_indices,
-            no_downsample=True,
-        )
-        plane = np.asarray(plane)
-        ph, pw = (int(plane.shape[0]), int(plane.shape[1])) if plane.ndim >= 2 else (int(plane.shape[0]), 1)
-        eff_h = min(self.max_tile, ph - y0 if height is None else min(int(height), self.max_tile, ph - y0))
-        eff_w = min(self.max_tile, pw - x0 if width is None else min(int(width), self.max_tile, pw - x0))
-        eff_h = max(0, eff_h)
-        eff_w = max(0, eff_w)
-        tile = plane[y0 : y0 + eff_h, x0 : x0 + eff_w] if plane.ndim >= 2 else plane[y0 : y0 + eff_h]
-        return ArrayTile(
-            y0=int(y0),
-            x0=int(x0),
-            height=int(eff_h),
-            width=int(eff_w),
-            matrix=np.asarray(tile, dtype=float).tolist(),
+        result = self.series_points(ref, metadata, max_points=max_points)
+        meta = asdict(result)
+        meta.pop("points")
+        values = np.asarray([[p["x"], p["y"]] for p in result.points], dtype="<f8").reshape(-1, 2)
+        return numeric_read(values, {**meta, "columns": ["x", "y"]}, self.max_bytes)
+
+    @internal()
+    def panel_table_xy(
+        self,
+        ref: StorageReference,
+        *,
+        x_column: str | None = None,
+        y_column: str | None = None,
+        max_points: int = 2000,
+    ) -> NumericRead:
+        """Read a bounded x/y table sample without changing legacy exports."""
+        import pyarrow.parquet as pq
+
+        from scistudio.previewers._read_arrays import NumericRead
+
+        path = Path(ref.path)
+        if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
+            raise ValueError("Table x/y preview expects Arrow/Parquet storage; got Zarr/directory storage")
+        columns = list(pq.ParquetFile(path).schema_arrow.names)
+        if len(columns) < 2:
+            raise ValueError("Table x/y preview requires at least two columns")
+        x_name = x_column if x_column in columns else columns[0]
+        y_name = y_column if y_column in columns else columns[1]
+        result = self.panel_series_points(ref, {"index_name": x_name, "value_name": y_name}, max_points=max_points)
+        return NumericRead(
+            result.values, {**result.metadata, "columns": columns, "x_column": x_name, "y_column": y_name}
         )
 
     # -- Series -------------------------------------------------------------
 
     @provisional(since="0.3.1")
-    def series_points(self, ref: StorageReference, metadata: dict[str, Any]) -> SeriesPoints:
+    def series_points(
+        self, ref: StorageReference, metadata: dict[str, Any], *, max_points: int | None = None
+    ) -> SeriesPoints:
         """Return the complete set of chart points for a Series.
 
         Use this to plot a 1-D series. It prefers in-memory values supplied on
@@ -629,6 +703,8 @@ class PreviewDataAccess:
             ref: Storage reference for the Series payload.
             metadata: Recorded Series metadata; may carry ``values``,
                 ``index_name``, and ``value_name``.
+            max_points: Opt-in display cap (at most 16384 and the byte budget).
+                None preserves the complete legacy provider/export behavior.
 
         Returns:
             A :class:`SeriesPoints` with every finite point.
@@ -636,6 +712,20 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage is Zarr/directory storage.
         """
+        if max_points is not None:
+            from scistudio.previewers._read_series import decimate
+
+            if max_points < 1:
+                raise ValueError("max_points must be positive")
+            limit = min(max_points, 16384, self.max_bytes // 16)
+            if limit < 1:
+                raise ValueError("Series byte budget is smaller than one point")
+            return SeriesPoints(
+                **decimate(
+                    ref, metadata, max_points=limit, batch_size=min(self.series_batch_size, 4096, self.max_bytes // 16)
+                )
+            )
+
         path = Path(ref.path)
         if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
             raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")
@@ -707,7 +797,7 @@ class PreviewDataAccess:
         return out if math.isfinite(out) else None
 
     @provisional(since="0.3.1")
-    def text_chunk(self, ref: StorageReference) -> TextChunk:
+    def text_chunk(self, ref: StorageReference, *, offset: int = 0, length: int | None = None) -> TextChunk:
         """Return a bounded chunk of text plus a truncation marker.
 
         Use this to preview a text file. It reads at most ``text_chars`` bytes
@@ -716,21 +806,26 @@ class PreviewDataAccess:
 
         Args:
             ref: Storage reference for the text file.
+            offset: Inclusive byte offset; use the returned next_offset to page.
+            length: Requested byte count, capped at the text and byte budgets.
+                The window carries a partial trailing UTF-8 character forward.
 
         Returns:
             A :class:`TextChunk` with the leading content and a truncation flag.
         """
+        from scistudio.previewers._read_chunks import text_window
+
         path = Path(ref.path)
-        suffix = path.suffix.lower()
-        total_bytes = path.stat().st_size if path.exists() else 0
-        with path.open("rb") as fh:
-            raw = fh.read(self.text_chars)
-        content = raw.decode("utf-8", errors="replace")
+        budget = min(self.text_chars, self.max_bytes, self.text_chars if length is None else length)
+        content, next_offset, total_bytes = text_window(path, offset=offset, length=budget)
         return TextChunk(
             content=content,
-            truncated=total_bytes > self.text_chars,
+            truncated=next_offset is not None,
             total_bytes=total_bytes,
-            language=suffix.lstrip(".") or "text",
+            language=path.suffix.lstrip(".") or "text",
+            encoding="utf-8",
+            offset=offset,
+            next_offset=next_offset,
         )
 
     # -- Artifact -----------------------------------------------------------
@@ -829,6 +924,19 @@ class PreviewDataAccess:
         except Exception:
             return None
 
+    @provisional(since="0.3.5")
+    def artifact_file(self, ref: StorageReference) -> Path:
+        """Resolve an existing artifact for the host's streaming file response.
+
+        The host must authorize the storage reference before calling this and
+        issue a context-bound token URL; this server path is never a panel URL.
+        No inline limit applies, and no payload is loaded into memory.
+        """
+        path = Path(ref.path).resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("Artifact storage must name a regular file")
+        return path
+
     # -- Collection ---------------------------------------------------------
 
     @provisional(since="0.3.1")
@@ -838,6 +946,8 @@ class PreviewDataAccess:
         count: int,
         item_type: str | None,
         items: list[dict[str, Any]],
+        cursor: str | None = None,
+        limit: int | None = None,
     ) -> CollectionSample:
         """Return a bounded sample of a collection's item references.
 
@@ -849,16 +959,28 @@ class PreviewDataAccess:
             item_type: Type name shared by the items, when known.
             items: The already-registered item descriptors (each a
                 ``{data_ref, type_name, ...}`` mapping).
+            cursor: Opaque cursor from a previous page of this inventory.
+            limit: Requested page size, capped at max_items. Pagination requires
+                the full registered inventory; a legacy partial sample stays valid.
 
         Returns:
             A :class:`CollectionSample` holding the bounded sample.
         """
-        bounded = list(items[: self.max_items])
+        from scistudio.previewers._read_chunks import collection_offset, next_collection_cursor
+
+        if (cursor is not None or limit is not None) and (count < 0 or len(items) != count):
+            raise ValueError("Paginated collection count must match the registered item inventory")
+        if limit is not None and limit < 1:
+            raise ValueError("Collection limit must be positive")
+        offset = collection_offset(cursor, count)
+        budget = self.max_items if limit is None else min(limit, self.max_items)
+        bounded = list(items[offset : offset + budget])
         return CollectionSample(
             count=int(count),
             item_type=item_type,
             items=bounded,
             sampled=count > len(bounded),
+            next_cursor=next_collection_cursor(offset + len(bounded), len(items)),
         )
 
     # -- PNG helper (Internal, legacy-compat) -------------------------------

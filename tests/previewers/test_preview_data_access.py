@@ -401,7 +401,7 @@ def test_array_tile_bounds_dimensions(monkeypatch: pytest.MonkeyPatch, tmp_path:
         dtype = "float32"
 
         def __getitem__(self, key: object) -> np.ndarray:
-            return np.arange(1024 * 1024, dtype=np.float32).reshape(1024, 1024)
+            return np.arange(1024 * 1024, dtype=np.float32).reshape(1024, 1024)[key]
 
     fake_zarr = types.ModuleType("zarr")
     fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]

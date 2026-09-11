@@ -20,7 +20,6 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -55,6 +54,7 @@ from scistudio.api.spa import SPAStaticFiles
 from scistudio.api.sse import sse_handler
 from scistudio.api.ws import websocket_handler
 from scistudio.engine.runners.process_handle import ProcessRegistry
+from scistudio.panels.security import PanelCORSMiddleware, RefuseOpaqueOriginMiddleware, validate_cors_origins
 from scistudio.stability import provisional
 
 __all__ = ["create_app"]
@@ -438,10 +438,8 @@ def create_app(
     # URL) reads the normalized prefix from. Never re-parse the env var.
     app.state.root_path = root_path
     cors_origins_raw = os.getenv("SCISTUDIO_CORS_ORIGINS", "").strip()
-    if cors_origins_raw == "*":
-        origins: list[str] = ["*"]
-    elif cors_origins_raw:
-        origins = [o.strip() for o in cors_origins_raw.split(",")]
+    if cors_origins_raw:
+        origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
     else:
         origins = [
             "http://localhost:5173",
@@ -449,6 +447,7 @@ def create_app(
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8000",
         ]
+    validate_cors_origins(origins)
     # ADR-055 Spec 1 (FR-006) + identity seam (decision 2a): exactly one
     # guard sits here. By default it is the WebMCP bridge's loopback token
     # middleware scoped to /api/webmcp/*, as before; the per-launch token is
@@ -468,12 +467,16 @@ def create_app(
     app.state.capabilities = capabilities
     app.add_middleware(GuardDispatchMiddleware, guard=guard, root_path=root_path)
     app.add_middleware(
-        CORSMiddleware,
+        PanelCORSMiddleware,
         allow_origins=origins,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # ADR-054 FR-030: apply to every route, including edition routers and
+    # self-authenticating token paths, outside CORS and the identity guard.
+    app.add_middleware(RefuseOpaqueOriginMiddleware)
 
     # #1741: request/exception logging with correlation ids. Added after CORS so
     # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing

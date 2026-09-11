@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2293] **Panel reads retain scientific values within explicit budgets.**
+  `PreviewDataAccess.series_points` accepts optional `max_points` decimation;
+  omitted limits preserve complete legacy provider and export reads.
+  `text_chunk` adds byte offsets and UTF-8 continuation, `collection_sample`
+  adds cursors, and `artifact_file` resolves large artifacts for token-bound
+  streaming without loading them inline. Panel numeric reads preserve source
+  dtype, return little-endian binary buffers, slice tiles directly from storage,
+  and compute full-plane extrema in bounded chunks even when displaying a sample.
+- [#2293] **Opaque-origin mutations are refused across the backend.** HTTP
+  POST, PUT, PATCH and DELETE with `Origin: null` now return 403, including
+  edition routers and token routes. Startup rejects `*` and `null` entries in
+  `SCISTUDIO_CORS_ORIGINS`. Only authenticated panel token routes handle their
+  own permissive, noncredentialed static CORS; normal API origins remain explicit.
+
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
   published as the open-source `scistudio` wheel, with the web frontend
   bundled, to PyPI and to the matching GitHub Release, so a server installs
