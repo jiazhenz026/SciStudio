@@ -1,0 +1,40 @@
+{
+  "base_ref": "origin/feat/2279-agent-context-workspace",
+  "branch": "audit/2279-spec2-no-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec2-no-context.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "independent no-context audit of the agent workspace and execution tool surfaces",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "audit-2279-spec2-no-context-audit-2279-spec2-no-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "5f3ffa6b-0ff2-4e48-9c39-fe1a6272c3bb",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": []
+}
