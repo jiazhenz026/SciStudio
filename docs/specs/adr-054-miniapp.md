@@ -249,8 +249,9 @@ only, and that All Previewers opens today's previewer list.
    directory is in the user library, it is gone from the project, and it is still
    listed and opens.
 3. **Given** the preview column, **When** the user clicks All Previewers, **Then**
-   the list the Previewers tab showed opens with its reload action, diagnostics,
-   and per-type choice controls.
+   the list the Previewers tab showed replaces the preview inside the column, with
+   its reload action, diagnostics, and per-type choice controls, and a control
+   returns to the preview.
 
 ### User Story 6 - A MiniApp opens on data of its type (Priority: P2)
 
@@ -495,7 +496,10 @@ state, Restart works, and closing kills the child.
   to My Library (ADR-053 FR-019).
 - **FR-033**: The preview column MUST gain an All Previewers button that opens the
   Previewers list unchanged — the same component, with its reload action,
-  diagnostics, and per-type choice controls — in a dialog.
+  diagnostics, and per-type choice controls — inside the preview column itself, in
+  place of the current preview, with a control that returns to the preview. No
+  dialog is opened. Opening the list while the column is collapsed, as the
+  tutorial route of FR-040 can, MUST expand the column first.
 - **FR-034**: Opening a MiniApp from its card MUST ask for a target, listing the
   outputs of the project's workflows whose latest successful run produced data of
   the declared type or a subtype, by workflow, block, and port. Opening from a
@@ -529,9 +533,9 @@ state, Restart works, and closing kills the child.
 
 **Tutorials**
 
-- **FR-040**: The tutorial route target `previewers` MUST open the All Previewers
-  dialog instead of switching the left sidebar, and the highlight target
-  `previewer_palette` MUST resolve to the list inside it, so the
+- **FR-040**: The tutorial route target `previewers` MUST open the Previewers list
+  in the preview column (FR-033) instead of switching the left sidebar, and the
+  highlight target `previewer_palette` MUST resolve to that list, so the
   `where-previewers-live` step of `welcome-to-scistudio` and the
   `save-the-previewer` step of `what-is-a-type` keep their `route_to` and
   `highlight` values and the tutorial vocabulary is unchanged. The
@@ -607,7 +611,7 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | `frontend/src/store/types.ts` | modify | `miniapp` tab kind |
 | `frontend/src/App.parts/ProjectWorkspace.tsx` | modify | MiniApps tab, preview column collapse |
 | `frontend/src/components/ActivityBar.tsx` | modify | MiniApps replaces Previewers |
-| `frontend/src/components/PreviewerPalette.tsx`, `frontend/src/components/DataPreview.tsx` | modify | All Previewers button and dialog |
+| `frontend/src/components/PreviewerPalette.tsx`, `frontend/src/components/DataPreview.tsx` | modify | All Previewers button; the list shown inside the preview column |
 | `frontend/src/components/WorkflowCanvas.tsx` | modify | Node context menu |
 | `frontend/src/components/Toolbar.parts/FileOperationsGroup.tsx` | modify | New MiniApp |
 | `frontend/src/components/palette/tips/tipPool.ts` | modify | MiniApp tip |
