@@ -885,6 +885,175 @@
     ],
     "type": "object"
    },
+   "ContextCreate": {
+    "additionalProperties": false,
+    "properties": {
+     "block_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "kind": {
+      "type": "string"
+     },
+     "panel_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "parent_context_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "preview_session_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "query": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "target": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "view_state": {},
+     "workflow_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "kind"
+    ],
+    "type": "object"
+   },
+   "ContextRead": {
+    "additionalProperties": false,
+    "properties": {
+     "op": {
+      "type": "string"
+     },
+     "params": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "ref": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref",
+     "op"
+    ],
+    "type": "object"
+   },
+   "ContextResponse": {
+    "properties": {
+     "context_id": {
+      "type": "string"
+     },
+     "entry_url": {
+      "type": "string"
+     },
+     "expires_at": {
+      "type": "number"
+     },
+     "input": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "kind": {
+      "enum": [
+       "preview",
+       "interactive"
+      ],
+      "type": "string"
+     },
+     "lib_base_url": {
+      "type": "string"
+     },
+     "operations": {
+      "items": {
+       "enum": [
+        "read",
+        "writeBack"
+       ],
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "panel": {
+      "$ref": "#/components/schemas/PanelIdentity"
+     },
+     "sdk_url": {
+      "type": "string"
+     },
+     "services": {
+      "items": {
+       "enum": [
+        "open",
+        "save"
+       ],
+       "type": "string"
+      },
+      "type": "array"
+     },
+     "token": {
+      "type": "string"
+     },
+     "view_state": {}
+    },
+    "required": [
+     "context_id",
+     "panel",
+     "kind",
+     "operations",
+     "services",
+     "input",
+     "token",
+     "expires_at",
+     "entry_url",
+     "sdk_url",
+     "lib_base_url"
+    ],
+    "type": "object"
+   },
    "DataMetadataResponse": {
     "properties": {
      "metadata": {
@@ -1983,6 +2152,51 @@
     ],
     "type": "object"
    },
+   "PanelFailureDetail": {
+    "properties": {
+     "code": {
+      "type": "string"
+     },
+     "message": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "code",
+     "message"
+    ],
+    "type": "object"
+   },
+   "PanelFailureResponse": {
+    "properties": {
+     "detail": {
+      "$ref": "#/components/schemas/PanelFailureDetail"
+     }
+    },
+    "required": [
+     "detail"
+    ],
+    "type": "object"
+   },
+   "PanelIdentity": {
+    "properties": {
+     "api_version": {
+      "type": "string"
+     },
+     "id": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "api_version",
+     "name"
+    ],
+    "type": "object"
+   },
    "PlotCreateRequest": {
     "properties": {
      "language": {
@@ -2423,6 +2637,17 @@
       "additionalProperties": true,
       "type": "object"
      },
+     "panel": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "payload": {
       "additionalProperties": true,
       "type": "object"
@@ -2753,12 +2978,31 @@
      "owner_name": {
       "type": "string"
      },
+     "panel": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "previewer_id": {
       "type": "string"
      },
      "priority": {
       "default": 0,
       "type": "integer"
+     },
+     "renderer": {
+      "default": "legacy",
+      "type": "string"
+     },
+     "shadowed": {
+      "default": false,
+      "type": "boolean"
      },
      "supports_collection": {
       "default": false,
@@ -2915,6 +3159,26 @@
       ]
      }
     },
+    "type": "object"
+   },
+   "ReadResult": {
+    "additionalProperties": true,
+    "properties": {
+     "complete": {
+      "type": "boolean"
+     },
+     "sampled": {
+      "type": "boolean"
+     },
+     "truncated": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "sampled",
+     "truncated",
+     "complete"
+    ],
     "type": "object"
    },
    "ReplayResponse": {
@@ -5760,6 +6024,548 @@
     },
     "tags": [
      "packages"
+    ]
+   }
+  },
+  "/api/panels/catalog": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "type": "object"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContextCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ContextResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}": {
+   "delete": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "204": {},
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/read": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContextRead"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ReadResult"
+        }
+       },
+       "application/octet-stream": {
+        "schema": {
+         "format": "binary",
+         "type": "string"
+        }
+       }
+      },
+      "headers": {
+       "X-Panel-Dtype": {
+        "schema": {
+         "type": "string"
+        }
+       },
+       "X-Panel-Metadata": {
+        "schema": {
+         "type": "string"
+        }
+       },
+       "X-Panel-Shape": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/renew": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ContextResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/t/{token}/artifact/{grant_id}": {
+   "get": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "grant_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/t/{token}/assets/{panel_id}/{path}": {
+   "get": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "panel_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/t/{token}/lib/{library}/{path}": {
+   "get": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "library",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/t/{token}/sdk/{major}/scistudio-panel.js": {
+   "get": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "major",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
     ]
    }
   },
