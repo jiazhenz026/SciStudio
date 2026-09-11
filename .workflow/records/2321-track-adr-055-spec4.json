@@ -133,9 +133,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "a4782c5c52b023bfb009f618a4c32a5e7a81a0aa",
+    "sha": "d5d2eb431e85964d51969e2409bb3682622a8f8a",
     "shas": [
-      "a4782c5c52b023bfb009f618a4c32a5e7a81a0aa"
+      "d5d2eb431e85964d51969e2409bb3682622a8f8a"
     ],
     "trailers": []
   },
@@ -677,6 +677,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.129162Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.141776Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.154317Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.167553Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.180183Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.193043Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.206065Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.218898Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.232158Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.245005Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:32:53.262331Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -696,9 +762,9 @@
       "docs/planning/adr-055-spec4-checklist.md",
       "docs/planning/adr-055-spec4-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:fda7557a5265db7489ca2ba37df495c8bbe51cb9265983bad6d23b4ca3bc7e26",
+    "diff_fingerprint": "sha256:bfb47f5a15537729065c8ba733bdb22e61f642f1ccd76ef36dc8cf917a5c8988",
     "head": "HEAD",
-    "head_sha": "20a61707f",
+    "head_sha": "d5d2eb431",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -783,6 +849,14 @@
     {
       "at": "2026-09-11T11:32:52.246733Z",
       "diff_fingerprint": "sha256:fda7557a5265db7489ca2ba37df495c8bbe51cb9265983bad6d23b4ca3bc7e26",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T11:32:53.262367Z",
+      "diff_fingerprint": "sha256:bfb47f5a15537729065c8ba733bdb22e61f642f1ccd76ef36dc8cf917a5c8988",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
