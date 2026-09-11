@@ -224,3 +224,10 @@ the updated OpenAPI snapshot (`902155a9`) and integrated runtime/CI validation.
 Proposed/Draft statuses, strict `core.*` reservation and the owner's pause before
 B–D remain unchanged. Only this documentation follow-up is handed back; imported
 implementation commits are dependencies already owned by the manager.
+
+Follow-up verification: `check_package_contract_tables.py --sections 09,12`
+reports the unchanged **10 baseline errors, 5 warnings**, with no new anchor
+failures. `gate_record check --base 01e576c1 --head HEAD` selects
+`commit_hygiene` and `full_audit`; both pass and reconciliation passes on the
+committed follow-up. `git diff --check` also passes. Runtime tests remain N/A
+for this docs-only change; source test anchors do not claim test execution.
