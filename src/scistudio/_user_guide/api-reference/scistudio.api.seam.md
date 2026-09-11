@@ -210,9 +210,10 @@ then sends ``POST restart_url`` with ``{"confirm_active_runs": <bool>}``,
 which is ``true`` only after the user has accepted the runs-active
 warning, so the edition can enforce that warning itself. The route
 answers ``{"location": ...}``, and the frontend navigates there. A ``409``
-answer means runs became active after the status read; its body names
-them, and the frontend shows the warning with those names, asks again, and
-retries with ``true``. The frontend never restarts or reloads on its own.
+answer means work became active after the status read. Its ``active``
+field lists the kinds of work (``workflow_runs``, ``transfers``), and the
+frontend shows the warning for them, asks again, and retries with
+``true``. The frontend never restarts or reloads on its own.
 
 ## `active_project_root` — _function_
 

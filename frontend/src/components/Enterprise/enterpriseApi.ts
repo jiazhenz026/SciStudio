@@ -74,46 +74,33 @@ export async function postForLocation(routePath: string): Promise<string> {
   return location;
 }
 
-/** What `POST restart_url` answered: go somewhere, or runs became active meanwhile. */
+/** What `POST restart_url` answered: go somewhere, or work became active meanwhile. */
 export type RestartOutcome =
   | { kind: "restart"; location: string }
-  | { kind: "runs-active"; runs: string[] };
-
-function namesFrom(raw: unknown): string[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.flatMap((entry: unknown) => {
-    if (typeof entry === "string") return entry.trim() ? [entry] : [];
-    const record = asRecord(entry);
-    const name = record?.name ?? record?.title ?? record?.id;
-    return typeof name === "string" && name.trim() ? [name] : [];
-  });
-}
+  | { kind: "work-active"; active: string[] };
 
 /**
- * The run and transfer names a `409` restart answer carries. The contract
- * (umbrella #2321) says only that the body names them, so this reads the
- * likely field names, at the top level or under `detail`, as strings or
- * `{name}` objects, and returns an empty list for anything else.
+ * The kinds of active work a `409` restart answer lists. The contract
+ * (umbrella #2321) is `{"detail", "active", "confirm_field"}`, where `active`
+ * lists kinds such as `workflow_runs` and `transfers`. A missing or malformed
+ * list reads as empty, so the caller still warns, generically, and never
+ * crashes.
  */
-export function activeWorkNames(body: unknown): string[] {
-  const record = asRecord(body);
-  if (record === null) return [];
-  const detail = asRecord(record.detail);
-  const names: string[] = [];
-  for (const source of detail === null ? [record] : [record, detail]) {
-    for (const key of ["active_runs", "runs", "active_transfers", "transfers"]) {
-      names.push(...namesFrom(source[key]));
-    }
-  }
-  return [...new Set(names)];
+export function activeWorkKinds(body: unknown): string[] {
+  const active = asRecord(body)?.active;
+  if (!Array.isArray(active)) return [];
+  const kinds = active.filter(
+    (kind: unknown): kind is string => typeof kind === "string" && kind.trim() !== "",
+  );
+  return [...new Set(kinds)];
 }
 
 /**
  * Ask the edition to restart: a same-origin `POST restart_url` carrying
  * `{"confirm_active_runs": …}`. It is `true` only after the user has seen and
  * accepted the runs-active warning, so the backend can enforce the warning
- * itself. A `409` means runs became active after the status read: the answer
- * names them, and the caller shows the warning and asks again.
+ * itself. A `409` means work became active after the status read: the answer
+ * lists its kinds, and the caller shows the warning and asks again.
  */
 export async function postRestart(
   restartUrl: string,
@@ -134,7 +121,7 @@ export async function postRestart(
     clearTimeout(timer);
   }
   const body: unknown = await response.json().catch(() => null);
-  if (response.status === 409) return { kind: "runs-active", runs: activeWorkNames(body) };
+  if (response.status === 409) return { kind: "work-active", active: activeWorkKinds(body) };
   if (!response.ok) {
     const detail = asRecord(body)?.detail;
     throw new Error(

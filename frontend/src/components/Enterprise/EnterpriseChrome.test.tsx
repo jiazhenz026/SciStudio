@@ -414,19 +414,20 @@ describe("update notice", () => {
     expect(postBodies()).toEqual([{ confirm_active_runs: true }]);
   });
 
-  it("names the runs a 409 reports, asks again, and retries with the confirmation", async () => {
-    declare({ version: 1, update: UPDATE });
-    // Every status read says no runs; the backend knows better on the first POST.
+  /** Serve status reads with no runs, and answer the first restart POST with `conflict`. */
+  function serveConflictThenRestart(conflict: Record<string, unknown>) {
     let posts = 0;
     fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
       if (init?.method !== "POST") return jsonResponse(statusBody());
       posts += 1;
       return posts === 1
-        ? jsonResponse({ active_runs: ["segment-cells", "export-table"] }, 409)
+        ? jsonResponse(conflict, 409)
         : jsonResponse({ location: "/hub/spawn-pending/alice" });
     });
-    render(<EnterpriseToolbarControls projectOpen />);
+  }
 
+  async function confirmOnceAndSeeTheWarning(): Promise<HTMLElement> {
+    render(<EnterpriseToolbarControls projectOpen />);
     fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
     const confirm = await screen.findByTestId("enterprise-restart-confirm");
     await waitFor(() => expect(confirm).toBeEnabled());
@@ -434,13 +435,45 @@ describe("update notice", () => {
 
     fireEvent.click(confirm);
     const warning = await screen.findByTestId("enterprise-restart-runs-warning");
-    expect(warning).toHaveTextContent("segment-cells, export-table");
     await waitFor(() => expect(confirm).toBeEnabled());
     expect(assign).not.toHaveBeenCalled();
+    return warning;
+  }
 
-    fireEvent.click(confirm);
+  async function confirmAgainAndRestart(): Promise<void> {
+    fireEvent.click(screen.getByTestId("enterprise-restart-confirm"));
     await waitFor(() => expect(assign).toHaveBeenCalledWith(absolute("/hub/spawn-pending/alice")));
     expect(postBodies()).toEqual([{ confirm_active_runs: false }, { confirm_active_runs: true }]);
+  }
+
+  it("labels the kinds of work a 409 lists, asks again, and retries with the confirmation", async () => {
+    declare({ version: 1, update: UPDATE });
+    // Every status read says no runs; the backend knows better on the first POST.
+    serveConflictThenRestart({
+      detail: "Active work would be interrupted.",
+      active: ["workflow_runs", "transfers"],
+      confirm_field: "confirm_active_runs",
+    });
+
+    const warning = await confirmOnceAndSeeTheWarning();
+    expect(warning).toHaveTextContent("analyses are running");
+    expect(warning).toHaveTextContent("file transfers are in progress");
+
+    await confirmAgainAndRestart();
+  });
+
+  it.each([
+    ["an unknown kind", { detail: "busy", active: ["gpu_reservation"] }],
+    ["no active list", { detail: "busy", confirm_field: "confirm_active_runs" }],
+    ["a malformed active list", { detail: "busy", active: "workflow_runs" }],
+  ])("warns generically for a 409 with %s, and still retries", async (_label, conflict) => {
+    declare({ version: 1, update: UPDATE });
+    serveConflictThenRestart(conflict);
+
+    const warning = await confirmOnceAndSeeTheWarning();
+    expect(warning).toHaveTextContent("other work is in progress");
+
+    await confirmAgainAndRestart();
   });
 
   it("does not enable Confirm when the status cannot be read", async () => {
