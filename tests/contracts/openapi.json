@@ -963,6 +963,18 @@
     ],
     "type": "object"
    },
+   "ContextOpen": {
+    "additionalProperties": false,
+    "properties": {
+     "ref": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ref"
+    ],
+    "type": "object"
+   },
    "ContextRead": {
     "additionalProperties": false,
     "properties": {
@@ -6160,6 +6172,107 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/open": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContextOpen"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PreviewEnvelopeModel"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
         }
        }
       }
