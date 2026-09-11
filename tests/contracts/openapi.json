@@ -1320,6 +1320,16 @@
       "default": false,
       "type": "boolean"
      },
+     "expected_state_version": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "source": {
       "anyOf": [
        {

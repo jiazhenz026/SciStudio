@@ -1,0 +1,65 @@
+{
+  "base_ref": null,
+  "branch": "test/2312-openapi-snapshot",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/contracts/openapi.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T09:08:02.442658Z",
+      "class": "maintenance",
+      "kind": "na",
+      "path": null,
+      "rationale": "test snapshot refresh only; no behavior or docs change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2312,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager-initiated: refresh the stale OpenAPI contract snapshot that turned main CI red after #2292 merged",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2312-test-2312-openapi-snapshot",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "3fe913aa-4d4d-44e7-86a1-489c74918bde",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-11T09:08:02.442677Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_openapi_snapshot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
