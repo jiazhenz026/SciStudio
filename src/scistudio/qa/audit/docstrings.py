@@ -28,7 +28,7 @@ INTERNAL_MARKERS = re.compile(
     r"|\b(?:ADR|spec|checklist)\s+§\s*\d+(?:\.\d+)*"
     r"|\b(?:[IS]\d{2}[a-z]|D\d{2}-\d+(?:\.\d+)*[a-z]?|T-\d{3})\b"
     r"|\b(?:Phase|Task)\s+\d+[a-z]?(?:\.\d+)*\b"
-    r"|\b(?:owner\s+(?:directive|decision)|in\s+the\s+future|future\s+work|fine\s+for\s+v1)\b"
+    r"|\b(?:owner\s+(?:directive|decision)|in\s+the\s+future|future\s+work|fine\s+for\s+v1)\b"  # #2330: rejected phrases.
     r"|\baudit\s+(?:AU\d+\s+)?P[0-3]-\d+\b"
     r"|\b(?:Codex\s+P[0-3]|User\s+Story\s+\d+|spec\s+assumption\s+[A-Z]-\d+)\b"
     r"|\b(?:implementation\s+audit|hard-scope\s+rules|manager\s+ruled)\b"
