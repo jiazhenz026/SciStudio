@@ -48,7 +48,7 @@ export interface IdentityCapability {
 export interface TransferCapability {
   /** Largest file the edition moves inline; the UI's upload is always staged. */
   readonly inlineMaxBytes: number;
-  /** Download route with exactly one `{path}` placeholder. */
+  /** Download route with exactly one `{path}` marker. */
   readonly downloadUrlTemplate: string;
 }
 
@@ -81,7 +81,7 @@ const ALL_OFF: Capabilities = Object.freeze({
   update: null,
 });
 
-const PATH_PLACEHOLDER = "{path}";
+const PATH_MARKER = "{path}";
 
 /**
  * Same rule as the backend: a route path on this backend, nothing else — a
@@ -123,7 +123,7 @@ function readTransfer(raw: unknown): TransferCapability | null {
   if (typeof inlineMaxBytes !== "number" || !Number.isSafeInteger(inlineMaxBytes)) return null;
   if (inlineMaxBytes < 0) return null;
   if (!isRoutePath(downloadUrlTemplate)) return null;
-  if (downloadUrlTemplate.split(PATH_PLACEHOLDER).length !== 2) return null;
+  if (downloadUrlTemplate.split(PATH_MARKER).length !== 2) return null;
   return Object.freeze({ inlineMaxBytes, downloadUrlTemplate });
 }
 
@@ -184,9 +184,7 @@ export function isCapabilityEnabled(name: CapabilityName): boolean {
  * `apiUrl` before handing it to the browser.
  */
 export function downloadRoutePath(transfer: TransferCapability, relativePath: string): string {
-  return transfer.downloadUrlTemplate
-    .split(PATH_PLACEHOLDER)
-    .join(encodeURIComponent(relativePath));
+  return transfer.downloadUrlTemplate.split(PATH_MARKER).join(encodeURIComponent(relativePath));
 }
 
 /** Test-only hook: drop the cached declaration so a test can re-inject it. */

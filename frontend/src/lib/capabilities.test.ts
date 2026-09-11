@@ -113,11 +113,11 @@ describe("getCapabilities", () => {
     ["a fractional inline limit", { transfer: { ...TRANSFER, inlineMaxBytes: 1.5 } }],
     ["a string inline limit", { transfer: { ...TRANSFER, inlineMaxBytes: "8" } }],
     [
-      "a template without a placeholder",
+      "a template without the {path} marker",
       { transfer: { ...TRANSFER, downloadUrlTemplate: "/api/test-edition/download" } },
     ],
     [
-      "a template with two placeholders",
+      "a template with two {path} markers",
       { transfer: { ...TRANSFER, downloadUrlTemplate: "/api/x?a={path}&b={path}" } },
     ],
     ["a truthy non-boolean aiChatDisabled", { aiChatDisabled: "true" }],
@@ -209,13 +209,13 @@ describe("isRoutePath", () => {
 });
 
 describe("downloadRoutePath", () => {
-  it("replaces the placeholder with the URL-encoded project-relative path", () => {
+  it("replaces the {path} marker with the URL-encoded project-relative path", () => {
     expect(downloadRoutePath(TRANSFER, "data/raw/scan 1 & 2.tif")).toBe(
       "/api/test-edition/transfer/download?path=data%2Fraw%2Fscan%201%20%26%202.tif",
     );
   });
 
-  it("works with the placeholder in the route itself", () => {
+  it("works with the {path} marker in the route itself", () => {
     const transfer = { inlineMaxBytes: 0, downloadUrlTemplate: "/api/test-edition/files/{path}" };
     expect(downloadRoutePath(transfer, "results/a?b.csv")).toBe(
       "/api/test-edition/files/results%2Fa%3Fb.csv",

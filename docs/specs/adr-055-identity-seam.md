@@ -371,7 +371,7 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
     would let other sites force a logout.
   - `TransferCapability(inline_max_bytes, download_url_template)` MUST reject
     a negative or non-integer `inline_max_bytes`, and a template without
-    exactly one `{path}` placeholder.
+    exactly one `{path}` marker.
   - `UpdateCapability(status_url, restart_url)` names the routes the frontend
     polls and posts to (`adr-055-enterprise-support` FR-007).
   - `ai_chat_disabled` MUST be a bool.
