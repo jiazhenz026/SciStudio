@@ -1,8 +1,10 @@
-"""WebSocket handler — bidirectional real-time block state and cancellation.
-
-ADR-018: WebSocket becomes bidirectional. Server pushes block state changes;
-client sends cancel requests and interactive completions.
-"""
+"""WebSocket handler — bidirectional real-time block state and cancellation."""
+# Maintainer context (kept outside generated API documentation):
+# WebSocket handler — bidirectional real-time block state and cancellation.
+#
+# ADR-018: WebSocket becomes bidirectional. Server pushes block state changes;
+# client sends cancel requests and interactive completions.
+# Development references: ADR-018.
 
 from __future__ import annotations
 
@@ -79,7 +81,7 @@ def _handle_block_user_signal(
     signal_filename: str,
     signal_kind: str,
 ) -> None:
-    """Write a JSON signal file under an AI Block run dir (ADR-035 §3.5 path c).
+    """Write a JSON signal file under an AI Block run dir (path c).
 
     Resolves the run dir from ``block_run_id`` via the engine-side
     registry maintained by ``ai_pty.open_engine_initiated_tab``. Best
@@ -95,6 +97,7 @@ def _handle_block_user_signal(
             (``"user_mark_done"`` or ``"user_cancel"``) so post-mortem
             tooling can tell the two paths apart.
     """
+    # Development references: ADR-035.
     block_run_id = data.get("block_run_id")
     tab_id = data.get("tab_id")
     if not isinstance(block_run_id, str) or not block_run_id:
@@ -156,21 +159,22 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
 async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     """Handle a WebSocket connection for real-time workflow updates.
 
-    ADR-018: Bidirectional protocol.
-    - Inbound: client sends cancel_block, cancel_workflow, interactive_complete.
-    - Outbound: server pushes all block state changes and workflow completion.
+    Bidirectional protocol.
+    Inbound: client sends cancel_block, cancel_workflow, interactive_complete.
+    Outbound: server pushes all block state changes and workflow completion.
 
-    ADR-035 §3.10: also subscribes to the ai_pty broadcaster so engine-
+    also subscribes to the ai_pty broadcaster so engine-
     initiated AI Block tab opens / closes (``block_pty_opened`` /
     ``block_pty_closed``) flow over the same WS without introducing a
     new EngineEvent type.
 
     Closing a connection only unsubscribes that client. It never cancels a
     workflow run, however many clients remain: a run ends when it completes
-    or is cancelled explicitly (ADR-055 §7, #2327). Backend shutdown, and
-    reconciliation when a project is opened, keep a run's lineage from
-    staying ``running`` (see ``scistudio.api.runtime._run_lifetime``).
+    or is cancelled explicitly. Backend shutdown, and reconciliation when a
+    project is opened, keep a run's lineage from staying ``running`` (see
+    ``scistudio.api.runtime._run_lifetime``).
     """
+    # Development references: ADR-018, ADR-035, ADR-055 section 7, #2327.
     # Imported lazily so the module-level circular import (ai_pty
     # imports nothing from ws, ws imports nothing from ai_pty at module
     # load) is sidestepped — and to keep the ws module's dep surface

@@ -1,48 +1,51 @@
-"""Project-local and user-library previewer discovery + default declaration (ADR-048 FR-002/FR-005).
-
-A project may register project-local previewers (backend Python providers plus
-same-origin packaged assets) and declare an explicit default previewer for a
-target type to resolve otherwise-ambiguous matches. The user library
-(``~/.scistudio/previewers``) registers previewers the same way, in every
-project, with no project open required (#2017) — the same tier rule blocks and
-types already follow (ADR-053 FR-058/FR-060, :mod:`scistudio.core.dropins`).
-For a tutorial project the user tier is the tutorial-scoped library's
-``previewers/`` directory rather than ``~/.scistudio/previewers`` (Learning
-Center FR-070/FR-071, #2086) — the same one-root swap the block and type scans
-make through :func:`scistudio.core.dropins.library_root_for_project`.
-
-Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
-
-* ``<project>/.scistudio/previewers.json`` — a declarative manifest declaring
-  default-previewer tie-breakers (FR-005); it does not register previewer
-  specs. Drop-in provider code may also be referenced by a ``module:callable``
-  import path resolved lazily at render time against the spec's **owning**
-  tier directory — imported by file path under a synthetic name, so no
-  bare-stem ``sys.modules`` entry crosses tier boundaries
-  (:meth:`scistudio.previewers.session.PreviewSessionManager._resolve_provider`).
-  The manifest-defaults path is project-only: FR-005 declares a *project*
-  default, and the user tier deliberately has no manifest.
-* A drop-in ``<project>/previewers/*.py`` or ``~/.scistudio/previewers/*.py``
-  module exposing a module-level ``get_previewers() -> list[PreviewerSpec]``
-  callable (same protocol as the package entry point), mirroring the type/block
-  drop-in scan dirs (#1332).
-
-The drop-in scan is the third consumer of :mod:`scistudio.core.dropins`
-(#2044), so it carries the same guards as the blocks/types scans rather than a
-fourth copy of the rule: the FR-016 name-collision guard refuses a drop-in file
-whose stem an installed module owns (underscore-prefixed names included in the
-collision question, skipped only for registration), the ``sys.path``
-activation is scoped to each module exec through
-:func:`scistudio.desktop.paths.prepended_sys_paths` instead of a permanent
-``sys.path.insert``, stale bytecode is evicted before every load (FR-062), a
-``BaseException`` (e.g. a stray ``sys.exit()``) in one drop-in cannot kill the
-scan, and every refusal/import failure is recorded on the registry diagnostics
-instead of only being logged.
-
-Project-local React build tooling is intentionally NOT auto-loaded; only
-backend Python providers + path-confined same-origin assets are wired here
-(spec §4.5).
-"""
+"""Project-local and user-library previewer discovery + default declaration."""
+# Maintainer context (kept outside generated API documentation):
+# Project-local and user-library previewer discovery + default declaration (ADR-048 FR-002/FR-005).
+#
+# A project may register project-local previewers (backend Python providers plus
+# same-origin packaged assets) and declare an explicit default previewer for a
+# target type to resolve otherwise-ambiguous matches. The user library
+# (``~/.scistudio/previewers``) registers previewers the same way, in every
+# project, with no project open required (#2017) — the same tier rule blocks and
+# types already follow (ADR-053 FR-058/FR-060, :mod:`scistudio.core.dropins`).
+# For a tutorial project the user tier is the tutorial-scoped library's
+# ``previewers/`` directory rather than ``~/.scistudio/previewers`` (Learning
+# Center FR-070/FR-071, #2086) — the same one-root swap the block and type scans
+# make through :func:`scistudio.core.dropins.library_root_for_project`.
+#
+# Discovery surface (kept deliberately small per spec §4.5 risk mitigation):
+#
+# * ``<project>/.scistudio/previewers.json`` — a declarative manifest declaring
+#   default-previewer tie-breakers (FR-005); it does not register previewer
+#   specs. Drop-in provider code may also be referenced by a ``module:callable``
+#   import path resolved lazily at render time against the spec's **owning**
+#   tier directory — imported by file path under a synthetic name, so no
+#   bare-stem ``sys.modules`` entry crosses tier boundaries
+#   (:meth:`scistudio.previewers.session.PreviewSessionManager._resolve_provider`).
+#   The manifest-defaults path is project-only: FR-005 declares a *project*
+#   default, and the user tier deliberately has no manifest.
+# * A drop-in ``<project>/previewers/*.py`` or ``~/.scistudio/previewers/*.py``
+#   module exposing a module-level ``get_previewers() -> list[PreviewerSpec]``
+#   callable (same protocol as the package entry point), mirroring the type/block
+#   drop-in scan dirs (#1332).
+#
+# The drop-in scan is the third consumer of :mod:`scistudio.core.dropins`
+# (#2044), so it carries the same guards as the blocks/types scans rather than a
+# fourth copy of the rule: the FR-016 name-collision guard refuses a drop-in file
+# whose stem an installed module owns (underscore-prefixed names included in the
+# collision question, skipped only for registration), the ``sys.path``
+# activation is scoped to each module exec through
+# :func:`scistudio.desktop.paths.prepended_sys_paths` instead of a permanent
+# ``sys.path.insert``, stale bytecode is evicted before every load (FR-062), a
+# ``BaseException`` (e.g. a stray ``sys.exit()``) in one drop-in cannot kill the
+# scan, and every refusal/import failure is recorded on the registry diagnostics
+# instead of only being logged.
+#
+# Project-local React build tooling is intentionally NOT auto-loaded; only
+# backend Python providers + path-confined same-origin assets are wired here
+# (spec §4.5).
+# Development references: #1332, #2017, #2044, #2086, ADR-048, ADR-053, FR-002, FR-005, FR-016, FR-058,
+# FR-060, FR-062, FR-070, FR-071.
 
 from __future__ import annotations
 
@@ -76,11 +79,12 @@ PROJECT_PREVIEWERS_MANIFEST = ".scistudio/previewers.json"
 
 @internal()
 def load_project_previewers(registry: PreviewerRegistry, project_dir: Path | None) -> None:
-    """Load project-local previewers + default declarations into *registry* (FR-002/FR-005).
+    """Load project-local previewers + default declarations into *registry*.
 
     Best-effort: a missing project dir, missing manifest, or a broken drop-in
     is logged, recorded on the registry diagnostics, and skipped. Never raises.
     """
+    # Development references: FR-002, FR-005.
     if project_dir is None:
         return
     _load_manifest_defaults(registry, project_dir)
@@ -89,12 +93,12 @@ def load_project_previewers(registry: PreviewerRegistry, project_dir: Path | Non
 
 @internal()
 def load_user_previewers(registry: PreviewerRegistry, project_dir: Path | None = None) -> None:
-    """Load user-library previewers into *registry* (#2017).
+    """Load user-library previewers into *registry*.
 
-    Unconditional, matching the user type/block tiers (ADR-053 FR-060): the
+    Unconditional, matching the user type/block tiers: the
     user tier does not require an open project. *Which* library answers as the
     user tier does follow the open project, though (Learning Center
-    FR-070/FR-071, #2086): a tutorial project's user tier is the
+    ): a tutorial project's user tier is the
     tutorial-scoped library, so the root is read off
     :func:`scistudio.core.dropins.previewer_scan_dirs` — the same tuple the
     session manager reads its owning roots from — rather than recomputed as
@@ -103,6 +107,7 @@ def load_user_previewers(registry: PreviewerRegistry, project_dir: Path | None =
     (project > user > package > core) instead of adding a fifth tier.
     Best-effort like :func:`load_project_previewers`; never raises.
     """
+    # Development references: #2017, #2086, ADR-053, FR-060, FR-070, FR-071.
     _scan_previewer_dropins(registry, previewer_scan_dirs(project_dir)[-1], expected_owner=OwnerKind.USER)
 
 
@@ -130,11 +135,12 @@ def _scan_previewer_dropins(
 ) -> None:
     """Scan one drop-in previewer directory into *registry* (shared project/user pass).
 
-    The one implementation of the drop-in scan for both tiers (#2017); the
+    The one implementation of the drop-in scan for both tiers; the
     guards come from :mod:`scistudio.core.dropins` so previewers enforce the
-    same rules as blocks and types (#2044). See the module docstring for the
+    same rules as blocks and types. See the module docstring for the
     guard list.
     """
+    # Development references: #2017, #2044.
     if not previewers_dir.is_dir():
         return
 

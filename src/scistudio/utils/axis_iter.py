@@ -1,58 +1,60 @@
-"""scistudio.utils.axis_iter — single-Array extra-axis iteration utility.
-
-.. deprecated::
-   Tracked at #1729. This module's ``scistudio.utils`` location is slated to move to
-   ``scistudio.core`` (e.g. ``scistudio.core.axis_iter``). It operates on the
-   core :class:`~scistudio.core.types.array.Array` type and reads/writes the
-   core zarr backend, so hosting it under ``utils`` makes the bottom ``utils``
-   layer depend on ``core`` — a layering inversion. It is kept here (relocation
-   tracked at #1729) because ``scistudio.utils.axis_iter.iterate_over_axes`` is documented public
-   API (ADR-027 D3 / ADR-031) consumed by the ``scistudio-blocks-imaging``
-   plugin; relocating it is a breaking move that must be coordinated with the
-   plugin package and the ADR/spec docs. **Import it from the new ``core``
-   location once that lands.** (A runtime ``DeprecationWarning`` is intentionally
-   NOT emitted: the pytest policy in #1560 turns ``scistudio.*`` deprecation
-   warnings into errors, which would break the plugin's current legitimate use.)
-
-Implements ADR-027 D3 (``iterate_over_axes``). The function iterates a
-caller-supplied ``func`` over all axes in a source :class:`Array` that
-are *not* in ``operates_on``, applying ``func`` to each slice and
-stacking the results back into a new instance of the source's concrete
-class.
-
-This is the common case for 5D / 6D imaging blocks: "I know how to
-process ``(y, x)``, please loop over everything else (``t``, ``z``,
-``c``, ...)". The sister utility
-:func:`scistudio.utils.broadcast.broadcast_apply` covers the complementary
-cross-modal case (a low-dim source projected onto a high-dim target
-along named axes).
-
-Memory: O(one input slice + one output slice). Serial by design — no
-threads, no asyncio, no multiprocessing (ADR-027 D3 §"Memory" / D8).
-Errors raised inside the user-provided ``func`` propagate unchanged and
-are NOT wrapped in :class:`BroadcastError`.
-
-Metadata propagation follows ADR-027 D5:
-
-- ``framework``: regenerated via ``source.framework.derive()`` (which
-  sets ``derived_from=source.framework.object_id`` by default and gives
-  the result a fresh ``object_id`` / ``created_at``).
-- ``meta``: shared by reference (Pydantic models are frozen).
-- ``user``: shallow copy.
-- ``axes``: same as ``source.axes`` — results are stacked back onto the
-  original shape so no axis is added or removed. ``func`` must therefore
-  return an array whose number of dimensions equals ``len(operates_on)``;
-  this is validated explicitly and a mismatch raises
-  :class:`BroadcastError`.
-
-Note on ``BroadcastError``: ADR-027 D3's pseudocode imports from
-``scistudio.core.exceptions``, but that module does not (yet) exist. The
-sibling :mod:`scistudio.utils.broadcast` already defines
-:class:`BroadcastError`, so this module imports it from there. Keeping
-the two utilities' error type identical is explicitly desirable: a
-caller wiring these together wants the same ``except BroadcastError:``
-clause to catch both.
-"""
+"""scistudio.utils.axis_iter — single-Array extra-axis iteration utility."""
+# Maintainer context (kept outside generated API documentation):
+# scistudio.utils.axis_iter — single-Array extra-axis iteration utility.
+#
+# .. deprecated::
+#    Tracked at #1729. This module's ``scistudio.utils`` location is slated to move to
+#    ``scistudio.core`` (e.g. ``scistudio.core.axis_iter``). It operates on the
+#    core :class:`~scistudio.core.types.array.Array` type and reads/writes the
+#    core zarr backend, so hosting it under ``utils`` makes the bottom ``utils``
+#    layer depend on ``core`` — a layering inversion. It is kept here (relocation
+#    tracked at #1729) because ``scistudio.utils.axis_iter.iterate_over_axes`` is documented public
+#    API (ADR-027 D3 / ADR-031) consumed by the ``scistudio-blocks-imaging``
+#    plugin; relocating it is a breaking move that must be coordinated with the
+#    plugin package and the ADR/spec docs. **Import it from the new ``core``
+#    location once that lands.** (A runtime ``DeprecationWarning`` is intentionally
+#    NOT emitted: the pytest policy in #1560 turns ``scistudio.*`` deprecation
+#    warnings into errors, which would break the plugin's current legitimate use.)
+#
+# Implements ADR-027 D3 (``iterate_over_axes``). The function iterates a
+# caller-supplied ``func`` over all axes in a source :class:`Array` that
+# are *not* in ``operates_on``, applying ``func`` to each slice and
+# stacking the results back into a new instance of the source's concrete
+# class.
+#
+# This is the common case for 5D / 6D imaging blocks: "I know how to
+# process ``(y, x)``, please loop over everything else (``t``, ``z``,
+# ``c``, ...)". The sister utility
+# :func:`scistudio.utils.broadcast.broadcast_apply` covers the complementary
+# cross-modal case (a low-dim source projected onto a high-dim target
+# along named axes).
+#
+# Memory: O(one input slice + one output slice). Serial by design — no
+# threads, no asyncio, no multiprocessing (ADR-027 D3 §"Memory" / D8).
+# Errors raised inside the user-provided ``func`` propagate unchanged and
+# are NOT wrapped in :class:`BroadcastError`.
+#
+# Metadata propagation follows ADR-027 D5:
+#
+# - ``framework``: regenerated via ``source.framework.derive()`` (which
+#   sets ``derived_from=source.framework.object_id`` by default and gives
+#   the result a fresh ``object_id`` / ``created_at``).
+# - ``meta``: shared by reference (Pydantic models are frozen).
+# - ``user``: shallow copy.
+# - ``axes``: same as ``source.axes`` — results are stacked back onto the
+#   original shape so no axis is added or removed. ``func`` must therefore
+#   return an array whose number of dimensions equals ``len(operates_on)``;
+#   this is validated explicitly and a mismatch raises
+#   :class:`BroadcastError`.
+#
+# Note on ``BroadcastError``: ADR-027 D3's pseudocode imports from
+# ``scistudio.core.exceptions``, but that module does not (yet) exist. The
+# sibling :mod:`scistudio.utils.broadcast` already defines
+# :class:`BroadcastError`, so this module imports it from there. Keeping
+# the two utilities' error type identical is explicitly desirable: a
+# caller wiring these together wants the same ``except BroadcastError:``
+# clause to catch both.
+# Development references: #1560, #1729, ADR-027, ADR-031.
 
 from __future__ import annotations
 
@@ -94,8 +96,7 @@ def iterate_over_axes(
     extra-axis name to its current integer index.
 
     Results are stacked back into a new instance of ``type(source)``,
-    preserving ``axes`` and ``shape`` and propagating metadata per
-    ADR-027 D5: ``framework`` is derived (lineage hint back to parent),
+    preserving ``axes`` and ``shape`` and propagating metadata: ``framework`` is derived (lineage hint back to parent),
     ``meta`` is shared by reference (Pydantic models are frozen), and
     ``user`` is shallow-copied.
 
@@ -127,7 +128,7 @@ def iterate_over_axes(
         ``source``, shape ``source_extra_shape + func_output_shape``
         (which equals ``source.shape`` when ``func`` preserves each
         slice's shape), dtype inferred from the first slice's result,
-        and metadata propagated per ADR-027 D5.
+        and metadata propagated.
 
     Raises:
         BroadcastError: if ``operates_on`` is not a subset of
@@ -138,9 +139,10 @@ def iterate_over_axes(
 
     Note:
         This function is serial by design. Block-internal parallelism
-        is the block author's choice per ADR-027 D8 / D13 and is
+        is the block author's choice and is
         explicitly forbidden inside this utility.
     """
+    # Development references: ADR-027.
     operates_on_fs = frozenset(operates_on)
 
     # 1. Validate ``operates_on`` is a subset of ``source.axes``.
@@ -400,18 +402,18 @@ def _build_result_from_zarr(source: Array, zarr_path: str, shape: tuple[int, ...
 def _build_result(source: Array, data: np.ndarray) -> Array:
     """Construct a new ``type(source)`` instance with propagated metadata.
 
-    Implements the ADR-027 D5 propagation rule used by
+    Implements the propagation rule used by
     :func:`iterate_over_axes`:
 
-    - ``framework``: new, derived from ``source.framework`` (carries
+    ``framework``: new, derived from ``source.framework`` (carries
       ``derived_from=source.framework.object_id`` and a fresh
       ``object_id`` / ``created_at``).
-    - ``meta``: shared by reference (Pydantic models are frozen).
-    - ``user``: shallow-copied.
-    - ``axes``: same as ``source.axes``.
-    - ``shape`` / ``dtype``: taken from ``data``.
+    ``meta``: shared by reference (Pydantic models are frozen).
+    ``user``: shallow-copied.
+    ``axes``: same as ``source.axes``.
+    ``shape`` / ``dtype``: taken from ``data``.
 
-    ADR-031 D3: the result is persisted to a zarr store and returned
+    the result is persisted to a zarr store and returned
     with ``storage_ref`` set. The former ``_data`` stashing pattern is
     eliminated.
 
@@ -421,6 +423,7 @@ def _build_result(source: Array, data: np.ndarray) -> Array:
     properties because the properties return read-only views while the
     construction path needs the raw slots.
     """
+    # Development references: ADR-027, ADR-031.
     zarr_path, writer = _open_zarr_result_writer(
         source,
         tuple(data.shape),

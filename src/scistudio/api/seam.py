@@ -1,38 +1,40 @@
-"""ADR-055 identity seam — the surface an edition composes on the open-source backend.
-
-The open-source edition is single-user and asks for no login. Multi-user Lab
-deployment is provided by a separate enterprise edition that builds the
-standard backend through :func:`scistudio.api.app.create_app` and then adds its
-own guard, routes, MCP tools, and background tasks (issue #2304, option B).
-Nothing is loaded automatically: the enterprise edition has its own launch
-command and passes its additions to the factory explicitly.
-
-This module holds everything that composition relies on besides the factory
-itself (``docs/specs/adr-055-identity-seam.md``):
-
-* :class:`GuardFactory` / :class:`GuardContext` — the replacement guard
-  ``create_app(guard=...)`` installs in place of the loopback token middleware.
-  The guard decides which paths it protects; a Hub guard protects everything,
-  ``/ws`` included.
-* :class:`LifespanHook` — startup checks and long-lived background tasks run
-  inside the application lifespan, torn down in reverse order before the core
-  runtime (``create_app(lifespan_hooks=...)``).
-* The **self-authenticating path registry** — route-path prefixes whose owning
-  routes authenticate every request themselves (ADR-054 per-mount panel tokens
-  under ``/api/panels/t/``). The factory enforces the exception structurally:
-  requests under a registered prefix bypass whichever guard is installed, the
-  default one included, and reach their route unauthenticated by the guard.
-* :class:`Capabilities` / :class:`IdentityCapability` — what the backend tells
-  the frontend at boot about enterprise features (``create_app(capabilities=...)``);
-  all off by default.
-* :func:`workflow_runs_active` — the read accessor a Hub activity reporter polls.
-* :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared FastMCP registry and
-  the tag that keeps an external-only tool out of the local socket transport.
-
-Every public symbol here is ``provisional`` under ADR-052: the enterprise
-edition depends on it, so a change carries a changelog entry instead of
-breaking that edition silently.
-"""
+"""Identity seam — the surface an edition composes on the open-source backend."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-055 identity seam — the surface an edition composes on the open-source backend.
+#
+# The open-source edition is single-user and asks for no login. Multi-user Lab
+# deployment is provided by a separate enterprise edition that builds the
+# standard backend through :func:`scistudio.api.app.create_app` and then adds its
+# own guard, routes, MCP tools, and background tasks (issue #2304, option B).
+# Nothing is loaded automatically: the enterprise edition has its own launch
+# command and passes its additions to the factory explicitly.
+#
+# This module holds everything that composition relies on besides the factory
+# itself (``docs/specs/adr-055-identity-seam.md``):
+#
+# * :class:`GuardFactory` / :class:`GuardContext` — the replacement guard
+#   ``create_app(guard=...)`` installs in place of the loopback token middleware.
+#   The guard decides which paths it protects; a Hub guard protects everything,
+#   ``/ws`` included.
+# * :class:`LifespanHook` — startup checks and long-lived background tasks run
+#   inside the application lifespan, torn down in reverse order before the core
+#   runtime (``create_app(lifespan_hooks=...)``).
+# * The **self-authenticating path registry** — route-path prefixes whose owning
+#   routes authenticate every request themselves (ADR-054 per-mount panel tokens
+#   under ``/api/panels/t/``). The factory enforces the exception structurally:
+#   requests under a registered prefix bypass whichever guard is installed, the
+#   default one included, and reach their route unauthenticated by the guard.
+# * :class:`Capabilities` / :class:`IdentityCapability` — what the backend tells
+#   the frontend at boot about enterprise features (``create_app(capabilities=...)``);
+#   all off by default.
+# * :func:`workflow_runs_active` — the read accessor a Hub activity reporter polls.
+# * :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared FastMCP registry and
+#   the tag that keeps an external-only tool out of the local socket transport.
+#
+# Every public symbol here is ``provisional`` under ADR-052: the enterprise
+# edition depends on it, so a change carries a changelog entry instead of
+# breaking that edition silently.
+# Development references: #2304, ADR-052, ADR-054, ADR-055, docs/specs/adr-055-identity-seam.md.
 
 from __future__ import annotations
 
@@ -86,10 +88,11 @@ def route_path(scope: Scope, root_path: str) -> str:
 
     Mirrors Starlette's own route-path derivation so a guard and the router can
     never disagree about which route a request reaches: under a configured
-    mount prefix (ADR-055 Spec 0 verbatim proxying) the scope path still
+    mount prefix the scope path still
     carries the prefix, which is removed here. ``/user/alice/scistudio/api/x``
     becomes ``/api/x``; ``/user/alice/scistudioX/api/x`` is left unchanged.
     """
+    # Development references: ADR-055, Spec 0.
     path = str(scope.get("path", ""))
     if not root_path or not path.startswith(root_path):
         return path

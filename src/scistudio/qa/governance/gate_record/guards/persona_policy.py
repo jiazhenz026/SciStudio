@@ -1,23 +1,25 @@
-"""persona_policy calculator (ADR-042 Addendum 6 spec §4 / §4.2).
-
-Produces: unsupported persona; persona skill/guide pointer missing; unsupported
-runtime root.
-
-Ported from the legacy ``persona_policy`` (deleted on this branch). Per spec
-§4.2 this calculator:
-
-- adds ``live_implementer`` to the allowed personas, with skill mapping
-  ``live-implementer``;
-- fixes the stale ``implementer`` skill mapping (was ``implementation-worker``)
-  to the actual ``implementer`` skill;
-- treats ``guided`` as a valid task kind (the ledger ``TaskKind`` literal already
-  includes it; this calculator does not reject it).
-
-The persona and runtime are supplied by the evaluator from the ledger (no
-free-form declaration dict). On-disk pointer validity is checked against the
-runtime config root and the canonical persona guide under
-``docs/ai-developer/personas/``.
-"""
+"""Persona_policy calculator."""
+# Maintainer context (kept outside generated API documentation):
+# persona_policy calculator (ADR-042 Addendum 6 spec §4 / §4.2).
+#
+# Produces: unsupported persona; persona skill/guide pointer missing; unsupported
+# runtime root.
+#
+# Ported from the legacy ``persona_policy`` (deleted on this branch). Per spec
+# §4.2 this calculator:
+#
+# - adds ``live_implementer`` to the allowed personas, with skill mapping
+#   ``live-implementer``;
+# - fixes the stale ``implementer`` skill mapping (was ``implementation-worker``)
+#   to the actual ``implementer`` skill;
+# - treats ``guided`` as a valid task kind (the ledger ``TaskKind`` literal already
+#   includes it; this calculator does not reject it).
+#
+# The persona and runtime are supplied by the evaluator from the ledger (no
+# free-form declaration dict). On-disk pointer validity is checked against the
+# runtime config root and the canonical persona guide under
+# ``docs/ai-developer/personas/``.
+# Development references: ADR-042, Addendum 6, docs/ai-developer/personas/.
 
 from __future__ import annotations
 

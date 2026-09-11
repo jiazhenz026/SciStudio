@@ -124,10 +124,11 @@ def _write_script_logs(logs_dir: Path, *, stdout: str | None, stderr: str | None
 def _script_error_tail(stderr: str | None) -> str:
     """Return the tail of *stderr*, formatted for a failure message.
 
-    #1972: the exit status alone says nothing. The script's traceback — file,
+    the exit status alone says nothing. The script's traceback — file,
     line, exception type — is the one thing a reader needs, so it travels with
     the error instead of waiting in a file nobody knows to open.
     """
+    # Development references: #1972.
     text = (stderr or "").strip()
     if not text:
         return ""
@@ -491,18 +492,24 @@ class CodeBlock(Block):
         return unpacked
 
     def _repack_outputs(self, outputs: Mapping[str, Any]) -> dict[str, Any]:
-        """Legacy helper retained while inline execution migrates to v2 exchange.
+        """Wrap individual output values in collections for inline execution.
 
-        TODO(#1330): redundant once engine ``_normalize_outputs`` list-unpack
-            soaks (the engine-side helper at
-            ``scistudio.engine.runners.worker._normalize_outputs`` now
-            handles both bare DataObject and bare list[DataObject] at the
-            output boundary, per ADR-020 §3). Kept as explicit intent
-            during the soak window and to preserve legacy-inline-execution
-            shape. Cleanup PR removes this helper together with the six
-            similar manual wraps in concrete blocks.
-            Followup: #1330 follow-up cleanup PR.
+        Preserve collections that are already packed. This normalizes legacy inline
+        outputs before they cross the workflow output boundary.
         """
+        # Maintainer context (kept outside generated API documentation):
+        # Legacy helper retained while inline execution migrates to v2 exchange.
+        #
+        #         TODO(#1330): redundant once engine ``_normalize_outputs`` list-unpack
+        #             soaks (the engine-side helper at
+        #             ``scistudio.engine.runners.worker._normalize_outputs`` now
+        #             handles both bare DataObject and bare list[DataObject] at the
+        #             output boundary, per ADR-020 §3). Kept as explicit intent
+        #             during the soak window and to preserve legacy-inline-execution
+        #             shape. Cleanup PR removes this helper together with the six
+        #             similar manual wraps in concrete blocks.
+        #             Followup: #1330 follow-up cleanup PR.
+        # Development references: #1330, ADR-020, TODO.
 
         repacked: dict[str, Any] = {}
         for name, value in outputs.items():

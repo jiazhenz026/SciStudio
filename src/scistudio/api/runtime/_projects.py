@@ -1,12 +1,14 @@
-"""Project-management method implementations.
-
-Issue #1430 / umbrella #1427: extracted verbatim from the original
-``api/runtime.py`` god-file. Each function is a free function whose
-first parameter is ``self`` — they are bound onto ``ApiRuntime`` in
-``runtime/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.api.runtime.ApiRuntime.<method>`` fact
-(see ADR-042 + the doc/closure audit walker).
-"""
+"""Project-management method implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Project-management method implementations.
+#
+# Issue #1430 / umbrella #1427: extracted verbatim from the original
+# ``api/runtime.py`` god-file. Each function is a free function whose
+# first parameter is ``self`` — they are bound onto ``ApiRuntime`` in
+# ``runtime/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.api.runtime.ApiRuntime.<method>`` fact
+# (see ADR-042 + the doc/closure audit walker).
+# Development references: #1427, #1430, ADR-042.
 
 from __future__ import annotations
 
@@ -48,7 +50,7 @@ logger = logging.getLogger(__name__)
 def _load_known_projects(self: ApiRuntime) -> None:
     """Load the user-level project registry, tolerating a file a newer build wrote.
 
-    Issue #2073: ``~/.scistudio/projects.json`` outlives the runtime that reads
+    ``~/.scistudio/projects.json`` outlives the runtime that reads
     it. It survives uninstall and reinstall, and the desktop client's OTA
     rollback can move the runtime *backwards* past the build that wrote the
     file. Because :func:`_save_known_projects` persists every dataclass field,
@@ -72,6 +74,7 @@ def _load_known_projects(self: ApiRuntime) -> None:
     parsing past a field and then writing without it would erase a newer
     build's metadata on the first project the user touched.
     """
+    # Development references: #2073.
     from .models import KnownProject
 
     if not self.known_projects_path.exists():
@@ -106,7 +109,7 @@ def _load_known_projects(self: ApiRuntime) -> None:
 def _save_known_projects(self: ApiRuntime) -> None:
     """Persist the registry, carrying forward fields this build does not model.
 
-    Issue #2073: dropping unrecognised keys at load is what lets an older
+    dropping unrecognised keys at load is what lets an older
     runtime start at all, but this function rewrites the whole file on every
     project open, create and delete. Writing back only what this build models
     would therefore erase a newer build's metadata from every entry — silently,
@@ -119,6 +122,7 @@ def _save_known_projects(self: ApiRuntime) -> None:
     interpreted; a field this build does not understand is data to carry, not
     data to act on.
     """
+    # Development references: #2073.
     payload = {
         "projects": [
             {**asdict(entry), **self._known_project_extras.get(entry.id, {})} for entry in self.known_projects.values()
@@ -130,9 +134,10 @@ def _save_known_projects(self: ApiRuntime) -> None:
 def refresh_block_registry(self: ApiRuntime) -> None:
     """Rebuild the BlockRegistry for the active project.
 
-    ADR-053 FR-057/FR-060: scan dirs come from :mod:`scistudio.core.dropins`,
+    scan dirs come from :mod:`scistudio.core.dropins`,
     so the user tier no longer needs an open project to be seen.
     """
+    # Development references: ADR-053, FR-057, FR-060.
     project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = BlockRegistry()
     register_block_scan_dirs(registry, project_dir)
@@ -143,15 +148,23 @@ def refresh_block_registry(self: ApiRuntime) -> None:
 def refresh_type_registry(self: ApiRuntime) -> None:
     """Re-scan the TypeRegistry with the current active project's types dir.
 
-    Issue #1332 / ARCHITECTURE.md §10 + §10.5: mirrors
+    Configured scan directories: mirrors
     :func:`refresh_block_registry` so a project switch picks up
     ``<project>/types`` drop-in :class:`DataObject` subclasses and the
     user-wide ``~/.scistudio/types`` dir. Always rebuilds from scratch
     so a switch from project A to project B does not leak project A's
     types into project B.
 
-    ADR-053 FR-057/FR-058: same tier definition as the block registry.
+    same tier definition as the block registry.
     """
+    # Maintainer context:
+    # ARCHITECTURE.md §10 + §10.5: mirrors
+    # :func:`refresh_block_registry` so a project switch picks up
+    # ``<project>/types`` drop-in :class:`DataObject` subclasses and the
+    # user-wide ``~/.scistudio/types`` dir. Always rebuilds from scratch
+    # so a switch from project A to project B does not leak project A's
+    # types into project B.
+    # Development references: #1332, ADR-053, FR-057, FR-058.
     project_dir = None if self.active_project is None else Path(self.active_project.path)
     registry = TypeRegistry()
     register_type_scan_dirs(registry, project_dir)
@@ -162,30 +175,32 @@ def refresh_type_registry(self: ApiRuntime) -> None:
 def refresh_all_registries(self: ApiRuntime) -> None:
     """Rebuild every registry a drop-in, package, or branch change invalidates.
 
-    ADR-053 FR-062 to FR-065 and #2009/#2021. Each invalidation event used to
+    to and. Each invalidation event used to
     pick its own subset: branch switch and the four package
     install/update/rollback/delete routes rebuilt blocks alone, so a package
     that ships types or previewers had them stay undiscovered until the user
     happened to switch projects. Callers now name the event rather than the
     registries, which is what stops the set drifting apart again — and is the
-    entry point to call after a user library write (FR-010 / FR-065).
+    entry point to call after a user library write.
 
     The order is the one the project-switch path already used: types, then
     blocks, then previewers.
     """
+    # Development references: #2009, ADR-053, FR-010, FR-062, FR-065.
     self.refresh_type_registry()
     self.refresh_block_registry()
     self.refresh_preview_service()
 
 
 def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
-    """Open the unified ADR-038 lineage store for the active project.
+    """Open the unified lineage store for the active project.
 
     The DB lives at ``<project>/.scistudio/lineage.db``. Schema creation is
     idempotent so first-time opens auto-bootstrap. Best-effort: a failure
     is logged and the store is set to ``None``, which makes the lineage
     recorder a no-op for this project.
     """
+    # Development references: ADR-038.
     db_path = lineage_db_path(project_path)
     prior = getattr(self, "lineage_store", None)
     prior_path = getattr(self, "_lineage_db_path", None)
@@ -227,7 +242,8 @@ def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
 
 
 def _init_metadata_store(self: ApiRuntime, project_path: Path) -> None:
-    """Install the deprecation-shim :class:`MetadataStore` (ADR-038 §6)."""
+    """Install the deprecation-shim :class:`MetadataStore`."""
+    # Development references: ADR-038.
     try:
         from scistudio.core.metadata_store import (
             MetadataStore,
@@ -278,7 +294,7 @@ def create_project(
 ) -> KnownProject:
     """Create a project workspace and open it.
 
-    ADR-053 Learning Center FR-063/FR-064: the three ``tutorial_*`` arguments
+    Learning Center: the three ``tutorial_*`` arguments
     mark the new project as belonging to one tutorial. They are plain strings
     rather than a :class:`scistudio.tutorials.projects.TutorialKey` so this
     module stays independent of the tutorial package — the marker is data the
@@ -288,8 +304,9 @@ def create_project(
     *dir_name* overrides the slug the directory would otherwise take from
     *name*. The Learning Center needs it because a tutorial project's directory
     is derived from the tutorial's identity and has to be stable across restarts
-    (FR-066), while the project's displayed name is the tutorial's title.
+    while the project's displayed name is the tutorial's title.
     """
+    # Development references: ADR-053, FR-063, FR-064, FR-066.
     from .models import KnownProject
 
     parent_dir = _safe_parent_dir(parent_path)
@@ -388,17 +405,18 @@ def create_project(
 def list_projects(self: ApiRuntime) -> list[KnownProject]:
     """Return every known project, most recently opened first.
 
-    ADR-053 Learning Center FR-065 excludes tutorial projects from the listing
+    Learning Center excludes tutorial projects from the listing
     that feeds the recent-project list, the projects dropdown, and the welcome
     pane — and that filter is applied by the route
     (``scistudio.api.routes.projects.list_projects``), not here. This method is
     also the registry's pruning pass and the runtime's answer to "which projects
     exist", which the Learning Center itself needs in order to find the tutorial
-    project it must delete on restart (FR-066) and the ones clearing removes
-    (FR-073). Filtering here would hide them from the layer that owns them, and
+    project it must delete on restart and the ones clearing removes
+    Filtering here would hide them from the layer that owns them, and
     the marked entries must stay "fully operable through every other route"
-    (FR-065), which they only are while the runtime can still see them.
+    which they only are while the runtime can still see them.
     """
+    # Development references: ADR-053, FR-065, FR-066, FR-073.
     self._load_known_projects()
     stale_ids = [
         pid
@@ -529,14 +547,15 @@ def _write_private_pointer(path: Path, text: str) -> bool:
 
     ``.scistudio/`` may be group-shared, so another user can plant a symlink, or
     a file of their own, at a pointer path; a plain write would follow the link
-    and overwrite whatever it names (no-context audit of #2329). The text goes
-    to a fresh ``O_CREAT | O_EXCL`` staging file (mode 0600) in the same
-    directory, which then replaces the directory entry. An existing symlink, or
-    a file another user owns, is refused with a warning instead.
+    and overwrite whatever it names. The text goes to a fresh
+    ``O_CREAT | O_EXCL`` staging file (mode 0600) in the same directory, which
+    then replaces the directory entry. An existing symlink, or a file another
+    user owns, is refused with a warning instead.
 
     Returns:
         Whether the pointer was written.
     """
+    # Development references: #2329 (no-context audit), #2333, #2327.
     try:
         existing = os.lstat(path)
     except FileNotFoundError:

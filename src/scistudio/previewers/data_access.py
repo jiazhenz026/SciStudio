@@ -867,7 +867,7 @@ class PreviewDataAccess:
     def png_data_uri(self, matrix: list[list[float | None]]) -> str:
         """Encode a 2-D matrix as a grayscale PNG data URI (legacy-compat only).
 
-        Internal (ADR-052 §8.2): the legacy grayscale-PNG path used by the REST
+        Internal: the legacy grayscale-PNG path used by the REST
         compatibility adapter. It is excluded from the author surface and the
         generated reference; new previewers return the numeric ``matrix`` from
         :meth:`array_plane` and let the frontend render the heatmap.
@@ -876,6 +876,7 @@ class PreviewDataAccess:
         legacy grayscale encoder only consumes finite floats; this path feeds
         the REST compatibility adapter, not the new numeric viewer.
         """
+        # Development references: ADR-052.
         from scistudio.previewers._raster import _image_data_uri_from_matrix
 
         finite = [[(v if isinstance(v, (int, float)) else 0.0) for v in row] for row in matrix]

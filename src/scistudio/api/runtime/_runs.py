@@ -1,7 +1,9 @@
-"""Workflow execution + lineage method implementations.
-
-Issue #1430 / umbrella #1427: behavior unchanged.
-"""
+"""Workflow execution + lineage method implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Workflow execution + lineage method implementations.
+#
+# Issue #1430 / umbrella #1427: behavior unchanged.
+# Development references: #1427, #1430.
 
 from __future__ import annotations
 
@@ -30,20 +32,28 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowAlreadyRunningError(RuntimeError):
-    """Raised when a workflow is re-executed while a live run is in flight.
+    """Raised when a workflow is started while its previous run is active.
 
-    Short-term concurrency guard for #1525: starting a second scheduler for
-    the same ``workflow_id`` while the first is still running silently orphans
-    the original run (both share the event bus, resource manager, process
-    registry, checkpoint slot, and lineage store, and ``get_run`` /
-    ``cancel_workflow`` only resolve the newest entry). The route maps this to
-    HTTP 409. The long-term fix (keying runs by ``run_id`` with an explicit
-    concurrency policy) is tracked separately.
-
-    TODO(#1517): replace this guard with run-identity keyed concurrency.
-      Out of scope per manager dispatch A1 (short-term guard only for #1525).
-      Followup: https://github.com/zjzcpj/SciStudio/issues/1517
+    Concurrent runs of the same workflow share runtime resources and would hide
+    the earlier run from lookup and cancellation. API routes report this conflict
+    as HTTP 409.
     """
+
+    # Maintainer context (kept outside generated API documentation):
+    # Raised when a workflow is re-executed while a live run is in flight.
+    #
+    #     Short-term concurrency guard for #1525: starting a second scheduler for
+    #     the same ``workflow_id`` while the first is still running silently orphans
+    #     the original run (both share the event bus, resource manager, process
+    #     registry, checkpoint slot, and lineage store, and ``get_run`` /
+    #     ``cancel_workflow`` only resolve the newest entry). The route maps this to
+    #     HTTP 409. The long-term fix (keying runs by ``run_id`` with an explicit
+    #     concurrency policy) is tracked separately.
+    #
+    #     TODO(#1517): replace this guard with run-identity keyed concurrency.
+    #       Out of scope per manager dispatch A1 (short-term guard only for #1525).
+    #       Followup: https://github.com/zjzcpj/SciStudio/issues/1517
+    # Development references: #1517, #1525, TODO.
 
     def __init__(self, workflow_id: str) -> None:
         self.workflow_id = workflow_id
@@ -80,10 +90,15 @@ def _ancestors_of(self: ApiRuntime, workflow: WorkflowDefinition, block_id: str)
 def checkpoint_dir_for(self: ApiRuntime, workflow_id: str) -> Path:
     """Return the per-workflow pause/resume checkpoint directory.
 
-    Per ADR-038 §5.2 (Phase D38-2.3) the checkpoint files relocate
+    the checkpoint files relocate
     from ``<project>/checkpoints/<workflow_id>/`` to
     ``<project>/.scistudio/pause/<workflow_id>/``.
     """
+    # Maintainer context:
+    # (Phase D38-2.3) the checkpoint files relocate
+    # from ``<project>/checkpoints/<workflow_id>/`` to
+    # ``<project>/.scistudio/pause/<workflow_id>/``.
+    # Development references: ADR-038.
     project = self.require_active_project()
     return Path(project.path) / ".scistudio" / "pause" / workflow_id
 
@@ -104,8 +119,9 @@ def _build_lineage_recorder(
     Returns ``None`` when the lineage store is unavailable. ``flattened`` is set
     when *workflow* is the inline-flattened result of a graph that contained
     ``SubWorkflowBlock`` references, so the snapshot captures the flat DAG that
-    actually ran (ADR-044 §5 / SC-002).
+    actually ran.
     """
+    # Development references: ADR-044, SC-002.
     if self.lineage_store is None:
         return None
     try:
@@ -170,7 +186,7 @@ def _serialise_workflow_snapshot(
 ) -> str:
     """Return the workflow YAML snapshot for the lineage ``runs`` row.
 
-    ADR-044 §5 / SC-002: when ``prefer_inmemory`` is set (the workflow contained
+    when ``prefer_inmemory`` is set (the workflow contained
     ``SubWorkflowBlock`` references that were inline-flattened before dispatch),
     serialise the *in-memory flattened* definition so the snapshot captures the
     exact flat DAG that ran — NOT the authored on-disk YAML, which still holds
@@ -178,6 +194,7 @@ def _serialise_workflow_snapshot(
     on-disk file already equals what ran, so the disk read is kept (it preserves
     authored comments/formatting and existing lineage behaviour).
     """
+    # Development references: ADR-044, SC-002.
     if prefer_inmemory:
         try:
             from scistudio.workflow.serializer import dump_yaml_str
@@ -211,7 +228,8 @@ def _derive_lineage_run_status(
     scheduler: DAGScheduler,
     task: asyncio.Task[None],
 ) -> str:
-    """Return the ADR-038 ``runs.status`` for a finished workflow task."""
+    """Return the ``runs.status`` for a finished workflow task."""
+    # Development references: ADR-038.
     if task.cancelled():
         return "cancelled"
 
@@ -237,19 +255,20 @@ def _finalize_lineage_run(
 ) -> str:
     """Update the ``runs`` row when the workflow task finishes.
 
-    #1527 (BUG-6): ``recorder.finalize_run`` now persists the recorder's
+    ``recorder.finalize_run`` now persists the recorder's
     accumulated ``provenance_degraded`` latch onto the ``runs`` row, so a run
     whose lineage / block_io writes silently failed can no longer be read
     back as a clean "completed". We additionally emit a warning here when the
     derived status would otherwise be a clean completion but provenance is
     degraded, so the loss is visible in logs and not only in the DB column.
 
-    #2327: returns the terminal status (``failed`` when it cannot be derived),
-    which ``release_run`` checks against the row. A run whose lineage backend
+    Returns the terminal status (``failed`` when it cannot be derived), which
+    the caller checks against the stored row. A run whose lineage the backend's
     shutdown already finalised is not written again. *project_dir* is the
-    run's own project, which artifact retention sweeps even after a project
-    switch.
+    run's own project, which artifact retention sweeps even after the user has
+    switched to another project.
     """
+    # Development references: #1527, BUG-6, #2327.
     status = "failed"
     try:
         status = self._derive_lineage_run_status(scheduler, task)
@@ -331,7 +350,7 @@ def _reclaim_artifacts_blocking(project_dir: str) -> None:
 
 
 def _schedule_artifact_retention(self: ApiRuntime, *, project_dir: str | None = None) -> None:
-    """Reclaim superseded artifacts after a successful run (#1983).
+    """Reclaim superseded artifacts after a successful run.
 
     Nothing removed artifacts before this hook, so ``data/zarr`` grew without
     bound — a real project reached 16 GB of intermediates from 634 MB of source
@@ -345,6 +364,7 @@ def _schedule_artifact_retention(self: ApiRuntime, *, project_dir: str | None = 
     :func:`~scistudio.core.lineage.retention.plan_retention` refuses to sweep
     while any run is still executing, so a concurrent run is safe.
     """
+    # Development references: #1983.
     if not _artifact_retention_enabled():
         return
     if project_dir is None:
@@ -380,24 +400,25 @@ def start_workflow(
     parent_run_id: str | None = None,
     overwrite_node_ids: set[str] | None = None,
 ) -> dict[str, Any]:
-    """Schedule a workflow run.
+    """Schedule a workflow run and capture its provenance.
 
-    D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id``
-    stamps the new run's ``runs.parent_run_id`` column, pointing at the
-    historical run whose outputs this run builds on.
+    ``parent_run_id`` links the new run to a historical run whose outputs it
+    builds on. It is ``None`` when no parent is supplied.
 
-    ADR-038 Addendum 1 §11.6 (#2033) removed the ``/api/runs/{run_id}/rerun``
-    endpoint, which was this parameter's only caller. The parameter and the
-    column stay: historical rows still carry a parent and the UI still renders
-    the link, and "Run from here" (§3.6a) remains free to pass it. New runs
-    started through the current surfaces leave it ``None``.
-
-    Phase 3.5 integration: also drives the ADR-039 §3.4 pre-run
-    auto-commit path. The captured SHA + the post-commit dirty
-    flag are threaded into :func:`_build_lineage_recorder` so the
-    ADR-038 ``runs`` row carries ``workflow_git_commit`` /
-    ``workflow_dirty`` at INSERT time.
+    Perform the pre-run auto-commit and pass the captured SHA and dirty flag to
+    :func:`_build_lineage_recorder`, which records ``workflow_git_commit`` and
+    ``workflow_dirty`` on the run.
     """
+    # Maintainer context:
+    # D38-3.2 (closes D38-3.1a P2 / D38-3.1b P2-4): ``parent_run_id``
+    # stamps the new run's ``runs.parent_run_id`` column, pointing at the
+    # historical run whose outputs this run builds on.
+    # The contract removed the ``/api/runs/{run_id}/rerun``
+    # endpoint, which was this parameter's only caller. The parameter and the
+    # column stay: historical rows still carry a parent and the UI still renders
+    # the link, and "Run from here" (§3.6a) remains free to pass it. New runs
+    # started through the current surfaces leave it ``None``.
+    # Development references: #2033, ADR-038, ADR-039, Addendum 1.
     from .models import WorkflowRun
 
     # #1525 short-term guard: reject starting a second scheduler for a

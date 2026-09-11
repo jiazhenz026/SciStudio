@@ -11,10 +11,11 @@ from typing import Any
 from scistudio.core.storage.ref import StorageReference
 
 _LOCK_TIMEOUT_SECONDS: float = 10.0
-"""ADR-033 OQ7 file lock timeout."""
+"""File lock timeout."""
+# Development references: ADR-033.
 
 _MAX_PREVIEW_BYTES: int = 8 * 1024 * 1024
-"""8 MiB hard cap (Phase 2 audit)."""
+"""Maximum preview payload size: 8 MiB."""
 
 _THUMBNAIL_MAX_DIM: int = 256
 _DATAFRAME_PREVIEW_ROWS: int = 100

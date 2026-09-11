@@ -1,12 +1,14 @@
-"""Append-only gate ledger Pydantic models for ADR-042 Addendum 6 (§7.2).
-
-The ledger is one append-only JSON object: top-level identity fields plus event
-arrays. Events accumulate and are never overwritten or deleted; corrections are
-new events. ``schema_version`` is ``2`` (bumped from the legacy flat document).
-
-This module is import-clean: it depends only on pydantic, stdlib, and
-``surfaces`` for path normalization. It owns no CLI, no I/O, no subprocess.
-"""
+"""Append-only gate ledger Pydantic models."""
+# Maintainer context (kept outside generated API documentation):
+# Append-only gate ledger Pydantic models for ADR-042 Addendum 6 (§7.2).
+#
+# The ledger is one append-only JSON object: top-level identity fields plus event
+# arrays. Events accumulate and are never overwritten or deleted; corrections are
+# new events. ``schema_version`` is ``2`` (bumped from the legacy flat document).
+#
+# This module is import-clean: it depends only on pydantic, stdlib, and
+# ``surfaces`` for path normalization. It owns no CLI, no I/O, no subprocess.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -123,7 +125,10 @@ class ScopeEvent(BaseModel):
 
 
 class ObservedDiff(BaseModel):
-    """Git-observed objective change facts (§7.2). The evidence, not a claim."""
+    """Git-observed objective change facts. The evidence, not a claim."""
+
+    # Maintainer context:
+    # Git-observed objective change facts (§7.2). The evidence, not a claim.
 
     model_config = ConfigDict(extra="forbid")
 
@@ -142,11 +147,14 @@ class ObservedDiff(BaseModel):
 
 
 class CheckEvent(BaseModel):
-    """An append-only, incremental check event (§7.2).
+    """An append-only, incremental check event.
 
     Validity is scoped to ``covered_surface`` + ``input_fingerprint``: a later
     edit to that surface invalidates only this event's evidence.
     """
+
+    # Maintainer context:
+    # An append-only, incremental check event (§7.2).
 
     model_config = ConfigDict(extra="forbid")
 
@@ -285,7 +293,10 @@ class CommitEvidence(BaseModel):
 
 
 class PullRequestEvidence(BaseModel):
-    """PR provenance with pre-PR/post-PR distinction (§7.2)."""
+    """PR provenance with pre-PR/post-PR distinction."""
+
+    # Maintainer context:
+    # PR provenance with pre-PR/post-PR distinction (§7.2).
 
     model_config = ConfigDict(extra="forbid")
 
@@ -311,7 +322,9 @@ class AdminLabel(BaseModel):
 
 
 class GateLedger(BaseModel):
-    """Append-only ADR-042 Addendum 6 gate ledger (schema v2)."""
+    """Append-only gate ledger (schema v2)."""
+
+    # Development references: ADR-042, Addendum 6.
 
     model_config = ConfigDict(extra="forbid")
 

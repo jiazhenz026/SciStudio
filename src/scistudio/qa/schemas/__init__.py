@@ -1,4 +1,5 @@
-"""Shared schemas used by ADR-042 QA tooling."""
+"""Shared schemas used by QA tooling."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

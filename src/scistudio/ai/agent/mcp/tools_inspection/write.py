@@ -41,19 +41,20 @@ async def update_block_config(
     """Patch one block's configuration in a workflow YAML (preserves comments).
 
     Use when:
-      - You want to change one block's params without re-emitting the
+      You want to change one block's params without re-emitting the
         whole workflow YAML.
-      - You need to preserve user comments and key order.
+      You need to preserve user comments and key order.
 
     Do NOT use to:
-      - Rewrite an entire workflow — use ``write_workflow`` (whole-file
+      Rewrite an entire workflow — use ``write_workflow`` (whole-file
         replace).
-      - Edit ``workflows/*.yaml`` via Bash/Edit/Write — the
-        protect_workflow_yaml hook (ADR-040 §3.6) will block such calls.
+      Edit ``workflows/*.yaml`` via Bash/Edit/Write — the
+        protect_workflow_yaml hook will block such calls.
         This tool is the ONLY supported per-block-patch path.
 
     Uses ruamel.yaml round-trip mode to preserve formatting.
     """
+    # Development references: ADR-040.
     # TODO(#732): once workflow versioning API ships, share the lock
     # boundary with the canvas's optimistic-concurrency model.
     # Out of scope per ADR-040 §3.1 / phase: 2a I40a.

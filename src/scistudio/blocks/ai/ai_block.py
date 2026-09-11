@@ -80,7 +80,7 @@ def _agent_provider_keys() -> list[str]:
 
 
 def _ai_block_provider_keys() -> list[str]:
-    """Agent keys the AI Block may advertise, in registry order (#2014).
+    """Agent keys the AI Block may advertise, in registry order.
 
     The chat surface offers every registry agent; the AI Block surface must
     not. An AI Block hands its task to the agent as a positional prompt
@@ -98,6 +98,7 @@ def _ai_block_provider_keys() -> list[str]:
     ``availability`` runs subprocesses to probe auth state — a dependency this
     layer has no business acquiring for a pure descriptor question.
     """
+    # Development references: #2014.
     from scistudio.ai.agent.providers_registry import agent_descriptors, session_unsupported_reason
 
     return [d.key for d in agent_descriptors() if session_unsupported_reason(d) is None]
@@ -106,10 +107,11 @@ def _ai_block_provider_keys() -> list[str]:
 def _resolve_provider_descriptor(provider: str) -> ProviderDescriptor:
     """Return the registry descriptor for *provider* or raise ``ValueError``.
 
-    ADR-034 FR-014: the accepted set is the registry's agent keys, so a
+    the accepted set is the registry's agent keys, so a
     provider added to the registry is immediately valid here with no edit
     to this module.
     """
+    # Development references: ADR-034, FR-014.
     from scistudio.ai.agent.providers_registry import get as _registry_get
 
     accepted = _agent_provider_keys()
@@ -121,7 +123,7 @@ def _resolve_provider_descriptor(provider: str) -> ProviderDescriptor:
 def _discover_provider_binary(descriptor: ProviderDescriptor) -> Any:
     """Return the resolved provider binary path, or ``None`` if absent.
 
-    ADR-034 FR-005: this delegates to the registry resolver rather than
+    this delegates to the registry resolver rather than
     calling ``shutil.which`` directly, so the AI Block path and the chat
     path cannot disagree about whether a provider is installed. The
     previous ``shutil.which`` lookup missed Kimi Code and both Qoder
@@ -131,6 +133,7 @@ def _discover_provider_binary(descriptor: ProviderDescriptor) -> Any:
     Kept as a module-level indirection so tests can substitute a resolver
     without depending on which CLIs the developer has installed.
     """
+    # Development references: ADR-034, FR-005.
     from scistudio.ai.agent.providers_registry import resolve_binary
 
     return resolve_binary(descriptor)
@@ -170,7 +173,7 @@ class AIBlock(Block):
         selects any agent CLI in the provider registry that can carry an AI
         Block task — ``"claude-code"`` is the default, and chat-only CLIs
         with no positional prompt argument (Kimi Code) are not offered
-        (#2014). ``permission_mode`` is ``"safe"`` (the agent asks before
+    ``permission_mode`` is ``"safe"`` (the agent asks before
         sensitive tool use, default) or ``"bypass"`` (full filesystem access).
         ``input_ports`` / ``output_ports`` declare the named ports and, for
         outputs, the file path where each result is expected.
@@ -194,6 +197,8 @@ class AIBlock(Block):
             }
     """
 
+    # Development references: #2014.
+
     # -- ClassVar metadata -----------------------------------------------------
 
     type_name: ClassVar[str] = "ai.agent"
@@ -211,8 +216,9 @@ class AIBlock(Block):
     version: ClassVar[str] = "0.3.0"
     """Block version, bumped when its contract or behavior changes.
 
-    0.3.0 (#1898): added the ``reuse_last_output`` config toggle, which
+    0.3.0: added the ``reuse_last_output`` config toggle, which
     skips the agent run and re-emits the previous run's output files."""
+    # Development references: #1898.
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.EXTERNAL
     """Marks this as an external block: it launches an outside program (the
@@ -674,12 +680,13 @@ class AIBlock(Block):
     ) -> dict[str, Collection]:
         """Validate + load each declared output port via ``LoadData``.
 
-        ADR-035 §3.6: validation failures keep the run_dir intact (we
+        validation failures keep the run_dir intact (we
         don't delete it) so the user can inspect the offending file.
 
         Raises ``FileNotFoundError`` when a declared output is missing,
         and propagates loader exceptions otherwise.
         """
+        # Development references: ADR-035.
         from pathlib import Path
 
         from scistudio.blocks.io.loaders.load_data import LoadData
@@ -715,7 +722,7 @@ class AIBlock(Block):
         project_dir: Any,
         output_dir: str,
     ) -> dict[str, Collection] | None:
-        """#1898: load the previous run's outputs, or ``None`` on a cache miss.
+        """Load the previous run's outputs, or ``None`` on a cache miss.
 
         A reuse hit requires **every** declared output to still be present at
         its ``expected_path`` and be non-empty; that is exactly the "never ran /
@@ -725,6 +732,7 @@ class AIBlock(Block):
         error rather than being silently re-run). On a miss the caller falls
         back to a normal agent run.
         """
+        # Development references: #1898.
         from pathlib import Path
 
         if not output_specs:
@@ -749,7 +757,8 @@ class AIBlock(Block):
 
 
 REUSE_LAST_OUTPUT_KEY = "reuse_last_output"
-"""Config key for the #1898 reuse-last-output toggle (see ADR-035 Addendum 1)."""
+"""Config key for the reuse-last-output toggle."""
+# Development references: #1898, ADR-035, Addendum 1.
 
 
 def _reuse_last_output_enabled(config: BlockConfig) -> bool:
@@ -769,12 +778,13 @@ def _to_path(value: Any) -> Any:
 
 
 def _make_block_execution_id(block_name: str) -> str:
-    """``YYYYMMDD-HHMMSS-{name}-{nonce}`` per ADR-035 §3.4 example.
+    """``YYYYMMDD-HHMMSS-{name}-{nonce}`` example.
 
-    Renamed from ``_make_run_id`` per ADR-038 §5.2 — this identifier is
+    Renamed from ``_make_run_id`` — this identifier is
     per AI Block execution, not per workflow run. Each invocation of one
     AI Block within a workflow run produces a fresh value.
     """
+    # Development references: ADR-035, ADR-038.
     safe_name = "".join(c if c.isalnum() or c in "._-" else "_" for c in block_name)[:48]
     ts = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     nonce = uuid.uuid4().hex[:7]
@@ -798,7 +808,7 @@ def _output_path_overrides(config: BlockConfig) -> dict[str, str]:
 
 
 def _clear_expected_outputs(output_specs: dict[str, dict[str, Any]], project_dir: Any) -> None:
-    """#1789: remove pre-existing declared-output files before the agent runs.
+    """Remove pre-existing declared-output files before the agent runs.
 
     The FileWatcher completion path (CompletionWatcher) fires when every declared
     ``expected_path`` exists and is size-stable. The ``<block>_outputs`` dir
@@ -808,6 +818,7 @@ def _clear_expected_outputs(output_specs: dict[str, dict[str, Any]], project_dir
     the MCP finish tool / user "Mark done"). Best-effort; missing files and
     unlink errors are ignored.
     """
+    # Development references: #1789.
     from pathlib import Path
 
     for spec in output_specs.values():

@@ -1,70 +1,73 @@
-"""The write path into the user library (ADR-053 §4).
-
-The destination is ``~/.scistudio/`` for an ordinary project and the
-tutorial-scoped library for a tutorial project. Which one is not decided here:
-:func:`scistudio.core.dropins.library_root_for_project` is the single answer to
-"which library does this project see", and both the block and type registries
-already scan through it, so the write resolving through it too is what makes
-the save and the scan agree (Learning Center FR-070, FR-071).
-
-``docs/specs/adr-053-personal-tool-library.md`` §2.3: before this router the
-only file-write endpoint in the product was
-``PUT /api/projects/{project_id}/file``, which rejects any path resolving
-outside the project root. The user library sits outside every project root by
-construction, so reaching ``~/.scistudio/blocks/`` or ``~/.scistudio/types/``
-required a file manager, and nothing in the product could put a file there.
-
-This is the second door, and §14 calls it "the highest-risk surface in the
-spec". Its constraint is the **inverse** of the project endpoint's rather than
-a relaxation of it (FR-007): the resolved target must be inside the relevant
-user library root, and ``PUT /api/projects/{project_id}/file`` is untouched
-(FR-009).
-
-Four rules make that constraint hold, and each one closes a case the others do
-not:
-
-1. **The caller names the tier.** ``target`` is a
-   ``Literal["blocks", "types", "previewers"]`` and the roots come from
-   :mod:`scistudio.core.dropins`, so the destination is never inferred from
-   file content (FR-006) and this module never spells out ``~/.scistudio``
-   itself (FR-058).
-2. **The caller supplies a filename, not a path.** Anything carrying a
-   separator, a drive, a ``..`` segment, or an absolute or drive-relative form
-   is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
-   drive-relative path whose ``Path.name`` is ``blocks.py``, so the drive test
-   is separate from the basename test rather than implied by it. The basename
-   test asks both path flavours, so the rule does not change meaning when the
-   same library is used from the other operating system. Control characters, a
-   leading dot, a Windows reserved device stem, and any extension but an exact
-   ``.py`` are refused for the same reason: each of them produces a file that
-   either is not what the user asked for or cannot be found and removed
-   through the product.
-3. **Containment is decided on resolved real paths.** ``os.path.realpath``
-   collapses symlinks first and ``os.path.commonpath`` compares canonical
-   forms — the CodeQL ``py/path-injection`` sanitiser the project endpoint
-   already uses. A symlink in the library pointing at ``/etc/passwd`` resolves
-   to ``/etc/passwd`` and fails the comparison; a path on another Windows drive
-   makes ``commonpath`` raise, which is treated as an escape. String prefixes
-   are never compared.
-4. **The file lands directly in the root.** After resolution the target's
-   parent must be the root itself, so a nested subdirectory — including one
-   reached through a symlinked subdirectory that stays inside the root — is
-   refused, and the extension must be ``.py``.
-
-Error shapes match the project endpoint so one frontend error path serves both:
-400 for an empty name, 403 for traversal and escape, 415 for a non-``.py``
-extension, 404 when a read finds nothing. The one addition is **409 for a
-collision** (FR-008): an existing file is reported to the caller rather than
-silently overwritten, and overwriting requires ``overwrite: true``. That
-refusal is decided by the filesystem at the moment of the write and not by the
-probe that precedes it — see :func:`write_user_library_file` for why the
-distinction is load-bearing once two processes share ``~/.scistudio``.
-
-After a successful write the registries are rebuilt through
-``ApiRuntime.refresh_all_registries()`` (FR-010/FR-062) so the new block or
-type is discoverable without a restart — the caller names the *event*, not the
-registry set.
-"""
+"""The write path into the user library."""
+# Maintainer context (kept outside generated API documentation):
+# The write path into the user library (ADR-053 §4).
+#
+# The destination is ``~/.scistudio/`` for an ordinary project and the
+# tutorial-scoped library for a tutorial project. Which one is not decided here:
+# :func:`scistudio.core.dropins.library_root_for_project` is the single answer to
+# "which library does this project see", and both the block and type registries
+# already scan through it, so the write resolving through it too is what makes
+# the save and the scan agree (Learning Center FR-070, FR-071).
+#
+# ``docs/specs/adr-053-personal-tool-library.md`` §2.3: before this router the
+# only file-write endpoint in the product was
+# ``PUT /api/projects/{project_id}/file``, which rejects any path resolving
+# outside the project root. The user library sits outside every project root by
+# construction, so reaching ``~/.scistudio/blocks/`` or ``~/.scistudio/types/``
+# required a file manager, and nothing in the product could put a file there.
+#
+# This is the second door, and §14 calls it "the highest-risk surface in the
+# spec". Its constraint is the **inverse** of the project endpoint's rather than
+# a relaxation of it (FR-007): the resolved target must be inside the relevant
+# user library root, and ``PUT /api/projects/{project_id}/file`` is untouched
+# (FR-009).
+#
+# Four rules make that constraint hold, and each one closes a case the others do
+# not:
+#
+# 1. **The caller names the tier.** ``target`` is a
+#    ``Literal["blocks", "types", "previewers"]`` and the roots come from
+#    :mod:`scistudio.core.dropins`, so the destination is never inferred from
+#    file content (FR-006) and this module never spells out ``~/.scistudio``
+#    itself (FR-058).
+# 2. **The caller supplies a filename, not a path.** Anything carrying a
+#    separator, a drive, a ``..`` segment, or an absolute or drive-relative form
+#    is refused before it touches the filesystem. ``C:blocks.py`` is a Windows
+#    drive-relative path whose ``Path.name`` is ``blocks.py``, so the drive test
+#    is separate from the basename test rather than implied by it. The basename
+#    test asks both path flavours, so the rule does not change meaning when the
+#    same library is used from the other operating system. Control characters, a
+#    leading dot, a Windows reserved device stem, and any extension but an exact
+#    ``.py`` are refused for the same reason: each of them produces a file that
+#    either is not what the user asked for or cannot be found and removed
+#    through the product.
+# 3. **Containment is decided on resolved real paths.** ``os.path.realpath``
+#    collapses symlinks first and ``os.path.commonpath`` compares canonical
+#    forms — the CodeQL ``py/path-injection`` sanitiser the project endpoint
+#    already uses. A symlink in the library pointing at ``/etc/passwd`` resolves
+#    to ``/etc/passwd`` and fails the comparison; a path on another Windows drive
+#    makes ``commonpath`` raise, which is treated as an escape. String prefixes
+#    are never compared.
+# 4. **The file lands directly in the root.** After resolution the target's
+#    parent must be the root itself, so a nested subdirectory — including one
+#    reached through a symlinked subdirectory that stays inside the root — is
+#    refused, and the extension must be ``.py``.
+#
+# Error shapes match the project endpoint so one frontend error path serves both:
+# 400 for an empty name, 403 for traversal and escape, 415 for a non-``.py``
+# extension, 404 when a read finds nothing. The one addition is **409 for a
+# collision** (FR-008): an existing file is reported to the caller rather than
+# silently overwritten, and overwriting requires ``overwrite: true``. That
+# refusal is decided by the filesystem at the moment of the write and not by the
+# probe that precedes it — see :func:`write_user_library_file` for why the
+# distinction is load-bearing once two processes share ``~/.scistudio``.
+#
+# After a successful write the registries are rebuilt through
+# ``ApiRuntime.refresh_all_registries()`` (FR-010/FR-062) so the new block or
+# type is discoverable without a restart — the caller names the *event*, not the
+# registry set.
+# Development references: ADR-053, FR-006, FR-007, FR-008, FR-009, FR-010, FR-058, FR-062, FR-070, FR-071,
+# docs/specs/adr-053-personal-tool-library.md.
 
 from __future__ import annotations
 
@@ -144,14 +147,15 @@ def _reject(status_code: int, detail: str) -> HTTPException:
 
 
 def _collision(resolved: Path, target: UserLibraryTarget) -> HTTPException:
-    """The one FR-008 refusal sentence, for both writers that can raise it.
+    """The one refusal sentence, for both writers that can raise it.
 
     The pre-write probe and the exclusive create answer the same question at
     two moments, and the caller must not be able to tell which one fired: a
     collision the filesystem caught is the same fact as a collision the probe
-    caught, and two wordings would make the FR-018 prompt read differently
+    caught, and two wordings would make the prompt read differently
     depending on a race the user cannot see.
     """
+    # Development references: FR-008, FR-018.
     return _reject(
         409,
         (
@@ -196,9 +200,9 @@ def _validate_filename(filename: str) -> str:
     machine and a nested path on another. Asking
     :class:`~pathlib.PureWindowsPath` as well is also what makes this rule
     reachable rather than implied by an earlier separator check that only
-    happened to catch the same inputs
-    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-5).
+    happened to catch the same inputs.
     """
+    # Development references: adr-053-spec1-write-path.
     name = filename.strip()
     if not name:
         raise _reject(400, "filename query parameter is required")
@@ -245,7 +249,7 @@ def _active_project_dir(runtime: ApiRuntime) -> Path | None:
 def _library_root(target: UserLibraryTarget, project_dir: Path | None) -> Path:
     """Return the library directory *target* names for *project_dir*'s context.
 
-    ADR-053 Learning Center FR-070/FR-071. This is the **same** answer the two
+    Learning Center. This is the **same** answer the two
     registries scan: :func:`scistudio.core.dropins.library_root_for_project` is
     the single decision of which library root a project sees, and both drop-in
     scan-directory lists end with exactly ``<that root>/<tier name>``. Deciding
@@ -260,6 +264,7 @@ def _library_root(target: UserLibraryTarget, project_dir: Path | None) -> Path:
     A real project is unaffected — ``library_root_for_project`` answers
     ``user_library_dir()`` for every path outside the tutorial parent.
     """
+    # Development references: ADR-053, FR-070, FR-071.
     dir_name = _TARGET_DIR_NAMES.get(target)
     if dir_name is None:  # pragma: no cover - FastAPI validates the Literal
         raise _reject(422, f"Unknown user library target: {target!r}")
@@ -310,7 +315,7 @@ async def read_user_library_file(
 ) -> UserLibraryFileResponse:
     """Read one file from the user library, or 404 when it is absent.
 
-    ADR-053 FR-031: the existence probe the new-file and promotion flows run
+    the existence probe the new-file and promotion flows run
     before writing. It mirrors ``GET /api/projects/{project_id}/file`` exactly —
     200 means "exists, do not overwrite", 404 means "safe to create" — so the
     frontend probe helper is the same shape for both destinations.
@@ -320,6 +325,7 @@ async def read_user_library_file(
     tutorial save would be checked for collisions against the user's real
     library and reported against the wrong file.
     """
+    # Development references: ADR-053, FR-031.
     _root, resolved = _resolve_user_library_file(target, filename, _active_project_dir(runtime))
     if not resolved.exists():
         raise _reject(404, "File not found")
@@ -349,19 +355,19 @@ async def write_user_library_file(
     target: UserLibraryTarget,
     filename: str = "",
 ) -> UserLibraryWriteResponse:
-    """Write one file into the user-wide library (ADR-053 FR-006 to FR-010).
+    """Write one file into the user-wide library.
 
-    An existing target is a 409 unless ``overwrite`` is set (FR-008); the write
+    An existing target is a 409 unless ``overwrite`` is set; the write
     itself is atomic (temp file in the destination directory plus a single
     rename-shaped step) so a failure never leaves a half-written block where the
     registry will find it.
 
     **The refusal is decided by the filesystem, not by the probe above it.**
     ``existed`` answers the question early enough to give a good error, but it
-    cannot be the thing FR-008 rests on: FR-065 put the API process and the
+    cannot be the only notification: the API process and the
     standalone MCP bridge on the same ``~/.scistudio``, so a second writer can
     create the target between that call and this one and ``os.replace`` would
-    destroy it without a word — the silent overwrite FR-008 exists to forbid,
+    destroy it without a word — the silent overwrite exists to forbid,
     reachable because of this spec's own work. The non-overwrite path therefore
     lands the file with ``os.link``, which fails with ``FileExistsError`` when
     the name is taken and is the same 409 either way. ``os.link`` rather than an
@@ -383,8 +389,9 @@ async def write_user_library_file(
 
     Which library the file lands in is decided by the open project
     (:func:`_library_root`): a tutorial project writes to the tutorial-scoped
-    library and every other project to ``~/.scistudio`` (FR-070, FR-071).
+    library and every other project to ``~/.scistudio``.
     """
+    # Development references: ADR-053, FR-006, FR-008, FR-010, FR-065, FR-070, FR-071.
     _root, resolved = _resolve_user_library_file(target, filename, _active_project_dir(runtime))
 
     encoded = body.content.encode("utf-8")
@@ -467,7 +474,7 @@ def _consume_source(
 ) -> tuple[str | None, str | None]:
     """Remove the project file *ref* names, returning ``(removed_path, error)``.
 
-    ADR-053 FR-017. Promotion moves rather than copies, so the write above is
+    Promotion moves rather than copies, so the write above is
     only half of it: while the project keeps its own copy, the two tiers hold
     the same class name, and which one the process actually uses is decided by
     a registry duplicate policy the user cannot see. Removing the original is
@@ -484,11 +491,12 @@ def _consume_source(
     * **A failure is reported, never raised.** The library copy is already on
       disk, so the promotion succeeded; failing the request would tell the
       caller nothing happened when something did. The outcome degrades to a
-      copy — exactly the pre-FR-017 behaviour — and the caller says so.
+      copy — exactly the legacy behaviour — and the caller says so.
     * **It never removes the file it just wrote.** The library sits outside
       every project root, so containment already rules this out, but a
       same-path guard makes it true regardless of how the roots are configured.
     """
+    # Development references: ADR-053, FR-017.
     if ref is None:
         return None, None
     try:
@@ -509,7 +517,7 @@ def _consume_source(
 
 
 async def _announce_reload(runtime: ApiRuntime, target: Path) -> None:
-    """Tell open clients the registries were rebuilt (FR-062).
+    """Tell open clients the registries were rebuilt.
 
     Refreshing is only half of it. Every other caller that rebuilds the
     registries — a save under ``blocks/`` or ``types/``, a branch switch, a
@@ -528,6 +536,7 @@ async def _announce_reload(runtime: ApiRuntime, target: Path) -> None:
     holds it, so a bus failure is logged rather than turned into a 500 on a
     request that succeeded.
     """
+    # Development references: FR-062.
     event_bus = getattr(runtime, "event_bus", None)
     if event_bus is None:
         return
@@ -543,13 +552,13 @@ async def _announce_reload(runtime: ApiRuntime, target: Path) -> None:
 
 
 def _refresh_registries(runtime: ApiRuntime) -> bool:
-    """Rebuild every registry the write invalidated (FR-010 / FR-062).
+    """Rebuild every registry the write invalidated.
 
     ``refresh_all_registries`` is the one entry point a caller naming this
-    *event* uses; refreshing a single registry here would reintroduce exactly
-    the drift FR-062 removed. A failure is reported to the caller rather than
+    *event* uses; refreshing a single registry here would leave inconsistent cached definitions. A failure is reported to the caller rather than
     raised: the file is already on disk, so failing the request would be a lie.
     """
+    # Development references: FR-010, FR-062.
     try:
         runtime.refresh_all_registries()
     except Exception:

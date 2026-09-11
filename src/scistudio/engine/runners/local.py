@@ -1,8 +1,10 @@
-"""LocalRunner -- subprocess execution on the local machine.
-
-ADR-017: All block execution in isolated subprocesses. No in-process execution.
-Uses async subprocess to avoid os.fork() deadlock on macOS (#483).
-"""
+"""LocalRunner -- subprocess execution on the local machine."""
+# Maintainer context (kept outside generated API documentation):
+# LocalRunner -- subprocess execution on the local machine.
+#
+# ADR-017: All block execution in isolated subprocesses. No in-process execution.
+# Uses async subprocess to avoid os.fork() deadlock on macOS (#483).
+# Development references: #483, ADR-017.
 
 from __future__ import annotations
 
@@ -237,12 +239,13 @@ class LocalRunner:
         """Spawn the worker subprocess, exchange the payload, and return the result.
 
         Shared by :meth:`run` (``phase="compute"``) and :meth:`run_prompt`
-        (``phase="prompt"``, ADR-051). Handles payload build, subprocess launch,
+        (``phase="prompt"``). Handles payload build, subprocess launch,
         ProcessRegistry register/deregister, and stderr forwarding. Returns
         ``(returncode, stdout, stderr, block_class_path, block_id)``; the caller
         parses the phase-appropriate envelope. The compute path is byte-identical
-        to the pre-ADR-051 behaviour (``phase`` omitted from the payload).
+        to the legacy behaviour (``phase`` omitted from the payload).
         """
+        # Development references: ADR-051.
         from scistudio.engine.runners.process_handle import (
             ProcessRegistry,
             build_worker_payload,
@@ -362,7 +365,7 @@ class LocalRunner:
         """Execute *block* in an isolated subprocess.
 
         Uses ``asyncio.create_subprocess_exec`` to avoid ``os.fork()``
-        deadlock on macOS when native extensions have been imported (#483).
+        deadlock on macOS when native extensions have been imported.
 
         Parameters
         ----------
@@ -379,6 +382,7 @@ class LocalRunner:
         dict[str, Any]
             Parsed JSON result from the subprocess worker.
         """
+        # Development references: #483.
         returncode, stdout, stderr, block_class_path, block_id = await self._spawn_worker(
             block, inputs, config, phase="compute"
         )
@@ -467,7 +471,7 @@ class LocalRunner:
         inputs: dict[str, Any],
         config: dict[str, Any],
     ) -> dict[str, Any]:
-        """Run an interactive block's prompt phase in an isolated subprocess (ADR-051).
+        """Run an interactive block's prompt phase in an isolated subprocess.
 
         Spawns the worker with ``phase="prompt"`` so it runs
         ``block.prepare_prompt`` and exits, then parses the prompt envelope.
@@ -480,6 +484,7 @@ class LocalRunner:
             list of serialized storage references the engine holds across the
             pause and threads into the compute phase.
         """
+        # Development references: ADR-051.
         returncode, stdout, stderr, block_class_path, _block_id = await self._spawn_worker(
             block, inputs, config, phase="prompt"
         )
@@ -529,7 +534,7 @@ class LocalRunner:
         Parameters
         ----------
         workflow_id:
-            The workflow run that owns the block (#1517).
+            The workflow run that owns the block.
         block_id:
             Block identifier within that run.
 
@@ -538,6 +543,7 @@ class LocalRunner:
         str
             "running", "completed", or "unknown".
         """
+        # Development references: #1517.
         if self._registry is None:
             return "unknown"
         handle = self._registry.get_handle(workflow_id, block_id)
@@ -552,10 +558,11 @@ class LocalRunner:
         Parameters
         ----------
         workflow_id:
-            The workflow run that owns the block (#1517).
+            The workflow run that owns the block.
         block_id:
             Block identifier within that run.
         """
+        # Development references: #1517.
         if self._registry is None:
             return
         handle = self._registry.get_handle(workflow_id, block_id)

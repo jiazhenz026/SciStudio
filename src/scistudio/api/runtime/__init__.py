@@ -1,33 +1,35 @@
-"""Shared runtime services for the FastAPI layer.
-
-Issue #1430 / umbrella #1427: the original god-file ``api/runtime.py``
-(~1839 LOC) was split into concern-specific sub-modules under this
-package. The full public surface from before the split is defined
-*directly* in this ``__init__`` (or re-exported from sub-modules) so
-existing callers — ``from scistudio.api.runtime import X`` and
-``from scistudio.api import runtime`` followed by ``runtime.X`` —
-keep working unchanged.
-
-The split is structural-only with **no behavior changes**. Each
-sub-module is well under the 750-LOC god-file threshold.
-
-Sub-module layout:
-
-* ``_helpers``         — ``_now_iso``, ``_slugify``, ``_safe_parent_dir``, ``_rmtree_force``
-* ``_preview_cache``   — DataFrame preview cache + pyarrow IO helpers
-* ``_preview_image``   — API data type-name inference helper
-* ``_projects``        — project CRUD + registry refresh (free functions)
-* ``_workflows``       — workflow YAML I/O + upload (free functions)
-* ``_data``            — data catalog + preview routing (free functions)
-* ``_runs``            — workflow execution + lineage (free functions)
-
-``ApiRuntime`` itself is defined here (not in a sub-module) so the
-static analyser griffe emits the canonical
-``scistudio.api.runtime.ApiRuntime`` fact and its
-``scistudio.api.runtime.ApiRuntime.<method>`` attribute facts. Each
-method is bound from the corresponding free function in a sub-module
-via a class-body static assignment.
-"""
+"""Shared runtime services for the FastAPI layer."""
+# Maintainer context (kept outside generated API documentation):
+# Shared runtime services for the FastAPI layer.
+#
+# Issue #1430 / umbrella #1427: the original god-file ``api/runtime.py``
+# (~1839 LOC) was split into concern-specific sub-modules under this
+# package. The full public surface from before the split is defined
+# *directly* in this ``__init__`` (or re-exported from sub-modules) so
+# existing callers — ``from scistudio.api.runtime import X`` and
+# ``from scistudio.api import runtime`` followed by ``runtime.X`` —
+# keep working unchanged.
+#
+# The split is structural-only with **no behavior changes**. Each
+# sub-module is well under the 750-LOC god-file threshold.
+#
+# Sub-module layout:
+#
+# * ``_helpers``         — ``_now_iso``, ``_slugify``, ``_safe_parent_dir``, ``_rmtree_force``
+# * ``_preview_cache``   — DataFrame preview cache + pyarrow IO helpers
+# * ``_preview_image``   — API data type-name inference helper
+# * ``_projects``        — project CRUD + registry refresh (free functions)
+# * ``_workflows``       — workflow YAML I/O + upload (free functions)
+# * ``_data``            — data catalog + preview routing (free functions)
+# * ``_runs``            — workflow execution + lineage (free functions)
+#
+# ``ApiRuntime`` itself is defined here (not in a sub-module) so the
+# static analyser griffe emits the canonical
+# ``scistudio.api.runtime.ApiRuntime`` fact and its
+# ``scistudio.api.runtime.ApiRuntime.<method>`` attribute facts. Each
+# method is bound from the corresponding free function in a sub-module
+# via a class-body static assignment.
+# Development references: #1427, #1430.
 
 from __future__ import annotations
 
@@ -102,12 +104,13 @@ def _repair_desktop_package_dependencies() -> bool:
     Returns ``True`` when at least one cache was rebuilt, so the caller knows the
     registries it already scanned are now stale.
 
-    Issue #2068: this ends in ``pip install`` subprocesses and has been measured
+    this ends in ``pip install`` subprocesses and has been measured
     at 11.7s-36s, so it must never run on the startup critical path — 36s alone
     exceeds the desktop's 30s HTTP readiness timeout and turns a slow launch into
     a failed one. :meth:`ApiRuntime._configure_static_registries` therefore hands
     it to a background thread and refreshes the registries again once it lands.
     """
+    # Development references: #2068.
     if not _is_bundled_desktop_run() or not _desktop_package_dependency_repair_enabled():
         return False
     try:
@@ -174,8 +177,10 @@ class _BoundedRegistry(dict[_K, _V]):
     deliberately does *not* reorder — reordering on read would mutate the dict
     during a ``for x in reg.values()`` loop (the lifespan shutdown does exactly
     this), raising ``RuntimeError: dict mutated during iteration``. Write-order
-    LRU is sufficient for the leak fix in #1551.
+    LRU is sufficient for the leak fix .
     """
+
+    # Development references: #1551.
 
     def __init__(
         self,
@@ -238,7 +243,7 @@ class _BoundedRegistry(dict[_K, _V]):
 
 
 def _run_is_evictable(_key: str, run: WorkflowRun) -> bool:
-    """#1551: only finished runs may be LRU-evicted from ``workflow_runs``.
+    """Only finished runs may be LRU-evicted from ``workflow_runs``.
 
     Evicting a live run would orphan its ``asyncio.Task`` and scheduler (they
     share the event bus / resource manager / lineage store), so an in-flight
@@ -246,6 +251,7 @@ def _run_is_evictable(_key: str, run: WorkflowRun) -> bool:
     nothing live to lose — its lineage row is finalized by the task's
     done-callback (see ``_runs._finalize_lineage_run``).
     """
+    # Development references: #1551.
     return run.task.done()
 
 
@@ -307,9 +313,11 @@ class ApiRuntime:
     ``ApiRuntime`` (a discoverable Attribute on the class, subject
     path ``scistudio.api.runtime.ApiRuntime.<method>``).
 
-    Issue #1430 / umbrella #1427: behavior unchanged from the
+    umbrella: behavior unchanged from the
     pre-split implementation.
     """
+
+    # Development references: #1427, #1430.
 
     def __init__(self) -> None:
         self.registry_dir = Path.home() / ".scistudio"
@@ -419,8 +427,9 @@ class ApiRuntime:
 
         Lets ``ApiRuntime`` satisfy ``scistudio.plot.PlotRuntimeContext`` so the
         plot REST route can inject it directly into the relocated plot engine
-        (#1824) instead of the engine reaching the global MCP context.
+        instead of the engine reaching the global MCP context.
         """
+        # Development references: #1824.
         return Path(self.active_project.path) if self.active_project else None
 
     @property
@@ -445,7 +454,7 @@ class ApiRuntime:
     def _start_background_package_repair(self) -> None:
         """Repair desktop package dependency caches without blocking startup.
 
-        Issue #2068: this used to be the first statement of this method, which
+        this used to be the first statement of this method, which
         put a ``pip install`` on the path between ``Waiting for application
         startup.`` and ``Application startup complete.`` — measured at 11.7s in
         the common case and 36s at worst, against a 30s desktop HTTP readiness
@@ -455,8 +464,9 @@ class ApiRuntime:
         only if a repair actually changed something.
 
         The frontend is not told about the second refresh, so a package repaired
-        mid-session appears after the next reload — same limitation as #1791.
+        mid-session appears after the next reload — same limitation as.
         """
+        # Development references: #1791, #2068.
         if not _is_bundled_desktop_run() or not _desktop_package_dependency_repair_enabled():
             return
 
@@ -510,7 +520,8 @@ class ApiRuntime:
     # ADR-045 version-state compatibility surface.
     # ------------------------------------------------------------------
     def reset_version_state_for_project(self, project_dir: Path) -> None:
-        """Initialize ADR-045 version state from the active project's disk state."""
+        """Initialize version state from the active project's disk state."""
+        # Development references: ADR-045.
         workflows_dir = project_dir / "workflows"
         seeded: dict[tuple[str, str], int] = {}
         disk_versions: dict[tuple[str, str], int] = {}
@@ -697,7 +708,8 @@ class ApiRuntime:
         timestamp: str | None = None,
         **extra: Any,
     ) -> dict[str, Any]:
-        """Build the shared ADR-045 event/response contract payload."""
+        """Build the shared event/response contract payload."""
+        # Development references: ADR-045.
         payload: dict[str, Any] = {
             "entity_class": entity_class,
             "entity_id": entity_id,

@@ -67,13 +67,14 @@ def _resolve_safe_path(user_path: str | Path) -> Path:
 
 
 def _safe_is_dir(path: str | Path) -> bool:
-    """``Path.is_dir()`` that never raises (#1753).
+    """``Path.is_dir()`` that never raises.
 
     A path longer than the platform ``PATH_MAX`` (``ENAMETOOLONG``) or an item on
     an offline cloud/network File Provider mount (Box, iCloud — ``ENOTCONN`` /
     ``ETIMEDOUT``) makes ``stat`` raise ``OSError``. Treat any such failure as
     "not a usable directory" so dialog/browse callers degrade instead of 500ing.
     """
+    # Development references: #1753.
     try:
         return Path(path).is_dir()
     except OSError:
@@ -401,13 +402,14 @@ def _resolve_dialog_start_dir(
 
     Project-scope dialogs (the default) prefer the active project root so that
     load/save browsing starts inside the user's project instead of ``$HOME``
-    (#1915). Home-scope dialogs (``prefer_home`` — create/open project and the
+    Home-scope dialogs (``prefer_home`` — create/open project and the
     diagnostic-bundle export) keep opening at the last-used location or the user
     home, because they select a location *outside* any project.
 
     ``_safe_is_dir`` swallows ``OSError`` so an over-length or offline candidate
-    degrades to the next fallback instead of raising a 500 (#1753).
+    degrades to the next fallback instead of raising a 500.
     """
+    # Development references: #1753, #1915.
     if initial_dir and _safe_is_dir(initial_dir):
         return initial_dir
     candidates: list[str | None] = [last_used] if prefer_home else [project_root, last_used]
@@ -422,8 +424,9 @@ def _ps_single_quote_escape(value: str) -> str:
 
     PowerShell literal-quotes a single quote inside ``'...'`` by doubling
     it (``''``). Workflow names like ``Bob's run`` would otherwise break
-    the dialog script syntax (#617).
+    the dialog script syntax.
     """
+    # Development references: #617.
 
     return value.replace("'", "''")
 
@@ -713,8 +716,8 @@ def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> Native
     Uses platform-specific subprocess calls (PowerShell on Windows, osascript
     on macOS, zenity on Linux). Returns ``{"path": null}`` if the user cancels.
 
-    Deliberately a plain ``def`` (#2220). The platform helpers block for as long
-    as the user leaves the panel open — by design, since ``timeout=None`` (#678)
+    Deliberately a plain ``def``. The platform helpers block for as long
+    as the user leaves the panel open — by design, since ``timeout=None``
     lets browsing take arbitrarily long. As an ``async def`` that blocking ran
     on the event loop, so the single uvicorn worker served nothing else at all
     in the meantime: every API call, the SPA's own assets, and ``/ws`` stalled,
@@ -723,6 +726,7 @@ def native_file_dialog(body: NativeDialogRequest, runtime: RuntimeDep) -> Native
     its threadpool instead, which is where an unbounded blocking wait belongs.
     Nothing in the body is awaited, so no other change is needed.
     """
+    # Development references: #2220, #678.
     # One panel at a time (#2220) — see ``_dialog_lock``. Refusing beats
     # queueing: a queued request would raise its panel only once the first one
     # closes, long after the click that asked for it.

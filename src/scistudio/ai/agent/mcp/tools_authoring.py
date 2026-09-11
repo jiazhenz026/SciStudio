@@ -1,17 +1,19 @@
-"""Category (b) MCP tools — block authoring helpers (5 tools).
-
-ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
-
-The 5 tools are:
-
-Read-class (2): ``read_block_source``, ``list_block_examples``.
-Write-class (3): ``scaffold_block``, ``reload_blocks``, ``run_block_tests``.
-
-Per ADR-040 §3.2a, ``scaffold_block`` is widened to accept
-``input_ports`` + ``output_ports`` so the §3.2a ``warnings: list[str]``
-soft-validation can flag generic-``DataObject`` ports and unregistered
-type names.
-"""
+"""MCP tools for block authoring helpers (5 tools)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (b) MCP tools — block authoring helpers (5 tools).
+#
+# ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
+#
+# The 5 tools are:
+#
+# Read-class (2): ``read_block_source``, ``list_block_examples``.
+# Write-class (3): ``scaffold_block``, ``reload_blocks``, ``run_block_tests``.
+#
+# Per ADR-040 §3.2a, ``scaffold_block`` is widened to accept
+# ``input_ports`` + ``output_ports`` so the §3.2a ``warnings: list[str]``
+# soft-validation can flag generic-``DataObject`` ports and unregistered
+# type names.
+# Development references: ADR-040.
 
 from __future__ import annotations
 
@@ -57,10 +59,12 @@ class BlockExampleEntry(BaseModel):
 class ScaffoldBlockResult(BaseModel):
     """Result envelope for ``scaffold_block``.
 
-    Per ADR-040 §3.2a, includes ``warnings: list[str]`` for soft
+    a, includes ``warnings: list[str]`` for soft
     validation (generic-DataObject port detection, unregistered type
     detection).
     """
+
+    # Development references: ADR-040.
 
     path: str = Field(description="Absolute filesystem path of the scaffolded block file.")
     bytes_written: int = Field(description="Number of bytes written to disk.")
@@ -137,18 +141,19 @@ async def read_block_source(
     """Return the Python source file backing a registered block type.
 
     Use when:
-      - You want to read how an existing block is implemented before
-        writing a new one (#875 reuse-first rule).
-      - You're diagnosing a block-level error and need to see the source.
+      You want to read how an existing block is implemented before
+        writing a new one (reuse-first rule).
+      You're diagnosing a block-level error and need to see the source.
 
     Do NOT use to:
-      - Edit a block — use ``Edit``/``Write`` on the path returned here
+      Edit a block — use ``Edit``/``Write`` on the path returned here
         (the file is in the project's ``blocks/`` dir, which the
         protect_workflow_yaml hook does NOT cover; direct edits are fine).
-      - Discover example patterns — use ``list_block_examples``.
+      Discover example patterns — use ``list_block_examples``.
 
     Raises ``KeyError`` if the type is not registered.
     """
+    # Development references: #875.
     ctx = get_context()
     spec = ctx.block_registry.get_spec(type_name)
     if spec is None:
@@ -289,13 +294,14 @@ def _render_port_block(
     """Render a list-of-ports body for the scaffold template.
 
     Emits the live ``InputPort(name=..., accepted_types=[Type], required=True)``
-    / ``OutputPort(name=..., accepted_types=[Type])`` shape per
-    ``scistudio.blocks.base.ports`` (ADR-040 §3.2a). Note: scaffolded files
+    ``OutputPort(name=..., accepted_types=[Type])`` shape per
+    ``scistudio.blocks.base.ports``. Note: scaffolded files
     do NOT import the specific concrete types — the agent is expected to
     add the relevant ``from ... import <Type>`` import alongside editing
     the body. ``DataObject`` is imported by the scaffold template so the
     empty-spec hint is at least importable as-is.
     """
+    # Development references: ADR-040.
     if not spec_map:
         return f'        # {port_class}(name="...", accepted_types=[DataObject], required=True),\n'
     lines = []
@@ -356,27 +362,28 @@ async def scaffold_block(
     """Render a new block module from the project's block templates.
 
     Use when:
-      - You've called ``list_blocks`` and confirmed no existing block
-        matches your I/O contract (the #875 block-reuse rule).
-      - You're starting a new custom block under the project's
+      You've called ``list_blocks`` and confirmed no existing block
+        matches your I/O contract (the  block-reuse rule).
+      You're starting a new custom block under the project's
         ``blocks/`` directory.
 
     Do NOT use to:
-      - Modify an existing block — read its source via
+      Modify an existing block — read its source via
         ``read_block_source`` and use ``Edit``/``Write`` directly.
-      - Bypass the block-reuse rule — the
-        enforce_list_blocks_before_block_write hook (ADR-040 §3.6) will
+      Bypass the block-reuse rule — the
+        enforce_list_blocks_before_block_write hook will
         block this tool call unless ``list_blocks`` was called earlier
         in the session.
 
-    Per ADR-040 §3.2a, the result envelope's ``warnings`` field flags:
-      - Ports declared with the generic ``DataObject`` type.
-      - Ports referencing type names not registered in the active
+    a, the result envelope's ``warnings`` field flags:
+      Ports declared with the generic ``DataObject`` type.
+      Ports referencing type names not registered in the active
         ``TypeRegistry``.
 
     Both warnings are advisory; the file is still written. Raises
     ``FileExistsError`` if the target path already exists.
     """
+    # Development references: #875, ADR-040.
     # ADR-055 Spec 2 (#2279) hook parity: a WebMCP host runs no provisioned
     # hooks, so the enforce_list_blocks_before_block_write rule is applied
     # server-side for bridge calls. Local-transport calls keep relying on the
@@ -449,26 +456,14 @@ async def scaffold_block(
 async def reload_blocks() -> ReloadBlocksResult:
     """Hot-reload the block and data-type registries.
 
-    Use when:
-      - You've edited a block source file (existing or scaffolded) and
-        want the new code picked up without restarting the backend.
-      - You've edited or added a drop-in data type under
-        ``{project}/types`` or the user library and want it resolvable.
+    Use after editing or adding a custom block or drop-in data type to make it
+    available without restarting the backend. Newly installed entry-point blocks
+    require a backend restart.
 
-    Do NOT use to:
-      - Discover new entry-point blocks — pip installs require a
-        backend restart; this only rescans the in-process registry.
-
-    ADR-053 FR-062: an agent block edit is an event that invalidates the
-    registry, and until FR-059 gave the agent a populated type registry there
-    was nothing on the type side for it to invalidate. What the event rebuilds
-    is defined once, in :mod:`scistudio.ai.agent.mcp._reload`, and shared with
-    ``promote_to_user_library``.
-
-    #9: the broadcast keeps connected GUI clients' palette and schemas current
-    right after the agent edits and reloads a custom block, instead of the user
-    having to hit palette reload.
+    Rebuild through :mod:`scistudio.ai.agent.mcp._reload` and broadcast the update
+    so connected clients refresh their palettes and schemas.
     """
+    # Development references: #9, ADR-053, FR-059, FR-062.
     ctx = get_context()
     added, removed = refresh_context_registries(ctx)
     logger.info("reload_blocks: added=%s removed=%s", added, removed)

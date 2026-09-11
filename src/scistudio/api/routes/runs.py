@@ -1,23 +1,25 @@
-"""REST endpoints for ADR-038 run history (`/api/runs`).
-
-Endpoints (ADR-038 §3.7, §3.8; Addendum 1 §11.4):
-
-* ``GET  /api/runs``                       -- list runs (reverse-chrono), optional ``workflow_id`` filter + pagination
-* ``GET  /api/runs/validate-restore``      -- advisory preflight for a restore target (§3.6 checks)
-* ``GET  /api/runs/{run_id}``              -- full run detail with joined block_executions
-* ``GET  /api/runs/{run_id}/methods``      -- markdown methods export (``Content-Type: text/markdown``)
-
-The lineage store is project-scoped -- every endpoint requires an active
-project. Failures resolve to ``400 Bad Request`` (no active project) or
-``404 Not Found`` (unknown run / unknown workflow).
-
-The implementation is intentionally thin: it delegates row access to
-:class:`LineageStore` (ADR-038 §3.1, §5.1), methods rendering to
-:mod:`scistudio.core.lineage.methods_export`, and the restore preflight to
-:mod:`scistudio.core.lineage.restore_preflight`. Every route here is read-only
-against the lineage store -- ADR-038 Addendum 1 (#2033) removed
-``POST /{run_id}/rerun``, which was the only mutating one.
-"""
+"""REST endpoints for run history (`/api/runs`)."""
+# Maintainer context (kept outside generated API documentation):
+# REST endpoints for ADR-038 run history (`/api/runs`).
+#
+# Endpoints (ADR-038 §3.7, §3.8; Addendum 1 §11.4):
+#
+# * ``GET  /api/runs``                       -- list runs (reverse-chrono), optional ``workflow_id`` filter + pagination
+# * ``GET  /api/runs/validate-restore``      -- advisory preflight for a restore target (§3.6 checks)
+# * ``GET  /api/runs/{run_id}``              -- full run detail with joined block_executions
+# * ``GET  /api/runs/{run_id}/methods``      -- markdown methods export (``Content-Type: text/markdown``)
+#
+# The lineage store is project-scoped -- every endpoint requires an active
+# project. Failures resolve to ``400 Bad Request`` (no active project) or
+# ``404 Not Found`` (unknown run / unknown workflow).
+#
+# The implementation is intentionally thin: it delegates row access to
+# :class:`LineageStore` (ADR-038 §3.1, §5.1), methods rendering to
+# :mod:`scistudio.core.lineage.methods_export`, and the restore preflight to
+# :mod:`scistudio.core.lineage.restore_preflight`. Every route here is read-only
+# against the lineage store -- ADR-038 Addendum 1 (#2033) removed
+# ``POST /{run_id}/rerun``, which was the only mutating one.
+# Development references: #2033, ADR-038, Addendum 1.
 
 from __future__ import annotations
 
@@ -49,9 +51,11 @@ _LineageStoreDep = Depends(get_lineage_store)
 def runs_health(store: Any = _LineageStoreDep) -> dict[str, Any]:
     """Per-table row count for the active project's lineage DB.
 
-    Retained from the D38-2.2 placeholder so the smoke-test invocation
-    used during the unified-store wire-up keeps working.
+    Returns counts for runs, block executions, data objects, and block I/O.
     """
+    # Maintainer context:
+    # Retained from the D38-2.2 placeholder so the smoke-test invocation
+    # used during the unified-store wire-up keeps working.
     return {
         "runs": store.count("runs"),
         "block_executions": store.count("block_executions"),
@@ -76,11 +80,10 @@ def list_runs(
     """List runs in reverse-chronological order.
 
     The store's ``list_runs`` returns rows already sorted ``started_at DESC``;
-    we slice in Python for pagination. The current row count is bounded by
-    project lifetime (KB-MB scale per ADR-038 §7.3) so in-memory slicing is
-    fine for v1; a SQL ``LIMIT/OFFSET`` extension can replace this if it ever
-    matters.
+    this endpoint slices those rows using ``offset`` and ``limit`` and reports
+    whether another page is available.
     """
+    # Development references: ADR-038.
     # Fetch one full page (offset+limit) so we can do slice + total count.
     # Use a generous upper bound to support pagination without re-querying.
     all_rows = store.list_runs(workflow_id=workflow_id, limit=offset + limit + 1)
@@ -111,7 +114,7 @@ def validate_restore(
 ) -> dict[str, Any]:
     """Return the advisory checks for restoring to ``commit_sha``.
 
-    ADR-038 §3.6 + Addendum 1 §11.3 (#2033). Compares the anchoring run's
+    Compares the anchoring run's
     boundary inputs against what is on disk now, and its
     ``environment_snapshot`` against the live environment. Both checks are
     advisory: this endpoint never blocks a restore, and a caller is free to
@@ -127,10 +130,11 @@ def validate_restore(
     A target with no resolvable run returns ``run_id: null`` with both warning
     lists empty. That is **not** a clean bill of health, and clients must not
     render it as one: it means no recorded run describes this target, so
-    nothing could be compared. Conflating the two is the defect Addendum 1
+    nothing could be compared. Conflating the two is the defect
     exists to remove -- the previous UI showed "No drift detected" for a
     comparison that never ran.
     """
+    # Development references: #2033, ADR-038, Addendum 1.
     return evaluate_restore_target(store, commit_sha, run_id=run_id)
 
 
@@ -143,17 +147,14 @@ def validate_restore(
 def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
     """Return one run row plus its joined ``block_executions`` rows.
 
-    Per ADR-038 §3.7 (Q3/Q4) we surface block_executions ordered by
+    The response contains block executions ordered by
     ``started_at`` so the UI can render the per-block timeline directly.
 
-    Hotfix #996: per-block I/O DataObjects are now **inlined** as
-    ``block_executions[i].inputs`` / ``.outputs`` arrays. ADR-038 §3.7
-    Q4b "Per-block I/O DataObjects?" SQL is materialised via one
+    Per-block I/O DataObjects are **inlined** as
+    ``block_executions[i].inputs`` / ``.outputs`` arrays.
+    These objects are read with one
     batched query (``LineageStore.list_block_io_with_objects(run_id)``)
-    and bucketed in Python. Pre-#996 the route returned a hand-waved
-    "clients fetch on demand" placeholder, but no separate endpoint was
-    ever wired up, so the Lineage tab block cards rendered "0 inputs /
-    0 outputs" for every block (Phase 4a finding).
+    and grouped by block execution in Python.
 
     Each I/O entry has shape::
 
@@ -169,12 +170,13 @@ def get_run(run_id: str, store: Any = _LineageStoreDep) -> dict[str, Any]:
         }
 
     ``wire_payload`` is intentionally excluded from the response -- its
-    KB-scale per-object JSON would balloon the payload (ADR-038 §3.1
+    KB-scale per-object JSON would balloon the payload (
     Collection unrolling note: ~1-2 KB per item x many items x many
     blocks). Clients that need the full wire-format dict can query
     ``GET /api/runs/{run_id}/data-objects/{object_id}`` (deferred to a
     follow-up endpoint; v1 reference-by-id is sufficient for the tab).
     """
+    # Development references: #996, ADR-038.
     run = store.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"run_id {run_id!r} not found")
@@ -222,9 +224,10 @@ def get_run_methods(run_id: str, store: Any = _LineageStoreDep) -> PlainTextResp
 
     Served as ``text/markdown; charset=utf-8`` so the browser can offer
     "View source" instead of attempting to render it as HTML. The body
-    answers ADR-038 §3.7 Q1-Q4 in one document; see
+    describes the run, workflow, parameters, and inputs/outputs; see
     :mod:`scistudio.core.lineage.methods_export` for the renderer.
     """
+    # Development references: ADR-038.
     if store.get_run(run_id) is None:
         raise HTTPException(status_code=404, detail=f"run_id {run_id!r} not found")
     body = render_methods_markdown(store, run_id)

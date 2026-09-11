@@ -1,18 +1,20 @@
-"""Parent-death backstop for the bundled desktop backend (#1865).
-
-The desktop Electron process spawns the backend (``scistudio gui --bundled``) as
-a child. When Electron exits *without* sending SIGTERM — force-quit, crash, or
-the ``app.exit()`` relaunch paths — POSIX reparents the backend to init (PID 1)
-and it would otherwise run forever as an orphan, accumulating one stray process
-per launch. The frontend can then reconnect to a stale orphan that never scanned
-the active project's blocks, so freshly authored drop-in blocks fail to appear.
-
-The watchdog here notices the spawning parent has gone and shuts the backend
-down. It lives in the backend source tree, so the OTA hot-patch carries it to
-existing installs without a reinstall. The Electron-side spawn-lifecycle fixes
-(relaunch handler, single-instance lock) are tracked separately and need a new
-app build.
-"""
+"""Parent-death backstop for the bundled desktop backend."""
+# Maintainer context (kept outside generated API documentation):
+# Parent-death backstop for the bundled desktop backend (#1865).
+#
+# The desktop Electron process spawns the backend (``scistudio gui --bundled``) as
+# a child. When Electron exits *without* sending SIGTERM — force-quit, crash, or
+# the ``app.exit()`` relaunch paths — POSIX reparents the backend to init (PID 1)
+# and it would otherwise run forever as an orphan, accumulating one stray process
+# per launch. The frontend can then reconnect to a stale orphan that never scanned
+# the active project's blocks, so freshly authored drop-in blocks fail to appear.
+#
+# The watchdog here notices the spawning parent has gone and shuts the backend
+# down. It lives in the backend source tree, so the OTA hot-patch carries it to
+# existing installs without a reinstall. The Electron-side spawn-lifecycle fixes
+# (relaunch handler, single-instance lock) are tracked separately and need a new
+# app build.
+# Development references: #1865.
 
 from __future__ import annotations
 

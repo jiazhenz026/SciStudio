@@ -1,17 +1,19 @@
-"""ResourceManager — GPU slots, CPU workers, OS memory monitoring.
-
-ADR-022: OS-level memory monitoring via psutil replaces estimated_memory_gb.
-Reactive dispatch gating instead of predictive static estimates.
-
-ADR-018: Auto-release on terminal block states via EventBus subscription.
-
-ADR-027 D10: ``ResourceManager`` auto-detects physical GPU count when
-``gpu_slots`` is ``None`` (the new default). The probe tries
-``torch.cuda.device_count()`` first, then ``nvidia-smi -L``, then returns 0.
-Explicit integer values are respected unchanged. When auto-detect returns 0
-but a block declares ``requires_gpu=True``, a single WARNING is emitted from
-``can_dispatch`` pointing the user at the project-config override.
-"""
+"""ResourceManager — GPU slots, CPU workers, OS memory monitoring."""
+# Maintainer context (kept outside generated API documentation):
+# ResourceManager — GPU slots, CPU workers, OS memory monitoring.
+#
+# ADR-022: OS-level memory monitoring via psutil replaces estimated_memory_gb.
+# Reactive dispatch gating instead of predictive static estimates.
+#
+# ADR-018: Auto-release on terminal block states via EventBus subscription.
+#
+# ADR-027 D10: ``ResourceManager`` auto-detects physical GPU count when
+# ``gpu_slots`` is ``None`` (the new default). The probe tries
+# ``torch.cuda.device_count()`` first, then ``nvidia-smi -L``, then returns 0.
+# Explicit integer values are respected unchanged. When auto-detect returns 0
+# but a block declares ``requires_gpu=True``, a single WARNING is emitted from
+# ``can_dispatch`` pointing the user at the project-config override.
+# Development references: ADR-018, ADR-022, ADR-027.
 
 from __future__ import annotations
 
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _auto_detect_gpu_slots() -> int:
     """Best-effort GPU count detection. Tries torch, then nvidia-smi, then 0.
 
-    ADR-027 D10: returns physical GPU count, not VRAM-aware slot calculation.
+    returns physical GPU count, not VRAM-aware slot calculation.
     Users with large models on small cards should override via project config.
 
     Probe order:
@@ -36,6 +38,7 @@ def _auto_detect_gpu_slots() -> int:
        silently if ``nvidia-smi`` is missing, times out, or returns non-zero.
     3. Returns ``0``.
     """
+    # Development references: ADR-027.
     try:
         import torch
 
@@ -67,10 +70,12 @@ def _auto_detect_gpu_slots() -> int:
 class ResourceRequest:
     """Declares the resources a block needs before it can be scheduled.
 
-    ADR-022: estimated_memory_gb REMOVED. System memory is monitored at OS
+    estimated_memory_gb REMOVED. System memory is monitored at OS
     level via psutil, not estimated per-block. GPU memory still declared
     because VRAM is not reliably monitorable cross-platform.
     """
+
+    # Development references: ADR-022.
 
     requires_gpu: bool = False
     gpu_memory_gb: float = 0.0
@@ -78,25 +83,27 @@ class ResourceRequest:
     max_internal_workers: int = 1
     """Number of internal worker threads/processes the block spawns.
 
-    ADR-027 D8 (thread policy): the field is formally activated by D8.
+    Controls the maximum number of threads a block may use internally.
     The scheduler treats ``cpu_cores * max_internal_workers`` as the block's
     total CPU footprint via :pyattr:`effective_cpu`, so a block that fans out
     to ``max_internal_workers`` library threads (e.g. ``torch`` DataParallel,
     MKL/OpenBLAS-multiplied numpy ops) is throttled correctly against the
     ``cpu_workers`` pool. Defaults to ``1`` (no internal parallelism).
     """
+    # Development references: ADR-027.
     # ADR-022: estimated_memory_gb REMOVED
 
     @property
     def effective_cpu(self) -> int:
         """Total CPU footprint: declared cores times internal parallelism.
 
-        ADR-027 D8 (thread policy context): ``effective_cpu`` is the value
+        (thread policy context): ``effective_cpu`` is the value
         the scheduler uses for dispatch gating, acquisition, and release.
         Block authors should set ``max_internal_workers`` to the number of
         threads/processes their library will spawn so the global CPU pool is
         not over-subscribed.
         """
+        # Development references: ADR-027.
         return self.cpu_cores * self.max_internal_workers
 
 
@@ -104,8 +111,10 @@ class ResourceRequest:
 class ResourceSnapshot:
     """Read-only view of currently available resources.
 
-    ADR-022: available_memory_gb replaced with system_memory_percent (0.0-1.0).
+    available_memory_gb replaced with system_memory_percent (0.0-1.0).
     """
+
+    # Development references: ADR-022.
 
     available_gpu_slots: int = 0
     available_cpu_workers: int = 4
@@ -115,30 +124,32 @@ class ResourceSnapshot:
 class ResourceManager:
     """Track and allocate compute resources for block execution.
 
-    Layer 1 (this class): Dispatch gating (ADR-022).
-        - GPU: discrete slot counting (declaration-based)
-        - CPU: discrete core counting (declaration-based)
-        - Memory: OS-level check via psutil.virtual_memory().percent
-        - memory_high_watermark=0.95: soft pause on new dispatch above 95%
-          while other blocks are running. #2187 removed the former
+    Layer 1 (this class): Dispatch gating.
+        GPU: discrete slot counting (declaration-based)
+        CPU: discrete core counting (declaration-based)
+        Memory: OS-level check via psutil.virtual_memory().percent
+        memory_high_watermark=0.95: soft pause on new dispatch above 95%
+          while other blocks are running. The implementation no longer uses the former
           ``memory_critical`` hard cap: a hard refusal could stall a READY
           block forever (no retry fires when nothing else is running) while
           modern OSes routinely sit near-full on cache/standby memory. OOM
           is now surfaced by Layer 3 as a block ERROR instead.
 
     Layer 2 (block-internal): _auto_flush, LazyList, parallel_map(max_workers)
-        -- operates independently, not managed here.
+        operates independently, not managed here.
 
     Layer 3 (OS): OS kills subprocess on OOM; the runner observes the
         non-zero exit and the scheduler marks ERROR.
 
-    EventBus integration (ADR-018): automatic resource release on terminal
+    EventBus integration: automatic resource release on terminal
     block states via _on_block_terminal callback.
 
-    ADR-027 D10: ``gpu_slots`` defaults to ``None``, which triggers
+    ``gpu_slots`` defaults to ``None``, which triggers
     :func:`_auto_detect_gpu_slots`. Explicit integer values (including ``0``)
     are respected unchanged and bypass auto-detection.
     """
+
+    # Development references: #2187, ADR-018, ADR-022, ADR-027.
 
     def __init__(
         self,
@@ -179,29 +190,30 @@ class ResourceManager:
         """Check if resources are available AND system memory is below watermark.
 
         Returns False if:
-        - GPU is required but all GPU slots are in use
-        - Requested CPU cores would exceed the pool
-        - System memory percent > memory_high_watermark (soft pause) — but
+        GPU is required but all GPU slots are in use
+        Requested CPU cores would exceed the pool
+        System memory percent > memory_high_watermark (soft pause) — but
           only when ``active_count > 0``
 
-        Deadlock prevention (#495): when ``active_count == 0`` (nothing is
+        Deadlock prevention: when ``active_count == 0`` (nothing is
         currently executing), the high watermark is bypassed so at least one
-        block can start; the scheduler's 1s polling retry (#2187) re-attempts
+        block can start; the scheduler's 1s polling retry re-attempts
         soft-paused blocks even when no resource-freeing event fires.
 
-        #2187: there is deliberately no hard memory cap here. A hard refusal
+        there is deliberately no hard memory cap here. A hard refusal
         at high memory permanently stalled workflows (modern OSes fill RAM
         with reclaimable cache) with no user-visible signal; OOM is instead
         surfaced by Layer 3 — the OS kills the worker subprocess and the
         block transitions to ERROR.
 
-        ADR-027 D10: when ``request.requires_gpu`` and ``self.gpu_slots == 0``,
+        when ``request.requires_gpu`` and ``self.gpu_slots == 0``,
         a single WARNING is logged (per ResourceManager instance) explaining
         that the user can override via project config. The warning fires
         regardless of whether ``gpu_slots == 0`` came from auto-detect or an
         explicit override, because in both cases the GPU dispatch path is
         effectively dead.
         """
+        # Development references: #2187, #495, ADR-027.
         import psutil
 
         # GPU check
@@ -228,20 +240,31 @@ class ResourceManager:
         return not mem_percent > self.memory_high_watermark
 
     async def acquire(self, request: ResourceRequest, block_id: str = "") -> bool:
-        """Reserve GPU slots and CPU cores.
+        """Reserve GPU slots and CPU cores for a block.
 
-        Memory is not reserved -- it drops naturally when subprocess exits
-        (ADR-022). Allocation is tracked by block_id for auto-release
-        (ADR-018).
+        Memory is not reserved; it becomes available when the subprocess exits.
+        Allocations are tracked by block id for automatic release. The scheduler
+        currently checks admission without calling this reservation method, so these
+        counters only change when a caller explicitly acquires resources.
 
-        TODO(#887): this method currently has no production caller — the
-        scheduler's ``_dispatch`` passes a default ``ResourceRequest()`` to
-        ``can_dispatch`` and never calls ``acquire``/``release``, so the
-        discrete GPU/CPU counters stay at zero (ADR-022 L1 gating deferred,
-        low-risk per #887 / #1595). Kept as forward-compatible scaffolding.
-
-        Returns True if resources were successfully acquired, False otherwise.
+        Returns:
+            True if resources were acquired, or False if they were unavailable.
         """
+        # Maintainer context (kept outside generated API documentation):
+        # Reserve GPU slots and CPU cores.
+        #
+        #         Memory is not reserved -- it drops naturally when subprocess exits
+        #         (ADR-022). Allocation is tracked by block_id for auto-release
+        #         (ADR-018).
+        #
+        #         TODO(#887): this method currently has no production caller — the
+        #         scheduler's ``_dispatch`` passes a default ``ResourceRequest()`` to
+        #         ``can_dispatch`` and never calls ``acquire``/``release``, so the
+        #         discrete GPU/CPU counters stay at zero (ADR-022 L1 gating deferred,
+        #         low-risk per #887 / #1595). Kept as forward-compatible scaffolding.
+        #
+        #         Returns True if resources were successfully acquired, False otherwise.
+        # Development references: #1595, #887, ADR-018, ADR-022, TODO.
         if not self.can_dispatch(request):
             return False
         if request.requires_gpu:
@@ -266,8 +289,9 @@ class ResourceManager:
         """Auto-release resources when a block reaches a terminal state.
 
         Called by EventBus for BLOCK_DONE, BLOCK_ERROR, and
-        BLOCK_CANCELLED events (ADR-018).
+        BLOCK_CANCELLED events.
         """
+        # Development references: ADR-018.
         block_id = event.block_id
         if block_id and block_id in self._allocations:
             self.release(self._allocations[block_id], block_id)

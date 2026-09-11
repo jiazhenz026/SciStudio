@@ -1,4 +1,5 @@
-"""Expected signature schemas for ADR-042 signature drift checks."""
+"""Expected signature schemas for signature drift checks."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 
@@ -50,19 +51,22 @@ class ExpectedSignature(BaseModel):
 
     @property
     def symbol(self) -> str:
-        """ADR-042 compatibility alias for ``subject``."""
+        """Compatibility alias for ``subject``."""
+        # Development references: ADR-042.
 
         return self.subject
 
     @property
     def source_spec(self) -> str:
-        """ADR-042 compatibility alias for ``source_path``."""
+        """Compatibility alias for ``source_path``."""
+        # Development references: ADR-042.
 
         return self.source_path
 
     @property
     def source_line(self) -> int:
-        """ADR-042 compatibility alias for ``line``."""
+        """Compatibility alias for ``line``."""
+        # Development references: ADR-042.
 
         return self.line
 

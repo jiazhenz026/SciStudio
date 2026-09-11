@@ -83,13 +83,14 @@ def installed_packages_dir() -> Path:
 
 
 def package_backups_dir() -> Path:
-    """Return the per-package OTA rollback backup root (issue #1784).
+    """Return the per-package OTA rollback backup root.
 
     The previous version of a package is moved here on update so the Package
     Manager can roll back. It lives *outside* :func:`installed_packages_dir` so
     it is never picked up by block discovery — only one active version per
     package is ever scanned.
     """
+    # Development references: #1784.
     return plugins_dir() / "package-backups"
 
 
@@ -113,12 +114,13 @@ def user_python_script_dir() -> Path:
     user dependency site.
 
     Dependencies installed through the in-app Python terminal land in the
-    shared user site via ``pip install --target`` (#1772). pip drops any
+    shared user site via ``pip install --target``. pip drops any
     console-script launchers (e.g. the ``napari`` command) into a ``bin`` /
     ``Scripts`` subdirectory of that target, which is distinct from the
     command-wrapper directory returned by :func:`user_python_bin_dir`. External
     app blocks need this directory on ``PATH`` to resolve user-installed GUI
     launchers."""
+    # Development references: #1772.
     return user_python_site_dir() / ("Scripts" if sys.platform == "win32" else "bin")
 
 
@@ -247,8 +249,7 @@ def prepended_sys_paths(paths: Iterable[str | Path]) -> Iterator[None]:
     both of its failure modes are real: an inner window's exit restored the
     outer window's `sys.path`, so the inner user silently lost its roots
     mid-window, and the outer window's exit then restored a snapshot predating
-    the inner one, leaking the inner roots for the rest of the process
-    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-1). It also
+    the inner one, leaking the inner roots for the rest of the process. It also
     discarded any entry the body itself added.
 
     Today the scans that use this run on the API event loop and in a
@@ -256,6 +257,7 @@ def prepended_sys_paths(paths: Iterable[str | Path]) -> Iterator[None]:
     is one ``asyncio.to_thread`` away from being real, and undoing one's own
     edits costs nothing.
     """
+    # Development references: adr-053-spec1-write-path.
     inserted: list[str] = []
     displaced: list[tuple[int, str]] = []
     for path in reversed(_resolve_existing_dirs(paths)):
@@ -398,7 +400,7 @@ def user_python_terminal_env(python_executable: str | Path | None = None) -> dic
 
 def user_terminal_post_rc_invocation(shell_argv: list[str], env: dict[str, str]) -> tuple[list[str], dict[str, str]]:
     """Wrap an interactive user shell so the bundled Python bin wins *after*
-    the user's dotfiles run (#1838).
+    the user's dotfiles run.
 
     The env-only ``PATH`` prepend in :func:`user_python_terminal_env` is
     defeated by rc files: a conda ``init`` block in ``~/.zshrc`` /
@@ -410,15 +412,16 @@ def user_terminal_post_rc_invocation(shell_argv: list[str], env: dict[str, str])
     user's own configuration (preserving their aliases/env) and then
     re-prepends the bundled bin, so it is the last writer of ``PATH``:
 
-    - ``zsh``: a generated ``ZDOTDIR`` whose dotfiles source the user's and
+    ``zsh``: a generated ``ZDOTDIR`` whose dotfiles source the user's and
       re-prepend in ``.zshrc``.
-    - ``bash``: a generated ``--rcfile`` that sources ``~/.bashrc`` and
+    ``bash``: a generated ``--rcfile`` that sources ``~/.bashrc`` and
       re-prepends.
 
     Returns the (possibly rewritten) ``argv`` and ``env``. Shells we do not
     shim (``sh`` and others), Windows, or a missing bundled bin all fall
     back to the inputs unchanged.
     """
+    # Development references: #1838.
     if sys.platform == "win32" or not shell_argv:
         return shell_argv, env
     bin_dir = env.get("SCISTUDIO_USER_PYTHON_BIN")
@@ -449,7 +452,8 @@ def user_terminal_post_rc_invocation(shell_argv: list[str], env: dict[str, str])
 
 def _write_zsh_post_rc_shim(shim_root: Path, prepend_expr: str) -> Path:
     """Write a generated ZDOTDIR whose dotfiles source the user's then
-    re-prepend the bundled bin in ``.zshrc`` (#1838). Returns the dir."""
+    re-prepend the bundled bin in ``.zshrc``. Returns the dir."""
+    # Development references: #1838.
     zdotdir = shim_root / "zsh"
     zdotdir.mkdir(parents=True, exist_ok=True)
     # Each zsh startup file sources the user's counterpart so aliases/env/
@@ -475,7 +479,8 @@ def _write_zsh_post_rc_shim(shim_root: Path, prepend_expr: str) -> Path:
 
 def _write_bash_post_rc_shim(shim_root: Path, prepend_expr: str) -> Path:
     """Write a generated bash ``--rcfile`` that sources ``~/.bashrc`` then
-    re-prepends the bundled bin (#1838). Returns the file path."""
+    re-prepends the bundled bin. Returns the file path."""
+    # Development references: #1838.
     shim_root.mkdir(parents=True, exist_ok=True)
     rcfile = shim_root / "bash_rcfile"
     rcfile.write_text(

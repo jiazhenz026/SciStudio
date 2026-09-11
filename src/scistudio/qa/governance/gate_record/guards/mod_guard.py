@@ -1,17 +1,19 @@
-"""mod_guard calculator (governance_mod_guard) (ADR-042 Addendum 6 spec §4).
-
-Produces: governance-file change without a declared ``governance_touch`` +
-verified authorization.
-
-Ported from the legacy ``mod_guard`` (deleted on this branch). The governance
-surface is the evaluator's single ``surfaces.is_governance_path`` classifier
-(now including ``docs/ai-developer/**`` per §7.8); it replaces the standalone
-``PROTECTED_PATTERNS`` that overlapped ``core_change_guard``. The two
-environment-variable bypass channels (``SCISTUDIO_GOVERNANCE_CHANGE_APPROVED``
-and ``SCISTUDIO_GATE_BYPASS_LABELS``) are removed: authorization now flows
-through the ledger ``governance_touch`` flag plus ``requested`` (local intent) /
-``observed`` (CI-verified) admin labels.
-"""
+"""Mod_guard calculator (governance_mod_guard)."""
+# Maintainer context (kept outside generated API documentation):
+# mod_guard calculator (governance_mod_guard) (ADR-042 Addendum 6 spec §4).
+#
+# Produces: governance-file change without a declared ``governance_touch`` +
+# verified authorization.
+#
+# Ported from the legacy ``mod_guard`` (deleted on this branch). The governance
+# surface is the evaluator's single ``surfaces.is_governance_path`` classifier
+# (now including ``docs/ai-developer/**`` per §7.8); it replaces the standalone
+# ``PROTECTED_PATTERNS`` that overlapped ``core_change_guard``. The two
+# environment-variable bypass channels (``SCISTUDIO_GOVERNANCE_CHANGE_APPROVED``
+# and ``SCISTUDIO_GATE_BYPASS_LABELS``) are removed: authorization now flows
+# through the ledger ``governance_touch`` flag plus ``requested`` (local intent) /
+# ``observed`` (CI-verified) admin labels.
+# Development references: ADR-042, Addendum 6, docs/ai-developer/**.
 
 from __future__ import annotations
 

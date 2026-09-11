@@ -1,9 +1,11 @@
-"""Platform abstraction for process group management.
-
-ADR-019: PlatformOps protocol + PosixOps + WindowsOps implementations.
-Isolates all OS-specific process management behind a single protocol.
-ADR-017: Job Object support for nested SubWorkflowBlock subprocess cleanup.
-"""
+"""Platform abstraction for process group management."""
+# Maintainer context (kept outside generated API documentation):
+# Platform abstraction for process group management.
+#
+# ADR-019: PlatformOps protocol + PosixOps + WindowsOps implementations.
+# Isolates all OS-specific process management behind a single protocol.
+# ADR-017: Job Object support for nested SubWorkflowBlock subprocess cleanup.
+# Development references: ADR-017, ADR-019.
 
 from __future__ import annotations
 
@@ -177,12 +179,13 @@ class PosixOps:
     def is_alive(self, pid: int) -> bool:
         """Check if process is alive using ``os.kill(pid, 0)``.
 
-        Guard (#495): ``pid <= 0`` is never valid for a single-process
+        Guard: ``pid <= 0`` is never valid for a single-process
         alive check.  In particular ``os.kill(-1, 0)`` signals **all**
         user processes and always succeeds, giving a false-positive.
         ``pid == 0`` targets the caller's own process group.  Both are
         rejected early.
         """
+        # Development references: #495.
         if pid <= 0:
             return False
 
@@ -479,9 +482,10 @@ class WindowsOps:
         """Terminate every process assigned to a Job Object.
 
         Reaches descendants whose parent already exited, which a tree walk
-        from the root cannot: Windows does not reparent orphans (ADR-055 Spec 2
-        managed commands, #2279).
+        from the root cannot: Windows does not reparent orphans (
+        managed commands).
         """
+        # Development references: #2279, ADR-055, Spec 2.
         if job_handle is None:
             return False
         try:

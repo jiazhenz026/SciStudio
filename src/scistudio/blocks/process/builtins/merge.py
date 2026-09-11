@@ -108,10 +108,11 @@ class MergeBlock(ProcessBlock):
 def _persist_arrow_result(table: pa.Table) -> DataFrame:
     """Create a DataFrame and persist the Arrow table to storage.
 
-    ADR-031 D3: replaces the former ``result._arrow_table = table``
+    replaces the former ``result._arrow_table = table``
     pattern. The DataFrame is persisted to Arrow/Parquet storage and
     returned with ``storage_ref`` set.
     """
+    # Development references: ADR-031.
     import tempfile
     import uuid
     from pathlib import Path

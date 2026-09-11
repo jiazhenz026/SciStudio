@@ -562,7 +562,8 @@ def _truncate(text: str | None) -> str:
 
 
 def _sanitize_error(message: str, root: Path) -> str:
-    """Strip absolute project paths from an error message (FR-029)."""
+    """Strip absolute project paths from an error message."""
+    # Development references: FR-029.
     if not message:
         return ""
     try:
@@ -785,11 +786,12 @@ def _figure_group_stem(name: str) -> str:
 
     A single returned figure is now saved to one sibling file per allowed format
     (``figure.svg`` / ``figure.pdf`` / ``figure.png`` / ``figure.jpg``); a second
-    figure uses ``figure_1.*`` and so on (#1918). Every sibling of one figure
+    figure uses ``figure_1.*`` and so on. Every sibling of one figure
     shares the same stem, so grouping by stem folds the format siblings back into
     one figure. The dot-suffix is stripped; ``jpg`` and ``jpeg`` already share a
     stem because the stem excludes the extension.
     """
+    # Development references: #1918.
     return Path(name).stem
 
 
@@ -811,11 +813,11 @@ def _promote_artifacts(
     max_files: int,
     manifest: PlotManifest,
 ) -> tuple[list[PlotArtifact], list[str], list[str]]:
-    """Move produced artifacts into the cache as current.* (FR-026, FR-027, FR-029).
+    """Move produced artifacts into the cache as current.*.
 
     Each returned figure is rendered to one sibling file per manifest-allowed
     format so the previewer can export/save a valid file in the user's chosen
-    format without re-rendering (#1918, approach B). The siblings of one figure
+    format without re-rendering (approach B). The siblings of one figure
     are promoted together under a shared cache stem: the preferred-format file of
     the first figure stays the canonical ``current.<preferred>`` primary (the
     preview artifact), and the other formats land as ``current.<ext>`` siblings.
@@ -823,6 +825,7 @@ def _promote_artifacts(
     formats would exceed a cap the run degrades gracefully to the primary of each
     figure and warns, rather than failing.
     """
+    # Development references: #1918, FR-026, FR-027, FR-029.
     warnings: list[str] = []
     errors: list[str] = []
 
@@ -914,7 +917,8 @@ def _write_metadata(
     workflow_id: str,
     artifacts: list[PlotArtifact] | None = None,
 ) -> Path:
-    """Write current.json with the full run record (FR-028)."""
+    """Write current.json with the full run record."""
+    # Development references: FR-028.
     cache_dir.mkdir(parents=True, exist_ok=True)
     manifest = loaded.manifest
     try:

@@ -1,61 +1,64 @@
-"""Four-source tutorial discovery, and the catalogue the Learning Center lists.
-
-ADR-053 Learning Center spec, FR-016 … FR-024 and FR-029a
-(``docs/specs/adr-053-learning-center.md``).
-
-Four sources, and no fifth (FR-016): a directory inside the core distribution,
-packages through the ``scistudio.tutorials`` entry-point group, the user
-directory ``~/.scistudio/tutorials``, and the open project's ``tutorials/``.
-The two local tiers are resolved through
-:func:`scistudio.core.dropins.tutorial_scan_dirs`, which is the same tier
-definition blocks and types use, so package install, package uninstall, branch
-switch, and the working-tree rewrites that refresh the registries reach the
-tutorial catalogue by the path they already travel rather than a fourth one
-(FR-031).
-
-**Listing imports nothing (FR-018).** Titles, summaries, covers, order, and
-requirements come from manifests alone. A package tutorial's directory is
-resolved from distribution metadata by
-:func:`scistudio.core.entry_points.resolve_entry_point_directory`, which never
-calls ``EntryPoint.load()``, ``importlib.import_module``, or
-``importlib.util.find_spec``. This module contains no other way to reach a
-package's files. The guarantee is asserted with a ``sys.meta_path`` hook in
-``tests/tutorials/test_discovery_no_import.py`` rather than by reading the
-source, because the failure it guards against is a refactor reintroducing an
-import, not a particular spelling.
-
-**Nothing that goes wrong empties a group (FR-022).** Every manifest is read
-inside its own attempt. A file that fails schema validation, a file written for
-a newer core, a directory whose id collides with a sibling's, and a package
-whose entry point cannot be resolved each cost exactly their own entry. The
-three failures owe the user *different* sentences, which is why they are three
-paths rather than one ``except``:
-
-* a malformed manifest raises :class:`ManifestValidationError` and is listed
-  with its validation message — this tutorial is broken;
-* a manifest declaring a ``manifest_version`` this core does not read raises
-  :class:`UnsupportedManifestVersionError` and is listed naming the version it
-  needs (FR-007a) — this tutorial needs a newer SciStudio;
-* an unmet ``requires`` is not a failure at all: the tutorial is listed, marked
-  unavailable, and says which requirement is unmet (FR-024), because a user
-  cannot decide whether to install a package whose teaching material is
-  invisible until after installing it.
-
-**Identity is the pair (source, id) (FR-019).** Two packages may both ship
-``intro``. Two tutorials in *one* source may not: a duplicate id makes
-:class:`~scistudio.tutorials.projects.TutorialKey` ambiguous, so both entries
-are listed as unavailable naming both directories (FR-023) rather than one of
-them silently winning.
-
-This module may not import :mod:`scistudio.tutorials.session` or
-``scistudio.api`` (checklist §6.1.2). Everything it cannot read for itself —
-the installed distribution set, whether an agent provider is available, whether
-git is available — goes through :class:`DiscoveryEnvironment`, which may be
-handed the answers or probe for them lazily on first use. Lazily, because none
-of the three is free and a tutorial that declares no ``requires`` asks none of
-them: listing a catalogue of such tutorials costs a directory walk and nothing
-else.
-"""
+"""Four-source tutorial discovery, and the catalogue the Learning Center lists."""
+# Maintainer context (kept outside generated API documentation):
+# Four-source tutorial discovery, and the catalogue the Learning Center lists.
+#
+# ADR-053 Learning Center spec, FR-016 … FR-024 and FR-029a
+# (``docs/specs/adr-053-learning-center.md``).
+#
+# Four sources, and no fifth (FR-016): a directory inside the core distribution,
+# packages through the ``scistudio.tutorials`` entry-point group, the user
+# directory ``~/.scistudio/tutorials``, and the open project's ``tutorials/``.
+# The two local tiers are resolved through
+# :func:`scistudio.core.dropins.tutorial_scan_dirs`, which is the same tier
+# definition blocks and types use, so package install, package uninstall, branch
+# switch, and the working-tree rewrites that refresh the registries reach the
+# tutorial catalogue by the path they already travel rather than a fourth one
+# (FR-031).
+#
+# **Listing imports nothing (FR-018).** Titles, summaries, covers, order, and
+# requirements come from manifests alone. A package tutorial's directory is
+# resolved from distribution metadata by
+# :func:`scistudio.core.entry_points.resolve_entry_point_directory`, which never
+# calls ``EntryPoint.load()``, ``importlib.import_module``, or
+# ``importlib.util.find_spec``. This module contains no other way to reach a
+# package's files. The guarantee is asserted with a ``sys.meta_path`` hook in
+# ``tests/tutorials/test_discovery_no_import.py`` rather than by reading the
+# source, because the failure it guards against is a refactor reintroducing an
+# import, not a particular spelling.
+#
+# **Nothing that goes wrong empties a group (FR-022).** Every manifest is read
+# inside its own attempt. A file that fails schema validation, a file written for
+# a newer core, a directory whose id collides with a sibling's, and a package
+# whose entry point cannot be resolved each cost exactly their own entry. The
+# three failures owe the user *different* sentences, which is why they are three
+# paths rather than one ``except``:
+#
+# * a malformed manifest raises :class:`ManifestValidationError` and is listed
+#   with its validation message — this tutorial is broken;
+# * a manifest declaring a ``manifest_version`` this core does not read raises
+#   :class:`UnsupportedManifestVersionError` and is listed naming the version it
+#   needs (FR-007a) — this tutorial needs a newer SciStudio;
+# * an unmet ``requires`` is not a failure at all: the tutorial is listed, marked
+#   unavailable, and says which requirement is unmet (FR-024), because a user
+#   cannot decide whether to install a package whose teaching material is
+#   invisible until after installing it.
+#
+# **Identity is the pair (source, id) (FR-019).** Two packages may both ship
+# ``intro``. Two tutorials in *one* source may not: a duplicate id makes
+# :class:`~scistudio.tutorials.projects.TutorialKey` ambiguous, so both entries
+# are listed as unavailable naming both directories (FR-023) rather than one of
+# them silently winning.
+#
+# This module may not import :mod:`scistudio.tutorials.session` or
+# ``scistudio.api`` (checklist §6.1.2). Everything it cannot read for itself —
+# the installed distribution set, whether an agent provider is available, whether
+# git is available — goes through :class:`DiscoveryEnvironment`, which may be
+# handed the answers or probe for them lazily on first use. Lazily, because none
+# of the three is free and a tutorial that declares no ``requires`` asks none of
+# them: listing a catalogue of such tutorials costs a directory walk and nothing
+# else.
+# Development references: ADR-053, FR-007a, FR-016, FR-018, FR-019, FR-022, FR-023, FR-024, FR-029a,
+# FR-031, docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -158,7 +161,11 @@ GIT_TERMS: frozenset[str] = frozenset({"git_branch_exists", "git_current_branch"
 
 
 class TutorialState(StrEnum):
-    """A catalogue entry's state (FR-085, checklist §6.1.6)."""
+    """A catalogue entry's state."""
+
+    # Maintainer context:
+    # A catalogue entry's state (checklist §6.1.6).
+    # Development references: FR-085.
 
     NOT_STARTED = "not_started"
     IN_PROGRESS = "in_progress"
@@ -167,7 +174,8 @@ class TutorialState(StrEnum):
 
 
 def core_tutorials_dir() -> Path:
-    """Return the directory the core distribution's tutorials live in (FR-016)."""
+    """Return the directory the core distribution's tutorials live in."""
+    # Development references: FR-016.
     return Path(__file__).resolve().parent / CORE_TUTORIALS_DIR_NAME
 
 
@@ -192,7 +200,7 @@ def installed_distribution_names() -> frozenset[str]:
     """Return every installed distribution's normalized name.
 
     Read under :func:`prepared_plugin_import_roots` for the reason every
-    entry-point scan is (FR-030): a desktop-installed plugin's ``site-packages``
+    entry-point scan is: a desktop-installed plugin's ``site-packages``
     carries the ``dist-info`` that makes it visible at all, so a ``requires``
     check run without the roots active would report an installed package as
     missing and mark its own tutorials unavailable.
@@ -200,6 +208,7 @@ def installed_distribution_names() -> frozenset[str]:
     Never raises: unreadable metadata costs a requirement check, not the
     catalogue.
     """
+    # Development references: FR-030.
     names: set[str] = set()
     try:
         with prepared_plugin_import_roots():
@@ -224,8 +233,9 @@ def agent_provider_available() -> bool:
     resolution — the same question the AI block asks before a run. Reached
     lazily and defensively so a discovery scan still completes when the agent
     layer is unavailable, in which case the answer is "no agent", which lists
-    the tutorial rather than hiding it (FR-024).
+    the tutorial rather than hiding it.
     """
+    # Development references: FR-024.
     try:
         from scistudio.ai.agent.providers_registry import agent_descriptors, resolve_binary
 
@@ -236,7 +246,8 @@ def agent_provider_available() -> bool:
 
 
 def git_available() -> bool:
-    """Return whether a git binary can be located (ADR-039 §3.4 degraded mode)."""
+    """Return whether a git binary can be located (degraded mode)."""
+    # Development references: ADR-039.
     try:
         from scistudio.core.versioning.git_binary import GitBinary
 
@@ -248,7 +259,7 @@ def git_available() -> bool:
 
 @dataclass(frozen=True)
 class DiscoveryEnvironment:
-    """What a ``requires`` block is judged against (FR-008, FR-024).
+    """What a ``requires`` block is judged against.
 
     Every field may be *stated*, in which case that is the answer, or left
     ``None``, in which case it is probed on first use and remembered for the
@@ -265,6 +276,8 @@ class DiscoveryEnvironment:
     directory walk and nothing else. A tutorial that does ask pays once per
     discovery pass rather than once per tutorial.
     """
+
+    # Development references: FR-008, FR-024.
 
     scistudio_version: str | None = None
     installed_distributions: frozenset[str] | None = None
@@ -296,7 +309,8 @@ class DiscoveryEnvironment:
         return bool(self._answer("agent", self.agent_available, agent_provider_available))
 
     def has_git(self) -> bool:
-        """Whether a git binary can be located (ADR-039 §3.4)."""
+        """Whether a git binary can be located."""
+        # Development references: ADR-039.
         return bool(self._answer("git", self.git_available, git_available))
 
     def has_distribution(self, name: str) -> bool:
@@ -304,13 +318,14 @@ class DiscoveryEnvironment:
         return normalize_distribution_name(name) in self.distributions()
 
     def has_completed(self, key: TutorialKey) -> bool:
-        """Whether the tutorial *key* names has been completed (#2088).
+        """Whether the tutorial *key* names has been completed.
 
         What ``requires.tutorials`` is judged against. Stated by the runtime —
         which owns a progress store — or probed from the default store, on the
         same lazy arrangement as the other three answers: a catalogue holding
         no tutorial-gated entry never reads progress at all.
         """
+        # Development references: #2088.
         completed: frozenset[TutorialKey] = self._answer(
             "completed", self.completed_tutorials, lambda: ProgressStore().completed_keys()
         )
@@ -327,7 +342,7 @@ def unmet_requirement(
 
     Four predicates, in the order a user can act on them: an installed package
     is one install away, a core upgrade is further, an agent is a machine setup
-    task, and a prerequisite tutorial (#2088) is the one the catalogue itself
+    task, and a prerequisite tutorial is the one the catalogue itself
     offers next. All are evaluated — none is skipped as unknowable — and the
     git check that follows is not part of ``requires`` at all but of the
     conditions the tutorial declares, which is why it is last: a tutorial
@@ -339,6 +354,7 @@ def unmet_requirement(
     naming it — which is the author's typo surfaced in the catalogue, not
     hidden by it.
     """
+    # Development references: #2088.
     requires = manifest.requires
     for name in requires.packages:
         if not environment.has_distribution(name):
@@ -413,12 +429,13 @@ def _uses_git_terms(manifest: TutorialManifest) -> bool:
     """Return whether any declared condition reads git state.
 
     Answerable for a manifest-driven tutorial and not for a driver-driven one,
-    whose conditions live in code this must not import while listing (FR-018).
+    whose conditions live in code this must not import while listing.
     A driver-driven tutorial therefore stays startable with git absent and
     fails, if it fails, inside its own session — which is contained to it
-    (FR-044) rather than being a reason to import a package to list a
+    rather than being a reason to import a package to list a
     catalogue.
     """
+    # Development references: FR-018, FR-044.
     return any(step.done_when is not None and (step.done_when.terms() & GIT_TERMS) for step in manifest.steps)
 
 
@@ -429,7 +446,9 @@ def _uses_git_terms(manifest: TutorialManifest) -> bool:
 
 @dataclass(frozen=True)
 class TutorialSource:
-    """Where a tutorial came from, and how its group is labeled (FR-084)."""
+    """Where a tutorial came from, and how its group is labeled."""
+
+    # Development references: FR-084.
 
     kind: TutorialSourceKind
     id: str
@@ -438,7 +457,8 @@ class TutorialSource:
 
     @property
     def sort_key(self) -> tuple[int, str]:
-        """Core first, then packages by name, then the two local tiers (FR-084)."""
+        """Core first, then packages by name, then the two local tiers."""
+        # Development references: FR-084.
         return (_SOURCE_ORDER[self.kind], self.id)
 
 
@@ -448,9 +468,10 @@ class DiscoveredTutorial:
 
     ``manifest`` is ``None`` only when the manifest could not be read at all,
     in which case ``unavailable_reason`` carries the message that says so. Every
-    other field is filled from the manifest, because FR-018 forbids any other
-    source for them.
+    other field is filled from the manifest.
     """
+
+    # Development references: FR-018.
 
     source: TutorialSource
     id: str
@@ -464,7 +485,8 @@ class DiscoveredTutorial:
 
     @property
     def key(self) -> TutorialKey:
-        """Return this tutorial's identity, the pair (source, id) (FR-019)."""
+        """Return this tutorial's identity, the pair (source, id)."""
+        # Development references: FR-019.
         return TutorialKey(source_kind=str(self.source.kind), source_id=self.source.id, tutorial_id=self.id)
 
     @property
@@ -474,7 +496,8 @@ class DiscoveredTutorial:
 
     @property
     def entry_sort_key(self) -> tuple[int, int, str, str]:
-        """Order within a group: declared ``order`` first, then title (FR-007)."""
+        """Order within a group: declared ``order`` first, then title."""
+        # Development references: FR-007.
         return (0 if self.order is not None else 1, self.order or 0, self.title.lower(), self.id)
 
 
@@ -488,7 +511,8 @@ class DiscoveryResult:
 
     @property
     def diagnostic_messages(self) -> tuple[str, ...]:
-        """The diagnostics as the one-line strings every registry surface carries (FR-028)."""
+        """The diagnostics as the one-line strings every registry surface carries."""
+        # Development references: FR-028.
         return tuple(str(diagnostic) for diagnostic in self.diagnostics)
 
     def find(self, key: TutorialKey) -> DiscoveredTutorial | None:
@@ -504,7 +528,8 @@ class DiscoveryResult:
         return tuple(sorted(found, key=lambda tutorial: tutorial.entry_sort_key))
 
     def totals(self) -> tuple[CatalogueTotals, ...]:
-        """Return each source's contribution, for :meth:`ProgressStore.groups` (FR-076)."""
+        """Return each source's contribution, for :meth:`ProgressStore.groups`."""
+        # Development references: FR-076.
         return tuple(
             CatalogueTotals(
                 source_kind=str(source.kind),
@@ -526,12 +551,12 @@ def discover_tutorials(
     environment: DiscoveryEnvironment | None = None,
     diagnostics: DiagnosticSink | None = None,
 ) -> DiscoveryResult:
-    """Scan all four sources and return everything found (FR-016).
+    """Scan all four sources and return everything found.
 
-    Imports no package module (FR-018). Never raises: the failure of one
-    manifest, one directory, or one entry point costs that entry alone
-    (FR-022).
+    Imports no package module. Never raises: the failure of one
+    manifest, one directory, or one entry point costs that entry alone.
     """
+    # Development references: FR-016, FR-018, FR-022.
     env = environment or DiscoveryEnvironment()
     sink: list[EntryPointDiagnostic] = []
     found: list[DiscoveredTutorial] = []
@@ -557,7 +582,8 @@ def discover_tutorials(
 
 
 def _sources(*, project_dir: str | Path | None, diagnostics: DiagnosticSink) -> Iterator[TutorialSource]:
-    """Yield every source to scan, core first (FR-016, FR-084)."""
+    """Yield every source to scan, core first."""
+    # Development references: FR-016, FR-084.
     yield TutorialSource(
         kind=TutorialSourceKind.CORE,
         id="",
@@ -589,14 +615,15 @@ def _sources(*, project_dir: str | Path | None, diagnostics: DiagnosticSink) -> 
 
 
 def _package_sources(*, diagnostics: DiagnosticSink) -> Iterator[TutorialSource]:
-    """Yield one source per resolvable ``scistudio.tutorials`` entry point (FR-017).
+    """Yield one source per resolvable ``scistudio.tutorials`` entry point.
 
     Enumeration, error containment, diagnostics, and import-root preparation all
-    come from the shared helper (FR-025 … FR-030). The one thing that differs
-    from the other three groups is the payload: FR-029a's metadata-only
+    come from the shared helper (…). The one thing that differs
+    from the other three groups is the payload: the API's metadata-only
     resolution, which reaches a directory without importing the module its value
-    names (FR-018).
+    names.
     """
+    # Development references: FR-017, FR-018, FR-025, FR-029a, FR-030.
     with prepared_plugin_import_roots():
         entry_points = enumerate_group(TUTORIALS_ENTRY_POINT_GROUP, diagnostics=diagnostics)
         for entry_point in entry_points:
@@ -650,7 +677,8 @@ def _tutorial_directories(parent: Path) -> Iterator[Path]:
 
 
 def _scan_source(source: TutorialSource, environment: DiscoveryEnvironment) -> tuple[DiscoveredTutorial, ...]:
-    """Return every tutorial in *source*, listed whether or not it works (FR-022)."""
+    """Return every tutorial in *source*, listed whether or not it works."""
+    # Development references: FR-022.
     entries = [_read_tutorial(source, directory, environment) for directory in _tutorial_directories(source.directory)]
     return _reject_duplicate_ids(tuple(entries))
 
@@ -662,10 +690,11 @@ def _read_tutorial(
 ) -> DiscoveredTutorial:
     """Read one tutorial directory into a listable entry.
 
-    The three outcomes FR-007a and FR-024 require to reach the user as different
+    The three outcomes must reach the user as different
     sentences are three branches here: written for a newer core, malformed, and
     requirements unmet.
     """
+    # Development references: FR-007a, FR-024.
     try:
         manifest = load_manifest(directory, source_kind=source.kind)
     except UnsupportedManifestVersionError as exc:
@@ -711,7 +740,7 @@ def _unreadable(source: TutorialSource, directory: Path, *, reason: str) -> Disc
 
 
 def _reject_duplicate_ids(entries: tuple[DiscoveredTutorial, ...]) -> tuple[DiscoveredTutorial, ...]:
-    """Mark every member of a colliding id group unavailable, naming both paths (FR-023).
+    """Mark every member of a colliding id group unavailable, naming both paths.
 
     Both rather than the second: identity is the pair (source, id), so a
     collision makes *neither* addressable — the session key, the progress
@@ -719,6 +748,7 @@ def _reject_duplicate_ids(entries: tuple[DiscoveredTutorial, ...]) -> tuple[Disc
     winner would make which one the user gets depend on directory iteration
     order, and would silently discard the other.
     """
+    # Development references: FR-023.
     by_id: dict[str, list[DiscoveredTutorial]] = {}
     for entry in entries:
         by_id.setdefault(entry.id, []).append(entry)
@@ -756,14 +786,18 @@ def _reject_duplicate_ids(entries: tuple[DiscoveredTutorial, ...]) -> tuple[Disc
 
 @dataclass(frozen=True)
 class CatalogueEntry:
-    """One row of the Learning Center, as checklist §6.1.6 renders it.
+    """One row displayed in the Learning Center catalogue.
 
     ``cover`` is the manifest's declared filename rather than a URL: the route
     layer owns the URL space, and this package may not import it. The route
     resolves the file through
     :meth:`~scistudio.tutorials.manifest.TutorialManifest.resolve_asset`, which
-    is what keeps the cover inside the tutorial directory (FR-014).
+    is what keeps the cover inside the tutorial directory.
     """
+
+    # Maintainer context:
+    # One row of the Learning Center, as checklist §6.1.6 renders it.
+    # Development references: FR-014.
 
     source_kind: str
     source_id: str
@@ -793,7 +827,9 @@ class CatalogueEntry:
 
 @dataclass(frozen=True)
 class CatalogueGroup:
-    """One source's group, with its own counts and no aggregate (FR-076)."""
+    """One source's group, with its own counts and no aggregate."""
+
+    # Development references: FR-076.
 
     source_kind: str
     source_id: str
@@ -805,7 +841,9 @@ class CatalogueGroup:
 
 @dataclass(frozen=True)
 class Catalogue:
-    """The whole listing: groups in display order, plus what went wrong (FR-028)."""
+    """The whole listing: groups in display order, plus what went wrong."""
+
+    # Development references: FR-028.
 
     groups: tuple[CatalogueGroup, ...] = ()
     diagnostics: tuple[str, ...] = ()
@@ -825,14 +863,12 @@ def build_catalogue(
     progress: ProgressStore,
     in_progress: Iterable[TutorialKey] = (),
 ) -> Catalogue:
-    """Turn a discovery pass into the grouped catalogue the Learning Center lists.
+    """Build the grouped Learning Center catalogue from discovered tutorials.
 
-    Groups keep :meth:`DiscoveryResult.sources`' order — core first (FR-084) —
-    and each carries only its own completed and total counts. No aggregate
-    across groups is computed anywhere in this function, because FR-076 forbids
-    reporting one and the cheapest way to keep that true is never to have the
-    number.
+    Groups retain :meth:`DiscoveryResult.sources` order, with core first. Each
+    group carries its own completed and total counts; there is no combined total.
     """
+    # Development references: FR-076, FR-084.
     completed = progress.completed_keys()
     started = frozenset(in_progress)
     groups = progress.groups(result.totals())
@@ -885,7 +921,7 @@ def _state(
     completed: frozenset[TutorialKey],
     started: frozenset[TutorialKey],
 ) -> TutorialState:
-    """Return an entry's state (FR-085).
+    """Return an entry's state.
 
     Unavailability wins over everything, including completion: a tutorial whose
     package was uninstalled after it was finished cannot be reopened, and
@@ -893,6 +929,7 @@ def _state(
     recorded completion still counts toward its group, which is
     :meth:`ProgressStore.groups`' business rather than this function's.
     """
+    # Development references: FR-085.
     if not tutorial.is_startable:
         return TutorialState.UNAVAILABLE
     key = tutorial.key

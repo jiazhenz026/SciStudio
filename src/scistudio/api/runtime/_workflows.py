@@ -1,8 +1,10 @@
-"""Workflow + file-upload method implementations.
-
-Issue #1430 / umbrella #1427: behavior unchanged. See ``_projects.py``
-docstring for the free-function-bound-as-method pattern.
-"""
+"""Workflow + file-upload method implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Workflow + file-upload method implementations.
+#
+# Issue #1430 / umbrella #1427: behavior unchanged. See ``_projects.py``
+# docstring for the free-function-bound-as-method pattern.
+# Development references: #1427, #1430.
 
 from __future__ import annotations
 
@@ -27,7 +29,7 @@ logger = logging.getLogger(__name__)
 class WorkflowIdConflictError(ValueError):
     """A different project workflow file already declares this workflow id.
 
-    #1836: a project must hold at most one file per workflow id — the
+    a project must hold at most one file per workflow id — the
     canonical ``workflows/{id}.yaml``. A second file with a different
     filename but the same internal ``id`` breaks the per-project unique-id
     invariant: target/workflow discovery walks every ``workflows/*.yaml`` and
@@ -36,6 +38,8 @@ class WorkflowIdConflictError(ValueError):
     save/import that would create or perpetuate the collision instead of
     silently merging.
     """
+
+    # Development references: #1836.
 
     def __init__(self, workflow_id: str, existing_path: Path) -> None:
         self.workflow_id = workflow_id
@@ -48,11 +52,12 @@ class WorkflowIdConflictError(ValueError):
 
 
 def _read_declared_workflow_id(path: Path) -> str | None:
-    """Best-effort read of a workflow file's declared ``id`` (#1836).
+    """Best-effort read of a workflow file's declared ``id``.
 
     Lenient on purpose: a malformed or unreadable sibling must not block
     saving a well-formed workflow, so parse failures degrade to ``None``.
     """
+    # Development references: #1836.
     try:
         with path.open("r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
@@ -76,13 +81,14 @@ def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
 
 def find_workflow_id_conflict(self: ApiRuntime, workflow_id: str) -> Path | None:
     """Return an existing project workflow file that declares *workflow_id*
-    at a non-canonical path, else ``None`` (#1836).
+    at a non-canonical path, else ``None``.
 
     The canonical home for a workflow is ``workflows/{id}.yaml``; that file
     (if present) is never a conflict with itself. Any *other* ``workflows/
     *.yaml`` whose internal ``id`` equals *workflow_id* is a duplicate-id
     collision and is returned so the caller can reject the save/import.
     """
+    # Development references: #1836.
     project = self.active_project
     if project is None:
         return None
@@ -199,13 +205,14 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
 def mark_workflow_self_write(self: ApiRuntime, path: Path) -> None:
     """Tell the FS watcher *path* was a first-party write; suppress its echo.
 
-    ADR-034 Phase 2. Centralised on the runtime so first-party writers — the
+    Centralised on the runtime so first-party writers — the
     canvas save here and the agent MCP workflow-write tool — call it through the
     injected runtime instead of importing ``api.routes.workflow_watcher``
     directly. The latter inverts the ai->api layer boundary (the AI MCP tool
     lives in the ``ai`` layer); routing through the runtime keeps the import
-    edge inside the ``api`` layer (#1591 / #1597).
+    edge inside the ``api`` layer.
     """
+    # Development references: #1591, #1597, ADR-034.
     try:
         from scistudio.api.routes.workflow_watcher import mark_self_write
 
@@ -229,7 +236,7 @@ def load_workflow(self: ApiRuntime, workflow_id: str) -> WorkflowDefinition:
 
 
 def load_workflow_by_path(self: ApiRuntime, rel_path: str) -> WorkflowDefinition:
-    """Load a workflow YAML by project-relative path (ADR-044 US1 AS3).
+    """Load a workflow YAML by project-relative path.
 
     Unlike :func:`load_workflow` (which resolves ``workflows/<id>.yaml`` by id),
     this opens any workflow file under the project — notably a referenced
@@ -237,6 +244,9 @@ def load_workflow_by_path(self: ApiRuntime, rel_path: str) -> WorkflowDefinition
     SubWorkflowBlock can open its ``config.ref.path`` regardless of folder.
     The path is constrained to stay inside the project root.
     """
+    # Maintainer context:
+    # Load a workflow YAML by project-relative path (US1 AS3).
+    # Development references: ADR-044.
     project = self.require_active_project()
     project_root = Path(project.path).resolve()
     candidate = (project_root / rel_path).resolve()
@@ -252,15 +262,23 @@ def load_workflow_by_path(self: ApiRuntime, rel_path: str) -> WorkflowDefinition
 
 
 def import_subworkflow_file(self: ApiRuntime, source_path: str) -> str:
-    """ADR-044 FR-011: copy an external workflow file into the project.
+    """Copy an external workflow file into the project.
 
     Copies *source_path* into ``<project>/subworkflows/`` (creating it if
     needed) and returns the project-relative path to record in a
     ``SubWorkflowBlock``'s ``config.ref.path``. On filename collision a numeric
     suffix is appended so two imports of the same external file produce two
-    distinct project copies (US5 AS2). The returned path uses forward slashes
-    for cross-platform YAML portability (#506).
+    distinct project copies. The returned path uses forward slashes
+    for cross-platform YAML portability.
     """
+    # Maintainer context:
+    # Copies *source_path* into ``<project>/subworkflows/`` (creating it if
+    # needed) and returns the project-relative path to record in a
+    # ``SubWorkflowBlock``'s ``config.ref.path``. On filename collision a numeric
+    # suffix is appended so two imports of the same external file produce two
+    # distinct project copies (US5 AS2). The returned path uses forward slashes
+    # for cross-platform YAML portability.
+    # Development references: #506, ADR-044, FR-011.
     project = self.require_active_project()
     src = Path(source_path)
     if not src.is_file():
@@ -318,7 +336,8 @@ def _relativify_node_config(
     block_type: str,
     project_dir: str | None,
 ) -> dict[str, Any]:
-    """Convert absolute paths in node config to relative paths (#506)."""
+    """Convert absolute paths in node config to relative paths."""
+    # Development references: #506.
     if not project_dir:
         return config
     schema = self._config_schema_for_block(block_type)
@@ -331,7 +350,8 @@ def _absolutify_node_config(
     block_type: str,
     project_dir: str | None,
 ) -> dict[str, Any]:
-    """Resolve relative paths in node config to absolute paths (#506)."""
+    """Resolve relative paths in node config to absolute paths."""
+    # Development references: #506.
     if not project_dir:
         return config
     schema = self._config_schema_for_block(block_type)
@@ -343,10 +363,10 @@ def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
 
     Returns ``True`` when a file was actually removed, ``False`` when no
     workflow file existed. The route uses this to decide whether to emit the
-    versioned ``workflow.changed`` ``kind="deleted"`` event (#1462 / ADR-045
-    §3.4) so a user-initiated delete is attributed to ``source="canvas"``
+    versioned ``workflow.changed`` ``kind="deleted"`` event so a user-initiated delete is attributed to ``source="canvas"``
     rather than being mis-tagged ``source="external"`` by the FS watcher.
     """
+    # Development references: #1462, ADR-045.
     path = self.workflow_path(workflow_id)
     if path.exists():
         path.unlink()

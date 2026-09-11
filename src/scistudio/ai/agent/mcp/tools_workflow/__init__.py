@@ -1,38 +1,40 @@
-"""Category (a) MCP tools — workflow inspection and execution (10 tools).
-
-ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation. All tool
-functions are decorated with ``@mcp.tool(name=..., tags={...})`` and
-return Pydantic result models with ``next_step: str`` on write-class
-tools per ADR-040 §3.2.
-
-The 10 tools are:
-
-Read-class (6): ``list_blocks``, ``get_block_schema``, ``list_types``,
-``get_workflow``, ``validate_workflow``, ``get_run_status``.
-
-Write-class (4): ``write_workflow``, ``run_workflow``, ``cancel_run``,
-``finish_ai_block`` (ADR-035 §3.5 path (a)).
-
-Per ADR-040 §3.2 style guide, each docstring is an imperative
-one-liner followed by a "Use when … / Do NOT use to …" anti-pattern
-section, and each write-class result model carries ``next_step``
-pointing at the canonical follow-up tool.
-
-Sub-package layout (#1431, umbrella #1427 — pure structural refactor):
-
-* :mod:`._helpers` — shared lock timeout, dict/diff/path helpers, runtime accessor.
-* :mod:`._errors` — run-level ``block_error`` capture state + subscriber.
-* :mod:`._models` — Pydantic envelopes for every tool return type.
-* :mod:`.read` — 6 read-class tools.
-* :mod:`.write` — 3 write-class tools (write_workflow / run_workflow / cancel_run).
-* :mod:`.finish_ai_block` — ``finish_ai_block`` tool (ADR-035 §3.5).
-
-The package preserves the legacy ``tools_workflow`` import surface:
-every public name (tool functions, Pydantic models, internal helpers
-referenced by other modules or tests) is re-exported below so that
-``from scistudio.ai.agent.mcp.tools_workflow import X`` continues to work
-for any X that was reachable before the refactor.
-"""
+"""MCP tools for workflow inspection and execution (10 tools)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (a) MCP tools — workflow inspection and execution (10 tools).
+#
+# ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation. All tool
+# functions are decorated with ``@mcp.tool(name=..., tags={...})`` and
+# return Pydantic result models with ``next_step: str`` on write-class
+# tools per ADR-040 §3.2.
+#
+# The 10 tools are:
+#
+# Read-class (6): ``list_blocks``, ``get_block_schema``, ``list_types``,
+# ``get_workflow``, ``validate_workflow``, ``get_run_status``.
+#
+# Write-class (4): ``write_workflow``, ``run_workflow``, ``cancel_run``,
+# ``finish_ai_block`` (ADR-035 §3.5 path (a)).
+#
+# Per ADR-040 §3.2 style guide, each docstring is an imperative
+# one-liner followed by a "Use when … / Do NOT use to …" anti-pattern
+# section, and each write-class result model carries ``next_step``
+# pointing at the canonical follow-up tool.
+#
+# Sub-package layout (#1431, umbrella #1427 — pure structural refactor):
+#
+# * :mod:`._helpers` — shared lock timeout, dict/diff/path helpers, runtime accessor.
+# * :mod:`._errors` — run-level ``block_error`` capture state + subscriber.
+# * :mod:`._models` — Pydantic envelopes for every tool return type.
+# * :mod:`.read` — 6 read-class tools.
+# * :mod:`.write` — 3 write-class tools (write_workflow / run_workflow / cancel_run).
+# * :mod:`.finish_ai_block` — ``finish_ai_block`` tool (ADR-035 §3.5).
+#
+# The package preserves the legacy ``tools_workflow`` import surface:
+# every public name (tool functions, Pydantic models, internal helpers
+# referenced by other modules or tests) is re-exported below so that
+# ``from scistudio.ai.agent.mcp.tools_workflow import X`` continues to work
+# for any X that was reachable before the refactor.
+# Development references: #1427, #1431, ADR-035, ADR-040.
 
 from __future__ import annotations
 

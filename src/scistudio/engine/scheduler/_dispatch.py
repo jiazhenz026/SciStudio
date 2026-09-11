@@ -1,17 +1,19 @@
-"""Block dispatch loop implementations for :class:`DAGScheduler`.
-
-ADR-046 §3 (Block dispatch group): extracted verbatim from the
-original ``engine/scheduler.py`` god-file. Pure structural move per
-umbrella #1427 Phase 3 — no behavior changes. ADR-018 Addendum 1
-task-per-block dispatch semantics and the #1330/#1370 ADR-020
-output-normalization callsites are preserved byte-identically.
-
-Each function is a free function whose first parameter is ``self`` —
-they are bound onto :class:`DAGScheduler` in
-``scheduler/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
-fact (see ADR-042 + the doc/closure audit walker).
-"""
+"""Block dispatch loop implementations for :class:`DAGScheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# Block dispatch loop implementations for :class:`DAGScheduler`.
+#
+# ADR-046 §3 (Block dispatch group): extracted verbatim from the
+# original ``engine/scheduler.py`` god-file. Pure structural move per
+# umbrella #1427 Phase 3 — no behavior changes. ADR-018 Addendum 1
+# task-per-block dispatch semantics and the #1330/#1370 ADR-020
+# output-normalization callsites are preserved byte-identically.
+#
+# Each function is a free function whose first parameter is ``self`` —
+# they are bound onto :class:`DAGScheduler` in
+# ``scheduler/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
+# fact (see ADR-042 + the doc/closure audit walker).
+# Development references: #1330, #1427, ADR-018, ADR-020, ADR-042, ADR-046, Addendum 1.
 
 from __future__ import annotations
 
@@ -50,13 +52,14 @@ async def _emit_block_ready(self: DAGScheduler, node_id: str) -> None:
     listed in ``scistudio.api.ws._OUTBOUND_EVENTS`` so the frontend
     WS forwards it, and named in the event-routing table
     (``events.py:69-72``) as a ``DAGScheduler``-emitted lifecycle
-    event. Prior to issue #1327 the scheduler transitioned blocks
+    event. Prior to the scheduler transitioned blocks
     to ``READY`` without ever emitting the event, breaking the
     documented contract — frontend subscribers never fired.
 
     The emit shape mirrors :data:`BLOCK_RUNNING` for consistency
     with the rest of the lifecycle events.
     """
+    # Development references: #1327.
     await self._event_bus.emit(
         EngineEvent(
             event_type=BLOCK_READY,
@@ -69,7 +72,7 @@ async def _emit_block_ready(self: DAGScheduler, node_id: str) -> None:
 async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     """Synchronous prelude for dispatching a single block.
 
-    Per ADR-018 Addendum 1, this method performs only the work that
+    this method performs only the work that
     must run on the scheduler coroutine itself — paused/resource
     checks, state transition to RUNNING, BLOCK_RUNNING emission,
     lineage start, input gathering, and block instantiation — and
@@ -82,9 +85,10 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     False, the block stays in its current state (READY) and the
     method returns without creating a task — it will be retried on
     the next successor event via ``_dispatch_newly_ready`` and, for
-    resource refusals, by the 1s polling retry (#2187) so a refusal
+    resource refusals, by the 1s polling retry so a refusal
     can never silently stall the run when no terminal events fire.
     """
+    # Development references: #2187, ADR-018, Addendum 1.
     if self._paused:
         return
 
@@ -199,7 +203,7 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
 
 
 def _schedule_resource_retry(self: DAGScheduler) -> None:
-    """Schedule a 1s polling retry for resource-refused READY blocks (#2187).
+    """Schedule a 1s polling retry for resource-refused READY blocks.
 
     Terminal events (``BLOCK_DONE`` etc.) are the usual retry trigger via
     ``_dispatch_newly_ready``, but when nothing is running a resource refusal
@@ -210,6 +214,7 @@ def _schedule_resource_retry(self: DAGScheduler) -> None:
     schedules the next poll, so the retry chain continues until dispatch
     succeeds, the block leaves READY, or the scheduler is disposed.
     """
+    # Development references: #2187.
     if self._disposed:
         return
     if self._resource_retry_handle is not None:
@@ -250,13 +255,14 @@ async def _run_and_finalize(
     inputs: dict[str, Any],
     config: dict[str, Any],
 ) -> None:
-    """Long-running task body for a single block (ADR-018 Addendum 1).
+    """Long-running task body for a single block.
 
     Awaits ``runner.run``, transitions state to DONE (or ERROR on
     exception, unless the block was already CANCELLED), emits the
     terminal event, and always removes the block from
     ``self._active_tasks`` in its ``finally`` clause.
     """
+    # Development references: ADR-018, Addendum 1.
     try:
         try:
             result = await self._runner.run(block, inputs, config)
@@ -407,15 +413,16 @@ async def _run_and_finalize(
 
 
 def _release_intermediate_refs(refs: list[dict[str, Any]]) -> None:
-    """Delete the on-disk scratch behind ADR-051 intermediate storage references.
+    """Delete the on-disk scratch behind intermediate storage references.
 
     The prompt phase may persist heavy intermediate work via the storage layer
-    and hand its references forward (ADR-051 §3). That work is scratch, not
+    and hand its references forward. That work is scratch, not
     provenance: it is released after the compute phase completes or on
     cancellation. Best-effort — a missing or unreadable path is logged at debug
     and skipped; storage backends have no first-class delete, so we remove the
     referenced filesystem path directly.
     """
+    # Development references: ADR-051.
     import shutil
     from pathlib import Path
 
@@ -442,9 +449,9 @@ async def _run_interactive(
     inputs: dict[str, Any],
     config: dict[str, Any],
 ) -> None:
-    """Execute an interactive block as two worker subprocesses around a pause (ADR-051).
+    """Execute an interactive block as two worker subprocesses around a pause.
 
-    ADR-051 §3 replaces the former in-process interactive path. An interactive
+    Execute interactive blocks in subprocesses. An interactive
     block stays as isolated as any other block even while a human is in the
     loop: it is only ever running inside a subprocess that runs to completion,
     never while paused. The flow is:
@@ -454,16 +461,17 @@ async def _run_interactive(
        heavy intermediate work crosses the pause as engine-held storage
        references (never in memory, never to the browser).
     2. Transition to PAUSED (nothing resident); emit BLOCK_PAUSED and
-       INTERACTIVE_PROMPT carrying the panel manifest (FR-007/FR-015) and the
+       INTERACTIVE_PROMPT carrying the panel manifest and the
        panel payload; await the user's decision via an asyncio.Future.
     3. **Compute phase** (fresh subprocess): on confirmation, ``block.run``
        runs in a new worker with the decision (and any intermediate references)
        merged into config. The decision is recorded in lineage; the
-       intermediate scratch is released after the run (ADR-051 §3 / FR-011/FR-012).
+       intermediate scratch is released after the run.
 
     Cancelling while paused transitions to CANCELLED, releases any intermediate
-    scratch, and spawns no compute phase (FR-012).
+    scratch, and spawns no compute phase.
     """
+    # Development references: ADR-051, FR-007, FR-011, FR-012, FR-015.
     from scistudio.blocks.base.interactive import (
         INTERACTIVE_INTERMEDIATE_KEY,
         INTERACTIVE_RESPONSE_KEY,
@@ -719,7 +727,7 @@ async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     """Dispatch blocks that became ready or were previously throttled.
 
     Called from ``_on_block_done`` after a terminal event, and from the
-    1s polling retry (#2187) that ``_dispatch`` schedules whenever
+    1s polling retry that ``_dispatch`` schedules whenever
     ``can_dispatch`` refuses a block — the poll covers the case where no
     terminal event will fire because nothing is currently running.
     Scans the topological order for:
@@ -732,6 +740,7 @@ async def _dispatch_newly_ready(self: DAGScheduler) -> None:
     ``_dispatch`` is itself idempotent: if ``can_dispatch`` still
     returns False, the block stays READY and no task is created.
     """
+    # Development references: #2187.
     for node_id in self._order:
         state = self._block_states[node_id]
         if state == BlockState.IDLE and self._check_readiness(node_id):

@@ -1,4 +1,4 @@
-"""A graceful backend stop, requested by the process that launched it (#2327).
+"""A graceful backend stop, requested by the process that launched it.
 
 A Windows process cannot be sent a SIGTERM it can handle: Node's
 ``ChildProcess.kill`` terminates it outright, and so does ``taskkill /F``. The
@@ -11,9 +11,11 @@ lifespan's shutdown, which ends workflow runs with a terminal lineage status
 end, so the request needs no token.
 
 On macOS and Linux the shell keeps sending a real SIGTERM, and does not set the
-variable. See section 4.6 and FR-015 of the ADR-055 Spec 3 local background
-runtime spec.
+variable.
 """
+
+# Development references: #2327, and section 4.6 and FR-015 of the ADR-055
+# Spec 3 local background runtime spec.
 
 from __future__ import annotations
 

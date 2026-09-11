@@ -149,21 +149,24 @@ class AmbiguousCapabilityError(CapabilityLookupError):
 class DropinFailure:
     """One drop-in file the scan refused, kept so a user can be told why.
 
-    ADR-053 FR-015: a drop-in block that fails to import used to leave nothing
+    a drop-in block that fails to import used to leave nothing
     behind but a server-side warning, so from the user's side the block simply
     vanished. The scan now records each refusal here and
     ``GET /api/blocks/`` returns them alongside the palette, which is the
     response the palette already fetches.
 
-    FR-016 refusals share the record: a drop-in *type* file whose stem would
+    refusals share the record: a drop-in *type* file whose stem would
     shadow an installed top-level module is rejected the same way, with
     :attr:`error_type` naming the collision instead of a Python exception.
     """
 
+    # Development references: ADR-053, FR-015, FR-016.
+
     file_path: str
     """Absolute path of the drop-in file that was refused."""
     error_type: str
-    """Exception class name, or ``"DropinTypeNameCollision"`` for FR-016."""
+    """Exception class name, or ``"DropinTypeNameCollision"`` ."""
+    # Development references: FR-016.
     message: str
     """One-line explanation, safe to show to the user."""
 
@@ -222,9 +225,10 @@ class BlockSpec:
     :class:`~scistudio.blocks.base.block.Block` directly rather than one of the
     six bases, which :func:`~scistudio.blocks.registry._spec._infer_category`
     resolves by ``issubclass`` and cannot place. ``"unknown"`` describes a
-    perfectly valid block; the canvas gives it its own node colour (#1988) and
+    perfectly valid block; the canvas gives it its own node colour and
     does not treat it as an error.
     """
+    # Development references: #1988.
     subcategory: str = ""
     """Optional finer grouping within :attr:`base_category`, for palette organisation."""
     # Canvas-node display hints copied from the block class at scan time (#1839).
@@ -409,13 +413,14 @@ class BlockRegistry:
         The pass order below deliberately differs from
         :meth:`scistudio.core.types.registry.TypeRegistry.scan_all`. The reason
         is recorded in that module's docstring under "Scan order versus
-        BlockRegistry" (ADR-053 FR-061).
+        BlockRegistry".
 
         Example:
             >>> registry = BlockRegistry()
             >>> registry.scan()
             >>> specs = registry.all_specs()  # name -> BlockSpec
         """
+        # Development references: ADR-053, FR-061.
         self._scan_builtins()
         self._scan_tier1()
         self._scan_tier2()
@@ -456,14 +461,16 @@ class BlockRegistry:
 
     @staticmethod
     def _validate_dynamic_ports(cls: type) -> None:
-        """Validate the shape of ``cls.dynamic_ports`` per ADR-028 Addendum 1."""
+        """Validate the shape of ``cls.dynamic_ports``."""
+        # Development references: ADR-028, Addendum 1.
         from scistudio.blocks.registry._capability import _validate_dynamic_ports
 
         _validate_dynamic_ports(cls)
 
     @staticmethod
     def _validate_interactive_capability(cls: type) -> None:
-        """Bind InteractiveMixin to ``execution_mode=INTERACTIVE`` at scan time (ADR-051 FR-002)."""
+        """Bind InteractiveMixin to ``execution_mode=INTERACTIVE`` at scan time."""
+        # Development references: ADR-051, FR-002.
         from scistudio.blocks.registry._capability import _validate_interactive_capability
 
         _validate_interactive_capability(cls)
@@ -622,7 +629,7 @@ class BlockRegistry:
     def diagnostics(self) -> list[str]:
         """Return what the most recent ``scistudio.blocks`` entry-point scan refused.
 
-        ADR-053 FR-028: a package that installed successfully and contributed
+        a package that installed successfully and contributed
         nothing is indistinguishable, from the user's side, from a package that
         had nothing to contribute — unless the failure is recorded somewhere
         the product can show it. The previewer registry has always kept this
@@ -631,6 +638,7 @@ class BlockRegistry:
 
         Rebuilt by every entry-point pass, like :meth:`dropin_failures`.
         """
+        # Development references: ADR-053, FR-028.
         return list(self._entry_point_diagnostics)
 
     def all_specs(self) -> dict[str, BlockSpec]:

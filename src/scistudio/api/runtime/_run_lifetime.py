@@ -1,14 +1,13 @@
-"""How a workflow run ends when no browser is watching it (#2327).
+"""How a workflow run ends when no browser is watching it.
 
-ADR-055 §7: closing the connection window or the browser does not stop an
-active analysis. A run ends when it completes or when someone cancels it
-explicitly. The ``/ws`` handler no longer cancels runs after the last browser
-disconnects, and neither reopening a project nor switching to another one
-ends a run.
+Closing the connection window or the browser does not stop an active
+analysis. A run ends when it completes or when someone cancels it explicitly.
+The ``/ws`` handler does not cancel runs when browsers disconnect, and neither
+reopening a project nor switching to another one ends a run.
 
-That leaves the guarantee #1500 was after: a lineage ``runs`` row must not
-stay ``running`` once the run it describes can no longer finish, and a run
-that did finish must be recorded as what it was. This module keeps it.
+A lineage ``runs`` row must still not stay ``running`` once the run it
+describes can no longer finish, and a run that did finish must be recorded as
+what it was. This module keeps that guarantee.
 
 * **The store a run writes through stays usable.** Reopening the active
   project keeps its ``LineageStore``. Switching to another project retires the
@@ -31,18 +30,21 @@ that did finish must be recorded as what it was. This module keeps it.
   each ``running`` row whose owner is provably gone, as ``failed`` or as the
   outcome an annotated marker records. A row whose owner may be alive
   (another backend with the project open, possibly on another machine), or
-  whose marker cannot be read, is left alone, because artifact retention
-  (#1983) must keep treating it as in flight. Reconciliation logs a warning
-  for each row it cannot decide.
+  whose marker cannot be read, is left alone, because artifact retention must
+  keep treating it as in flight. Reconciliation logs a warning for each row it
+  cannot decide.
 * **A worker process dies.** The engine already handles it: the runner raises
   on a non-zero exit, the block goes ``ERROR``, and the run finalises as
   ``failed`` through the normal done-callback.
 
 The lineage schema has no column for a termination reason (adding one is a
 ``scistudio.core`` change), so reasons go to the backend log and to the run's
-own diagnostic log (``run-<run_id>.log``). Section 4.6 of the ADR-055 Spec 3
-local background runtime spec documents the contract.
+own diagnostic log (``run-<run_id>.log``).
 """
+
+# Development references: #2327 (run lifetime), #1500 (stuck ``running`` rows),
+# #1983 (artifact retention), ADR-055 section 7, and section 4.6 of the ADR-055
+# Spec 3 local background runtime spec, which documents this contract.
 
 from __future__ import annotations
 
@@ -142,7 +144,7 @@ _LOCK = threading.RLock()
 
 
 def lineage_db_path(project_dir: str | Path) -> Path:
-    """The ADR-038 lineage database of the project at *project_dir*."""
+    """The lineage database of the project at *project_dir*."""
     return Path(project_dir) / ".scistudio" / "lineage.db"
 
 
@@ -463,9 +465,8 @@ def release_run(run_id: str, *, terminal_status: str | None = None) -> None:
 def retire_store(store: Any) -> None:
     """Close *store* now, or once the last live run writing through it is released.
 
-    A project switch does not end the previous project's runs (#2327); they
-    keep recording their blocks and outcome through the store they started
-    with.
+    A project switch does not end the previous project's runs; they keep
+    recording their blocks and outcome through the store they started with.
     """
     if store is None:
         return

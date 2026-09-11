@@ -1,22 +1,25 @@
-"""Load-direction :class:`FormatCapability` declarations for ``LoadData``.
-
-Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
-this module is package-private: every public symbol is prefixed with an
-underscore and the module name itself starts with an underscore.
-
-ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003 require
-:class:`LoadData` to expose explicit :class:`FormatCapability` records via
-its ``format_capabilities`` ClassVar so the block registry can discover
-the loader from a target ``data_type`` + extension query. This module
-holds the capability tuple, the legacy ``extension -> format_id`` lookup
-derived from it, and the format-resolution helper used by
-:meth:`LoadData._detect_format`.
-
-Extracted from :mod:`scistudio.blocks.io.loaders.load_data` in issue
-#1459 (Phase 2 of the backend god-file refactor umbrella #1427).
-Symmetric to :mod:`scistudio.blocks.io.savers._capability` on the save
-side.
-"""
+"""Load-direction :class:`FormatCapability` declarations for ``LoadData``."""
+# Maintainer context (kept outside generated API documentation):
+# Load-direction :class:`FormatCapability` declarations for ``LoadData``.
+#
+# Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
+# this module is package-private: every public symbol is prefixed with an
+# underscore and the module name itself starts with an underscore.
+#
+# ADR-043 / spec ``adr-043-package-migration`` FR-001 / FR-003 require
+# :class:`LoadData` to expose explicit :class:`FormatCapability` records via
+# its ``format_capabilities`` ClassVar so the block registry can discover
+# the loader from a target ``data_type`` + extension query. This module
+# holds the capability tuple, the legacy ``extension -> format_id`` lookup
+# derived from it, and the format-resolution helper used by
+# :meth:`LoadData._detect_format`.
+#
+# Extracted from :mod:`scistudio.blocks.io.loaders.load_data` in issue
+# #1459 (Phase 2 of the backend god-file refactor umbrella #1427).
+# Symmetric to :mod:`scistudio.blocks.io.savers._capability` on the save
+# side.
+# Development references: #1427, #1459, ADR-028, ADR-043, Addendum 1, FR-001, FR-003, adr-043-package-
+# migration.
 
 from __future__ import annotations
 
@@ -60,7 +63,7 @@ def _load_capability(
 ) -> FormatCapability:
     """Build a single load-direction :class:`FormatCapability` record.
 
-    The capability id follows the spec FR-015 convention
+    The capability id follows the spec convention
     ``core.{lower(type)}.{format_id}.load`` and the roundtrip group
     mirrors the matching save capability so the registry can pair
     load+save handlers via :attr:`FormatCapability.roundtrip_group`.
@@ -74,6 +77,7 @@ def _load_capability(
     registry returns the unique non-default core capability normally per
     :meth:`BlockRegistry.find_loader_capability`.
     """
+    # Development references: FR-015.
 
     lower_type = type_name.lower()
     return FormatCapability(
@@ -410,9 +414,9 @@ def _legacy_extension_map(
 ) -> dict[str, str]:
     """Derive a legacy ``extension -> format_id`` mapping from capabilities.
 
-    The pre-ADR-043 ``LoadData.supported_extensions`` ClassVar was a flat
+    The legacy ``LoadData.supported_extensions`` ClassVar was a flat
     ``dict[str, str]`` used by :func:`_resolve_format` / :meth:`IOBlock._detect_format`
-    for compound-suffix-first dispatch. The post-ADR-043 mapping is
+    for compound-suffix-first dispatch. The legacy mapping is
     derived from the explicit ``format_capabilities`` so format dispatch
     keeps working at runtime without holding a duplicate ClassVar.
 
@@ -426,6 +430,7 @@ def _legacy_extension_map(
     :class:`RuntimeError` to surface the misconfiguration loudly rather
     than silently picking one.
     """
+    # Development references: ADR-043.
 
     mapping: dict[str, str] = {}
     for capability in capabilities:
@@ -465,10 +470,11 @@ def _resolve_format(path: Path, block: Any | None) -> str | None:
     capability-derived module-level mapping exposed as
     :attr:`LoadData.supported_extensions`).
 
-    ADR-043 / spec FR-003: format dispatch is now derived from explicit
+    spec: format dispatch is now derived from explicit
     ``format_capabilities`` rather than the deleted
     ``supported_extensions`` ClassVar.
     """
+    # Development references: ADR-043, FR-003.
 
     if block is not None:
         # ``block`` is ``LoadData`` at the call site; type as ``Any`` so this

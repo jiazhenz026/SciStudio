@@ -1,37 +1,39 @@
-"""External-audience workspace tools (ADR-055 Spec 2 §5.2, #2279).
-
-An external AI agent driving SciStudio through the WebMCP bridge has no
-filesystem of its own beside the backend. These tools give it one, under the
-owner decisions recorded on issue #2279:
-
-* **Inspect** (read-tagged) — ``list_directory``, ``get_file_info``,
-  ``search_files``, ``read_file``. They accept absolute paths and read anything
-  the backend's OS user can read; a project-relative path resolves against the
-  active project. Reads are bounded *while streaming* — a file is never
-  materialized to produce a slice of it — and every truncation is reported with
-  the file's total size.
-* **Author** (write-tagged) — ``write_file``, ``create_directory``,
-  ``patch_file``, ``move_path`` (rename or move), ``delete_path``. They are
-  confined to the active project and go through the editor's shared write path
-  (``MCPContext.project_files``: atomic write, ``file.changed`` to the UI,
-  block reload), never a bare write. A server-side blacklist mirrors the
-  provisioned local hooks: any mutation whose source or target is
-  ``workflows/*.yaml|*.yml`` or anything under ``data/`` is refused with a
-  pointer to the tool that owns that surface.
-
-Hook parity lives in the results: an author write to ``blocks/*.py`` is refused
-until ``list_blocks`` has run once in this backend lifetime, and a successful
-one carries non-blocking warnings for generic port types (the provisioned
-``enforce_concrete_port_types`` scan, reused rather than re-implemented).
-
-Every tool carries the ``audience:external`` tag, so local agents — which have
-native file tools — never see them. Policy refusals and conflicts come back as
-results (``status`` + ``refusal``) because the bridge withholds exception text
-from external hosts; unexpected failures still raise.
-
-Logging records the tool name and outcome only — never paths, contents, or
-arguments (FR-012).
-"""
+"""External-audience workspace tools."""
+# Maintainer context (kept outside generated API documentation):
+# External-audience workspace tools (ADR-055 Spec 2 §5.2, #2279).
+#
+# An external AI agent driving SciStudio through the WebMCP bridge has no
+# filesystem of its own beside the backend. These tools give it one, under the
+# owner decisions recorded on issue #2279:
+#
+# * **Inspect** (read-tagged) — ``list_directory``, ``get_file_info``,
+#   ``search_files``, ``read_file``. They accept absolute paths and read anything
+#   the backend's OS user can read; a project-relative path resolves against the
+#   active project. Reads are bounded *while streaming* — a file is never
+#   materialized to produce a slice of it — and every truncation is reported with
+#   the file's total size.
+# * **Author** (write-tagged) — ``write_file``, ``create_directory``,
+#   ``patch_file``, ``move_path`` (rename or move), ``delete_path``. They are
+#   confined to the active project and go through the editor's shared write path
+#   (``MCPContext.project_files``: atomic write, ``file.changed`` to the UI,
+#   block reload), never a bare write. A server-side blacklist mirrors the
+#   provisioned local hooks: any mutation whose source or target is
+#   ``workflows/*.yaml|*.yml`` or anything under ``data/`` is refused with a
+#   pointer to the tool that owns that surface.
+#
+# Hook parity lives in the results: an author write to ``blocks/*.py`` is refused
+# until ``list_blocks`` has run once in this backend lifetime, and a successful
+# one carries non-blocking warnings for generic port types (the provisioned
+# ``enforce_concrete_port_types`` scan, reused rather than re-implemented).
+#
+# Every tool carries the ``audience:external`` tag, so local agents — which have
+# native file tools — never see them. Policy refusals and conflicts come back as
+# results (``status`` + ``refusal``) because the bridge withholds exception text
+# from external hosts; unexpected failures still raise.
+#
+# Logging records the tool name and outcome only — never paths, contents, or
+# arguments (FR-012).
+# Development references: #2279, ADR-055, FR-012, Spec 2.
 
 from __future__ import annotations
 
@@ -77,7 +79,8 @@ _READ_CHUNK_BYTES = 64 * 1024
 _BINARY_SNIFF_BYTES = 8192
 
 WRITE_CONTENT_CAP_BYTES = 10 * 1024 * 1024
-"""Largest content an author tool accepts — the ADR-036 editor cap."""
+"""Largest content an author tool accepts — the editor cap."""
+# Development references: ADR-036.
 
 LIST_DEFAULT_ENTRIES = 200
 LIST_MAX_ENTRIES = 1000
@@ -418,9 +421,19 @@ def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path,
     checked. A delete or move (``follow_final=False``) changes the link itself
     (lstat semantics): only the parent directories are resolved and the link's
     own location is confined and checked — it never follows a link to delete or
-    move what it points to (#2279 audit AU3 P1-1). The lexical path is checked
+    move what it points to. The lexical path is checked
     against the blacklist as well.
     """
+    # Maintainer context:
+    # Returns ``(mutated_path, project_root, project_relative_posix)`` for the path
+    # the operation will actually change. A write (``follow_final=True``) changes
+    # the file a link points to, so the fully resolved path is confined and
+    # checked. A delete or move (``follow_final=False``) changes the link itself
+    # (lstat semantics): only the parent directories are resolved and the link's
+    # own location is confined and checked — it never follows a link to delete or
+    # move what it points to (audit AU3 P1-1). The lexical path is checked
+    # against the blacklist as well.
+    # Development references: #2279.
     root = _project_root()
     if root is None:
         raise _RefusedError(
@@ -881,12 +894,14 @@ class _RegexWorker:
     Python cannot interrupt a regular-expression match once it has started, and
     a backtracking pattern such as ``(a+)+$`` or ``.*.*.*x`` can run for hours
     on one line, so no in-process bound on the pattern or the line holds
-    (Codex review on #2292). The search thread therefore hands each file's
+    (Codex review on). The search thread therefore hands each file's
     lines to this stdlib-only child interpreter and, while it waits for the
     answer, keeps checking its deadline and stop flag; when either fires, it
     kills the child mid-match. If the backend dies first, the child dies with
     it: a kill-on-close Job Object on Windows, ``SIGALRM`` on POSIX.
     """
+
+    # Development references: #2292.
 
     def __init__(self, pattern: re.Pattern[str]) -> None:
         self._header = {
@@ -1054,10 +1069,15 @@ def _walk_regular_files(
     """Regular files below *root_dir*, within the entry and time budgets; never follows links.
 
     Every directory entry visited counts toward ``result.entries_visited``,
-    matching or not, so a huge root such as ``/`` stays bounded (#2279 audit
-    AU4 P2-3). A set *stop* event ends the walk at the next entry; the reason a
+    matching or not, so a huge root such as ``/`` stays bounded. A set *stop* event ends the walk at the next entry; the reason a
     walk stopped early is appended to *stopped_by*.
     """
+    # Maintainer context:
+    # Every directory entry visited counts toward ``result.entries_visited``,
+    # matching or not, so a huge root such as ``/`` stays bounded (audit
+    # AU4 P2-3). A set *stop* event ends the walk at the next entry; the reason a
+    # walk stopped early is appended to *stopped_by*.
+    # Development references: #2279.
     if root_dir.is_file():
         result.entries_visited = 1
         yield root_dir

@@ -1,63 +1,66 @@
-"""The tutorial session: one at a time, owned by the backend, restart-proof.
-
-ADR-053 Learning Center spec, FR-036, FR-037, FR-043, FR-044 and
-FR-050 … FR-054 (``docs/specs/adr-053-learning-center.md``).
-
-The backend owns which tutorial is running, which project it runs in, which
-step it is on, and which steps are satisfied (FR-036), and it writes all of
-that under ``~/.scistudio/`` so a backend restart resumes rather than restarts
-(FR-037). Exactly one session is active at a time; starting a second requires
-leaving the first, and leaving preserves it (FR-043, FR-090).
-
-No polling (FR-051)
--------------------
-
-This module creates no thread, no timer, and no ``asyncio`` loop. Every
-re-evaluation has a cause: entry into a step, an observed event that
-:func:`~scistudio.tutorials.conditions.build_event_term_map` maps to one of the
-step's terms (FR-050), or an explicit request (FR-053). The event names come
-from the declared constants — the six in ``scistudio.engine.events`` directly,
-and the two that live under ``scistudio.api`` through
-:class:`~scistudio.tutorials.conditions.ExternalEventNames`, which the route
-layer constructs and injects because this package may not import that layer
-(checklist §6.1.2, §6.1.5). No event name is spelled as a literal here.
-
-Step entry: actions, then judgment, then text
-----------------------------------------------
-
-The order is ``do`` → evaluate ``done_when`` → reveal the step (FR-056, FR-059,
-FR-054). The spec fixes each half separately and never states the order between
-them, and it is load-bearing: one designed scenario has a step whose own ``do``
-*breaks* the workflow so the user recovers it from History (FR-058). Its
-``done_when`` is true of the pre-break state, so evaluating before the actions
-ran would satisfy the step instantly and skip the whole lesson with no error.
-:func:`~scistudio.tutorials.actions.perform_step_entry` gives the outer half of
-the ordering — nothing can read the step until the actions have landed — and
-the evaluation is performed inside its ``reveal`` callback, which puts it after
-the actions and before the text.
-
-What ends a session
--------------------
-
-A driver exception ends it with an error naming the tutorial and the exception,
-does not mark the tutorial complete, and does not prevent another tutorial from
-starting (FR-044). An action failure does the same naming the step and the
-action (FR-060). A package uninstalled mid-session ends it and says so, leaving
-the tutorial project on disk. A tutorial project deleted outside the product
-invalidates the session on the next interaction and the tutorial is offered
-from the start (FR-069). None of these is a poll: each is noticed at the next
-interaction, which is the only moment at which it could matter.
-
-An ended session is *kept* as the active record with status ``complete`` or
-``error`` rather than erased, so the frontend that asks for the active session
-is told what happened. Only a session whose status is ``active`` blocks
-starting another one, which is what makes FR-044's "does not prevent other
-tutorials from starting" true without a second concept.
-
-This module may not import ``scistudio.api`` (checklist §6.1.2). Everything it
-needs from that layer — product state, the two external event names, project
-creation and deletion, and replay byte delivery — is injected.
-"""
+"""The tutorial session: one at a time, owned by the backend, restart-proof."""
+# Maintainer context (kept outside generated API documentation):
+# The tutorial session: one at a time, owned by the backend, restart-proof.
+#
+# ADR-053 Learning Center spec, FR-036, FR-037, FR-043, FR-044 and
+# FR-050 … FR-054 (``docs/specs/adr-053-learning-center.md``).
+#
+# The backend owns which tutorial is running, which project it runs in, which
+# step it is on, and which steps are satisfied (FR-036), and it writes all of
+# that under ``~/.scistudio/`` so a backend restart resumes rather than restarts
+# (FR-037). Exactly one session is active at a time; starting a second requires
+# leaving the first, and leaving preserves it (FR-043, FR-090).
+#
+# No polling (FR-051)
+# -------------------
+#
+# This module creates no thread, no timer, and no ``asyncio`` loop. Every
+# re-evaluation has a cause: entry into a step, an observed event that
+# :func:`~scistudio.tutorials.conditions.build_event_term_map` maps to one of the
+# step's terms (FR-050), or an explicit request (FR-053). The event names come
+# from the declared constants — the six in ``scistudio.engine.events`` directly,
+# and the two that live under ``scistudio.api`` through
+# :class:`~scistudio.tutorials.conditions.ExternalEventNames`, which the route
+# layer constructs and injects because this package may not import that layer
+# (checklist §6.1.2, §6.1.5). No event name is spelled as a literal here.
+#
+# Step entry: actions, then judgment, then text
+# ----------------------------------------------
+#
+# The order is ``do`` → evaluate ``done_when`` → reveal the step (FR-056, FR-059,
+# FR-054). The spec fixes each half separately and never states the order between
+# them, and it is load-bearing: one designed scenario has a step whose own ``do``
+# *breaks* the workflow so the user recovers it from History (FR-058). Its
+# ``done_when`` is true of the pre-break state, so evaluating before the actions
+# ran would satisfy the step instantly and skip the whole lesson with no error.
+# :func:`~scistudio.tutorials.actions.perform_step_entry` gives the outer half of
+# the ordering — nothing can read the step until the actions have landed — and
+# the evaluation is performed inside its ``reveal`` callback, which puts it after
+# the actions and before the text.
+#
+# What ends a session
+# -------------------
+#
+# A driver exception ends it with an error naming the tutorial and the exception,
+# does not mark the tutorial complete, and does not prevent another tutorial from
+# starting (FR-044). An action failure does the same naming the step and the
+# action (FR-060). A package uninstalled mid-session ends it and says so, leaving
+# the tutorial project on disk. A tutorial project deleted outside the product
+# invalidates the session on the next interaction and the tutorial is offered
+# from the start (FR-069). None of these is a poll: each is noticed at the next
+# interaction, which is the only moment at which it could matter.
+#
+# An ended session is *kept* as the active record with status ``complete`` or
+# ``error`` rather than erased, so the frontend that asks for the active session
+# is told what happened. Only a session whose status is ``active`` blocks
+# starting another one, which is what makes FR-044's "does not prevent other
+# tutorials from starting" true without a second concept.
+#
+# This module may not import ``scistudio.api`` (checklist §6.1.2). Everything it
+# needs from that layer — product state, the two external event names, project
+# creation and deletion, and replay byte delivery — is injected.
+# Development references: ADR-053, FR-036, FR-037, FR-043, FR-044, FR-050, FR-051, FR-053, FR-054, FR-056,
+# FR-058, FR-059, FR-060, FR-069, FR-090, docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -122,7 +125,8 @@ logger = logging.getLogger(__name__)
 def _now_iso() -> str:
     """The session's one clock: timezone-aware UTC, ISO-8601 — comparable with
     the lineage store's run timestamps, which ``since_step_entry`` compares it
-    against (#2066)."""
+    against."""
+    # Development references: #2066.
     return datetime.now(tz=UTC).isoformat()
 
 
@@ -160,13 +164,15 @@ class NoActiveSessionError(TutorialSessionError):
 
 
 class SessionInvalidatedError(NoActiveSessionError):
-    """The active session's tutorial project is gone from disk (FR-069).
+    """The active session's tutorial project is gone from disk.
 
     A subclass of :class:`NoActiveSessionError` because that is what it now is —
     the record has been dropped and the tutorial is offered from the start — but
     a distinct type because the user is owed the reason rather than a bare
     "nothing is running".
     """
+
+    # Development references: FR-069.
 
     def __init__(self, key: TutorialKey, path: Path) -> None:
         self.key = key
@@ -178,7 +184,9 @@ class SessionInvalidatedError(NoActiveSessionError):
 
 
 class AnotherSessionActiveError(TutorialSessionError):
-    """One tutorial runs at a time (FR-043); the active one must be left first."""
+    """One tutorial runs at a time; the active one must be left first."""
+
+    # Development references: FR-043.
 
     def __init__(self, active: TutorialKey, title: str) -> None:
         self.active = active
@@ -189,15 +197,17 @@ class AnotherSessionActiveError(TutorialSessionError):
 
 
 class TriggerFailedError(TutorialSessionError):
-    """A step's trigger failed while running its actions (#2061, FR-060).
+    """A step's trigger failed while running its actions.
 
     Deliberately *not* the session-ending path an entry action failure takes.
     An entry failure leaves a step whose premise never landed, so the session
     cannot honestly continue; a trigger failure leaves the step exactly as it
     was before the press — nothing was revealed on the strength of the actions
-    — so the honest state is "still here, try again". The error carries the
-    step and the action the way FR-060 requires, and the session stays active.
+    so the honest state is "still here, try again". The error carries the
+    step and the action, and the session stays active.
     """
+
+    # Development references: #2061, FR-060.
 
     def __init__(self, step_id: str, reason: str) -> None:
         self.step_id = step_id
@@ -205,7 +215,9 @@ class TriggerFailedError(TutorialSessionError):
 
 
 class TutorialUnavailableError(TutorialSessionError):
-    """The tutorial cannot be started, and says why (FR-024, FR-007a)."""
+    """The tutorial cannot be started, and says why."""
+
+    # Development references: FR-007a, FR-024.
 
     def __init__(self, key: TutorialKey, reason: str) -> None:
         self.key = key
@@ -214,7 +226,10 @@ class TutorialUnavailableError(TutorialSessionError):
 
 
 class SessionStatus(StrEnum):
-    """The status the HTTP contract reports (checklist §6.1.6)."""
+    """The status the HTTP contract reports."""
+
+    # Maintainer context:
+    # The status the HTTP contract reports (checklist §6.1.6).
 
     ACTIVE = "active"
     COMPLETE = "complete"
@@ -231,19 +246,22 @@ class ProjectProvisioner(Protocol):
     """Creates and deletes tutorial projects on the session's behalf.
 
     A tutorial project must be recorded in the known-projects registry
-    (FR-063) and carry the tutorial marker (FR-064), which only the API runtime
+    and carry the tutorial marker, which only the API runtime
     can do. The session decides *when* a project is created or destroyed and
     hands over a :class:`~scistudio.tutorials.projects.TutorialProjectPlan`
-    naming exactly where and under what name, so the two halves of FR-062 and
-    FR-066 stay on one side of the boundary each.
+    naming exactly where and under what name, so the two halves of and
+    stay on one side of the boundary each.
     """
+
+    # Development references: FR-062, FR-063, FR-064, FR-066.
 
     def create(self, plan: TutorialProjectPlan) -> Path:
         """Create the planned project and return its directory."""
         ...
 
     def delete(self, key: TutorialKey, path: Path) -> None:
-        """Remove a tutorial project and its known-projects entry (FR-066)."""
+        """Remove a tutorial project and its known-projects entry."""
+        # Development references: FR-066.
         ...
 
 
@@ -251,10 +269,15 @@ class ProjectProvisioner(Protocol):
 class ReplayHandle(Protocol):
     """A :class:`~scistudio.tutorials.actions.ReplayDelivery` that names its tab.
 
-    Checklist §6.1.7's byte source, plus the tab id the frontend attaches to,
+    The byte source, plus the tab id the frontend attaches to,
     which is the ``replay`` field of the session response and the only thing
     the session needs to know about a replay beyond driving it.
     """
+
+    # Maintainer context:
+    # Checklist §6.1.7's byte source, plus the tab id the frontend attaches to,
+    # which is the ``replay`` field of the session response and the only thing
+    # the session needs to know about a replay beyond driving it.
 
     @property
     def surface(self) -> str: ...
@@ -277,11 +300,13 @@ def _no_provisioner(plan: TutorialProjectPlan) -> Path:
 class _RefusingProvisioner:
     """The default provisioner: refuses, with the reason.
 
-    A tutorial that declares no ``bootstrap`` never reaches it (FR-009), so the
+    A tutorial that declares no ``bootstrap`` never reaches it, so the
     runtime is usable without one; a tutorial that does gets a clear failure
     rather than a project the known-projects registry has never heard of, which
-    would fail the path-containment checks several routes perform (FR-063).
+    would fail the path-containment checks several routes perform.
     """
+
+    # Development references: FR-009, FR-063.
 
     def create(self, plan: TutorialProjectPlan) -> Path:
         return _no_provisioner(plan)
@@ -297,21 +322,24 @@ class _RefusingProvisioner:
 
 @dataclass(frozen=True)
 class SessionRecord:
-    """One tutorial's session, active or preserved for resumption (FR-090)."""
+    """One tutorial's session, active or preserved for resumption."""
+
+    # Development references: FR-090.
 
     key: TutorialKey
     title: str
     project_path: Path | None = None
     step_id: str | None = None
     step_entered_at: str | None = None
-    """When ``step_id`` was entered (ISO-8601, UTC) — ``since_step_entry``'s anchor (#2066).
+    """When ``step_id`` was entered (ISO-8601, UTC) — ``since_step_entry``'s anchor.
 
     Persisted beside the step id so the scoping survives a backend restart the
-    way the position does (FR-037). A record written before the field existed
+    way the position does. A record written before the field existed
     reads back ``None``, and the run terms then apply no time filter."""
+    # Development references: #2066, FR-037.
     satisfied_step_ids: tuple[str, ...] = ()
     visited_step_ids: tuple[str, ...] = ()
-    """Every step this session has entered, in the order it entered them (#2138).
+    """Every step this session has entered, in the order it entered them.
 
     The trail a reader walks back along, and the reason going back is possible
     at all. A driver's ``advance`` has no inverse to call — a package driver may
@@ -319,13 +347,14 @@ class SessionRecord:
     rather than recomputed.
 
     It is also what keeps a round trip cheap. A step's entry actions ``write``
-    files into the tutorial project and ``replay`` agent sessions (FR-056), so
+    files into the tutorial project and ``replay`` agent sessions, so
     re-entering a step to arrive at it a second time would run them again. With
     a trail, ``step_id`` is a cursor over steps already entered, and moving that
     cursor enters nothing.
 
     A record written before this field existed reads back empty, which reports
     as "nowhere to go back to" until the reader advances once more."""
+    # Development references: #2138, FR-056.
     status: SessionStatus = SessionStatus.ACTIVE
     error: str | None = None
 
@@ -351,7 +380,8 @@ class SessionRecord:
 
     @property
     def can_go_back(self) -> bool:
-        """Whether there is an earlier step on the trail to return to (#2138)."""
+        """Whether there is an earlier step on the trail to return to."""
+        # Development references: #2138.
         return self.status is SessionStatus.ACTIVE and self.cursor > 0
 
     @property
@@ -373,10 +403,11 @@ class SessionRecord:
         """Return this record with the cursor on the trail's *index*-th step.
 
         The entry stamp moves with it: as far as anything scoped to step entry
-        is concerned (#2066), the reader is arriving at that step now. What does
+        is concerned, the reader is arriving at that step now. What does
         not move is the trail, which is the point — this walks over steps
         already entered, so nothing is entered a second time.
         """
+        # Development references: #2066.
         return replace(self, step_id=self.visited_step_ids[index], step_entered_at=_now_iso())
 
     def as_json(self) -> dict[str, Any]:
@@ -447,7 +478,9 @@ def _key_from_json(raw: Any) -> TutorialKey | None:
 
 @dataclass(frozen=True)
 class SessionState:
-    """Every stored session, plus which one is active (FR-043)."""
+    """Every stored session, plus which one is active."""
+
+    # Development references: FR-043.
 
     records: tuple[SessionRecord, ...] = ()
     active_key: TutorialKey | None = None
@@ -482,12 +515,14 @@ class SessionState:
 
 
 class SessionStore:
-    """The ``~/.scistudio/`` session file, read and written per operation (FR-037).
+    """The ``~/.scistudio/`` session file, read and written per operation.
 
     Re-read rather than cached, for :class:`ProgressStore`'s reason: the desktop
     shell and the API process can both be looking at it, and a cached copy would
     let one report a session the other has already ended.
     """
+
+    # Development references: FR-037.
 
     def __init__(self, root: Path | None = None) -> None:
         self._root = root
@@ -544,7 +579,8 @@ class SessionStore:
         self.path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def clear(self) -> None:
-        """Delete every stored session (part of clearing tutorial data, FR-088)."""
+        """Delete every stored session (part of clearing tutorial data)."""
+        # Development references: FR-088.
         self.path.unlink(missing_ok=True)
 
 
@@ -555,7 +591,10 @@ class SessionStore:
 
 @dataclass(frozen=True)
 class ReplayView:
-    """The active replay, if one is playing (checklist §6.1.6 ``replay``)."""
+    """The active replay, if one is playing (``replay``)."""
+
+    # Maintainer context:
+    # The active replay, if one is playing (checklist §6.1.6 ``replay``).
 
     surface: str
     tab_id: str
@@ -563,12 +602,16 @@ class ReplayView:
 
 @dataclass(frozen=True)
 class SessionView:
-    """One session as the HTTP contract reports it (checklist §6.1.6).
+    """One session as the HTTP contract reports it.
 
-    Carries no field naming the driver, which is FR-040 stated as a shape: a
+    Carries no field naming the driver, which is stated as a shape: a
     manifest tutorial and a package tutorial produce the same type with the same
     fields, distinguishable only by their content.
     """
+
+    # Maintainer context:
+    # One session as the HTTP contract reports it (checklist §6.1.6).
+    # Development references: FR-040.
 
     source_kind: str
     source_id: str
@@ -620,12 +663,19 @@ class SessionView:
 class TutorialRuntime:
     """The backend's tutorial runtime: the catalogue, the session, the events.
 
-    One object serves every endpoint in checklist §6.1.6, and holds no state of
+    One object serves every tutorial endpoint and holds no state of
     its own beyond the currently open replay handle — which cannot be persisted,
     because it is a live PTY-shaped byte source. Everything else is read from
     the session file and the progress file at the start of each call, so two
     processes holding a runtime cannot disagree about what is running.
     """
+
+    # Maintainer context:
+    # One object serves every endpoint in checklist §6.1.6, and holds no state of
+    # its own beyond the currently open replay handle — which cannot be persisted,
+    # because it is a live PTY-shaped byte source. Everything else is read from
+    # the session file and the progress file at the start of each call, so two
+    # processes holding a runtime cannot disagree about what is running.
 
     def __init__(
         self,
@@ -649,27 +699,26 @@ class TutorialRuntime:
             product_state: Returns the current :class:`ProductState` to judge
                 conditions against. Called per evaluation rather than held, so
                 a project switch is seen without re-wiring.
-            external_events: The two FR-050 event names that live under
-                ``scistudio.api`` (checklist §6.1.5).
+            external_events: The two event names that live under
+                ``scistudio.api``.
             project_dir: The open project, for the project-level tutorial tier.
-            provisioner: Creates and deletes tutorial projects (FR-062, FR-066).
+            provisioner: Creates and deletes tutorial projects.
             environment: What ``requires`` is judged against; the real
                 environment by default.
             progress: The progress store; the real one by default.
             sessions: The session store; the real one by default.
-            open_replay: Opens a byte source for a replay surface
-                (checklist §6.1.7). A tutorial declaring no replay never needs
+            open_replay: Opens a byte source for a replay surface. A tutorial declaring no replay never needs
                 one.
             run_workflow: Queues a workflow run, given its project-relative
-                path (FR-061d). The runtime could already judge steps on runs
+                path. The runtime could already judge steps on runs
                 and not start one, which meant every run in every level was a
                 button the reader pressed; core tutorial 3 needs the agent to
                 run things itself, and needs the run to be real, because the
                 next step reads its logs. A tutorial declaring no ``run``
                 action never needs one.
             record_ui_event: Records a frontend-reported user-interface event
-                into product state before it is judged (FR-052), together with
-                the optional target it acted on (#2063). The API layer owns
+                into product state before it is judged, together with
+                the optional target it acted on. The API layer owns
                 that state, so recording is its job and this is the hook.
             forget_ui_events: Drops the recorded events on step entry, so a
                 ``ui_event`` condition asks whether the reader did the thing
@@ -679,11 +728,51 @@ class TutorialRuntime:
                 satisfied before they arrived, by the click they made seven
                 steps earlier.
             files_written: Called with the project paths a bootstrap or a step
-                just wrote, before the step's text becomes readable (FR-059).
+                just wrote, before the step's text becomes readable.
                 Writing a block file is not the same as the product having the
                 block, and only the API layer knows which directories its
                 registries scan — see :meth:`_settle`.
         """
+        # Maintainer context:
+        # Args:
+        #     product_state: Returns the current :class:`ProductState` to judge
+        #         conditions against. Called per evaluation rather than held, so
+        #         a project switch is seen without re-wiring.
+        #     external_events: The two event names that live under
+        #         ``scistudio.api`` (checklist §6.1.5).
+        #     project_dir: The open project, for the project-level tutorial tier.
+        #     provisioner: Creates and deletes tutorial projects.
+        #     environment: What ``requires`` is judged against; the real
+        #         environment by default.
+        #     progress: The progress store; the real one by default.
+        #     sessions: The session store; the real one by default.
+        #     open_replay: Opens a byte source for a replay surface
+        #         (checklist §6.1.7). A tutorial declaring no replay never needs
+        #         one.
+        #     run_workflow: Queues a workflow run, given its project-relative
+        #         path. The runtime could already judge steps on runs
+        #         and not start one, which meant every run in every level was a
+        #         button the reader pressed; core tutorial 3 needs the agent to
+        #         run things itself, and needs the run to be real, because the
+        #         next step reads its logs. A tutorial declaring no ``run``
+        #         action never needs one.
+        #     record_ui_event: Records a frontend-reported user-interface event
+        #         into product state before it is judged, together with
+        #         the optional target it acted on. The API layer owns
+        #         that state, so recording is its job and this is the hook.
+        #     forget_ui_events: Drops the recorded events on step entry, so a
+        #         ``ui_event`` condition asks whether the reader did the thing
+        #         *on this step*. A reported event is a moment, not a state: the
+        #         third step asks the reader to click a block, and without this
+        #         the tenth step — which asks them to click one again — was
+        #         satisfied before they arrived, by the click they made seven
+        #         steps earlier.
+        #     files_written: Called with the project paths a bootstrap or a step
+        #         just wrote, before the step's text becomes readable.
+        #         Writing a block file is not the same as the product having the
+        #         block, and only the API layer knows which directories its
+        #         registries scan — see :meth:`_settle`.
+        # Development references: #2063, FR-050, FR-052, FR-059, FR-061d, FR-062, FR-066.
         self._product_state = product_state
         self._external = external_events
         self._project_dir = project_dir or (lambda: None)
@@ -721,25 +810,27 @@ class TutorialRuntime:
         return self._sessions
 
     def discover(self) -> DiscoveryResult:
-        """Run one discovery pass over all four sources (FR-016).
+        """Run one discovery pass over all four sources.
 
-        Imports no package module (FR-018) and holds no cache, so a package
+        Imports no package module and holds no cache, so a package
         installed or uninstalled a moment ago is reflected without a refresh
         hook of its own — which is how tutorials join the refresh path of
-        FR-031 rather than building a fourth one.
+        rather than building a fourth one.
 
         When no environment was injected, the runtime states its own progress
         store's completions rather than letting the environment probe the
-        default store (#2088): the two must be the same store, or a test's
+        default store: the two must be the same store, or a test's
         progress and a test's catalogue would disagree about what is unlocked.
         """
+        # Development references: #2088, FR-016, FR-018, FR-031.
         environment = self._environment
         if environment is None:
             environment = DiscoveryEnvironment(completed_tutorials=self._progress.completed_keys())
         return discover_tutorials(project_dir=self._project_dir(), environment=environment)
 
     def catalogue(self) -> Catalogue:
-        """Return the grouped catalogue, core first, no aggregate (FR-076, FR-084)."""
+        """Return the grouped catalogue, core first, no aggregate."""
+        # Development references: FR-076, FR-084.
         return build_catalogue(
             self.discover(),
             progress=self._progress,
@@ -747,12 +838,13 @@ class TutorialRuntime:
         )
 
     def progress_groups(self) -> tuple[CatalogueGroup, ...]:
-        """Return the per-source counts ``GET /progress`` reports (FR-076).
+        """Return the per-source counts ``GET /progress`` reports.
 
         The same groups the catalogue carries: a total is the number of
         tutorials a source currently ships, which only a discovery pass knows,
         so there is no cheaper answer to give and no second one to let drift.
         """
+        # Development references: FR-076.
         return self.catalogue().groups
 
     # -- the single session (FR-043) -------------------------------------
@@ -761,17 +853,18 @@ class TutorialRuntime:
         """Return the active session, or ``None``.
 
         Invalidates and discards a session whose tutorial project has been
-        deleted outside the product (FR-069) rather than reporting a session
+        deleted outside the product rather than reporting a session
         that cannot be acted on.
 
-        Judges the current step on the way out (FR-054d). Reporting the step
+        Judges the current step on the way out. Reporting the step
         without judging it would answer "not yet" to a step the user finished
         while the Learning Center was closed, and the continue control drawn
         from that answer would be dead with no way to tell why — the reader did
         the work and the product says they did not. Judging is a side-effect-free
-        read (FR-055), so asking on every render is a question rather than an
+        read, so asking on every render is a question rather than an
         action.
         """
+        # Development references: FR-054d, FR-055, FR-069.
         try:
             _, record = self._active(self._sessions.read())
         except NoActiveSessionError:
@@ -797,13 +890,14 @@ class TutorialRuntime:
         return self._reevaluate(state, record, driver, tutorial_dir)
 
     def start(self, key: TutorialKey, *, restart: bool = False) -> SessionView:
-        """Start, resume, or restart *key*'s tutorial (FR-043, FR-066, FR-087).
+        """Start, resume, or restart *key*'s tutorial.
 
         Raises:
-            AnotherSessionActiveError: Another tutorial is running (FR-043).
+            AnotherSessionActiveError: Another tutorial is running.
             TutorialUnavailableError: The tutorial is not installed, is
-                unreadable, or its requirements are unmet (FR-024, FR-007a).
+                unreadable, or its requirements are unmet.
         """
+        # Development references: FR-007a, FR-024, FR-043, FR-066, FR-087.
         state = self._sessions.read()
         active = state.active
         if active is not None and active.status is SessionStatus.ACTIVE and active.key != key:
@@ -845,17 +939,26 @@ class TutorialRuntime:
         )
 
     def continue_active(self) -> SessionView:
-        """Advance to the next step on the user's explicit continue (FR-012, FR-054d).
+        """Advance to the next step on the user's explicit continue.
 
         The only thing that moves a session forward. Re-evaluates first so the
         decision is made against the world as it is right now rather than
         against whatever the last event left recorded, and refuses — by
         returning the current step unchanged — when the step is neither
         satisfied nor a reading step. That refusal is the same rule the frontend
-        draws the disabled button from, held on the side that owns the judgment
-        (spec §4.1), so a client that lets the button be pressed early cannot
+        draws the disabled button from, held on the side that owns the judgment, so a client that lets the button be pressed early cannot
         skip a step.
         """
+        # Maintainer context:
+        # The only thing that moves a session forward. Re-evaluates first so the
+        # decision is made against the world as it is right now rather than
+        # against whatever the last event left recorded, and refuses — by
+        # returning the current step unchanged — when the step is neither
+        # satisfied nor a reading step. That refusal is the same rule the frontend
+        # draws the disabled button from, held on the side that owns the judgment
+        # (spec §4.1), so a client that lets the button be pressed early cannot
+        # skip a step.
+        # Development references: FR-012, FR-054d.
         state, record, driver, tutorial_dir = self._resolved()
         view = self._reevaluate(state, record, driver, tutorial_dir)
         if view.status is not SessionStatus.ACTIVE or view.step is None:
@@ -876,7 +979,7 @@ class TutorialRuntime:
         return self._advance_from(state, satisfied, driver, tutorial_dir, context)
 
     def back_active(self) -> SessionView:
-        """Return to the step before this one on the trail (#2138).
+        """Return to the step before this one on the trail.
 
         The inverse of :meth:`continue_active` in effect but not in mechanism:
         it moves a cursor over steps the session has already entered rather than
@@ -888,8 +991,14 @@ class TutorialRuntime:
         Refuses by returning the current step unchanged when there is nowhere to
         go, the same shape ``continue_active`` refuses in and for the same
         reason: the client's disabled control and the backend's answer are one
-        rule, held on the side that owns it (spec §4.1).
+        rule, held on the side that owns it.
         """
+        # Maintainer context:
+        # Refuses by returning the current step unchanged when there is nowhere to
+        # go, the same shape ``continue_active`` refuses in and for the same
+        # reason: the client's disabled control and the backend's answer are one
+        # rule, held on the side that owns it (spec §4.1).
+        # Development references: #2138.
         state, record, driver, tutorial_dir = self._resolved()
         if not record.can_go_back:
             return self._reevaluate(state, record, driver, tutorial_dir)
@@ -902,7 +1011,7 @@ class TutorialRuntime:
         driver: GuardedDriver,
         tutorial_dir: Path,
     ) -> SessionView:
-        """Persist a cursor move and render the step it landed on (#2138).
+        """Persist a cursor move and render the step it landed on.
 
         Deliberately not :meth:`_advance_from`: that enters a step, and this
         arrives at one already entered. The step is re-judged so its controls
@@ -910,42 +1019,45 @@ class TutorialRuntime:
         the "already satisfied stays satisfied" rule that keeps a reader from
         being stranded behind a condition that has since stopped holding.
         """
+        # Development references: #2138.
         self._sessions.write(state.with_record(record).with_active(record.key))
         return self._reevaluate(self._sessions.read(), record, driver, tutorial_dir)
 
     def evaluate_active(self) -> SessionView:
-        """Re-evaluate the active step on explicit request (FR-053).
+        """Re-evaluate the active step on explicit request.
 
         The path for state no mapped event reaches: ``file.changed`` is filtered
-        to the ADR-036 extension allowlist, so a ``file_exists`` condition on a
+        to the extension allowlist, so a ``file_exists`` condition on a
         TIFF or a Zarr store is never event-driven.
         """
+        # Development references: ADR-036, FR-053.
         state, record, driver, tutorial_dir = self._resolved()
         return self._reevaluate(state, record, driver, tutorial_dir)
 
     def report_ui_event(self, name: str, target: str | None = None) -> SessionView:
-        """Record a frontend user-interface event and re-judge the step (FR-052).
+        """Record a frontend user-interface event and re-judge the step.
 
         The only completion path originating in the frontend, and it still
         arrives as backend state: the injected recorder writes it into the
         product state object, and the evaluation that follows reads it there
         like every other term. ``target`` is the optional argument the event
-        acted on (#2063) — the block type behind ``node_selected``, the plot id
+        acted on — the block type behind ``node_selected``, the plot id
         behind ``plot_rendered`` — recorded beside the name so a condition may
         wait for *that* element rather than any of its kind.
         """
+        # Development references: #2063, FR-052.
         if self._record_ui_event is not None:
             self._record_ui_event(name, target)
         return self.evaluate_active()
 
     def trigger_active(self) -> SessionView:
-        """Run the current step's trigger and re-judge the step (#2061).
+        """Run the current step's trigger and re-judge the step.
 
         The trigger is the step's user-pressed action: its ``do`` list runs
         through the same machinery as step entry —
         :func:`~scistudio.tutorials.actions.perform_step_entry`, including the
         registry settle hook — so the writes have landed and the product has
-        taken them in before this returns (FR-056, FR-059, FR-059a). The
+        taken them in before this returns. The
         response is the re-judged session, because the actions may have made
         the step's own condition true.
 
@@ -954,8 +1066,9 @@ class TutorialRuntime:
                 trigger, or is dormant under another project.
             TriggerFailedError: An action failed. The session is left exactly
                 as it was — active, on the same step — so the press can be
-                retried (FR-060's revision for triggers).
+                retried ('s revision for triggers).
         """
+        # Development references: #2061, FR-056, FR-059, FR-059a, FR-060.
         state, record, driver, tutorial_dir = self._resolved()
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             raise NoActiveSessionError("no tutorial step is active to trigger")
@@ -1005,7 +1118,7 @@ class TutorialRuntime:
         return self._reevaluate(state, record, driver, tutorial_dir)
 
     def settle_replay_active(self) -> SessionView:
-        """Land what the replay promised, now that it has finished saying it (#2083).
+        """Land what the replay promised, now that it has finished saying it.
 
         The scripted agent window reveals a transcript at a speaking pace, so
         the moment its claims become readable is the end of the reply rather
@@ -1025,6 +1138,7 @@ class TutorialRuntime:
         Raises:
             TutorialSessionError: The session is dormant under another project.
         """
+        # Development references: #2083.
         state, record, driver, tutorial_dir = self._resolved()
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             raise NoActiveSessionError("no tutorial step is active")
@@ -1066,12 +1180,13 @@ class TutorialRuntime:
         self._pending_replay = None
 
     def leave_active(self) -> None:
-        """Leave the active tutorial, preserving its session (FR-090).
+        """Leave the active tutorial, preserving its session.
 
         Terminates any scripted replay on the way out, on the same path ending a
-        session uses (FR-061c): the byte source is a live tab, and a preserved
+        session uses: the byte source is a live tab, and a preserved
         session cannot preserve one.
         """
+        # Development references: FR-061c, FR-090.
         state = self._sessions.read()
         self._close_replay()
         if state.active_key is None:
@@ -1081,16 +1196,17 @@ class TutorialRuntime:
     # -- events (FR-050, FR-051) -----------------------------------------
 
     def subscribed_event_types(self) -> tuple[str, ...]:
-        """Return exactly the event types FR-050 maps, from the declared constants.
+        """Return exactly the event types maps, from the declared constants.
 
         The route layer subscribes to these and calls :meth:`handle_event`. It
         is the whole of the runtime's connection to the bus: there is no timer
-        and no background task anywhere in this module (FR-051).
+        and no background task anywhere in this module.
         """
+        # Development references: FR-050, FR-051.
         return tuple(build_event_term_map(self._external))
 
     def handle_event(self, event_type: str) -> SessionView | None:
-        """Re-evaluate the active step if *event_type* can change its answer (FR-050).
+        """Re-evaluate the active step if *event_type* can change its answer.
 
         Returns ``None`` when nothing happened — an unmapped event, no active
         session, or a step none of the event's terms reach — so the caller can
@@ -1098,10 +1214,10 @@ class TutorialRuntime:
 
         A driver that can name its step's condition is only re-evaluated for
         events whose terms it uses; one that cannot is re-evaluated for every
-        mapped event. Both produce the same responses, which is what FR-040
-        constrains, and evaluation is side-effect free (FR-055), so the extra
-        reads cost nothing observable.
+        mapped event. Evaluation is side-effect free, so the extra reads do not
+        change the response or product state.
         """
+        # Development references: FR-040, FR-050, FR-055.
         terms = build_event_term_map(self._external).get(event_type)
         if not terms:
             return None
@@ -1120,7 +1236,8 @@ class TutorialRuntime:
     # -- clearing (FR-073, FR-088) ---------------------------------------
 
     def clear_preview(self) -> tuple[Path, ...]:
-        """Return the directories clearing tutorial data would delete (FR-088)."""
+        """Return the directories clearing tutorial data would delete."""
+        # Development references: FR-088.
         return clear_preview()
 
     def clear_data(self) -> tuple[Path, ...]:
@@ -1138,7 +1255,8 @@ class TutorialRuntime:
     # -- internals -------------------------------------------------------
 
     def _active(self, state: SessionState) -> tuple[SessionState, SessionRecord]:
-        """Return the active record, invalidating it if its project is gone (FR-069)."""
+        """Return the active record, invalidating it if its project is gone."""
+        # Development references: FR-069.
         record = state.active
         if record is None:
             raise NoActiveSessionError("no tutorial session is active")
@@ -1174,7 +1292,8 @@ class TutorialRuntime:
         return load_driver(manifest, key)
 
     def _provision(self, manifest: TutorialManifest, key: TutorialKey) -> Path | None:
-        """Create the tutorial's project, if it declares a bootstrap (FR-009, FR-062)."""
+        """Create the tutorial's project, if it declares a bootstrap."""
+        # Development references: FR-009, FR-062.
         if not manifest.creates_project:
             return None
         return self._provisioner.create(plan_tutorial_project(key, manifest.title))
@@ -1184,8 +1303,9 @@ class TutorialRuntime:
 
         Before the first step is entered, because a bootstrap exists to put the
         project into the state the first step's text assumes — the same reason
-        FR-059 orders a step's own actions before its text.
+        A step's actions run before its text is revealed.
         """
+        # Development references: FR-059.
         bootstrap = manifest.bootstrap
         if bootstrap is None or not bootstrap.do:
             return
@@ -1205,7 +1325,7 @@ class TutorialRuntime:
         key: TutorialKey,
         restart: bool,
     ) -> SessionState:
-        """Drop a finished or restarted session, deleting its project on restart (FR-066).
+        """Drop a finished or restarted session, deleting its project on restart.
 
         The project is deleted on restart whether or not a session record
         survives, because the directory is a pure function of the identity
@@ -1213,6 +1333,7 @@ class TutorialRuntime:
         completed tutorial whose record was cleared would otherwise be restarted
         into its own leftovers.
         """
+        # Development references: FR-066.
         self._close_replay()
         if restart:
             path = (existing.project_path if existing is not None else None) or tutorial_project_path(key)
@@ -1227,14 +1348,15 @@ class TutorialRuntime:
         manifest: Any,
         key: TutorialKey,
     ) -> SessionView:
-        """Resume a preserved session, re-judging where it left off (FR-037, FR-090).
+        """Resume a preserved session, re-judging where it left off.
 
-        Entry actions are not re-run: they already landed, and FR-058's designed
+        Entry actions are not re-run: they already landed, and the API's designed
         scenario has a step whose action breaks the workflow, which running twice
         would break twice. The step is re-judged instead, which is what makes a
         condition satisfied while the Learning Center was closed — or while the
         backend was down — not lost.
         """
+        # Development references: FR-037, FR-058, FR-090.
         driver = self._load(manifest, key)
         state = state.with_active(key)
         self._sessions.write(state)
@@ -1243,7 +1365,7 @@ class TutorialRuntime:
     def _is_live(self, record: SessionRecord) -> bool:
         """Is this session's own project the one the product has open?
 
-        A session is bound to the project it created (FR-062). Everything that
+        A session is bound to the project it created. Everything that
         judges a step reads *the open project* — the workflow being edited, the
         registries, the run history, the files on disk — because that is where
         product truth lives and there is no way to read another project's live
@@ -1254,13 +1376,13 @@ class TutorialRuntime:
 
         A session whose project is closed is dormant, not over. The record and
         its progress survive, and reopening the tutorial puts the reader back on
-        the same step in the same project, which is what SC-007 already
-        promises.
+        the same step in the same project.
 
         A tutorial with no ``bootstrap`` has no project of its own and is never
         gated: a reading tutorial belongs to no project, so there is nothing for
         it to disagree with.
         """
+        # Development references: FR-062, SC-007.
         if record.project_path is None:
             return True
         open_dir = self._project_dir()
@@ -1294,15 +1416,16 @@ class TutorialRuntime:
         driver: GuardedDriver,
         tutorial_dir: Path,
     ) -> SessionView:
-        """Judge the current step and report it, without moving (FR-053, FR-054d).
+        """Judge the current step and report it, without moving.
 
-        Judging and advancing are separate concerns as of FR-054a: this answers
+        Judging and advancing are separate concerns: this answers
         "is this step's condition met" and records that on the step view, and
         only :meth:`continue_active` moves the session. Every caller — the
         explicit re-check, a mapped engine event, a reported UI event — lands
         here, so none of them can move the user out from under a step they are
         still reading.
         """
+        # Development references: FR-053, FR-054a, FR-054d.
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return self._view(record)
         context = self._context(record, tutorial_dir, record.step_id)
@@ -1338,22 +1461,22 @@ class TutorialRuntime:
         tutorial_dir: Path,
         context: DriverContext,
     ) -> SessionView:
-        """Enter the step after *context* and stop there (FR-054a).
+        """Enter the step after *context* and stop there.
 
-        One step per call, never a walk. Advancing is the user's action as of
-        FR-054a, so entering two steps because the first one's condition already
+        One step per call, never a walk. Advancing is the user's action, so entering two steps because the first one's condition already
         held would skip past text they never saw — which is exactly the failure
         the old auto-advance loop produced when a step's own entry action left
         its condition true.
 
         The step's entry is ``do`` → evaluate → reveal: the actions run to
-        completion first (FR-056, FR-059), the condition is judged afterwards so
+        completion first, the condition is judged afterwards so
         the Continue button's state reflects the world the actions left behind
-        (FR-054 against FR-058), and the step view is produced last, which is
+        (against), and the step view is produced last, which is
         why the evaluation lives inside
         :func:`~scistudio.tutorials.actions.perform_step_entry`'s ``reveal``
         rather than around the call.
         """
+        # Development references: FR-054, FR-054a, FR-056, FR-058, FR-059.
         try:
             next_id = driver.advance(context)
             if next_id is None:
@@ -1384,10 +1507,9 @@ class TutorialRuntime:
         context: DriverContext,
         tutorial_dir: Path,
     ) -> bool:
-        """Run a step's entry and return whether it is satisfied on arrival.
+        """Run entry actions, evaluate the condition, and make the step readable.
 
-        The ordering the manager ruled on and the spec leaves open: the actions
-        land, then the condition is judged, then the step becomes readable.
+        Return whether the step's condition is satisfied on arrival.
         """
         step_id = context.step_id or ""
         # A ui_event belongs to the step that asked for it. See
@@ -1434,14 +1556,14 @@ class TutorialRuntime:
         self._files_written(tuple(written))
 
     def _delivery_for(self, actions: Iterable[Action], *, step_id: str) -> ReplayHandle | None:
-        """Open a byte source when a step replays, and only then (checklist §6.1.7).
+        """Open a byte source when a step replays, and only then.
 
-        A replay declaring ``continue_tab`` (#2089) reuses the open handle
+        A replay declaring ``continue_tab`` reuses the open handle
         instead: the scripted session already on screen receives the new
         segments, transcript intact, which is what lets a trigger pace a
         conversation — press, watch more arrive, press again.
 
-        **A tab that is gone is not an authoring error (#2083).** ``continue_tab``
+        **A tab that is gone is not an authoring error.** ``continue_tab``
         used to refuse when there was nothing to continue, on the reading that
         the open tab is a premise the manifest declared. That reading holds for
         the manifest and not for the run: the tab is a real tab in the reader's
@@ -1464,6 +1586,9 @@ class TutorialRuntime:
         still refused: that one is a manifest mistake, and nothing about the
         reader's window can cause or fix it.
         """
+        # Maintainer context:
+        # Open a byte source when a step replays, and only then (checklist §6.1.7).
+        # Development references: #2083, #2089.
         replay = next((action for action in actions if isinstance(action, ReplayAction)), None)
         if replay is None:
             return None
@@ -1502,13 +1627,14 @@ class TutorialRuntime:
         return handle is not None and getattr(handle, "is_open", True)
 
     def _close_replay(self, surface: str | None = None) -> None:
-        """Terminate scripted sessions, leaving no replay object behind (FR-061c).
+        """Terminate scripted sessions, leaving no replay object behind.
 
         With no *surface*, every open session ends — the path off a step, off a
         tutorial, and off a session. With one, only that surface's session is
         replaced, which is what starting a fresh replay on one surface means
         now that another surface may be mid-conversation.
         """
+        # Development references: FR-061c.
         # The tab that was going to report the reply finished is going away, so
         # anything it promised is never landing (#2083).
         self._discard_pending_replay()
@@ -1526,7 +1652,8 @@ class TutorialRuntime:
                 logger.warning("Learning Center: failed to close a replay session", exc_info=True)
 
     def _complete(self, state: SessionState, record: SessionRecord) -> SessionRecord:
-        """End a session that reached the end of its tutorial (FR-079)."""
+        """End a session that reached the end of its tutorial."""
+        # Development references: FR-079.
         self._close_replay()
         finished = replace(record, status=SessionStatus.COMPLETE, step_id=None, error=None)
         self._progress.mark_completed(record.key)
@@ -1534,7 +1661,8 @@ class TutorialRuntime:
         return finished
 
     def _fail(self, state: SessionState, record: SessionRecord, message: str) -> SessionRecord:
-        """End a session with an error, without marking the tutorial complete (FR-044)."""
+        """End a session with an error, without marking the tutorial complete."""
+        # Development references: FR-044.
         self._close_replay()
         failed = replace(record, status=SessionStatus.ERROR, error=message)
         self._sessions.write(state.with_record(failed).with_active(failed.key))
@@ -1542,7 +1670,8 @@ class TutorialRuntime:
 
     @staticmethod
     def _driver_failure(record: SessionRecord, exc: BaseException) -> str:
-        """FR-044's message: the tutorial and the exception, both named."""
+        """The API's message: the tutorial and the exception, both named."""
+        # Development references: FR-044.
         return f"'{record.title}' stopped: {type(exc).__name__}: {exc}"
 
     def _step_of(
@@ -1553,15 +1682,13 @@ class TutorialRuntime:
         *,
         satisfied: bool = False,
     ) -> StepView | None:
-        """Return the current step's view, or ``None`` when the session is not on one.
+        """Return the current step view, or ``None`` outside a step.
 
-        ``satisfied`` is supplied by the caller that just judged the step rather
-        than re-derived here, for the reason FR-055 gives: judging is a read of
-        the whole product, and rendering a response is not a place to run one
-        again. It is attached after the driver has produced the view because it
-        is not a driver's to report — it is the runtime's answer about the
-        driver's condition, and FR-041 keeps the driver's field set closed.
+        Use the caller's ``satisfied`` result instead of reading product state again.
+        Attach it after the driver produces the view, since condition evaluation
+        belongs to the runtime.
         """
+        # Development references: FR-041, FR-055.
         if record.status is not SessionStatus.ACTIVE or record.step_id is None:
             return None
         view = driver.step_view(self._context(record, tutorial_dir, record.step_id))
@@ -1589,9 +1716,10 @@ class TutorialRuntime:
         """Render a record. The step view is supplied by whoever holds the driver.
 
         Passed in rather than fetched, so rendering a response never re-runs
-        discovery and never re-imports a package driver (FR-021): the caller
+        discovery and never re-imports a package driver: the caller
         already has both.
         """
+        # Development references: FR-021.
         # Most recently written to FIRST. With two scripted terminals open,
         # "open the AI panel" is no longer enough — the frontend also has to
         # pick which terminal tab to select, and the only thing that knows

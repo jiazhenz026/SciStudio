@@ -1,14 +1,16 @@
-"""pr_merge_guard calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: AI merge attempt without authorized ``admin-approved:merge``
-provenance.
-
-Ported from the legacy ``pr_merge_guard`` (deleted on this branch). Merge intent
-and actor come from the real GitHub event the evaluator places in
-``pr_context`` (no hard-coded ``intent='comment'`` neutering). The label
-vocabulary comes from ``labels``. The guard never reads the ledger or git
-itself. The guard only fires in CI mode, where a real merge event exists.
-"""
+"""Pr_merge_guard calculator."""
+# Maintainer context (kept outside generated API documentation):
+# pr_merge_guard calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: AI merge attempt without authorized ``admin-approved:merge``
+# provenance.
+#
+# Ported from the legacy ``pr_merge_guard`` (deleted on this branch). Merge intent
+# and actor come from the real GitHub event the evaluator places in
+# ``pr_context`` (no hard-coded ``intent='comment'`` neutering). The label
+# vocabulary comes from ``labels``. The guard never reads the ledger or git
+# itself. The guard only fires in CI mode, where a real merge event exists.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

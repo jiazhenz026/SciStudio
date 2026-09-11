@@ -1,24 +1,26 @@
-"""ADR-044 §4 & §7 — inline flattening of ``SubWorkflowBlock`` references.
-
-A ``SubWorkflowBlock`` is an authoring-time container that references an
-external workflow file. Before scheduler dispatch
-(``ApiRuntime.start_workflow``), :func:`flatten_subworkflows` rewrites every
-reference into a prefixed copy of the referenced workflow's nodes and edges, so
-the scheduler always receives a flat DAG that never contains a
-``SubWorkflowBlock`` (ADR-044 §1, §4; FR-001, FR-003, FR-005, FR-006).
-
-Representation note (ADR/spec prose vs. real code): the ADR text says "blocks"
-and dot-form port refs; the real graph uses :attr:`WorkflowDefinition.nodes`
-and colon-form edge refs ``"node_id:port_name"``. Only ``exposed_ports.internal``
-keeps the dot form ``"block_id.port"``; this module translates it to the colon
-wire form when rewriting parent edges (ADR-044 §4 step 6; FR-006).
-
-This module is pure with respect to its on-disk inputs (ADR-044 §4.1): the same
-referenced YAML files always produce the same flat DAG. It depends only on the
-``workflow`` layer (``definition`` + ``serializer``); it never imports
-``blocks``/``engine``/``api``, so it can be invoked from any layer without an
-import cycle.
-"""
+"""Expand referenced subworkflows into a single workflow graph."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-044 §4 & §7 — inline flattening of ``SubWorkflowBlock`` references.
+#
+# A ``SubWorkflowBlock`` is an authoring-time container that references an
+# external workflow file. Before scheduler dispatch
+# (``ApiRuntime.start_workflow``), :func:`flatten_subworkflows` rewrites every
+# reference into a prefixed copy of the referenced workflow's nodes and edges, so
+# the scheduler always receives a flat DAG that never contains a
+# ``SubWorkflowBlock`` (ADR-044 §1, §4; FR-001, FR-003, FR-005, FR-006).
+#
+# Representation note (ADR/spec prose vs. real code): the ADR text says "blocks"
+# and dot-form port refs; the real graph uses :attr:`WorkflowDefinition.nodes`
+# and colon-form edge refs ``"node_id:port_name"``. Only ``exposed_ports.internal``
+# keeps the dot form ``"block_id.port"``; this module translates it to the colon
+# wire form when rewriting parent edges (ADR-044 §4 step 6; FR-006).
+#
+# This module is pure with respect to its on-disk inputs (ADR-044 §4.1): the same
+# referenced YAML files always produce the same flat DAG. It depends only on the
+# ``workflow`` layer (``definition`` + ``serializer``); it never imports
+# ``blocks``/``engine``/``api``, so it can be invoked from any layer without an
+# import cycle.
+# Development references: ADR-044, FR-001, FR-003, FR-005, FR-006.
 
 from __future__ import annotations
 
@@ -40,11 +42,13 @@ BROKEN_REF_CONFIG_KEY = "_broken_ref"
 
 
 class CyclicSubworkflowError(Exception):
-    """Raised when inline flattening detects a reference cycle (ADR-044 §7).
+    """Raised when inline flattening detects a reference cycle.
 
     Carries the full reference chain as a list of :class:`~pathlib.Path`
-    objects, e.g. ``a.wf.yaml -> b.swf.yaml -> a.wf.yaml`` (FR-007, SC-003).
+    objects, e.g. ``a.wf.yaml -> b.swf.yaml -> a.wf.yaml``.
     """
+
+    # Development references: ADR-044, FR-007, SC-003.
 
     def __init__(self, chain: list[Path]) -> None:
         self.chain: list[Path] = [Path(p) for p in chain]
@@ -63,11 +67,12 @@ def is_broken_subworkflow_node(node: NodeDef) -> bool:
 
 
 def subworkflow_ref_path(node: NodeDef) -> str | None:
-    """Extract ``config.ref.path`` (ADR-044) from a subworkflow node.
+    """Extract ``config.ref.path`` from a subworkflow node.
 
     Tolerates the ``config.params.ref.path`` envelope as well. Returns
     ``None`` when no usable reference string is present.
     """
+    # Development references: ADR-044.
     config = node.config or {}
     for container in (config, config.get("params") if isinstance(config.get("params"), dict) else None):
         if not isinstance(container, dict):
@@ -130,18 +135,19 @@ def flatten_subworkflows(
         The authored workflow (may contain ``SubWorkflowBlock`` nodes).
     base_dir:
         Project root against which ``config.ref.path`` values resolve
-        (ADR-044 / FR-011 stores project-relative refs). Absolute refs also
+        (stores project-relative refs). Absolute refs also
         resolve correctly (``Path(base) / abs == abs``).
     self_path:
         Optional on-disk path of *definition* itself, seeded into the cycle
         DFS so a reference loop that returns to the root is detected and the
-        error chain reads root-first (FR-007).
+        error chain reads root-first.
 
     Returns a new :class:`WorkflowDefinition` whose ``nodes`` contain no
     ``SubWorkflowBlock`` (only inlined inner nodes and, for unresolved refs,
     ``subworkflow_broken`` markers that the validator rejects at run
-    start — FR-010).
+    start).
     """
+    # Development references: ADR-044, FR-007, FR-010, FR-011.
     base = Path(base_dir).resolve()
     visiting: tuple[Path, ...] = ()
     if self_path is not None:
@@ -171,8 +177,15 @@ def _flatten(
     the nested case where an exposed port forwards a *child* subworkflow's
     exposed port). The top-level caller discards these maps. When *registry* is
     supplied, ``exposed_ports.internal`` is additionally validated to reference a
-    port that actually exists on the inner block (ADR §9.1 item 3).
+    port that actually exists on the inner block.
     """
+    # Maintainer context:
+    # ``exposed_in`` / ``exposed_out`` resolve each of *definition*'s own
+    # ``exposed_ports`` to a real leaf wire ref present in ``flat_def`` (handling
+    # the nested case where an exposed port forwards a *child* subworkflow's
+    # exposed port). The top-level caller discards these maps. When *registry* is
+    # supplied, ``exposed_ports.internal`` is additionally validated to reference a
+    # port that actually exists on the inner block (ADR §9.1 item 3).
     new_nodes: list[NodeDef] = []
     new_edges: list[EdgeDef] = []
     direct_nodes: dict[str, NodeDef] = {}  # non-subworkflow nodes (raw ports)
@@ -243,12 +256,14 @@ def _validate_direct_port(
     exposed_name: str,
     registry: Any | None,
 ) -> None:
-    """Raise if *port* does not exist on *node*'s effective ports (ADR §9.1).
+    """Raise if *port* does not exist on *node*'s effective ports.
 
     No-op when *registry* is absent or the block cannot be instantiated (e.g. a
     spec-only test registry) — port existence is then left to the normal
     post-flatten edge validation.
     """
+    # Maintainer context:
+    # Raise if *port* does not exist on *node*'s effective ports (ADR §9.1).
     if registry is None:
         return
     try:
@@ -270,15 +285,23 @@ def _resolve_own_exposed(
     sw_out: dict[str, _ExposedMap],
     registry: Any | None = None,
 ) -> tuple[_ExposedMap, _ExposedMap]:
-    """Resolve a definition's own ``exposed_ports`` to leaf wire refs (ADR §9.1).
+    """Resolve a definition's own ``exposed_ports`` to leaf wire refs.
 
     ``exposed_ports.internal`` (dot form ``block.port``) may point at either a
     direct block (``-> "block:port"``) or a child subworkflow node whose own
     exposed port forwards to a deeper leaf (``-> sw_<dir>[block][port]``). An
     ``internal`` that resolves to neither is a hard error. When *registry* is
     supplied, a direct block's named port must also exist on the block's
-    effective ports (ADR §9.1 item 3).
+    effective ports.
     """
+    # Maintainer context:
+    # Resolve a definition's own ``exposed_ports`` to leaf wire refs (ADR §9.1).
+    # ``exposed_ports.internal`` (dot form ``block.port``) may point at either a
+    # direct block (``-> "block:port"``) or a child subworkflow node whose own
+    # exposed port forwards to a deeper leaf (``-> sw_<dir>[block][port]``). An
+    # ``internal`` that resolves to neither is a hard error. When *registry* is
+    # supplied, a direct block's named port must also exist on the block's
+    # effective ports (ADR §9.1 item 3).
     exposed_in: _ExposedMap = {}
     exposed_out: _ExposedMap = {}
     if exposed is None:
@@ -310,15 +333,22 @@ def _rewrite_parent_edge(
     in_maps: dict[str, dict[str, str]],
     out_maps: dict[str, dict[str, str]],
 ) -> EdgeDef:
-    """Rewrite a parent edge touching an inlined subworkflow node (FR-006).
+    """Rewrite a parent edge touching an inlined subworkflow node.
 
     An edge endpoint ``sw:exposed`` is translated to the prefixed inner wire
     ref via the subworkflow's exposed-port map. An endpoint referencing an
     exposed port that no longer exists is left untouched; because the ``sw``
     node has been removed, the downstream validator rejects it as an edge to
-    an unknown node (a dangling edge — ADR-044 §10.1 negative consequence /
-    US3.1).
+    an unknown node (a dangling edge —  negative consequence).
     """
+    # Maintainer context:
+    # An edge endpoint ``sw:exposed`` is translated to the prefixed inner wire
+    # ref via the subworkflow's exposed-port map. An endpoint referencing an
+    # exposed port that no longer exists is left untouched; because the ``sw``
+    # node has been removed, the downstream validator rejects it as an edge to
+    # an unknown node (a dangling edge —  negative consequence /
+    # US3.1).
+    # Development references: ADR-044, FR-006.
     new_source = edge.source
     new_target = edge.target
     src_node, src_port = _split_colon(edge.source)

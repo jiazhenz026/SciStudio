@@ -66,8 +66,9 @@ def absolutify_paths(
     """Resolve relative paths in *config* to absolute paths under *project_dir*.
 
     Already-absolute paths are returned unchanged (backward compatible with
-    workflows saved before #506).
+    workflows saved before).
     """
+    # Development references: #506.
     path_keys = _path_config_keys(config_schema)
     if not path_keys:
         return config
@@ -116,13 +117,14 @@ def dump_yaml_str(workflow: WorkflowDefinition) -> str:
     """Serialise a workflow definition to a YAML string (no disk write).
 
     Single source of truth for definition -> YAML text. Used by
-    :func:`save_yaml` and by the ADR-044 run-start lineage snapshot, which
+    :func:`save_yaml` and by the run-start lineage snapshot, which
     must capture the *flattened* in-memory definition rather than re-reading
-    the authored on-disk file (ADR-044 §5 / SC-002).
+    the authored on-disk file.
 
     Uses ``exclude_none=True`` so optional sections (e.g. ``exposed_ports``)
     are omitted when absent, preserving the byte-for-byte round-trip.
     """
+    # Development references: ADR-044, SC-002.
     model = WorkflowModel.from_definition(workflow)
     file_model = WorkflowFileModel(workflow=model)
     data = file_model.model_dump(exclude_none=True)
