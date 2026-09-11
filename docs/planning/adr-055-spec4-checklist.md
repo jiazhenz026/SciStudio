@@ -139,10 +139,10 @@ language_source: en
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `A1` | `implementer` | `N/A` | prompts §A1 | O1: capability extensions and enterprise UI | `feat/2322-enterprise-ui` | `.worktrees/feat-2322-enterprise-ui` | see prompts §A1 | `webmcp.py`, `cli/**`, enterprise code | `#2322` | `[ ]` |
+| `A1` | `implementer` | `N/A` | prompts §A1 | O1: capability extensions and enterprise UI, plus #2328 and the `ai_pty` internal prefix | `feat/2322-enterprise-ui` | `.worktrees/feat-2322-enterprise-ui` | see prompts §A1 | `webmcp.py`, `cli/**`, enterprise code | `#2322`, `#2328`, PR #2336 | `[~]` PR open (commits 1dfdaf153, 52bd91aff, c013455c8; ledger `.workflow/records/2322-feat-2322-enterprise-ui.json`), CI and audits running |
 | `A2` | `implementer` | `N/A` | prompts §A2 | O2: stdio MCP adapter and loopback token file | `feat/2308-webmcp-adapter` | `.worktrees/feat-2308-webmcp-adapter` | see prompts §A2 | `seam.py`, `spa.py`, `app.py`, `ai_pty/**`, `frontend/**` | `#2308` | `[ ]` |
-| `AU1` | `audit_reviewer` | `with-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-with-context.md` | product code | A1 PR | `[ ]` |
-| `AU2` | `audit_reviewer` | `no-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-no-context.md` | product code | A1 PR | `[ ]` |
+| `AU1` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O1, PR #2336 | `audit/2322-with-context` | `.worktrees/audit-2322-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md` | product code | PR #2336 | `[~]` |
+| `AU2` | `audit_reviewer` | `no-context` | template filled at dispatch (2026-09-11) | audit the seam, capabilities, enterprise UI and ai_pty surfaces | `audit/2322-no-context` | `.worktrees/audit-2322-no-context` | `docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md` | product code | none (no-context) | `[~]` |
 | `AU3` | `audit_reviewer` | `with-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-with-context.md` | product code | A2 PR | `[ ]` |
 | `AU4` | `audit_reviewer` | `no-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-no-context.md` | product code | A2 PR | `[ ]` |
 | `A3` | `implementer` | `N/A` | prompts §A3 | O3: remove the GUI-disconnect auto-cancel without regressing #1500 | `fix/2327-run-lifetime` | `.worktrees/fix-2327-run-lifetime` | see prompts §A3 | `seam.py`, `spa.py`, `ai_pty/**`, `webmcp.py`, `cli/**`, `frontend/**` | `#2327`, PR #2334 | `[~]` PR open, CI running |
@@ -313,6 +313,8 @@ Append only.
 | 2026-09-11 | manager | An edition's transfer track stopped: the seam offers no public project root, tool-result error, author-blacklist check, shared write path, or upload event, and only internals reach them. | Opened #2328 and folded it into A1's scope, because it is the same seam module. The edition proceeds behind an adapter bound to the planned names. | #2328 |
 | 2026-09-11 | manager | The edition's consumer fixed the #2328 signatures: `ToolRefusal(code, message, alternatives)`, `add_upload_listener` callback `(path, size, status)` returning an unsubscribe, and a new `"started"` status. | Sent to A1 as binding signatures. | #2328 |
 | 2026-09-11 | manager | An edition security review found the open-source local MCP socket is protected only by file permissions, and its `/tmp` fallback name is predictable. | Opened #2333 and folded it into A2's scope (MCP transport files, no other owner). | #2333 |
+| 2026-09-11 | A1 | Three items outside its write set. With `ai_chat_disabled`, "Bring in my work" fails with a 500 after writing a session brief. Tutorial replays are hidden with the AI Chat tab. A mypy error sits at `tests/api/test_identity_seam.py:171` on an untouched line. | Opened #2337 for the first two. The mypy item goes to the audits and CI. | #2337 |
+| 2026-09-11 | A1 | `transfer=True` now raises `TypeError`, a provisional break per ADR-052, recorded in CHANGELOG "Changed". `ToolRefusal`'s `alternatives` is `use_instead` on the wire. `write_project_file` is async. | Recorded for the edition integration step. | N/A |
 
 ## 12. Final Readiness
 
