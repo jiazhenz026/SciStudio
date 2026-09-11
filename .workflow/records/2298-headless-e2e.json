@@ -1,9 +1,162 @@
 {
   "base_ref": null,
   "branch": "test/2298-headless-e2e",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-11T07:19:05.419446Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2c32dd941b76f8ae3e5bd6fc64b012c744cf64cb70dfc447c79769026f3c337f",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:19:07.612435Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bfbc55c92704b2af3ccfbd20b5586d5b9f0ff93a84c732e1a24ade406d807bd2",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:19:09.018321Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4ab18999ceb3cc42a7a1175a8d413b9a09eeb222fd00e063327c733c3cbf8c52",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:19:09.043097Z",
+      "command": "ruff format tests/e2e/__init__.py tests/e2e/conftest.py tests/e2e/harness.py tests/e2e/test_tutorial_workflows.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a670b21c3cf3d731b06bb1585dfe03f8b191bcc1ca16e078181ccb157d40413",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T07:19:19.898281Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3ae04713b5017e3b0c6cde67cbabffd0b8415f7c5aa096b3b38e4fa33569e72d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:19:20.360554Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b00b944c68f4b89a4c802a6d2d287f5a0e24183841eb8265655e29b9635794c3",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:19:20.382764Z",
+      "command": "ruff check tests/e2e/__init__.py tests/e2e/conftest.py tests/e2e/harness.py tests/e2e/test_tutorial_workflows.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2cd00381a672a28fb4e526b4e9befe96fb81fb4bffcf03dc4e5472f1a0803e1d",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T07:24:42.383177Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:769f46e92c0f0ce4aabb5e72a8ac2b90314cc01ae5b0017eb879fd0e9ef3c3a9",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T07:24:53.053459Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f234974a42e705ddbd2cb705fe86aa8ddd450a816c036c8f9eb6f5c6404186af",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -13,9 +166,195 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T07:18:22.161587Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/contributing/headless-e2e.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-11T07:24:53.113396Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.126623Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.139100Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.153864Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.166494Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.178453Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.190276Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.202447Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.215700Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.228546Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:24:53.242043Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.865475Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.877764Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.889852Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.902029Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.913625Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.925386Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.937017Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.948302Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.960403Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.973254Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:25:05.986699Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -25,25 +364,110 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "c7b60f5775d131f614688e0f5f684bd1b6bfd8fb",
+    "base_sha": "c7b60f577",
+    "changed_files": [
+      ".github/workflows/ci.yml",
+      ".workflow/records/2298-headless-e2e.json",
+      "docs/contributing/headless-e2e.md",
+      "tests/e2e/__init__.py",
+      "tests/e2e/conftest.py",
+      "tests/e2e/harness.py",
+      "tests/e2e/test_tutorial_workflows.py"
+    ],
+    "diff_fingerprint": "sha256:49b6736e0ec1fa2689ba67e50e6a1b318b945cef7a58cf0191e3867ce17a2e61",
+    "head": "HEAD",
+    "head_sha": "3dcf2e8ba",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 1,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 5,
+      "test": 4,
+      "workflow_ci": 1
+    }
+  },
   "owner_directive": "Owner-approved plan (e2e option 2): a headless end-to-end suite that starts a real 'scistudio serve' subprocess in an isolated home and drives it over HTTP and the /ws WebSocket, using the core tutorial assets (projects are built by copying tutorial assets, not via the tutorial session API). The suite is opt-in via SCISTUDIO_RUN_E2E=1 and runs on every PR as a separate CI job; the owner explicitly approved adding that job to .github/workflows/ci.yml. Implementer persona because the test_engineer guard blocks CI workflow edits.",
   "persona": "implementer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T07:24:53.242085Z",
+      "diff_fingerprint": "sha256:49b6736e0ec1fa2689ba67e50e6a1b318b945cef7a58cf0191e3867ce17a2e61",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T07:25:05.986730Z",
+      "diff_fingerprint": "sha256:49b6736e0ec1fa2689ba67e50e6a1b318b945cef7a58cf0191e3867ce17a2e61",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2298-headless-e2e",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "975ae35a-e3b8-467f-ac45-a3774bee7c20",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "maintenance",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-11T07:18:22.161610Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_tutorial_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
