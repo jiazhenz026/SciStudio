@@ -2,7 +2,7 @@ import { render, waitFor, screen, fireEvent, cleanup, act } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PanelPreviewProps } from "../panels/PanelPreview";
-import type { PreviewEnvelope } from "../types/api";
+import type { PreviewEnvelope, PreviewTarget } from "../types/api";
 
 // Mock only PreviewHost's session methods; keep every other lib/api export
 // intact (the Zustand store imports named helpers at init). #1713 — plot
@@ -61,9 +61,10 @@ function textEnvelope(ref: string, text: string): PreviewEnvelope {
 
 beforeEach(() => {
   createPreviewSession.mockReset();
-  createPreviewSession.mockImplementation(async (target: { ref: string }) =>
-    textEnvelope(target.ref, `preview of ${target.ref}`),
-  );
+  createPreviewSession.mockImplementation(async (target: PreviewTarget) => ({
+    ...textEnvelope(target.ref, `preview of ${target.ref}`),
+    target,
+  }));
   // Each test owns a clean envelope cache (the store is a global singleton).
   useAppStore.getState().clearPreviewEnvelopeCache();
   // #1713 — the plot Run result is shared via the store; reset between tests.

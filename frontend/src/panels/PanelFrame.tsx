@@ -140,16 +140,12 @@ export function PanelFrame(props: PanelFrameProps) {
         callbacks.current.onOpen?.(ref, context.context_id) ??
         Promise.reject(new Error("No preview host")),
       writeBack: async (response) => {
+        const signal = readsAbort.current?.signal;
         try {
-          await callbacks.current.onWriteBack?.(
-            response,
-            context.context_id,
-            readsAbort.current?.signal,
-          );
+          await callbacks.current.onWriteBack?.(response, context.context_id, signal);
           return null;
         } catch (error) {
-          if (!readsAbort.current?.signal.aborted)
-            fail(error instanceof Error ? error.message : String(error));
+          if (!signal?.aborted) fail(error instanceof Error ? error.message : String(error));
           throw error;
         }
       },

@@ -373,6 +373,22 @@
       "status": "fail",
       "summary": "exit 2",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:09:59.608509Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e68087fa2e6587b6aa2a2dbdd24a71bcd8958b5b9b35451fff045c475ace9ff6",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1892,6 +1908,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.753135Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.769611Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.787718Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.809390Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.827411Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.872872Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.907874Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.928170Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.950721Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:09:59.972733Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:10:00.064671Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2154,9 +2258,9 @@
       "src/scistudio/panels/sdk/1/scistudio-panel.js",
       "tests/contracts/openapi.json"
     ],
-    "diff_fingerprint": "sha256:acdb9d8a45f29d39e2f24ca0a83535590adf9e4b91b60a2bb5e243d478763f03",
+    "diff_fingerprint": "sha256:86bad580643d7f3db97bc89b7983b28c59d615809a52422d2b99bca1e3b38384",
     "head": "HEAD",
-    "head_sha": "03aa4343",
+    "head_sha": "837eea60",
     "surfaces": {
       "docs": 1,
       "frontend": 39,
@@ -2328,6 +2432,16 @@
     {
       "at": "2026-09-11T16:07:43.263324Z",
       "diff_fingerprint": "sha256:acdb9d8a45f29d39e2f24ca0a83535590adf9e4b91b60a2bb5e243d478763f03",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-11T16:10:00.064783Z",
+      "diff_fingerprint": "sha256:86bad580643d7f3db97bc89b7983b28c59d615809a52422d2b99bca1e3b38384",
       "mode": "local",
       "result": "fail",
       "tier": 1,
