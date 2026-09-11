@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 10 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080).",
+    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 12 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080). scistudio.api.app and scistudio.api.seam entered the contract at 0.3.5 (#2304, ADR-055 identity seam).",
     "spec": "docs/specs/adr-052-public-api-surface.md",
     "adr": "docs/adr/ADR-052.md",
     "issue": "1833 (umbrella #1817)"
@@ -639,6 +639,62 @@
     "parse_condition": {
       "tier": "provisional",
       "since": "0.3.4"
+    }
+  },
+  "scistudio.api.app": {
+    "create_app": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    }
+  },
+  "scistudio.api.seam": {
+    "AUDIENCE_EXTERNAL_TAG": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "Capabilities": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "GuardContext": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "GuardFactory": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "IdentityCapability": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "LifespanHook": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "is_self_authenticating_path": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "mcp": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "register_self_authenticating_prefix": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "self_authenticating_prefixes": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "unregister_self_authenticating_prefix": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "workflow_runs_active": {
+      "tier": "provisional",
+      "since": "0.3.5"
     }
   }
 }

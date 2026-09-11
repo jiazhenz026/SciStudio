@@ -1,4 +1,11 @@
-"""FastAPI app factory, lifespan, CORS, and realtime endpoints."""
+"""FastAPI app factory, lifespan, CORS, and realtime endpoints.
+
+``create_app`` is the one public symbol here (ADR-052 canonical root
+``scistudio.api.app``): the enterprise edition builds the standard backend
+through it and composes its own guard, lifespan hooks, capabilities, and
+routers onto it (ADR-055 identity seam, ``docs/specs/adr-055-identity-seam.md``).
+The seam's types live in :mod:`scistudio.api.seam`.
+"""
 
 from __future__ import annotations
 
@@ -6,11 +13,11 @@ import asyncio
 import os
 import re
 import secrets
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Sequence
+from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import APIRouter, FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -41,10 +48,14 @@ from scistudio.api.routes import (
 from scistudio.api.routes import webmcp as webmcp_routes
 from scistudio.api.routes import workflow_watcher as workflow_watcher_module
 from scistudio.api.runtime import ApiRuntime
+from scistudio.api.seam import Capabilities, GuardDispatchMiddleware, GuardFactory, LifespanHook
 from scistudio.api.spa import SPAStaticFiles
 from scistudio.api.sse import sse_handler
 from scistudio.api.ws import websocket_handler
 from scistudio.engine.runners.process_handle import ProcessRegistry
+from scistudio.stability import provisional
+
+__all__ = ["create_app"]
 
 
 @asynccontextmanager
@@ -195,8 +206,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logging.getLogger(__name__).error("MCP context failed to initialize", exc_info=True)
         app.state.mcp_server = None
 
+    # ADR-055 identity seam (decision 2b): an edition's startup checks and
+    # background tasks. Entered in order once the core runtime above exists;
+    # exited in reverse before the core teardown below. A hook whose entry
+    # raises aborts startup: the hooks already entered are exited and the core
+    # teardown still runs. No hooks by default (create_app sets the tuple).
+    hooks: tuple[LifespanHook, ...] = tuple(getattr(app.state, "lifespan_hooks", ()))
     try:
-        yield
+        async with AsyncExitStack() as hook_stack:
+            for hook in hooks:
+                await hook_stack.enter_async_context(hook(app))
+            yield
     finally:
         # Stop the FS watcher first so its observer thread does not race
         # against the rest of the teardown.
@@ -323,8 +343,72 @@ class _RootPathGuardMiddleware:
         await response(scope, receive, send)
 
 
-def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
+@provisional(since="0.3.5")
+def create_app(
+    *,
+    guard: GuardFactory | None = None,
+    lifespan_hooks: Sequence[LifespanHook] = (),
+    capabilities: Capabilities | None = None,
+    routers: Sequence[APIRouter] = (),
+) -> FastAPI:
+    """Create and configure the FastAPI application.
+
+    Called with no arguments — as ``scistudio serve``, ``scistudio gui`` and
+    the desktop shell do — this is the open-source backend exactly as before:
+    the loopback token guards ``/api/webmcp/*``, every other route is
+    unauthenticated, no lifespan hooks run, and every capability is off.
+
+    The keyword arguments are the ADR-055 identity seam
+    (``docs/specs/adr-055-identity-seam.md``), through which an edition
+    composes its own deployment on the same backend:
+
+    ``guard``
+        A :class:`~scistudio.api.seam.GuardFactory` installed in place of the
+        loopback token middleware. The guard decides which paths it protects;
+        no loopback token is minted. Requests under a self-authenticating
+        prefix bypass it, as they bypass the default guard.
+    ``lifespan_hooks``
+        :class:`~scistudio.api.seam.LifespanHook` s entered in order at startup,
+        after the core runtime exists, and exited in reverse before it stops.
+    ``capabilities``
+        The :class:`~scistudio.api.seam.Capabilities` declared to the frontend
+        through the served page; all off when omitted.
+    ``routers``
+        Routers included after every built-in route and before the SPA mount.
+        A router included on the returned app afterwards would sit behind the
+        SPA mount at ``/`` and never be reached, so an edition's routes are
+        passed here. Built-in routes win a path collision.
+
+    A sketch of the enterprise edition's launch path::
+
+        from scistudio.api.app import create_app
+        from scistudio.api.seam import Capabilities, IdentityCapability, mcp
+
+        app = create_app(
+            guard=hub_guard,  # (app, GuardContext) -> ASGI app
+            lifespan_hooks=[validate_callback, report_activity],
+            capabilities=Capabilities(
+                # The edition's own logout route: it ends the SciStudio
+                # session, then returns where the browser goes next.
+                identity=IdentityCapability(user=hub_user, logout_url="/api/session/logout"),
+                transfer=True,
+            ),
+            routers=[transfer_router],
+        )
+    """
+    if guard is not None and not callable(guard):
+        raise TypeError("create_app(guard=...) must be a GuardFactory: a callable taking (app, context)")
+    hooks = tuple(lifespan_hooks)
+    if not all(callable(hook) for hook in hooks):
+        raise TypeError("create_app(lifespan_hooks=...) must contain LifespanHook callables taking the app")
+    if capabilities is None:
+        capabilities = Capabilities()
+    elif not isinstance(capabilities, Capabilities):
+        raise TypeError("create_app(capabilities=...) must be a scistudio.api.seam.Capabilities")
+    extra_routers = tuple(routers)
+    if not all(isinstance(router, APIRouter) for router in extra_routers):
+        raise TypeError("create_app(routers=...) must contain fastapi.APIRouter instances")
+
     # #1741: install console + persistent JSON-line file logging. Idempotent, so
     # it is safe whether the CLI already configured logging (``scistudio gui``)
     # or this is standalone API usage (``uvicorn scistudio.api.app:create_app``).
@@ -361,21 +445,24 @@ def create_app() -> FastAPI:
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8000",
         ]
-    # ADR-055 Spec 1 (FR-006): the WebMCP bridge session substrate. One
-    # middleware scoped to /api/webmcp/* delegating to a pluggable identity
-    # backend; this spec ships the loopback token backend. The per-launch
-    # token is injected into the served page bootstrap by SPAStaticFiles
-    # below. Added BEFORE the CORS add so it sits inside it: preflight
-    # handling and CORS headers on 401 rejections stay with CORSMiddleware.
-    # The lab deployment's Hub OAuth backend plugs into the same seam without
-    # router changes (adr-055-lab-deployment).
-    webmcp_session_token = secrets.token_urlsafe(32)
+    # ADR-055 Spec 1 (FR-006) + identity seam (decision 2a): exactly one
+    # guard sits here. By default it is the WebMCP bridge's loopback token
+    # middleware scoped to /api/webmcp/*, as before; the per-launch token is
+    # injected into the served page bootstrap by SPAStaticFiles below. A
+    # replacement guard from an edition takes its place and decides which
+    # paths it protects; no loopback token is minted then. Either way
+    # GuardDispatchMiddleware routes self-authenticating prefixes past the
+    # guard. Added BEFORE the CORS add so it sits inside it: preflight
+    # handling and CORS headers on rejections stay with CORSMiddleware.
+    if guard is None:
+        webmcp_session_token = secrets.token_urlsafe(32)
+        guard = webmcp_routes.loopback_token_guard(webmcp_session_token)
+    else:
+        webmcp_session_token = ""
     app.state.webmcp_session_token = webmcp_session_token
-    app.add_middleware(
-        webmcp_routes.WebMCPSessionMiddleware,
-        backend=webmcp_routes.LoopbackTokenBackend(webmcp_session_token),
-        root_path=root_path,
-    )
+    app.state.lifespan_hooks = hooks
+    app.state.capabilities = capabilities
+    app.add_middleware(GuardDispatchMiddleware, guard=guard, root_path=root_path)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -460,6 +547,12 @@ def create_app() -> FastAPI:
         runtime = app.state.runtime
         await websocket_handler(websocket, runtime.event_bus)
 
+    # ADR-055 identity seam: an edition's routers, after every built-in route
+    # (built-ins win a collision) and before the SPA mount, which would
+    # otherwise shadow them.
+    for extra_router in extra_routers:
+        app.include_router(extra_router)
+
     # SPA static files. Must be registered AFTER all /api/* and /ws routes.
     # Resolution depends on the run mode (see ``_resolve_spa_static_dir``):
     #   - Bundled desktop app (``SCISTUDIO_BUNDLED=1``): ONLY the embedded
@@ -474,7 +567,9 @@ def create_app() -> FastAPI:
         # base_path drives the runtime bootstrap injection into index.html
         # (ADR-055 Spec 0 FR-003); hashed asset files stay byte-identical.
         # webmcp_session_token rides the same injection so the served page
-        # can authenticate bridge calls (ADR-055 Spec 1 FR-006).
+        # can authenticate bridge calls (ADR-055 Spec 1 FR-006), and so does
+        # the capability declaration when an edition turns any on (identity
+        # seam, decision 2d).
         app.mount(
             "/",
             SPAStaticFiles(
@@ -482,6 +577,7 @@ def create_app() -> FastAPI:
                 html=True,
                 base_path=root_path,
                 webmcp_session_token=webmcp_session_token,
+                capabilities=capabilities,
             ),
             name="spa",
         )

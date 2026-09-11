@@ -8,7 +8,7 @@ table (ADR-052 §7).
 
 What this script does:
 
-1. Imports the **ten canonical public roots** (ADR-052 §3/§4; the SciStudio
+1. Imports the **twelve canonical public roots** (ADR-052 §3/§4; the SciStudio
    freeze contract) and, for each, reads its declared ``__all__`` — the public
    surface. Symbols outside ``__all__`` (and ``internal``-tier class members) are
    excluded even if they have docstrings.
@@ -68,8 +68,9 @@ if str(SRC) not in sys.path:
 
 from scistudio.stability import get_stability  # noqa: E402
 
-#: The ten canonical public roots. Public surface = each root's ``__all__``
-#: (ADR-052 §3/§4; identical to the SciStudio freeze contract).
+#: The twelve canonical public roots. Public surface = each root's ``__all__``
+#: (ADR-052 §3/§4; identical to the SciStudio freeze contract). The last two
+#: are the ADR-055 identity seam an edition composes on (#2304).
 CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.core.types",
     "scistudio.core.meta",
@@ -81,6 +82,8 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.previewers.models",
     "scistudio.previewers.data_access",
     "scistudio.tutorials",
+    "scistudio.api.app",
+    "scistudio.api.seam",
 )
 
 REFERENCE_DIR = REPO_ROOT / "docs" / "user" / "reference"

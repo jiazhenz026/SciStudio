@@ -42,6 +42,8 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (0, "page", "Writing a plot"),
     (0, "section", "Api reference"),
     (1, "page", "Index"),
+    (1, "page", "Scistudio.api.app"),
+    (1, "page", "Scistudio.api.seam"),
     (1, "page", "Scistudio.blocks.app"),
     (1, "page", "Scistudio.blocks.base"),
     (1, "page", "Scistudio.blocks.code"),

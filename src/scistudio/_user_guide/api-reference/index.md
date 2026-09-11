@@ -24,3 +24,5 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
+- [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
+- [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols

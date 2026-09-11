@@ -1,0 +1,1097 @@
+{
+  "base_ref": null,
+  "branch": "feat/2304-identity-seam",
+  "check_events": [
+    {
+      "at": "2026-09-11T08:58:34.606092Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5719030b4396e551476c65baa4ff26d06a8478b4d88c7561365b99e955e6987b",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:58:36.960347Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c21825e73e55b0f7ca6e5fc2154919333793c877a66f867692b87ddc32a2d68c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:58:38.462235Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d73e9f803d7f84b8e3e14b966ca5792ef7f629f7157113ae8f204a7ce8c2da1e",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:58:38.492131Z",
+      "command": "ruff format scripts/docs/build_reference.py src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/fake_guard.py tests/api/seam_contract.py tests/api/test_identity_seam.py tests/api/test_public_surface.py tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a783396260b75f599172b7ceafc54f7984ca9df98f23367228a386e9fa5358fe",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T08:59:44.049270Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:da713b6f1d7c760181c944205be6a568e099decd5a4731c667d986d8026c10c2",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:59:55.734545Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:bef984d1b4ea32158ba6e35f314f276cf668959801d4b6f70343ce126721b179",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:59:56.213320Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:df7961970568a2d5c2e7205317d3793e97bc22b330a2374d251aefe04bf57d53",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:59:56.240535Z",
+      "command": "ruff check scripts/docs/build_reference.py src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/fake_guard.py tests/api/seam_contract.py tests/api/test_identity_seam.py tests/api/test_public_surface.py tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:587f2d2f6ee6f8faec719c13b8634bbd3cb6049927c4ec6a711545ac594d0953",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T09:02:43.398238Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e98599c470a06290d3e366c279ef787980cdbf71648626ba9268d0169949051b",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:02:52.396896Z",
+      "command": "mypy src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9389f11b6fffa5176f47d134f521edf7001807f21b32cd82330eeb5061c615e3",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:22:19.314085Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:df35fad8fb1eb3a5bd2a58a2c7c189e88c40de19ba3a1b0532b521a0e59635fa",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:22:21.383716Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f6e7a4392ee4364e6317957e84951f22ccb336737436d10df9625c7f48ea7ad5",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:22:22.874821Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a9787d8d689495689ffd73fe3817796e314535ea5d0ddc9a433c804e1c12a196",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:22:22.898981Z",
+      "command": "ruff format scripts/docs/build_reference.py src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/fake_guard.py tests/api/seam_contract.py tests/api/test_identity_seam.py tests/api/test_public_surface.py tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:accfcf59f5636e71e50f9cdb929d3682a4698d0652e07fc589c464722642c6af",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T09:23:07.826657Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7e9292ed126abeb49b732b87588aa4e1746a42baeb59857a4d4a81a32c2e7f74",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:23:18.536845Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f2ffa52dba9e56ca5ff4e6e06f839c59d61f60dac37449d34d17f2e802a6df4d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:23:18.792662Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8f78d562653bd0259c1ef162eb9164e9265d775ab6d36521a6e68e583a872267",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:23:18.813698Z",
+      "command": "ruff check scripts/docs/build_reference.py src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/fake_guard.py tests/api/seam_contract.py tests/api/test_identity_seam.py tests/api/test_public_surface.py tests/api/test_user_docs.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:62fbafa67196db1db63e81c369b5f159dbba4cf51220fc6b770d6624c5b58e62",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T09:28:22.051345Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c41bc22047d02e2ae3b3fc223a9b531084f67a5508f63b4157548003bcde2f77",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T09:28:22.964227Z",
+      "command": "mypy src/scistudio/api/app.py src/scistudio/api/routes/webmcp.py src/scistudio/api/seam.py src/scistudio/api/spa.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d6fdd49e9f7478febc6e837e97296ff928abe48461d9fade5cc2465cdbc117b4",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "9225cc9de2b2d68fffe0f597bd6da80a5f77afa3",
+    "shas": [
+      "9225cc9de2b2d68fffe0f597bd6da80a5f77afa3"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/webmcp.py",
+      "src/scistudio/api/spa.py",
+      "src/scistudio/api/seam.py",
+      "frontend/src/lib/capabilities.ts",
+      "frontend/src/lib/capabilities.test.ts",
+      "tests/api/test_identity_seam.py",
+      "tests/api/seam_contract.py",
+      "tests/api/fake_guard.py",
+      "docs/specs/adr-055-identity-seam.md",
+      "docs/adr/ADR-055.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T09:17:43.451699Z",
+      "owner_directive": "Owner authorized editing ADR-014 \u00a73.1 create_app signature block (2026-09-11, live session: \u6388\u6743\uff0c\u4f60\u53bb\u6539\u5c31\u884c)",
+      "reason": "Owner authorized the ADR-014 section 3.1 signature block update that the create_app seam parameters require (signature_drift blocker); only the create_app code block changes."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T08:16:08.263773Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-identity-seam.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263780Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-055.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263782Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-11T09:02:52.466406Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.479749Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.493119Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.506260Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.518936Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.532160Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.545821Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.559150Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.572610Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.585584Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:02:52.612581Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.031358Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.043167Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.054807Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.067297Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.079812Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.092530Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.105713Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.118391Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.130697Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.142497Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:23.163551Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.439031Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.450515Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.462300Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.473635Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.485244Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.496562Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.507972Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.519362Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.531141Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.542765Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:39.564673Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.424772Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.436490Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.448082Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.459499Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.471205Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.482695Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.494459Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.505793Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.517505Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.529821Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:42.550556Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.296125Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.308816Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.321628Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.334058Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.346437Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.359005Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.371092Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.383437Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.396245Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.415876Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:28:58.438545Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2304,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "36928bf529e3cdc083c41daad16576e6ace307ef",
+    "base_sha": "36928bf52",
+    "changed_files": [
+      ".workflow/records/2304-feat-2304-identity-seam.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-014.md",
+      "docs/adr/ADR-055.md",
+      "docs/specs/adr-055-identity-seam.md",
+      "docs/user/reference/index.md",
+      "docs/user/reference/scistudio.api.app.md",
+      "docs/user/reference/scistudio.api.seam.md",
+      "frontend/src/lib/capabilities.test.ts",
+      "frontend/src/lib/capabilities.ts",
+      "mkdocs.yml",
+      "scripts/docs/build_reference.py",
+      "src/scistudio/_agent_reference/public-api.md",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.api.app.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.api.seam.md",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/webmcp.py",
+      "src/scistudio/api/seam.py",
+      "src/scistudio/api/spa.py",
+      "tests/api/fake_guard.py",
+      "tests/api/public_surface.snapshot.json",
+      "tests/api/seam_contract.py",
+      "tests/api/test_identity_seam.py",
+      "tests/api/test_public_surface.py",
+      "tests/api/test_user_docs.py"
+    ],
+    "diff_fingerprint": "sha256:cbc66ef22abc3cce2e14a51f7bbb5aaca371466f709c5950b7408165b5da4275",
+    "head": "HEAD",
+    "head_sha": "9225cc9de",
+    "surfaces": {
+      "docs": 6,
+      "frontend": 2,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 10,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 19,
+      "test": 7,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Issue #2304 owner decisions 2026-09-11 (option B): OSS keeps status quo (serve binds all interfaces, no login); multi-user Lab moves to private scistudio-enterprise with its own launch command built on create_app. OSS seam: (a) create_app accepts a replacement guard (default = today's loopback token on /api/webmcp/*); (b) startup/background lifespan hook with orderly teardown; (c) self-authenticating path registry honored by every guard, matched on the route path after root-path handling; (d) backend capability declaration read by a typed frontend accessor, default all off, no UI; (e) test-only fake guard plus a reusable guard contract suite. Declare the enterprise-relied surface provisional under ADR-052. Docs: new spec docs/specs/adr-055-identity-seam.md and ADR-055 amendment (status stays Proposed).",
+  "persona": "implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2304
+    ],
+    "number": 2314,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T09:02:52.612608Z",
+      "diff_fingerprint": "sha256:fc335d8edea931d32bbffb845cc3ed2978c1394577c861e0194e69ba6ed8dc6a",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-11T09:28:23.163583Z",
+      "diff_fingerprint": "sha256:953b6c5d6b48c14659c14603fc83ed9d511bc0b0e06ac5510d72b324953abccf",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T09:28:39.564702Z",
+      "diff_fingerprint": "sha256:953b6c5d6b48c14659c14603fc83ed9d511bc0b0e06ac5510d72b324953abccf",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T09:28:42.550586Z",
+      "diff_fingerprint": "sha256:cbc66ef22abc3cce2e14a51f7bbb5aaca371466f709c5950b7408165b5da4275",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T09:28:58.438581Z",
+      "diff_fingerprint": "sha256:cbc66ef22abc3cce2e14a51f7bbb5aaca371466f709c5950b7408165b5da4275",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2304-feat-2304-identity-seam",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:08.263748Z",
+      "pattern": "src/scistudio/api/seam.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763029Z",
+      "pattern": "tests/api/test_public_surface.py",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763047Z",
+      "pattern": "tests/api/public_surface.snapshot.json",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763050Z",
+      "pattern": "scripts/docs/build_reference.py",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763052Z",
+      "pattern": "mkdocs.yml",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763053Z",
+      "pattern": "docs/user/reference/**",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763055Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763056Z",
+      "pattern": "src/scistudio/_agent_reference/public-api.md",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:16:35.763058Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "ADR-052 marking mechanism for decision 3: declaring the enterprise-relied surface provisional means adding scistudio.api.app and scistudio.api.seam as canonical roots. Per the #2080 precedent that requires the freeze test root list and golden snapshot, the reference generator root list and mkdocs nav, the regenerated reference pages (generated, not hand-edited), the agent-facing canonical-root table, and a changelog entry."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:48.754902Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "The regenerated self-contained API reference adds scistudio.api.app and scistudio.api.seam pages to the user-guide tree, and tests/api/test_user_docs.py pins that sidebar row for row; its expected list gains the two rows."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T09:17:43.451715Z",
+      "pattern": "docs/adr/ADR-014.md",
+      "reason": "Owner authorized the ADR-014 section 3.1 signature block update that the create_app seam parameters require (signature_drift blocker); only the create_app code block changes."
+    }
+  ],
+  "session_id": "59244846-8803-4924-a176-03f3120f2c51",
+  "strictness_tier": 1,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T08:16:08.263787Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_identity_seam.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263790Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/seam_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263792Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/fake_guard.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263794Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/capabilities.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:16:08.263796Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

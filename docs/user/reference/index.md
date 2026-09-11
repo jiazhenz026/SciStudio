@@ -26,3 +26,5 @@ A handful of public constants and type-aliases (a bare `str`, a `list[...]` or `
 - [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 public symbols (17 stability-marked)
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 public symbols (11 stability-marked)
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 public symbols (14 stability-marked)
+- [`scistudio.api.app`](scistudio.api.app.md) — 1 public symbols (1 stability-marked)
+- [`scistudio.api.seam`](scistudio.api.seam.md) — 12 public symbols (11 stability-marked)

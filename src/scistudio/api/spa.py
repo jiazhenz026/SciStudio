@@ -18,6 +18,12 @@ WebMCP bridge session token (``window.__SCISTUDIO_WEBMCP_TOKEN__``). Unlike
 the base path, the token applies to every mount including the default root
 mount — desktop and ordinary local-browser pages acquire it transparently
 and present it as a header on every bridge call.
+
+The ADR-055 identity seam (``docs/specs/adr-055-identity-seam.md``, decision
+2d) adds the capability declaration (``window.__SCISTUDIO_CAPABILITIES__``)
+an edition passes to ``create_app``. It is emitted only when at least one
+capability is on, so the open-source shell is unchanged; the frontend reads
+it through ``frontend/src/lib/capabilities.ts``.
 """
 
 from __future__ import annotations
@@ -27,12 +33,15 @@ import os
 import re
 from html import escape
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, Any, cast
 
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from starlette.staticfiles import StaticFiles
 from starlette.types import Scope
+
+if TYPE_CHECKING:
+    from scistudio.api.seam import Capabilities
 
 _HEAD_OPEN = re.compile(r"<head[^>]*>", re.IGNORECASE)
 _HTML_OPEN = re.compile(r"<html[^>]*>", re.IGNORECASE)
@@ -46,19 +55,34 @@ class SPAStaticFiles(StaticFiles):
     remain 404s instead of becoming ``index.html``.
     """
 
-    def __init__(self, *, base_path: str = "", webmcp_session_token: str = "", **kwargs: object) -> None:
+    def __init__(
+        self,
+        *,
+        base_path: str = "",
+        webmcp_session_token: str = "",
+        capabilities: Capabilities | None = None,
+        **kwargs: object,
+    ) -> None:
         super().__init__(**kwargs)  # type: ignore[arg-type]
         # Normalized mount prefix ("" or "/prefix") from app.state.root_path.
         self._base_path = base_path
         # Per-launch WebMCP bridge session token (ADR-055 Spec 1 FR-006);
         # "" disables the token bootstrap assignment.
         self._webmcp_session_token = webmcp_session_token
+        # Capability declaration (identity seam, decision 2d), serialized once;
+        # "" (every capability off) disables the assignment.
+        self._capabilities_json = (
+            _script_safe_json(capabilities.to_bootstrap())
+            if capabilities is not None and capabilities.any_enabled
+            else ""
+        )
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         """Serve SPA routes, but never rewrite unknown API/WebSocket paths."""
         if _is_api_or_ws_path(path):
             raise HTTPException(status_code=404)
-        if (self._base_path or self._webmcp_session_token) and scope.get("method", "GET") == "GET":
+        templated = self._base_path or self._webmcp_session_token or self._capabilities_json
+        if templated and scope.get("method", "GET") == "GET":
             full_path, stat_result = self.lookup_path(path)
             if stat_result is not None:
                 if os.path.isdir(full_path):
@@ -69,12 +93,17 @@ class SPAStaticFiles(StaticFiles):
                         index_candidate = os.path.join(full_path, "index.html")
                         if os.path.isfile(index_candidate):
                             return _templated_index_response(
-                                index_candidate, self._base_path, self._webmcp_session_token
+                                index_candidate,
+                                self._base_path,
+                                self._webmcp_session_token,
+                                self._capabilities_json,
                             )
                 elif os.path.basename(full_path) == "index.html":
                     # Direct index.html request or SPA fallback (lookup_path
                     # already resolved a missing path to index.html).
-                    return _templated_index_response(full_path, self._base_path, self._webmcp_session_token)
+                    return _templated_index_response(
+                        full_path, self._base_path, self._webmcp_session_token, self._capabilities_json
+                    )
         return await super().get_response(path, scope)
 
     def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
@@ -87,10 +116,32 @@ class SPAStaticFiles(StaticFiles):
         return full_path, stat_result
 
 
-def _templated_index_response(index_path: str, base_path: str, webmcp_session_token: str = "") -> Response:
+def _script_safe_json(value: Any) -> str:
+    """Serialize ``value`` as a JSON literal safe inside an inline ``<script>``.
+
+    ``json.dumps`` alone would let a string such as ``</script>`` close the
+    element; escaping ``<``, ``>`` and ``&`` (and the two JavaScript line
+    terminators) as ``\\uXXXX`` keeps the literal inert while it still parses
+    to the same value.
+    """
+    text = json.dumps(value, separators=(",", ":"))
+    for raw, escaped in (
+        ("<", "\\u003c"),
+        (">", "\\u003e"),
+        ("&", "\\u0026"),
+        ("\u2028", "\\u2028"),
+        ("\u2029", "\\u2029"),
+    ):
+        text = text.replace(raw, escaped)
+    return text
+
+
+def _templated_index_response(
+    index_path: str, base_path: str, webmcp_session_token: str = "", capabilities_json: str = ""
+) -> Response:
     """Serve ``index.html`` with the runtime bootstrap injected.
 
-    Three injections, placed immediately after ``<head>`` (falling back to
+    Four injections, placed immediately after ``<head>`` (falling back to
     ``<html>``, then the top of the document) so they take effect before any
     module script or asset reference:
 
@@ -107,6 +158,9 @@ def _templated_index_response(index_path: str, base_path: str, webmcp_session_to
     * ``window.__SCISTUDIO_WEBMCP_TOKEN__`` (when a bridge session token is
       configured) — the per-launch WebMCP bridge session token, injected on
       every mount including the default root mount (Spec 1 FR-006).
+    * ``window.__SCISTUDIO_CAPABILITIES__`` (only when an edition turned a
+      capability on) — the capability declaration of the identity seam,
+      already serialized by :func:`_script_safe_json`.
 
     ``json.dumps`` keeps each JS value a safely quoted string literal;
     ``html.escape`` does the same for the attribute context.
@@ -125,6 +179,8 @@ def _templated_index_response(index_path: str, base_path: str, webmcp_session_to
         assignments += f"window.__SCISTUDIO_BASE_PATH__ = {json.dumps(base_path)};"
     if webmcp_session_token:
         assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(webmcp_session_token)};"
+    if capabilities_json:
+        assignments += f"window.__SCISTUDIO_CAPABILITIES__ = {capabilities_json};"
     injection += f"<script>{assignments}</script>"
     for pattern in (_HEAD_OPEN, _HTML_OPEN):
         match = pattern.search(html)

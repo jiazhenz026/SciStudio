@@ -19,6 +19,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   a commit that is not on `origin/main`, and takes `--no-pypi` to opt out. The
   workflow publishes through PyPI trusted publishing, so no PyPI token is
   stored.
+- [#2304] **An edition can build on SciStudio's backend without forking it.**
+  The open-source edition stays as it is: `scistudio serve` binds every
+  interface and asks for no login. Multi-user Lab deployment moves to a
+  separate enterprise edition, which has its own launch command and builds the
+  standard backend through `scistudio.api.app.create_app`. The factory takes
+  four new keyword arguments for that, and with none of them it builds exactly
+  the backend it built before. `guard=` installs a replacement for the loopback
+  token middleware, and the replacement decides which paths it protects, `/ws`
+  included. `lifespan_hooks=` runs startup checks and background tasks inside
+  the application lifespan and tears them down in reverse before the core
+  runtime stops. `capabilities=` declares enterprise features (`identity`,
+  `transfer`) to the frontend through the served page, where
+  `frontend/src/lib/capabilities.ts` reads them; everything is off by default
+  and no UI changes. `routers=` includes an edition's routes ahead of the SPA
+  mount, which would otherwise shadow them.
+  A module can now register a route-path prefix whose routes authenticate
+  themselves (`register_self_authenticating_prefix`), which is what ADR-054's
+  per-mount panel tokens under `/api/panels/t/` will use. Every guard, the
+  default one included, lets those requests through to their route, matched
+  after the mount prefix is removed. `scistudio.api.app` and
+  `scistudio.api.seam` are new canonical roots, and everything the enterprise
+  edition relies on is `provisional` since 0.3.5, including the shared MCP
+  registry, `AUDIENCE_EXTERNAL_TAG`, and `workflow_runs_active`. A reusable
+  guard contract suite (`tests/api/seam_contract.py`) checks any replacement
+  guard at the root mount and under a mount prefix, starting with a test-only
+  fake guard. Spec: `docs/specs/adr-055-identity-seam.md`; ADR-055 §8 is
+  amended to match.
 
 - [#2280] **SciStudio can run in the background for an external AI tool.** The
   desktop app now asks at launch whether to open the desktop window or run for
