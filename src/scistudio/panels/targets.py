@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
+from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.models import PreviewTarget, TargetKind
 
@@ -146,7 +147,18 @@ def child_targets(
                 child = freeze_target(runtime, ref)
                 child.parent = parent
                 parent.children[ref] = child
-            items.append({"ref": ref, "type_name": child.target.recorded_type, "kind": child.target.kind.value})
+            # Stamp the backend-resolved display name from the child's frozen
+            # (authoritative, non-browser) metadata so the collection grid shows
+            # the real source filename instead of a truncated ref (regression:
+            # the legacy membership path carried this; the frozen path dropped it).
+            items.append(
+                {
+                    "ref": ref,
+                    "type_name": child.target.recorded_type,
+                    "kind": child.target.kind.value,
+                    "display_name": resolve_display_name(child.metadata, fallback=""),
+                }
+            )
         return {**page, "items": items, "truncated": page["sampled"], "complete": not page["sampled"]}
     if parent.storage is None:
         raise PanelError(400, "unsupported", "This target has no composite slots")
