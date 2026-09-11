@@ -336,7 +336,10 @@ CI is 17/17 green at f4e3199cf, and the PR is mergeable (CLEAN), ready for the o
   - R1: PTY sessions are torn down on stop.
   - The real-backend stop test is `tests/api/test_runtime_backend_stop.py`.
   - The uvicorn `timeout_graceful_shutdown` one-liner in `cli/main.py`, which is in #2329's write set, is deferred. A3 adds it on its next main merge after #2329 lands; this is a manager-authorized scope amendment.
-  - CI is being watched. AU5 and AU6 are doing a short final check.
+  - CI is being watched.
+  - AU5 final check at de11b2848: **pass** (53669434b, §8), provided Python 3.13 goes green. N1, N2 (worst case 18 s against a 20 s budget), R1, N3 and N5 are all fixed.
+  - The uvicorn drain bound is tracked in #2351 per AGENTS §3.6.
+  - The AU6 final re-audit is in progress.
 - [~] AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
   - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
   - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
