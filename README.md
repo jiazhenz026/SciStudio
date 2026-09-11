@@ -51,6 +51,16 @@ dependencies are bundled, so there is nothing else to set up.
 
 Then follow the [**Quickstart**](https://jiazhenz026.github.io/SciStudio/user-guide/getting-started.html).
 
+### For servers
+
+```bash
+pip install scistudio
+```
+
+The wheel bundles the web frontend. Every desktop update is also a PyPI release
+of the same build: `0.3.4-alpha-build0029` is `scistudio==0.3.4a29`. Once a
+stable release exists, add `--pre` to get the newest alpha.
+
 ### For developers (run from source)
 
 ```bash

@@ -1,0 +1,321 @@
+name: Publish to PyPI
+
+# #2307: publish the open-source `scistudio` wheel (with the built frontend)
+# and its sdist to PyPI, then attach both to the matching GitHub Release.
+#
+# scripts/ota_publish.py dispatches this after every successful OTA upload, so
+# OTA build N of base 0.3.4 on alpha becomes `scistudio==0.3.4aN`. To run it by
+# hand (a trigger that was refused or failed):
+#
+#   gh workflow run pypi-publish.yml --ref main \
+#     -f ref=<full commit sha> -f build_number=<n> -f channel=alpha
+#
+# The file name and the `pypi` environment are fixed. The trusted publisher
+# registered on PyPI for project `scistudio` names exactly these two, and
+# renaming either breaks publishing with an OIDC error.
+#
+# PyPI versions are immutable: a version can be yanked but never uploaded
+# again. The build therefore refuses a commit that is not on main and a version
+# PyPI already has, before it spends any time building.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Full commit SHA to build: the commit the OTA build was published from. Must be on main."
+        required: true
+        type: string
+      build_number:
+        description: "Build number to stamp. OTA build 29 of 0.3.4 alpha publishes 0.3.4a29."
+        required: true
+        type: string
+      channel:
+        description: "Release channel. Must match CHANNEL in src/scistudio/_version.py at that commit."
+        required: true
+        default: alpha
+        type: choice
+        options:
+          - alpha
+          - beta
+          - stable
+
+# One run per version. A second dispatch for the same build waits for the first
+# instead of racing it to PyPI, then stops at the "already on PyPI" check.
+concurrency:
+  group: pypi-publish-${{ inputs.channel }}-${{ inputs.build_number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build wheel and sdist
+    runs-on: ubuntu-latest
+    # #2172: without this GitHub's six-hour default applies.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      base: ${{ steps.version.outputs.base }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    steps:
+      - name: Validate inputs
+        env:
+          REF: ${{ inputs.ref }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          if ! [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::ref must be a full 40-character commit SHA, got '$REF'."
+            exit 1
+          fi
+          if ! [[ "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::build_number must be a positive integer, got '$BUILD_NUMBER'."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          # Full history, so the commit can be checked against origin/main.
+          fetch-depth: 0
+
+      - name: Require a commit on main
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          if ! git merge-base --is-ancestor "$REF" origin/main; then
+            echo "::error::$REF is not on main. A PyPI version is permanent; publish only merged commits."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      # The expected version is derived from the inputs, not read back from the
+      # sync below, so a channel input that disagrees with the commit's CHANNEL
+      # fails the assertion in "Stamp the version" instead of publishing a
+      # version nobody asked for.
+      - name: Resolve the version
+        id: version
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          BUILD_NUMBER: ${{ inputs.build_number }}
+        run: |
+          python - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          import os
+          import sys
+
+          sys.path.insert(0, "src")
+          from scistudio._version import BASE_VERSION
+          from scistudio.version import format_pep440
+
+          channel = os.environ["CHANNEL"]
+          build = int(os.environ["BUILD_NUMBER"])
+          tag = f"v{BASE_VERSION}" if channel == "stable" else f"v{BASE_VERSION}-{channel}"
+          print(f"version={format_pep440(BASE_VERSION, channel, build)}")
+          print(f"base={BASE_VERSION}")
+          print(f"release_tag={tag}")
+          PY
+
+      - name: Refuse a version PyPI already has
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/scistudio/$VERSION/json")
+          if [ "$status" = "200" ]; then
+            echo "::error::scistudio $VERSION is already on PyPI, and a PyPI version cannot be uploaded twice. If only the GitHub Release job failed, re-run that job from the original run."
+            exit 1
+          fi
+          echo "PyPI has no scistudio $VERSION (HTTP $status)."
+
+      - name: Stamp the version
+        env:
+          SCISTUDIO_BUILD_NUMBER: ${{ inputs.build_number }}
+          EXPECTED: ${{ steps.version.outputs.version }}
+        run: |
+          python scripts/version.py sync
+          python - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as handle:
+              actual = tomllib.load(handle)["project"]["version"]
+          expected = os.environ["EXPECTED"]
+          if actual != expected:
+              raise SystemExit(
+                  f"pyproject.toml says {actual!r} after sync, expected {expected!r}. "
+                  "The channel input must match CHANNEL in src/scistudio/_version.py at this commit."
+              )
+          print(f"pyproject.toml version: {actual}")
+          PY
+
+      # From here to the smoke test these steps mirror ci.yml's Wheel Release
+      # Smoke job, which proves them on every PR.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "frontend/package-lock.json"
+      - name: Install build tooling
+        run: python -m pip install --upgrade pip build twine
+      - name: Build frontend for packaging
+        working-directory: frontend
+        run: npm ci && npm run build
+      - name: Copy build output to Python package
+        run: |
+          rm -rf src/scistudio/api/static
+          cp -r frontend/dist/ src/scistudio/api/static/
+      - name: Verify frontend bundle staged for wheel
+        run: |
+          test -f src/scistudio/api/static/index.html || {
+            echo "ERROR: missing src/scistudio/api/static/index.html after copying frontend/dist."
+            exit 1
+          }
+          JS_ASSET=$(find src/scistudio/api/static/assets -type f -name '*.js' -print -quit)
+          if [ -z "$JS_ASSET" ]; then
+            echo "ERROR: missing JS asset under src/scistudio/api/static/assets after copying frontend/dist."
+            exit 1
+          fi
+          grep -q '/assets/' src/scistudio/api/static/index.html || {
+            echo "ERROR: staged frontend index.html does not reference bundled assets."
+            exit 1
+          }
+      # `python -m build` builds the sdist first and the wheel from that sdist,
+      # so the wheel only carries the SPA if the sdist does.
+      - name: Build sdist and wheel with required frontend bundle
+        env:
+          SCISTUDIO_REQUIRE_FRONTEND_BUILD: "1"
+        run: python -m build
+      - name: Inspect sdist and wheel contents
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import tarfile
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          version = os.environ["VERSION"]
+          expected = {f"scistudio-{version}-py3-none-any.whl", f"scistudio-{version}.tar.gz"}
+          found = {path.name for path in Path("dist").iterdir()}
+          if found != expected:
+              raise SystemExit(f"expected exactly {sorted(expected)} in dist/, found {sorted(found)}")
+
+          wheel = Path("dist") / f"scistudio-{version}-py3-none-any.whl"
+          with ZipFile(wheel) as archive:
+              names = set(archive.namelist())
+          index = "scistudio/api/static/index.html"
+          js_assets = [
+              name
+              for name in names
+              if name.startswith("scistudio/api/static/assets/") and name.endswith(".js")
+          ]
+          if index not in names:
+              raise SystemExit(f"missing {index} in {wheel}")
+          if not js_assets:
+              raise SystemExit(f"missing JS asset under scistudio/api/static/assets/ in {wheel}")
+          print(f"{wheel} contains {index} and {len(js_assets)} JS asset(s)")
+
+          sdist = Path("dist") / f"scistudio-{version}.tar.gz"
+          with tarfile.open(sdist) as archive:
+              sdist_index = f"scistudio-{version}/src/scistudio/api/static/index.html"
+              if sdist_index not in archive.getnames():
+                  raise SystemExit(f"missing {sdist_index} in {sdist}")
+          print(f"{sdist} contains the SPA")
+          PY
+      - name: Install wheel and smoke-test GUI root
+        run: |
+          python -m venv .venv-wheel-smoke
+          . .venv-wheel-smoke/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python - <<'PY'
+          from fastapi.testclient import TestClient
+
+          from scistudio.api.app import create_app
+
+          with TestClient(create_app()) as client:
+              response = client.get("/", follow_redirects=False)
+
+          if response.is_redirect or response.headers.get("location") == "/docs":
+              raise SystemExit("GET / redirected to /docs instead of serving the GUI")
+          if response.status_code != 200:
+              raise SystemExit(f"GET / returned {response.status_code}")
+          if "<html" not in response.text.lower() or "/assets/" not in response.text:
+              raise SystemExit("GET / did not return bundled GUI HTML")
+          print("GET / served bundled GUI HTML")
+          PY
+      - name: Check package metadata
+        run: python -m twine check --strict dist/*
+      - name: Upload the distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: scistudio-dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Must stay `pypi`: PyPI's trusted publisher for `scistudio` is bound to it.
+    environment: pypi
+    permissions:
+      # Trusted publishing: PyPI exchanges this OIDC token for a short-lived
+      # upload token, so no PyPI credential is stored in the repository.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: scistudio-dist
+          path: dist/
+      - name: Publish through trusted publishing
+        uses: pypa/gh-action-pypi-publish@v1.14.2
+
+  github-release:
+    name: Attach to the GitHub Release
+    needs: [build, publish-pypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: scistudio-dist
+          path: dist/
+      # The release for a base normally already exists, holding the desktop
+      # installers. A PyPI publish that reaches a new base before its installers
+      # creates the release instead of failing, and says so in the run summary.
+      - name: Upload the wheel and sdist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.release_tag }}
+          BASE: ${{ needs.build.outputs.base }}
+          VERSION: ${{ needs.build.outputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          REF: ${{ inputs.ref }}
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            echo "Attaching scistudio $VERSION to the existing release $TAG."
+          else
+            echo "::warning::Release $TAG does not exist yet; creating it at $REF. Attach the desktop installers to it when they are built."
+            args=(
+              --target "$REF"
+              --title "SciStudio $BASE ($CHANNEL)"
+              --notes "Created by the PyPI publish workflow for the Python packages (pip install scistudio==$VERSION). The desktop installers are attached separately; see docs/ai-developer/release-runbook.md."
+            )
+            if [ "$CHANNEL" != "stable" ]; then
+              args+=(--prerelease)
+            fi
+            gh release create "$TAG" "${args[@]}"
+          fi
+          gh release upload "$TAG" dist/* --clobber
+          echo "Attached to $TAG:"
+          printf '  %s\n' dist/*
