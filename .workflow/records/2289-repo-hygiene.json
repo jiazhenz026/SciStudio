@@ -217,9 +217,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "d7b806ea81f35758503df3fca4b0eb70b62c56fe",
+    "sha": "cc2f3a8802130a1cce0fae21789eebd1f34c6e8b",
     "shas": [
-      "d7b806ea81f35758503df3fca4b0eb70b62c56fe"
+      "cc2f3a8802130a1cce0fae21789eebd1f34c6e8b"
     ],
     "trailers": []
   },
@@ -904,6 +904,204 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.764705Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.775935Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.786872Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.797877Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.808955Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.820109Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.831115Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.841934Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.853187Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:42.863956Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:43.492062Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.439371Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.451911Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.463660Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.474865Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.486233Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.498430Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.510657Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.522606Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.535072Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:46.546101Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:47.167995Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.147918Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.159666Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.170926Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.182611Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.193836Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.205876Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.217144Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.229041Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.241977Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.254350Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:55:48.872142Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -916,7 +1114,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "84643e354f1932aab00e7ff7087e5061fe61054b",
     "base_sha": "84643e354",
     "changed_files": [
       ".workflow/records/1646-gate-check-incrementality.json",
@@ -1261,9 +1459,9 @@
       "docs/planning/phase3-bucket-d-checklist.md",
       "docs/planning/spectroscopy-package-checklist.md"
     ],
-    "diff_fingerprint": "sha256:67610b34a6c55bf08332479548284ef6d4d9901c701012e003006f2d8b84f3b0",
+    "diff_fingerprint": "sha256:bd5ef1248aeb6efc25f18cf41d3e4660c27193e5705fe2fbc5894571deb508b9",
     "head": "HEAD",
-    "head_sha": "d7b806ea8",
+    "head_sha": "cc2f3a880",
     "surfaces": {
       "docs": 148,
       "frontend": 0,
@@ -1285,7 +1483,7 @@
     "closes": [
       2289
     ],
-    "number": null,
+    "number": 2291,
     "url": null
   },
   "reconcile_events": [
@@ -1361,6 +1559,30 @@
     {
       "at": "2026-09-11T05:55:39.776692Z",
       "diff_fingerprint": "sha256:67610b34a6c55bf08332479548284ef6d4d9901c701012e003006f2d8b84f3b0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:55:43.492099Z",
+      "diff_fingerprint": "sha256:bd5ef1248aeb6efc25f18cf41d3e4660c27193e5705fe2fbc5894571deb508b9",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:55:47.168032Z",
+      "diff_fingerprint": "sha256:bd5ef1248aeb6efc25f18cf41d3e4660c27193e5705fe2fbc5894571deb508b9",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:55:48.872177Z",
+      "diff_fingerprint": "sha256:bd5ef1248aeb6efc25f18cf41d3e4660c27193e5705fe2fbc5894571deb508b9",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
