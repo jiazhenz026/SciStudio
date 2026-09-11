@@ -813,6 +813,90 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:12:05.135731Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8d4877a9bcaa182da1bdbe9eeb84ed7b448007b9093d05336aad581e39a7bb07",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:12:05.159040Z",
+      "command": "ruff format src/scistudio/api/app.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/sse.py src/scistudio/api/ws.py src/scistudio/cli/main.py tests/api/test_runtime_backend_stop.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py tests/cli/test_cli.py tests/cli/test_graceful_shutdown_bound.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7844b1be59d2eb147177230ed1470bff40424d7a0c7d05342dfa796b8984be8c",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T16:12:18.681346Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e28c958ab28295c2a85748debde74e8298f7c92e825cf50b3b9dc602975f2330",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:12:18.702359Z",
+      "command": "ruff check src/scistudio/api/app.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/sse.py src/scistudio/api/ws.py src/scistudio/cli/main.py tests/api/test_runtime_backend_stop.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py tests/cli/test_cli.py tests/cli/test_graceful_shutdown_bound.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e48a4191c5f2e15b025ec706afbc283ca58344b228a67e810d80003a6e473a6f",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T16:15:25.171059Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/test_runtime_backend_stop.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py tests/cli tests/cli/test_cli.py tests/cli/test_graceful_shutdown_bound.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2a87c7a5a5113b1f594219e36a30ff154b52316b2f3bc872008e9c0eb9cc7191",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -2489,6 +2573,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.243457Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.255588Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.267384Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.279363Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.291208Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.302440Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.314253Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.325583Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.337075Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.348088Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:15:25.376368Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2513,7 +2685,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "aedb83c19451607258b1912189be7c426ff85130",
+    "base": "origin/main",
     "base_sha": "aedb83c19",
     "changed_files": [
       ".workflow/records/2327-audit-2327-o3-no-context.json",
@@ -2549,9 +2721,9 @@
       "tests/cli/test_cli.py",
       "tests/cli/test_graceful_shutdown_bound.py"
     ],
-    "diff_fingerprint": "sha256:32d573955b5c3883a6f6af1bbb0c174a5c1a27819e391d4fa8bfbe51c873ee58",
+    "diff_fingerprint": "sha256:86461ae77931bdd7c66ab5bc8d2334a0cc7e99ddfd2c780aa5ca3ccd377e3677",
     "head": "HEAD",
-    "head_sha": "3017e6363",
+    "head_sha": "0770595b4",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -2724,6 +2896,14 @@
     {
       "at": "2026-09-11T15:54:38.945430Z",
       "diff_fingerprint": "sha256:32d573955b5c3883a6f6af1bbb0c174a5c1a27819e391d4fa8bfbe51c873ee58",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T16:15:25.376395Z",
+      "diff_fingerprint": "sha256:86461ae77931bdd7c66ab5bc8d2334a0cc7e99ddfd2c780aa5ca3ccd377e3677",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
