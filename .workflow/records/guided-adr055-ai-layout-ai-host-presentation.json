@@ -1469,7 +1469,14 @@
   },
   "runtime": "codex",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T10:17:08.161363Z",
+      "pattern": "desktop/test/harness/run-scenario.js",
+      "reason": "CI found the desktop orchestration scenario still asserts a bare origin; align its copy-address contract with the owner-approved AI entry URL"
+    }
+  ],
   "session_id": "b8fba8a6-c17d-4f13-9923-2daeb45b3bf7",
   "strictness_tier": 2,
   "task_kind": "guided",
@@ -1511,6 +1518,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/palette/__tests__/useHoverPopover.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:17:08.161386Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/harness/run-scenario.js",
       "rationale": null,
       "verified_in_diff": null
     }
