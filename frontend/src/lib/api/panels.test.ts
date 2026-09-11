@@ -29,7 +29,7 @@ describe("guarded panel client", () => {
           "X-Panel-Shape": "[2]",
           "X-Panel-Metadata": '{"complete":true}',
         }),
-        arrayBuffer: async () => binary,
+        body: new Response(binary).body,
       });
       expect(await panelsApi.read("pc-1", "data-1", "array.plane", { format: "binary" })).toEqual({
         data: binary,

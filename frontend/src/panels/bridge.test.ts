@@ -4,6 +4,7 @@ import type { PanelContext } from "./types";
 
 export const context: PanelContext = {
   context_id: "pc-1",
+  bootstrap_proof: "proof",
   panel: { id: "lab.image", api_version: "1.0" },
   kind: "preview",
   operations: ["read"],

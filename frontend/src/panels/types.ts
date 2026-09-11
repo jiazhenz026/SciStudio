@@ -14,6 +14,7 @@ export interface PanelCreateRequest {
 }
 export interface PanelContext {
   context_id: string;
+  bootstrap_proof: string;
   panel: { id: string; api_version: string; name?: string };
   kind: PanelKind;
   operations: string[];

@@ -1,3 +1,4 @@
+import { bootstrapFrame } from "./testUtils";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockBackend, reply, type MockBackend } from "../__tests__/contract/mockBackend";
@@ -7,7 +8,8 @@ import type { PanelContext } from "./types";
 
 const context: PanelContext = {
   context_id: "pc-1",
-  panel: { id: "lab.image", api_version: "1.0" },
+  bootstrap_proof: "a".repeat(64),
+  panel: { id: "lab.image", api_version: "1.0", name: "lab.image" },
   kind: "preview",
   operations: ["read"],
   services: ["open", "save"],
@@ -66,11 +68,11 @@ describe("PanelFrame", () => {
     expect(iframe).toHaveAttribute("referrerpolicy", "no-referrer");
     expect(iframe.getAttribute("src")).toBe(context.entry_url);
     const post = vi.spyOn(iframe.contentWindow!, "postMessage");
+    const bootstrap = bootstrapFrame(iframe);
     fireEvent.load(iframe);
-    expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith(
+    expect(post).not.toHaveBeenCalled();
+    expect(bootstrap.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "init", payload: expect.objectContaining({ basePath: "" }) }),
-      "*",
       [channels[0].port2],
     );
     fireEvent.load(iframe);
@@ -98,7 +100,8 @@ describe("PanelFrame", () => {
   it("times out, offers explicit remount and core fallback", async () => {
     const fallback = vi.fn();
     render(<PanelFrame request={request} onFallback={fallback} />);
-    const iframe = await screen.findByTitle("lab.image");
+    const iframe = (await screen.findByTitle("lab.image")) as HTMLIFrameElement;
+    bootstrapFrame(iframe);
     fireEvent.load(iframe);
     await act(async () => {
       channels[0].port1.onmessage?.({
@@ -122,4 +125,20 @@ describe("PanelFrame", () => {
     });
     expect(screen.getByRole("alert")).toHaveTextContent("10 seconds");
   });
+});
+
+it("never transfers input to a document without the first context-bound bootstrap", async () => {
+  render(<PanelFrame request={request} />);
+  const iframe = (await screen.findByTitle("lab.image")) as HTMLIFrameElement;
+  const wrong = bootstrapFrame(iframe, "wrong-document-proof");
+  const windowPost = vi.spyOn(iframe.contentWindow!, "postMessage");
+  fireEvent.load(iframe);
+  expect(channels).toHaveLength(0);
+  expect(windowPost).not.toHaveBeenCalled();
+  expect(wrong.postMessage).not.toHaveBeenCalled();
+  const trusted = bootstrapFrame(iframe);
+  expect(trusted.postMessage).toHaveBeenCalledOnce();
+  const duplicate = bootstrapFrame(iframe);
+  expect(duplicate.postMessage).not.toHaveBeenCalled();
+  expect(channels).toHaveLength(1);
 });

@@ -1,4 +1,5 @@
 /** Guarded host operations. Static tokens are never sent as operation credentials. */
+import { readPanelBody } from "../../panels/readBody";
 import { materializePanelArtifact } from "../../panels/artifact";
 import { apiFetch, JSON_HEADERS } from "./core";
 import type { PanelContext, PanelCreateRequest } from "../../panels/types";
@@ -55,7 +56,7 @@ export const panelsApi = {
       ...JSON.parse(response.headers.get("X-Panel-Metadata") ?? "{}"),
       dtype: response.headers.get("X-Panel-Dtype"),
       shape: JSON.parse(response.headers.get("X-Panel-Shape") ?? "[]"),
-      data: await response.arrayBuffer(),
+      data: await readPanelBody(response, { signal, limit: 8 * 1024 * 1024 }),
     };
   },
 };

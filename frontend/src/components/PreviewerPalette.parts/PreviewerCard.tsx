@@ -96,11 +96,17 @@ export function PreviewerCard({
       <p className="break-all text-sm font-medium text-ink">{previewer.previewer_id}</p>
 
       <p className="mt-1 text-[11px] text-stone-500">
-        renders{" "}
-        <span className="font-medium text-stone-700">
-          {previewer.panel?.types.join(", ") || previewer.target_type}
-        </span>
-        {previewer.supports_collection ? " (and collections)" : ""}
+        {previewer.renderer === "panel" && !previewer.panel?.contexts.includes("preview") ? (
+          "Interactive block panel"
+        ) : (
+          <>
+            renders{" "}
+            <span className="font-medium text-stone-700">
+              {previewer.panel?.types.join(", ") || previewer.target_type}
+            </span>
+            {previewer.supports_collection ? " (and collections)" : ""}
+          </>
+        )}
       </p>
       <p className="mt-0.5 text-[11px] text-stone-500">
         {ownerKindLabel(previewer.owner_kind)}

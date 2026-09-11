@@ -16,8 +16,15 @@ owns the MiniApps/All Previewers transition and directory promotion.
 ## Host And Wire Contract
 
 `PanelFrame` creates one backend context, opaque sandbox (`allow-scripts` only),
-and MessageChannel per mount. Its first load transfers one port to the intended
-frame; subsequent loads close the port and revoke the context. Context creation
+and canonical MessageChannel per mount. The entry response begins with a trusted
+bootstrap before any original markup. The host accepts only its first hello from
+the intended frame with the context's unpredictable `bootstrap_proof` and one
+private document-bound port. On first load the host transfers canonical init and
+its canonical channel through that bootstrap port, never to `contentWindow`
+(which may already refer to another document). A pre-load navigation destroys
+the old document's port; the new document receives no input. A missing valid
+hello waits without authority until the 10 second deadline. Subsequent loads
+close all ports and revoke the context. Context creation
 that resolves after disposal immediately closes its orphaned context. A 10 second
 ready deadline and reported exceptions show explicit remount, core-preview or
 Cancel actions. Mounted contexts renew through guarded host requests every four
@@ -52,7 +59,9 @@ restores the parent's live state. Core fallback is an explicit reroute through
 The host validates the exact same-origin, prefix-aware artifact route and fetches
 it through `apiFetch` with redirects refused. A separate 100 MiB artifact budget
 checks declared size, Content-Length and actual streamed bytes; over-budget
-results fail explicitly. Unmount aborts outstanding reads. The host transfers the
+results fail explicitly. Both artifact and numeric bodies have independent
+30 second deadlines after headers. Unmount interrupts even a pending stream
+read; numeric bodies also enforce the 8 MiB transport budget. The host transfers the
 bytes to the SDK, which preserves metadata, adds `data` and creates its own local
 Blob `url`. Images use that URL; PDF.js consumes `data` directly. Replacement and
 disposal revoke Blob URLs. The frame never needs fetch or broader CSP access.
@@ -126,6 +135,7 @@ and observe an explicit user destination choice. Run the combined gate and CI.
 The original 1000 KiB added-file check was reproduced with an independent
 temporary git directory/index anchored to origin/main. It refused Plotly
 (4452 KiB) and the PDF worker (1015 KiB); the actual working HEAD/index were
-unchanged. Owner subsequently authorized a global 30 MiB threshold, committed
+unchanged. The same staged-addition reproduction passes with the subsequently
+authorized 30720 KiB configuration. Owner subsequently authorized a global 30 MiB threshold, committed
 by manager as 9ae3a0e2. Final integration must use that authorized configuration;
 this branch does not alter hooks or exclude files.

@@ -4,6 +4,7 @@ import { panelsApi } from "../lib/api/panels";
 import { createPanelBridge } from "./bridge";
 import { savePanelBytes } from "./save";
 import { observePanelTheme, readPanelTheme } from "./theme";
+import { isRecord } from "./types";
 import type { PanelContext, PanelCreateRequest } from "./types";
 
 export interface PanelFrameProps {
@@ -29,6 +30,8 @@ export function PanelFrame(props: PanelFrameProps) {
   const [height, setHeight] = useState(420);
   const [ready, setReady] = useState(false);
   const loaded = useRef(false);
+  const bootstrapPort = useRef<MessagePort | null>(null);
+  const initialize = useRef<() => void>(() => {});
   const readsAbort = useRef<AbortController | null>(null);
   const readyTimer = useRef<ReturnType<typeof setTimeout>>();
   const requestKey = JSON.stringify(props.request);
@@ -43,10 +46,33 @@ export function PanelFrame(props: PanelFrameProps) {
     setError(null);
     setReady(false);
     loaded.current = false;
+    bootstrapPort.current = null;
+    const receiveBootstrap = (event: MessageEvent<unknown>) => {
+      const message = event.data;
+      if (
+        disposed ||
+        bootstrapPort.current ||
+        !active ||
+        event.source !== frame.current?.contentWindow ||
+        !isRecord(message) ||
+        message.v !== 1 ||
+        message.type !== "bootstrap" ||
+        typeof active.bootstrap_proof !== "string" ||
+        active.bootstrap_proof.length < 32 ||
+        message.proof !== active.bootstrap_proof ||
+        event.ports.length !== 1
+      )
+        return;
+      bootstrapPort.current = event.ports[0];
+      if (loaded.current) initialize.current();
+    };
+    window.addEventListener("message", receiveBootstrap);
     const close = () => {
       if (disposed) return;
       disposed = true;
       controller.abort();
+      window.removeEventListener("message", receiveBootstrap);
+      bootstrapPort.current?.close();
       clearTimeout(readyTimer.current);
       clearInterval(renewal);
       bridge.current?.dispose();
@@ -66,7 +92,11 @@ export function PanelFrame(props: PanelFrameProps) {
         callbacks.current.onContext?.(result);
         readyTimer.current = setTimeout(() => {
           close();
-          setError("Panel did not call ready() within 10 seconds");
+          setError(
+            bootstrapPort.current
+              ? "Panel did not call ready() within 10 seconds"
+              : "Panel did not establish its entry handshake within 10 seconds",
+          );
         }, 10000);
         // Renew before the 600-second expiry. Static imports require no cookie;
         // this host heartbeat retains the guarded context lifetime while mounted.
@@ -91,15 +121,8 @@ export function PanelFrame(props: PanelFrameProps) {
     teardown.current();
     setError(message);
   };
-  const onLoad = () => {
-    if (!context || !frame.current?.contentWindow || error) return;
-    // The opaque frame cannot expose location. Any subsequent load (including
-    // reload, hash-independent navigation or redirect) invalidates the mount.
-    if (loaded.current) {
-      fail("Panel navigated away from its entry page");
-      return;
-    }
-    loaded.current = true;
+  const connect = () => {
+    if (!context || !bootstrapPort.current || bridge.current || error) return;
     const channel = new MessageChannel();
     bridge.current = createPanelBridge(channel.port1, context, {
       read: (ref, op, params) =>
@@ -120,7 +143,7 @@ export function PanelFrame(props: PanelFrameProps) {
       },
       failure: fail,
     });
-    frame.current.contentWindow.postMessage(
+    bootstrapPort.current.postMessage(
       {
         v: 1,
         id: "init",
@@ -138,9 +161,21 @@ export function PanelFrame(props: PanelFrameProps) {
           libBaseUrl: context.lib_base_url,
         },
       },
-      "*",
       [channel.port2],
-    ); // An opaque sandbox has no target origin to name.
+    );
+  };
+  initialize.current = connect;
+  const onLoad = () => {
+    if (!context || error) return;
+    if (loaded.current) {
+      fail("Panel navigated away from its entry page");
+      return;
+    }
+    loaded.current = true;
+    // Never hand input to contentWindow: it can already be a different document.
+    // An early hello may be queued behind load; retain no authority until its
+    // proof-bound, original-document port arrives (the ready deadline still runs).
+    connect();
   };
 
   return (

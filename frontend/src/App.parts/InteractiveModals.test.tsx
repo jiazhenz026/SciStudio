@@ -1,3 +1,4 @@
+import { bootstrapFrame } from "../panels/testUtils";
 /**
  * #2195 — the host must always offer a way out of an interactive block.
  *
@@ -10,7 +11,7 @@
  * with no window at all and only a `console.warn` to show for it.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../store";
@@ -144,4 +145,60 @@ describe("<InteractiveModals> panel resolution", () => {
     const { container } = render(<InteractiveModals />);
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+it("sends a panel decision through the existing workflow event with its context id", async () => {
+  backend.restore();
+  backend = mockBackend({
+    "POST /api/panels/contexts": {
+      context_id: "pc-interactive",
+      bootstrap_proof: "a".repeat(64),
+      panel: { id: "lab.decision", api_version: "1.0", name: "Decision" },
+      kind: "interactive",
+      operations: ["writeBack"],
+      services: ["save"],
+      input: { question: "Choose" },
+      token: "token",
+      expires_at: 999999,
+      entry_url: "/api/panels/t/token/assets/lab.decision/index.html",
+      sdk_url: "/api/panels/t/token/sdk/1/scistudio-panel.js",
+      lib_base_url: "/api/panels/t/token/lib/",
+    },
+    "DELETE /api/panels/contexts/{context_id}": reply(204),
+  });
+  const port = {
+    onmessage: null,
+    postMessage: vi.fn(),
+    start: vi.fn(),
+    close: vi.fn(),
+  } as unknown as MessagePort;
+  vi.stubGlobal(
+    "MessageChannel",
+    class {
+      port1 = port;
+      port2 = {};
+    },
+  );
+  seedPrompt({ panel_id: "lab.decision", api_version: "1.0" });
+  render(<InteractiveModals />);
+  const iframe = (await screen.findByTitle("Decision")) as HTMLIFrameElement;
+  bootstrapFrame(iframe);
+  fireEvent.load(iframe);
+  const message = async (type: string, payload: unknown) => {
+    await act(async () => {
+      await port.onmessage?.({ data: { v: 1, id: type, type, payload } } as MessageEvent);
+    });
+  };
+  await message("ready", null);
+  await message("writeBack", { selected: [2] });
+  expect(sendWebSocketMessage).toHaveBeenCalledWith({
+    type: "interactive_complete",
+    workflow_id: "wf-1",
+    block_id: "block-1",
+    context_id: "pc-interactive",
+    bootstrap_proof: "a".repeat(64),
+    data: { selected: [2] },
+  });
+  expect(useAppStore.getState().interactivePrompt).toBeNull();
+  vi.unstubAllGlobals();
 });

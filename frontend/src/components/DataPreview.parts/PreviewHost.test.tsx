@@ -28,11 +28,11 @@ const fetchMock = vi.fn();
 let anchorClickSpy: ReturnType<typeof vi.spyOn> | null = null;
 
 vi.mock("../../lib/api", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../lib/api")>();
+  const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
     api: {
-      ...actual.api,
+      ...(actual.api as Record<string, unknown>),
       createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
       patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
       getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),

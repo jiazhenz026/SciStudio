@@ -1,5 +1,6 @@
 import { apiFetch } from "../lib/api/core";
 import { apiUrl } from "../lib/api/base-path";
+import { readPanelBody } from "./readBody";
 import { PanelError } from "./types";
 
 export const DEFAULT_PANEL_ARTIFACT_LIMIT = 100 * 1024 * 1024;
@@ -34,44 +35,12 @@ export async function materializePanelArtifact(
     redirect: "error",
     timeoutMs: 30000,
   });
-  if (Number(response.headers.get("Content-Length")) > limit) {
-    await response.body?.cancel();
-    throw new PanelError("size_limit", `Artifact exceeds the ${limit} byte limit`);
-  }
-  if (!response.body) throw new PanelError("invalid_response", "Artifact response has no body");
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    while (true) {
-      signal?.throwIfAborted();
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > limit) {
-        await reader.cancel();
-        throw new PanelError("size_limit", `Artifact exceeds the ${limit} byte limit`);
-      }
-      chunks.push(value);
-    }
-  } catch (error) {
-    await reader.cancel().catch(() => {});
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
-  signal?.throwIfAborted();
-  const data = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    data.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const data = await readPanelBody(response, { signal, limit });
   const { url: _grant, ...info } = metadata;
   return {
     ...info,
     mime_type:
       metadata.mime_type ?? response.headers.get("Content-Type") ?? "application/octet-stream",
-    data: data.buffer,
+    data,
   };
 }
