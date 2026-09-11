@@ -1,29 +1,31 @@
-"""The type a file extension is opened as, remembered per project (#2112).
-
-Several registered types can load the same extension, and which one is right is
-a fact about the data, not about the installation. A ``.tif`` in one project is
-a plain microscopy ``Image``; in another it is the project's own ``SRSImage``.
-The load capability table can list the candidates but cannot choose between
-them, and picking by tier order would make the answer depend on which packages
-happen to be installed rather than on what the file actually holds.
-
-So the person chooses, once, and this module remembers the choice: extension ->
-type name, for one project. Project-scoped on purpose — the collision that
-makes the question worth asking usually comes from a project-local drop-in
-type, and a global answer would carry one project's convention into every other
-one. There is no user layer for the same reason.
-
-Every read is best-effort. A missing file, malformed JSON, an unknown key from
-a newer build, or an entry of the wrong shape is skipped rather than raised: a
-lost preference must never be able to stop a file from opening, only to make
-the picker ask again.
-
-Sibling to :mod:`scistudio.previewers.choices` on purpose: both store a
-person's preference about what they see, in one file each under the same
-project library dir, and both are read by the data routes rather than by the
-previewer machinery itself. Keeping them together keeps the two from drifting
-into different conventions for the same kind of file.
-"""
+"""The type a file extension is opened as, remembered per project."""
+# Maintainer context (kept outside generated API documentation):
+# The type a file extension is opened as, remembered per project (#2112).
+#
+# Several registered types can load the same extension, and which one is right is
+# a fact about the data, not about the installation. A ``.tif`` in one project is
+# a plain microscopy ``Image``; in another it is the project's own ``SRSImage``.
+# The load capability table can list the candidates but cannot choose between
+# them, and picking by tier order would make the answer depend on which packages
+# happen to be installed rather than on what the file actually holds.
+#
+# So the person chooses, once, and this module remembers the choice: extension ->
+# type name, for one project. Project-scoped on purpose — the collision that
+# makes the question worth asking usually comes from a project-local drop-in
+# type, and a global answer would carry one project's convention into every other
+# one. There is no user layer for the same reason.
+#
+# Every read is best-effort. A missing file, malformed JSON, an unknown key from
+# a newer build, or an entry of the wrong shape is skipped rather than raised: a
+# lost preference must never be able to stop a file from opening, only to make
+# the picker ask again.
+#
+# Sibling to :mod:`scistudio.previewers.choices` on purpose: both store a
+# person's preference about what they see, in one file each under the same
+# project library dir, and both are read by the data routes rather than by the
+# previewer machinery itself. Keeping them together keeps the two from drifting
+# into different conventions for the same kind of file.
+# Development references: #2112.
 
 from __future__ import annotations
 

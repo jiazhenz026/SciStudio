@@ -1,50 +1,52 @@
-"""Runtime context for MCP tools.
-
-T-ECA-202..205. The 25 MCP tools need to talk to SciStudio's in-process
-runtime — the :class:`BlockRegistry`, :class:`TypeRegistry`, live
-workflow runs, the data catalog, the lineage / metadata stores, and the
-project root. The natural carrier of all those things is
-:class:`scistudio.api.runtime.ApiRuntime`, but two problems prevent the
-MCP tools from importing it directly:
-
-1. **Test isolation.** Unit tests need to inject a synthetic context
-   without spinning up a full FastAPI app.
-2. **Layering.** ``ai/`` cannot import from ``api/`` (the import-linter
-   contracts in ``pyproject.toml`` forbid it — ``api`` sits *above*
-   ``ai`` in the dep graph).
-
-Resolution: this module exposes a small typing-only
-:class:`MCPContext` Protocol plus a global getter/setter pair. The
-FastAPI lifespan handler in :func:`scistudio.api.app.lifespan` calls
-:func:`set_context` with the live ``ApiRuntime`` (which satisfies the
-Protocol structurally — no inheritance required). Tools fetch the
-current context via :func:`get_context` and act on it.
-
-For unit tests, the test fixture builds a tiny in-memory context and
-calls :func:`set_context` for the duration of the test.
-
-The Protocol is **structural**: callers only need attributes / methods
-the tools actually reach for. Anything broader would create a hidden
-coupling.
-
-ADR-055 Spec 2 (#2279) adds two *optional capabilities* beside the core
-Protocol, read through :func:`get_project_files` and
-:func:`get_process_registry` so a context without them (the standalone
-bridge, a unit-test stub) degrades to an explicit "unavailable" instead of an
-``AttributeError``:
-
-* ``project_files`` (:class:`ProjectFileWriter`) — the editor's shared write
-  path (atomic write, ``file.changed``, block reload). Production:
-  ``scistudio.api.runtime._file_writes.ProjectFileService``.
-* ``process_registry`` (:class:`CommandProcessRegistry`) — the registry the
-  backend's shutdown ``terminate_all`` runs on, so managed ``run_command``
-  processes stop with the backend.
-
-It also adds the bridge-call marker (:func:`bridge_call_scope` /
-:func:`invoked_through_bridge`): the WebMCP route sets it around dispatch so a
-tool can apply a rule to bridge calls without changing local-transport
-behavior.
-"""
+"""Runtime context for MCP tools."""
+# Maintainer context (kept outside generated API documentation):
+# Runtime context for MCP tools.
+#
+# T-ECA-202..205. The 25 MCP tools need to talk to SciStudio's in-process
+# runtime — the :class:`BlockRegistry`, :class:`TypeRegistry`, live
+# workflow runs, the data catalog, the lineage / metadata stores, and the
+# project root. The natural carrier of all those things is
+# :class:`scistudio.api.runtime.ApiRuntime`, but two problems prevent the
+# MCP tools from importing it directly:
+#
+# 1. **Test isolation.** Unit tests need to inject a synthetic context
+#    without spinning up a full FastAPI app.
+# 2. **Layering.** ``ai/`` cannot import from ``api/`` (the import-linter
+#    contracts in ``pyproject.toml`` forbid it — ``api`` sits *above*
+#    ``ai`` in the dep graph).
+#
+# Resolution: this module exposes a small typing-only
+# :class:`MCPContext` Protocol plus a global getter/setter pair. The
+# FastAPI lifespan handler in :func:`scistudio.api.app.lifespan` calls
+# :func:`set_context` with the live ``ApiRuntime`` (which satisfies the
+# Protocol structurally — no inheritance required). Tools fetch the
+# current context via :func:`get_context` and act on it.
+#
+# For unit tests, the test fixture builds a tiny in-memory context and
+# calls :func:`set_context` for the duration of the test.
+#
+# The Protocol is **structural**: callers only need attributes / methods
+# the tools actually reach for. Anything broader would create a hidden
+# coupling.
+#
+# ADR-055 Spec 2 (#2279) adds two *optional capabilities* beside the core
+# Protocol, read through :func:`get_project_files` and
+# :func:`get_process_registry` so a context without them (the standalone
+# bridge, a unit-test stub) degrades to an explicit "unavailable" instead of an
+# ``AttributeError``:
+#
+# * ``project_files`` (:class:`ProjectFileWriter`) — the editor's shared write
+#   path (atomic write, ``file.changed``, block reload). Production:
+#   ``scistudio.api.runtime._file_writes.ProjectFileService``.
+# * ``process_registry`` (:class:`CommandProcessRegistry`) — the registry the
+#   backend's shutdown ``terminate_all`` runs on, so managed ``run_command``
+#   processes stop with the backend.
+#
+# It also adds the bridge-call marker (:func:`bridge_call_scope` /
+# :func:`invoked_through_bridge`): the WebMCP route sets it around dispatch so a
+# tool can apply a rule to bridge calls without changing local-transport
+# behavior.
+# Development references: #2279, ADR-055, ECA-202, Spec 2.
 
 from __future__ import annotations
 
@@ -84,13 +86,15 @@ class MCPContext(Protocol):
 
 
 class ProjectFileWriter(Protocol):
-    """Optional capability: the shared project-file write path (ADR-055 Spec 2 FR-005).
+    """Optional capability: the shared project-file write path.
 
     Every method takes absolute targets, confines them to the active project,
     and returns a plain dict whose ``status`` is ``"ok"`` or ``"conflict"``
     (with ``condition``, ``message``, and the expected/current state
     versions). Disk failures raise.
     """
+
+    # Development references: ADR-055, FR-005, Spec 2.
 
     def state_version(self, target: Path) -> int | None:
         """Current state version of a project file, ``None`` outside the project."""
@@ -131,10 +135,12 @@ class ProjectFileWriter(Protocol):
 
 
 class CommandProcessRegistry(Protocol):
-    """Optional capability: the backend's process registry (ADR-019, ADR-055 Spec 2 FR-009).
+    """Optional capability: the backend's process registry.
 
     Structurally :class:`scistudio.engine.runners.process_handle.ProcessRegistry`.
     """
+
+    # Development references: ADR-019, ADR-055, FR-009, Spec 2.
 
     def register(self, handle: Any) -> None: ...
 
@@ -246,7 +252,7 @@ def _safe_under(root: Path, target: Path) -> Path:
     via the path argument. *root* is whatever the caller is confining to —
     usually the active project root, but ``promote_to_user_library`` passes the
     user library root — so the refusal names *root* rather than asserting it is
-    a project (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P3-4).
+    a project.
 
     Both *root* and *target* are normalised through :func:`os.path.realpath`
     (via :meth:`Path.resolve`) before comparison. This is critical on
@@ -261,6 +267,14 @@ def _safe_under(root: Path, target: Path) -> Path:
     PermissionError
         If *target* resolves outside *root*.
     """
+    # Maintainer context:
+    # Used by tools that accept user-supplied paths (``get_doc``,
+    # ``get_workflow``, etc.) so the agent cannot read arbitrary files
+    # via the path argument. *root* is whatever the caller is confining to —
+    # usually the active project root, but ``promote_to_user_library`` passes the
+    # user library root — so the refusal names *root* rather than asserting it is
+    # a project (P3-4).
+    # Development references: adr-053-spec1-write-path.
     root_resolved = root.resolve()
     target_resolved = (root_resolved / target).resolve() if not target.is_absolute() else target.resolve()
     try:
@@ -273,7 +287,7 @@ def _safe_under(root: Path, target: Path) -> Path:
 def _resolve_project_path(target: str | Path) -> Path:
     """Resolve a user-supplied path against the active project root.
 
-    Issue #790: MCP tools that accept a ``path`` argument from the agent
+    MCP tools that accept a ``path`` argument from the agent
     must resolve it against ``ctx.project_dir``, not the backend process's
     CWD. They must also reject any path that escapes the project root
     (path-traversal hardening — the agent could otherwise scribble onto
@@ -314,6 +328,7 @@ def _resolve_project_path(target: str | Path) -> Path:
     PermissionError
         If the target resolves outside the project root.
     """
+    # Development references: #790.
     ctx = get_context()
     root = _resolve_project_root(ctx)
     return _safe_under(root, Path(target))

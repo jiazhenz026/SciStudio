@@ -1,27 +1,29 @@
-"""WorkflowCheckpoint -- serialise and deserialise workflow state.
-
-ADR-018: Checkpoint must record all 8 block states including CANCELLED
-and SKIPPED.  The ``skip_reasons`` field captures why a block was
-cancelled or skipped so that resumed workflows can honour those
-decisions.
-
-ADR-038 §3.5 / §5.2 (Phase D38-2.3) — **scope clarification + path move**.
-The checkpoint subsystem owns *pause/resume* and the "Run from here on
-the most recent run" affordance only (ADR-012, unchanged). It is
-**distinct from** the unified run lineage database (``lineage.db``,
-ADR-038 §3.1), which records every run's recipe + I/O catalog but does
-**not** preserve intermediate data files. Concretely:
-
-* Checkpoint files now live at ``<project>/.scistudio/pause/<workflow_id>/``
-  (relocated from the legacy ``<project>/checkpoints/<workflow_id>/``).
-  The semantics are unchanged: single-slot per workflow, overwritten on
-  every terminal block event, restored only on the latest run.
-* Lineage rows persist at ``<project>/.scistudio/lineage.db`` and survive
-  across runs — but the on-disk intermediate data they reference may be
-  overwritten by subsequent runs (ADR-038 §3.5 "no per-run isolation").
-
-The two subsystems share a directory but no contract.
-"""
+"""WorkflowCheckpoint -- serialise and deserialise workflow state."""
+# Maintainer context (kept outside generated API documentation):
+# WorkflowCheckpoint -- serialise and deserialise workflow state.
+#
+# ADR-018: Checkpoint must record all 8 block states including CANCELLED
+# and SKIPPED.  The ``skip_reasons`` field captures why a block was
+# cancelled or skipped so that resumed workflows can honour those
+# decisions.
+#
+# ADR-038 §3.5 / §5.2 (Phase D38-2.3) — **scope clarification + path move**.
+# The checkpoint subsystem owns *pause/resume* and the "Run from here on
+# the most recent run" affordance only (ADR-012, unchanged). It is
+# **distinct from** the unified run lineage database (``lineage.db``,
+# ADR-038 §3.1), which records every run's recipe + I/O catalog but does
+# **not** preserve intermediate data files. Concretely:
+#
+# * Checkpoint files now live at ``<project>/.scistudio/pause/<workflow_id>/``
+#   (relocated from the legacy ``<project>/checkpoints/<workflow_id>/``).
+#   The semantics are unchanged: single-slot per workflow, overwritten on
+#   every terminal block event, restored only on the latest run.
+# * Lineage rows persist at ``<project>/.scistudio/lineage.db`` and survive
+#   across runs — but the on-disk intermediate data they reference may be
+#   overwritten by subsequent runs (ADR-038 §3.5 "no per-run isolation").
+#
+# The two subsystems share a directory but no contract.
+# Development references: ADR-012, ADR-018, ADR-038.
 
 from __future__ import annotations
 
@@ -105,29 +107,29 @@ def _serialize_value(value: Any) -> Any:
 def deserialize_intermediate_refs(data: dict[str, Any]) -> dict[str, Any]:
     """Deserialize checkpoint intermediate_refs back to live objects.
 
-    .. deprecated::
+    deprecated::
         This function is **not called** in the production execute-from path
         and must not be introduced there.  The execute-from path in
         :meth:`~scistudio.engine.scheduler.DAGScheduler.execute_from` assigns
         ``checkpoint.intermediate_refs[node_id]`` directly to
         ``_block_outputs[node_id]`` as a wire-format dict.  The downstream
-        worker subprocess then calls ``_reconstruct_one()`` (ADR-027 Addendum
-        1 §1) which reads ``metadata.type_chain`` from the wire-format dict
+        worker subprocess then calls ``_reconstruct_one()`` which reads ``metadata.type_chain`` from the wire-format dict
         and reconstructs the typed object inside the sandboxed subprocess.
 
         The function is preserved (not deleted) for:
-        - historical reference and future testing utilities
-        - potential use in offline / introspection tooling that does not
+        historical reference and future testing utilities
+        potential use in offline / introspection tooling that does not
           route through the subprocess execution path
 
         Do **not** call this from within the scheduler, runner, or any path
         that feeds inputs to a worker subprocess.
 
-    ADR-031 D8: Reconstructs typed :class:`DataObject` instances (not
+    Reconstructs typed :class:`DataObject` instances (not
     ViewProxy) from serialized StorageReference dicts, using the same
     ``_reconstruct_one()`` path as the worker. Falls back to a base
     ``DataObject(storage_ref=ref)`` if type resolution fails.
     """
+    # Development references: ADR-027, ADR-031, Addendum         1.
     result: dict[str, Any] = {}
     for block_id, outputs in data.items():
         if isinstance(outputs, dict):
@@ -140,10 +142,11 @@ def deserialize_intermediate_refs(data: dict[str, Any]) -> dict[str, Any]:
 def _deserialize_value(value: Any) -> Any:
     """Deserialize a single value from checkpoint storage.
 
-    ADR-031 D8: constructs typed DataObject instances via
+    constructs typed DataObject instances via
     ``_reconstruct_one()`` instead of ViewProxy. Falls back to base
     ``DataObject(storage_ref=ref)`` if type resolution fails.
     """
+    # Development references: ADR-031.
     if not isinstance(value, dict):
         return value
 
@@ -187,10 +190,11 @@ def _deserialize_value(value: Any) -> Any:
 def _try_reconstruct(item_data: dict[str, Any], fallback_type_name: str) -> Any:
     """Attempt typed DataObject reconstruction; fall back to base DataObject.
 
-    ADR-031 D8: uses ``_reconstruct_one()`` from the serialization module
+    uses ``_reconstruct_one()`` from the serialization module
     when a ``metadata.type_chain`` is available. Otherwise constructs a
     base ``DataObject`` with ``storage_ref`` set.
     """
+    # Development references: ADR-031.
     from scistudio.core.storage.ref import StorageReference
     from scistudio.core.types.base import DataObject
 
@@ -314,12 +318,20 @@ class CheckpointManager:
     ``BLOCK_SKIPPED``) so that a future scheduler integration can
     trigger auto-saves on state changes.
 
-    Path: per ADR-038 §5.2 (Phase D38-2.3), :class:`ApiRuntime` passes
+    Path:, :class:`ApiRuntime` passes
     ``<project>/.scistudio/pause/<workflow_id>/`` as the
     ``checkpoint_dir`` argument. The class itself remains
     location-agnostic — callers in tests / CLI may still pass a
     ``tmp_path`` and the manager will create / use that directory.
     """
+
+    # Maintainer context:
+    # Path: (Phase D38-2.3), :class:`ApiRuntime` passes
+    # ``<project>/.scistudio/pause/<workflow_id>/`` as the
+    # ``checkpoint_dir`` argument. The class itself remains
+    # location-agnostic — callers in tests / CLI may still pass a
+    # ``tmp_path`` and the manager will create / use that directory.
+    # Development references: ADR-038.
 
     def __init__(self, checkpoint_dir: str | Path, event_bus: Any = None) -> None:
         self._checkpoint_dir = Path(checkpoint_dir)
@@ -362,10 +374,11 @@ class CheckpointManager:
     def _on_state_change(self, event: Any) -> None:
         """Hook invoked on terminal block events.
 
-        ADR-018: Auto-save checkpoint when latest state is available.
+        Auto-save checkpoint when latest state is available.
         If a checkpoint has been saved previously (via save()), updates it
         with the new block state from the event.
         """
+        # Development references: ADR-018.
         if self._latest is not None:
             block_id = getattr(event, "block_id", None)
             event_type = getattr(event, "event_type", "")

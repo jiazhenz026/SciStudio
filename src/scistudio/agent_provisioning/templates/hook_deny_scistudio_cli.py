@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-"""hook_deny_scistudio_cli.py — PreToolUse / Bash matcher (ADR-040 §3.6).
-
-Blocks ``scistudio <subcommand>`` invocations via Bash to enforce
-MCP-only access. Closes the CLI-vs-MCP half of issue #875.
-
-Hook contract:
-  - Stdin: JSON payload with ``tool_input.command`` for Bash matchers.
-  - Matcher (settings.json): ``"Bash"``.
-  - Exit 2 + stderr line: blocks the tool call.
-  - Exit 0: allows the tool call.
-"""
+"""hook_deny_scistudio_cli.py — PreToolUse / Bash matcher."""
+# Maintainer context (kept outside generated API documentation):
+# hook_deny_scistudio_cli.py — PreToolUse / Bash matcher (ADR-040 §3.6).
+#
+# Blocks ``scistudio <subcommand>`` invocations via Bash to enforce
+# MCP-only access. Closes the CLI-vs-MCP half of issue #875.
+#
+# Hook contract:
+#   - Stdin: JSON payload with ``tool_input.command`` for Bash matchers.
+#   - Matcher (settings.json): ``"Bash"``.
+#   - Exit 2 + stderr line: blocks the tool call.
+#   - Exit 0: allows the tool call.
+# Development references: #875, ADR-040.
 
 from __future__ import annotations
 
@@ -28,7 +30,7 @@ _MESSAGE = (
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -43,6 +45,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}

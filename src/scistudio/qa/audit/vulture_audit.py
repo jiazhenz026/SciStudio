@@ -1,26 +1,28 @@
-"""Vulture dead-code child report for the ADR-042 full audit pipeline.
-
-Vulture is named in ``docs/specs/adr-042-code-quality-tools.md`` as a standard
-external code-quality tool the project assumes is run. Before issue #1340 it
-was never wired anywhere. This module runs vulture against the configured paths
-and emits the result as an :class:`AuditReport` so it surfaces through the same
-``full_audit`` pipeline as the other ADR-042 consistency checks.
-
-Severity policy
----------------
-
-Vulture findings are reported at :attr:`Severity.WARNING` so the child report
-never sets ``blocks_merge`` on its own. This matches the informational rollout
-called out in issue #1340: noise has not been baselined yet, and an immediate
-hard-fail would punish PRs for pre-existing dead code unrelated to their scope.
-A follow-up issue can promote selected vulture rule classes to ``ERROR`` once
-the allowlist is curated.
-
-If the ``vulture`` package is not importable, the child report is emitted with
-``AuditStatus.SKIPPED`` and a single ``info`` finding. This keeps the full
-audit usable on developer machines that have not yet installed the optional
-dev dependency.
-"""
+"""Vulture dead-code child report for the full audit pipeline."""
+# Maintainer context (kept outside generated API documentation):
+# Vulture dead-code child report for the ADR-042 full audit pipeline.
+#
+# Vulture is named in ``docs/specs/adr-042-code-quality-tools.md`` as a standard
+# external code-quality tool the project assumes is run. Before issue #1340 it
+# was never wired anywhere. This module runs vulture against the configured paths
+# and emits the result as an :class:`AuditReport` so it surfaces through the same
+# ``full_audit`` pipeline as the other ADR-042 consistency checks.
+#
+# Severity policy
+# ---------------
+#
+# Vulture findings are reported at :attr:`Severity.WARNING` so the child report
+# never sets ``blocks_merge`` on its own. This matches the informational rollout
+# called out in issue #1340: noise has not been baselined yet, and an immediate
+# hard-fail would punish PRs for pre-existing dead code unrelated to their scope.
+# A follow-up issue can promote selected vulture rule classes to ``ERROR`` once
+# the allowlist is curated.
+#
+# If the ``vulture`` package is not importable, the child report is emitted with
+# ``AuditStatus.SKIPPED`` and a single ``info`` finding. This keeps the full
+# audit usable on developer machines that have not yet installed the optional
+# dev dependency.
+# Development references: #1340, ADR-042, docs/specs/adr-042-code-quality-tools.md.
 
 from __future__ import annotations
 
@@ -79,8 +81,9 @@ def _load_pyproject_vulture_config(repo_root: Path) -> Mapping[str, Any]:
     consistent with ``vulture`` run from the command line, so config such as
     ``ignore_decorators = ["@app.*", "@router.*", "@pytest.fixture"]`` and
     ``exclude = ["src/scistudio/api/static/**"]`` actually applies and isn't
-    silent dead config (#1340).
+    silent dead config.
     """
+    # Development references: #1340.
 
     pyproject = repo_root / "pyproject.toml"
     if not pyproject.exists():

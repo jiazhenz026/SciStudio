@@ -1,51 +1,53 @@
-"""Write project-scope Codex MCP config + hook declarations (ADR-040 §3.7 + Addendum 4).
-
-Writes ``<project>/.codex/config.toml`` containing:
-
-  * A single ``[mcp_servers.scistudio]`` block (and nested
-    ``[mcp_servers.scistudio.env]`` table) pinning ``SCISTUDIO_PROJECT_DIR``
-    to the absolute project path. Rendered by
-    :func:`scistudio.cli.install._render_codex_block` so this auto-installed
-    TOML is byte-identical to what ``scistudio install --target codex
-    --scope project`` emits.
-
-  * ``features.hooks = true`` to enable Codex 0.130+'s hook surface.
-
-  * Six ``[[hooks.PreToolUse]]`` / ``[[hooks.PostToolUse]]`` matcher
-    groups that point at the **same** Python scripts under
-    ``<project>/.claude/hooks/`` that Claude Code uses. Codex 0.130's
-    hook system uses the same stdin-JSON contract (`session_id`, `cwd`,
-    `tool_name`, `tool_input`, exit code 2 + stderr blocks the call) —
-    so a single set of Python scripts covers both providers.
-
-``worktree_write_guard.py`` is intentionally excluded (#1793): it enforces
-SciStudio *repository* development policy (ADR-042 worktree + gate scope) and
-must not be provisioned into end-user projects — see ``hooks.py``.
-
-This reverses ADR-040 §3.10's original "Codex hook coverage deferred"
-gap per Phase 4 e2e user directive — Codex must enforce the same rules
-Claude Code does. See ADR-040 Addendum 4 for the rationale and the
-matcher-table mapping.
-
-Codex 2026 walks from project root to cwd loading every
-``.codex/config.toml`` — so the project-scope file takes precedence
-over ``~/.codex/config.toml`` for sessions opened inside this project.
-
-Repairing existing configs
---------------------------
-
-:func:`write_codex_config` preserves an existing file rather than rewriting it,
-so an already-provisioned project only ever receives a fix through one of the
-two repairs below, applied in this order:
-
-* :func:`_upgrade_legacy_hook_commands` — a config still carrying the POSIX
-  ``$(git rev-parse --show-toplevel)`` substitution reaches the current
-  command shape.
-* :func:`_repair_dead_interpreter_hook_commands` — a config already in the
-  current shape, whose baked interpreter has since disappeared, is re-rendered
-  against a live one. See the ``hooks`` module docstring for how a frozen
-  interpreter dies and why the resulting failure is silent (#2040).
-"""
+"""Write project-scope Codex MCP config + hook declarations."""
+# Maintainer context (kept outside generated API documentation):
+# Write project-scope Codex MCP config + hook declarations (ADR-040 §3.7 + Addendum 4).
+#
+# Writes ``<project>/.codex/config.toml`` containing:
+#
+#   * A single ``[mcp_servers.scistudio]`` block (and nested
+#     ``[mcp_servers.scistudio.env]`` table) pinning ``SCISTUDIO_PROJECT_DIR``
+#     to the absolute project path. Rendered by
+#     :func:`scistudio.cli.install._render_codex_block` so this auto-installed
+#     TOML is byte-identical to what ``scistudio install --target codex
+#     --scope project`` emits.
+#
+#   * ``features.hooks = true`` to enable Codex 0.130+'s hook surface.
+#
+#   * Six ``[[hooks.PreToolUse]]`` / ``[[hooks.PostToolUse]]`` matcher
+#     groups that point at the **same** Python scripts under
+#     ``<project>/.claude/hooks/`` that Claude Code uses. Codex 0.130's
+#     hook system uses the same stdin-JSON contract (`session_id`, `cwd`,
+#     `tool_name`, `tool_input`, exit code 2 + stderr blocks the call) —
+#     so a single set of Python scripts covers both providers.
+#
+# ``worktree_write_guard.py`` is intentionally excluded (#1793): it enforces
+# SciStudio *repository* development policy (ADR-042 worktree + gate scope) and
+# must not be provisioned into end-user projects — see ``hooks.py``.
+#
+# This reverses ADR-040 §3.10's original "Codex hook coverage deferred"
+# gap per Phase 4 e2e user directive — Codex must enforce the same rules
+# Claude Code does. See ADR-040 Addendum 4 for the rationale and the
+# matcher-table mapping.
+#
+# Codex 2026 walks from project root to cwd loading every
+# ``.codex/config.toml`` — so the project-scope file takes precedence
+# over ``~/.codex/config.toml`` for sessions opened inside this project.
+#
+# Repairing existing configs
+# --------------------------
+#
+# :func:`write_codex_config` preserves an existing file rather than rewriting it,
+# so an already-provisioned project only ever receives a fix through one of the
+# two repairs below, applied in this order:
+#
+# * :func:`_upgrade_legacy_hook_commands` — a config still carrying the POSIX
+#   ``$(git rev-parse --show-toplevel)`` substitution reaches the current
+#   command shape.
+# * :func:`_repair_dead_interpreter_hook_commands` — a config already in the
+#   current shape, whose baked interpreter has since disappeared, is re-rendered
+#   against a live one. See the ``hooks`` module docstring for how a frozen
+#   interpreter dies and why the resulting failure is silent (#2040).
+# Development references: #1793, #2040, ADR-040, ADR-042, Addendum 4.
 
 from __future__ import annotations
 
@@ -122,7 +124,7 @@ def _hook_script_path(project_dir: Path, script_name: str) -> Path:
 def _render_hook_command(project_dir: Path, script_name: str) -> str:
     """Render the shell command that invokes one hook script.
 
-    The project root is **baked in as an absolute path** (#1994). It used to be
+    The project root is **baked in as an absolute path**. It used to be
     resolved at hook-execution time with ``"$(git rev-parse --show-toplevel)"``,
     which is POSIX command substitution that no native Windows shell performs.
     The docstring here previously claimed ``git rev-parse`` "works in both"
@@ -149,6 +151,7 @@ def _render_hook_command(project_dir: Path, script_name: str) -> str:
     ``SCISTUDIO_PROJECT_DIR`` and the interpreter, so a moved project already
     needed re-provisioning — which happens on project open.
     """
+    # Development references: #1994.
     return f"{_shell_word(hook_interpreter())} {_shell_word(_hook_script_path(project_dir, script_name))}"
 
 
@@ -171,7 +174,7 @@ def _shell_word(path: str | Path) -> str:
     all in a scratch project, so the shell was never observable. Rather than
     bet on one, this produces a word that ``cmd.exe``, PowerShell and ``sh``
     all accept — verified by running the generated command through each
-    (#1994). Two properties get it there, and both are needed:
+    Two properties get it there, and both are needed:
 
     **Forward slashes.** A POSIX shell treats a backslash as an escape, so a
     bare Windows path collapses to ``C:UsersjiazhpythonPexe`` — ``command not
@@ -188,6 +191,7 @@ def _shell_word(path: str | Path) -> str:
     call operator that would fix it there is itself a syntax error in the other
     two.
     """
+    # Development references: #1994.
     text = str(path)
     if os.sep == "\\":
         # Windows only: pathlib emits backslashes, which a POSIX shell would
@@ -287,11 +291,12 @@ def _upgrade_legacy_hook_commands(raw: str, project_dir: Path) -> str:
     re-provisioned from the very interpreter that provisioned it, so in
     practice the repair silently did nothing: a project provisioned by the
     packaged desktop app and then reopened from any other install kept its
-    dead hooks, which is exactly the state #2040 found in the field.
+    dead hooks, which is exactly the state observed in affected installations.
 
     Only commands SciStudio emitted are matched, so a user-written hook command
     is untouched: the construct being matched is one no user would type.
     """
+    # Development references: #2040.
     return _rewrite_hook_commands(
         raw,
         project_dir,
@@ -315,7 +320,8 @@ def _has_dead_interpreter(command: str, project_dir: Path, script: str) -> bool:
 
 
 def _repair_dead_interpreter_hook_commands(raw: str, project_dir: Path) -> str:
-    """Codex's half of the #2040 interpreter repair; see the module docstring."""
+    """Codex's half of the interpreter repair; see the module docstring."""
+    # Development references: #2040.
     return _rewrite_hook_commands(
         raw,
         project_dir,

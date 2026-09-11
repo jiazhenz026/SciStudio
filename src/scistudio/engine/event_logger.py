@@ -1,22 +1,24 @@
-"""Structured stdlib-logging subscriber for the engine EventBus.
-
-ADR-018 / #827: the engine's :class:`scistudio.engine.events.EventBus`
-publishes ~18 distinct event types (see :mod:`scistudio.engine.events`).
-:func:`install_event_logger` subscribes one sync callback per event type and
-turns every emitted event into a structured log record (``INFO`` level on the
-``scistudio.events`` logger). It is a pure observability sink — nothing reads
-the records back programmatically; they flow into whatever stdlib logging
-handler the application installed (see
-:func:`scistudio.utils.event_logger.install_default_handler`).
-
-Round-4 no-cycles: the engine-coupled half of the former
-``scistudio.utils.event_logger`` lives here, in ``engine``, because it imports
-``scistudio.engine.events``. Hosting it in ``utils`` made the bottom ``utils``
-layer import ``engine`` (a layering inversion). The generic, engine-agnostic
-log helpers (``_sanitize_data``, the JSON-line formatter, and
-``install_default_handler``) stay in ``scistudio.utils.event_logger``; this
-module reuses them via the natural ``engine -> utils`` direction.
-"""
+"""Structured stdlib-logging subscriber for the engine EventBus."""
+# Maintainer context (kept outside generated API documentation):
+# Structured stdlib-logging subscriber for the engine EventBus.
+#
+# ADR-018 / #827: the engine's :class:`scistudio.engine.events.EventBus`
+# publishes ~18 distinct event types (see :mod:`scistudio.engine.events`).
+# :func:`install_event_logger` subscribes one sync callback per event type and
+# turns every emitted event into a structured log record (``INFO`` level on the
+# ``scistudio.events`` logger). It is a pure observability sink — nothing reads
+# the records back programmatically; they flow into whatever stdlib logging
+# handler the application installed (see
+# :func:`scistudio.utils.event_logger.install_default_handler`).
+#
+# Round-4 no-cycles: the engine-coupled half of the former
+# ``scistudio.utils.event_logger`` lives here, in ``engine``, because it imports
+# ``scistudio.engine.events``. Hosting it in ``utils`` made the bottom ``utils``
+# layer import ``engine`` (a layering inversion). The generic, engine-agnostic
+# log helpers (``_sanitize_data``, the JSON-line formatter, and
+# ``install_default_handler``) stay in ``scistudio.utils.event_logger``; this
+# module reuses them via the natural ``engine -> utils`` direction.
+# Development references: #827, ADR-018.
 
 from __future__ import annotations
 

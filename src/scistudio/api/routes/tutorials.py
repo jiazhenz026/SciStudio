@@ -1,40 +1,43 @@
-"""Learning Center endpoints: the catalogue, the session, progress, and clearing.
-
-ADR-053 Learning Center spec (``docs/specs/adr-053-learning-center.md``),
-checklist §6.1.6. FR-003 removed the previous contents of this module — a single
-``POST /api/tutorials/run-first-workflow/bootstrap`` that scaffolded one
-hardcoded project — rather than keeping it as an alias, so that route now 404s.
-
-This layer owns no tutorial behaviour. :class:`~scistudio.tutorials.session.TutorialRuntime`
-decides what is listed, what is running, which step it is on, and when a step is
-satisfied; everything here either renders one of its return values as JSON or
-supplies one of the four ports it is constructed with. That split is what keeps
-``api -> tutorials`` a one-way edge: the tutorial package may not import
-``scistudio.api`` (checklist §6.1.2), so product state, the two API-layer event
-names, project creation and deletion, and replay byte delivery all arrive from
-here.
-
-The four ports, and where each one's truth lives
-------------------------------------------------
-
-* :class:`_ApiProductState` satisfies :class:`~scistudio.tutorials.conditions.ProductState`.
-  Every method is a pure read of something the product already knows (FR-046,
-  FR-055) — the workflow definition, the three registries, the plot manifests,
-  the lineage store, git, and the tutorial-scoped library. Three terms have no
-  pre-existing store, so this module keeps one: see :class:`_RecordedSignals`.
-* :data:`_EXTERNAL_EVENTS` carries the two FR-050 event names declared under
-  ``scistudio.api``, as the constants rather than as literals (checklist §6.1.5).
-* :class:`_RuntimeProvisioner` creates the tutorial project through
-  ``ApiRuntime.create_project`` so it lands in the known-projects registry with
-  its marker (FR-063, FR-064), and deletes it with ``_rmtree_force``.
-* :func:`~scistudio.api.routes.ai_pty.replay.open_replay_tab` supplies the
-  scripted byte source, delivered through the product's real PTY path (FR-061a).
-
-Re-evaluation is event-driven, never polled (FR-051). The runtime subscribes to
-exactly the event types it maps and re-judges the active step when one arrives,
-which advances and persists the session; the frontend sees the result on its
-next read of ``/sessions/active``.
-"""
+"""Learning Center endpoints: the catalogue, the session, progress, and clearing."""
+# Maintainer context (kept outside generated API documentation):
+# Learning Center endpoints: the catalogue, the session, progress, and clearing.
+#
+# ADR-053 Learning Center spec (``docs/specs/adr-053-learning-center.md``),
+# checklist §6.1.6. FR-003 removed the previous contents of this module — a single
+# ``POST /api/tutorials/run-first-workflow/bootstrap`` that scaffolded one
+# hardcoded project — rather than keeping it as an alias, so that route now 404s.
+#
+# This layer owns no tutorial behaviour. :class:`~scistudio.tutorials.session.TutorialRuntime`
+# decides what is listed, what is running, which step it is on, and when a step is
+# satisfied; everything here either renders one of its return values as JSON or
+# supplies one of the four ports it is constructed with. That split is what keeps
+# ``api -> tutorials`` a one-way edge: the tutorial package may not import
+# ``scistudio.api`` (checklist §6.1.2), so product state, the two API-layer event
+# names, project creation and deletion, and replay byte delivery all arrive from
+# here.
+#
+# The four ports, and where each one's truth lives
+# ------------------------------------------------
+#
+# * :class:`_ApiProductState` satisfies :class:`~scistudio.tutorials.conditions.ProductState`.
+#   Every method is a pure read of something the product already knows (FR-046,
+#   FR-055) — the workflow definition, the three registries, the plot manifests,
+#   the lineage store, git, and the tutorial-scoped library. Three terms have no
+#   pre-existing store, so this module keeps one: see :class:`_RecordedSignals`.
+# * :data:`_EXTERNAL_EVENTS` carries the two FR-050 event names declared under
+#   ``scistudio.api``, as the constants rather than as literals (checklist §6.1.5).
+# * :class:`_RuntimeProvisioner` creates the tutorial project through
+#   ``ApiRuntime.create_project`` so it lands in the known-projects registry with
+#   its marker (FR-063, FR-064), and deletes it with ``_rmtree_force``.
+# * :func:`~scistudio.api.routes.ai_pty.replay.open_replay_tab` supplies the
+#   scripted byte source, delivered through the product's real PTY path (FR-061a).
+#
+# Re-evaluation is event-driven, never polled (FR-051). The runtime subscribes to
+# exactly the event types it maps and re-judges the active step when one arrives,
+# which advances and persists the session; the frontend sees the result on its
+# next read of ``/sessions/active``.
+# Development references: ADR-053, FR-003, FR-046, FR-050, FR-051, FR-055, FR-061a, FR-063, FR-064,
+# docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -265,10 +268,12 @@ class StepResponse(BaseModel):
 class TriggerResponse(BaseModel):
     """The step's user-triggered action, as the reader sees it: a button label.
 
-    Only the label crosses the wire (#2061). What pressing it does is the
+    Only the label crosses the wire. What pressing it does is the
     backend's to perform through the trigger route, which is what keeps a
-    driver from addressing any surface the manifest format cannot (FR-041).
+    driver from addressing any surface the manifest format cannot.
     """
+
+    # Development references: #2061, FR-041.
 
     label: str
 
@@ -279,10 +284,12 @@ class StepOutlineResponse(BaseModel):
     The inert subset of a step — index, id, title, say, pages — so the reading
     window can show every card name up front. Deliberately no condition,
     highlight, prefill, or action: this is a session-level listing, not a
-    second step surface, and FR-041's step-view closure is untouched by it.
+    second step surface, and the API's step-view closure is untouched by it.
     For a sequential tutorial, a row is behind the reader exactly when its
     index is smaller than the current step's.
     """
+
+    # Development references: FR-041.
 
     index: int
     id: str
@@ -318,12 +325,13 @@ class SessionResponse(BaseModel):
     status: str
     error: str | None = None
     replays: list[ReplayResponse] = Field(default_factory=list)
-    """Every scripted terminal that is open, one per surface (#2083).
+    """Every scripted terminal that is open, one per surface.
 
     A list rather than a single value: an AI Block's terminal and the chat are
     different surfaces and both stay open, so the frontend adopts a set of tabs
     rather than swapping one.
     """
+    # Development references: #2083.
     #: The whole tutorial's read-only step outline; see StepOutlineResponse.
     steps: list[StepOutlineResponse] = Field(default_factory=list)
 
@@ -408,9 +416,9 @@ class _RecordedSignals:
     The other thirteen terms read something that exists anyway — a registry, the
     workflow file, the lineage database, git. These three do not, each for its
     own reason, and all three are still *backend* state by the time a condition
-    reads them, which is what FR-046 requires:
+    reads them:
 
-    * ``ui_event`` is the one signal that originates in the frontend (FR-052).
+    * ``ui_event`` is the one signal that originates in the frontend.
       It exists precisely because enlarging a preview or opening a tab leaves no
       backend state behind, so the frontend reports it and this records it.
     * ``interaction_completed``: the ``interactive_complete`` event is consumed
@@ -423,6 +431,8 @@ class _RecordedSignals:
     them, which is the correct trade: re-reporting is a click, and persisting
     would make a stale marker outlive the tutorial project it referred to.
     """
+
+    # Development references: FR-046, FR-052.
 
     def __init__(self) -> None:
         self.ui_events: set[str] = set()
@@ -476,12 +486,14 @@ class _ApiProductState:
     project can change underneath: constructing them at read time is what keeps
     them from going stale without making the protocol's shape a lie.
 
-    FR-055 is a property of this class as a whole. Nothing below creates a file,
-    mutates a registry, opens a project, or triggers a run; the two methods that
+    These methods do not create files,
+    mutate registries, open projects, or trigger runs; the two methods that
     touch a database open it read-only through the existing store, and every
     failure path returns "no" rather than raising, because a condition that
     cannot be judged is not satisfied and must not end the session.
     """
+
+    # Development references: FR-055.
 
     runtime: ApiRuntime
     recorded: _RecordedSignals
@@ -542,11 +554,12 @@ class _ApiProductState:
         """The data types that have a previewer registered for them.
 
         ``previewer_registered`` takes a ``type_name`` and judges "a previewer is
-        registered for a given type" (FR-047), so this is the set of
+        registered for a given type", so this is the set of
         ``target_type`` values rather than of previewer ids. A previewer is
         interesting to a tutorial for the type it can display, and the id is an
         internal handle the user never sees.
         """
+        # Development references: FR-047.
         specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
         return frozenset(str(spec.target_type) for spec in specs if getattr(spec, "target_type", None))
 
@@ -590,12 +603,13 @@ class _ApiProductState:
         """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
 
         Read straight off the preview cache, whose layout is the plot runtime's
-        contract: ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+        Preview files under ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
         <plot_id>/`` holding ``current.*`` display artifacts beside a
         ``current.json`` run record. A directory holding only the record has
         recorded a run that produced no figure, so it does not count — the term
-        judges "a figure exists", not "a render was attempted" (#2066).
+        judges "a figure exists", not "a render was attempted".
         """
+        # Development references: #2066.
         project_dir = self.project_dir
         if project_dir is None:
             return ()
@@ -619,9 +633,10 @@ class _ApiProductState:
         """The recent runs, projected into what a condition may ask about.
 
         The lineage store is the record of what ran, so it survives the restart
-        FR-037 promises to resume across: a step satisfied by a successful run
+        promises to resume across: a step satisfied by a successful run
         stays satisfied after the backend comes back.
         """
+        # Development references: FR-037.
         store = self.runtime.lineage_store
         if store is None:
             return ()
@@ -739,8 +754,8 @@ class _ApiProductState:
         Membership is decided by the spec's source file sitting under the scoped
         library, which is the definition of the library holding it.
 
-        All three FR-047 kinds can appear: ``scoped_library_dirs`` creates
-        ``blocks/``, ``types/``, and ``previewers/`` (FR-070, #2086).
+        All three kinds can appear: ``scoped_library_dirs`` creates
+        ``blocks/``, ``types/``, and ``previewers/``.
         Previewer membership is decided differently, because a
         :class:`~scistudio.previewers.models.PreviewerSpec` carries no source
         file path to test. The swap itself is the answer: while a tutorial
@@ -751,6 +766,7 @@ class _ApiProductState:
         all, which is the same empty answer the file test gives for blocks and
         types then.
         """
+        # Development references: #2086, FR-047, FR-070.
         library = self.tutorial_library_dir
         if library is None:
             return frozenset()
@@ -836,22 +852,23 @@ class _RuntimeProvisioner:
 
     The session decides *when*, and hands over a plan naming where and under
     what name; only this side can call ``create_project``, which is what puts
-    the project in the known-projects registry with its marker (FR-063,
-    FR-064) — several routes resolve a project's real path through that
+    the project in the known-projects registry with its marker — several routes resolve a project's real path through that
     registry, so an unregistered tutorial project could not be operated at all.
     """
+
+    # Development references: FR-063, FR-064.
 
     runtime: ApiRuntime
 
     def create(self, plan: TutorialProjectPlan) -> Path:
         """Create the planned project and return its directory.
 
-        The scoped library is created alongside it (FR-070) rather than on first
+        The scoped library is created alongside it rather than on first
         write, because the save-to-library step a scenario teaches has to land
         somewhere and a step that fails on a missing directory teaches the wrong
         lesson.
 
-        An existing directory is adopted rather than rebuilt (FR-062a). The
+        An existing directory is adopted rather than rebuilt. The
         session store and the tutorial parent directory are separate pieces of
         state that can disagree — a `clear` whose directory removal failed, a
         hand-deleted `tutorial-session.json`, a `~/SciStudio Tutorials` restored
@@ -860,8 +877,9 @@ class _RuntimeProvisioner:
         ``FileExistsError`` there, which reaches the user as a 500 on the button
         that starts the tutorial, with the tutorial listed as never started.
         Deleting instead would be worse: the directory is the user's work, and
-        FR-066 makes deleting it something they ask for by restarting.
+        Restarting a tutorial explicitly requests deletion of its previous project.
         """
+        # Development references: FR-062a, FR-066, FR-070.
         ensure_tutorial_parent()
         ensure_scoped_library()
         if plan.path.exists():
@@ -886,20 +904,20 @@ class _RuntimeProvisioner:
         Registration is what makes a project operable — several routes resolve a
         real path through the known-projects registry — so a directory that is
         already registered needs nothing, and one that is not is re-adopted by
-        path. ``_load_project_from_path`` reads back the FR-064 marker written
+        path. ``_load_project_from_path`` reads back the marker written
         into ``project.yaml``, which is why the adopted entry keeps its tutorial
-        identity and stays out of the listing surfaces FR-065 excludes it from.
+        identity and stays out of the listing surfaces excludes it from.
 
         **A directory with no ``project.yaml`` is not a project, and is usually a
         husk this product left behind.** Restart deletes the directory and then
-        recreates it (FR-066), and the delete can lose a race: the engine writes
+        recreates it, and the delete can lose a race: the engine writes
         a pause marker under ``.scistudio/`` while shutting down, recreating the
         very path that was just removed. The result is a directory holding
         nothing but runtime scaffolding, and the next start used to fail on it —
         first as ``FileExistsError``, then, once that was caught, as a refusal
         that left the tutorial permanently unstartable with no way out through
         the interface. Clearing it is safe precisely because the path is the
-        product's own: FR-062 derives it from the tutorial's identity, so
+        product's own: derives it from the tutorial's identity, so
         nothing at ``<tutorial parent>/<tutorial id>`` without a ``project.yaml``
         is the user's work.
 
@@ -907,6 +925,7 @@ class _RuntimeProvisioner:
         :class:`TutorialUnavailableError` so the route answers 422 with the
         reason rather than 500 with a stack trace.
         """
+        # Development references: FR-062, FR-064, FR-065, FR-066.
         entry = find_tutorial_project(self.runtime.list_projects(), plan.key)
         if entry is not None and Path(entry.path) == plan.path:
             return plan.path
@@ -937,7 +956,7 @@ class _RuntimeProvisioner:
         return None
 
     def delete(self, key: TutorialKey, path: Path) -> None:
-        """Remove the project directory and its known-projects entry (FR-066).
+        """Remove the project directory and its known-projects entry.
 
         A registered project is removed through ``delete_project``, which does
         both halves and one more thing neither half can: it closes the lineage
@@ -952,6 +971,7 @@ class _RuntimeProvisioner:
         a chmod pass plus ``shutil.rmtree``, while this helper also retries
         around the file watcher and any handle that is still closing.
         """
+        # Development references: FR-066.
         entry = find_tutorial_project(self.runtime.list_projects(), key)
         entry_id = getattr(entry, "id", None) if entry is not None else None
         if entry_id is not None:
@@ -1006,11 +1026,12 @@ def _workflow_writes(written: Sequence[Path], *, project_dir: Path | None) -> li
     A step that writes ``workflows/main.workflow.yaml`` has changed the graph
     the reader is looking at, and the canvas renders the frontend's copy of it:
     without a broadcast the file is right and the screen is stale, which is the
-    palette problem FR-059a solves for blocks, one surface over (#2063). The
+    palette problem solves for blocks, one surface over. The
     watcher cannot be relied on to cover it — it is a filesystem observer that
-    headless runs and tests do not start, and FR-059a's ordering wants the
+    headless runs and tests do not start, and the API's ordering wants the
     product to have taken the write in before the text is readable.
     """
+    # Development references: #2063, FR-059a.
     if project_dir is None:
         return []
     hits: list[tuple[str, str]] = []
@@ -1077,7 +1098,7 @@ def _wrote_into_a_scanned_dir(written: Sequence[Path], *, project_dir: Path | No
 
 
 def _file_change_events(runtime: ApiRuntime, written: Sequence[Path]) -> list[EngineEvent]:
-    """One ``file.changed`` frame per file a step wrote (#2135).
+    """One ``file.changed`` frame per file a step wrote.
 
     The frontend refreshes an open editor tab on exactly this event and on
     nothing else: `handleFileChanged` refetches a clean tab's content and
@@ -1098,6 +1119,7 @@ def _file_change_events(runtime: ApiRuntime, written: Sequence[Path]) -> list[En
     beside this, and "modified" is the kind that makes an open tab refetch
     rather than raise a moved/deleted conflict — which is what this is for.
     """
+    # Development references: #2135.
     project_dir = runtime.project_dir
     project_id = getattr(getattr(runtime, "active_project", None), "id", None)
     if project_dir is None or project_id is None:
@@ -1153,12 +1175,12 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         )
 
     def files_written(written: Sequence[Path]) -> None:
-        """Re-scan the registries when a step writes a block or a type (FR-059).
+        """Re-scan the registries when a step writes a block or a type.
 
         A step that writes ``blocks/normalize_fluorescence.py`` and then says
         "find Normalize Fluorescence in the palette" is unfollowable until this
-        runs: the file is on disk and the block is not in the registry. FR-059
-        orders actions before the step's text so that a step claiming something
+        runs: the file is on disk and the block is not in the registry. Actions
+        run before the step's text so that a step claiming something
         exists is true when read, and for a block "exists" means the product
         has it, not that a file does.
 
@@ -1174,6 +1196,7 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         runtime with no event bus or no loop — every test, and any headless
         run — simply skips it.
         """
+        # Development references: FR-059.
         wrote_scanned = _wrote_into_a_scanned_dir(written, project_dir=runtime.project_dir)
         workflow_writes = _workflow_writes(written, project_dir=runtime.project_dir)
         # Built before the registry gate below, because a write that reaches no
@@ -1217,7 +1240,7 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
             task.add_done_callback(broadcasts.discard)
 
     def start_tutorial_run(workflow: str) -> None:
-        """The tutorial runtime's FR-061d port: queue a run of *workflow*.
+        """The tutorial runtime's port: queue a run of *workflow*.
 
         The same call the Run button and the agent's ``run_workflow`` MCP tool
         make, reached the same way -- by workflow id, which is the file's stem.
@@ -1225,6 +1248,7 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
         ``done_when`` judges what happens, exactly as it does for a run the
         reader started themselves.
         """
+        # Development references: FR-061d.
         runtime.start_workflow(Path(workflow).stem)
 
     tutorials = TutorialRuntime(
@@ -1251,18 +1275,19 @@ async def _emit_quietly(event_bus: Any, event: EngineEvent) -> None:
 
 
 def _subscribe(runtime: ApiRuntime, tutorials: TutorialRuntime, recorded: _RecordedSignals) -> None:
-    """Re-judge the active step whenever a mapped event is observed (FR-050).
+    """Re-judge the active step whenever a mapped event is observed.
 
     The whole of the runtime's connection to the bus. There is no timer and no
-    background task (FR-051): each subscription fires only when the product
+    background task: each subscription fires only when the product
     does something, and an event whose terms the current step does not use
     returns without reading anything.
 
     Re-evaluation persists the session, so the effect is visible on the next
     read of ``/sessions/active``. Nothing is pushed to the frontend, because no
     frame type exists for it: the frontend re-reads the session on reconnect and
-    can ask for an evaluation explicitly (FR-053).
+    can ask for an evaluation explicitly.
     """
+    # Development references: FR-050, FR-051, FR-053.
 
     def _on_event(event: EngineEvent) -> None:
         try:
@@ -1297,8 +1322,9 @@ def _wiring(runtime: ApiRuntime) -> _TutorialWiring:
     Built lazily rather than at startup so a product that never opens the
     Learning Center pays nothing. Nothing is lost by waiting: everything except
     the replay handle is re-read from disk per call, and a step satisfied while
-    no one was subscribed is judged on entry the next time it is read (FR-054).
+    no one was subscribed is judged on entry the next time it is read.
     """
+    # Development references: FR-054.
     existing = getattr(runtime, _WIRING_ATTR, None)
     if not isinstance(existing, _TutorialWiring):
         existing = _build_wiring(runtime)
@@ -1319,7 +1345,7 @@ def _tutorials(runtime: ApiRuntime) -> TutorialRuntime:
 def _asset_url(source_kind: str, source_id: str, tutorial_id: str, suffix: str) -> str:
     """Build a tutorial asset URL, which may carry an empty ``source_id``.
 
-    A core tutorial's ``source_id`` is the empty string, so the contract's path
+    A core tutorial's ``source_id`` is the empty string, so the API's path
     shape genuinely produces an empty middle segment. The URL is emitted here
     and consumed verbatim by the frontend, and a companion route matches that
     shape, so the two agree rather than the frontend having to know the rule.
@@ -1480,11 +1506,12 @@ def _asset_file(manifest: Any, relative: str, *, what: str) -> Path:
     """Resolve one tutorial asset, keeping it inside the tutorial directory.
 
     Resolution goes through the manifest rather than being built from the path
-    parts, because that is what applies FR-014's containment check: a request
+    parts, because that is what applies the API's containment check: a request
     naming ``../`` or an absolute path is refused there, and a symlink planted
     inside the tutorial cannot carry the read outside it. Building the path here
     instead would be how that check gets bypassed.
     """
+    # Development references: FR-014.
     try:
         resolved: Path = manifest.resolve_asset(relative)
     except ValueError as exc:
@@ -1605,7 +1632,7 @@ async def report_ui_event(body: UiEventRequest, runtime: RuntimeDep) -> SessionR
 
 @router.post("/sessions/active/trigger", response_model=SessionResponse)
 async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
-    """Run the current step's user-triggered action (#2061).
+    """Run the current step's user-triggered action.
 
     The step's trigger button posts here. The actions run to completion and
     the registries settle before the response returns, so whatever the button
@@ -1613,13 +1640,14 @@ async def trigger_active_step(runtime: RuntimeDep) -> SessionResponse:
     the re-judged session. A failure leaves the session on the same step,
     active, and the press can simply be retried.
     """
+    # Development references: #2061.
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(tutorials.trigger_active))
 
 
 @router.post("/sessions/active/replay-settled", response_model=SessionResponse)
 async def settle_active_replay(runtime: RuntimeDep) -> SessionResponse:
-    """Report that a scripted reply has finished playing (#2083).
+    """Report that a scripted reply has finished playing.
 
     The scripted agent window reveals a transcript at a speaking pace, so the
     files its segments bind are held back at press time and land here instead:
@@ -1631,6 +1659,7 @@ async def settle_active_replay(runtime: RuntimeDep) -> SessionResponse:
     Safe to post when nothing is pending — a surface that reports twice, or one
     whose replay bound no files, gets the current session and no second write.
     """
+    # Development references: #2083.
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(tutorials.settle_replay_active))
 
@@ -1644,13 +1673,14 @@ async def continue_active_session(runtime: RuntimeDep) -> SessionResponse:
 
 @router.post("/sessions/active/back", response_model=SessionResponse)
 async def back_active_session(runtime: RuntimeDep) -> SessionResponse:
-    """Return to the step before this one (#2138).
+    """Return to the step before this one.
 
     A cursor move over steps the session has already entered, not an undo: no
     entry action runs again, and nothing the reader has already satisfied is
     given back. A press with nowhere to go returns the current step unchanged
     rather than failing, which is how ``continue`` refuses too.
     """
+    # Development references: #2138.
     tutorials = _tutorials(runtime)
     return _rendered(runtime, _acting(tutorials.back_active))
 
@@ -1705,13 +1735,14 @@ async def clear_data(body: ClearDataRequest, runtime: RuntimeDep) -> ClearDataRe
 
 
 def _delete_registered_tutorial_projects(runtime: ApiRuntime) -> None:
-    """Delete every marked tutorial project through the runtime (FR-063, FR-073).
+    """Delete every marked tutorial project through the runtime.
 
     Done before the directories are cleared, and not by clearing them, because
     only this path closes the lineage database of whichever tutorial project is
     currently open. A project of the user's own is never in this list: the
     marker is what selects it, and only ``create_project`` writes one.
     """
+    # Development references: FR-063, FR-073.
     from scistudio.tutorials.projects import tutorial_entries
 
     for entry in tutorial_entries(runtime.list_projects()):
@@ -1775,7 +1806,7 @@ def _page(runtime: ApiRuntime, key: TutorialKey, name: str) -> FileResponse:
     step got as far as a given page, and the request for that page is the only
     moment anything in the product knows. Recording it here is the same
     arrangement as a reported interface event — the API layer owns the state and
-    the evaluator reads it back like any other backend fact (FR-046).
+    the evaluator reads it back like any other backend fact.
 
     A page is named without its extension, because that is the name a
     ``page_reached`` condition carries: ``page: intro`` for
@@ -1783,6 +1814,7 @@ def _page(runtime: ApiRuntime, key: TutorialKey, name: str) -> FileResponse:
     recorded is the name without it either way, so the two spellings cannot
     satisfy different conditions.
     """
+    # Development references: FR-046.
     manifest = _find_tutorial(runtime, key).manifest
     resolved = _asset_file(manifest, _page_asset(manifest, name), what=f"page {name!r}")
     _wiring(runtime).recorded.record_page(Path(name).stem)

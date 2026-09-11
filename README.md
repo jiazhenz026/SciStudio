@@ -28,7 +28,7 @@
 
 ## What is SciStudio?
 
-SciStudio is an interactive workflow orchestration system for multimodal scientific data analysis. You and your AI partner works together on a same canvas interactively. It starts from spatial multi-omics and is progressively expanding to other data modalities. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
+SciStudio is an interactive workflow orchestration system for multimodal scientific data analysis. You and your AI partner work together interactively on the same canvas. It starts from spatial multi-omics and is progressively expanding to other data modalities. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
 
 - **Typed data, one graph** — blocks exchange typed data and flow through the
   same workflow, so every step stays connected end to end.
@@ -40,16 +40,25 @@ SciStudio is an interactive workflow orchestration system for multimodal scienti
 - **Extensible** — add your own blocks, data types, and plots, and share them as
   installable packages.
 
-## Install
+## Install and use
 
 ### For users
 
-Download the latest SciStudio desktop app from the
-[**Releases page**](https://github.com/jiazhenz026/SciStudio/releases) — a macOS
-`.dmg` or a Windows installer. Open it and you're ready; Python and all
-dependencies are bundled, so there is nothing else to set up.
+Download and install the SciStudio desktop app from the
+[**Releases page**](https://github.com/jiazhenz026/SciStudio/releases).
+Python and the required runtime dependencies are bundled.
 
-Then follow the [**Quickstart**](https://jiazhenz026.github.io/SciStudio/user-guide/getting-started.html).
+When you launch SciStudio, choose how you want to use it:
+
+- **Desktop**: Work in the SciStudio desktop window.
+- **External AI**: Choose this mode to use SciStudio inside an AI desktop app
+  with WebMCP support, such as ChatGPT or Kimi **(Claude is not currently
+  supported)**. Once the service is ready, click **Copy** in the connection
+  window and open the copied address in the AI app's built-in browser to work
+  with your AI partner. Keep SciStudio running in the background while you work.
+
+See the [**User Guide**](https://jiazhenz026.github.io/SciStudio/user-guide/)
+for detailed instructions.
 
 ### For servers
 
@@ -86,7 +95,7 @@ Windows installer).
 
 Full documentation lives at **[jiazhenz026.github.io/SciStudio](https://jiazhenz026.github.io/SciStudio/)**:
 
-- [**User Guide**](https://jiazhenz026.github.io/SciStudio/user-guide/README.html)
+- [**User Guide**](https://jiazhenz026.github.io/SciStudio/user-guide/)
   — building and running workflows, previewing data, history and branches, the
   AI assistant, and writing your own blocks, types, and plots.
 - [**Quickstart**](https://jiazhenz026.github.io/SciStudio/user-guide/getting-started.html)

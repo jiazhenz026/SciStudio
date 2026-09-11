@@ -1,4 +1,5 @@
-"""Public schema-loading helpers for ADR-042 audit tools."""
+"""Public schema-loading helpers for audit tools."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

@@ -104,13 +104,14 @@ def _report_validation_errors(diagnostics: list[str]) -> None:
     (``api/runtime/_workflows.py``), but this CLI treated the list as
     all-or-nothing, so an advisory made ``scistudio run`` refuse to dispatch.
 
-    That was latent until #1988: the validator's unregistered-block-type report
+    That was latent until: the validator's unregistered-block-type report
     used to reach only nodes that had edges, and a node whose block does not
     resolve has no ports and therefore no edges — so the warning that now fires
     for those nodes had no way to fire before. Widening the report exposed the
     prefix being ignored here. Warnings are printed either way; only hard errors
     stop the command.
     """
+    # Development references: #1988.
     warnings = [d for d in diagnostics if d.startswith("Warning:")]
     errors = [d for d in diagnostics if not d.startswith("Warning:")]
     if warnings:
@@ -426,13 +427,14 @@ def serve(
 
 
 def _worker_callback_host(bind_host: str) -> str:
-    """Host that worker subprocesses should call back on (ADR-035 §3.10).
+    """Host that worker subprocesses should call back on.
 
     Workers run on the same machine. A wildcard bind (``0.0.0.0``/``::``) or
     an explicit loopback bind is reachable via ``127.0.0.1``; a specific
     non-loopback bind does NOT listen on loopback, so the callback must
-    advertise the bind host itself (Codex review on PR #2274).
+    advertise the bind host itself (Codex review on).
     """
+    # Development references: #2274, ADR-035.
     if bind_host in ("0.0.0.0", "::"):
         return "127.0.0.1"
     return bind_host

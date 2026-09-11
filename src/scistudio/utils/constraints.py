@@ -1,57 +1,59 @@
-"""Port constraint helper factories.
-
-Implements ADR-027 D4 (companion module): predicates that block authors
-compose into ``InputPort(constraint=...)`` to validate incoming
-``Collection`` items beyond what the type-class hierarchy can express.
-
-Each factory returns a ``Callable[[Collection], bool]``. The framework's
-port-checking layer (see :func:`scistudio.blocks.base.ports.validate_port_constraint`)
-calls the predicate on the entire :class:`~scistudio.core.types.collection.Collection`
-at port-validation time, pre-execution.
-
-These are **pure Python** predicates with **no dependency on storage
-backends** — they read instance attributes (``axes``, ``ndim``, ``dtype``)
-from each item in the collection. They do NOT call ``to_memory()`` or
-trigger any I/O, which is critical for Phase 10's Level 1 laziness model
-(ADR-027 D4).
-
-Semantics for every factory in this module:
-
-- Iterates the collection once and short-circuits on the first failing item.
-- Items missing the inspected attribute (e.g. no ``axes``) fail the
-  constraint by returning ``False`` — never raise ``AttributeError``.
-- Empty iterables return ``True`` (vacuous truth, matching Python's
-  ``all()`` semantics). A Collection that has no items cannot violate a
-  per-item invariant.
-- The returned callable carries a descriptive ``__name__`` and ``__doc__``
-  so failures in :func:`~scistudio.blocks.base.ports.validate_port_constraint`
-  surface a useful breadcrumb.
-
-Example:
-
-.. code-block:: python
-
-    from scistudio.blocks.base.ports import InputPort
-    from scistudio.utils.constraints import has_axes, has_shape
-
-    InputPort(
-        name="image",
-        accepted_types=[Image],
-        constraint=has_axes("y", "x"),
-        constraint_description="image must carry spatial axes (y, x)",
-    )
-
-    InputPort(
-        name="volume",
-        accepted_types=[Array],
-        constraint=has_shape(3),
-        constraint_description="volume must be 3D",
-    )
-
-Source ADR sections: ADR-027 D4 (companion — the ``has_*`` helpers
-complement the per-instance ``axes`` introduced by ADR-027 D1 and the
-per-class ``required_axes`` declared by subclasses).
-"""
+"""Port constraint helper factories."""
+# Maintainer context (kept outside generated API documentation):
+# Port constraint helper factories.
+#
+# Implements ADR-027 D4 (companion module): predicates that block authors
+# compose into ``InputPort(constraint=...)`` to validate incoming
+# ``Collection`` items beyond what the type-class hierarchy can express.
+#
+# Each factory returns a ``Callable[[Collection], bool]``. The framework's
+# port-checking layer (see :func:`scistudio.blocks.base.ports.validate_port_constraint`)
+# calls the predicate on the entire :class:`~scistudio.core.types.collection.Collection`
+# at port-validation time, pre-execution.
+#
+# These are **pure Python** predicates with **no dependency on storage
+# backends** — they read instance attributes (``axes``, ``ndim``, ``dtype``)
+# from each item in the collection. They do NOT call ``to_memory()`` or
+# trigger any I/O, which is critical for Phase 10's Level 1 laziness model
+# (ADR-027 D4).
+#
+# Semantics for every factory in this module:
+#
+# - Iterates the collection once and short-circuits on the first failing item.
+# - Items missing the inspected attribute (e.g. no ``axes``) fail the
+#   constraint by returning ``False`` — never raise ``AttributeError``.
+# - Empty iterables return ``True`` (vacuous truth, matching Python's
+#   ``all()`` semantics). A Collection that has no items cannot violate a
+#   per-item invariant.
+# - The returned callable carries a descriptive ``__name__`` and ``__doc__``
+#   so failures in :func:`~scistudio.blocks.base.ports.validate_port_constraint`
+#   surface a useful breadcrumb.
+#
+# Example:
+#
+# .. code-block:: python
+#
+#     from scistudio.blocks.base.ports import InputPort
+#     from scistudio.utils.constraints import has_axes, has_shape
+#
+#     InputPort(
+#         name="image",
+#         accepted_types=[Image],
+#         constraint=has_axes("y", "x"),
+#         constraint_description="image must carry spatial axes (y, x)",
+#     )
+#
+#     InputPort(
+#         name="volume",
+#         accepted_types=[Array],
+#         constraint=has_shape(3),
+#         constraint_description="volume must be 3D",
+#     )
+#
+# Source ADR sections: ADR-027 D4 (companion — the ``has_*`` helpers
+# complement the per-instance ``axes`` introduced by ADR-027 D1 and the
+# per-class ``required_axes`` declared by subclasses).
+# Development references: ADR-027.
 
 from __future__ import annotations
 
@@ -107,8 +109,7 @@ def has_axes(*required: str) -> ConstraintFn:
 def has_exact_axes(*axes: str) -> ConstraintFn:
     """Require every item in the collection to have **exactly** ``axes``.
 
-    The comparison is set equality — order does not matter (per ADR-027
-    D1 the canonical order of axes on an instance is governed by the
+    The comparison is set equality — order does not matter (per  the canonical order of axes on an instance is governed by the
     instance's class, not by this constraint).
 
     Args:
@@ -120,6 +121,7 @@ def has_exact_axes(*axes: str) -> ConstraintFn:
     Example:
         >>> check = has_exact_axes("y", "x")  # accepts only ["y", "x"] or ["x", "y"]
     """
+    # Development references: ADR-027.
     expected_set = frozenset(axes)
 
     def _check(collection: Any) -> bool:

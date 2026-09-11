@@ -1,14 +1,16 @@
-"""Workflow command implementations for ADR-042 Addendum 6 (spec §5).
-
-Thin orchestration over the evaluator and append-only ledger I/O. Implements
-``init`` / ``plan`` / ``amend`` / ``check`` / ``finalize`` and the ``--mode``
-dispatch. Every command appends events; none rewrites or deletes prior events.
-
-Exit codes (spec §5.7):
-    0 reconciliation passed | 1 reconciliation failed | 2 invalid usage |
-    3 ledger schema/migration error | 4 required tool unavailable, no N/A |
-    5 sanitization violation in a would-be-committed event.
-"""
+"""Workflow command implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Workflow command implementations for ADR-042 Addendum 6 (spec §5).
+#
+# Thin orchestration over the evaluator and append-only ledger I/O. Implements
+# ``init`` / ``plan`` / ``amend`` / ``check`` / ``finalize`` and the ``--mode``
+# dispatch. Every command appends events; none rewrites or deletes prior events.
+#
+# Exit codes (spec §5.7):
+#     0 reconciliation passed | 1 reconciliation failed | 2 invalid usage |
+#     3 ledger schema/migration error | 4 required tool unavailable, no N/A |
+#     5 sanitization violation in a would-be-committed event.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -327,12 +329,18 @@ def _unrun_mandatory_checks(
 ) -> list[str]:
     """Return required tier-selected checks that were NOT actually run/validated.
 
-    Used by the recovery-mode banner (§7.5): ``--only`` runs a subset and
+    Used by the recovery-mode banner: ``--only`` runs a subset and
     ``--skip-execution`` executes none, so any required check without current
     evidence is a mandatory check this invocation did not establish. Checks with
     an accepted N/A are not counted as unrun. The result is the gap between the
     inferred required check set and what this call actually executed/validated.
     """
+    # Maintainer context:
+    # Used by the recovery-mode banner (§7.5): ``--only`` runs a subset and
+    # ``--skip-execution`` executes none, so any required check without current
+    # evidence is a mandatory check this invocation did not establish. Checks with
+    # an accepted N/A are not counted as unrun. The result is the gap between the
+    # inferred required check set and what this call actually executed/validated.
 
     required = set(result.required_obligations.checks)
     if not required:
@@ -349,7 +357,9 @@ def _unrun_mandatory_checks(
 
 
 def _recovery_banner(mode: str, unrun: list[str]) -> list[str]:
-    """Build the "not final PR readiness" recovery banner (§7.5)."""
+    """Build the "not final PR readiness" recovery banner."""
+    # Maintainer context:
+    # Build the "not final PR readiness" recovery banner (§7.5).
 
     return [
         "",
@@ -361,7 +371,7 @@ def _recovery_banner(mode: str, unrun: list[str]) -> list[str]:
 
 
 def _resolve_base(repo_root: Path, base: str | None, head: str, *, ledger_base_ref: str | None = None) -> str:
-    """Resolve the diff base (Fix D / §7.5).
+    """Resolve the diff base.
 
     Precedence, most specific first:
 
@@ -374,12 +384,15 @@ def _resolve_base(repo_root: Path, base: str | None, head: str, *, ledger_base_r
     a branch's delta is its own commits, falling back to the raw ref when the
     merge-base cannot be computed.
 
-    Level 3 is what makes a stacked branch measurable. Before #2143 the only
+    Level 3 is what makes a stacked branch measurable. After the update the only
     non-default channel was the environment variable, which nothing in the
     repository ever set, so every local run outside the PR wrappers diffed
     against ``origin/main`` and read the parent branch's commits as this
     branch's work.
     """
+    # Maintainer context:
+    # Resolve the diff base (Fix D / §7.5).
+    # Development references: #2143.
 
     if base:
         return base

@@ -1,12 +1,14 @@
-"""Write AGENTS.md + CLAUDE.md sub-step (ADR-040 §3.5, refined by #2137).
-
-``<project>/AGENTS.md`` is the single canonical agent-instruction entry
-point: every supported assistant CLI either reads AGENTS.md natively or
-discovers the provisioned skills trees beside it. ``<project>/CLAUDE.md``
-is reduced to a one-line router pointing at AGENTS.md, so the guide text
-is maintained in exactly one place regardless of how many provider CLIs
-are supported.
-"""
+"""Write AGENTS.md + CLAUDE.md sub-step."""
+# Maintainer context (kept outside generated API documentation):
+# Write AGENTS.md + CLAUDE.md sub-step (ADR-040 §3.5, refined by #2137).
+#
+# ``<project>/AGENTS.md`` is the single canonical agent-instruction entry
+# point: every supported assistant CLI either reads AGENTS.md natively or
+# discovers the provisioned skills trees beside it. ``<project>/CLAUDE.md``
+# is reduced to a one-line router pointing at AGENTS.md, so the guide text
+# is maintained in exactly one place regardless of how many provider CLIs
+# are supported.
+# Development references: #2137, ADR-040.
 
 from __future__ import annotations
 
@@ -31,10 +33,11 @@ skills index, and project layout. Do not duplicate its content here.
 def _load_template() -> str:
     """Read the bundled AGENTS.md template via importlib.resources.
 
-    Wheel-safe per #824; falls back to source-tree lookup if the resource
+    Wheel-safe; falls back to source-tree lookup if the resource
     is missing (e.g. during certain editable-install + package-data race
     conditions).
     """
+    # Development references: #824.
     try:
         return (
             importlib.resources.files("scistudio.agent_provisioning.templates")
@@ -58,9 +61,9 @@ def write_claude_agents_md(
     """Write ``<project>/AGENTS.md`` and the ``<project>/CLAUDE.md`` router.
 
     AGENTS.md receives the full guide template; CLAUDE.md receives only a
-    pointer to AGENTS.md (#2137). Existing files are refreshed when they are
+    pointer to AGENTS.md. Existing files are refreshed when they are
     unchanged since SciStudio last wrote them and preserved when the user
-    edited them (#1860, content-aware refresh).
+    edited them (content-aware refresh).
 
     Inputs:
       project_dir : Path to project root.
@@ -71,6 +74,7 @@ def write_claude_agents_md(
     Returns:
       List of project-relative paths actually written.
     """
+    # Development references: #1860, #2137.
     project_dir.mkdir(parents=True, exist_ok=True)
     bodies = {"AGENTS.md": _load_template(), "CLAUDE.md": _CLAUDE_MD_ROUTER}
     if manifest is None:

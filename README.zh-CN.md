@@ -4,7 +4,7 @@
 
 # SciStudio
 
-**为你的科研而生:每一份数据,每一个工具,汇于同一条工作流。**
+**与你的 AI 伙伴一起使用的科研工作流工作台。**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
@@ -28,28 +28,43 @@
 
 ## SciStudio 是什么?
 
-SciStudio 是一套面向多模态科学数据分析的交互式工作流编排系统。我们以空间多组学为起点,正在逐渐向其他数据模态拓展。
-SciStudio 把散落在桌面上、彼此独立的应用、脚本和文件收拢到同一个工作台上,
-让带类型的**区块(blocks)**接线成一条完整的工作流。
+SciStudio 是一套面向多模态科学数据分析的交互式工作流编排系统。你和 AI 伙伴可以在同一张画布上交互协作。
+我们以空间多组学为起点，正在逐渐向其他数据模态拓展。SciStudio 让研究者把科研软件、AI 智能体、脚本和多模态数据连接成一条可视化工作流。
 
 - **同一张类型化的图** —— 各区块交换带类型的数据,在同一条工作流中流转,
   让每一步都彼此衔接。
-- **沿用你现有的工具,而不是替换它们** —— 把 R 或 Python 脚本当作普通区块运行,
+- **按你的方式查看数据** —— 自定义数据预览方式，并通过绘图卡片定制图表。
+- **沿用你现有的工具** —— 把 R 或 Python 脚本当作普通区块运行,
   也能像区块一样在流程中启动 Fiji 等桌面应用。
 - **AI 原生** —— 内置助手(Claude Code 或 Codex)帮你搭建工作流、编写新区块、
   并检视你的数据。
-- **手动步骤是一等公民** —— 审阅、标注、审批都是真正的工作流步骤,而非临时变通。
 - **可扩展** —— 添加你自己的区块、数据类型和图表,并以可安装的软件包形式分享出去。
 
-## 安装
+## 安装与使用
 
 ### 面向使用者
 
-从 [**Releases 页面**](https://github.com/jiazhenz026/SciStudio/releases) 下载最新的
-SciStudio 桌面应用 —— macOS 的 `.dmg` 或 Windows 安装包。打开即用;Python 与全部
-依赖都已内置,无需另行配置。
+从 [**Releases 页面**](https://github.com/jiazhenz026/SciStudio/releases) 下载并安装
+SciStudio 桌面应用。应用已内置 Python 与运行所需依赖，无需单独安装。
 
-随后按 [**快速上手**](https://jiazhenz026.github.io/SciStudio/user-guide/getting-started.html) 操作。
+启动 SciStudio 时，选择适合你的使用方式：
+
+- **Desktop（桌面模式）**：在 SciStudio 桌面窗口中使用。
+- **External AI（外部 AI 模式）**：如果想在支持 WebMCP 的 AI 桌面应用（如 ChatGPT、Kimi）中使用
+  SciStudio，请选择此模式**（Claude 目前不支持）**。待服务启动后，点击连接窗口中的 **Copy**，
+  在 AI 应用的内置浏览器中打开复制的地址，即可与 AI 一起使用 SciStudio。使用期间，请保持 SciStudio 在后台运行。
+
+详细使用说明见 [**用户指南**](https://jiazhenz026.github.io/SciStudio/user-guide/)。
+
+### 面向服务器
+
+```bash
+pip install scistudio
+```
+
+wheel 包内置网页前端。每次桌面版更新也会在 PyPI 发布同一构建：例如，
+`0.3.4-alpha-build0029` 对应 `scistudio==0.3.4a29`。发布稳定版后，
+可添加 `--pre` 安装最新的 alpha 版本。
 
 ### 面向开发者(从源码运行)
 
@@ -75,7 +90,7 @@ Windows 安装包)的说明见 [`desktop/README.md`](desktop/README.md)。
 
 完整文档见 **[jiazhenz026.github.io/SciStudio](https://jiazhenz026.github.io/SciStudio/)**:
 
-- [**用户指南**](https://jiazhenz026.github.io/SciStudio/user-guide/README.html)
+- [**用户指南**](https://jiazhenz026.github.io/SciStudio/user-guide/)
   —— 搭建与运行工作流、预览数据、历史与分支、AI 助手,以及编写你自己的区块、
   类型和图表。
 - [**快速上手**](https://jiazhenz026.github.io/SciStudio/user-guide/getting-started.html)

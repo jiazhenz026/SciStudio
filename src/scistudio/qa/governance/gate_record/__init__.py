@@ -1,19 +1,21 @@
-"""ADR-042 Addendum 6 gate ledger package.
-
-Single append-only ledger + one shared evaluator + workflow CLI. Hooks, the PR
-wrapper, and CI all call the same ``evaluator.reconcile()``. The
-``python -m scistudio.qa.governance.gate_record`` entry point is preserved; only
-the internals and CLI surface changed.
-
-Public surface (B2/B3/B4 build against these):
-
-- ``GateLedger`` and its event models (``ledger``)
-- ``reconcile`` / ``ReconcileResult`` / ``EvaluatorMode`` (``evaluator``)
-- ``GuardInputs`` / ``Guard`` / ``GUARD_REGISTRY`` (``guards``)
-- ``surfaces`` classifier predicates and ``labels`` vocabulary
-- ``io`` append-only writers + deterministic discovery
-- ``main`` (CLI entry point)
-"""
+"""Gate ledger package."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-042 Addendum 6 gate ledger package.
+#
+# Single append-only ledger + one shared evaluator + workflow CLI. Hooks, the PR
+# wrapper, and CI all call the same ``evaluator.reconcile()``. The
+# ``python -m scistudio.qa.governance.gate_record`` entry point is preserved; only
+# the internals and CLI surface changed.
+#
+# Public surface (B2/B3/B4 build against these):
+#
+# - ``GateLedger`` and its event models (``ledger``)
+# - ``reconcile`` / ``ReconcileResult`` / ``EvaluatorMode`` (``evaluator``)
+# - ``GuardInputs`` / ``Guard`` / ``GUARD_REGISTRY`` (``guards``)
+# - ``surfaces`` classifier predicates and ``labels`` vocabulary
+# - ``io`` append-only writers + deterministic discovery
+# - ``main`` (CLI entry point)
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

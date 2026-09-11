@@ -1,11 +1,13 @@
-"""Request/exception logging middleware with correlation ids (#1741).
-
-Boundary instrumentation for the API layer: assigns or propagates an
-``X-Request-ID``, stores it in the :mod:`scistudio.utils.log_setup` contextvar so
-every downstream log record (and the per-run diagnostic log) is correlated,
-logs one record per request (method, path, status, duration), and logs uncaught
-exceptions at ERROR with a traceback before returning a 500 JSON body.
-"""
+"""Request/exception logging middleware with correlation ids."""
+# Maintainer context (kept outside generated API documentation):
+# Request/exception logging middleware with correlation ids (#1741).
+#
+# Boundary instrumentation for the API layer: assigns or propagates an
+# ``X-Request-ID``, stores it in the :mod:`scistudio.utils.log_setup` contextvar so
+# every downstream log record (and the per-run diagnostic log) is correlated,
+# logs one record per request (method, path, status, duration), and logs uncaught
+# exceptions at ERROR with a traceback before returning a 500 JSON body.
+# Development references: #1741.
 
 from __future__ import annotations
 

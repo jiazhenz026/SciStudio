@@ -661,10 +661,11 @@ class Block(ABC):
         Called internally by ``map_items``, ``parallel_map``, ``pack``, and
         the ``process_item`` default ``run()``.
 
-        ADR-031 D5: Artifact instances with ``file_path`` set use
+        Artifact instances with ``file_path`` set use
         path-only transport and are exempt from auto-flush. They should
         NOT be read into memory and copied to managed storage.
         """
+        # Development references: ADR-031.
         from scistudio.core.types.base import DataObject
 
         if not isinstance(obj, DataObject):

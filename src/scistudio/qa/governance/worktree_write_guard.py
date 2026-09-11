@@ -1,31 +1,33 @@
-"""Pre-tool guard for AI writes in SciStudio worktrees (ADR-042 Addendum 6 §6.1).
-
-Minimal single-job guard: catch the case where an AI agent **forgot to create a
-worktree** and is editing the **main repo working tree** directly. AI-authored
-work must happen in a dedicated worktree; this guard enforces that at write time.
-
-It is NOT an evaluator-owned calculator (the evaluator never calls it) and it has
-NO gate-record precondition and NO write-time scope enforcement. Scope
-reconciliation lives entirely in ``gate_record check`` (the evaluator).
-
-Algorithm (§6.1, replaces the legacy ``check_paths``):
-
-1. Resolve the target write path to an absolute path. If it is outside any git
-   repository: **ALLOW** unconditionally (no jurisdiction over non-repo paths
-   such as ``~/.claude/memory/``, temp files, or external logs).
-2. Identify which registered git worktree the target belongs to using
-   ``git worktree list --porcelain``, selecting the **longest matching worktree
-   root** so a path under a nested linked worktree matches that worktree, not
-   the main checkout.
-3. **BLOCK** when the target belongs to the **main (primary) working tree** —
-   the "forgot to make a worktree" case.
-4. Otherwise **ALLOW** (any linked non-main worktree, or any non-repo path).
-
-The decision does NOT depend on the agent's cwd; it depends only on whether the
-target resolves into the main working tree. When the guard blocks AND a ledger
-is discoverable, it records a ``guard_event`` (best effort); it must never
-require a ledger to make the block decision.
-"""
+"""Pre-tool guard for AI writes in SciStudio worktrees."""
+# Maintainer context (kept outside generated API documentation):
+# Pre-tool guard for AI writes in SciStudio worktrees (ADR-042 Addendum 6 §6.1).
+#
+# Minimal single-job guard: catch the case where an AI agent **forgot to create a
+# worktree** and is editing the **main repo working tree** directly. AI-authored
+# work must happen in a dedicated worktree; this guard enforces that at write time.
+#
+# It is NOT an evaluator-owned calculator (the evaluator never calls it) and it has
+# NO gate-record precondition and NO write-time scope enforcement. Scope
+# reconciliation lives entirely in ``gate_record check`` (the evaluator).
+#
+# Algorithm (§6.1, replaces the legacy ``check_paths``):
+#
+# 1. Resolve the target write path to an absolute path. If it is outside any git
+#    repository: **ALLOW** unconditionally (no jurisdiction over non-repo paths
+#    such as ``~/.claude/memory/``, temp files, or external logs).
+# 2. Identify which registered git worktree the target belongs to using
+#    ``git worktree list --porcelain``, selecting the **longest matching worktree
+#    root** so a path under a nested linked worktree matches that worktree, not
+#    the main checkout.
+# 3. **BLOCK** when the target belongs to the **main (primary) working tree** —
+#    the "forgot to make a worktree" case.
+# 4. Otherwise **ALLOW** (any linked non-main worktree, or any non-repo path).
+#
+# The decision does NOT depend on the agent's cwd; it depends only on whether the
+# target resolves into the main working tree. When the guard blocks AND a ledger
+# is discoverable, it records a ``guard_event`` (best effort); it must never
+# require a ledger to make the block decision.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

@@ -1,12 +1,14 @@
-"""Data upload, metadata, and preview endpoints.
-
-ADR-048 SPEC 1 (no-compat, #1604): previews are served exclusively through the
-routed previewer *session* API (``/api/previews/...``), delegating to the
-``scistudio.previewers`` subsystem owned by the runtime. The legacy one-shot
-``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604;
-the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
-``ArrayViewer`` slice selector.
-"""
+"""Data upload, metadata, and preview endpoints."""
+# Maintainer context (kept outside generated API documentation):
+# Data upload, metadata, and preview endpoints.
+#
+# ADR-048 SPEC 1 (no-compat, #1604): previews are served exclusively through the
+# routed previewer *session* API (``/api/previews/...``), delegating to the
+# ``scistudio.previewers`` subsystem owned by the runtime. The legacy one-shot
+# ``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604;
+# the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
+# ``ArrayViewer`` slice selector.
+# Development references: #1604, ADR-048, FR-008, SPEC 1.
 
 from __future__ import annotations
 
@@ -105,19 +107,20 @@ async def upload_data(
 ) -> DataUploadResponse:
     """Upload a data file and register it in the active project.
 
-    #1526: stream the request body in fixed-size chunks while tracking a
+    stream the request body in fixed-size chunks while tracking a
     running byte counter and abort with 413 as soon as the cap is exceeded.
     Previously the whole body was buffered via ``await file.read()`` *before*
     the size check, so an oversized upload (accidental or hostile) could
     exhaust process memory before the 413 ever fired.
 
-    ADR-055 identity seam (#2328): an edition's upload listeners
-    (``scistudio.api.seam.add_upload_listener``) hear ``started`` when the
-    upload is staged, and then ``completed`` or ``discarded``. FastAPI has
-    already received the whole request body by then, so an upload the client
-    cancels mid-transfer never reaches this handler and produces no event. A
-    failing listener never changes this answer.
+    An edition's upload listeners (``scistudio.api.seam.add_upload_listener``)
+    hear ``started`` when the upload is staged, and then ``completed`` or
+    ``discarded``. FastAPI has already received the whole request body by
+    then, so an upload the client cancels mid-transfer never reaches this
+    handler and produces no event. A failing listener never changes this
+    answer.
     """
+    # Development references: #1526, ADR-055 identity seam (#2328).
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
     # Relative to the project the upload was staged into, even if the active
     # project changes before it ends (#2322 audit P3-3).
@@ -191,13 +194,14 @@ def _contained_target(project: Any, raw: str) -> Path:
 def _open_as_candidates(runtime: ApiRuntime, project: Any, extension: str) -> list[DataOpenAsCandidate]:
     """Return the types *extension* can be opened as, most specific tier first.
 
-    #2112. The ADR-043 load capability table already records which type can
+    The load capability table already records which type can
     read which extension, so the candidate set is a query against it rather
     than a second mapping to keep in step. ``Artifact`` is appended when no
     loader claims it, because "open it as a plain file" is always a real answer
-    — the artifact previewer reports any file — and a picker that could not
+    the artifact previewer reports any file — and a picker that could not
     offer it would strand every extension no type declares.
     """
+    # Development references: #2112, ADR-043.
     block_registry = runtime.block_registry
     type_registry = runtime.type_registry
     project_dir = Path(project.path)
@@ -241,7 +245,7 @@ def _open_as_candidates(runtime: ApiRuntime, project: Any, extension: str) -> li
 
 @router.get("/open-as", response_model=DataOpenAsListResponse)
 async def list_open_as_types(runtime: RuntimeDep, project_id: str | None = None) -> DataOpenAsListResponse:
-    """Return the project's remembered extension -> type choices (#2112).
+    """Return the project's remembered extension -> type choices.
 
     ``available`` reports whether the remembered type is still registered: a
     choice outlives the package that provided it, and a stale one should read
@@ -249,6 +253,7 @@ async def list_open_as_types(runtime: RuntimeDep, project_id: str | None = None)
 
     Declared ahead of ``GET /{data_ref}`` so the catch-all cannot swallow it.
     """
+    # Development references: #2112.
     project = _resolve_project(runtime, project_id)
     entries = read_open_as(project.path)
     known = set(runtime.type_registry.all_types())
@@ -264,12 +269,13 @@ async def list_open_as_types(runtime: RuntimeDep, project_id: str | None = None)
 async def get_open_as_candidates(
     runtime: RuntimeDep, path: str, project_id: str | None = None
 ) -> DataOpenAsCandidatesResponse:
-    """Return the types *path* could be opened as, and any remembered choice (#2112).
+    """Return the types *path* could be opened as, and any remembered choice.
 
     The Data tree asks this before opening a preview. One candidate means there
     is nothing to ask about; more than one, with nothing remembered, is what
     raises the picker.
     """
+    # Development references: #2112.
     project = _resolve_project(runtime, project_id)
     target = _contained_target(project, path)
     extension = normalize_extension(target.suffix)
@@ -286,12 +292,13 @@ async def get_open_as_candidates(
 async def clear_open_as_type(
     extension: str, runtime: RuntimeDep, project_id: str | None = None
 ) -> DataOpenAsListResponse:
-    """Forget the remembered type for *extension* (#2112).
+    """Forget the remembered type for *extension*.
 
     Clearing an extension that was never chosen succeeds: the caller's intent —
     no remembered type here — already holds, and reporting a failure would only
     push every caller into checking first.
     """
+    # Development references: #2112.
     project = _resolve_project(runtime, project_id)
     clear_open_as(project.path, extension)
     logger.info("DELETE /api/data/open-as/%s", extension)
@@ -302,7 +309,7 @@ async def clear_open_as_type(
 async def register_data_path(payload: DataRegisterPathRequest, runtime: RuntimeDep) -> DataRegisterPathResponse:
     """Register a file already inside a project into the data catalog.
 
-    #2112: the data-preview tab needs a catalog ref for a file that already
+    the data-preview tab needs a catalog ref for a file that already
     lives under the project (e.g. ``data/foo.parquet``) so it can flow through
     the standard routed preview session API (``POST /api/previews/sessions``).
     Registration goes through ``register_data_ref`` so ``describe_ref``
@@ -317,6 +324,7 @@ async def register_data_path(payload: DataRegisterPathRequest, runtime: RuntimeD
     ``GET /open-as/candidates`` offers, so a typo is a 400 rather than a
     catalog record that can never route.
     """
+    # Development references: #2112.
     project = _resolve_project(runtime, payload.project_id)
     target = _contained_target(project, payload.path)
     extension = normalize_extension(target.suffix)
@@ -537,16 +545,16 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
 
     This is a second surface onto one implementation, not a second reload.
     ``refresh_all_registries()`` has rebuilt the previewer registry alongside
-    types and blocks since #2021, and ``POST /api/blocks/reload`` and
+    types and blocks after the update, and ``POST /api/blocks/reload`` and
     ``POST /api/types/reload`` both already reach it -- verified directly:
     editing a drop-in previewer and calling the *blocks* endpoint does pick the
     edit up.
 
-    What was missing is the previewer surface's own way in. FR-027's argument on
+    What was missing is the previewer surface's own way in. The API's argument on
     the type side applies unchanged here: a previewer view must not have to
     speak to the block endpoints to do its own job, while all three endpoints
     still rebuild the same world. Inventing a previewer-only rebuild instead
-    would be the drift ADR-053 §10.3/§10.4 exists to remove.
+    would be the drift exists to remove.
 
     The broadcast is ``blocks.reloaded`` for the same reason ``reload_types``
     gives: it is already in the websocket outbound allow-list, every client
@@ -554,6 +562,7 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
     and the block registry really was rebuilt. A ``previewers.reloaded`` sibling
     would be a second event for one fact.
     """
+    # Development references: #2021, ADR-053, FR-027.
     service = runtime.get_preview_service()
     before = {s.previewer_id for s in service.registry.all_specs()}
     blocks_before = set(runtime.block_registry.all_specs().keys())
@@ -812,12 +821,13 @@ async def save_preview_resource(
 
 @previews_router.get("/assets/{previewer_id}/{asset_path:path}")
 async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: RuntimeDep) -> FileResponse:
-    """Serve a validated, path-confined same-origin previewer asset (FR-022/FR-024).
+    """Serve a validated, path-confined same-origin previewer asset.
 
     Only previewers with a validated frontend manifest and a declared
     ``asset_root`` may serve assets; remote URLs and out-of-root paths are
     rejected with a 404 so the server never leaks arbitrary filesystem reads.
     """
+    # Development references: FR-022, FR-024.
     service = runtime.get_preview_service()
     spec = service.registry.get(previewer_id)
     if spec is None or spec.frontend_manifest is None:

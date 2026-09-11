@@ -1,31 +1,33 @@
-"""Plot-job run + preview-wiring endpoint (ADR-048 SPEC 2 FR-031 / SC-010).
-
-This route is the producer -> consumer link the original SPEC 2 implementation
-left dead-wired (#1606). ``run_plot_job`` writes a display-only artifact to the
-preview cache, but nothing registered that artifact so the routed
-:class:`~scistudio.previewers.PreviewService` could reach the core
-``PlotPreviewer`` (``core.plot.basic``) at runtime, and no API surface let the
-GUI trigger a plot run and open the preview.
-
-``POST /api/plots/run``:
-
-1. Executes the plot job via the SPEC 2 runtime ``run_plot_job`` (imported from
-   the ``ai`` layer — ``api`` sits *above* ``ai`` in the dependency graph, so
-   this import direction is allowed; the reverse is forbidden by the
-   import-linter contracts).
-2. On success, registers the produced ``current.*`` artifact as a previewable
-   catalog ``DataRecord`` stamped with ``plot_artifact`` metadata via
-   :meth:`ApiRuntime.register_plot_artifact`.
-3. Returns the catalog ``data_ref`` (+ cache key + display source) so the
-   frontend opens a routed ``plot_artifact`` preview session through the
-   existing ``POST /api/previews/sessions`` API — rendering the produced figure
-   in the preview panel through the core ``PlotPreviewer``.
-
-A plot job remains PREVIEW-ONLY: this route never registers a workflow node,
-edits workflow YAML, creates a downstream collection, or claims lineage
-(FR-025). It only reads the in-memory scheduler outputs (inside ``run_plot_job``)
-and writes under ``.scistudio/previews/``.
-"""
+"""Plot-job run + preview-wiring endpoint."""
+# Maintainer context (kept outside generated API documentation):
+# Plot-job run + preview-wiring endpoint (ADR-048 SPEC 2 FR-031 / SC-010).
+#
+# This route is the producer -> consumer link the original SPEC 2 implementation
+# left dead-wired (#1606). ``run_plot_job`` writes a display-only artifact to the
+# preview cache, but nothing registered that artifact so the routed
+# :class:`~scistudio.previewers.PreviewService` could reach the core
+# ``PlotPreviewer`` (``core.plot.basic``) at runtime, and no API surface let the
+# GUI trigger a plot run and open the preview.
+#
+# ``POST /api/plots/run``:
+#
+# 1. Executes the plot job via the SPEC 2 runtime ``run_plot_job`` (imported from
+#    the ``ai`` layer — ``api`` sits *above* ``ai`` in the dependency graph, so
+#    this import direction is allowed; the reverse is forbidden by the
+#    import-linter contracts).
+# 2. On success, registers the produced ``current.*`` artifact as a previewable
+#    catalog ``DataRecord`` stamped with ``plot_artifact`` metadata via
+#    :meth:`ApiRuntime.register_plot_artifact`.
+# 3. Returns the catalog ``data_ref`` (+ cache key + display source) so the
+#    frontend opens a routed ``plot_artifact`` preview session through the
+#    existing ``POST /api/previews/sessions`` API — rendering the produced figure
+#    in the preview panel through the core ``PlotPreviewer``.
+#
+# A plot job remains PREVIEW-ONLY: this route never registers a workflow node,
+# edits workflow YAML, creates a downstream collection, or claims lineage
+# (FR-025). It only reads the in-memory scheduler outputs (inside ``run_plot_job``)
+# and writes under ``.scistudio/previews/``.
+# Development references: #1606, ADR-048, FR-025, FR-031, SC-010, SPEC 2.
 
 from __future__ import annotations
 
@@ -68,12 +70,13 @@ async def list_plots(
 ) -> PlotListResponse:
     """List project-local plot manifests, optionally filtered to a block output.
 
-    Each item carries a ``broken`` flag (bug#7 / PR #1712 review): the bound
+    Each item carries a ``broken`` flag (bug#7 /  review): the bound
     target (node_id + output_port) is re-resolved against its workflow so the
     app shell can flag plots whose source block was deleted/recreated and
     surface a relink entry point for them. Targets are discovered once per
     workflow path and reused across plots.
     """
+    # Development references: #1712.
     from scistudio.plot.targets import discover_targets
     from scistudio.plot.validation import load_plot
 
@@ -315,12 +318,13 @@ async def relink_plot_route(plot_id: str, payload: PlotRelinkRequest, runtime: R
 
 @router.post("/run", response_model=PlotRunResponse)
 async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunResponse:
-    """Run a plot job and register its artifact for routed preview (FR-031 / SC-010).
+    """Run a plot job and register its artifact for routed preview.
 
     The response's ``data_ref`` is the catalog id the frontend passes to
     ``POST /api/previews/sessions`` with ``target.kind="plot_artifact"`` to
     render the produced plot through the core ``PlotPreviewer``.
     """
+    # Development references: FR-031, SC-010.
     # Import inside the handler so the ``api`` import surface stays light and the
     # allowed ``api -> ai`` dependency edge is exercised lazily.
     from scistudio.plot.runtime import run_plot_job

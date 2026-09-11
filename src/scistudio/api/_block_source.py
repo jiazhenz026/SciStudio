@@ -1,28 +1,30 @@
-"""Block source resolution, and the API's view of the shared origin resolver.
-
-**Source resolution** backs ``GET /api/blocks/{block_type}/source`` (#1758).
-The block's source file is resolved from its registry spec — the concrete
-file path for drop-in (tier-1) blocks, otherwise the import module's file for
-core and package blocks — so the homepage "View source" action can show a
-selected block's code regardless of origin. Resolution is read-only and
-limited to registered block types; no arbitrary filesystem path is ever
-exposed.
-
-**Origin resolution** (ADR-053 FR-001 to FR-005) used to live here too, and
-now lives in :mod:`scistudio.core.origins`. It moved because its consumers
-span layers: the agent's promotion tool (§6.2 E3) has to apply the same rule
-as the palette, and the ``AI must not depend on api`` import-linter contract
-put an ``api`` module out of its reach — so E3 grew a second, narrower
-comparison and diverged from the three frontend entry points on the FR-002
-``custom`` case. FR-003 asks for one implementation, so the implementation
-moved to a layer both sides can import rather than a second rule being
-written. See ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
-
-Every origin name is re-exported below, so ``scistudio.api`` callers import it
-from here exactly as before. :func:`map_source_label` stays here because it is
-about the *legacy* ``BlockSummary.source`` vocabulary this router still emits,
-not about the tier resolution.
-"""
+"""Block source resolution, and the API's view of the shared origin resolver."""
+# Maintainer context (kept outside generated API documentation):
+# Block source resolution, and the API's view of the shared origin resolver.
+#
+# **Source resolution** backs ``GET /api/blocks/{block_type}/source`` (#1758).
+# The block's source file is resolved from its registry spec — the concrete
+# file path for drop-in (tier-1) blocks, otherwise the import module's file for
+# core and package blocks — so the homepage "View source" action can show a
+# selected block's code regardless of origin. Resolution is read-only and
+# limited to registered block types; no arbitrary filesystem path is ever
+# exposed.
+#
+# **Origin resolution** (ADR-053 FR-001 to FR-005) used to live here too, and
+# now lives in :mod:`scistudio.core.origins`. It moved because its consumers
+# span layers: the agent's promotion tool (§6.2 E3) has to apply the same rule
+# as the palette, and the ``AI must not depend on api`` import-linter contract
+# put an ``api`` module out of its reach — so E3 grew a second, narrower
+# comparison and diverged from the three frontend entry points on the FR-002
+# ``custom`` case. FR-003 asks for one implementation, so the implementation
+# moved to a layer both sides can import rather than a second rule being
+# written. See ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
+#
+# Every origin name is re-exported below, so ``scistudio.api`` callers import it
+# from here exactly as before. :func:`map_source_label` stays here because it is
+# about the *legacy* ``BlockSummary.source`` vocabulary this router still emits,
+# not about the tier resolution.
+# Development references: #1758, ADR-053, FR-001, FR-002, FR-003, FR-005, adr-053-spec1-track-b.
 
 from __future__ import annotations
 
@@ -69,16 +71,17 @@ class BlockSourceUnavailableError(Exception):
 
 
 def map_source_label(raw: str) -> str:
-    """Map an internal registry source label to the pre-ADR-053 vocabulary.
+    """Map an internal registry source label to the legacy vocabulary.
 
     ``tier1`` -> ``custom`` (drop-in blocks); ``entry_point`` / ``package_src``
     -> ``package``; ``builtin`` -> ``builtin``. Unknown labels pass through.
 
     This is the legacy ``BlockSummary.source`` value and is deliberately left
-    unchanged by ADR-053: FR-002 requires existing consumers of ``custom`` to
+    unchanged: existing consumers of ``custom`` continue to
     keep working, so the tier split is carried by the additive ``origin`` field
-    (FR-004) rather than by redefining a shipped one.
+    rather than by redefining a shipped one.
     """
+    # Development references: ADR-053, FR-002, FR-004.
     if raw == "tier1":
         return CUSTOM_ORIGIN
     if raw in ("entry_point", "package_src"):
@@ -96,15 +99,20 @@ def resolve_block_source(
 ) -> dict[str, str]:
     """Return ``{path, source, language, origin}`` for a registered block type.
 
-    ``origin`` is the FR-001 resolved tier, so the source viewer and the
+    ``origin`` is the resolved tier, so the source viewer and the
     palette agree about which library a block came from — the source editor's
-    promotion affordance (§6.2 E1) is gated on it.
+    promotion affordance (E1) is gated on it.
 
     Raises:
         KeyError: the block type is not registered.
         BlockSourceUnavailableError: the type is registered but its source file
             cannot be located or read.
     """
+    # Maintainer context:
+    # ``origin`` is the resolved tier, so the source viewer and the
+    # palette agree about which library a block came from — the source editor's
+    # promotion affordance (§6.2 E1) is gated on it.
+    # Development references: FR-001.
     spec = registry.get_spec(block_type)
     if spec is None:
         raise KeyError(block_type)

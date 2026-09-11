@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { useEffect } from "react";
 import { BottomPanel } from "./BottomPanel";
 import { setPresentation } from "../lib/presentation";
+import type { WorkflowNode } from "../types/api";
 
 const lifecycle = vi.hoisted(() => ({ mount: vi.fn(), unmount: vi.fn() }));
 vi.mock("./AIChat/TerminalTabs", () => ({
@@ -55,4 +56,20 @@ it("changing layout preserves already mounted chat and terminal sessions", () =>
   expect(screen.getByTestId("terminal-chat")).toBe(chat);
   expect(screen.getByTestId("terminal-terminal")).toBe(terminal);
   expect(screen.getByRole("button", { name: "AI Chat" })).toBeVisible();
+});
+
+it("warns for an existing AI Block before its schema loads without mounting AI Chat", () => {
+  setPresentation("ai");
+  const node: WorkflowNode = {
+    id: "existing-agent",
+    block_type: "ai.agent",
+    config: { params: {} },
+  };
+  render(<BottomPanel {...props} activeTab="config" selectedNode={node} />);
+  expect(screen.getByText("Use Workbench for AI Block")).toBeVisible();
+  expect(screen.getByText("Node configuration")).toBeVisible();
+  expect(lifecycle.mount).not.toHaveBeenCalledWith("chat");
+  act(() => setPresentation("workbench"));
+  expect(screen.queryByText("Use Workbench for AI Block")).not.toBeInTheDocument();
+  expect(screen.getByText("Node configuration")).toBeVisible();
 });

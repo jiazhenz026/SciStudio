@@ -1,8 +1,10 @@
-"""ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process.
-
-ADR-019: Unified abstraction for OS process management across platforms.
-ADR-017: spawn_block_process() is the single entry point for ALL subprocess creation.
-"""
+"""ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process."""
+# Maintainer context (kept outside generated API documentation):
+# ProcessHandle, ProcessExitInfo, ProcessRegistry, spawn_block_process.
+#
+# ADR-019: Unified abstraction for OS process management across platforms.
+# ADR-017: spawn_block_process() is the single entry point for ALL subprocess creation.
+# Development references: ADR-017, ADR-019.
 
 from __future__ import annotations
 
@@ -39,7 +41,7 @@ class ProcessHandle:
     """Per-process wrapper tracking lifecycle of a block subprocess.
 
     Delegates all OS-specific operations to the PlatformOps instance
-    obtained at construction time (ADR-019).
+    obtained at construction time.
 
     Attributes:
         block_id: Which block owns this process.
@@ -48,6 +50,8 @@ class ProcessHandle:
         resource_request: What resources were allocated.
         was_killed_by_framework: Set to True when terminate/kill is called.
     """
+
+    # Development references: ADR-019.
 
     def __init__(
         self,
@@ -108,11 +112,12 @@ class ProcessHandle:
     def owns_live_process(self) -> bool:
         """True while terminating this handle can still reach a process the engine started.
 
-        The default is the #1542 PID-identity check on the root process. A
-        handle that owns more than its root — an ADR-055 managed command's Job
-        Object or process group, whose background processes outlive the shell —
+        The default is the PID-identity check on the root process. A
+        handle that owns more than its root — a managed command with a Job
+        Object or process group whose background processes outlive the shell —
         overrides it so shutdown's ``terminate_all`` still reaches them.
         """
+        # Development references: #1542, ADR-055.
         return _pid_identity_matches(self)
 
 
@@ -122,12 +127,13 @@ _PID_IDENTITY_TOLERANCE_SEC: float = 2.0
 def _pid_identity_matches(handle: ProcessHandle) -> bool:
     """Return True only when *handle*'s PID is still the process we spawned.
 
-    #1542: compares the OS-reported process creation time against the time
+    compares the OS-reported process creation time against the time
     the handle was registered. A reused PID belongs to an unrelated process
     whose creation time is far from our recorded ``start_time``. Returns
     False when the PID is gone or psutil cannot read it, so an unconfirmed
     PID is never signalled.
     """
+    # Development references: #1542.
     try:
         import psutil
 
@@ -138,10 +144,12 @@ def _pid_identity_matches(handle: ProcessHandle) -> bool:
 
 
 class ProcessRegistry:
-    """Tracks all active block subprocesses (ADR-019).
+    """Tracks all active block subprocesses.
 
     Simple dict-based registry mapping block_id to ProcessHandle.
     """
+
+    # Development references: ADR-019.
 
     def __init__(self) -> None:
         self._handles: dict[tuple[str, str], ProcessHandle] = {}
@@ -155,7 +163,8 @@ class ProcessRegistry:
         self._handles.pop((workflow_id, block_id), None)
 
     def get_handle(self, workflow_id: str, block_id: str) -> ProcessHandle | None:
-        """Look up the handle for a block within a workflow run (#1517)."""
+        """Look up the handle for a block within a workflow run."""
+        # Development references: #1517.
         return self._handles.get((workflow_id, block_id))
 
     def active_handles(self) -> list[ProcessHandle]:
@@ -169,11 +178,12 @@ class ProcessRegistry:
         Handles that fail to terminate are logged but do not prevent
         other handles from being terminated.
 
-        #1542: each PID is identity-checked first. A handle whose PID is
+        each PID is identity-checked first. A handle whose PID is
         dead, unreadable, or has been reused by an unrelated process is
         dropped without termination — the engine never signals a PID it
         cannot confirm is still its own subprocess.
         """
+        # Development references: #1542.
         for handle in list(self._handles.values()):
             if not handle.owns_live_process():
                 self._handles.pop((handle.workflow_id, handle.block_id), None)
@@ -201,14 +211,14 @@ def build_worker_payload(
 
     Extracted from spawn_block_process() so that LocalRunner can use
     ``asyncio.create_subprocess_exec`` while reusing the same serialization
-    logic (#483).
+    logic.
 
     Parameters
     ----------
     block_file_path:
         Optional absolute path to the ``.py`` file that defines the block
         class. Used for Tier-1 drop-in blocks whose module name only exists
-        in the parent process's ``sys.modules`` (see #706). When provided,
+        in the parent process's ``sys.modules``. When provided,
         the worker reloads the module via
         ``importlib.util.spec_from_file_location`` before resolving the
         class. When ``None`` (Tier-2 entry-point blocks / builtins), the
@@ -218,11 +228,12 @@ def build_worker_payload(
         worker after core startup so plugin dependencies do not shadow core
         dependencies while the worker imports SciStudio itself.
     phase:
-        ADR-051 two-phase marker. ``"compute"`` (default) runs the block's
-        ``run`` and is byte-identical to the pre-ADR-051 single-phase payload
+        two-phase marker. ``"compute"`` (default) runs the block's
+        ``run`` and is byte-identical to the legacy single-phase payload
         (the key is omitted entirely). ``"prompt"`` runs the interactive
         block's ``prepare_prompt`` to build the panel view and exits.
     """
+    # Development references: #483, #706, ADR-051.
     if isinstance(block_class, str):
         block_class_path = block_class
     else:
@@ -260,8 +271,9 @@ def register_async_process(
     """Create and register a ProcessHandle for an already-launched async subprocess.
 
     Used by LocalRunner when processes are launched via
-    ``asyncio.create_subprocess_exec`` instead of ``subprocess.Popen`` (#483).
+    ``asyncio.create_subprocess_exec`` instead of ``subprocess.Popen``.
     """
+    # Development references: #483.
     from scistudio.engine.events import PROCESS_SPAWNED, EngineEvent
     from scistudio.engine.resources import ResourceRequest as ResReq
 
@@ -305,7 +317,7 @@ def spawn_block_process(
     runtime_import_roots: list[str] | tuple[str, ...] | None = None,
     workflow_id: str = "",
 ) -> ProcessHandle:
-    """Single entry point for ALL subprocess creation (ADR-017, ADR-019).
+    """Single entry point for ALL subprocess creation.
 
     Steps:
         1. Serialize payload: block class path, StorageReference pointers, config.
@@ -317,6 +329,7 @@ def spawn_block_process(
 
     The subprocess runs ``scistudio.engine.runners.worker`` as entry point.
     """
+    # Development references: ADR-017, ADR-019.
     from scistudio.engine.events import PROCESS_SPAWNED, EngineEvent
     from scistudio.engine.resources import ResourceRequest as ResReq
 

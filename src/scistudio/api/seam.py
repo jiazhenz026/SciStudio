@@ -1,50 +1,44 @@
-"""ADR-055 identity seam — the surface an edition composes on the open-source backend.
+"""Extension points for building a server edition on the SciStudio backend.
 
-The open-source edition is single-user and asks for no login. Multi-user Lab
-deployment is provided by a separate enterprise edition that builds the
-standard backend through :func:`scistudio.api.app.create_app` and then adds its
-own guard, routes, MCP tools, and background tasks (issue #2304, option B).
-Nothing is loaded automatically: the enterprise edition has its own launch
-command and passes its additions to the factory explicitly.
+An edition, such as a multi-user lab deployment, builds the standard backend
+with :func:`scistudio.api.app.create_app` and composes its own guard, routes,
+MCP tools and background tasks onto it. Nothing is loaded automatically: the
+edition passes its additions to the factory explicitly.
 
-This module holds everything that composition relies on besides the factory
-itself (``docs/specs/adr-055-identity-seam.md``):
+This module holds everything that composition relies on besides the factory:
 
-* :class:`GuardFactory` / :class:`GuardContext` — the replacement guard
-  ``create_app(guard=...)`` installs in place of the loopback token middleware.
-  The guard decides which paths it protects; a Hub guard protects everything,
-  ``/ws`` included.
+* :class:`GuardFactory` / :class:`GuardContext` — a replacement for the default
+  request guard, installed with ``create_app(guard=...)``. The guard decides
+  which paths it protects.
 * :class:`LifespanHook` — startup checks and long-lived background tasks run
-  inside the application lifespan, torn down in reverse order before the core
-  runtime (``create_app(lifespan_hooks=...)``).
-* The **self-authenticating path registry** — route-path prefixes whose owning
-  routes authenticate every request themselves (ADR-054 per-mount panel tokens
-  under ``/api/panels/t/``). The factory enforces the exception structurally:
-  requests under a registered prefix bypass whichever guard is installed, the
-  default one included, and reach their route unauthenticated by the guard.
+  inside the application lifespan and torn down in reverse order
+  (``create_app(lifespan_hooks=...)``).
+* The self-authenticating path registry — route-path prefixes whose routes
+  authenticate every request themselves. Requests strictly below a registered
+  prefix bypass whichever guard is installed and reach their route.
 * :class:`Capabilities` with :class:`IdentityCapability`,
-  :class:`TransferCapability` and :class:`UpdateCapability` — what the backend
-  tells the frontend at boot about enterprise features
-  (``create_app(capabilities=...)``): the signed-in user, file transfer, the
-  AI chat switch, and the update notice (ADR-055 Spec 4,
-  ``docs/specs/adr-055-enterprise-support.md``). All off by default; every URL
-  in them is a route path the frontend resolves under the service prefix.
-* :func:`workflow_runs_active` — the read accessor a Hub activity reporter polls.
-* Project access for an edition's routes and tools (issue #2328):
-  :func:`active_project_root`; :class:`ToolRefusal`, raised inside a tool to
-  return a Spec 1 ``isError`` result with its message; :func:`check_author_path`
-  (project confinement plus the Spec 2 author blacklist);
-  :func:`write_project_file` (the editor's shared write path); and
-  :func:`add_upload_listener` for staged uploads that start, complete, or are
-  discarded.
-  Each wraps the internal it names in its docstring rather than repeating it.
-* :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared FastMCP registry and
-  the tag that keeps an external-only tool out of the local socket transport.
+  :class:`TransferCapability` and :class:`UpdateCapability` — the features the
+  backend tells the frontend about at boot: the signed-in user, file
+  transfer, the AI chat switch, and the update notice. All are off by
+  default, and every URL in them is a route path the frontend resolves under
+  the service prefix.
+* :func:`workflow_runs_active` — whether any workflow run is still executing.
+* Project access for an edition's routes and tools: :func:`active_project_root`,
+  :class:`ToolRefusal`, :func:`check_author_path`, :func:`write_project_file`
+  and :func:`add_upload_listener`.
+* :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared MCP tool registry
+  and the tag that publishes a tool to external AI apps only.
 
-Every public symbol here is ``provisional`` under ADR-052: the enterprise
-edition depends on it, so a change carries a changelog entry instead of
-breaking that edition silently.
+Every public symbol here is ``provisional``: it may change in a minor release,
+and each change is recorded in the changelog.
 """
+# Maintainer context (kept outside generated API documentation): the ADR-055
+# identity seam (#2304, option B), the Spec 4 capability contract (#2321,
+# #2322), and the project-access names (#2328). The registry's first user is
+# ADR-054's per-mount panel tokens under /api/panels/t/. Every public symbol is
+# ADR-052 provisional.
+# Development references: #2304, #2321, #2322, #2328, ADR-052, ADR-054, ADR-055,
+# docs/specs/adr-055-identity-seam.md, docs/specs/adr-055-enterprise-support.md.
 
 from __future__ import annotations
 
@@ -119,10 +113,11 @@ def route_path(scope: Scope, root_path: str) -> str:
 
     Mirrors Starlette's own route-path derivation so a guard and the router can
     never disagree about which route a request reaches: under a configured
-    mount prefix (ADR-055 Spec 0 verbatim proxying) the scope path still
+    mount prefix the scope path still
     carries the prefix, which is removed here. ``/user/alice/scistudio/api/x``
     becomes ``/api/x``; ``/user/alice/scistudioX/api/x`` is left unchanged.
     """
+    # Development references: ADR-055, Spec 0.
     path = str(scope.get("path", ""))
     if not root_path or not path.startswith(root_path):
         return path
@@ -620,10 +615,11 @@ def active_project_root(app: FastAPI) -> Path | None:
 class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an edition codes against
     """Raise inside an MCP tool to refuse the call with a message the agent can act on.
 
-    It carries the fields of the Spec 2 refusal the workspace tools return:
-    ``code`` is a machine-readable reason, ``message`` the explanation, and
-    ``alternatives`` the tools that own the refused operation. The call then
-    returns a Spec 1 error result instead of failing. The result carries
+    It carries the same fields as the refusals the built-in workspace tools
+    return: ``code`` is a machine-readable reason, ``message`` the
+    explanation, and ``alternatives`` the tools that own the refused
+    operation. The call then returns an MCP error result instead of failing.
+    The result carries
     ``isError: true``, the message as its text content, and the workspace
     tools' structured content
     ``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
@@ -651,7 +647,7 @@ class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an 
 
 
 def _refusal_result(refusal: ToolRefusal) -> ToolResult:
-    """The Spec 1 error result for a refusal, built from the workspace tools' own types."""
+    """The MCP error result for a refusal, built from the workspace tools' own types."""
     from scistudio.ai.agent.mcp.tools_workspace import FlaggedToolResult
     from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal as RefusalDetail
 
@@ -693,7 +689,7 @@ def _resolve_in_project(project_root: Path, rel_path: str) -> Path:
     """The one resolver behind :func:`check_author_path` and :func:`write_project_file`.
 
     Both run exactly this, so a check followed by a write can never name
-    different files (#2322 no-context audit P2-3). ``rel_path`` is taken
+    different files. ``rel_path`` is taken
     literally: it is joined onto the root before the author tools' resolver
     sees it, so a leading ``~`` is a directory name, never the home
     directory. Control characters (NUL included) never name a file, and on
@@ -732,7 +728,7 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
     ``rel_path`` is taken literally (``~`` is not expanded) and resolved
     against ``project_root``; an absolute path must lie inside it. It must
     stay inside the project after links are followed, and it is checked
-    against the Spec 2 author blacklist: ``data/`` and ``workflows/*.yaml``
+    against the author tools' blacklist: ``data/`` and ``workflows/*.yaml``
     belong to the tools that own them. Returns the resolved path. Otherwise it
     raises :class:`ToolRefusal` with the author tools' own refusal code, or
     ``invalid_path`` for control characters and, on Windows, a stream suffix
@@ -745,7 +741,7 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
 async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, changed_by: str = "edition") -> Path:
     """Write ``data`` to a project file through the shared write path, and return its path.
 
-    The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
+    The editor's own write path: an atomic write, the
     file's state version advanced, ``file.changed`` sent so the open UI
     updates, and a registry reload when the file is a lint-clean drop-in
     module. ``changed_by`` names the writer in that ``file.changed`` event.
@@ -834,7 +830,7 @@ def upload_relative_path(app: FastAPI, destination: Path) -> str:
 
     The upload route calls this once, when the upload is staged, so every
     notification for that upload names the same path even if another project
-    opens meanwhile (#2322 audit P3-3).
+    opens meanwhile.
     """
     root = active_project_root(app)
     if root is None:

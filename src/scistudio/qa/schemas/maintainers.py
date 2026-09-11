@@ -1,4 +1,5 @@
-"""Maintainer ownership schemas for ADR-042 governance checks."""
+"""Maintainer ownership schemas for governance checks."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

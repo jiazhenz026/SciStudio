@@ -1,9 +1,11 @@
-"""Shared helper for the B2-pending guard-calculator stubs.
-
-Each guard module under this package is currently a STUB that returns an empty
-passing report so the evaluator runs end-to-end. B2 (#1509) replaces the stub
-body with the real calculator while keeping the ``check(inputs)`` signature.
-"""
+"""Shared helper for guard results that have not been evaluated."""
+# Maintainer context (kept outside generated API documentation):
+# Shared helper for the B2-pending guard-calculator stubs.
+#
+# Each guard module under this package is currently a STUB that returns an empty
+# passing report so the evaluator runs end-to-end. B2 (#1509) replaces the stub
+# body with the real calculator while keeping the ``check(inputs)`` signature.
+# Development references: #1509.
 
 from __future__ import annotations
 

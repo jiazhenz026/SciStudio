@@ -31,14 +31,15 @@ def get_type_registry(request: Request) -> Any:
 
 
 def get_lineage_store(request: Request) -> Any:
-    """Return the unified ADR-038 lineage store for the active project.
+    """Return the unified lineage store for the active project.
 
     The store is owned by :class:`ApiRuntime` and shared across routes — the
     previous per-call ``LineageStore(...)`` construction was an orphan that
-    opened a second SQLite handle per request. After ADR-038 the runtime
+    opened a second SQLite handle per request. After the update the runtime
     opens one store per project on ``open_project`` and routes acquire that
     same instance here.
     """
+    # Development references: ADR-038.
     runtime = get_runtime(request)
     try:
         runtime.require_active_project()

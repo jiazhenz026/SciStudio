@@ -1,21 +1,23 @@
-"""DataFrame preview paging + LRU cache (previewers-owned).
-
-ADR-048 / issue #1598: this table-paging cache is consumed only by the
-previewer subsystem (``previewers.data_access``). It previously lived under
-``scistudio.api.runtime._preview_cache``, which forced the lower previewer
-layer to import *up* into the API layer (an inverted dependency, unguarded by
-the layer-dependency test). It now lives here so ``previewers`` is
-self-contained and ``api.runtime`` imports *down* from it where the legacy
-preview route still needs it.
-
-Behavior is unchanged from the pre-move implementation. Tests that pin the
-monkeypatch contract (``_read_preview_table_from_disk`` is observed by
-``_get_preview_table``) target this module directly; because both functions are
-co-located here, ``_get_preview_table`` resolves the disk reader via this
-module's own namespace, so ``monkeypatch.setattr(_table_cache,
-"_read_preview_table_from_disk", ...)`` is seen without any cross-package
-indirection.
-"""
+"""DataFrame preview paging + LRU cache (previewers-owned)."""
+# Maintainer context (kept outside generated API documentation):
+# DataFrame preview paging + LRU cache (previewers-owned).
+#
+# ADR-048 / issue #1598: this table-paging cache is consumed only by the
+# previewer subsystem (``previewers.data_access``). It previously lived under
+# ``scistudio.api.runtime._preview_cache``, which forced the lower previewer
+# layer to import *up* into the API layer (an inverted dependency, unguarded by
+# the layer-dependency test). It now lives here so ``previewers`` is
+# self-contained and ``api.runtime`` imports *down* from it where the legacy
+# preview route still needs it.
+#
+# Behavior is unchanged from the pre-move implementation. Tests that pin the
+# monkeypatch contract (``_read_preview_table_from_disk`` is observed by
+# ``_get_preview_table``) target this module directly; because both functions are
+# co-located here, ``_get_preview_table`` resolves the disk reader via this
+# module's own namespace, so ``monkeypatch.setattr(_table_cache,
+# "_read_preview_table_from_disk", ...)`` is seen without any cross-package
+# indirection.
+# Development references: #1598, ADR-048.
 
 from __future__ import annotations
 

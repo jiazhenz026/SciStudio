@@ -1,28 +1,30 @@
-"""Tool-version and environment parity for ADR-042 Addendum 6 (§7.10).
-
-CI is the single source of truth for which tool versions run checks and the
-environment they run in. This module resolves the CI-pinned tool versions from
-the same source CI uses (the ``ci.yml`` ruff pin, ``pyproject`` bounds)
-and provisions an ISOLATED per-worktree virtual environment that installs the
-same CI-equivalent dependencies (``-e ".[dev]"``) so local checks run the same
-commands CI runs, in an equivalent environment, without polluting the shared
-environment.
-
-§7.10 mechanism (owner-authorized): each worktree gets its own gitignored venv
-under ``<worktree>/.workflow/local/venv``. AGENTS.md forbids ``pip install -e .``
-because it pollutes the SHARED environment; an isolated per-worktree venv is the
-sanctioned way to reproduce the CI environment. ``uv`` is used when available
-(``uv venv`` + ``uv pip install``); otherwise ``python -m venv`` + ``pip``.
-
-Provisioning is cached by a marker hash of the ``[dev]`` extras, the resolved
-tool pins, and the Python version: a warm venv re-provisions only when that
-marker changes. Provisioning runs only for LOCAL preflight modes; ``--mode ci``
-never provisions (CI owns its own matrix environment).
-
-Fail-closed: when the venv cannot be created or the install fails (no network,
-uv/pip error), the evaluator reports exit code 4 for PR readiness rather than
-running a looser local approximation.
-"""
+"""Tool-version and environment parity."""
+# Maintainer context (kept outside generated API documentation):
+# Tool-version and environment parity for ADR-042 Addendum 6 (§7.10).
+#
+# CI is the single source of truth for which tool versions run checks and the
+# environment they run in. This module resolves the CI-pinned tool versions from
+# the same source CI uses (the ``ci.yml`` ruff pin, ``pyproject`` bounds)
+# and provisions an ISOLATED per-worktree virtual environment that installs the
+# same CI-equivalent dependencies (``-e ".[dev]"``) so local checks run the same
+# commands CI runs, in an equivalent environment, without polluting the shared
+# environment.
+#
+# §7.10 mechanism (owner-authorized): each worktree gets its own gitignored venv
+# under ``<worktree>/.workflow/local/venv``. AGENTS.md forbids ``pip install -e .``
+# because it pollutes the SHARED environment; an isolated per-worktree venv is the
+# sanctioned way to reproduce the CI environment. ``uv`` is used when available
+# (``uv venv`` + ``uv pip install``); otherwise ``python -m venv`` + ``pip``.
+#
+# Provisioning is cached by a marker hash of the ``[dev]`` extras, the resolved
+# tool pins, and the Python version: a warm venv re-provisions only when that
+# marker changes. Provisioning runs only for LOCAL preflight modes; ``--mode ci``
+# never provisions (CI owns its own matrix environment).
+#
+# Fail-closed: when the venv cannot be created or the install fails (no network,
+# uv/pip error), the evaluator reports exit code 4 for PR readiness rather than
+# running a looser local approximation.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -73,15 +75,20 @@ class ParityReport:
 
 
 def resolve_ci_tool_versions(repo_root: Path) -> dict[str, str]:
-    """Read CI-pinned tool versions from the source CI uses (§7.10).
+    """Read CI-pinned tool versions from the source CI uses.
 
     Returns a best-effort mapping. Tools CI resolves at ``latest`` (unpinned)
-    are intentionally absent; per §7.10 local resolves the same latest at run
+    are intentionally absent;  local resolves the same latest at run
     time, which is an accepted small drift window.
 
     The ruff pin lives in ``ci.yml`` (``uv pip install --system ruff==X``);
     mypy resolves from ``.[dev]`` in CI and is therefore unpinned here.
     """
+    # Maintainer context:
+    # Read CI-pinned tool versions from the source CI uses (§7.10).
+    # Returns a best-effort mapping. Tools CI resolves at ``latest`` (unpinned)
+    # are intentionally absent; per §7.10 local resolves the same latest at run
+    # time, which is an accepted small drift window.
 
     versions: dict[str, str] = {}
     ci_yml = repo_root / ".github" / "workflows" / "ci.yml"
@@ -116,17 +123,21 @@ def _installed_version(tool: str) -> str | None:
 
 
 def venv_path(repo_root: Path) -> Path:
-    """Return the absolute per-worktree venv path (gitignored, §7.10)."""
+    """Return the absolute per-worktree venv path (gitignored)."""
+    # Maintainer context:
+    # Return the absolute per-worktree venv path (gitignored, §7.10).
 
     return repo_root / VENV_DIR
 
 
 def _venv_bin_dir(venv: Path) -> Path:
-    """Resolve the venv's executable directory cross-platform (§7.10).
+    """Resolve the venv's executable directory cross-platform.
 
     Windows uses ``<venv>/Scripts``; POSIX uses ``<venv>/bin``. The owner runs
     Windows, so this must be correct on both.
     """
+    # Maintainer context:
+    # Resolve the venv's executable directory cross-platform (§7.10).
 
     scripts = venv / "Scripts"
     if scripts.exists() or os.name == "nt":
@@ -152,19 +163,23 @@ def _venv_exe(venv: Path, name: str) -> Path:
 
 
 def venv_python(venv: Path) -> Path:
-    """Return the venv interpreter path cross-platform (§7.10)."""
+    """Return the venv interpreter path cross-platform."""
+    # Maintainer context:
+    # Return the venv interpreter path cross-platform (§7.10).
 
     bin_dir = _venv_bin_dir(venv)
     return bin_dir / ("python.exe" if os.name == "nt" else "python")
 
 
 def resolve_venv_executable(repo_root: Path, name: str) -> Path | None:
-    """Return the venv's executable for ``name`` when the venv exists (§7.10).
+    """Return the venv's executable for ``name`` when the venv exists.
 
     Returns ``None`` when the venv has not been provisioned or the executable is
     absent, so callers fall back to the ambient tool only when no parity env
     exists. ``python`` always resolves to the venv interpreter when present.
     """
+    # Maintainer context:
+    # Return the venv's executable for ``name`` when the venv exists (§7.10).
 
     venv = venv_path(repo_root)
     if not venv.exists():
@@ -196,12 +211,14 @@ def _dev_extras(repo_root: Path) -> list[str]:
 
 
 def provisioning_marker(repo_root: Path) -> str:
-    """Compute the cache marker for the parity env (§7.10).
+    """Compute the cache marker for the parity env.
 
     The marker is a hash of the ``[dev]`` extras, the resolved CI tool pins, and
     the local Python (major.minor + implementation). Re-provision only when the
     marker changes; a warm venv with a matching marker is reused as-is.
     """
+    # Maintainer context:
+    # Compute the cache marker for the parity env (§7.10).
 
     parts = [
         "scistudio-parity-v1",
@@ -257,8 +274,12 @@ def _run(cmd: list[str], *, cwd: Path, timeout: int = 600) -> tuple[bool, str]:
 
     Raw output stays local-only by design — we return only a short, SANITIZED
     class of the error (never stdout/stderr transcripts, never absolute paths)
-    so nothing local-machine-specific leaks into the ledger or console (§8).
+    so nothing local-machine-specific leaks into the ledger or console.
     """
+    # Maintainer context:
+    # Raw output stays local-only by design — we return only a short, SANITIZED
+    # class of the error (never stdout/stderr transcripts, never absolute paths)
+    # so nothing local-machine-specific leaks into the ledger or console (§8).
 
     tool = _basename(cmd[0])
     try:
@@ -330,7 +351,7 @@ def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
     step**. This is load-bearing rather than belt-and-braces. ``[dev]`` declares
     ``ruff>=0.11`` with no upper bound, so the resolver takes whatever is newest
     at provisioning time, while CI pins an exact version in ``ci.yml`` (since
-    #2150 the single pin source; the pre-commit hook revs that used to carry it
+     the single pin source; the pre-commit hook revs that used to carry it
     are gone with the commit-time hooks). Without this step the environment
     that exists to be CI-equivalent drifts away from CI the moment a new
     release lands, and it drifts *silently*: :func:`provisioning_marker`
@@ -339,6 +360,7 @@ def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
     That is how this env came to run ruff 0.16.1 against CI's pinned 0.15.15,
     reporting format failures on files CI formats cleanly.
     """
+    # Development references: #2150.
 
     py = venv_python(venv)
     pins = [f"{tool}=={version}" for tool, version in sorted(resolve_ci_tool_versions(repo_root).items())]
@@ -359,7 +381,7 @@ def _install_deps(repo_root: Path, venv: Path) -> tuple[bool, str]:
 
 
 def provision_venv(repo_root: Path, *, force: bool = False) -> ParityReport:
-    """Ensure an isolated per-worktree venv with CI-equivalent deps (§7.10).
+    """Ensure an isolated per-worktree venv with CI-equivalent deps.
 
     Idempotent: when the venv exists and its marker matches the current
     ``provisioning_marker``, it is reused untouched (warm => near-instant).
@@ -367,6 +389,8 @@ def provision_venv(repo_root: Path, *, force: bool = False) -> ParityReport:
     is written. On any failure the report carries a fail-closed gap and
     ``provisioned`` stays False.
     """
+    # Maintainer context:
+    # Ensure an isolated per-worktree venv with CI-equivalent deps (§7.10).
 
     resolved = resolve_ci_tool_versions(repo_root)
     venv = venv_path(repo_root)
@@ -433,13 +457,15 @@ def provision_venv(repo_root: Path, *, force: bool = False) -> ParityReport:
 
 
 def check_importable_env(repo_root: Path, *, venv: Path | None = None) -> bool:
-    """Validate that ``import scistudio`` works in the parity env (§7.10).
+    """Validate that ``import scistudio`` works in the parity env.
 
     With a provisioned ``venv`` the venv interpreter is used (the editable
     install makes ``scistudio`` importable directly). Without a venv it falls
     back to the ``PYTHONPATH=src`` invocation CI's full-audit job already uses,
     without ``pip install -e`` polluting the shared environment.
     """
+    # Maintainer context:
+    # Validate that ``import scistudio`` works in the parity env (§7.10).
 
     src = repo_root / "src"
     if not (src / "scistudio" / "__init__.py").exists():
@@ -491,7 +517,7 @@ def assess_parity(
     mode: str | None = None,
     provision: bool = True,
 ) -> ParityReport:
-    """Resolve CI versions and ensure a CI-equivalent environment (§7.10).
+    """Resolve CI versions and ensure a CI-equivalent environment.
 
     For LOCAL preflight modes (``local``/``pre-commit``/``pre-push``/``pre-pr``)
     this AUTO-PROVISIONS the isolated per-worktree venv with CI-equivalent deps
@@ -503,6 +529,8 @@ def assess_parity(
     (fail-closed). Missing local tools are not a gap here because the venv
     install carries them; ``checks.py`` still records tool absence as skipped.
     """
+    # Maintainer context:
+    # Resolve CI versions and ensure a CI-equivalent environment (§7.10).
 
     # Escape hatch: ``SCISTUDIO_GATE_NO_PROVISION=1`` disables real venv creation
     # (used by CI and by the self-hosting test that runs the CLI as a real

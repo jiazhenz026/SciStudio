@@ -1,22 +1,24 @@
-"""PreviewSessionManager — create/read/patch sessions + provider invocation.
-
-Ties the registry, router, and bounded data access together (ADR-048 FR-007):
-
-* :meth:`create_session` routes a :class:`PreviewTarget` to a spec, builds an
-  in-memory :class:`PreviewSession`, and renders the first envelope.
-* :meth:`read_session` re-renders the current envelope for a session.
-* :meth:`patch_session` merges new query state (slice/page/sort/slot/item) and
-  re-renders.
-* :meth:`read_resource` performs a bounded follow-up resource read for a
-  session (e.g. an array tile or a child preview).
-* :meth:`render_target` renders a one-shot envelope WITHOUT a session for
-  routed child-resource previews and direct provider tests.
-
-Provider calls are wrapped defensively: a routing/typed error becomes an error
-envelope; an unexpected provider exception becomes a
-:class:`PreviewErrorCode.PROVIDER_EXCEPTION` envelope rather than crashing the
-API (FR-028/FR-029). Sessions never mutate workflow/data/lineage state.
-"""
+"""PreviewSessionManager — create/read/patch sessions + provider invocation."""
+# Maintainer context (kept outside generated API documentation):
+# PreviewSessionManager — create/read/patch sessions + provider invocation.
+#
+# Ties the registry, router, and bounded data access together (ADR-048 FR-007):
+#
+# * :meth:`create_session` routes a :class:`PreviewTarget` to a spec, builds an
+#   in-memory :class:`PreviewSession`, and renders the first envelope.
+# * :meth:`read_session` re-renders the current envelope for a session.
+# * :meth:`patch_session` merges new query state (slice/page/sort/slot/item) and
+#   re-renders.
+# * :meth:`read_resource` performs a bounded follow-up resource read for a
+#   session (e.g. an array tile or a child preview).
+# * :meth:`render_target` renders a one-shot envelope WITHOUT a session for
+#   routed child-resource previews and direct provider tests.
+#
+# Provider calls are wrapped defensively: a routing/typed error becomes an error
+# envelope; an unexpected provider exception becomes a
+# :class:`PreviewErrorCode.PROVIDER_EXCEPTION` envelope rather than crashing the
+# API (FR-028/FR-029). Sessions never mutate workflow/data/lineage state.
+# Development references: ADR-048, FR-007, FR-028, FR-029.
 
 from __future__ import annotations
 
@@ -85,7 +87,8 @@ def _canonical_plot_format(suffix: str) -> str:
 
 def _export_group_stem(primary: Path) -> str:
     """Cache stem shared by a figure's format siblings, e.g. ``current`` for
-    ``current.svg`` and ``current_1`` for ``current_1.pdf`` (#1918)."""
+    ``current.svg`` and ``current_1`` for ``current_1.pdf``."""
+    # Development references: #1918.
     return primary.stem
 
 
@@ -108,7 +111,7 @@ ProviderT = TypeVar("ProviderT", bound=Callable[..., Any])
 def _activated_package_import_roots(owner_kind: OwnerKind) -> Iterator[None]:
     """Activate installed package import roots around a package previewer call.
 
-    #2112: the same deferred-import gap
+    the same deferred-import gap
     :func:`scistudio.blocks.io._unified_dispatch._activated_package_import_roots`
     closes for delegated IO. A package previewer module is importable at render
     time only because discovery cached it in ``sys.modules`` under a scoped
@@ -124,6 +127,7 @@ def _activated_package_import_roots(owner_kind: OwnerKind) -> Iterator[None]:
     no-op outside the desktop/bundled layout, where plugin deps are already
     importable.
     """
+    # Development references: #2112.
     if owner_kind is not OwnerKind.PACKAGE:
         yield
         return
@@ -246,7 +250,7 @@ class PreviewSessionManager:
         return self._render(spec, target, query, limits, session_id)
 
     def read_resource(self, session_id: str, resource_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Perform a bounded follow-up resource read for a session (FR-009).
+        """Perform a bounded follow-up resource read for a session.
 
         Supports the two resource families the core fallbacks emit:
 
@@ -257,6 +261,7 @@ class PreviewSessionManager:
         Returns a JSON-safe dict. Raises :class:`UnknownPreviewerError` for an
         unknown session and :class:`ProviderError` for an unknown resource.
         """
+        # Development references: FR-009.
         session = self._get_session(session_id)
         merged: dict[str, Any] = dict(session.query)
         merged.update(_public_resource_params(params or {}))
@@ -449,11 +454,12 @@ class PreviewSessionManager:
         drop-in blocks: nothing is cached under a bare stem, so a same-named
         module in another tier can neither win the import nor be poisoned by
         it, and a closed project's modules cannot keep serving afterwards
-        (#2017, PR #2072 audit). The FR-016 guard still runs at this door, but
+        The guard still runs at this door, but
         only for drop-in-owned specs — a package/core string provider is an
         ordinary installed import and neither the guard nor the drop-in roots
         apply to it.
         """
+        # Development references: #2017, #2072, FR-016.
         if not isinstance(provider, str):
             return _provider_from_decl(provider)
         owning_root = self._owning_previewer_root(spec.owner_kind)
@@ -777,7 +783,8 @@ def _storage_ref_from_query(query: dict[str, Any], fallback_ref: str) -> Any:
 
 
 def _record_metadata_from_query(query: dict[str, Any]) -> dict[str, Any]:
-    """Extract the recorded data-record metadata carried on the query (ADR-052 §8.5)."""
+    """Extract the recorded data-record metadata carried on the query."""
+    # Development references: ADR-052.
     md = query.get("_record_metadata")
     return dict(md) if isinstance(md, dict) else {}
 

@@ -1,51 +1,53 @@
-"""Write project-scoped hook config + scripts (ADR-040 §3.6).
-
-Provisions ``<project>/.claude/settings.json`` and the 7 hook scripts at
-``<project>/.claude/hooks/`` for Claude Code's hook system.
-
-Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
-review on PR #1047 — Claude Code treats ``MultiEdit`` as a distinct
-tool name; omitting it leaves a bypass path):
-
-  PreToolUse (4):
-    - hook_deny_scistudio_cli.py                      (matcher: Bash)
-    - hook_protect_workflow_yaml.py                 (matcher: Edit|Write|MultiEdit)
-    - hook_protect_data_dir.py                       (matcher: Edit|Write|MultiEdit|Bash)
-    - hook_enforce_list_blocks_before_block_write.py
-        (matcher: Edit|Write|MultiEdit|Bash|mcp__scistudio__scaffold_block)
-
-  PostToolUse (3):
-    - hook_remind_poll_status.py                    (matcher: mcp__scistudio__run_workflow)
-    - hook_mark_list_blocks_called.py               (matcher: mcp__scistudio__list_blocks)
-    - hook_enforce_concrete_port_types.py
-        (matcher: Edit|Write|MultiEdit|mcp__scistudio__scaffold_block)
-
-Hook scripts read JSON from stdin (Claude Code's hook stdin contract);
-exit code 2 blocks the tool call (PreToolUse only); exit code 0 passes.
-
-Self-healing the baked interpreter (#2040)
-------------------------------------------
-
-:func:`hook_interpreter` resolves an absolute path once, at provisioning time,
-and that path is then frozen into every generated command. It is correct when
-written — the venv branch checks ``is_file`` and the fallback returns the
-running ``sys.executable`` — but nothing keeps it correct afterwards. Uninstall
-the desktop app, delete a virtualenv or upgrade Python and every hook in every
-project provisioned against that interpreter becomes a command whose first word
-does not exist.
-
-Nothing repaired that. :func:`_upgrade_legacy_settings_commands` matches only
-the pre-#1994 bare-``python`` spelling, and :func:`_merge_missing_canonical_hooks`
-appends only hooks that are *absent* — a hook that is present but dead satisfies
-it. Re-opening the project, which is what a user would try, rewrote nothing.
-
-It matters more than a broken command usually would, because the failure is
-silent and fails *open*: a hook that cannot start exits 127, a non-blocking
-status, so the tool call proceeds unguarded while the UI shows only a transient
-warning. ``protect_data_dir.py`` and its siblings stop enforcing without ever
-saying so. :func:`_repair_dead_interpreter_commands` re-renders the path;
-the fail-open semantics itself is TODO(#2041).
-"""
+"""Write project-scoped hook config + scripts."""
+# Maintainer context (kept outside generated API documentation):
+# Write project-scoped hook config + scripts (ADR-040 §3.6).
+#
+# Provisions ``<project>/.claude/settings.json`` and the 7 hook scripts at
+# ``<project>/.claude/hooks/`` for Claude Code's hook system.
+#
+# Per ADR §3.6 (matcher list expanded with ``MultiEdit`` per Codex P1
+# review on PR #1047 — Claude Code treats ``MultiEdit`` as a distinct
+# tool name; omitting it leaves a bypass path):
+#
+#   PreToolUse (4):
+#     - hook_deny_scistudio_cli.py                      (matcher: Bash)
+#     - hook_protect_workflow_yaml.py                 (matcher: Edit|Write|MultiEdit)
+#     - hook_protect_data_dir.py                       (matcher: Edit|Write|MultiEdit|Bash)
+#     - hook_enforce_list_blocks_before_block_write.py
+#         (matcher: Edit|Write|MultiEdit|Bash|mcp__scistudio__scaffold_block)
+#
+#   PostToolUse (3):
+#     - hook_remind_poll_status.py                    (matcher: mcp__scistudio__run_workflow)
+#     - hook_mark_list_blocks_called.py               (matcher: mcp__scistudio__list_blocks)
+#     - hook_enforce_concrete_port_types.py
+#         (matcher: Edit|Write|MultiEdit|mcp__scistudio__scaffold_block)
+#
+# Hook scripts read JSON from stdin (Claude Code's hook stdin contract);
+# exit code 2 blocks the tool call (PreToolUse only); exit code 0 passes.
+#
+# Self-healing the baked interpreter (#2040)
+# ------------------------------------------
+#
+# :func:`hook_interpreter` resolves an absolute path once, at provisioning time,
+# and that path is then frozen into every generated command. It is correct when
+# written — the venv branch checks ``is_file`` and the fallback returns the
+# running ``sys.executable`` — but nothing keeps it correct afterwards. Uninstall
+# the desktop app, delete a virtualenv or upgrade Python and every hook in every
+# project provisioned against that interpreter becomes a command whose first word
+# does not exist.
+#
+# Nothing repaired that. :func:`_upgrade_legacy_settings_commands` matches only
+# the pre-#1994 bare-``python`` spelling, and :func:`_merge_missing_canonical_hooks`
+# appends only hooks that are *absent* — a hook that is present but dead satisfies
+# it. Re-opening the project, which is what a user would try, rewrote nothing.
+#
+# It matters more than a broken command usually would, because the failure is
+# silent and fails *open*: a hook that cannot start exits 127, a non-blocking
+# status, so the tool call proceeds unguarded while the UI shows only a transient
+# warning. ``protect_data_dir.py`` and its siblings stop enforcing without ever
+# saying so. :func:`_repair_dead_interpreter_commands` re-renders the path;
+# the fail-open semantics itself is TODO(#2041).
+# Development references: #1047, #1994, #2040, #2041, ADR-040, TODO.
 
 from __future__ import annotations
 
@@ -122,7 +124,7 @@ def _load_template(filename: str) -> str:
 
 
 def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR) -> dict:
-    """Build the canonical settings content per ADR §3.6.
+    """Build the canonical hook settings.
 
     Hook command lines explicitly invoke the Python executable running
     SciStudio so they do not depend on a ``python`` shim being present on
@@ -134,8 +136,11 @@ def _build_settings_json(hooks_dir_rel: str, project_dir_var: str = _CLAUDE_PROJ
     file and the Qoder file: Claude Code expands ``$CLAUDE_PROJECT_DIR`` and
     Qoder expands ``$QODER_PROJECT_DIR``. Everything else — matchers, script
     names, event groups — is byte-identical, which is why one builder serves
-    both and the two cannot drift apart as hooks are added (#1994 finding 3).
+    both and the two cannot drift apart as hooks are added.
     """
+    # Maintainer context:
+    # Build the canonical settings content per ADR §3.6.
+    # Development references: #1994.
     py = _quote_shell_path(hook_interpreter())
     # Codex P1 reconcile (PR #1047): include MultiEdit in every Edit|Write
     # matcher so multi-edit operations are not a bypass path. Claude Code
@@ -183,26 +188,33 @@ _HOOK_PROVENANCE_MARKER = "ADR-040"
 
 
 def _hook_script_needs_refresh(dest: Path, template_body: str) -> bool:
-    """Whether an existing hook script should be rewritten from its template.
+    """Return whether a managed hook differs from its shipped template.
 
-    Hook scripts were previously written **once and never again**: the loop
-    below skipped any file that already existed. That is how the owner's
-    project kept running hooks whose payload reader crashed on a missing stdin
-    long after the template was fixed — the repaired code never reached the file
-    the CLI actually executes, so re-provisioning changed nothing (#1994).
-
-    The Codex config already had a repair path for exactly this reason. The
-    scripts it points at did not, which made the config path a half-fix.
-
-    Refresh is limited to files that still carry SciStudio's provenance marker
-    and whose content has drifted from the shipped template. A user who has
-    replaced a script wholesale with their own is left alone; a stale SciStudio
-    copy — every copy in the field today — is repaired. This deliberately
-    narrows TODO(#1860)'s blanket deferral of content-aware refresh for these
-    seven files only: they are enforcement code SciStudio ships, not a user
-    extension point (``settings.json`` is), and a silently stale one disables
-    the protection it exists to provide.
+    Refresh only files that still carry SciStudio's provenance marker and whose
+    content has changed. Scripts replaced wholesale by the user are preserved.
+    This keeps managed enforcement scripts current when a project is reopened.
     """
+    # Maintainer context (kept outside generated API documentation):
+    # Whether an existing hook script should be rewritten from its template.
+    #
+    #     Hook scripts were previously written **once and never again**: the loop
+    #     below skipped any file that already existed. That is how the owner's
+    #     project kept running hooks whose payload reader crashed on a missing stdin
+    #     long after the template was fixed — the repaired code never reached the file
+    #     the CLI actually executes, so re-provisioning changed nothing (#1994).
+    #
+    #     The Codex config already had a repair path for exactly this reason. The
+    #     scripts it points at did not, which made the config path a half-fix.
+    #
+    #     Refresh is limited to files that still carry SciStudio's provenance marker
+    #     and whose content has drifted from the shipped template. A user who has
+    #     replaced a script wholesale with their own is left alone; a stale SciStudio
+    #     copy — every copy in the field today — is repaired. This deliberately
+    #     narrows TODO(#1860)'s blanket deferral of content-aware refresh for these
+    #     seven files only: they are enforcement code SciStudio ships, not a user
+    #     extension point (``settings.json`` is), and a silently stale one disables
+    #     the protection it exists to provide.
+    # Development references: #1860, #1994, TODO.
     try:
         current = dest.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -215,39 +227,16 @@ def _hook_script_needs_refresh(dest: Path, template_body: str) -> bool:
 
 
 def hook_interpreter() -> str:
-    """Absolute path of the interpreter that should run the hook scripts.
+    """Return the absolute interpreter path used by provisioned hook commands.
 
-    Baked into every provider's hook command at provisioning time, so it has to
-    outlive the process that did the provisioning. ``sys.executable`` does not:
-    it is whatever interpreter happened to run, and on the owner's machine that
-    was the gate's parity venv under ``.workflow/local/venv`` — a scratch
-    directory built to be thrown away (#1994). A hook pointing into it dies the
-    moment it is cleaned up, and nothing announces that.
+    Use the base interpreter when running inside a virtual environment, so the
+    standard-library-only hooks keep working after that environment is removed.
+    Outside a virtual environment, return ``sys.executable`` unchanged.
 
-    **Chosen: a stable absolute path, resolved once at provisioning**, rather
-    than re-resolving at hook time. Re-resolving would mean emitting a bare
-    ``python``, which is exactly the PATH dependence an earlier fix removed —
-    on Windows there is frequently no ``python`` on PATH at all, and when there
-    is it may be a Microsoft Store stub. An absolute path is also the only form
-    that behaves the same in all three shells the command may run under.
-
-    Stability then comes from *which* absolute path. When SciStudio is running
-    inside a virtual environment, this returns the **base** interpreter that
-    venv was created from. That is sound only because every one of the seven
-    hook scripts imports the standard library and nothing else — ``ast``,
-    ``json``, ``os``, ``re``, ``sys``, ``pathlib`` — so they gain nothing from
-    the venv's site-packages, while the base installation is strictly more
-    durable than a venv built on top of it.
-
-    Outside a venv — notably a packaged desktop build with a bundled runtime —
-    ``sys.prefix == sys.base_prefix`` and ``sys.executable`` is returned
-    unchanged, which is already the stable answer there.
-
-    This deliberately does **not** apply to the MCP server command in the same
-    generated files: that one runs ``-m scistudio``, so it needs the
-    environment SciStudio is installed in and cannot be moved to the base
-    interpreter. See the spec for that exposure.
+    The MCP server command still uses the environment containing SciStudio,
+    because it needs the installed package and its dependencies.
     """
+    # Development references: #1994.
     if sys.prefix != sys.base_prefix:
         base = getattr(sys, "_base_executable", None)
         if base and Path(base).is_file():
@@ -429,7 +418,7 @@ def _entry_script_name(entry: object, script_names: set[str]) -> str | None:
 def _merge_missing_canonical_hooks(settings: dict, project_dir_var: str = _CLAUDE_PROJECT_DIR_VAR) -> bool:
     """Additively register canonical hook entries missing from ``settings``.
 
-    ADR-040 Addendum 6 top-up (#1858): when a newer SciStudio version adds a
+    top-up: when a newer SciStudio version adds a
     canonical hook, existing projects already have a ``settings.json`` and so
     the plain "write only if absent" path never registers the new matcher.
     This merge appends any canonical hook entry whose script is not referenced
@@ -439,6 +428,7 @@ def _merge_missing_canonical_hooks(settings: dict, project_dir_var: str = _CLAUD
     entry (including a user-edited matcher/command for it) are left untouched.
     Returns True if the settings dict was modified.
     """
+    # Development references: #1858, ADR-040, Addendum 6.
     canonical = _build_settings_json(_HOOKS_DIR_REL, project_dir_var)["hooks"]
     hooks = settings.get("hooks")
     if not isinstance(hooks, dict):
@@ -480,10 +470,10 @@ def _write_settings_file(
 
     Same behaviour in both cases: write when absent or forced, otherwise
     upgrade legacy command strings, repair commands whose baked interpreter has
-    since disappeared (#2040), and additively merge any canonical hook the
-    user's existing file is missing — never touching user-authored entries
-    (ADR-040 Addendum 6, #1858).
+    since disappeared, and additively merge any canonical hook the
+    user's existing file is missing — never touching user-authored entries.
     """
+    # Development references: #1858, #2040, ADR-040, Addendum 6.
     settings_path = project_dir / settings_rel
     settings_path.parent.mkdir(parents=True, exist_ok=True)
 

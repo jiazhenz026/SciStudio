@@ -193,9 +193,10 @@ class FileWatcher:
 
         Accepts either a plain :class:`subprocess.Popen` (alive while
         ``poll()`` returns ``None``) or a wrapper exposing ``is_alive()``
-        (ADR-052 §7.1). With no handle, liveness is unknown and treated as
+        With no handle, liveness is unknown and treated as
         alive so the watcher relies on its timeout instead.
         """
+        # Development references: ADR-052.
         handle = self._process_handle
         if handle is None:
             return True

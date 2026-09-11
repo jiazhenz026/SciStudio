@@ -1,17 +1,19 @@
-"""User-launched PTY WebSocket route (ADR-034 Phase 1.2).
-
-Owns ``WS /api/ai/pty/{tab_id}`` — the route that accepts the frontend
-connection, validates query params, JOINs an engine-pre-spawned PTY
-(ADR-035 §3.10) or spawns a fresh one, runs two concurrent pump tasks
-(PTY → WS and WS → PTY), and tears down the subprocess tree on
-disconnect.
-
-Mutable seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
-``_active_lock``, ``_engine_tab_to_run``, ``_engine_run_to_run_dir``,
-``_VALID_PROVIDERS``) are looked up on the package namespace at call
-time so monkeypatching them on ``scistudio.api.routes.ai_pty`` keeps
-working — pre-existing test contract.
-"""
+"""User-launched PTY WebSocket route."""
+# Maintainer context (kept outside generated API documentation):
+# User-launched PTY WebSocket route (ADR-034 Phase 1.2).
+#
+# Owns ``WS /api/ai/pty/{tab_id}`` — the route that accepts the frontend
+# connection, validates query params, JOINs an engine-pre-spawned PTY
+# (ADR-035 §3.10) or spawns a fresh one, runs two concurrent pump tasks
+# (PTY → WS and WS → PTY), and tears down the subprocess tree on
+# disconnect.
+#
+# Mutable seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
+# ``_active_lock``, ``_engine_tab_to_run``, ``_engine_run_to_run_dir``,
+# ``_VALID_PROVIDERS``) are looked up on the package namespace at call
+# time so monkeypatching them on ``scistudio.api.routes.ai_pty`` keeps
+# working — pre-existing test contract.
+# Development references: ADR-034, ADR-035.
 
 from __future__ import annotations
 
@@ -283,7 +285,7 @@ _REPAINT_NUDGE_DELAY_S = 1.0
 async def _nudge_initial_repaint(pty: PtyProcess, cols: int, rows: int) -> None:
     """Force one full TUI repaint shortly after the tab opens.
 
-    #1994 finding 4: with ``codex`` and both Qoder channels the CLI's bottom
+    finding 4: with ``codex`` and both Qoder channels the CLI's bottom
     input box was intermittently missing from a freshly opened tab, and a single
     press of the ↓ key made it appear — the signature of a TUI that has drawn a
     frame and is waiting for an event before drawing another.
@@ -307,6 +309,7 @@ async def _nudge_initial_repaint(pty: PtyProcess, cols: int, rows: int) -> None:
     resize, must not take the tab down with it — the nudge is a cosmetic
     guarantee, not part of the data path.
     """
+    # Development references: #1994.
     try:
         await asyncio.sleep(_REPAINT_NUDGE_DELAY_S)
     except asyncio.CancelledError:

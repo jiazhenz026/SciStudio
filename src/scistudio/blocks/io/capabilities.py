@@ -96,9 +96,10 @@ class SimpleIODeclarationError(CapabilityValidationError):
 def normalize_extension(extension: str) -> str:
     """Return a lowercase extension with a leading dot.
 
-    Internal (ADR-052 §6.3): the framework normalizes extensions automatically
+    Internal: the framework normalizes extensions automatically
     via ``FormatCapability.__post_init__``; not part of the public surface.
     """
+    # Development references: ADR-052.
 
     if not isinstance(extension, str):
         raise InvalidExtensionError(f"Extension must be a string, got {type(extension).__name__}.")

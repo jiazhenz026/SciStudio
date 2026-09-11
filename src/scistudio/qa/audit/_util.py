@@ -1,4 +1,5 @@
-"""Shared helpers for ADR-042 audit tools."""
+"""Shared helpers for audit tools."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

@@ -1,16 +1,18 @@
-"""test_engineer_scope_guard calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: ``test_engineer`` persona touched production/build/governance code
-without authorization.
-
-Ported from the legacy ``test_engineer_scope_guard`` (deleted on this branch).
-Path classification now uses the evaluator's single ``surfaces`` classifier
-(implementation / protected-core / frontend / packaging / governance / test /
-docs) instead of the guard's own overlapping pattern sets. The one
-test-engineer-specific exception preserved is the explicitly-scoped QA-tooling
-allowance (``src/scistudio/qa/**`` declared in the effective include set), which
-lets a test engineer touch QA tooling when scope authorizes it.
-"""
+"""Test_engineer_scope_guard calculator."""
+# Maintainer context (kept outside generated API documentation):
+# test_engineer_scope_guard calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: ``test_engineer`` persona touched production/build/governance code
+# without authorization.
+#
+# Ported from the legacy ``test_engineer_scope_guard`` (deleted on this branch).
+# Path classification now uses the evaluator's single ``surfaces`` classifier
+# (implementation / protected-core / frontend / packaging / governance / test /
+# docs) instead of the guard's own overlapping pattern sets. The one
+# test-engineer-specific exception preserved is the explicitly-scoped QA-tooling
+# allowance (``src/scistudio/qa/**`` declared in the effective include set), which
+# lets a test engineer touch QA tooling when scope authorizes it.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

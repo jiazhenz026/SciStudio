@@ -1,14 +1,16 @@
-"""Internal HTTP routes — worker → engine IPC (ADR-035 §3.10).
-
-These two endpoints are private to the engine process. The token comes
-from the env var ``SCISTUDIO_ENGINE_IPC_TOKEN`` which the engine sets at
-startup; child worker subprocesses inherit it via ``os.environ`` and
-attach it on the ``X-SciStudio-IPC-Token`` request header.
-
-The :func:`_ensure_ipc_token` helper is also called from
-``scistudio.api.app.lifespan`` so the env var is populated before any
-worker is spawned (Audit P1-B fix).
-"""
+"""Internal HTTP routes — worker → engine IPC."""
+# Maintainer context (kept outside generated API documentation):
+# Internal HTTP routes — worker → engine IPC (ADR-035 §3.10).
+#
+# These two endpoints are private to the engine process. The token comes
+# from the env var ``SCISTUDIO_ENGINE_IPC_TOKEN`` which the engine sets at
+# startup; child worker subprocesses inherit it via ``os.environ`` and
+# attach it on the ``X-SciStudio-IPC-Token`` request header.
+#
+# The :func:`_ensure_ipc_token` helper is also called from
+# ``scistudio.api.app.lifespan`` so the env var is populated before any
+# worker is spawned (Audit P1-B fix).
+# Development references: ADR-035.
 
 from __future__ import annotations
 
@@ -67,13 +69,14 @@ INTERNAL_ROUTE_PREFIX = register_self_authenticating_prefix("/api/ai/pty/interna
 def _tab_open_kwargs(spec: dict[str, Any]) -> dict[str, Any]:
     """Map a wire ``PtyTabSpec`` dict onto ``open_engine_initiated_tab`` kwargs.
 
-    ADR-034 FR-010: ``provider`` crosses the wire as an explicit registry
+    ``provider`` crosses the wire as an explicit registry
     key. No default is substituted here — an absent key becomes the empty
     string, which ``open_engine_initiated_tab`` rejects against the
     registry rather than silently spawning claude-code. That is the whole
     point of the change: this boundary used to hand over a ``spawn_argv``
     whose first element the engine sniffed for a provider name.
     """
+    # Development references: ADR-034, FR-010.
     return {
         "title": str(spec.get("title", "")),
         "provider": str(spec.get("provider", "")),
@@ -139,9 +142,10 @@ async def _internal_notify(
 
     Fire-and-forget on the worker side. We update the tab→run map and
     broadcast a ``block_pty_closed`` frame so the frontend can decorate
-    the tab title with status ✓/✗ per ADR-035 §3.9. The PTY itself
-    stays open (per ADR-035 §3.9: "tab survives DONE/ERROR").
+    the tab title with status ✓/✗. The PTY itself
+    stays open (per : "tab survives DONE/ERROR").
     """
+    # Development references: ADR-035.
     _check_ipc_token(x_scistudio_ipc_token)
 
     if payload.get("type") != "notify_block_pty_event":

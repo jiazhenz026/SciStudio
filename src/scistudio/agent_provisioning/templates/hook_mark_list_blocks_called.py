@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-"""hook_mark_list_blocks_called.py — PostToolUse / list_blocks (ADR-040 §3.6).
-
-After ``mcp__scistudio__list_blocks`` returns, write a session-keyed
-marker file the companion PreToolUse hook
-(``hook_enforce_list_blocks_before_block_write.py``) reads to gate
-block-authoring tool calls.
-
-Marker layout: <project>/.scistudio/.session-state/<session_id>/list_blocks_called
-
-The ``.scistudio/`` tree is gitignored by ADR-039's default .gitignore.
-"""
+"""hook_mark_list_blocks_called.py — PostToolUse / list_blocks."""
+# Maintainer context (kept outside generated API documentation):
+# hook_mark_list_blocks_called.py — PostToolUse / list_blocks (ADR-040 §3.6).
+#
+# After ``mcp__scistudio__list_blocks`` returns, write a session-keyed
+# marker file the companion PreToolUse hook
+# (``hook_enforce_list_blocks_before_block_write.py``) reads to gate
+# block-authoring tool calls.
+#
+# Marker layout: <project>/.scistudio/.session-state/<session_id>/list_blocks_called
+#
+# The ``.scistudio/`` tree is gitignored by ADR-039's default .gitignore.
+# Development references: ADR-039, ADR-040.
 
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ from pathlib import Path
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -38,6 +40,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}
