@@ -48,6 +48,7 @@ from scistudio.api.seam import (
     GuardContext,
     GuardDispatchMiddleware,
     IdentityCapability,
+    TransferCapability,
     is_self_authenticating_path,
     register_self_authenticating_prefix,
     self_authenticating_prefixes,
@@ -390,7 +391,8 @@ def test_failing_startup_hook_aborts_startup_and_unwinds(seam_env: Path, monkeyp
 def test_capabilities_are_all_off_by_default() -> None:
     capabilities = Capabilities()
     assert capabilities.any_enabled is False
-    assert capabilities.to_bootstrap() == {"identity": None, "transfer": False}
+    # Absent means off: the declaration carries only its version.
+    assert capabilities.to_bootstrap() == {"version": 1}
 
 
 @pytest.mark.parametrize("url", ["/api/session/logout", f"{PREFIXED_MOUNT}/api/session/logout"])
@@ -437,23 +439,29 @@ def test_declared_capabilities_reach_the_served_page(
 ) -> None:
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
     capabilities = Capabilities(
-        identity=IdentityCapability(user="alice", logout_url="/api/session/logout"), transfer=True
+        identity=IdentityCapability(user="alice", logout_url="/api/session/logout"),
+        transfer=TransferCapability(inline_max_bytes=1024, download_url_template="/api/x/download?path={path}"),
     )
     app = create_app(capabilities=capabilities)
     assert app.state.capabilities is capabilities
     with TestClient(app, root_path=mount_prefix) as client:
         shell = client.get(f"{mount_prefix}/projects/deep/route").text
     assert (
-        'window.__SCISTUDIO_CAPABILITIES__ = {"identity":{"user":"alice","logoutUrl":"/api/session/logout"},'
-        '"transfer":true};' in shell
+        'window.__SCISTUDIO_CAPABILITIES__ = {"version":1,'
+        '"identity":{"user":"alice","logoutUrl":"/api/session/logout"},'
+        '"transfer":{"inlineMaxBytes":1024,"downloadUrlTemplate":"/api/x/download?path={path}"}};' in shell
     )
 
 
 def test_transfer_alone_declares_no_identity(seam_env: Path) -> None:
-    app = create_app(capabilities=Capabilities(transfer=True))
+    transfer = TransferCapability(inline_max_bytes=0, download_url_template="/api/x/download/{path}")
+    app = create_app(capabilities=Capabilities(transfer=transfer))
     with TestClient(app) as client:
         shell = client.get("/").text
-    assert _declared_capabilities(shell) == {"identity": None, "transfer": True}
+    assert _declared_capabilities(shell) == {
+        "version": 1,
+        "transfer": {"inlineMaxBytes": 0, "downloadUrlTemplate": "/api/x/download/{path}"},
+    }
 
 
 def test_capability_declaration_is_script_safe(seam_env: Path) -> None:

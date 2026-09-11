@@ -21,14 +21,16 @@ scope:
     - "`create_app` keyword arguments for a replacement guard, lifespan hooks, a capability declaration, and an edition's routers; the no-argument call builds the backend exactly as before."
     - "One guard slot in the middleware stack, filled by the WebMCP bridge's loopback token middleware by default or by a replacement guard, with the self-authenticating bypass enforced around whichever guard is installed."
     - "The self-authenticating path registry (`scistudio.api.seam`), matched on the route path after root-path prefix handling, and the per-mount panel token exception it carries for ADR-054."
-    - "The capability declaration (`identity`, `transfer`), delivered through the served page bootstrap and read by `frontend/src/lib/capabilities.ts`; no UI components."
+    - "The capability declaration (`identity`, `transfer`, `ai_chat_disabled`, `update`), versioned, delivered through the served page bootstrap and read by `frontend/src/lib/capabilities.ts`; the components that render it belong to `adr-055-enterprise-support` (#2322)."
     - "The runs-active read accessor `workflow_runs_active`."
+    - "The registration of `/api/ai/pty/internal/` as a self-authenticating prefix, so AI Block worker callbacks pass any guard (#2322)."
+    - "Project access for an edition's routes and tools (#2328): `active_project_root`, `ToolRefusal`, `check_author_path`, `write_project_file`, and `add_upload_listener` with `UploadEvent`, as thin wrappers over the internals the workspace tools use."
     - "The ADR-052 declaration of the enterprise edition's dependencies: new canonical roots `scistudio.api.app` and `scistudio.api.seam`, provisional since 0.3.5, with the shared MCP registry and `AUDIENCE_EXTERNAL_TAG` republished there."
     - "A test-only fake guard and a reusable guard contract suite, parametrized over a guard case and run at the root mount and under a mount prefix."
   out:
     - "Everything inside the enterprise edition: the Hub OAuth guard, session cookies and their SameSite/XSRF rules, transfer routes and tools, Hub activity reporting, startup validation of prefix and callback, deployment assets, and the operator runbook."
     - "Multi-user login in the open-source edition; it keeps its present behavior."
-    - "The capability-gated UI components (signed-in user and Logout, upload picker with transfer progress, download/save flow); tracked by #2304 until their own issue exists."
+    - "The capability-gated UI components (signed-in user and Logout, upload picker with transfer progress, download action, update notice, AI Chat gate); they are `adr-055-enterprise-support` FR-004 to FR-007, delivered by #2322."
     - "ADR-054 panel routes and their registration of `/api/panels/t/`; that lands when panels resume (#2288)."
     - "Removal of the original Lab deployment spec (Spec 4) from this repository, which #2303 does; the open-source changes for the enterprise edition are collected in `adr-055-enterprise-support` (PR #2310)."
 governs:
@@ -42,11 +44,19 @@ governs:
     - scistudio.api.seam.LifespanHook
     - scistudio.api.seam.Capabilities
     - scistudio.api.seam.IdentityCapability
+    - scistudio.api.seam.TransferCapability
+    - scistudio.api.seam.UpdateCapability
     - scistudio.api.seam.register_self_authenticating_prefix
     - scistudio.api.seam.unregister_self_authenticating_prefix
     - scistudio.api.seam.self_authenticating_prefixes
     - scistudio.api.seam.is_self_authenticating_path
     - scistudio.api.seam.workflow_runs_active
+    - scistudio.api.seam.active_project_root
+    - scistudio.api.seam.ToolRefusal
+    - scistudio.api.seam.check_author_path
+    - scistudio.api.seam.write_project_file
+    - scistudio.api.seam.add_upload_listener
+    - scistudio.api.seam.UploadEvent
   entry_points: []
   files:
     - docs/specs/adr-055-identity-seam.md
@@ -54,6 +64,8 @@ governs:
     - src/scistudio/api/app.py
     - src/scistudio/api/spa.py
     - src/scistudio/api/routes/webmcp.py
+    - src/scistudio/api/routes/data.py
+    - src/scistudio/api/routes/ai_pty/internal_routes.py
     - frontend/src/lib/capabilities.ts
   excludes: []
 planned_governs:
@@ -67,6 +79,9 @@ tests:
   - tests/api/seam_contract.py
   - tests/api/fake_guard.py
   - tests/api/test_public_surface.py
+  - tests/api/test_enterprise_capabilities.py
+  - tests/api/test_ai_pty_internal_guard.py
+  - tests/api/test_seam_project_access.py
   - frontend/src/lib/capabilities.test.ts
 acceptance_source: adr
 language_source: en
@@ -114,12 +129,25 @@ The open-source side therefore guarantees a seam rather than a deployment:
    through to the route. ADR-054's per-mount panel tokens under
    `/api/panels/t/` are the first user (Section 3.5).
 4. **A capability declaration** (`create_app(capabilities=...)`). The backend
-   tells the frontend at boot which enterprise capabilities are on: `identity`
-   (the signed-in user and the backend's own logout endpoint) and `transfer`. A typed accessor
-   exposes them for capability-gated UI; this spec adds no UI.
+   tells the frontend at boot which enterprise capabilities are on:
+   - `identity`: the signed-in user and, optionally, the backend's own logout
+     route;
+   - `transfer`;
+   - `ai_chat_disabled`;
+   - `update`.
+
+   A typed accessor exposes them. The UI that renders them is
+   `adr-055-enterprise-support` (#2322).
 5. **A test-only fake guard and a reusable contract suite.** The suite checks
    any replacement guard, so the enterprise edition's real guard runs the same
    cases the fake guard does.
+6. **Project access for an edition's routes and tools** (#2328). An edition
+   reaches the open project through the seam rather than through internals:
+   - its root;
+   - a refusal it can raise inside a tool;
+   - the author tools' path rules;
+   - the editor's shared write path;
+   - a listener for staged uploads.
 
 With no arguments `create_app` builds exactly the backend it built before this
 spec. That is the first acceptance criterion, not a side note.
@@ -229,8 +257,9 @@ exited, and the core teardown runs.
 
 ### User Story 5 - The frontend learns the edition's capabilities (Priority: P2)
 
-An edition declares `identity` and `transfer`. The page it serves carries the
-declaration, and frontend code reads it through one typed accessor.
+An edition declares its capabilities (`identity`, `transfer`,
+`ai_chat_disabled`, `update`). The page it serves carries the declaration, and
+frontend code reads it through one typed accessor.
 
 **Why this priority**: The owner placed the enterprise UI in the open-source
 frontend, hidden by default (UI placement option A). The components need a
@@ -333,24 +362,48 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
 
 ### 3.5 Capabilities And The Per-Mount Token Exception
 
-- **FR-014**: `Capabilities(identity=None, transfer=False)` MUST be the default.
-  `IdentityCapability(user, logout_url)` MUST reject an empty user and any
-  `logout_url` that is not an absolute same-origin path (a leading `/`, not
-  `//`, no whitespace or control characters). `logout_url` names the
-  backend's own logout endpoint, which ends the SciStudio session before any
-  identity-provider logout. The frontend sends it a same-origin `POST`,
-  resolved under the service prefix, and then follows the location the
-  response returns; a plain GET navigation would let other sites force a
-  logout, so another origin or scheme can never pass.
+- **FR-014**: `Capabilities(identity=None, transfer=None, ai_chat_disabled=False, update=None)`
+  MUST be the default, and an absent capability is off.
+  - `IdentityCapability(user, logout_url=None)` MUST reject an empty user.
+    `logout_url` is optional. When given, it names the backend's own logout
+    route, which ends the SciStudio session before any identity-provider
+    logout and answers `{"location": ...}`. The frontend sends it a
+    same-origin `POST` and then follows that location. A plain GET navigation
+    would let other sites force a logout.
+  - `TransferCapability(inline_max_bytes, download_url_template)` MUST reject
+    a negative or non-integer `inline_max_bytes`, and a template without
+    exactly one `{path}` placeholder.
+  - `UpdateCapability(status_url, restart_url)` names the routes the frontend
+    polls and posts to (`adr-055-enterprise-support` FR-007).
+  - `ai_chat_disabled` MUST be a bool.
+  - Every URL MUST be a backend route path without the service prefix: a
+    leading `/`, not `//`, and no scheme, whitespace, control characters or
+    backslashes. Anything else raises `ValueError`, so another origin or
+    scheme can never pass. The frontend resolves each URL under the service
+    prefix exactly as it resolves API calls.
+  - `transfer=False` still means off. `transfer=True`, the shape before #2322,
+    MUST raise `TypeError` naming `TransferCapability`. That is an ADR-052
+    provisional change, recorded in the changelog.
 - **FR-015**: When at least one capability is on, the served `index.html`
-  MUST carry `window.__SCISTUDIO_CAPABILITIES__ = {"identity": {"user", "logoutUrl"} | null, "transfer": bool}`,
-  serialized so no value can close the script element (`<`, `>`, `&`, U+2028
-  and U+2029 escaped). When every capability is off, nothing is emitted.
+  MUST carry `window.__SCISTUDIO_CAPABILITIES__`. It is an object with
+  `version: 1` plus one camelCase key per capability that is on:
+  - `identity: {user, logoutUrl?}`;
+  - `transfer: {inlineMaxBytes, downloadUrlTemplate}`;
+  - `aiChatDisabled: true`;
+  - `update: {statusUrl, restartUrl}`.
+
+  An absent key means off. The object is serialized so no value can close the
+  script element (`<`, `>`, `&`, U+2028 and U+2029 escaped). When every
+  capability is off, nothing is emitted.
 - **FR-016**: `frontend/src/lib/capabilities.ts` MUST expose
-  `getCapabilities()` and `isCapabilityEnabled(name)`, read the declaration
-  once, return frozen values, read an absent declaration as all off, and read
-  each malformed or unsafe field as off without throwing. It MUST NOT render
-  UI.
+  `getCapabilities()` and `isCapabilityEnabled(name)`. It MUST:
+  - read the declaration once and return frozen values;
+  - read an absent declaration as all off, with `version` 0;
+  - ignore a capability it does not know;
+  - read each malformed or unsafe field as off without throwing, applying the
+    backend's route-path rule to every URL.
+
+  It MUST NOT render UI.
 
 The per-mount token exception that ADR-054 planned to record in the Lab spec
 (`adr-054-panels` FR-026 and FR-047) is recorded here, because Spec 4 leaves
@@ -372,11 +425,16 @@ this repository with the enterprise edition (#2303):
 
 - **FR-018**: `scistudio.api.app` (`create_app`) and `scistudio.api.seam` MUST
   be ADR-052 canonical roots, each with an `__all__` whose every symbol is
-  `provisional` since 0.3.5: `create_app`; `GuardFactory`, `GuardContext`,
-  `LifespanHook`, `Capabilities`, `IdentityCapability`, the four registry
-  functions, `workflow_runs_active`, the shared FastMCP registry `mcp`, and
-  `AUDIENCE_EXTERNAL_TAG`. The freeze snapshot and the generated reference MUST
-  include both roots.
+  `provisional` since 0.3.5. The symbols are:
+  - `create_app`;
+  - `GuardFactory`, `GuardContext`, `LifespanHook`;
+  - `Capabilities`, `IdentityCapability`, `TransferCapability`,
+    `UpdateCapability`;
+  - the four registry functions and `workflow_runs_active`;
+  - the project-access names of Section 3.8;
+  - the shared FastMCP registry `mcp`, and `AUDIENCE_EXTERNAL_TAG`.
+
+  The freeze snapshot and the generated reference MUST include both roots.
 - **FR-019**: `workflow_runs_active(app)` MUST return whether any workflow run's
   task is still executing, and `False` before the runtime exists.
 
@@ -393,6 +451,51 @@ this repository with the enterprise edition (#2303):
   Starlette, and SciStudio. Section 4.5 is its documented use by an external
   package.
 
+### 3.8 Worker Callbacks And Project Access
+
+AI Block workers call back into the backend without a browser session, and an
+edition's routes and tools need the open project. Both go through the seam.
+
+- **FR-022**: `scistudio.api.routes.ai_pty` MUST register `/api/ai/pty/internal/`
+  through FR-007 once, when it is imported, before any request is served. The
+  AI Block worker's callbacks (`request-tab`, `notify`) then pass any guard.
+  Every route under the prefix MUST check the engine IPC token on every
+  request (FR-011). A request without the token gets the route's own 401,
+  never the guard's (#2322).
+- **FR-023**: `active_project_root(app)` MUST return the open project's fully
+  resolved root, or `None` when no project is open or before the runtime
+  exists.
+- **FR-024**: `ToolRefusal(message, *, code, use_instead)` MUST be an
+  exception. Raised inside any tool on the shared registry, it MUST become a
+  Spec 1 error result: `isError: true`, the message as text content, and the
+  structured content `{"status": "refused", "refusal": {code, message, use_instead}}`
+  that the workspace tools use. That MUST hold across the WebMCP bridge, which
+  withholds other exceptions' text. It subclasses FastMCP's `ToolError`.
+- **FR-025**: `check_author_path(project_root, rel_path)` MUST apply the
+  author tools' own confinement and Spec 2 blacklist. It returns the resolved
+  path, and otherwise raises `ToolRefusal` with their refusal code:
+  `outside_project`, `protected_data_dir`, `protected_workflow_yaml`, or
+  `empty_path` / `project_root` for a path naming no file.
+- **FR-026**: `write_project_file(app, rel_path, data)` MUST be a coroutine
+  that writes `bytes` through the editor's shared write path (Spec 2 FR-005):
+  - an atomic write;
+  - the file's state version advanced;
+  - `file.changed` sent to the UI;
+  - the lint-gated registry reload for UTF-8 drop-in modules.
+
+  It creates missing parent directories. It MUST confine the path to the open
+  project and raise `ToolRefusal` for no open project, a path outside it, or
+  a refused write. The author blacklist is not applied; an edition calls
+  FR-025 first for an agent's write.
+- **FR-027**: `add_upload_listener(app, callback)` MUST call `callback` with an
+  `UploadEvent` whenever a staged `POST /api/data/upload` completes or is
+  discarded. It returns a function that removes the listener.
+  - The event carries the destination's project-relative POSIX path, the
+    bytes received, and `status` `completed` or `discarded`.
+  - The callback may be a plain or a coroutine function.
+  - A listener that raises is logged and skipped; it MUST NOT change the
+    upload's answer or stop the other listeners.
+
 ### Key Entities
 
 - **GuardContext**: the mount prefix a guard is built with; transient.
@@ -401,8 +504,14 @@ this repository with the enterprise edition (#2303):
   context manager bracketing a startup check or background task.
 - **Self-authenticating prefix**: a normalized route-path prefix in a
   process-wide registry; no persistence.
-- **Capabilities / IdentityCapability**: the frozen declaration an edition
-  passes; kept on `app.state.capabilities` and injected into the page.
+- **Capabilities / IdentityCapability / TransferCapability /
+  UpdateCapability**: the frozen declaration an edition passes; kept on
+  `app.state.capabilities`, injected into the page, and handed to the PTY
+  routes for `ai_chat_disabled` by the application lifespan.
+- **ToolRefusal**: a refusal raised inside a tool or by the project-access
+  helpers; transient.
+- **UploadEvent**: `{path, size, status}` for one staged upload; delivered to
+  listeners kept on `app.state.upload_listeners`, never persisted.
 - **GuardCase** (test tree): one guard under contract test.
 
 ## 4. Implementation Plan
@@ -456,6 +565,12 @@ on that object, so it reads the same through either path.
 | `scripts/docs/build_reference.py`, `mkdocs.yml`, generated reference pages | modify / regenerate | Reference for the two new roots, regenerated by the script |
 | `src/scistudio/_agent_reference/public-api.md` | modify | Canonical-root table |
 | `docs/adr/ADR-055.md` | modify | Section 8 amendment |
+| `src/scistudio/api/seam.py`, `frontend/src/lib/capabilities.ts` | modify | The #2322 capability shapes and route-path validation; the #2328 project-access names and the tool-refusal middleware |
+| `src/scistudio/api/routes/ai_pty/internal_routes.py` | modify | Register `/api/ai/pty/internal/` (FR-022) |
+| `src/scistudio/api/routes/data.py` | modify | Fire the upload listeners (FR-027) |
+| `src/scistudio/ai/agent/mcp/tools_workspace.py` | modify | Author-path resolution takes an explicit project root, so FR-025 reuses it |
+| `src/scistudio/api/runtime/_file_writes.py` | modify | The shared write path accepts bytes, so FR-026 reuses it |
+| `tests/api/test_enterprise_capabilities.py`, `tests/api/test_ai_pty_internal_guard.py`, `tests/api/test_seam_project_access.py` | create | Capability shapes at both mounts; worker callbacks under a replacement guard; project access at both mounts |
 
 ### 4.3 Implementation Sequence
 
@@ -468,6 +583,9 @@ on that object, so it reads the same through either path.
 5. **T-005** (US6): the fake guard and the contract suite at both mounts.
 6. **T-006**: the declared surface: canonical roots, snapshot, regenerated
    reference, changelog, ADR-055 amendment.
+7. **T-007** (#2322): the capability extensions of FR-014 to FR-016 and the
+   worker-callback prefix of FR-022.
+8. **T-008** (#2328): the project-access names of FR-023 to FR-027.
 
 ### 4.4 Verification Plan
 
@@ -484,6 +602,15 @@ on that object, so it reads the same through either path.
   `tests/api/test_app.py`: unchanged and passing.
 - `frontend/src/lib/capabilities.test.ts`: default, typed read, malformed and
   unsafe input, caching, frozen values.
+- `tests/api/test_enterprise_capabilities.py`: every capability present and
+  absent in the served page at both mounts, URL validation, the `transfer`
+  change, and declared paths reaching an edition's routes under the prefix.
+- `tests/api/test_ai_pty_internal_guard.py`: worker callbacks under the fake
+  guard and the default guard at both mounts; every internal route refuses a
+  request without the IPC token.
+- `tests/api/test_seam_project_access.py`: FR-023 to FR-027 at both mounts,
+  including refusals over the WebMCP bridge and listeners on completed and
+  discarded uploads.
 - `gate_record check` for the tier-selected checks.
 
 ### 4.5 Running The Contract Suite From Another Package
@@ -544,8 +671,9 @@ wheel.
 - **SC-005**: With every capability off, the served page contains no
   capability assignment; with any on, the declaration parses back to the
   declared values and closes no script element.
-- **SC-006**: The freeze snapshot pins both new roots, thirteen provisional
-  symbols in all.
+- **SC-006**: The freeze snapshot pins both new roots, twenty-one public
+  symbols in all (twenty stability-marked; `AUDIENCE_EXTERNAL_TAG` is a
+  constant).
 
 ## 6. Assumptions
 
@@ -558,7 +686,6 @@ wheel.
 - Panels register `/api/panels/t/` when ADR-054 Phase A resumes (#2288); until
   then the registry is exercised with fixture prefixes (source: owner
   sequencing update 2026-09-11 on #2304).
-- The capability-gated UI components are designed once the enterprise transfer
-  and logout API contracts exist; `frontend/src/lib/capabilities.ts` carries
-  the tracked `TODO(#2304)` for them (source: owner UI placement decision,
-  option A).
+- The capability-gated UI components follow the shared capability contract of
+  umbrella #2321 and ship in #2322, in the open-source frontend (source: owner
+  UI placement decision, option A).

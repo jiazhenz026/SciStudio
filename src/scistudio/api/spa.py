@@ -25,9 +25,12 @@
 # 2d) adds the capability declaration (``window.__SCISTUDIO_CAPABILITIES__``)
 # an edition passes to ``create_app``. It is emitted only when at least one
 # capability is on, so the open-source shell is unchanged; the frontend reads
-# it through ``frontend/src/lib/capabilities.ts``.
-# Development references: ADR-055, FR-002, FR-003, FR-006, Spec 0, Spec 1, docs/specs/adr-055-identity-
-# seam.md.
+# it through ``frontend/src/lib/capabilities.ts``. The declaration is versioned
+# and carries one key per capability that is on (ADR-055 Spec 4,
+# ``docs/specs/adr-055-enterprise-support.md``); the route paths inside it are
+# serialized script-safe like every other value.
+# Development references: ADR-055, FR-002, FR-003, FR-006, Spec 0, Spec 1, Spec 4, docs/specs/adr-055-identity-
+# seam.md, docs/specs/adr-055-enterprise-support.md.
 
 from __future__ import annotations
 
@@ -162,8 +165,9 @@ def _templated_index_response(
       configured) — the per-launch WebMCP bridge session token, injected on
       every mount including the default root mount.
     * ``window.__SCISTUDIO_CAPABILITIES__`` (only when an edition turned a
-      capability on) — the capability declaration of the identity seam,
-      already serialized by :func:`_script_safe_json`.
+      capability on) — the versioned capability declaration of the identity
+      seam, already serialized by :func:`_script_safe_json`, so no user name
+      or route path in it can close the script element.
 
     ``json.dumps`` keeps each JS value a safely quoted string literal;
     ``html.escape`` does the same for the attribute context.
