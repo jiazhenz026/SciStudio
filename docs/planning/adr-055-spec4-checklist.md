@@ -147,7 +147,7 @@ language_source: en
 - the spec `tests:` entry;
 - all Codex threads resolved.
 
-CI is being watched. |
+CI is 17/17 green at f4e3199cf, and the PR is mergeable (CLEAN), ready for the owner to merge. |
 | `AU3b` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O2, PR #2329 | `audit/2308-with-context` | `.worktrees/audit-2308-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o2-with-context.md` | product code | PR #2329 | `[~]` |
 | `AU4b` | `audit_reviewer` | `no-context` | template filled at dispatch (2026-09-11) | audit the adapter, the token file and the MCP socket surfaces | `audit/2308-no-context` | `.worktrees/audit-2308-no-context` | `docs/audit/2026-09-11-adr-055-spec4-o2-no-context.md` | product code | none (no-context) | `[~]` |
 | `AU1` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O1, PR #2336 | `audit/2322-with-context` | `.worktrees/audit-2322-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md` | product code | PR #2336 | `[~]` |
@@ -328,6 +328,15 @@ CI is being watched. |
   - New R2 (P3): the MCP-pointer hardening rides in this PR. That was a manager decision, because A3 owns `_projects.py`, and it is now attributed to #2333.
   - A real-backend stop test is required: stop-flag run with git, with `/ws` and log SSE open, then a stdin close, and the row must end `cancelled` within budget.
   - R1 and the test are routed to A3.
+- [x] Fix round at head de11b2848: main merge ff53301d2, fixes ec720a30d.
+  - N1: a private, non-inheritable stdin copy; children get NUL.
+  - N2: `/ws` and log streams close on the stop signal; the budget is ≤20 s, with the desktop force-kill at 25 s.
+  - N3: no resurrection of a deleted project.
+  - N5: the stdin pipe is Windows-only.
+  - R1: PTY sessions are torn down on stop.
+  - The real-backend stop test is `tests/api/test_runtime_backend_stop.py`.
+  - The uvicorn `timeout_graceful_shutdown` one-liner in `cli/main.py`, which is in #2329's write set, is deferred. A3 adds it on its next main merge after #2329 lands; this is a manager-authorized scope amendment.
+  - CI is being watched. AU5 and AU6 are doing a short final check.
 - [~] AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
   - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
   - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
