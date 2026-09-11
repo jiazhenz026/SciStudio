@@ -57,30 +57,8 @@ afterEach(() => {
 // core.series.basic is an ES module on the shared component set; it is
 // covered by seriesPanel.test.ts.
 
-describe("core.text.basic", () => {
-  it("renders content and a truncation notice with the total size", async () => {
-    const { root } = mount("core.text.basic", {
-      input: { ref: "t" },
-      reads: {
-        "text.chunk": {
-          text: "hello world",
-          truncated: true,
-          total_bytes: 4096,
-          language: "txt",
-          encoding: "utf-8",
-          offset: 0,
-          next_offset: 11,
-        },
-      },
-    });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=text-content]")).toBeTruthy());
-    expect(root().querySelector("[data-testid=text-content]")?.textContent).toBe("hello world");
-    expect(root().querySelector("[data-testid=text-truncation]")?.textContent).toContain(
-      "4096 bytes",
-    );
-    expect(root().querySelector("[data-testid=text-load-more]")).toBeTruthy();
-  });
-});
+// core.text.basic is an ES module on the shared component set; it is
+// covered by textPanel.test.ts.
 
 describe("core.artifact.basic", () => {
   it("shows name, mime, size and an inline image", async () => {

@@ -1,50 +1,130 @@
-/* core.text.basic — bounded, paged text view (parity: TextViewer).
- * Reads text.chunk; shows encoding + language, a truncation notice with the
- * total byte size, and a "Load more" that pages forward via next_offset. */
-(function () {
-  "use strict";
-  var api = window.scistudio;
-  var root = document.getElementById("root");
-  var buffer = "";
-  var current = null;
+/* core.text.basic — a text document.
+ *
+ * Built with Preact and the shared panel component set. The surface matches the
+ * viewer it replaces: the content in a scrolling monospace block.
+ *
+ * Faithful display (#1886): a read is bounded, but the whole document is
+ * reachable — the read reports where the next chunk starts, so the panel keeps
+ * reading until the end instead of showing a fragment with a notice telling the
+ * reader to open the file somewhere else. The size is reported as plain
+ * information while the rest is still arriving, never as a caveat about data
+ * that is in fact complete.
+ */
+import {
+  html,
+  render,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Panel,
+  ScrollArea,
+} from "../../sdk/1/panel-ui.js";
 
-  function el(tag, props, kids) {
-    var node = document.createElement(tag);
-    if (props) Object.keys(props).forEach(function (k) {
-      if (k === "text") node.textContent = props[k];
-      else if (k === "onclick") node.onclick = props[k];
-      else node.setAttribute(k, props[k]);
-    });
-    (kids || []).forEach(function (c) { if (c) node.appendChild(c); });
-    return node;
+const api = window.scistudio;
+
+/** Guard against a reader that never advances, so a read loop always ends. */
+const MAX_CHUNKS = 512;
+
+/** The text a chunk carries; the read names it both ways. */
+export function chunkText(chunk) {
+  const value = chunk?.text ?? chunk?.content;
+  return typeof value === "string" ? value : "";
+}
+
+/**
+ * Where the next read should start, or null when the document is fully read.
+ *
+ * A chunk that is not truncated is the end. A ``next_offset`` that does not move
+ * forward is a reader that cannot advance, and is treated as the end rather than
+ * being asked again.
+ */
+export function nextOffset(chunk, readSoFar) {
+  if (!chunk || chunk.truncated !== true) return null;
+  const next = chunk.next_offset;
+  if (typeof next !== "number" || next <= readSoFar) return null;
+  return next;
+}
+
+function TextPanel() {
+  const [text, setText] = useState("");
+  const [meta, setMeta] = useState(null);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState(null);
+  const cancelled = useRef(false);
+
+  const fail = useCallback((err) => {
+    const message = err?.message || String(err);
+    setError(message);
+    api.reportError(message);
+  }, []);
+
+  useEffect(() => {
+    cancelled.current = false;
+    let offset = 0;
+    let chunks = 0;
+    const readFrom = (from) => {
+      api
+        .read("text.chunk", from ? { offset: from } : {})
+        .then((chunk) => {
+          if (cancelled.current) return;
+          setText((prev) => prev + chunkText(chunk));
+          setMeta(chunk);
+          chunks += 1;
+          const next = nextOffset(chunk, offset);
+          if (next === null || chunks >= MAX_CHUNKS) {
+            setDone(true);
+            return;
+          }
+          offset = next;
+          readFrom(next);
+        })
+        .catch((err) => {
+          if (!cancelled.current) fail(err);
+        });
+    };
+    readFrom(0);
+    return () => {
+      cancelled.current = true;
+    };
+  }, [fail]);
+
+  if (error) {
+    return html`<${Panel}><${ErrorState}>Could not read text: ${error}<//><//>`;
+  }
+  if (!meta) {
+    return html`<${Panel}><${LoadingState}>Loading text…<//><//>`;
+  }
+  if (done && text === "") {
+    return html`<${Panel}><${EmptyState} data-testid="text-empty">This file is empty.<//><//>`;
   }
 
-  function render() {
-    root.textContent = "";
-    root.appendChild(el("pre", { "data-testid": "text-content", text: buffer }));
-    root.appendChild(el("div", { class: "meta", "data-testid": "text-meta", text: (current.language || "text") + " · " + (current.encoding || "utf-8") + " · " + (current.total_bytes || 0) + " bytes" }));
-    if (current.truncated || (current.next_offset !== null && current.next_offset !== undefined)) {
-      var loadMore = el("button", { text: "Load more", "data-testid": "text-load-more", onclick: function () { loadMore.setAttribute("disabled", ""); page(current.next_offset || 0); } });
-      root.appendChild(el("div", { class: "trunc", "data-testid": "text-truncation" }, [
-        el("span", { text: "Bounded preview of " + (current.total_bytes || 0) + " bytes — open in the editor for the full content." }),
-        current.next_offset !== null && current.next_offset !== undefined ? loadMore : null,
-      ]));
-    }
-  }
+  const totalBytes = typeof meta.total_bytes === "number" ? meta.total_bytes : null;
 
-  function page(offset) {
-    return api.read("text.chunk", { offset: offset }).then(function (chunk) {
-      current = chunk;
-      buffer += chunk.text || chunk.content || "";
-      render();
-    }).catch(function (err) {
-      root.textContent = "";
-      root.appendChild(el("div", { class: "err", role: "alert", text: "Could not read text: " + (err && err.message || err) }));
-      api.reportError(String(err && err.message || err));
-    });
-  }
+  return html`<${Panel}>
+    <${ScrollArea} class="text-surface">
+      <pre class="text-content" data-testid="text-content">${text}</pre>
+    <//>
+    ${!done
+      ? html`<${LoadingState} data-testid="text-loading-more">
+          Reading the rest${totalBytes !== null ? ` of ${totalBytes.toLocaleString()} bytes` : ""}…
+        <//>`
+      : totalBytes !== null
+        ? html`<div class="panel-hint" data-testid="text-size">
+            ${totalBytes.toLocaleString()} bytes${meta.encoding ? ` · ${meta.encoding}` : ""}
+          </div>`
+        : null}
+  <//>`;
+}
 
-  api.ready().then(function () { page(0); }).catch(function (err) { api.reportError(String(err && err.message || err)); });
-
-  window.__panel = { render: render };
-})();
+api
+  .ready()
+  .then(() => {
+    render(html`<${TextPanel} />`, document.getElementById("root"));
+  })
+  .catch((err) => api.reportError(String(err?.message || err)));
