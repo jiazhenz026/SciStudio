@@ -124,6 +124,13 @@ _ai_pty_subscribers_lock = threading.Lock()
 # they install in their own account.
 # ---------------------------------------------------------------------------
 
+#: Tab ids the user-launched PTY WebSocket refuses. Each is a literal segment
+#: another route family owns under ``/api/ai/pty/``: ``internal`` is the
+#: self-authenticating worker callback prefix (``internal_routes``), and a tab
+#: with that id would put the terminal route on the prefix's own path (#2322
+#: audit P1-1). Compared case-insensitively.
+RESERVED_TAB_IDS: frozenset[str] = frozenset({"internal"})
+
 _agent_sessions_disabled = False
 
 

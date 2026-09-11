@@ -42,7 +42,7 @@ export interface UploadProgress {
 export interface UploadDataOptions {
   /** Called as the request body is sent. */
   onProgress?: (progress: UploadProgress) => void;
-  /** Aborting it cancels the upload; the backend discards the staged file. */
+  /** Aborting it cancels the upload; nothing is staged on the backend. */
   signal?: AbortSignal;
 }
 
@@ -70,8 +70,9 @@ function uploadErrorMessage(xhr: XMLHttpRequest): string {
  * ADR-055 Spec 4 FR-005 — the staged `POST /api/data/upload`, with progress
  * and cancel. `fetch` cannot report upload progress, so this one request uses
  * `XMLHttpRequest`, still resolved through `apiUrl` so it lands under the
- * service prefix. The route streams the body into a staged file and discards
- * it when the request is aborted, so a cancelled upload leaves nothing behind.
+ * service prefix. The backend receives the whole request body before the
+ * route runs, so aborting the request mid-transfer means the route never runs
+ * and nothing is staged or placed in the project.
  */
 function uploadDataWithProgress(
   file: File,

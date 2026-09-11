@@ -70,6 +70,11 @@ function absolute(location: string): string {
   return new URL(location, window.location.href).href;
 }
 
+/** The JSON body of every restart POST, in order. */
+function postBodies(): unknown[] {
+  return postCalls().map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+}
+
 function postCalls(): unknown[][] {
   return fetchMock.mock.calls.filter(
     ([, init]) => (init as RequestInit | undefined)?.method === "POST",
@@ -283,18 +288,39 @@ describe("update notice", () => {
 
       fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
       expect(await screen.findByTestId("enterprise-restart-dialog")).toBeInTheDocument();
+      const confirm = screen.getByTestId("enterprise-restart-confirm");
+      await waitFor(() => expect(confirm).toBeEnabled());
       expect(screen.queryByTestId("enterprise-restart-runs-warning")).toBeNull();
       expect(postCalls()).toHaveLength(0);
 
-      fireEvent.click(screen.getByTestId("enterprise-restart-confirm"));
+      fireEvent.click(confirm);
 
       await waitFor(() =>
         expect(assign).toHaveBeenCalledWith(absolute("/hub/spawn-pending/alice")),
       );
       expect(postCalls()).toHaveLength(1);
       expect(postCalls()[0][0]).toBe(`${prefix}${RESTART_URL}`);
+      // No runs were active, so nothing was confirmed on the user's behalf.
+      expect(postBodies()).toEqual([{ confirm_active_runs: false }]);
     },
   );
+
+  it("sends the runs-active confirmation only after the warning was accepted", async () => {
+    declare({ version: 1, update: UPDATE });
+    serveStatus(statusBody({ runs_active: true }));
+    render(<EnterpriseToolbarControls projectOpen />);
+
+    fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
+    expect(await screen.findByTestId("enterprise-restart-runs-warning")).toBeInTheDocument();
+    const confirm = screen.getByTestId("enterprise-restart-confirm");
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(postCalls()).toHaveLength(0);
+
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(absolute("/hub/spawn-pending/alice")));
+    expect(postBodies()).toEqual([{ confirm_active_runs: true }]);
+  });
 
   it("warns before restarting while runs are active, and Cancel does nothing", async () => {
     declare({ version: 1, update: UPDATE });
@@ -316,15 +342,119 @@ describe("update notice", () => {
     declare({ version: 1, update: UPDATE });
     fetchMock.mockImplementation(async (_url: string, init?: RequestInit) =>
       init?.method === "POST"
-        ? jsonResponse({ detail: "restart is not allowed right now" }, 409)
+        ? jsonResponse({ detail: "restart is not allowed right now" }, 403)
         : jsonResponse(statusBody()),
     );
     render(<EnterpriseToolbarControls projectOpen />);
 
     fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
-    fireEvent.click(await screen.findByTestId("enterprise-restart-confirm"));
+    const confirm = await screen.findByTestId("enterprise-restart-confirm");
+    await waitFor(() => expect(confirm).toBeEnabled());
+    fireEvent.click(confirm);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("restart is not allowed right now");
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("keeps Confirm disabled until the status read on opening arrives", async () => {
+    declare({ version: 1, update: UPDATE });
+    let releaseOpeningRead: (() => void) | null = null;
+    let reads = 0;
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return jsonResponse({ location: "/hub/spawn-pending/alice" });
+      reads += 1;
+      if (reads === 2) {
+        // The read the dialog makes on opening: held until the test releases it.
+        await new Promise<void>((resolve) => {
+          releaseOpeningRead = resolve;
+        });
+      }
+      return jsonResponse(statusBody());
+    });
+    render(<EnterpriseToolbarControls projectOpen />);
+
+    fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
+    expect(await screen.findByTestId("enterprise-restart-checking")).toBeInTheDocument();
+    expect(screen.getByTestId("enterprise-restart-confirm")).toBeDisabled();
+
+    await waitFor(() => expect(releaseOpeningRead).not.toBeNull());
+    act(() => {
+      releaseOpeningRead?.();
+    });
+    await waitFor(() => expect(screen.getByTestId("enterprise-restart-confirm")).toBeEnabled());
+    expect(screen.queryByTestId("enterprise-restart-checking")).toBeNull();
+  });
+
+  it("asks again when runs start between opening the dialog and confirming", async () => {
+    declare({ version: 1, update: UPDATE });
+    // Poll and opening read: no runs. Every later read: runs are active.
+    let reads = 0;
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === "POST") return jsonResponse({ location: "/hub/spawn-pending/alice" });
+      reads += 1;
+      return jsonResponse(statusBody({ runs_active: reads > 2 }));
+    });
+    render(<EnterpriseToolbarControls projectOpen />);
+
+    fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
+    const confirm = await screen.findByTestId("enterprise-restart-confirm");
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(screen.queryByTestId("enterprise-restart-runs-warning")).toBeNull();
+
+    // Runs started meanwhile: the first click shows the warning and sends nothing.
+    fireEvent.click(confirm);
+    expect(await screen.findByTestId("enterprise-restart-runs-warning")).toBeInTheDocument();
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(postCalls()).toHaveLength(0);
+    expect(assign).not.toHaveBeenCalled();
+
+    // Confirming again, with the warning shown, restarts and says so.
+    fireEvent.click(confirm);
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(absolute("/hub/spawn-pending/alice")));
+    expect(postBodies()).toEqual([{ confirm_active_runs: true }]);
+  });
+
+  it("names the runs a 409 reports, asks again, and retries with the confirmation", async () => {
+    declare({ version: 1, update: UPDATE });
+    // Every status read says no runs; the backend knows better on the first POST.
+    let posts = 0;
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method !== "POST") return jsonResponse(statusBody());
+      posts += 1;
+      return posts === 1
+        ? jsonResponse({ active_runs: ["segment-cells", "export-table"] }, 409)
+        : jsonResponse({ location: "/hub/spawn-pending/alice" });
+    });
+    render(<EnterpriseToolbarControls projectOpen />);
+
+    fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
+    const confirm = await screen.findByTestId("enterprise-restart-confirm");
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(screen.queryByTestId("enterprise-restart-runs-warning")).toBeNull();
+
+    fireEvent.click(confirm);
+    const warning = await screen.findByTestId("enterprise-restart-runs-warning");
+    expect(warning).toHaveTextContent("segment-cells, export-table");
+    await waitFor(() => expect(confirm).toBeEnabled());
+    expect(assign).not.toHaveBeenCalled();
+
+    fireEvent.click(confirm);
+    await waitFor(() => expect(assign).toHaveBeenCalledWith(absolute("/hub/spawn-pending/alice")));
+    expect(postBodies()).toEqual([{ confirm_active_runs: false }, { confirm_active_runs: true }]);
+  });
+
+  it("does not enable Confirm when the status cannot be read", async () => {
+    declare({ version: 1, update: UPDATE });
+    let reads = 0;
+    fetchMock.mockImplementation(async () => {
+      reads += 1;
+      return reads === 1 ? jsonResponse(statusBody()) : jsonResponse({ detail: "down" }, 503);
+    });
+    render(<EnterpriseToolbarControls projectOpen />);
+
+    fireEvent.click(await screen.findByTestId("enterprise-update-restart"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/could not check/i);
+    expect(screen.getByTestId("enterprise-restart-confirm")).toBeDisabled();
+    expect(postCalls()).toHaveLength(0);
   });
 });

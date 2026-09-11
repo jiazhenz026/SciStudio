@@ -361,6 +361,170 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:13:50.763692Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9212f52bfa125243c073f4baf71391a3f9cf544d514a71dd59006954203021b4",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:13:53.054105Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6a0d3fe906feb55a5f681dfef752377da40512ae0603bd97385ac09969cabdc8",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:13:54.530636Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:63fcfb74edd7314f37c54a75f7a3496b8498f81825d19c3b2324b42190b4085a",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:13:54.556240Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/tools_workspace.py src/scistudio/api/app.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/internal_routes.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/data.py src/scistudio/api/runtime/_file_writes.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/test_ai_pty_capability.py tests/api/test_ai_pty_internal_guard.py tests/api/test_enterprise_capabilities.py tests/api/test_identity_seam.py tests/api/test_seam_project_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b85b9a07ecfd05c4aa29242275c5e308a49793c3216e18554fe4dbbbeb9e7c1b",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T12:14:47.330119Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:90a37e74eb2e67314aebbb23201e36e2f115a140e100ecee2b5251268d45f47f",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:15:06.557167Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4728573b1a8399998ce40eb68be0e1caec5a6eab3fae5dd084ad05e43dca5846",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:15:06.832999Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:10d99711373947a9fcc30b9a9c161d3b3847412a4baa892948b96282e4fc9ec5",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:15:06.858577Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/tools_workspace.py src/scistudio/api/app.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/internal_routes.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/data.py src/scistudio/api/runtime/_file_writes.py src/scistudio/api/seam.py src/scistudio/api/spa.py tests/api/test_ai_pty_capability.py tests/api/test_ai_pty_internal_guard.py tests/api/test_enterprise_capabilities.py tests/api/test_identity_seam.py tests/api/test_seam_project_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ebb887622139c2e5dabb7068d1d8c9db2615e0ebbcb707ab3e6034348076cdb6",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T12:18:05.061042Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a9b48144d50664807b4aa1d470f5dad28a1e3f1a60e4443ce9717b0e0b8af3c3",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:18:17.268630Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_workspace.py src/scistudio/api/app.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/internal_routes.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/data.py src/scistudio/api/runtime/_file_writes.py src/scistudio/api/seam.py src/scistudio/api/spa.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d610151afafd3ebdef990438738ec2fc1d3fbeffbe70de6e1ff95fc75b26a461",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [
@@ -419,6 +583,16 @@
       "at": "2026-09-11T11:19:03.735405Z",
       "owner_directive": "Manager directive (2026-09-11): this PR also closes #2328 - export active_project_root, ToolRefusal, check_author_path, write_project_file, add_upload_listener from scistudio.api.seam (provisional, exact names), wrap existing internals without duplicating logic, fire upload listeners from routes/data.py, test at both mounts, update seam spec, CHANGELOG, snapshot and reference pages.",
       "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    },
+    {
+      "at": "2026-09-11T12:19:58.819749Z",
+      "owner_directive": "Manager directive (2026-09-11): merge origin/audit/2322-with-context and fix all AU1 and Codex findings on PR #2336 in one round, adding commits only.",
+      "reason": "Manager directive: merge the with-context audit branch into the PR and fix its findings (P1 internal-prefix bypass, restart race, upload notification project, CHANGELOG accuracy, URL validation, public-api seam row, CodeQL 286)."
+    },
+    {
+      "at": "2026-09-11T12:29:56.942388Z",
+      "owner_directive": "Manager directive (2026-09-11): merge origin/audit/2322-no-context; fix the Windows stream suffix and NUL bypass, one shared no-tilde resolver with write re-running the author rules, document changed_by, skip agent probes in /api/ai/status under ai_chat_disabled, script-safe base-path bootstrap, aligned non-ASCII whitespace rules.",
+      "reason": "Manager directive: merge the no-context audit and fix its findings; /api/ai/status skips agent probes under ai_chat_disabled (authorized scope amendment for routes/ai.py only)."
     }
   ],
   "docs_events": [
@@ -984,6 +1158,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.380161Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.416790Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.433050Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.450122Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.467729Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.484563Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.501259Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.517677Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.535267Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.551871Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:18:17.595573Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1002,8 +1264,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "8f90db3ef36a2101c926cbef36e6ce09d9db706f",
-    "base_sha": "8f90db3ef",
+    "base": "origin/main",
+    "base_sha": "e9dcd01aa",
     "changed_files": [
       ".workflow/records/2322-feat-2322-enterprise-ui.json",
       "CHANGELOG.md",
@@ -1048,9 +1310,9 @@
       "tests/api/test_identity_seam.py",
       "tests/api/test_seam_project_access.py"
     ],
-    "diff_fingerprint": "sha256:8aea1cc974886946c84ea83b342e9c3224c8b6356c70ff22e5614a599300010c",
+    "diff_fingerprint": "sha256:817e68dbfceec812bfdc74a61089aee468d2c307f939c7824796576423504570",
     "head": "HEAD",
-    "head_sha": "8c2382aae",
+    "head_sha": "5ad2720e8",
     "surfaces": {
       "docs": 4,
       "frontend": 16,
@@ -1129,6 +1391,16 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T12:18:17.595613Z",
+      "diff_fingerprint": "sha256:817e68dbfceec812bfdc74a61089aee468d2c307f939c7824796576423504570",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
     }
   ],
   "record_id": "2322-feat-2322-enterprise-ui",
@@ -1211,6 +1483,36 @@
       "at": "2026-09-11T11:19:03.735431Z",
       "pattern": "tests/api/test_seam_project_access.py",
       "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:19:58.819765Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md",
+      "reason": "Manager directive: merge the with-context audit branch into the PR and fix its findings (P1 internal-prefix bypass, restart race, upload notification project, CHANGELOG accuracy, URL validation, public-api seam row, CodeQL 286)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:19:58.819771Z",
+      "pattern": ".workflow/records/2322-audit-2322-o1-with-context.json",
+      "reason": "Manager directive: merge the with-context audit branch into the PR and fix its findings (P1 internal-prefix bypass, restart race, upload notification project, CHANGELOG accuracy, URL validation, public-api seam row, CodeQL 286)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:29:56.942405Z",
+      "pattern": "src/scistudio/api/routes/ai.py",
+      "reason": "Manager directive: merge the no-context audit and fix its findings; /api/ai/status skips agent probes under ai_chat_disabled (authorized scope amendment for routes/ai.py only)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:29:56.942410Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md",
+      "reason": "Manager directive: merge the no-context audit and fix its findings; /api/ai/status skips agent probes under ai_chat_disabled (authorized scope amendment for routes/ai.py only)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:29:56.942412Z",
+      "pattern": ".workflow/records/2322-audit-2322-o1-no-context.json",
+      "reason": "Manager directive: merge the no-context audit and fix its findings; /api/ai/status skips agent probes under ai_chat_disabled (authorized scope amendment for routes/ai.py only)."
     }
   ],
   "session_id": "48c0d256-9cf6-4397-a9a7-122793cd1c23",

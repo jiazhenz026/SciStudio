@@ -161,6 +161,9 @@ Outside a tool, `check_author_path` and `write_project_file`
 raise it too, so an edition's HTTP route can turn the same refusal into
 its own response.
 
+This exception is not ``scistudio.ai.agent.mcp.tools_workspace.ToolRefusal``,
+the Pydantic model of the structured refusal the result carries.
+
 ## `TransferCapability` — _class_
 
 **Stability:** `provisional` · Since `0.3.5`
@@ -202,9 +205,14 @@ than a snapshot. The frontend polls ``GET status_url`` every 60 seconds and
 whenever the window regains focus; it answers
 ``{"running_version", "installed_version", "update_available", "runs_active"}``.
 When an update is available the frontend shows a notice that never takes
-focus. Restart asks for confirmation, warns while runs are active, then
-sends ``POST restart_url``, which answers ``{"location": ...}``, and
-navigates there. The frontend never restarts or reloads on its own.
+focus. Restart asks for confirmation and warns while runs are active. It
+then sends ``POST restart_url`` with ``{"confirm_active_runs": <bool>}``,
+which is ``true`` only after the user has accepted the runs-active
+warning, so the edition can enforce that warning itself. The route
+answers ``{"location": ...}``, and the frontend navigates there. A ``409``
+answer means runs became active after the status read; its body names
+them, and the frontend shows the warning with those names, asks again, and
+retries with ``true``. The frontend never restarts or reloads on its own.
 
 ## `active_project_root` — _function_
 
@@ -230,16 +238,20 @@ add_upload_listener(app: 'FastAPI', callback: 'Callable[[str, int, str], Any]') 
 
 Call ``callback(path, size, status)`` for each staged ``POST /api/data/upload``.
 
-``path`` is the destination's project-relative POSIX path (for example
-``data/raw/scan.tif``). ``status`` is one of:
+``path`` is the destination's POSIX path relative to the project the
+upload was staged into (for example ``data/raw/scan.tif``), even if
+another project opens before the upload ends. ``status`` is one of:
 
-- ``"started"``, when the staged upload begins, so an edition can count
-  uploads in flight as activity; ``size`` is the size known then, or 0;
+- ``"started"``, when the upload is staged. FastAPI has already received
+  the whole request body by then, so this marks the staging copy, not the
+  network transfer; ``size`` is the size known then, or 0;
 - ``"completed"``, when the file was placed and registered;
 - ``"discarded"``, when the staged file was thrown away (too large, or the
   request failed).
 
-For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received.
+For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received. An
+upload the client cancels mid-transfer never reaches the route, so it
+produces no event.
 
 ``callback`` may be a plain function or a coroutine function. Listeners
 run in the order they were added, before the upload's response is sent,
@@ -258,12 +270,14 @@ check_author_path(project_root: 'Path | str', rel_path: 'str') -> 'Path'
 
 Resolve a path an agent wants to change, under the author tools' rules.
 
-``rel_path`` is resolved against ``project_root`` (an absolute path must
-lie inside it) and must stay inside the project after links are followed.
-It is then checked against the Spec 2 author blacklist: ``data/`` and
-``workflows/*.yaml`` belong to the tools that own them. Returns the
-resolved path; raises `ToolRefusal` with the author tools' own
-refusal code and message otherwise.
+``rel_path`` is taken literally (``~`` is not expanded) and resolved
+against ``project_root``; an absolute path must lie inside it. It must
+stay inside the project after links are followed, and it is checked
+against the Spec 2 author blacklist: ``data/`` and ``workflows/*.yaml``
+belong to the tools that own them. Returns the resolved path. Otherwise it
+raises `ToolRefusal` with the author tools' own refusal code, or
+``invalid_path`` for control characters and, on Windows, a stream suffix
+such as ``::$DATA`` or a drive-relative path.
 
 ## `is_self_authenticating_path` — _function_
 
@@ -273,12 +287,15 @@ refusal code and message otherwise.
 is_self_authenticating_path(path: 'str') -> 'bool'
 ```
 
-Return whether a route path lies under a registered prefix.
+Return whether a route path lies strictly below a registered prefix.
 
 ``path`` is the router's path, the mount prefix already removed (see
-`GuardContext.route_path`). A prefix matches itself and anything below
-it on a segment boundary: ``/api/panels/t`` matches ``/api/panels/t/abc/x``
-but not ``/api/panels/tx``.
+`GuardContext.route_path`). A prefix exempts only the paths below
+it, on a segment boundary: ``/api/panels/t`` exempts
+``/api/panels/t/abc/x`` but neither ``/api/panels/tx`` nor the bare
+``/api/panels/t``. The bare prefix path can be a full match for a
+parameterized sibling route (``/api/ai/pty/{tab_id}`` with
+``tab_id="internal"``, for example), so it always stays behind the guard.
 
 ## `mcp` — _constant_
 
@@ -297,11 +314,13 @@ register_self_authenticating_prefix(prefix: 'str') -> 'str'
 Register a route-path prefix whose routes authenticate requests themselves.
 
 Every guard, the default loopback guard and any replacement, skips its own
-check for requests under the prefix and leaves authentication to the
-owning route; ``create_app`` enforces this for whichever guard it installs.
-Matching runs on the route path after root-path prefix handling, so
-registering ``/api/panels/t/`` also covers
-``/user/<name>/scistudio/api/panels/t/...``.
+check for requests strictly below the prefix and leaves authentication to
+the owning route; ``create_app`` enforces this for whichever guard it
+installs. Matching runs on the route path after root-path prefix handling,
+so registering ``/api/panels/t/`` also covers
+``/user/<name>/scistudio/api/panels/t/...``. The bare prefix path
+(``/api/panels/t``) is never exempt: it can be a full match for a
+parameterized sibling route, so it stays behind the guard.
 
 The owning route MUST authenticate every request it serves. Register the
 narrowest prefix that covers those routes. Returns the normalized prefix
@@ -359,12 +378,15 @@ Write ``data`` to a project file through the shared write path, and return its p
 The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
 file's state version advanced, ``file.changed`` sent so the open UI
 updates, and a registry reload when the file is a lint-clean drop-in
-module. ``rel_path`` is resolved against the open project and confined to
-it; missing parent directories are created. The author blacklist does not
-apply here; call `check_author_path` first for an agent's write.
+module. ``changed_by`` names the writer in that ``file.changed`` event.
+
+``rel_path`` goes through the same resolver as `check_author_path`,
+run here again: confinement to the open project and the author
+blacklist. A check followed by a write therefore always names the same
+file. Missing parent directories are created.
 
 This is a coroutine: ``await`` it from a route or tool. It raises
-`ToolRefusal` when no project is open, the path leaves the project,
-or the write is refused (the target is a directory, for example). It
-raises `TypeError` for data that is not bytes. A disk failure
-raises as it does for the editor.
+`ToolRefusal` when no project is open, the path is refused, or the
+write is refused (the target is a directory, for example). It raises
+`TypeError` for data that is not bytes. A disk failure raises as it
+does for the editor.

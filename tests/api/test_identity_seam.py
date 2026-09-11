@@ -276,7 +276,8 @@ def test_registration_is_idempotent_ordered_and_reversible(registry_snapshot: No
 @pytest.mark.parametrize(
     ("path", "expected"),
     [
-        ("/api/panels/t", True),
+        # The bare prefix is never exempt: it can fully match a sibling route.
+        ("/api/panels/t", False),
         ("/api/panels/t/abc123/assets/core/index.html", True),
         ("/api/panels/tx", False),
         ("/api/panels", False),

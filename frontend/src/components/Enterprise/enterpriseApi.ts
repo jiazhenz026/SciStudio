@@ -74,6 +74,80 @@ export async function postForLocation(routePath: string): Promise<string> {
   return location;
 }
 
+/** What `POST restart_url` answered: go somewhere, or runs became active meanwhile. */
+export type RestartOutcome =
+  | { kind: "restart"; location: string }
+  | { kind: "runs-active"; runs: string[] };
+
+function namesFrom(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry: unknown) => {
+    if (typeof entry === "string") return entry.trim() ? [entry] : [];
+    const record = asRecord(entry);
+    const name = record?.name ?? record?.title ?? record?.id;
+    return typeof name === "string" && name.trim() ? [name] : [];
+  });
+}
+
+/**
+ * The run and transfer names a `409` restart answer carries. The contract
+ * (umbrella #2321) says only that the body names them, so this reads the
+ * likely field names, at the top level or under `detail`, as strings or
+ * `{name}` objects, and returns an empty list for anything else.
+ */
+export function activeWorkNames(body: unknown): string[] {
+  const record = asRecord(body);
+  if (record === null) return [];
+  const detail = asRecord(record.detail);
+  const names: string[] = [];
+  for (const source of detail === null ? [record] : [record, detail]) {
+    for (const key of ["active_runs", "runs", "active_transfers", "transfers"]) {
+      names.push(...namesFrom(source[key]));
+    }
+  }
+  return [...new Set(names)];
+}
+
+/**
+ * Ask the edition to restart: a same-origin `POST restart_url` carrying
+ * `{"confirm_active_runs": …}`. It is `true` only after the user has seen and
+ * accepted the runs-active warning, so the backend can enforce the warning
+ * itself. A `409` means runs became active after the status read: the answer
+ * names them, and the caller shows the warning and asks again.
+ */
+export async function postRestart(
+  restartUrl: string,
+  confirmActiveRuns: boolean,
+): Promise<RestartOutcome> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(restartUrl), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm_active_runs: confirmActiveRuns }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+  const body: unknown = await response.json().catch(() => null);
+  if (response.status === 409) return { kind: "runs-active", runs: activeWorkNames(body) };
+  if (!response.ok) {
+    const detail = asRecord(body)?.detail;
+    throw new Error(
+      typeof detail === "string" && detail ? detail : `Restart failed with ${response.status}`,
+    );
+  }
+  const location = safeLocation(asRecord(body)?.location);
+  if (location === null) {
+    throw new Error("SciStudio did not say where to go next. Try again, or reload the page.");
+  }
+  return { kind: "restart", location };
+}
+
 /** Read `GET status_url`; `null` when the answer is not the contract's shape. */
 export async function fetchUpdateStatus(statusUrl: string): Promise<UpdateStatus | null> {
   const record = asRecord(await apiFetch<unknown>(statusUrl, { timeoutMs: REQUEST_TIMEOUT_MS }));

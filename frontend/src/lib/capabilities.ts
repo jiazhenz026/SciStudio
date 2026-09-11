@@ -83,18 +83,41 @@ const ALL_OFF: Capabilities = Object.freeze({
 
 const PATH_MARKER = "{path}";
 
+/** Whitespace, control, format (a BOM, a zero-width space) and separator characters. */
+const INVISIBLE = /[\s\p{Cc}\p{Cf}\p{Z}]/u;
+const PERCENT_ESCAPE = /%([0-9A-Fa-f]{2})/g;
+
+/**
+ * Whether the path part of `url` has a `.` or `..` segment, encoded or not.
+ * Percent escapes are decoded byte by byte, as a browser reads `%2e%2e` as
+ * `..`, and decoded again while that changes anything (three rounds at most;
+ * a path still changing after that is refused). Mirrors the backend's
+ * `_has_dot_segment`.
+ */
+function hasDotSegment(url: string): boolean {
+  let route = url.split("?")[0].split("#")[0];
+  for (let round = 0; round < 3; round += 1) {
+    if (route.split(/[/\\]/).some((segment) => segment === "." || segment === "..")) return true;
+    const decoded = route.replace(PERCENT_ESCAPE, (_match, hex: string) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    );
+    if (decoded === route) return false;
+    route = decoded;
+  }
+  return true;
+}
+
 /**
  * Same rule as the backend: a route path on this backend, nothing else — a
- * leading `/`, never `//`, and no whitespace, control characters or
- * backslashes (browsers read `/\host` as `//host`).
+ * leading `/`, never `//`; no whitespace, invisible or control characters, or
+ * backslashes (browsers read `/\host` as `//host`); and no `.` or `..`
+ * segment, encoded or not, that would climb out of the service prefix.
  */
 export function isRoutePath(url: unknown): url is string {
   if (typeof url !== "string" || url === "") return false;
-  for (const ch of url) {
-    const code = ch.charCodeAt(0);
-    if (code < 0x20 || code === 0x7f || ch === "\\" || /\s/u.test(ch)) return false;
-  }
-  return url.startsWith("/") && !url.startsWith("//");
+  if (url.includes("\\") || INVISIBLE.test(url)) return false;
+  if (!url.startsWith("/") || url.startsWith("//")) return false;
+  return !hasDotSegment(url);
 }
 
 function asRecord(raw: unknown): Record<string, unknown> | null {

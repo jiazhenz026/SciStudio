@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -206,6 +207,11 @@ def test_check_author_path_returns_the_resolved_path(tmp_path: Path) -> None:
         ("workflows/nested/other.yml", "protected_workflow_yaml"),
         ("", "empty_path"),
         (".", "project_root"),
+        # Taken literally: "~" is not expanded, so this is data/x.csv (no-context audit P2-3).
+        ("~/../data/x.csv", "protected_data_dir"),
+        # NUL and other control characters never name a file (no-context audit P3-4).
+        ("notes/a\x00b.txt", "invalid_path"),
+        ("notes/bell\x07.txt", "invalid_path"),
     ],
 )
 def test_check_author_path_refuses_with_the_author_tools_codes(tmp_path: Path, rel_path: str, code: str) -> None:
@@ -223,6 +229,21 @@ def test_check_author_path_refuses_an_absolute_path_elsewhere(tmp_path: Path) ->
     with pytest.raises(ToolRefusal) as refused:
         check_author_path(root, str(tmp_path / "elsewhere.txt"))
     assert refused.value.code == "outside_project"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="NTFS alternate data streams exist only on Windows")
+@pytest.mark.parametrize(
+    "rel_path",
+    ["workflows/new.yaml::$DATA", "workflows/new.yaml:stream", "notes/a.txt:hidden", "C:notes.txt"],
+)
+def test_check_author_path_refuses_windows_stream_and_drive_relative_syntax(tmp_path: Path, rel_path: str) -> None:
+    """``new.yaml::$DATA`` would create ``new.yaml`` past the blacklist (no-context audit P2-2)."""
+    root = tmp_path / "project"
+    (root / "workflows").mkdir(parents=True)
+    with pytest.raises(ToolRefusal) as refused:
+        check_author_path(root, rel_path)
+    assert refused.value.code == "invalid_path"
+    assert not (root / "workflows" / "new.yaml").exists()
 
 
 def test_a_data_refusal_names_the_tool_that_owns_the_surface(tmp_path: Path) -> None:
@@ -326,8 +347,11 @@ def test_write_project_file_uses_the_shared_write_path(
         assert written.read_bytes() == b"again"
         assert files.state_version(written) > version
 
-        # No author blacklist here: an edition may place a transferred file under data/.
-        assert client.post(url, params={"path": "data/raw/uploaded.csv"}, content=b"a,b\n").status_code == 200
+        # The write re-runs the author rules itself, so check-then-write cannot
+        # diverge (#2322 no-context audit P2-3): data/ stays protected.
+        refused = client.post(url, params={"path": "data/raw/uploaded.csv"}, content=b"a,b\n")
+        assert refused.status_code == 409
+        assert refused.json()["code"] == "protected_data_dir"
 
 
 @MOUNTS
@@ -345,6 +369,12 @@ def test_write_project_file_refusals(projects_dir: Path, monkeypatch: pytest.Mon
         assert escaped.status_code == 409
         assert escaped.json()["code"] == "outside_project"
         assert not (project.parent / "escape.bin").exists()
+
+        # The exploit string the check and the write used to read differently.
+        tilde = client.post(url, params={"path": "~/../data/x.csv"}, content=b"x")
+        assert tilde.status_code == 409
+        assert tilde.json()["code"] == "protected_data_dir"
+        assert not (project / "data" / "x.csv").exists()
 
         (project / "a-directory").mkdir()
         directory = client.post(url, params={"path": "a-directory"}, content=b"x")
@@ -455,6 +485,34 @@ def test_the_returned_function_removes_the_listener(projects_dir: Path) -> None:
         ("data/raw/two.csv", "started"),
         ("data/raw/two.csv", "completed"),
     ]
+
+
+@MOUNTS
+def test_upload_paths_stay_relative_to_the_project_the_upload_was_staged_in(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    """Another project opening mid-upload does not change the reported path (#2322 audit P3-3)."""
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    heard = _Heard()
+    add_upload_listener(app, heard.plain("plain"))
+    other_parent = projects_dir / "other"
+    other_parent.mkdir()
+    with TestClient(app, root_path=mount_prefix) as client:
+        runtime = app.state.runtime
+        _open_project(client, mount_prefix, other_parent)
+        project_b = runtime.active_project
+        project_a = _open_project(client, mount_prefix, projects_dir)
+
+        def open_another_project(path: str, size: int, status: str) -> None:
+            if status == "started":
+                runtime.active_project = project_b
+
+        add_upload_listener(app, open_another_project)
+        response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("sample.csv", b"a,b\n", "text/csv")})
+    assert response.status_code == 200, response.text
+    assert heard.statuses("plain") == [("data/raw/sample.csv", "started"), ("data/raw/sample.csv", "completed")]
+    assert (project_a / "data" / "raw" / "sample.csv").exists()
 
 
 def test_add_upload_listener_takes_a_callable() -> None:

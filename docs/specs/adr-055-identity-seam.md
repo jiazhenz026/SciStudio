@@ -221,8 +221,8 @@ and panels would not load in a Lab deployment (ADR-054 SC-009).
 **Independent Test**: A fixture prefix and route (panels code is not on `main`
 yet). Unauthenticated requests with a good token reach the route; a bad token
 gets the route's own 403 body, not the guard's refusal; a lookalike path
-(`.../tx/...`) and a sibling path stay guarded; all at both mounts, and under
-the default guard as well as a replacement.
+(`.../tx/...`), a sibling path, and the bare prefix path itself stay guarded;
+all at both mounts, and under the default guard as well as a replacement.
 
 **Acceptance Scenarios**:
 
@@ -286,7 +286,9 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
   refusal; the suite does not follow redirects.
 - A path that only shares the prefix's text (`/api/panels/tx`) does not match;
   matching is on segment boundaries.
-- A path equal to the prefix itself matches; with no route there it is a 404.
+- A path equal to the prefix itself is not exempt and stays behind the guard.
+  A parameterized sibling route can fully match it: `/api/ai/pty/internal` is
+  the terminal WebSocket `/api/ai/pty/{tab_id}` with `tab_id="internal"`.
 - Unknown paths under `/api/` are 404s; the SPA fallback never serves the
   shell there. That is why a self-authenticating prefix must lie under `/api/`:
   it can only ever reach a real route or a 404, never the application shell
@@ -341,13 +343,19 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
   below it; each segment MUST be literal (no `.`, `..`, or wildcard
   characters). Anything else raises `ValueError`.
 - **FR-009**: Matching MUST run on the route path after root-path prefix
-  handling, on segment boundaries: a prefix matches itself and anything below
-  it, never a path that only shares its text.
+  handling, on segment boundaries. A prefix exempts only the paths strictly
+  below it (`<prefix>/...`). It never exempts the bare prefix path itself, nor
+  a path that only shares its text. This is a provisional change from the
+  first version, which also matched the bare path, and it is recorded in the
+  changelog.
 - **FR-010**: `create_app` MUST enforce the bypass around whichever guard it
   installs, so no guard has to remember it; `WebMCPSessionMiddleware` MUST
   also honor the registry when composed on its own.
 - **FR-011**: A route under a registered prefix MUST authenticate every request
   it serves. The registry grants no access; it moves the check to the route.
+  The registering module MUST also make sure no route of its own family
+  answers a path under the prefix without that check. The terminal WebSocket,
+  for example, refuses the reserved tab id `internal` (FR-022).
 
 ### 3.4 Lifespan Hooks
 
@@ -375,11 +383,17 @@ the fake guard's subclass in this repository is the reference use (Section 4.5).
   - `UpdateCapability(status_url, restart_url)` names the routes the frontend
     polls and posts to (`adr-055-enterprise-support` FR-007).
   - `ai_chat_disabled` MUST be a bool.
-  - Every URL MUST be a backend route path without the service prefix: a
-    leading `/`, not `//`, and no scheme, whitespace, control characters or
-    backslashes. Anything else raises `ValueError`, so another origin or
-    scheme can never pass. The frontend resolves each URL under the service
-    prefix exactly as it resolves API calls.
+  - Every URL MUST be a backend route path without the service prefix:
+    - a leading `/`, not `//`, and no scheme;
+    - no whitespace, control, format or separator characters (Unicode `Cc`,
+      `Cf`, `Z*`: a byte-order mark and non-ASCII spaces included), and no
+      backslashes;
+    - no `.` or `..` segment, percent-encoded or not.
+
+    Anything else raises `ValueError`, so another origin, a scheme, or a path
+    that climbs out of the service prefix can never pass. The frontend applies
+    the same rule and resolves each URL under the service prefix exactly as
+    it resolves API calls.
   - `transfer=False` still means off. `transfer=True`, the shape before #2322,
     MUST raise `TypeError` naming `TransferCapability`. That is an ADR-052
     provisional change, recorded in the changelog.
@@ -460,7 +474,9 @@ edition's routes and tools need the open project. Both go through the seam.
   AI Block worker's callbacks (`request-tab`, `notify`) then pass any guard.
   Every route under the prefix MUST check the engine IPC token on every
   request (FR-011). A request without the token gets the route's own 401,
-  never the guard's (#2322).
+  never the guard's (#2322). The terminal WebSocket `/api/ai/pty/{tab_id}`
+  MUST refuse the reserved tab id `internal`, in any letter case, before it
+  accepts, so no process can start on the prefix's own path.
 - **FR-023**: `active_project_root(app)` MUST return the open project's fully
   resolved root, or `None` when no project is open or before the runtime
   exists.
@@ -479,25 +495,33 @@ edition's routes and tools need the open project. Both go through the seam.
   author tools' own confinement and Spec 2 blacklist. It returns the resolved
   path, and otherwise raises `ToolRefusal` with their refusal code:
   `outside_project`, `protected_data_dir`, `protected_workflow_yaml`, or
-  `empty_path` / `project_root` for a path naming no file.
-- **FR-026**: `write_project_file(app, rel_path, data)` MUST be a coroutine
-  that writes `bytes` through the editor's shared write path (Spec 2 FR-005):
+  `empty_path` / `project_root` for a path naming no file. `rel_path` is taken
+  literally: `~` is not expanded. NUL and other control characters, and on
+  Windows a `:` after the drive (an NTFS stream suffix such as `::$DATA`, or a
+  drive-relative path), are refused with `invalid_path`.
+- **FR-026**: `write_project_file(app, rel_path, data, *, changed_by="edition")`
+  MUST be a coroutine that writes `bytes` through the editor's shared write
+  path (Spec 2 FR-005). `changed_by` names the writer in the `file.changed`
+  event. The write covers:
   - an atomic write;
   - the file's state version advanced;
   - `file.changed` sent to the UI;
   - the lint-gated registry reload for UTF-8 drop-in modules.
 
-  It creates missing parent directories. It MUST confine the path to the open
-  project and raise `ToolRefusal` for no open project, a path outside it, or
-  a refused write. The author blacklist is not applied; an edition calls
-  FR-025 first for an agent's write.
+  It creates missing parent directories. It MUST resolve `rel_path` through
+  the same resolver as FR-025 (confinement and the author blacklist) itself,
+  so a check followed by a write can never name different files. It MUST
+  raise `ToolRefusal` for no open project, a refused path, or a refused write.
 - **FR-027**: `add_upload_listener(app, callback)` MUST call
   `callback(path, size, status)` for each staged `POST /api/data/upload`. It
   returns a function that removes the listener.
-  - `path` is the destination's project-relative POSIX path.
-  - `status` is `started` when the staged upload begins, so an edition can
-    count uploads in flight as activity. It is then `completed` or
-    `discarded`.
+  - `path` is the destination's POSIX path relative to the project the upload
+    was staged into, captured once, so it holds even if another project
+    opens before the upload ends.
+  - `status` is `started` when the upload is staged, then `completed` or
+    `discarded`. FastAPI receives the whole request body before the route
+    runs, so `started` marks the staging copy, not the network transfer. An
+    upload the client cancels mid-transfer produces no event.
   - `size` is the size known at that point, or 0 when it is unknown when
     starting, and the bytes received afterwards.
   - The callback may be a plain or a coroutine function.
