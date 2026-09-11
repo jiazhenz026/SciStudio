@@ -440,6 +440,11 @@
       "at": "2026-09-11T10:54:29.056264Z",
       "owner_directive": "Plan: token-file helpers + lifespan-free arming context manager in api/routes/webmcp.py (written by the default guard's build only while the launching CLI arms it; removed when uvicorn.run returns; never written under a replacement guard); serve/gui wrap uvicorn.run with it (uvicorn.run arguments unchanged); new cli/webmcp_adapter.py (hand-rolled newline-delimited JSON-RPC over stdio, httpx client to /api/webmcp/tools and /call, project snapshot, stale-context list_changed, bearer or token-file credential, bounded startup wait, bounded logging, --print-config). Spec 4 adapter section + CHANGELOG.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T11:50:52.954936Z",
+      "owner_directive": "Manager directive 2026-09-11: PR also closes #2333. Write set adds src/scistudio/ai/agent/mcp/server.py and runtime.py (socket path, directory and permission code only) plus their tests; stay out of tools_workspace.py (#2328) and src/scistudio/api/runtime/** (#2327). Windows keeps TCP loopback, documented.",
+      "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
     }
   ],
   "docs_events": [
@@ -1189,6 +1194,12 @@
       "followup_rationale": null,
       "number": 2308,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2333,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -1339,7 +1350,32 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:50:52.954951Z",
+      "pattern": "src/scistudio/ai/agent/mcp/server.py",
+      "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:50:52.954956Z",
+      "pattern": "src/scistudio/ai/agent/mcp/runtime.py",
+      "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:50:52.954959Z",
+      "pattern": "tests/ai/test_mcp_socket_permissions.py",
+      "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:50:52.954961Z",
+      "pattern": "tests/cli/test_mcp_bridge.py",
+      "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    }
+  ],
   "session_id": "fc606d96-ad95-4a4a-99d4-27dba383fad2",
   "strictness_tier": 1,
   "task_kind": "feature",
@@ -1357,6 +1393,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_webmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:50:52.955028Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_socket_permissions.py",
       "rationale": null,
       "verified_in_diff": null
     }

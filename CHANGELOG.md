@@ -643,6 +643,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2333] **The local MCP socket is owner-only, whatever the umask.** The
+  socket is the local MCP transport's only access control. It used to inherit
+  the process umask, and when its path was too long it fell back to a
+  predictable name in the shared temp directory. On a multi-user Linux host
+  with a umask of 002, or through that fallback, another user could connect
+  and drive the owner's MCP tools, `run_command` included. On POSIX the socket
+  is now 0600, bound in a directory that belongs to the user with mode 0700.
+  A project's `.scistudio` directory that other users can open is left as it
+  is. The socket then lives in a private per-user directory:
+  `$XDG_RUNTIME_DIR/scistudio`, or a 0700 `scistudio-<uid>` directory in the
+  temp dir. `mcp.sock.path` points `scistudio mcp-bridge` to it. A per-user
+  directory that another user owns or can open is refused. Windows keeps its
+  loopback TCP transport, which assumes a single-user computer.
 - [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
   Browse anywhere — a block's path field, Open Project, Bring In My Work, the
   Package Manager, a subworkflow file, the diagnostics export — stalled every

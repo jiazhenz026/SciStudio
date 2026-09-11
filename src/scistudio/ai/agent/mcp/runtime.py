@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -309,23 +310,23 @@ async def start_inprocess_server(
 
     if socket_path is None:
         # Per-process socket under the project's .scistudio/ dir when a
-        # project is open, or a temp dir otherwise. Suffix with the PID
-        # so concurrent standalone bridges don't fight over the path.
+        # project is open, or the private per-user socket directory
+        # otherwise (#2333). Suffix with the PID so concurrent standalone
+        # bridges don't fight over the path. On POSIX, MCPServer.start()
+        # creates the project directory owner-only when it is missing. When
+        # that directory is open to other users, or the path overflows AF_UNIX
+        # ``sun_path`` (108 bytes on Linux, 104 on macOS), it binds in the
+        # private directory instead.
+        name = f"mcp-bridge-{os.getpid()}.sock"
         if project_dir is not None:
-            base = project_dir / ".scistudio"
-            base.mkdir(parents=True, exist_ok=True)
-            socket_path = base / f"mcp-bridge-{os.getpid()}.sock"
+            socket_path = project_dir / ".scistudio" / name
+        elif sys.platform == "win32":
+            # Windows binds TCP loopback; the path only names the ``.port`` file.
+            socket_path = Path(tempfile.gettempdir()) / f"scistudio-{name}"
         else:
-            socket_path = Path(tempfile.gettempdir()) / f"scistudio-mcp-bridge-{os.getpid()}.sock"
+            from scistudio.ai.agent.mcp.server import private_socket_dir
 
-        # AF_UNIX ``sun_path`` is capped at 108 bytes on Linux and 104 on
-        # macOS. Deep project paths (CI tmp dirs, NixOS profiles, nested
-        # pytest fixture trees) routinely overflow. Detect overflow and
-        # fall back to a guaranteed-short temp socket. Windows uses
-        # AF_INET sockets internally for ipython-style server channels
-        # so the path limit doesn't apply, but the check is harmless.
-        if len(str(socket_path).encode("utf-8")) > 100:
-            socket_path = Path(tempfile.gettempdir()) / f"mcp-{os.getpid()}.sock"
+            socket_path = private_socket_dir() / name
 
     server = MCPServer(
         socket_path=socket_path,
