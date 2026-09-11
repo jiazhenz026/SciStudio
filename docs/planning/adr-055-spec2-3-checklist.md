@@ -182,15 +182,16 @@ language_source: en
 - [x] Inspect + author tools with hook blacklist and parity results -> `b1693f913` `tools_workspace.py` (incl. `move_path`), `tests/ai/test_mcp_workspace_tools.py`; scaffold_block bridge check via a context variable set in `webmcp.py` dispatch
 - [x] `run_command` + managed job tools -> `b1693f913` `tools_execution.py` (+ `list_commands`), registers in `app.state.registry` (shutdown `terminate_all` test passes), `tests/ai/test_mcp_execution_tools.py`
 - [x] Spec 2 + Spec 4 spec text updated -> Spec 2 rewritten to #2279 decisions; Spec 4 gains US6, FR-012..FR-015, TransferRecord, T-007, SC-006 (lab-only)
-- [x] Tests -> Tier-1 `gate_record check --base origin/feat/2271-webmcp-bridge` exit 0 (arch, hygiene, deferral, format, full_audit, import contracts, lint, full xdist suite, type check) + pre-PR check exit 0; one real-pip test skips locally (uv venv has no pip) with stated reason, a pip-free `PIP_TARGET` import test runs everywhere
+- [!] Tests -> CORRECTED 2026-09-11 (AU3 P2-4, manager-verified): the A1 ledger's `observed_diff` has base = head = `e817f9b82`, `changed_files` 0, empty-string fingerprint, so the checks below ran against an EMPTY diff (before the commit) and are not evidence; must be re-run on the committed diff, and again after the rebase onto main. Original claim: Tier-1 `gate_record check --base origin/feat/2271-webmcp-bridge` exit 0 (arch, hygiene, deferral, format, full_audit, import contracts, lint, full xdist suite, type check) + pre-PR check exit 0; one real-pip test skips locally (uv venv has no pip) with stated reason, a pip-free `PIP_TARGET` import test runs everywhere
 
 ### 7.4 Audit
 
 - [x] Audit agent assigned, or manager audit completed. -> AU3 (with-context), AU4 (no-context)
 - [x] Audit report file path assigned. -> `docs/audit/2026-09-11-adr-055-spec2-with-context.md`, `docs/audit/2026-09-11-adr-055-spec2-no-context.md`
-- [ ] Audit report committed.
-- [ ] Audit report merged into final PR evidence path.
-- [ ] Findings recorded.
+- [~] Audit report committed. -> AU3 `0517a0afb` + ledger `755ffc39c` on `audit/2279-spec2-with-context`; AU4 pending
+- [~] Audit report merged into final PR evidence path. -> A1-fix1 cherry-picks the AU3 commits onto `feat/2279-agent-context-workspace`
+- [~] Findings recorded. -> AU3 (with-context): **block**. P1-1: `delete_path`/`move_path` act on a symlink/junction's resolved target — deleting a junction deleted its target directory with files (reproduced through the bridge on Windows). P1-2: Windows `cancel_command` (and shutdown) miss descendants whose parent already exited — grandchild survives, job stays `running` (breaks SC-004). P2-1: `get_file_info`/`read_file`/`patch_file` advance the cached file version, so the watcher suppresses the FILE_CHANGED for external edits. P2-2: a finished command stays `running` while a background child holds its pipes (3.11 and 3.13). P2-3: refusals/conflicts return `isError: false` — owner decision. P2-4: A1 gate evidence covered an empty diff (see 7.3 correction). P2-5: no tests for links, exited-parent orphans, pipe-holding children, read-then-watcher, real HTTP abort. 10 P3s. Confirmed: #2279 decisions 1-6, blacklist held against case/separator/`./`/`..`/trailing dot+space/ADS/8.3/junction tricks, bridge marker does not leak, 13 import contracts kept, real-pip test runs in CI. AU4 pending
+- [~] Fix round A1-fix1 dispatched (prompt in dispatch-prompts file); AU3 P2-3 held for the owner decision; AU4 findings to be appended
 - [ ] P1 findings fixed before integration.
 - [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
 

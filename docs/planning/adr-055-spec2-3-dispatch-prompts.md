@@ -445,6 +445,28 @@ Task identity, rules, environment notes, coordination and gate flow are unchange
 
 ---
 
+## A1-fix1 — Spec 2 audit fix round (sent to A1 via SendMessage)
+
+```markdown
+[DISPATCH-TEMPLATE-V1: fix]
+
+Task identity, rules, environment notes, scope approvals and coordination are unchanged from A1 (branch feat/2279-agent-context-workspace stacked on feat/2271-webmcp-bridge, worktree .worktrees/feat-2279-agent-context-workspace, issue #2279). Still NO PR until the manager schedules the rebase onto main.
+
+1. Integrate the audit evidence: `git cherry-pick 0517a0afb 755ffc39c` (AU3 with-context report + ledger). Read docs/audit/2026-09-11-adr-055-spec2-with-context.md in full. AU4 (no-context) is still running; the manager will send its findings as an addendum.
+2. Fix, each with a test that fails before the fix (tests must run on CI's Ubuntu too — use symlinks there; junctions are Windows-only extras):
+   - P1-1: `delete_path` / `move_path` act on the resolved target of a symlink/junction. They must act on the link itself (lstat semantics, never follow a link to delete or move its target), and the blacklist/confinement checks must evaluate the path actually mutated. Cover symlinks (POSIX) and junctions (Windows), file and directory links, links pointing inside `data/`/`workflows/` and outside the project.
+   - P1-2: Windows `cancel_command` and backend shutdown miss descendants whose parent already exited. Make cancellation cover the whole job regardless of intermediate exits (the repo already has Windows Job Object support in src/scistudio/engine/runners/platform.py — prefer reusing it; amend any new file in first). Test: a command whose child spawns a long-lived grandchild and exits.
+   - P2-1: inspect/patch paths (`get_file_info`, `read_file`, `patch_file` read step) must not advance the cached file version that suppresses FILE_CHANGED for external edits; only real writes through the shared helper may. Test the watcher emit condition after read-then-external-edit.
+   - P2-2: a command whose process exited must be reported exited even while a background child holds the output pipes (bounded drain, then "exited, output may be incomplete" note). Test on the current interpreter.
+   - P2-5: the missing tests above, plus a real HTTP request abort through the bridge that leaves the job running.
+   - P3s: fix every one that fits (including: `get_agent_context` hook guidance overstating server enforcement; a block filename reaching INFO logs via the shared write path — FR-012; stale spec `feature_branch` / governed-file list). For any P3 not fixed, give a one-line rationale.
+   - HOLD: AU3 P2-3 (refusals returned with `isError: false`) waits on an owner decision; the manager will send it.
+3. Evidence (AU3 P2-4): your previous gate events covered an EMPTY diff (base = head = e817f9b82). Commit first, then run `gate_record check --base origin/feat/2271-webmcp-bridge --head HEAD` and the pre-PR check on the committed diff, and confirm the ledger's `observed_diff.changed_files` is non-zero and lists your files. Report the numbers.
+4. Commit (trailers as before), push the branch, report: fix commits, test results, P3 fixed / not fixed with rationale, the evidence numbers from step 3. Run long commands in the foreground with output redirected to a log; do not background them.
+```
+
+---
+
 ## AU3 — Audit the Spec 2 branch, with-context
 
 ```markdown
