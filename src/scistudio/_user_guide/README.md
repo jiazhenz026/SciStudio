@@ -9,7 +9,12 @@ for most of it, you can simply ask the [AI assistant](ai-assistant.md).
 ## Start here
 
 New to SciStudio? Read **[getting-started.md](getting-started.md)** — it takes you
-from an empty project to your first run in five steps.
+from choosing how to use SciStudio to your first run in five steps.
+
+Want to work inside your AI app? Start with
+**[Using SciStudio in your AI app](using-with-ai-apps.md)** to connect through
+the app's built-in browser. For the assistant inside the SciStudio desktop
+window, follow [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
 
 ## The guide
 
@@ -18,11 +23,12 @@ from an empty project to your first run in five steps.
 | Page | What it covers |
 |---|---|
 | [getting-started.md](getting-started.md) | The five-minute tour: project → workflow → run → preview |
+| [Using SciStudio in your AI app](using-with-ai-apps.md) | Start External AI mode, connect from an AI app, and manage the background service |
 | [how-scistudio-works.md](how-scistudio-works.md) | The short architecture map: data, blocks, lineage, AI agents, plots, and extensions |
 | [using-the-gui.md](using-the-gui.md) | The canvas in depth: building workflows, running them, previewing data |
 | [built-in-blocks.md](built-in-blocks.md) | Every block that ships with SciStudio and what it does |
 | [history-and-branches.md](history-and-branches.md) | Go back to past work; keep pipeline variants on branches |
-| [ai-assistant.md](ai-assistant.md) | What the AI assistant can do for you |
+| [ai-assistant.md](ai-assistant.md) | External AI apps, the desktop CLI assistant, and AI Agent blocks |
 
 **Making your own**
 

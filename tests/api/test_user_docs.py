@@ -23,6 +23,8 @@ developer guide that lives in the repository, not in the wheel.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -38,6 +40,7 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (0, "page", "Run history and branches"),
     (0, "page", "How SciStudio works"),
     (0, "page", "Using the canvas: build, run, preview"),
+    (0, "page", "Using SciStudio in your AI app"),
     (0, "page", "Writing a block"),
     (0, "page", "Writing a plot"),
     (0, "section", "Api reference"),
@@ -129,6 +132,25 @@ class TestNavigation:
 
 
 class TestPages:
+    def test_reading_uses_current_guide_despite_old_project_copies(
+        self, client: TestClient, opened_project: Path
+    ) -> None:
+        """An existing project's stale guide must not shadow Learning Center."""
+        source = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "_user_guide"
+        paths = ("README.md", "getting-started.md", "ai-assistant.md", "using-with-ai-apps.md")
+        project_guide = opened_project / "user-guide"
+        project_guide.mkdir(exist_ok=True)
+        for path in paths:
+            (project_guide / path).write_text("# Old project guide\nInstall a CLI first.\n", encoding="utf-8")
+
+        nav = client.get("/api/user-docs/nav")
+        assert nav.status_code == 200
+        assert "using-with-ai-apps.md" in _paths(nav.json()["items"])
+        for path in paths:
+            response = client.get(f"/api/user-docs/pages/{path}")
+            assert response.status_code == 200, path
+            assert response.json()["text"] == (source / path).read_text(encoding="utf-8"), path
+
     def test_serves_a_guide_page_as_markdown(self, client: TestClient) -> None:
         body = client.get("/api/user-docs/pages/README.md").json()
 
