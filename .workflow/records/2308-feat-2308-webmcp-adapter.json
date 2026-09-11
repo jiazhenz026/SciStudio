@@ -661,6 +661,154 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:25.851597Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:acd8465bd7b7c4f6663abcdae8d6450aab1f1aa1e599a3acb91eb982195fcfd0",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:28.203640Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cfc297c6dd38f77eba501dea13bf82cf3dbdbcc0d0fcf08e3b4ebab4af2663ad",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:29.672747Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c5b9d2a0c4f5225ffadd85b7a4d7f26f807c08235b2303a96a8acbfc5942f1d1",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:29.696845Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/runtime.py src/scistudio/ai/agent/mcp/server.py src/scistudio/api/routes/webmcp.py src/scistudio/cli/main.py src/scistudio/cli/mcp_bridge.py src/scistudio/cli/webmcp_adapter.py tests/ai/test_mcp_socket_permissions.py tests/api/test_webmcp.py tests/cli/test_mcp_bridge.py tests/cli/test_webmcp_adapter.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8463155fdf8c99fcff834f2774e1698abe0df2db64285a0c8b0d02d9370aec2c",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T13:05:43.345737Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fb6f8192eff81d45d4f510025e546a21670ccd4d8d1e51165bdb01eafb8cd162",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:43.601837Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f0caf5d2fa3ea124ab5b672a665963a431adad9d325f73358bfe6fdb3bfe08b9",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:05:43.625366Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/runtime.py src/scistudio/ai/agent/mcp/server.py src/scistudio/api/routes/webmcp.py src/scistudio/cli/main.py src/scistudio/cli/mcp_bridge.py src/scistudio/cli/webmcp_adapter.py tests/ai/test_mcp_socket_permissions.py tests/api/test_webmcp.py tests/cli/test_mcp_bridge.py tests/cli/test_webmcp_adapter.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6848ab4b24de8e3cd151a9792fccc95a450f5c35ff3d6355c84447fbf51dfdb0",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T13:05:58.758423Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/test_mcp_socket_permissions.py tests/api/routes tests/api/test_webmcp.py tests/cli tests/cli/test_mcp_bridge.py tests/cli/test_webmcp_adapter.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7aeb73663757bf6459b4db6b809ea9a7e10fe1c395afc2a28ebcc9d5919ec656",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T13:06:08.041853Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/runtime.py src/scistudio/ai/agent/mcp/server.py src/scistudio/api/routes/webmcp.py src/scistudio/cli/main.py src/scistudio/cli/mcp_bridge.py src/scistudio/cli/webmcp_adapter.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1af39a185ec08a09e5d30b34ffe9f96ded48bc363cc69d5734a78060e4668187",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1807,6 +1955,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.132133Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.147599Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.163327Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.178063Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.193836Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.208803Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.224749Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.239948Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.254371Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.268613Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T13:06:08.309521Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1825,35 +2061,43 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "8f90db3ef36a2101c926cbef36e6ce09d9db706f",
-    "base_sha": "8f90db3ef",
+    "base": "origin/main",
+    "base_sha": "e9dcd01aa",
     "changed_files": [
+      ".workflow/records/2308-audit-2308-o2-no-context.json",
+      ".workflow/records/2308-audit-2308-o2-with-context.json",
       ".workflow/records/2308-feat-2308-webmcp-adapter.json",
       "CHANGELOG.md",
+      "docs/adr/ADR-055.md",
+      "docs/audit/2026-09-11-adr-055-spec4-o2-no-context.md",
+      "docs/audit/2026-09-11-adr-055-spec4-o2-with-context.md",
       "docs/specs/adr-055-enterprise-support.md",
+      "docs/specs/adr-055-webmcp-bridge.md",
       "src/scistudio/ai/agent/mcp/runtime.py",
       "src/scistudio/ai/agent/mcp/server.py",
       "src/scistudio/api/routes/webmcp.py",
       "src/scistudio/cli/main.py",
+      "src/scistudio/cli/mcp_bridge.py",
       "src/scistudio/cli/webmcp_adapter.py",
       "tests/ai/test_mcp_socket_permissions.py",
       "tests/api/test_webmcp.py",
+      "tests/cli/test_mcp_bridge.py",
       "tests/cli/test_webmcp_adapter.py"
     ],
-    "diff_fingerprint": "sha256:2a6cb0521cd42e76599e4ac9263f00e51d71e7d68e7d52006ccd9f9dbac882a9",
+    "diff_fingerprint": "sha256:cdab8b8dfaae51307efe89915dd399bd5b71a756ae985f2c0cd0210cd43303d6",
     "head": "HEAD",
-    "head_sha": "5756b4e4e",
+    "head_sha": "2dcf3b650",
     "surfaces": {
-      "docs": 1,
+      "docs": 5,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 5,
+      "implementation": 6,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 9,
-      "test": 3,
+      "sentrux": 13,
+      "test": 4,
       "workflow_ci": 0
     }
   },
@@ -1967,6 +2211,16 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T13:06:08.309552Z",
+      "diff_fingerprint": "sha256:cdab8b8dfaae51307efe89915dd399bd5b71a756ae985f2c0cd0210cd43303d6",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
     }
   ],
   "record_id": "2308-feat-2308-webmcp-adapter",
@@ -2048,6 +2302,12 @@
       "at": "2026-09-11T12:47:47.587345Z",
       "pattern": "docs/specs/adr-055-webmcp-bridge.md",
       "reason": "No-context audit P3-8 and manager directive: the #2333 socket rules go in the spec that governs server.py (adr-055-webmcp-bridge)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:06:19.344501Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec4-o2-*.md",
+      "reason": "Manager directive: merge the with-context and no-context audit reports of PR #2329 into this branch (docs/audit, ledger records of the audits)."
     }
   ],
   "session_id": "fc606d96-ad95-4a4a-99d4-27dba383fad2",

@@ -835,7 +835,7 @@ def serve_stdio(
             with contextlib.suppress(OSError):
                 write(_error(None, _PARSE_ERROR, "parse error: the line is not valid JSON"))
             continue
-        # Bind now, on receipt: a later snapshot must never reach this call.
+        # Bind now, on receipt: a snapshot adopted after this line was read must never reach this call.
         work.put((message, adapter.bind()))
 
     for _ in workers:
