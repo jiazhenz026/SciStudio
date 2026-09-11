@@ -18,7 +18,7 @@ language_source: en
 
 - Owner request: coordinate and implement ADR-054 Panels and MiniApps, adapting Phase A to ADR-055 enterprise features.
 - Task kind: `manager`; persona: `manager`.
-- Issue: #2296 (coordination); #2293 (A), #2294 (B), #2295 (C); #2288 (tracking and deferrals). Phase D issue to be linked before its implementation.
+- Issue: #2296 (coordination); #2293 (A), #2294 (B), #2295 (C); #2288 (tracking and deferrals). Phase D: #2354.
 - Gate record: `.workflow/records/2296-adr054-coordination.json`.
 - Branch/worktree plan: `codex/2296-adr054-coordination`, `.worktrees/adr054-manager`; each implementation agent has its own branch and worktree.
 - Protected branch: `main`.
@@ -78,9 +78,9 @@ Implementation docs obligations remain with the implementation phases.
 
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
-| A1 | implementer | N/A | Phase A dispatch, A1 | Descriptor/discovery/routing/context/routes/interactive validation | `codex/2293-panel-backend` | `.worktrees/adr054-backend` | Backend panel subsystem and named integration files | Frontend, SDK/libraries, read-access implementation, app/security middleware | #2293 | [ ] |
-| A2 | implementer | N/A | Phase A dispatch, A2 | SDK, libraries, frame/bridge, preview and interactive hosts | `codex/2293-panel-frontend` | `.worktrees/adr054-frontend` | Frontend panel integration and `panels/sdk`, `panels/lib` | Backend Python, enterprise capability definitions | #2293 | [ ] |
-| A3 | implementer | N/A | Phase A dispatch, A3 | Bounded read extensions, opaque-origin/CORS hardening, app mounting | `codex/2293-panel-security` | `.worktrees/adr054-security` | Named read-access and app/security files plus tests | Panel registry/routes, frontend, identity seam definitions | #2293 | [ ] |
+| A1 | implementer | N/A | Phase A dispatch, A1 | Descriptor/discovery/routing/context/routes/interactive validation | `codex/2293-panel-backend` | `.worktrees/adr054-backend` | Backend panel subsystem and named integration files | Frontend, SDK/libraries, read-access implementation, app/security middleware | #2293 | [~] |
+| A2 | implementer | N/A | Phase A dispatch, A2 | SDK, libraries, frame/bridge, preview and interactive hosts | `codex/2293-panel-frontend` | `.worktrees/adr054-frontend` | Frontend panel integration and `panels/sdk`, `panels/lib` | Backend Python, enterprise capability definitions | #2293 | [~] |
+| A3 | implementer | N/A | Phase A dispatch, A3 | Bounded read extensions, opaque-origin/CORS hardening, app mounting | `codex/2293-panel-security` | `.worktrees/adr054-security` | Named read-access and app/security files plus tests | Panel registry/routes, frontend, identity seam definitions | #2293 | [~] |
 
 Audits get dedicated worktrees and a selected context mode after integration.
 
@@ -94,9 +94,9 @@ Audits get dedicated worktrees and a selected context mode after integration.
 
 ### 7.2 Dispatch
 
-- [ ] Prompts finalized from the work template with issue, branch, write set, TODO rule, tests, docs, and stop conditions.
-- [ ] All agent branches/worktrees created and gates initialized.
-- [ ] Umbrella PR and committed prompts exist before agents start.
+- [x] Prompts finalized and committed at `5bee59d1` with scope, tests, docs, and stop conditions.
+- [x] Three agent worktrees created at `7b132175`; agents initialized their gates.
+- [x] #2353 and committed prompts existed before dispatch to A1/A2/A3.
 
 ### 7.3 Implementation
 
@@ -135,6 +135,8 @@ Audits get dedicated worktrees and a selected context mode after integration.
 | 2026-09-11 | manager | Historical umbrella #2299 is closed; its branch predates the enterprise seam and MiniApp revision | New coordination branch from current main; retain historical record as context only | #2296 |
 | 2026-09-11 | manager | #2293 describes unavailable Lab middleware and an interim Panels sidebar | Use existing identity seam; owner chose to preserve A entry and consolidate UI in D | #2293, #2288 |
 | 2026-09-11 | manager | Current specs add D but #2296 lists only A/B/C | Coordinate all four phases; D depends on A | #2296 |
+
+| 2026-09-11 | manager | New-panel writeback needs a backend context check before the existing WS event | A1 scope amended to narrow `api/ws.py` hook and `tests/api/test_panel_interactive_ws.py`; no new completion path | #2293 |
 
 ## 10. Final Readiness
 

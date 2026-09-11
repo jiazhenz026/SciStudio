@@ -40,6 +40,7 @@ You own only:
 
 - `src/scistudio/panels/**` EXCEPT `sdk/**`, `lib/**`, and `security.py`.
 - `src/scistudio/previewers/{models,registry,router,choices,project,session,assets}.py` and narrowly required helpers under `previewers/`, EXCEPT `data_access.py` and its new helper modules (A3).
+- `src/scistudio/api/ws.py` only for new-panel context validation immediately before existing interactive-complete dispatch, and `tests/api/test_panel_interactive_ws.py` (manager amendment, 2026-09-11).
 - `src/scistudio/api/routes/panels.py`, `src/scistudio/api/routes/data.py`, `src/scistudio/api/routes/blocks.py`, and panel-related API schemas.
 - `src/scistudio/core/dropins.py` for tier roots only; record protected scope, do not claim the admin label is granted.
 - `src/scistudio/blocks/base/interactive.py`, `src/scistudio/blocks/registry/_capability.py` and narrowly necessary block-registry discovery call sites.
@@ -269,4 +270,3 @@ is implemented and tested; do not stop at an analysis report.
 Report before editing outside scope, on an unresolved contract conflict, unclear gate failure,
 missing essential test support, or an integration dependency. Do independent in-scope work
 while waiting for clarification. Never weaken tests, policies or CI to make a check green.
-
