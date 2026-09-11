@@ -285,9 +285,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "c23786dafd6a6535a02ef0b0863ff9ab8fbcea11",
+    "sha": "a4525c224a15952526fa9a81cafd829fe72cf84c",
     "shas": [
-      "c23786dafd6a6535a02ef0b0863ff9ab8fbcea11"
+      "a4525c224a15952526fa9a81cafd829fe72cf84c"
     ],
     "trailers": []
   },
@@ -1079,6 +1079,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.437787Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.449029Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.460124Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.471349Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.483169Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.495096Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.506408Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.517806Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.529445Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.541247Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:13:18.571930Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1091,8 +1179,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "ca54fe775",
+    "base": "f87c6ad40f22b2f1cb50c42499d7b1b747173e7e",
+    "base_sha": "f87c6ad40",
     "changed_files": [
       ".workflow/records/2280-audit-2280-spec3-with-context.json",
       ".workflow/records/2280-feat-2280-local-background-runtime.json",
@@ -1124,9 +1212,9 @@
       "scripts/ota_publish.py",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:8d3a8e70a944d47dac71ed193b25817d36e7428a29e95cfc28621413463e6259",
+    "diff_fingerprint": "sha256:dc3a28aeff5bd22949e3aac81b9089c2fd5cae979205aa9ab8d5a48e4d466c78",
     "head": "HEAD",
-    "head_sha": "8a80d4ea6",
+    "head_sha": "a4525c224",
     "surfaces": {
       "docs": 4,
       "frontend": 0,
@@ -1215,6 +1303,14 @@
     {
       "at": "2026-09-11T05:12:59.394642Z",
       "diff_fingerprint": "sha256:8d3a8e70a944d47dac71ed193b25817d36e7428a29e95cfc28621413463e6259",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:13:18.571959Z",
+      "diff_fingerprint": "sha256:dc3a28aeff5bd22949e3aac81b9089c2fd5cae979205aa9ab8d5a48e4d466c78",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
