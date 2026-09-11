@@ -1,0 +1,12 @@
+<!doctype html>
+<p id="status">unauthorized successor</p>
+<script>
+  window.receivedAuthority = false;
+  addEventListener("message", (event) => {
+    if (event.data?.type === "init") {
+      window.receivedAuthority = true;
+      document.querySelector("#status").textContent =
+        "LEAKED " + JSON.stringify(event.data.payload);
+    }
+  });
+</script>
