@@ -96,6 +96,16 @@
       "at": "2026-09-11T10:48:13.552118Z",
       "owner_directive": "Validation: MkDocs build using committed generated API pages passed; 293 local links and anchors across five rendered pages passed. Picker labels, connection controls, tray behavior and presentation were checked against current source. No live AI-host interoperability test was run.",
       "reason": "Completed six documentation files and verified rendered navigation."
+    },
+    {
+      "at": "2026-09-11T10:54:58.489032Z",
+      "owner_directive": "Lead External AI description with using SciStudio inside an AI app such as ChatGPT. Shorten using-with-ai-apps.md to essentials, removing repetition while retaining connection and service guidance.",
+      "reason": "Owner requests more direct AI-app wording and a shorter tutorial."
+    },
+    {
+      "at": "2026-09-11T10:56:47.153644Z",
+      "owner_directive": "The shortened tutorial has four connection steps and compact controls and troubleshooting. MkDocs build passed; all 286 local links and anchors on five rendered pages passed. The pre-PR gate passed.",
+      "reason": "Verified the shortened tutorial and revised introduction."
     }
   ],
   "docs_events": [
@@ -599,6 +609,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.828430Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.845466Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.862730Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.879470Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.897335Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.914172Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.930397Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.948964Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.968454Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:19.987451Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:56:20.014413Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -611,7 +709,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "8f90db3ef36a2101c926cbef36e6ce09d9db706f",
+    "base": "origin/main",
     "base_sha": "8f90db3ef",
     "changed_files": [
       ".workflow/records/2290-ai-app-guide.json",
@@ -622,9 +720,9 @@
       "src/scistudio/_user_guide/getting-started.md",
       "src/scistudio/_user_guide/using-with-ai-apps.md"
     ],
-    "diff_fingerprint": "sha256:a8777a0f3d9e28d6f980f674a04fcb69221ddc2aebfe2646ecd8fc664c070245",
+    "diff_fingerprint": "sha256:949760945ccef14763bc7f704bb6d24ba64a501cc87c9aa8e45d0b6db750619a",
     "head": "HEAD",
-    "head_sha": "3150766ad",
+    "head_sha": "a7e857d9a",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -685,6 +783,14 @@
     {
       "at": "2026-09-11T10:49:26.551127Z",
       "diff_fingerprint": "sha256:a8777a0f3d9e28d6f980f674a04fcb69221ddc2aebfe2646ecd8fc664c070245",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T10:56:20.014448Z",
+      "diff_fingerprint": "sha256:949760945ccef14763bc7f704bb6d24ba64a501cc87c9aa8e45d0b6db750619a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,

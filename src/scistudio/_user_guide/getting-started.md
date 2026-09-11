@@ -15,8 +15,8 @@ a mode when you launch it:
   install and sign in to one supported CLI provider — see
   [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
   You can use the canvas without an AI provider.
-- **External AI** runs SciStudio in the background so you can open it inside
-  your AI app's WebMCP-capable browser. Follow
+- **External AI** lets you use SciStudio in the built-in browser of an AI app
+  such as ChatGPT. The browser must support WebMCP. Follow
   [Using SciStudio in your AI app](using-with-ai-apps.md) to connect. This path
   uses the AI app's own conversation and does not require a local agent CLI
   for that conversation.
