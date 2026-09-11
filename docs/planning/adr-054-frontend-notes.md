@@ -121,12 +121,23 @@ Targeted frontend tests cover port isolation, unsupported operations, transferre
 buffers, one-shot decisions, JSON validation, disposal races, exact sandbox,
 wrong-window SDK init, navigation/error/remount, ready timeout, root/prefixed
 requests, sample mode, theme changes and save limits. Gate results are recorded
-in `.workflow/records/2293-panel-frontend.json`.
+in `.workflow/records/2293-panel-frontend.json`. The frontend gate at source
+commit `46aa309b`, consuming the generated bootstrap schema, passes 208 test
+files / 2296 tests, TypeScript, ESLint (zero errors) and the production build.
+The independent A2 full local run passes architecture, commit hygiene, tracked
+deferrals, Python formatting/lint/imports and types. Its Python suite records
+7784 passes, 82 skips and eight expected failures; the one failing OpenAPI
+snapshot comparison requires the A1 backend implementation in the integrated
+branch. Full-audit findings are the planned-to-governs promotions owned by the
+contract-docs slice. These local results do not establish integrated readiness.
 
 Integrated smoke still required by manager: install a preview fixture and an
 interactive fixture; open data in ordinary and AI presentation, change view state,
 maximize, drill down and Back; verify interactive response/memory/cancel; navigate
-the frame or throw and verify explicit recovery; use the deployed proxy prefix;
+the frame or throw and verify explicit recovery. In a real browser, verify both
+a normal entry and an entry that calls `location.replace` before its first load:
+the replacement document must receive neither input nor a canonical port. Use
+the deployed proxy prefix;
 load all local libraries offline; export bytes on browser and supported Electron
 and observe an explicit user destination choice. Run the combined gate and CI.
 
