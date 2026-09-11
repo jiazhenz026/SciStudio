@@ -42,7 +42,7 @@ from typing import Any
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools.base import ToolResult
 from mcp.types import ImageContent, TextContent
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
