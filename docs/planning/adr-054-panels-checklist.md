@@ -66,9 +66,12 @@ language_source: en
 - Protected paths:
   - `src/scistudio/core/dropins.py` (FR-004): Phase A PR needs the owner to
     apply `admin-approved:core-change` on the PR
-  - `docs/adr/ADR-049.md` (`agent_editable: false`): the T-009 contract ids
-    must appear in it for `check_package_contract_tables.py`; owner decision
-    pending
+  - `docs/adr/ADR-049.md` (`agent_editable: false`): owner chose an addendum
+    (2026-09-11). `docs/adr/ADR-049-addendum1.md` (`92723cb94`, manager) defines
+    PV-14-001 to PV-14-008; A1 extends the coverage check to read addenda
+  - `docs/adr/ADR-054.md` (`agent_editable: false`): its `planned_governs`
+    surfaces are created by Phase A, and the audit reports a resolved planned
+    surface as an ERROR; owner decision pending
 - Deferred work:
   - `TODO(#2288)`: Lab session middleware accepts the per-mount token (FR-026)
   - `TODO(#2288)`: "What Is A Type" migrates to panels (FR-049)

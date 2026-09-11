@@ -335,3 +335,28 @@ followed by the addendum below, which overrides the prompt where they differ.
    existing frontend test command so `gate_record check` exercises them.
 4. Take the time the work needs. When the spec is ambiguous, choose the reading
    that follows ADR-054 and list the choice in the final report.
+
+### A1 follow-up message (2026-09-11, after the owner's ADR-049 decision)
+
+Sent to A1 while it was running. It replaces A1 addendum item 2 and the
+ADR-049 part of Work To Do step 8.
+
+1. Merge `feat/2293-panels-phase-a` (commit `92723cb94`, which adds
+   `docs/adr/ADR-049-addendum1.md`) into `feat/2293-a1-backend`; the base ref is
+   unchanged.
+2. `tests/audit/**` joins A1's write set; amend the ledger before editing it.
+3. Write `docs/planning/adr-049-package-validator/contracts/pv-a6-section-14-panels.json`
+   with rows PV-14-001 to PV-14-008 exactly as the addendum's Section 2 table
+   defines them (section `14_panel_contracts`, status `implemented`, alignment
+   `aligned`), with code, test, and ADR evidence that exists.
+4. Add `14_panel_contracts` to the schema's `section` enum.
+5. Add a `notes` field to the PV-12-001 row scoping it to `FrontendManifest`
+   modules.
+6. Extend `check_adr_coverage` to search `docs/adr/ADR-049.md` plus every
+   `docs/adr/ADR-049-addendum*.md`; an id named nowhere still fails.
+7. Add `tests/audit/test_check_package_contract_tables.py` with tmp_path
+   fixtures for both cases.
+8. The expected checker result stays 0 errors and the nine warnings of ADR-049
+   §4.1.
+9. The proposed-text file is no longer needed; the contract-table check and
+   full audit must pass once the addendum is merged.
