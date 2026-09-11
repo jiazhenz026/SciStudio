@@ -1148,7 +1148,8 @@ def test_a_backtracking_regex_is_stopped_when_its_request_ends(stub_ctx: _StubCo
     timer.start()
     started = time.monotonic()
     try:
-        result = tools_workspace._search_sync(project, project, "long.txt", "(a+)+$", True, False, 50, stop)
+        # Polynomial, not exponential, backtracking: in-process it still runs for minutes on this line.
+        result = tools_workspace._search_sync(project, project, "long.txt", ".*.*.*x", True, False, 50, stop)
     finally:
         timer.cancel()
     assert time.monotonic() - started < 10
