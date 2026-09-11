@@ -710,7 +710,14 @@ export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
 /** One registered previewer (backend `PreviewerSpecModel`). */
 export interface PreviewerSpecSummary {
   renderer?: "panel" | "legacy";
-  panel?: { id: string; api_version: string; contexts: string[]; types: string[]; name?: string; description?: string };
+  panel?: {
+    id: string;
+    api_version: string;
+    contexts: string[];
+    types: string[];
+    name?: string;
+    description?: string;
+  };
   shadowed?: boolean;
   previewer_id: string;
   owner_kind: PreviewerOwnerKind;

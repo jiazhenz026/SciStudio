@@ -147,9 +147,16 @@ export function InteractiveModals() {
   // other load failure already gets.
   if (manifest) {
     if (!manifest.module_url) {
-      return <InteractivePanel panelId={manifest.panel_id} workflowId={promptWorkflowId}
-        blockId={interactivePrompt.blockId} blockName={interactivePrompt.blockType}
-        onConfirm={onConfirm} onCancel={onCancel} />;
+      return (
+        <InteractivePanel
+          panelId={manifest.panel_id}
+          workflowId={promptWorkflowId}
+          blockId={interactivePrompt.blockId}
+          blockName={interactivePrompt.blockType}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+        />
+      );
     }
     return (
       <DynamicPanel

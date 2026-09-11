@@ -107,7 +107,14 @@ export function PreviewerCard({
         {previewer.frontend_manifest ? " · custom UI" : ""}
       </p>
 
-      {previewer.renderer === "panel" ? <p className="text-[11px] text-stone-500">Contexts: {previewer.panel?.contexts.join(", ")} · Priority: {previewer.priority}{previewer.shadowed ? " · Shadowed" : ""}</p> : <p className="text-[11px] text-stone-500">Legacy previewer (deprecated)</p>}
+      {previewer.renderer === "panel" ? (
+        <p className="text-[11px] text-stone-500">
+          Contexts: {previewer.panel?.contexts.join(", ")} · Priority: {previewer.priority}
+          {previewer.shadowed ? " · Shadowed" : ""}
+        </p>
+      ) : (
+        <p className="text-[11px] text-stone-500">Legacy previewer (deprecated)</p>
+      )}
 
       {choiceHeldElsewhere ? (
         <p className="mt-1 text-[11px] text-stone-500" data-testid="previewer-current-choice">
@@ -116,36 +123,39 @@ export function PreviewerCard({
         </p>
       ) : null}
 
-      {previewer.renderer !== "panel" || (previewer.panel?.contexts.includes("preview") && !previewer.shadowed) ? <div
-        aria-label={`Previewer choice for ${previewer.target_type}`}
-        className="mt-2 inline-flex overflow-hidden rounded-full border border-stone-300 bg-white shadow-sm"
-        data-testid="previewer-choice-segments"
-        role="group"
-      >
-        {SEGMENTS.map((segment, index) => {
-          const isActive = segment.key === active;
-          return (
-            <button
-              aria-pressed={isActive}
-              className={`px-2.5 py-1 text-[11px] transition disabled:opacity-50 ${
-                index > 0 ? "border-l border-stone-200" : ""
-              } ${
-                isActive
-                  ? "bg-ember/15 font-semibold text-ember shadow-inner"
-                  : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
-              }`}
-              data-testid={`previewer-seg-${segment.key}`}
-              disabled={busy}
-              key={segment.key}
-              onClick={() => select(segment.key)}
-              title={segment.title}
-              type="button"
-            >
-              {segment.label}
-            </button>
-          );
-        })}
-      </div> : null}
+      {previewer.renderer !== "panel" ||
+      (previewer.panel?.contexts.includes("preview") && !previewer.shadowed) ? (
+        <div
+          aria-label={`Previewer choice for ${previewer.target_type}`}
+          className="mt-2 inline-flex overflow-hidden rounded-full border border-stone-300 bg-white shadow-sm"
+          data-testid="previewer-choice-segments"
+          role="group"
+        >
+          {SEGMENTS.map((segment, index) => {
+            const isActive = segment.key === active;
+            return (
+              <button
+                aria-pressed={isActive}
+                className={`px-2.5 py-1 text-[11px] transition disabled:opacity-50 ${
+                  index > 0 ? "border-l border-stone-200" : ""
+                } ${
+                  isActive
+                    ? "bg-ember/15 font-semibold text-ember shadow-inner"
+                    : "text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                }`}
+                data-testid={`previewer-seg-${segment.key}`}
+                disabled={busy}
+                key={segment.key}
+                onClick={() => select(segment.key)}
+                title={segment.title}
+                type="button"
+              >
+                {segment.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
 
       {error ? (
         <p className="mt-1 text-[11px] text-red-700" role="alert">

@@ -23,7 +23,8 @@ vi.mock("../hooks/useWebSocket", () => ({
 }));
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
-vi.mock("../lib/api/panels", () => ({ panelsApi: { create: vi.fn().mockRejectedValue(new Error("Panel myproj.foo not found")), close: vi.fn().mockResolvedValue(undefined) } }));
+import { mockBackend, reply, type MockBackend } from "../__tests__/contract/mockBackend";
+let backend: MockBackend;
 
 function seedPrompt(
   manifest: PanelManifestDescriptor | null,
@@ -44,6 +45,11 @@ function seedPrompt(
 }
 
 beforeEach(() => {
+  backend = mockBackend({
+    "POST /api/panels/contexts": reply(404, {
+      detail: { code: "not_found", message: "Panel myproj.foo not found" },
+    }),
+  });
   resetAppStore();
   // `resetAppStore` does not own the execution slice's prompt; clear it here so
   // a prompt seeded by one test cannot leak into the next.
@@ -51,7 +57,10 @@ beforeEach(() => {
   vi.mocked(sendWebSocketMessage).mockClear();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  backend.restore();
+});
 
 describe("<InteractiveModals> panel resolution", () => {
   it("renders a visible error surface with a working Cancel for a manifest with no module_url", async () => {

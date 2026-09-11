@@ -857,7 +857,7 @@ export function CoreFallbackRenderer({
   onOpenResource,
   onExport,
 }: CoreFallbackRendererProps) {
-  const kind: EnvelopeKind = envelope.kind;
+  const kind: EnvelopeKind = envelope.kind === "panel" ? "error" : envelope.kind;
   switch (kind) {
     case "dataframe":
       return <DataFrameViewer envelope={envelope} onPatchQuery={onPatchQuery} />;

@@ -191,13 +191,17 @@ export function DataPreview({
   // is also why the maximize action (#2112) can hand a frozen target to a
   // second host in a main-stage tab without any host changes.
   const selectedTargetRef = (activePlot ?? target)?.ref;
-  useEffect(() => { panelSnapshot.current = null; }, [selectedTargetRef, previewerChoiceVersion]);
+  useEffect(() => {
+    panelSnapshot.current = null;
+  }, [selectedTargetRef, previewerChoiceVersion]);
   const host = (
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
       routingEpoch={previewerChoiceVersion}
-      onPanelSnapshot={(snapshot) => { panelSnapshot.current = snapshot; }}
+      onPanelSnapshot={(snapshot) => {
+        panelSnapshot.current = snapshot;
+      }}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

@@ -145,7 +145,10 @@ export function PreviewHost({
   routingEpoch,
   cacheEnvelope,
   buildCacheKey,
-  importer, panelId, initialViewState, onPanelSnapshot,
+  importer,
+  panelId,
+  initialViewState,
+  onPanelSnapshot,
 }: PreviewHostProps) {
   const [coreOnly, setCoreOnly] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
@@ -169,7 +172,10 @@ export function PreviewHost({
       setEnvelope(null);
       return;
     }
-    const query = { ...(initialQuery ?? {}), ...(coreOnly ? { core_only: true } : panelId ? { panel_id: panelId } : {}) };
+    const query = {
+      ...(initialQuery ?? {}),
+      ...(coreOnly ? { core_only: true } : panelId ? { panel_id: panelId } : {}),
+    };
     queryRef.current = query;
 
     setStatus("loading");
@@ -521,9 +527,17 @@ export function PreviewHost({
   if (!activeEnvelope) return null;
 
   if (activeEnvelope.panel) {
-    return <PanelPreview key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`} target={activeEnvelope.target}
-      panelId={panelId ?? activeEnvelope.panel.id} previewSessionId={activeEnvelope.session_id}
-      initialViewState={initialViewState} onSnapshot={onPanelSnapshot} onFallback={() => setCoreOnly(true)} />;
+    return (
+      <PanelPreview
+        key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`}
+        target={activeEnvelope.target}
+        panelId={panelId ?? activeEnvelope.panel.id}
+        previewSessionId={activeEnvelope.session_id}
+        initialViewState={initialViewState}
+        onSnapshot={onPanelSnapshot}
+        onFallback={() => setCoreOnly(true)}
+      />
+    );
   }
 
   const useDynamic = !!manifest && !dynamicFailed;
