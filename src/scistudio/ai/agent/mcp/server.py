@@ -395,10 +395,10 @@ class MCPServer:
                 # surfaces as JSON-RPC METHOD_NOT_FOUND (-32601) rather
                 # than INVALID_PARAMS (-32602).
                 known_tools = {t.name: t for t in await mcp.list_tools()}
-                entry = known_tools.get(name)
-                if entry is None:
+                called_tool = known_tools.get(name)
+                if called_tool is None:
                     return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown tool '{name}'")
-                if AUDIENCE_EXTERNAL_TAG in set(entry.tags or set()):
+                if AUDIENCE_EXTERNAL_TAG in set(called_tool.tags or set()):
                     # ADR-055 Spec 1 (FR-004, owner decision 2026-09-11): the
                     # local socket transport neither lists NOR executes
                     # external-audience tools. A caller that knows the name
