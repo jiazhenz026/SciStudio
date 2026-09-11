@@ -4,28 +4,31 @@ from __future__ import annotations
 
 import logging
 import os
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from scistudio.api.deps import get_runtime
-from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST, FILE_CHANGED_EVENT_TYPE
+from scistudio.api.file_contracts import ADR036_FILE_ALLOWLIST
+from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE as FILE_CHANGED_EVENT_TYPE
 from scistudio.api.mcp_lifecycle import ensure_project_mcp_server
-from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
+from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime, _file_writes
+
+# ADR-036 §3.5 (I36c) string event type for the WS-broadcast that fires after
+# a successful, lint-passing PUT to ``blocks/*.py``. ADR-055 Spec 2 (#2279)
+# moved its definition beside the shared write path; re-exported here because
+# callers and tests import it from this module.
+from scistudio.api.runtime._file_writes import BLOCKS_RELOADED_EVENT_TYPE as BLOCKS_RELOADED_EVENT_TYPE
+from scistudio.api.runtime._file_writes import (
+    FileWriteConflictError,
+    ProjectFileWriteError,
+)
 from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
-from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
-from scistudio.engine.events import EngineEvent
 from scistudio.tutorials.projects import is_tutorial_entry
 
-# ADR-036 搂3.5 (I36c) 鈥?string event type for the WS-broadcast that fires
-# after a successful, lint-passing PUT to ``blocks/*.py``. Declared here
-# (not in scistudio.engine.events) because the events module is frozen by
-# the dispatch's hard-scope rules; subscribers can opt in by string.
-BLOCKS_RELOADED_EVENT_TYPE: str = "blocks.reloaded"
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
 
 logger = logging.getLogger(__name__)
@@ -124,6 +127,13 @@ class FileWriteRequest(BaseModel):
     source: str | None = None
     source_id: str | None = None
     create_parent_dirs: bool = False
+    expected_state_version: int | None = Field(
+        default=None,
+        description=(
+            "Optional. The state_version the client last read. When set and the file has "
+            "changed since, the write is rejected with 409 instead of overwriting it."
+        ),
+    )
 
 
 class FileWriteResponse(BaseModel):
@@ -144,13 +154,14 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
-def _project_relative_entity_id(project_root: Path, target: Path) -> str:
-    """Return the ADR-045 file entity id for a sandboxed project file."""
-    try:
-        relative = target.relative_to(project_root)
-    except ValueError:
-        relative = Path(os.path.relpath(target, project_root))
-    return str(relative).replace("\\", "/")
+# ADR-055 Spec 2 FR-005 (#2279): the write path lives in
+# ``scistudio.api.runtime._file_writes`` so the MCP author tools share it; these
+# names stay importable from this module for existing callers and tests.
+_project_relative_entity_id = _file_writes.project_relative_entity_id
+_emit_file_changed = _file_writes.emit_file_changed
+_project_dropin_dir = _file_writes.project_dropin_dir
+_is_under_project_blocks_dir = _file_writes.is_under_project_blocks_dir
+_maybe_reload_blocks_after_save = _file_writes.maybe_reload_blocks_after_save
 
 
 def _is_new_custom_block_scaffold_path(path: str) -> bool:
@@ -173,34 +184,6 @@ def _request_source(request: Request, body: FileWriteRequest) -> str:
     if changed_by and changed_by not in {"api", "canvas"}:
         return "agent"
     return "canvas"
-
-
-async def _emit_file_changed(
-    runtime: ApiRuntime,
-    *,
-    entity_id: str,
-    target: Path,
-    project_id: str,
-    source: str,
-    source_id: str | None,
-    kind: str,
-    changed_by: str | None,
-) -> dict[str, Any]:
-    version = runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
-    runtime.mark_entity_first_party_write(FILE_ENTITY_CLASS, entity_id, version, path=target, kind=kind)
-    payload = runtime.versioned_change_payload(
-        entity_class=FILE_ENTITY_CLASS,
-        entity_id=entity_id,
-        version=version,
-        source=source,
-        source_id=source_id,
-        kind=kind,
-        project_id=project_id,
-        path=entity_id,
-        changed_by=changed_by,
-    )
-    await runtime.event_bus.emit(EngineEvent(event_type=FILE_CHANGED_EVENT_TYPE, data=payload))
-    return payload
 
 
 def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tuple[Path, Path]:
@@ -231,14 +214,16 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
         raise HTTPException(status_code=403, detail="Path traversal is not allowed")
 
     project_root = Path(os.path.realpath(project.path))
-    candidate = os.path.realpath(os.path.join(str(project_root), path))
-    # CodeQL py/path-injection canonical sanitiser: realpath + commonpath.
-    try:
-        if os.path.commonpath([str(project_root), candidate]) != str(project_root):
-            raise HTTPException(status_code=403, detail="Path escapes project root")
-    except ValueError as exc:
-        # commonpath raises on different drives (Windows) 鈥?treat as escape.
-        raise HTTPException(status_code=403, detail="Path escapes project root") from exc
+    root_str = str(project_root)
+    candidate = os.path.realpath(os.path.join(root_str, path))
+    # CodeQL py/path-injection sanitiser: the realpath-normalised candidate must
+    # start with the root plus a separator -- the guard CodeQL models (it does
+    # not model ``commonpath``). The separator keeps a sibling such as
+    # ``<root>-other`` out; a different drive on Windows fails the prefix too.
+    # The root itself is never a file, so it is refused with the escapes.
+    prefix = root_str if root_str.endswith(os.sep) else root_str + os.sep
+    if not candidate.startswith(prefix):
+        raise HTTPException(status_code=403, detail="Path escapes project root")
 
     target = Path(candidate)
     if target.suffix.lower() not in ADR036_FILE_ALLOWLIST:
@@ -329,8 +314,6 @@ async def write_project_file(
     Coordinated this way (mark, then rename) so the watcher's
     ``(path, mtime, size)`` triple matches the freshly-renamed file.
     """
-    from scistudio.api.routes.workflow_watcher import mark_self_write
-
     project_root, target = _resolve_project_file(runtime, project_id, path)
 
     encoded = body.content.encode("utf-8")
@@ -353,212 +336,43 @@ async def write_project_file(
     if target.exists() and target.is_dir():
         raise HTTPException(status_code=400, detail="Path is a directory, not a file")
 
-    # ``target`` is returned by _resolve_project_file only after realpath +
-    # commonpath sandbox validation against ``project_root``.
+    # ADR-055 Spec 2 FR-005 (#2279): the atomic write, the watcher self-write
+    # marks, the lint-gated registry reload (ADR-036 §3.5 / ADR-053 FR-062),
+    # and the ``file.changed`` event are the shared write path the MCP author
+    # tools use too. ``target`` is returned by _resolve_project_file only after
+    # realpath + commonpath sandbox validation against ``project_root``.
     # lgtm[py/path-injection]
-    existed = target.exists()
-    entity_id = _project_relative_entity_id(project_root, target)
-    kind = "modified" if existed else "created"
-
-    # Atomic write: tempfile in same dir + os.replace. The temp file must share
-    # the destination's directory for ``os.replace`` to be atomic, and since
-    # ADR-053 that directory may be ``<project>/blocks`` or ``<project>/types``
-    # — globbed for ``*.py`` and executed on every scan. It therefore carries a
-    # fixed ``.tmp`` suffix rather than the destination's, so it is never itself
-    # a drop-in while it exists
-    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-2).
-    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=".tmp", dir=str(target.parent))
     try:
-        with os.fdopen(tmp_fd, "wb") as tmp_file:
-            tmp_file.write(encoded)
-            tmp_file.flush()
-            os.fsync(tmp_file.fileno())
-        runtime.mark_entity_first_party_write(
-            FILE_ENTITY_CLASS,
-            entity_id,
-            runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target),
-            path=target,
-            kind=kind,
-            pending=True,
+        change = await _file_writes.write_project_file(
+            runtime,
+            project_id=project_id,
+            project_root=project_root,
+            target=target,
+            content=body.content,
+            source=_request_source(request, body),
+            source_id=_request_source_id(request, body),
+            changed_by=request.headers.get("X-Changed-By"),
+            expected_state_version=body.expected_state_version,
         )
-        # Mark self-write BEFORE the rename so the watcher's debounce
-        # filter sees the call land before the FS event fires. The watcher
-        # captures (path, mtime, size) lazily 鈥?calling it after writing
-        # the tmpfile but before the rename is fine because mark_self_write
-        # itself stats the destination path lazily on event match.
-        try:
-            mark_self_write(target)
-        except Exception:
-            # Self-write suppression is best-effort; failure here just
-            # means the watcher will echo a modify event the frontend
-            # then ignores via existing dedup.
-            logger.debug("mark_self_write raised", exc_info=True)
-        os.replace(tmp_path, target)
-        # Re-mark after the replace so the (path, mtime, size) triple
-        # matches the actual on-disk file the watcher will see.
-        try:
-            mark_self_write(target)
-        except Exception:
-            logger.debug("mark_self_write (post-replace) raised", exc_info=True)
-    except HTTPException:
-        # Clean up tmpfile, re-raise the HTTPException as-is.
-        try:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
-    except Exception as exc:
-        # Disk full / permissions / simulated rename failures: clean up
-        # the tmpfile and surface a 500 instead of a raw traceback. Not
-        # ``except OSError``: a filename carrying an embedded NUL makes
-        # ``os.replace`` raise ``ValueError``, which slipped past the narrower
-        # handler and left the temp file behind for good.
-        try:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise HTTPException(status_code=500, detail=f"write failed: {exc}") from exc
+    except FileWriteConflictError as exc:
+        raise HTTPException(status_code=409, detail=exc.to_dict()) from exc
+    except ProjectFileWriteError as exc:
+        # Disk full / permissions / simulated rename failures surface as a 500
+        # with the same "write failed: ..." / "post-write stat failed: ..."
+        # detail the route always returned.
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    # ADR-036 搂3.5 (I36c): if the saved file is a Python source file under
-    # ``<project>/blocks/`` and lint diagnostics are empty, hot-reload the
-    # block registry and broadcast a ``blocks.reloaded`` event so the
-    # frontend palette refreshes + a passive toast can fire.
-    #
-    # Lint failure (any diagnostic) keeps the registry stable per ADR-036
-    # 搂3.5 鈥?the file is saved but not loaded. The frontend's lint panel
-    # already shows the diagnostics; suppressing the reload prevents a
-    # broken module from poisoning the palette.
-    await _maybe_reload_blocks_after_save(runtime, target, body.content)
-
-    try:
-        stat = target.stat()
-    except OSError as exc:
-        raise HTTPException(status_code=500, detail=f"post-write stat failed: {exc}") from exc
-
-    source = _request_source(request, body)
-    source_id = _request_source_id(request, body)
-    change = await _emit_file_changed(
-        runtime,
-        entity_id=entity_id,
-        target=target,
-        project_id=project_id,
-        source=source,
-        source_id=source_id,
-        kind=kind,
-        changed_by=request.headers.get("X-Changed-By"),
-    )
-
+    assert change.mtime is not None and change.size is not None  # a completed write always stats
     return FileWriteResponse(
-        mtime=stat.st_mtime,
-        size=stat.st_size,
-        state_version=change["version"],
-        entity_id=entity_id,
-        source=change["source"],
-        source_id=change["source_id"],
-        kind=change["kind"],
-        timestamp=change["timestamp"],
+        mtime=change.mtime,
+        size=change.size,
+        state_version=change.version,
+        entity_id=change.entity_id,
+        source=change.payload["source"],
+        source_id=change.payload["source_id"],
+        kind=change.kind,
+        timestamp=change.payload["timestamp"],
     )
-
-
-# ---------------------------------------------------------------------------
-# ADR-036 搂3.5 (I36c) 鈥?blocks/*.py reload-on-save hook helper.
-# Kept module-level (not nested in the PUT handler) so tests can patch it.
-# ---------------------------------------------------------------------------
-
-
-def _project_dropin_dir(project_root: Path | None, target: Path) -> str | None:
-    """Return the drop-in tier child dir ``target`` sits in, else ``None``.
-
-    ADR-053 FR-062: ``<project>/types`` is a drop-in tier exactly as
-    ``<project>/blocks`` is (:mod:`scistudio.core.dropins`), so a save under it
-    invalidates the registries the same way. The gate used to name only
-    ``blocks``, which meant saving a type file refreshed nothing at all.
-
-    Uses ``Path.relative_to`` to avoid string-prefix gotchas on Windows.
-    """
-    if project_root is None or target.suffix.lower() != ".py":
-        return None
-    try:
-        rel = target.relative_to(project_root)
-    except ValueError:
-        return None
-    parts = rel.parts
-    if len(parts) >= 2 and parts[0] in (BLOCKS_DIR_NAME, TYPES_DIR_NAME):
-        return parts[0]
-    return None
-
-
-def _is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool:
-    """True when ``target`` is a ``.py`` file inside ``<project>/blocks``."""
-    return _project_dropin_dir(project_root, target) == BLOCKS_DIR_NAME
-
-
-async def _maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, content: str) -> None:
-    """If ``target`` is a clean ``blocks/*.py`` or ``types/*.py``, reload.
-
-    "Clean" means lint returned zero diagnostics. Lint failure / ruff
-    unavailability is treated as a no-op so a broken file never poisons
-    the registry (ADR-036 搂3.5). All exceptions in this hook are
-    swallowed because the file save itself already succeeded 鈥?losing the
-    palette refresh is annoying, surfacing a 500 to the user is worse.
-    """
-    active = runtime.active_project
-    project_root = Path(active.path) if active is not None else None
-    if _project_dropin_dir(project_root, target) is None:
-        return
-
-    # Import lazily to avoid pulling lint config into module import time.
-    from scistudio.api.routes.lint import lint_python_source
-
-    try:
-        lint_result = lint_python_source(content, filename=target.name)
-    except Exception:
-        logger.debug("blocks-reload hook: lint raised, skipping reload", exc_info=True)
-        return
-
-    if lint_result.diagnostics:
-        logger.info(
-            "blocks-reload hook: %s has %d lint diagnostic(s); skipping reload",
-            target.name,
-            len(lint_result.diagnostics),
-        )
-        return
-
-    # ruff missing / timeout returns an empty diagnostics list with a
-    # non-empty ``note``. Treat that as "no errors observed" 鈥?same as the
-    # editor: no squiggles means no blocking issues.
-    # ADR-053 FR-062: rebuild every registry the save invalidates, not just
-    # blocks. A save under ``{project}/types`` reaches here now, and even a
-    # block save can change what the type registry should hold when the same
-    # commit touched both.
-    before = set(runtime.block_registry.all_specs().keys())
-    try:
-        runtime.refresh_all_registries()
-    except Exception:
-        logger.exception("blocks-reload hook: refresh_all_registries() raised")
-        return
-    after = set(runtime.block_registry.all_specs().keys())
-
-    added = sorted(after - before)
-    removed = sorted(before - after)
-    # We do not currently have per-spec staleness tracking, so the best
-    # signal for "reloaded but unchanged" is "in both sets". Surface the
-    # filename of the saved file as the canonical reloaded target so
-    # downstream consumers can scope the toast.
-    reloaded = [target.name]
-
-    payload = {
-        "added": added,
-        "removed": removed,
-        "reloaded": reloaded,
-        "path": str(target),
-    }
-    try:
-        await runtime.event_bus.emit(EngineEvent(event_type=BLOCKS_RELOADED_EVENT_TYPE, data=payload))
-    except Exception:
-        logger.exception("blocks-reload hook: event_bus.emit raised")
 
 
 # ---------------------------------------------------------------------------

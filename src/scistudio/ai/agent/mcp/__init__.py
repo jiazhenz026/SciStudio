@@ -38,6 +38,15 @@ catalogue call ``await mcp.list_tools()`` directly (see
 
 See ``docs/adr/ADR-040.md`` §3.1-§3.3 for the full migration design.
 
+ADR-055 Spec 2 (#2279) adds the external-audience tools the WebMCP bridge
+serves and the local transport hides:
+
+* :mod:`scistudio.ai.agent.mcp.tools_workspace` — workspace inspect and
+  author tools (9 tools).
+* :mod:`scistudio.ai.agent.mcp.tools_execution` — managed ``run_command``
+  and its job status/list/cancel tools (4 tools).
+* ``get_agent_context`` in :mod:`scistudio.ai.agent.mcp.tools_qa`.
+
 ADR-055 Spec 1 (FR-004) adds the audience-tag surface:
 :data:`AUDIENCE_EXTERNAL_TAG` marks a tool as external-audience only — the
 WebMCP HTTP bridge catalogue includes it, the local socket transport's
@@ -54,11 +63,13 @@ from __future__ import annotations
 # time ``await mcp.list_tools()`` fires.
 from scistudio.ai.agent.mcp import (  # noqa: F401
     tools_authoring,
+    tools_execution,
     tools_inspection,
     tools_library,
     tools_plot,
     tools_qa,
     tools_workflow,
+    tools_workspace,
 )
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, MCPServer, mcp
 

@@ -224,6 +224,7 @@ async def list_webmcp_tools(request: Request) -> dict[str, Any]:
 @router.post("/call")
 async def call_webmcp_tool(request: Request, body: ToolCallRequest) -> dict[str, Any]:
     """Execute one tool and return the adapted MCP-shaped result payload."""
+    from scistudio.ai.agent.mcp._context import bridge_call_scope
     from scistudio.ai.agent.mcp.server import adapt_tool_result, mcp, tool_category_and_mutation
 
     known = {t.name: t for t in await mcp.list_tools()}
@@ -260,7 +261,11 @@ async def call_webmcp_tool(request: Request, body: ToolCallRequest) -> dict[str,
         )
 
     try:
-        result = await mcp.call_tool(body.name, body.arguments)
+        # ADR-055 Spec 2 (#2279): mark the dispatch as a bridge call so tools
+        # can apply bridge-only hook-parity rules (scaffold_block's
+        # list_blocks-first check) without changing local-transport behavior.
+        with bridge_call_scope():
+            result = await mcp.call_tool(body.name, body.arguments)
     except Exception as exc:
         # Surfaced to the agent as isError content rather than as a 500
         # (FR-003): a failed tool call is information it can act on, and an

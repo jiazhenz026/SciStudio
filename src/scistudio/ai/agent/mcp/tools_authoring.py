@@ -24,9 +24,11 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context, invoked_through_bridge
 from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
+from scistudio.ai.agent.mcp.tools_workflow.read import list_blocks_called
+from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal, list_blocks_refusal
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,17 @@ class ScaffoldBlockResult(BaseModel):
             "DataObject ports, narrow them to concrete types from mcp__scistudio__list_types."
         ),
         description="Suggested next MCP call after scaffolding.",
+    )
+    status: str = Field(
+        default="ok",
+        description=(
+            "'ok' when the file was written; 'refused' when a server-side rule stopped the "
+            "scaffold (nothing was written; see refusal)."
+        ),
+    )
+    refusal: ToolRefusal | None = Field(
+        default=None,
+        description="Why the scaffold was refused, and which tool to call instead.",
     )
 
 
@@ -364,6 +377,20 @@ async def scaffold_block(
     Both warnings are advisory; the file is still written. Raises
     ``FileExistsError`` if the target path already exists.
     """
+    # ADR-055 Spec 2 (#2279) hook parity: a WebMCP host runs no provisioned
+    # hooks, so the enforce_list_blocks_before_block_write rule is applied
+    # server-side for bridge calls. Local-transport calls keep relying on the
+    # host's hook, unchanged.
+    if invoked_through_bridge() and not list_blocks_called():
+        logger.info("scaffold_block: outcome=refused code=list_blocks_required transport=webmcp")
+        return ScaffoldBlockResult(
+            path="",
+            bytes_written=0,
+            status="refused",
+            refusal=list_blocks_refusal(),
+            next_step="Call list_blocks to confirm no existing block matches your I/O contract, then retry scaffold_block.",
+        )
+
     ctx = get_context()
     root = _resolve_project_root(ctx)
     blocks_dir = root / "blocks"

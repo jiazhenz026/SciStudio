@@ -152,6 +152,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 # (e.g. capture BLOCK_ERROR tracebacks for ``get_run_status``).
                 return self._rt.event_bus
 
+            @property
+            def process_registry(self) -> object:
+                # ADR-055 Spec 2 (#2279): the registry this lifespan's shutdown
+                # ``terminate_all`` runs on, so ``run_command`` processes stop
+                # with the backend.
+                return app.state.registry
+
+            @property
+            def project_files(self) -> object:
+                # ADR-055 Spec 2 FR-005 (#2279): the editor's shared write path
+                # for the MCP author tools.
+                return self._rt.project_files
+
             def start_workflow(self, workflow_id: str) -> object:
                 return self._rt.start_workflow(workflow_id)
 

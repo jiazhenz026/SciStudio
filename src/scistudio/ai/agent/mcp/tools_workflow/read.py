@@ -47,6 +47,37 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# ADR-055 Spec 2 (#2279) hook parity: "list_blocks was called".
+#
+# The provisioned ``mark_list_blocks_called`` / ``enforce_list_blocks_before_block_write``
+# hook pair only runs inside a local CLI host. The server-side equivalent is this
+# flag: ``list_blocks`` sets it from any transport, and the external workspace
+# tools (plus ``scaffold_block`` through the WebMCP bridge) refuse to author a
+# ``blocks/*.py`` file until it is set. It lives in process memory, so it is
+# tracked once per backend lifetime and resets when the backend restarts.
+# ---------------------------------------------------------------------------
+
+_list_blocks_called: bool = False
+
+
+def mark_list_blocks_called() -> None:
+    """Record that ``list_blocks`` ran in this backend lifetime."""
+    global _list_blocks_called
+    _list_blocks_called = True
+
+
+def list_blocks_called() -> bool:
+    """True once ``list_blocks`` has run in this backend lifetime."""
+    return _list_blocks_called
+
+
+def reset_list_blocks_called() -> None:
+    """Forget the call. A backend restart does this by construction; tests call it."""
+    global _list_blocks_called
+    _list_blocks_called = False
+
+
+# ---------------------------------------------------------------------------
 # (a.1) list_blocks
 # ---------------------------------------------------------------------------
 
@@ -86,6 +117,7 @@ async def list_blocks() -> ListBlocksResult:
         )
         for spec in specs.values()
     ]
+    mark_list_blocks_called()
     return ListBlocksResult(blocks=blocks, count=len(blocks))
 
 
