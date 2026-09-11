@@ -467,6 +467,64 @@ Task identity, rules, environment notes, scope approvals and coordination are un
 
 ---
 
+## A3 — Owner-directed addition to PR #2275 (Spec 1): reject external-audience tools on the local socket
+
+```markdown
+[DISPATCH-TEMPLATE-V1: implementer]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: External-audience tools must not be callable over the local socket MCP transport (not only hidden from its catalogue); land it on PR #2275 before it merges (owner decision 2026-09-11, raised by the ADR-055 Spec 2 no-context audit P3-2).
+- Task kind: feature (continuation of #2271)
+- Persona: implementer
+- Issue: #2271 (https://github.com/jiazhenz026/SciStudio/issues/2271)
+- PR: #2275 (feat/2271-webmcp-bridge -> main, stacked on feat/2270-prefix-independence)
+- Umbrella PR for this dispatch: #2283 `[DO NOT MERGE]` (track/adr-055-spec2-3)
+- Agent branch: feat/2271-webmcp-bridge (existing)
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/feat-2271-webmcp-bridge (existing, clean, at e817f9b82 = origin)
+- Gate record: .workflow/records/2271-feat-2271-webmcp-bridge.json (already finalized; pass `--record <path>` to amend/check/finalize). Its base ref is feat/2270-prefix-independence; pass `--base origin/feat/2270-prefix-independence` to check/finalize.
+- Checklist: docs/planning/adr-055-spec2-3-checklist.md on origin/track/adr-055-spec2-3 (manager maintains; do not edit)
+
+## Required Rules
+
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/specific_rules/gated-workflow.md, docs/ai-developer/personas/implementer.md
+- Spec `docs/specs/adr-055-webmcp-bridge.md` (FR-004, US6), `src/scistudio/ai/agent/mcp/server.py` (`AUDIENCE_EXTERNAL_TAG`, the socket handler's `tools/list` filter and `tools/call` dispatch around lines 368-401)
+
+## Scope
+
+You own only:
+- src/scistudio/ai/agent/mcp/server.py — the local socket `tools/call` path only
+- tests/ai/test_mcp_fastmcp.py — new test(s) for the rejection
+- docs/specs/adr-055-webmcp-bridge.md — FR-004 / US6 text recording the owner decision
+- your ledger (.workflow/records/2271-feat-2271-webmcp-bridge.json), .workflow/local/** (never commit)
+
+You must not touch anything else (Spec 0 files, the WebMCP router, the frontend, any Spec 2 files, docs/ai-developer/**). If you need another file, stop and report.
+
+## Work To Do
+
+1. `gate_record amend --record <ledger> --reason "owner decision 2026-09-11: local socket rejects external-audience tools by name" --owner-directive "<that decision>"` before editing.
+2. In the socket transport's `tools/call`, reject a tool carrying `AUDIENCE_EXTERNAL_TAG` with the same error shape the handler returns for an unknown tool, and a message saying the tool is available only through the WebMCP bridge. `mcp.call_tool` used directly (the bridge path) must be unaffected. Untagged tools keep working over the socket.
+3. Tests: an external-tagged fixture tool is (a) absent from socket `tools/list` (existing) and (b) rejected by socket `tools/call`; an untagged tool still succeeds over the socket; the same external tool still dispatches through the bridge path.
+4. Spec text: FR-004 / US6 say the local transport neither lists nor executes external-audience tools; record the owner decision and date.
+5. `gate_record check --record <ledger> --mode pre-pr --base origin/feat/2270-prefix-independence --head HEAD --pr-body-file <PR #2275 body saved to .workflow/local/pr-body.md via gh pr view 2275 --json body>`; commit (Conventional Commit, trailers Gate-Record / Task-Kind: feature / Issue: #2271 / Assisted-by: claude-code:claude-opus-5 / Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>); push; post-PR finalize `--record <ledger> --commit <sha> --pr 2275 --pr-body-file .workflow/local/pr-body.md`; commit + push the ledger; confirm CI green on #2275.
+6. Comment on PR #2275 summarizing the owner-directed addition (one short paragraph, link the commit).
+
+## Coordination / Constraints
+
+- You are not alone: A1 works on feat/2279-agent-context-workspace, which is stacked on your branch and will merge your change; do not touch that branch. Never kill a process you did not start. MUST NOT merge any PR. No deferrals. Run long commands in the foreground with output redirected to a log; do not background them.
+
+## Output Required
+
+Changed files, test results, commit shas, CI status on #2275, any blocker.
+
+## Stop Conditions
+
+Stop and report if you need an out-of-scope file, the ledger refuses the amend, or checks fail for unclear reasons.
+```
+
+---
+
 ## AU3 — Audit the Spec 2 branch, with-context
 
 ```markdown
