@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2322] **The enterprise controls are in the open-source frontend, off until
+  a backend turns them on.** An edition built on `create_app` now declares four
+  capabilities, and each one switches on its own control. The open-source
+  edition declares none, so nothing changes for it. `identity` shows the
+  signed-in user; with a logout route it adds Logout, which sends that route a
+  same-origin `POST` and follows the `location` it answers. `transfer` adds an
+  Upload button that sends a file from this computer through the existing
+  staged `POST /api/data/upload`, with progress and Cancel. It also adds
+  "Download to this computer" to the project tree's context menu.
+  `ai_chat_disabled` hides the AI Chat tab, and the backend then refuses every
+  agent-kind PTY session before anything is spawned: the chat WebSocket, AI
+  Block tabs, and Bring In My Work sessions. The Terminal, and a tutorial
+  replay that plays into it, still work. This is a default and an
+  administrator policy, not a security boundary. `update` names a status route
+  the frontend polls every 60 seconds and whenever the window regains focus.
+  When an update is available, a notice appears that never takes focus;
+  Restart asks for confirmation, warns while workflow runs are active, and
+  then follows the restart route. Every capability URL is a backend route path
+  without the service prefix, resolved under the prefix the way API calls are.
+  The declaration the page receives is now versioned. AI Block worker
+  callbacks under `/api/ai/pty/internal/` are registered as
+  self-authenticating, so a replacement guard lets them reach their routes,
+  which check the engine IPC token on every request. Specs:
+  `docs/specs/adr-055-enterprise-support.md` and
+  `docs/specs/adr-055-identity-seam.md`.
+- [#2328] **An edition can reach the open project through the seam.**
+  `scistudio.api.seam` adds six provisional names, each a thin wrapper over
+  the internals the workspace tools already use:
+  - `active_project_root(app)` returns the open project's root.
+  - `ToolRefusal`, raised inside an MCP tool, returns a Spec 1 `isError`
+    result carrying its message and the workspace tools' refusal shape. Its
+    message reaches the caller, including over the WebMCP bridge, which hides
+    other exceptions' text.
+  - `check_author_path(project_root, rel_path)` applies project confinement
+    and the Spec 2 author blacklist.
+  - `write_project_file(app, rel_path, data)` is a coroutine that writes bytes
+    through the editor's shared write path: an atomic write, `file.changed` to
+    the UI, and confinement to the project.
+  - `add_upload_listener(app, callback)` calls a plain or async callback with
+    an `UploadEvent` (project-relative path, size, and `completed` or
+    `discarded`) whenever a staged upload ends. A failing listener never
+    breaks the upload.
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
   published as the open-source `scistudio` wheel, with the web frontend
   bundled, to PyPI and to the matching GitHub Release, so a server installs
@@ -424,6 +466,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2322] **Provisional seam change: `Capabilities.transfer` is an object
+  now.** This is an ADR-052 provisional change to the API published in
+  `scistudio==0.3.4a32`. Code that turned transfer on with
+  `Capabilities(transfer=True)` must pass
+  `TransferCapability(inline_max_bytes=..., download_url_template=...)`;
+  `True` now raises `TypeError` naming the replacement. `False` and `None`
+  still mean off. `IdentityCapability.logout_url` becomes optional, and every
+  capability URL must be a backend route path without the service prefix: a
+  leading `/`, not `//`, no scheme, whitespace, control characters or
+  backslashes. The injected declaration adds a `version` field and carries
+  only the capabilities that are on.
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say
   "the assistant". Mio is also the guide in the Learning Center dialogue, so the

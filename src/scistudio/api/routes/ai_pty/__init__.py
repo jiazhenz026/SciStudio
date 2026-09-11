@@ -98,6 +98,7 @@ from ._state import (  # noqa: F401
     _PROVIDER_SPAWNERS,
     _VALID_PROVIDERS,
     MAX_ACTIVE_PTYS,
+    AgentSessionsDisabledError,
     _active_lock,
     _active_ptys,
     _ai_pty_subscribers,
@@ -105,7 +106,9 @@ from ._state import (  # noqa: F401
     _AiPtySubscriber,
     _engine_run_to_run_dir,
     _engine_tab_to_run,
+    _set_agent_sessions_disabled,
     _spawn,
+    agent_session_refusal,
     router,
 )
 from .engine import (

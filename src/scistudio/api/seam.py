@@ -22,10 +22,21 @@ itself (``docs/specs/adr-055-identity-seam.md``):
   under ``/api/panels/t/``). The factory enforces the exception structurally:
   requests under a registered prefix bypass whichever guard is installed, the
   default one included, and reach their route unauthenticated by the guard.
-* :class:`Capabilities` / :class:`IdentityCapability` — what the backend tells
-  the frontend at boot about enterprise features (``create_app(capabilities=...)``);
-  all off by default.
+* :class:`Capabilities` with :class:`IdentityCapability`,
+  :class:`TransferCapability` and :class:`UpdateCapability` — what the backend
+  tells the frontend at boot about enterprise features
+  (``create_app(capabilities=...)``): the signed-in user, file transfer, the
+  AI chat switch, and the update notice (ADR-055 Spec 4,
+  ``docs/specs/adr-055-enterprise-support.md``). All off by default; every URL
+  in them is a route path the frontend resolves under the service prefix.
 * :func:`workflow_runs_active` — the read accessor a Hub activity reporter polls.
+* Project access for an edition's routes and tools (issue #2328):
+  :func:`active_project_root`; :class:`ToolRefusal`, raised inside a tool to
+  return a Spec 1 ``isError`` result with its message; :func:`check_author_path`
+  (project confinement plus the Spec 2 author blacklist);
+  :func:`write_project_file` (the editor's shared write path); and
+  :func:`add_upload_listener` with :class:`UploadEvent` for staged uploads.
+  Each wraps the internal it names in its docstring rather than repeating it.
 * :data:`mcp` and :data:`AUDIENCE_EXTERNAL_TAG` — the shared FastMCP registry and
   the tag that keeps an external-only tool out of the local socket transport.
 
@@ -36,12 +47,23 @@ breaking that edition silently.
 
 from __future__ import annotations
 
+import contextlib
+import inspect
+import logging
+import os
 import re
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Sequence
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Protocol
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Literal, Protocol
+
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.server.middleware.middleware import CallNext
+from fastmcp.tools.base import ToolResult
+from mcp.types import CallToolRequestParams, TextContent
 
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG
 from scistudio.ai.agent.mcp.server import mcp as _shared_mcp
@@ -58,13 +80,23 @@ __all__ = [
     "GuardFactory",
     "IdentityCapability",
     "LifespanHook",
+    "ToolRefusal",
+    "TransferCapability",
+    "UpdateCapability",
+    "UploadEvent",
+    "active_project_root",
+    "add_upload_listener",
+    "check_author_path",
     "is_self_authenticating_path",
     "mcp",
     "register_self_authenticating_prefix",
     "self_authenticating_prefixes",
     "unregister_self_authenticating_prefix",
     "workflow_runs_active",
+    "write_project_file",
 ]
+
+logger = logging.getLogger(__name__)
 
 
 #: The shared module-level FastMCP registry (ADR-040 §3.1). An edition registers
@@ -290,22 +322,36 @@ def is_self_authenticating_path(path: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _validate_logout_url(url: str) -> None:
-    """Accept an absolute same-origin path, nothing else.
+#: Version of the declaration's injected shape (``to_bootstrap``). It is carried
+#: in the declaration so the frontend can tell which shape it reads; bump it when
+#: that shape changes incompatibly. Version 1 is the first versioned shape.
+_BOOTSTRAP_VERSION = 1
 
-    ``logout_url`` names the backend's own logout endpoint, and the frontend
-    sends it a same-origin ``POST`` under the service prefix. Another origin, a
-    protocol-relative ``//host`` form, and a ``javascript:`` or other scheme
-    must never get through.
+#: The placeholder a download URL template carries exactly once.
+_PATH_PLACEHOLDER = "{path}"
+
+
+def _validate_route_path(url: object, *, field: str) -> str:
+    """Accept a backend route path without the service prefix, nothing else.
+
+    Every URL a capability carries names a route on this backend, such as
+    ``/api/enterprise/session/logout``. The frontend resolves it under the
+    service prefix exactly as it resolves its API calls, so the value is the
+    route path alone: a leading ``/``, never ``//``, no scheme or host, and no
+    whitespace, control characters or backslashes. That keeps another origin,
+    a protocol-relative ``//host`` form, a ``\\``-for-``/`` variant browsers
+    also treat as a host, and a ``javascript:`` or other scheme out.
     """
-    if not isinstance(url, str) or not url or url != url.strip() or any(ord(ch) < 0x20 for ch in url):
-        raise ValueError(
-            "IdentityCapability.logout_url must be a non-empty path without whitespace or control characters"
-        )
+    if not isinstance(url, str) or not url:
+        raise ValueError(f"{field} must be a non-empty backend route path such as /api/...")
+    if any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F or ch == "\\" for ch in url):
+        raise ValueError(f"{field} {url!r}: a route path has no whitespace, control characters or backslashes")
     if not url.startswith("/") or url.startswith("//"):
         raise ValueError(
-            f"IdentityCapability.logout_url {url!r}: name the backend's own logout endpoint as an absolute path"
+            f"{field} {url!r}: name a route on this backend as an absolute path such as /api/..., "
+            "without a scheme or host"
         )
+    return url
 
 
 @provisional(since="0.3.5")
@@ -315,21 +361,86 @@ class IdentityCapability:
 
     ``user`` is the signed-in user's display name. In the enterprise edition's
     one-user-one-backend deployment it is fixed for the backend's lifetime.
-    ``logout_url`` names the backend's own logout endpoint as an absolute path
-    (for example ``/api/session/logout``). That endpoint ends the SciStudio
-    session before any identity-provider logout. The frontend sends it a
-    same-origin ``POST``, resolved under the service prefix, and then follows
-    the location the response returns; a plain GET navigation would let other
-    sites force a logout.
+
+    ``logout_url`` is optional. When given, it names the backend's own logout
+    endpoint as a route path without the service prefix (for example
+    ``/api/enterprise/session/logout``). That endpoint ends the SciStudio
+    session before any identity-provider logout and answers
+    ``{"location": "<where the browser goes next>"}``. The frontend sends it a
+    same-origin ``POST``, resolved under the service prefix, and then navigates
+    to that location; a plain GET navigation would let other sites force a
+    logout. Without it the user name renders with no Logout action.
     """
 
     user: str
-    logout_url: str
+    logout_url: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.user, str) or not self.user.strip():
             raise ValueError("IdentityCapability.user must be a non-empty string")
-        _validate_logout_url(self.logout_url)
+        if self.logout_url is not None:
+            _validate_route_path(self.logout_url, field="IdentityCapability.logout_url")
+
+
+@provisional(since="0.3.5")
+@dataclass(frozen=True)
+class TransferCapability:
+    """The ``transfer`` capability: moving files between the laptop and the server.
+
+    Uploads reuse the existing staged ``POST /api/data/upload`` route, so they
+    need no URL here. ``download_url_template`` names the edition's download
+    route as a route path without the service prefix, with exactly one
+    ``{path}`` placeholder, for example
+    ``/api/enterprise/transfer/download?path={path}``. The frontend replaces the
+    placeholder with the URL-encoded project-relative path of the chosen file,
+    resolves the result under the service prefix, and sends the browser there
+    with a ``GET``.
+
+    ``inline_max_bytes`` is the largest file, in bytes, the edition moves
+    inline (for example through an MCP tool) rather than through a staged
+    transfer. The UI's own upload always uses the staged route.
+    """
+
+    inline_max_bytes: int
+    download_url_template: str
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.inline_max_bytes, int)
+            or isinstance(self.inline_max_bytes, bool)
+            or self.inline_max_bytes < 0
+        ):
+            raise ValueError("TransferCapability.inline_max_bytes must be a non-negative integer number of bytes")
+        template = _validate_route_path(self.download_url_template, field="TransferCapability.download_url_template")
+        if template.count(_PATH_PLACEHOLDER) != 1:
+            raise ValueError(
+                f"TransferCapability.download_url_template {template!r} must contain exactly one "
+                f"{_PATH_PLACEHOLDER} placeholder"
+            )
+
+
+@provisional(since="0.3.5")
+@dataclass(frozen=True)
+class UpdateCapability:
+    """The ``update`` capability: a user-chosen restart into a newly installed version.
+
+    Update availability and active runs change while the backend runs, so the
+    capability carries two route paths, without the service prefix, rather
+    than a snapshot. The frontend polls ``GET status_url`` every 60 seconds and
+    whenever the window regains focus; it answers
+    ``{"running_version", "installed_version", "update_available", "runs_active"}``.
+    When an update is available the frontend shows a notice that never takes
+    focus. Restart asks for confirmation, warns while runs are active, then
+    sends ``POST restart_url``, which answers ``{"location": ...}``, and
+    navigates there. The frontend never restarts or reloads on its own.
+    """
+
+    status_url: str
+    restart_url: str
+
+    def __post_init__(self) -> None:
+        _validate_route_path(self.status_url, field="UpdateCapability.status_url")
+        _validate_route_path(self.restart_url, field="UpdateCapability.restart_url")
 
 
 @provisional(since="0.3.5")
@@ -338,32 +449,81 @@ class Capabilities:
     """The enterprise capabilities the backend declares to the frontend at boot.
 
     Everything is off by default, which is the open-source edition: no
-    declaration reaches the page and the UI is unchanged. ``identity`` carries
-    the signed-in user and logout URL; ``transfer`` turns on laptop-to-server
-    file transfer. The frontend reads the declaration through its typed
-    accessor (``frontend/src/lib/capabilities.ts``).
+    declaration reaches the page and the UI is unchanged. An absent capability
+    is off.
+
+    ``identity``
+        The signed-in user and, optionally, the backend's logout route.
+    ``transfer``
+        Laptop-to-server upload and download. ``None`` and ``False`` both mean
+        off; ``True`` is no longer accepted, pass a :class:`TransferCapability`.
+    ``ai_chat_disabled``
+        ``True`` hides the in-app AI Chat and makes the ``/api/ai`` PTY routes
+        refuse agent-kind providers. The Terminal (``user-terminal``) is never
+        gated. This is a default and an administrator policy, not a security
+        boundary: from the Terminal a user can run any CLI they install.
+    ``update``
+        Where the frontend polls for a newly installed version and asks for a
+        restart into it.
+
+    The frontend reads the declaration through its typed accessor
+    (``frontend/src/lib/capabilities.ts``).
     """
 
     identity: IdentityCapability | None = None
-    transfer: bool = False
+    transfer: TransferCapability | Literal[False] | None = None
+    ai_chat_disabled: bool = False
+    update: UpdateCapability | None = None
 
     def __post_init__(self) -> None:
         if self.identity is not None and not isinstance(self.identity, IdentityCapability):
             raise TypeError("Capabilities.identity must be an IdentityCapability or None")
-        if not isinstance(self.transfer, bool):
-            raise TypeError("Capabilities.transfer must be a bool")
+        if self.transfer is True:
+            raise TypeError(
+                "Capabilities.transfer=True is no longer accepted (changed in 0.3.5): pass "
+                "TransferCapability(inline_max_bytes=..., download_url_template=...) to turn transfer on"
+            )
+        if self.transfer is False:
+            # False keeps meaning "off", normalized so it equals the default.
+            object.__setattr__(self, "transfer", None)
+        elif self.transfer is not None and not isinstance(self.transfer, TransferCapability):
+            raise TypeError("Capabilities.transfer must be a TransferCapability or None")
+        if not isinstance(self.ai_chat_disabled, bool):
+            raise TypeError("Capabilities.ai_chat_disabled must be a bool")
+        if self.update is not None and not isinstance(self.update, UpdateCapability):
+            raise TypeError("Capabilities.update must be an UpdateCapability or None")
 
     @property
     def any_enabled(self) -> bool:
         """Whether at least one capability is on."""
-        return self.identity is not None or self.transfer
+        return (
+            self.identity is not None or self.transfer is not None or self.ai_chat_disabled or self.update is not None
+        )
 
     def to_bootstrap(self) -> dict[str, Any]:
-        """Return the JSON-ready declaration injected into the served page."""
-        identity: Mapping[str, str] | None = None
+        """Return the JSON-ready declaration injected into the served page.
+
+        A ``version`` field plus one key per capability that is on; an absent
+        key means off. Keys are camelCase for the frontend, and every URL is
+        the route path as declared, which the frontend resolves under the
+        service prefix.
+        """
+        declaration: dict[str, Any] = {"version": _BOOTSTRAP_VERSION}
         if self.identity is not None:
-            identity = {"user": self.identity.user, "logoutUrl": self.identity.logout_url}
-        return {"identity": identity, "transfer": self.transfer}
+            identity: dict[str, str] = {"user": self.identity.user}
+            if self.identity.logout_url is not None:
+                identity["logoutUrl"] = self.identity.logout_url
+            declaration["identity"] = identity
+        if isinstance(self.transfer, TransferCapability):
+            declaration["transfer"] = {
+                "inlineMaxBytes": self.transfer.inline_max_bytes,
+                "downloadUrlTemplate": self.transfer.download_url_template,
+            }
+        if self.ai_chat_disabled:
+            declaration["aiChatDisabled"] = True
+        if self.update is not None:
+            declaration["update"] = {"statusUrl": self.update.status_url, "restartUrl": self.update.restart_url}
+        return declaration
 
 
 # ---------------------------------------------------------------------------
@@ -383,3 +543,216 @@ def workflow_runs_active(app: FastAPI) -> bool:
     if runtime is None:
         return False
     return any(not run.task.done() for run in list(runtime.workflow_runs.values()))
+
+
+# ---------------------------------------------------------------------------
+# Project access, tool refusals, the shared write path, and upload listeners
+# (issue #2328). Thin wrappers over today's internals, so an edition's routes
+# and MCP tools reach the project without importing them.
+# ---------------------------------------------------------------------------
+
+_NO_PROJECT_MESSAGE = "No project is open in SciStudio. Open a project first."
+
+
+@provisional(since="0.3.5")
+def active_project_root(app: FastAPI) -> Path | None:
+    """Return the open project's root directory, or ``None`` when none is open.
+
+    The path is fully resolved (symlinks and, on Windows, short names), the
+    same form the confinement checks compare against. ``None`` also before
+    the lifespan has created the runtime.
+    """
+    runtime = getattr(app.state, "runtime", None)
+    project = getattr(runtime, "active_project", None) if runtime is not None else None
+    if project is None:
+        return None
+    return Path(os.path.realpath(project.path))
+
+
+@provisional(since="0.3.5")
+class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an edition codes against
+    """Raise inside an MCP tool to refuse the call with a message the agent can act on.
+
+    The call then returns a Spec 1 error result instead of failing: the
+    result carries ``isError: true``, the message as its text content, and the
+    structured content ``{"status": "refused", "refusal": {"code", "message",
+    "use_instead"}}`` the workspace tools use. It reaches every caller that
+    way, the WebMCP bridge included, which withholds the text of any other
+    exception. ``code`` is a machine-readable reason; ``use_instead`` names
+    tools that own the refused operation.
+
+    Outside a tool, :func:`check_author_path` and :func:`write_project_file`
+    raise it too, so an edition's HTTP route can turn the same refusal into
+    its own response.
+    """
+
+    def __init__(self, message: str, *, code: str = "refused", use_instead: Sequence[str] = ()) -> None:
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("ToolRefusal needs a message the agent can act on")
+        super().__init__(message)
+        self.message = message
+        self.code = code
+        self.use_instead: tuple[str, ...] = tuple(use_instead)
+
+
+def _refusal_result(refusal: ToolRefusal) -> ToolResult:
+    """The Spec 1 error result for a refusal, built from the workspace tools' own types."""
+    from scistudio.ai.agent.mcp.tools_workspace import FlaggedToolResult
+    from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal as RefusalDetail
+
+    detail = RefusalDetail(code=refusal.code, message=refusal.message, use_instead=list(refusal.use_instead))
+    result = FlaggedToolResult(
+        content=[TextContent(type="text", text=refusal.message)],
+        structured_content={"status": "refused", "refusal": detail.model_dump()},
+    )
+    result.is_error = True
+    return result
+
+
+class _ToolRefusalMiddleware(Middleware):
+    """Turns a :class:`ToolRefusal` raised by any tool into its error result. Internal."""
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext[CallToolRequestParams],
+        call_next: CallNext[CallToolRequestParams, ToolResult],
+    ) -> ToolResult:
+        try:
+            return await call_next(context)
+        except ToolRefusal as refusal:
+            # Tool name and code only: the message can name paths (FR-007 logging).
+            logger.info("tool refused: tool=%s code=%s", context.message.name, refusal.code)
+            return _refusal_result(refusal)
+
+
+_shared_mcp.add_middleware(_ToolRefusalMiddleware())
+
+
+@provisional(since="0.3.5")
+def check_author_path(project_root: Path | str, rel_path: str) -> Path:
+    """Resolve a path an agent wants to change, under the author tools' rules.
+
+    ``rel_path`` is resolved against ``project_root`` (an absolute path must
+    lie inside it) and must stay inside the project after links are followed.
+    It is then checked against the Spec 2 author blacklist: ``data/`` and
+    ``workflows/*.yaml`` belong to the tools that own them. Returns the
+    resolved path; raises :class:`ToolRefusal` with the author tools' own
+    refusal code and message otherwise.
+    """
+    from scistudio.ai.agent.mcp.tools_workspace import _RefusedError, _resolve_author_path
+
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ToolRefusal("Name a file inside the project.", code="empty_path")
+    try:
+        resolved, _root, relative = _resolve_author_path(rel_path, project_root=Path(project_root))
+    except _RefusedError as refused:
+        raise ToolRefusal(
+            refused.refusal.message, code=refused.refusal.code, use_instead=refused.refusal.use_instead
+        ) from None
+    if relative == ".":
+        raise ToolRefusal("That path is the project root itself. Name a file inside it.", code="project_root")
+    return resolved
+
+
+@provisional(since="0.3.5")
+async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, changed_by: str = "edition") -> Path:
+    """Write ``data`` to a project file through the shared write path, and return its path.
+
+    The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
+    file's state version advanced, ``file.changed`` sent so the open UI
+    updates, and a registry reload when the file is a lint-clean drop-in
+    module. ``rel_path`` is resolved against the open project and confined to
+    it; missing parent directories are created. The author blacklist does not
+    apply here; call :func:`check_author_path` first for an agent's write.
+
+    A coroutine: ``await`` it from a route or tool. Raises :class:`ToolRefusal`
+    when no project is open, the path leaves the project, or the write is
+    refused (the target is a directory, for example), and :class:`TypeError`
+    for data that is not bytes. A disk failure raises as it does for the
+    editor.
+    """
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise TypeError("write_project_file writes bytes; encode text before writing it")
+    root = active_project_root(app)
+    if root is None:
+        raise ToolRefusal(_NO_PROJECT_MESSAGE, code="no_active_project")
+    if not isinstance(rel_path, str) or not rel_path.strip():
+        raise ToolRefusal("Name a file inside the project.", code="empty_path")
+    files = app.state.runtime.project_files
+    try:
+        outcome: dict[str, Any] = await files.write_text(
+            root / rel_path.strip(), bytes(data), create_parents=True, changed_by=changed_by
+        )
+    except PermissionError:
+        raise ToolRefusal("Only files inside the open project can be written.", code="outside_project") from None
+    if outcome.get("status") != "ok":
+        raise ToolRefusal(
+            str(outcome.get("message") or "The write was refused."),
+            code=str(outcome.get("condition") or "conflict"),
+        )
+    return Path(os.path.realpath(root.joinpath(*str(outcome["entity_id"]).split("/"))))
+
+
+@provisional(since="0.3.5")
+@dataclass(frozen=True)
+class UploadEvent:
+    """What an upload listener hears when a staged ``POST /api/data/upload`` ends.
+
+    ``path`` is the destination's project-relative POSIX path (for example
+    ``data/raw/scan.tif``); ``size`` the bytes received; ``status``
+    ``"completed"`` when the file was placed and registered, or
+    ``"discarded"`` when the staged file was thrown away (too large, or the
+    request failed). Fields may be added; existing ones keep their meaning.
+    """
+
+    path: str
+    size: int
+    status: Literal["completed", "discarded"]
+
+
+@provisional(since="0.3.5")
+def add_upload_listener(app: FastAPI, callback: Callable[[UploadEvent], Any]) -> Callable[[], None]:
+    """Call ``callback(event)`` whenever a staged upload completes or is discarded.
+
+    ``callback`` receives an :class:`UploadEvent` and may be a plain function
+    or a coroutine function; listeners run in the order they were added,
+    before the upload's response is sent, so keep them quick. A listener that
+    raises is logged and skipped: it never changes the upload's outcome or
+    stops the other listeners. Returns a function that removes the listener.
+    """
+    if not callable(callback):
+        raise TypeError("add_upload_listener(callback=...) must be callable with an UploadEvent")
+    listeners: list[Callable[[UploadEvent], Any]] | None = getattr(app.state, "upload_listeners", None)
+    if listeners is None:
+        listeners = []
+        app.state.upload_listeners = listeners
+    listeners.append(callback)
+
+    def remove() -> None:
+        with contextlib.suppress(ValueError):
+            listeners.remove(callback)
+
+    return remove
+
+
+async def notify_upload_listeners(
+    app: FastAPI, destination: Path, *, size: int, status: Literal["completed", "discarded"]
+) -> None:
+    """Tell ``app``'s upload listeners about one staged upload. Internal; never raises."""
+    listeners = tuple(getattr(app.state, "upload_listeners", None) or ())
+    if not listeners:
+        return
+    root = active_project_root(app)
+    resolved = Path(os.path.realpath(destination))
+    try:
+        relative = resolved.relative_to(root).as_posix() if root is not None else destination.name
+    except ValueError:
+        relative = destination.name
+    event = UploadEvent(path=relative, size=size, status=status)
+    for listener in listeners:
+        try:
+            outcome = listener(event)
+            if inspect.isawaitable(outcome):
+                await outcome
+        except Exception:
+            logger.exception("upload listener failed; the upload itself is unaffected")

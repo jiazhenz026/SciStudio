@@ -52,6 +52,12 @@ governs:
     - src/scistudio/cli/main.py
     - frontend/src/components/BottomPanel.tsx
     - frontend/src/lib/api/data.ts
+    - frontend/src/lib/capabilities.ts
+    - frontend/src/components/Toolbar.tsx
+    - frontend/src/components/ProjectTree.parts/ContextMenu.tsx
+    - src/scistudio/api/seam.py
+    - src/scistudio/api/routes/ai_pty/engine.py
+    - src/scistudio/api/routes/ai_pty/internal_routes.py
     - README.md
   excludes: []
 planned_governs:
@@ -68,6 +74,9 @@ tests:
   - tests/api/test_enterprise_capabilities.py
   - tests/api/test_ai_pty_capability.py
   - frontend/src/components/Enterprise/EnterpriseChrome.test.tsx
+  - frontend/src/components/Enterprise/TransferControls.test.tsx
+  - frontend/src/components/Enterprise/AiChatGate.test.tsx
+  - frontend/src/lib/capabilities.test.ts
 acceptance_source: manual
 language_source: en
 ---
@@ -96,7 +105,7 @@ Every item below is **planned**; none is implemented by this document.
 | Change | Why the enterprise edition needs it | Tracked by |
 |---|---|---|
 | Identity seam: replaceable guard, startup/background hook, self-authenticating path registry, capability declaration, contract suite | The enterprise guard and background work attach to the backend without patching it | #2304 (in progress; it also carries the ADR-055 amendment and the detailed seam spec) |
-| Capability-gated enterprise UI | Signed-in user, logout, upload/download, and the update notice appear only on an enterprise backend | a UI issue opened from this spec |
+| Capability-gated enterprise UI | Signed-in user, logout, upload/download, and the update notice appear only on an enterprise backend | #2322 |
 | `ai_chat_disabled` gating, UI and backend | The in-app AI chat is off by default on a lab server; the terminal stays | this spec, implemented with the UI work |
 | Stdio MCP adapter over `/api/webmcp/*` | AI apps without WebMCP, such as Claude, reach SciStudio locally and on a lab server | #2308 |
 | Local loopback token file | The adapter authenticates to a local backend without the page | #2308 |
@@ -191,8 +200,9 @@ implements the download endpoint; the controls live here.
 **Independent Test**: With `transfer` on, upload a large file through the
 picker and assert it lands through the existing `POST /api/data/upload` staged
 upload, with progress events and a working cancel. Trigger a download and
-assert the browser is sent to the capability's download URL for that file.
-With `transfer` off, assert no control renders.
+assert the browser is sent to the capability's download template with `{path}`
+replaced by the file's URL-encoded project-relative path, under the service
+prefix. With `transfer` off, assert no control renders.
 
 **Acceptance Scenarios**:
 
@@ -253,7 +263,8 @@ privilege, because workflow blocks already run arbitrary code as that user.
 
 - With `ai_chat_disabled` set, assert that the bottom panel has no AI Chat surface and
   that spawning any agent-kind provider through `/api/ai` is refused with a
-  clear error.
+  clear error. That covers the chat WebSocket, an AI Block tab, and a Bring
+  In My Work session.
 - With `ai_chat_disabled` set, assert that a `user-terminal` session still starts.
 - With `ai_chat_disabled` absent, assert today's behavior.
 
@@ -275,10 +286,17 @@ it suits them, with a warning if runs are active.
 **Why this priority**: The owner chose user-chosen updates. The open-source
 side renders the notice and never restarts on its own.
 
-**Independent Test**: Boot with an `update` capability (running and installed
-version, runs-active flag, restart URL). Assert the notice renders, the
-warning appears when runs are active, and Restart goes to the restart URL only
-after confirmation.
+**Independent Test**: Boot with an `update` capability naming a status route
+and a restart route, and serve a status of
+`{running_version, installed_version, update_available, runs_active}`.
+Assert that:
+
+- the status is polled every 60 seconds and on window focus;
+- the notice renders only while `update_available` is true, and never takes
+  focus;
+- the warning appears when runs are active;
+- Restart sends `POST` to the restart route, and follows the returned
+  location, only after confirmation.
 
 **Acceptance Scenarios**:
 
@@ -286,6 +304,9 @@ after confirmation.
    **Then** a warning names the active runs before anything happens.
 2. **Given** no `update` capability, **When** the app renders, **Then** no
    notice appears.
+3. **Given** an `update` capability whose status says no update is
+   available, **When** the app renders, **Then** no notice appears until a
+   later poll says otherwise.
 
 ### User Story 8 - A server installs SciStudio from PyPI (Priority: P8)
 
@@ -344,6 +365,14 @@ prefixed, guarded backend, and are refused after the context closes.
   The frontend files it by `source`, as it does today.
 - An update notice arrives while the user is typing in the editor: the notice
   never steals focus or restarts anything.
+- The update status route fails, or answers something other than the status
+  shape: the notice keeps its last answer and restarts nothing.
+- A workflow with an AI Block runs while `ai_chat_disabled` is set: the
+  block's tab is refused before anything is spawned, and the block reports
+  the refusal as its error.
+- A capability URL is declared with the service prefix already on it: it still
+  resolves once, because the frontend's prefix join is idempotent. Editions
+  declare route paths without the prefix.
 
 ## 3. Requirements
 
@@ -362,10 +391,18 @@ prefixed, guarded backend, and are refused after the context closes.
   at least `identity`, `transfer`, `ai_chat_disabled` and `update` (Key Entities). The
   frontend MUST ignore unknown capabilities and treat a missing capability as
   off.
+  - Every URL a capability carries MUST be a backend route path without the
+    service prefix: a leading `/`, not `//`, and no scheme, whitespace,
+    control characters or backslashes. The backend refuses anything else when
+    the edition builds the declaration, and the frontend reads it as off.
+  - The frontend MUST resolve each URL under the service prefix exactly as it
+    resolves its API calls, and MUST read a malformed capability as off.
 - **FR-004**: When `identity` is present, the frontend MUST show the user name.
-  If `logout_url` is given, it MUST also show a Logout action.
-  - Logout sends a same-origin `POST` to `logout_url` and then navigates to
-    the location in the response.
+  If `logout_url` is given, it MUST also show a Logout action. `logout_url` is
+  optional.
+  - Logout sends a same-origin `POST` to `logout_url`, which answers
+    `{"location": ...}`, and then navigates to that location. Only an `http`
+    or `https` location is followed.
   - `logout_url` names the backend's own logout endpoint, which ends the
     backend session before any identity-provider logout. A plain GET
     navigation would let other sites force a logout.
@@ -373,21 +410,28 @@ prefixed, guarded backend, and are refused after the context closes.
   The open-source edition MUST NOT add login screens or account management.
 - **FR-005**: When `transfer` is present, the frontend MUST offer a
   user-picked upload into the project through the existing
-  `POST /api/data/upload` staged upload, with progress and cancel. It MUST
-  also offer a download action that sends the browser to the capability's
-  download URL template for the chosen file, resolved under the service
-  prefix. The open-source edition MUST NOT implement the download endpoint.
+  `POST /api/data/upload` staged upload, with progress and cancel, whatever
+  the file's size. It MUST also offer a download action: a `GET` on the
+  capability's `download_url_template`, whose single `{path}` placeholder is
+  replaced by the chosen file's URL-encoded project-relative path, resolved
+  under the service prefix. The open-source edition MUST NOT implement the
+  download endpoint.
 - **FR-006**: When `ai_chat_disabled` is set, the frontend MUST hide the AI Chat surface
   in `BottomPanel` and the backend MUST refuse, with a clear error and no
   spawned process, any `/api/ai` PTY session whose provider is agent-kind in
-  the provider registry. Terminal-kind sessions (`user-terminal`) MUST NOT be
+  the provider registry. That covers every spawn path: the chat WebSocket, AI
+  Block tabs, and Bring In My Work sessions. Terminal-kind sessions (`user-terminal`) MUST NOT be
   gated in any mode. When `ai_chat_disabled` is absent, behavior MUST be unchanged. Specs
   and docs MUST describe the gate as a default and an administrator policy,
   not as a security boundary.
-- **FR-007**: When `update` is present, the frontend MUST show a non-blocking
-  notice with the running and installed versions. Restart MUST require
-  explicit confirmation, MUST warn when runs are active, and MUST navigate to
-  the capability's restart URL. The frontend MUST NOT restart or reload on its
+- **FR-007**: When `update` is present, the frontend MUST poll `GET status_url`
+  every 60 seconds and whenever the window regains focus. The route answers
+  `{running_version, installed_version, update_available, runs_active}`.
+  While `update_available` is true, the frontend MUST show a non-blocking
+  notice with the running and installed versions, and the notice MUST NOT
+  take focus. Restart MUST require explicit confirmation and MUST warn when
+  runs are active. It then sends `POST restart_url`, which answers
+  `{"location": ...}`, and navigates there. The frontend MUST NOT restart or reload on its
   own.
 - **FR-008**: The stdio MCP adapter (issue #2308) MUST serve MCP over stdio
   and forward `tools/list` to `GET /api/webmcp/tools` and `tools/call` to
@@ -429,14 +473,24 @@ prefixed, guarded backend, and are refused after the context closes.
 
 ### Key Entities
 
-- **CapabilitySet**: the declaration of FR-003, delivered at boot.
-  - `version` (integer).
+- **CapabilitySet**: the declaration of FR-003, delivered at boot. Every URL
+  in it is a backend route path without the service prefix.
+  - `version` (integer; `1` for this shape).
   - `identity`: `{user, logout_url?}` or absent.
-  - `transfer`: `{inline_max_bytes, download_url_template}` or absent.
-  - `ai_chat_disabled`: boolean, absent means false. When true it gates agent-kind providers only,
+  - `transfer`: `{inline_max_bytes, download_url_template}` or absent. The
+    template carries exactly one `{path}` placeholder. `inline_max_bytes` is
+    the largest file the edition moves inline; the UI's own upload is always
+    staged.
+  - `ai_chat_disabled`: `true`, or absent (false). When true it gates agent-kind providers only,
     never the terminal.
-  - `update`: `{running_version, installed_version, runs_active, restart_url}`
-    or absent.
+  - `update`: `{status_url, restart_url}` or absent. The shape is dynamic,
+    because update availability and active runs change while the backend
+    runs. `GET status_url` answers an **UpdateStatus**,
+    `{running_version, installed_version, update_available, runs_active}`,
+    which the frontend polls and never stores. `POST restart_url` answers
+    `{location}`. This replaces the earlier static shape
+    `{running_version, installed_version, runs_active, restart_url}`
+    (umbrella #2321).
 
   It is produced by `create_app` from the caller's arguments and read by the
   frontend; it has no persistence.
@@ -458,10 +512,15 @@ The work splits along the issues in the Change Summary.
 - **Capability-gated UI.** One small `frontend/src/components/Enterprise/`
   area holds the identity chrome, the transfer controls and the update notice.
   `BottomPanel` consults `ai_chat_disabled`. Everything reads the capability accessor
-  that #2304 adds, and nothing renders when a capability is absent.
+  that #2304 adds, and nothing renders when a capability is absent. T-002 and
+  T-003 ship together in #2322. The identity chrome, the Upload button and the
+  update notice sit in the toolbar, outside its scrolling area. "Download to
+  this computer" is an item in the project tree's context menu.
 - **Agent-session refusal.** The `ai_chat_disabled` backend check sits in the
-  provider dispatch of `scistudio.api.routes.ai_pty`. It keys on the
-  registry's provider kind, so agent providers are refused and
+  provider dispatch of `scistudio.api.routes.ai_pty`, and in each spawn path
+  before it: the chat WebSocket and the pre-spawned AI Block and Bring In My
+  Work tabs. The application lifespan hands the capability to those paths. It
+  keys on the registry's provider kind, so agent providers are refused and
   `user-terminal` passes, and the UI hides only the AI Chat surface.
 - **Adapter (#2308).** A new CLI subcommand speaks MCP over stdio. Its HTTP
   side is a thin client of the existing bridge routes, and it reuses the
@@ -488,6 +547,11 @@ handling — stays in the private repository.
 | `frontend/src/components/Enterprise/**` | create | Identity chrome, transfer controls, update notice |
 | `frontend/src/components/BottomPanel.tsx` | modify | Hide the AI chat tab when `ai_chat_disabled` is set |
 | `frontend/src/lib/api/data.ts` | modify | Upload progress and cancel hooks for the transfer picker |
+| `frontend/src/lib/capabilities.ts` | modify | The full capability shape, route-path validation, and the download route builder |
+| `frontend/src/components/Toolbar.tsx`, `frontend/src/components/ProjectTree.parts/ContextMenu.tsx` | modify | Place the identity chrome, Upload and the update notice; add "Download to this computer" |
+| `src/scistudio/api/seam.py` | modify | `TransferCapability`, `UpdateCapability`, `ai_chat_disabled`, optional `logout_url`, route-path validation, and the versioned declaration |
+| `src/scistudio/api/routes/ai_pty/engine.py`, `internal_routes.py` | modify | Refuse agent-kind providers in the AI Block and Bring In My Work spawn paths; register `/api/ai/pty/internal/` as self-authenticating |
+| `tests/api/test_ai_pty_internal_guard.py`, `frontend/src/components/Enterprise/TransferControls.test.tsx`, `frontend/src/components/Enterprise/AiChatGate.test.tsx` | create | Worker callbacks under a replacement guard; transfer controls; the AI Chat gate |
 | `README.md` | modify | Server install via pip (#2307) |
 | `docs/specs/adr-055-lab-deployment.md` | delete | After #2292 merges (#2303) |
 | `tests/cli/test_webmcp_adapter.py`, `tests/api/test_enterprise_capabilities.py`, `tests/api/test_ai_pty_capability.py`, `frontend/src/components/Enterprise/EnterpriseChrome.test.tsx` | create | Coverage for stories 1 and 3 to 6 |

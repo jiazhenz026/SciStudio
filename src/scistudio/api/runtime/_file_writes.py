@@ -473,7 +473,7 @@ async def write_project_file(
     project_id: str,
     project_root: Path,
     target: Path,
-    content: str,
+    content: str | bytes,
     source: str,
     source_id: str | None,
     changed_by: str | None,
@@ -489,7 +489,19 @@ async def write_project_file(
     state version cannot both succeed.
     Raises :class:`FileWriteConflictError` for a refused precondition and
     :class:`ProjectFileWriteError` when the disk operation fails.
+
+    *content* may be ``bytes`` (the identity seam's ``write_project_file``,
+    #2328): it is written as given, and only UTF-8 text can trigger the
+    lint-gated registry reload.
     """
+    encoded = content if isinstance(content, bytes) else content.encode("utf-8")
+    if isinstance(content, str):
+        text: str | None = content
+    else:
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError:
+            text = None  # not text, so never a lint-clean drop-in module
     entity_id = project_relative_entity_id(project_root, target)
     async with project_mutation_lock(project_root):
         _, kind = check_write_preconditions(
@@ -503,9 +515,9 @@ async def write_project_file(
         absorb_unobserved_disk_edit(runtime, entity_id, target)
         # Disk work (write, fsync, replace) runs in a worker thread so the event loop stays free.
         await asyncio.to_thread(
-            atomic_write_bytes, runtime, target=target, entity_id=entity_id, kind=kind, encoded=content.encode("utf-8")
+            atomic_write_bytes, runtime, target=target, entity_id=entity_id, kind=kind, encoded=encoded
         )
-        refreshed = await maybe_reload_blocks_after_save(runtime, target, content)
+        refreshed = await maybe_reload_blocks_after_save(runtime, target, text) if text is not None else False
         try:
             stat = target.stat()
         except OSError as exc:
@@ -861,7 +873,7 @@ class ProjectFileService:
     async def write_text(
         self,
         target: Path,
-        content: str,
+        content: str | bytes,
         *,
         expected_state_version: int | None = None,
         create_only: bool = False,

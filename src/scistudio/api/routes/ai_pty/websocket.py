@@ -53,6 +53,15 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         await websocket.close()
         return
 
+    # ADR-055 Spec 4 FR-006: with ``ai_chat_disabled`` set, an agent-kind
+    # provider is refused before any join or spawn, so no process starts. The
+    # Terminal and a tutorial replay (joined under ``user-terminal``) pass.
+    refusal = _pkg.agent_session_refusal(provider)
+    if refusal is not None:
+        await _send_error(websocket, refusal)
+        await websocket.close()
+        return
+
     if not project_dir_raw:
         await _send_error(websocket, "Missing required query parameter 'project_dir'.")
         await websocket.close()

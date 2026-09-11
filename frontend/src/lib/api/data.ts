@@ -31,7 +31,91 @@ import type {
   PreviewerReloadResponse,
 } from "../../types/api";
 import { apiUrl } from "./base-path";
-import { JSON_HEADERS, apiFetch } from "./core";
+import { ApiError, JSON_HEADERS, apiFetch } from "./core";
+
+/** Bytes sent so far in a staged upload, and the total when the browser knows it. */
+export interface UploadProgress {
+  loaded: number;
+  total: number | null;
+}
+
+export interface UploadDataOptions {
+  /** Called as the request body is sent. */
+  onProgress?: (progress: UploadProgress) => void;
+  /** Aborting it cancels the upload; the backend discards the staged file. */
+  signal?: AbortSignal;
+}
+
+/** Rejected when the caller's signal cancelled a staged upload. */
+export class UploadCancelledError extends Error {
+  constructor() {
+    super("Upload cancelled");
+    this.name = "UploadCancelledError";
+  }
+}
+
+function uploadErrorMessage(xhr: XMLHttpRequest): string {
+  try {
+    const payload = JSON.parse(xhr.responseText) as { detail?: unknown };
+    if (typeof payload.detail === "string") return payload.detail;
+    const detail = payload.detail as { message?: unknown } | undefined;
+    if (detail && typeof detail.message === "string") return detail.message;
+  } catch {
+    // Not JSON; fall through to the status line.
+  }
+  return `Upload failed with ${xhr.status}`;
+}
+
+/**
+ * ADR-055 Spec 4 FR-005 — the staged `POST /api/data/upload`, with progress
+ * and cancel. `fetch` cannot report upload progress, so this one request uses
+ * `XMLHttpRequest`, still resolved through `apiUrl` so it lands under the
+ * service prefix. The route streams the body into a staged file and discards
+ * it when the request is aborted, so a cancelled upload leaves nothing behind.
+ */
+function uploadDataWithProgress(
+  file: File,
+  options: UploadDataOptions = {},
+): Promise<DataUploadResponse> {
+  const { onProgress, signal } = options;
+  return new Promise<DataUploadResponse>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new UploadCancelledError());
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    const release = () => signal?.removeEventListener("abort", onAbort);
+    xhr.open("POST", apiUrl("/api/data/upload"));
+    xhr.upload.onprogress = (event) => {
+      onProgress?.({ loaded: event.loaded, total: event.lengthComputable ? event.total : null });
+    };
+    xhr.onload = () => {
+      release();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as DataUploadResponse);
+        } catch {
+          reject(new ApiError("The upload response was not JSON", xhr.status));
+        }
+        return;
+      }
+      reject(new ApiError(uploadErrorMessage(xhr), xhr.status));
+    };
+    xhr.onerror = () => {
+      release();
+      reject(new Error("Upload failed: the connection to SciStudio was lost"));
+    };
+    xhr.onabort = () => {
+      release();
+      reject(new UploadCancelledError());
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const formData = new FormData();
+    formData.append("file", file);
+    xhr.send(formData);
+  });
+}
 
 /**
  * ADR-048 SPEC 2 / #1606 — build the routed `plot_artifact` {@link PreviewTarget}
@@ -79,6 +163,8 @@ export const dataApi = {
       body: formData,
     });
   },
+  /** The same staged upload with progress events and cancel (ADR-055 Spec 4 FR-005). */
+  uploadDataWithProgress,
   getDataMetadata: (dataRef: string) =>
     apiFetch<DataMetadataResponse>(`/api/data/${encodeURIComponent(dataRef)}`),
 

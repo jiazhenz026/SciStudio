@@ -12,6 +12,7 @@ import "./Toolbar.parts/presentation.css";
 import { PresentationToggle } from "./PresentationToggle";
 import { BringInMyWorkDialog } from "./BringInMyWorkDialog";
 import { ENTRY_LABEL, NO_PROJECT_MESSAGE } from "./BringInMyWorkDialog.parts/copy";
+import { EnterpriseToolbarControls } from "./Enterprise/EnterpriseToolbarControls";
 import { LEARNING_CENTER_ENTRY_LABEL } from "./LearningCenter";
 import { PackageManagerDialog } from "./PackageManagerDialog";
 import { FileOperationsGroup } from "./Toolbar.parts/FileOperationsGroup";
@@ -328,6 +329,10 @@ export function Toolbar(props: ToolbarProps) {
             </Tooltip>
           </div>
         </div>
+        {/* ADR-055 Spec 4 — capability-gated enterprise controls (signed-in
+            user and Logout, Upload, the update notice). Outside the scrolling
+            area so they stay visible; nothing renders without a capability. */}
+        <EnterpriseToolbarControls projectOpen={currentProject !== null} />
         {!isDesktopShell() && <Separator orientation="vertical" className="h-7" />}
         <PresentationToggle />
       </header>

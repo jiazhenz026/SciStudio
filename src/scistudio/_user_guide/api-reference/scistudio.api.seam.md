@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.api.seam import ...`
 
-Self-contained public-API reference — 12 symbols from this module's `__all__`, with signatures and docstrings inlined (ADR-052 §7). Generated; do not hand-edit.
+Self-contained public-API reference — 20 symbols from this module's `__all__`, with signatures and docstrings inlined (ADR-052 §7). Generated; do not hand-edit.
 
 ## `AUDIENCE_EXTERNAL_TAG` — _constant_
 
@@ -18,16 +18,31 @@ _constant_ — see the module source for the value.
 
 ```python
 class Capabilities
-Capabilities(identity: 'IdentityCapability | None' = None, transfer: 'bool' = False) -> None
+Capabilities(identity: 'IdentityCapability | None' = None, transfer: 'TransferCapability | Literal[False] | None' = None, ai_chat_disabled: 'bool' = False, update: 'UpdateCapability | None' = None) -> None
 ```
 
 The enterprise capabilities the backend declares to the frontend at boot.
 
 Everything is off by default, which is the open-source edition: no
-declaration reaches the page and the UI is unchanged. ``identity`` carries
-the signed-in user and logout URL; ``transfer`` turns on laptop-to-server
-file transfer. The frontend reads the declaration through its typed
-accessor (``frontend/src/lib/capabilities.ts``).
+declaration reaches the page and the UI is unchanged. An absent capability
+is off.
+
+``identity``
+    The signed-in user and, optionally, the backend's logout route.
+``transfer``
+    Laptop-to-server upload and download. ``None`` and ``False`` both mean
+    off; ``True`` is no longer accepted, pass a `TransferCapability`.
+``ai_chat_disabled``
+    ``True`` hides the in-app AI Chat and makes the ``/api/ai`` PTY routes
+    refuse agent-kind providers. The Terminal (``user-terminal``) is never
+    gated. This is a default and an administrator policy, not a security
+    boundary: from the Terminal a user can run any CLI they install.
+``update``
+    Where the frontend polls for a newly installed version and asks for a
+    restart into it.
+
+The frontend reads the declaration through its typed accessor
+(``frontend/src/lib/capabilities.ts``).
 
 **Members**
 
@@ -83,19 +98,22 @@ and inside request logging, so a rejection is logged with its request id.
 
 ```python
 class IdentityCapability
-IdentityCapability(user: 'str', logout_url: 'str') -> None
+IdentityCapability(user: 'str', logout_url: 'str | None' = None) -> None
 ```
 
 The ``identity`` capability: who is signed in, and where to sign out.
 
 ``user`` is the signed-in user's display name. In the enterprise edition's
 one-user-one-backend deployment it is fixed for the backend's lifetime.
-``logout_url`` names the backend's own logout endpoint as an absolute path
-(for example ``/api/session/logout``). That endpoint ends the SciStudio
-session before any identity-provider logout. The frontend sends it a
-same-origin ``POST``, resolved under the service prefix, and then follows
-the location the response returns; a plain GET navigation would let other
-sites force a logout.
+
+``logout_url`` is optional. When given, it names the backend's own logout
+endpoint as a route path without the service prefix (for example
+``/api/enterprise/session/logout``). That endpoint ends the SciStudio
+session before any identity-provider logout and answers
+``{"location": "<where the browser goes next>"}``. The frontend sends it a
+same-origin ``POST``, resolved under the service prefix, and then navigates
+to that location; a plain GET navigation would let other sites force a
+logout. Without it the user name renders with no Logout action.
 
 ## `LifespanHook` — _protocol_
 
@@ -116,6 +134,138 @@ hook order before the core runtime stops, whether the application is
 shutting down normally or startup failed after this hook was entered. A
 ``@contextlib.asynccontextmanager`` function taking ``app`` satisfies this
 protocol.
+
+## `ToolRefusal` — _exception_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class ToolRefusal(ToolError)
+ToolRefusal(message: 'str', *, code: 'str' = 'refused', use_instead: 'Sequence[str]' = ()) -> 'None'
+```
+
+Raise inside an MCP tool to refuse the call with a message the agent can act on.
+
+The call then returns a Spec 1 error result instead of failing: the
+result carries ``isError: true``, the message as its text content, and the
+structured content ``{"status": "refused", "refusal": {"code", "message",
+"use_instead"}}`` the workspace tools use. It reaches every caller that
+way, the WebMCP bridge included, which withholds the text of any other
+exception. ``code`` is a machine-readable reason; ``use_instead`` names
+tools that own the refused operation.
+
+Outside a tool, `check_author_path` and `write_project_file`
+raise it too, so an edition's HTTP route can turn the same refusal into
+its own response.
+
+## `TransferCapability` — _class_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class TransferCapability
+TransferCapability(inline_max_bytes: 'int', download_url_template: 'str') -> None
+```
+
+The ``transfer`` capability: moving files between the laptop and the server.
+
+Uploads reuse the existing staged ``POST /api/data/upload`` route, so they
+need no URL here. ``download_url_template`` names the edition's download
+route as a route path without the service prefix, with exactly one
+``{path}`` placeholder, for example
+``/api/enterprise/transfer/download?path={path}``. The frontend replaces the
+placeholder with the URL-encoded project-relative path of the chosen file,
+resolves the result under the service prefix, and sends the browser there
+with a ``GET``.
+
+``inline_max_bytes`` is the largest file, in bytes, the edition moves
+inline (for example through an MCP tool) rather than through a staged
+transfer. The UI's own upload always uses the staged route.
+
+## `UpdateCapability` — _class_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class UpdateCapability
+UpdateCapability(status_url: 'str', restart_url: 'str') -> None
+```
+
+The ``update`` capability: a user-chosen restart into a newly installed version.
+
+Update availability and active runs change while the backend runs, so the
+capability carries two route paths, without the service prefix, rather
+than a snapshot. The frontend polls ``GET status_url`` every 60 seconds and
+whenever the window regains focus; it answers
+``{"running_version", "installed_version", "update_available", "runs_active"}``.
+When an update is available the frontend shows a notice that never takes
+focus. Restart asks for confirmation, warns while runs are active, then
+sends ``POST restart_url``, which answers ``{"location": ...}``, and
+navigates there. The frontend never restarts or reloads on its own.
+
+## `UploadEvent` — _class_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class UploadEvent
+UploadEvent(path: 'str', size: 'int', status: "Literal['completed', 'discarded']") -> None
+```
+
+What an upload listener hears when a staged ``POST /api/data/upload`` ends.
+
+``path`` is the destination's project-relative POSIX path (for example
+``data/raw/scan.tif``); ``size`` the bytes received; ``status``
+``"completed"`` when the file was placed and registered, or
+``"discarded"`` when the staged file was thrown away (too large, or the
+request failed). Fields may be added; existing ones keep their meaning.
+
+## `active_project_root` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+active_project_root(app: 'FastAPI') -> 'Path | None'
+```
+
+Return the open project's root directory, or ``None`` when none is open.
+
+The path is fully resolved (symlinks and, on Windows, short names), the
+same form the confinement checks compare against. ``None`` also before
+the lifespan has created the runtime.
+
+## `add_upload_listener` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+add_upload_listener(app: 'FastAPI', callback: 'Callable[[UploadEvent], Any]') -> 'Callable[[], None]'
+```
+
+Call ``callback(event)`` whenever a staged upload completes or is discarded.
+
+``callback`` receives an `UploadEvent` and may be a plain function
+or a coroutine function; listeners run in the order they were added,
+before the upload's response is sent, so keep them quick. A listener that
+raises is logged and skipped: it never changes the upload's outcome or
+stops the other listeners. Returns a function that removes the listener.
+
+## `check_author_path` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+check_author_path(project_root: 'Path | str', rel_path: 'str') -> 'Path'
+```
+
+Resolve a path an agent wants to change, under the author tools' rules.
+
+``rel_path`` is resolved against ``project_root`` (an absolute path must
+lie inside it) and must stay inside the project after links are followed.
+It is then checked against the Spec 2 author blacklist: ``data/`` and
+``workflows/*.yaml`` belong to the tools that own them. Returns the
+resolved path; raises `ToolRefusal` with the author tools' own
+refusal code and message otherwise.
 
 ## `is_self_authenticating_path` — _function_
 
@@ -197,3 +347,26 @@ Return whether any workflow run in this backend is still executing.
 A Hub activity reporter polls this so idle culling never stops a backend
 mid-analysis. Returns ``False`` before the lifespan has created the
 runtime and after every run's task has finished.
+
+## `write_project_file` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+write_project_file(app: 'FastAPI', rel_path: 'str', data: 'bytes', *, changed_by: 'str' = 'edition') -> 'Path'
+```
+
+Write ``data`` to a project file through the shared write path, and return its path.
+
+The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
+file's state version advanced, ``file.changed`` sent so the open UI
+updates, and a registry reload when the file is a lint-clean drop-in
+module. ``rel_path`` is resolved against the open project and confined to
+it; missing parent directories are created. The author blacklist does not
+apply here; call `check_author_path` first for an agent's write.
+
+A coroutine: ``await`` it from a route or tool. Raises `ToolRefusal`
+when no project is open, the path leaves the project, or the write is
+refused (the target is a directory, for example), and `TypeError`
+for data that is not bytes. A disk failure raises as it does for the
+editor.

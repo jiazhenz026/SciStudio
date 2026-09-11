@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
@@ -46,6 +46,7 @@ from scistudio.api.schemas import (
     PreviewSessionCreate,
     PreviewSessionPatch,
 )
+from scistudio.api.seam import notify_upload_listeners
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.origins import CUSTOM_ORIGIN, PACKAGE_ORIGIN, PROJECT_ORIGIN, USER_ORIGIN
 from scistudio.core.storage.ref import StorageReference
@@ -82,6 +83,16 @@ UploadFileParam = Annotated[UploadFile, File(...)]
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
+def _request_app(request: Request) -> FastAPI:
+    """The application serving the request, for the identity seam's upload listeners."""
+    app: FastAPI = request.app
+    return app
+
+
+#: ``None`` only when a test calls the handler directly, outside a request.
+RequestAppDep = Annotated[FastAPI | None, Depends(_request_app)]
+
+
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB read granularity
 
@@ -90,6 +101,7 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB read granularity
 async def upload_data(
     file: UploadFileParam,
     runtime: RuntimeDep,
+    app: RequestAppDep = None,
 ) -> DataUploadResponse:
     """Upload a data file and register it in the active project.
 
@@ -98,6 +110,10 @@ async def upload_data(
     Previously the whole body was buffered via ``await file.read()`` *before*
     the size check, so an oversized upload (accidental or hostile) could
     exhaust process memory before the 413 ever fired.
+
+    ADR-055 identity seam (#2328): an edition's upload listeners
+    (``scistudio.api.seam.add_upload_listener``) hear when the staged file
+    completes or is discarded. A failing listener never changes this answer.
     """
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
     total = 0
@@ -114,7 +130,11 @@ async def upload_data(
         payload = runtime.finish_staged_upload(destination, staged_path)
     except Exception:
         runtime.discard_staged_upload(staged_path)
+        if app is not None:
+            await notify_upload_listeners(app, destination, size=total, status="discarded")
         raise
+    if app is not None:
+        await notify_upload_listeners(app, destination, size=total, status="completed")
     return DataUploadResponse(**payload)
 
 

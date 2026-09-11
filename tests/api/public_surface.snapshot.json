@@ -672,6 +672,34 @@
       "tier": "provisional",
       "since": "0.3.5"
     },
+    "ToolRefusal": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "TransferCapability": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "UpdateCapability": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "UploadEvent": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "active_project_root": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "add_upload_listener": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "check_author_path": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
     "is_self_authenticating_path": {
       "tier": "provisional",
       "since": "0.3.5"
@@ -693,6 +721,10 @@
       "since": "0.3.5"
     },
     "workflow_runs_active": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "write_project_file": {
       "tier": "provisional",
       "since": "0.3.5"
     }

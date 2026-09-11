@@ -45,16 +45,21 @@ composes its own deployment on the same backend:
 A sketch of the enterprise edition's launch path::
 
     from scistudio.api.app import create_app
-    from scistudio.api.seam import Capabilities, IdentityCapability, mcp
+    from scistudio.api.seam import Capabilities, IdentityCapability, TransferCapability, mcp
 
     app = create_app(
         guard=hub_guard,  # (app, GuardContext) -> ASGI app
         lifespan_hooks=[validate_callback, report_activity],
         capabilities=Capabilities(
-            # The edition's own logout route: it ends the SciStudio
-            # session, then returns where the browser goes next.
-            identity=IdentityCapability(user=hub_user, logout_url="/api/session/logout"),
-            transfer=True,
+            # The edition's own routes, as route paths without the
+            # service prefix: logout ends the SciStudio session, then
+            # returns where the browser goes next.
+            identity=IdentityCapability(user=hub_user, logout_url="/api/enterprise/session/logout"),
+            transfer=TransferCapability(
+                inline_max_bytes=8 * 1024 * 1024,
+                download_url_template="/api/enterprise/transfer/download?path={path}",
+            ),
+            ai_chat_disabled=True,
         ),
         routers=[transfer_router],
     )

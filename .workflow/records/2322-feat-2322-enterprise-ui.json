@@ -1,0 +1,237 @@
+{
+  "base_ref": null,
+  "branch": "feat/2322-enterprise-ui",
+  "check_events": [],
+  "check_na": [
+    {
+      "name": "sentrux",
+      "rationale": "Sentrux MCP is not available in this runtime"
+    }
+  ],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/seam.py",
+      "src/scistudio/api/spa.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/ai_pty/**",
+      "frontend/src/lib/capabilities.ts",
+      "frontend/src/lib/capabilities.test.ts",
+      "frontend/src/lib/api/data.ts",
+      "frontend/src/components/Enterprise/**",
+      "frontend/src/components/BottomPanel.tsx",
+      "frontend/src/components/BottomPanel.parts/**",
+      "frontend/src/components/Toolbar.tsx",
+      "frontend/src/components/Toolbar.parts/**",
+      "tests/api/test_enterprise_capabilities.py",
+      "tests/api/test_ai_pty_capability.py",
+      "tests/api/test_identity_seam.py",
+      "tests/api/seam_contract.py",
+      "tests/api/test_public_surface.py",
+      "tests/api/public_surface.snapshot.json",
+      "docs/specs/adr-055-enterprise-support.md",
+      "docs/specs/adr-055-identity-seam.md",
+      "CHANGELOG.md",
+      "src/scistudio/_agent_reference/public-api.md",
+      "docs/user/reference/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T10:51:18.423068Z",
+      "owner_directive": "Plan: seam capability extensions (identity.logout_url optional, ai_chat_disabled, transfer object, update object, URL validation, versioned escaped injection); frontend accessor; Enterprise components (identity chrome, update notice, transfer upload/download); ai_chat_disabled hides AI Chat in BottomPanel and ai_pty refuses agent-kind providers with no process; tests at root and prefixed mounts; spec, seam spec, CHANGELOG, generated reference.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T11:10:13.055950Z",
+      "owner_directive": "Manager directive (2026-09-11, #2322): verify every /api/ai/pty/internal/ route enforces the IPC token, register /api/ai/pty/internal/ through scistudio.api.seam.register_self_authenticating_prefix, test under the fake replacement guard and the default guard at the root mount and /user/alice/scistudio, and list worker callback routes outside the write set.",
+      "reason": "Manager scope addition inside the ai_pty write set: AI Block worker callbacks under /api/ai/pty/internal/ are refused by any replacement guard; register the prefix as self-authenticating (every route checks the IPC token) and test it under the fake guard at both mounts."
+    },
+    {
+      "at": "2026-09-11T11:19:03.735405Z",
+      "owner_directive": "Manager directive (2026-09-11): this PR also closes #2328 - export active_project_root, ToolRefusal, check_author_path, write_project_file, add_upload_listener from scistudio.api.seam (provisional, exact names), wrap existing internals without duplicating logic, fire upload listeners from routes/data.py, test at both mounts, update seam spec, CHANGELOG, snapshot and reference pages.",
+      "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T10:51:18.423095Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-enterprise-support.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423103Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-identity-seam.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423105Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423113Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No ADR change; ADR-055 section 8 already covers the enterprise capability contract and this work implements its specs",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2322,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2328,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-055 Spec 4 open-source side as the manager's O1 track: capability extensions in the identity seam plus the capability-gated enterprise UI (owner, 2026-09-11; issue #2322, umbrella #2321 shared capability contract).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2322-feat-2322-enterprise-ui",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T10:56:48.377991Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "The reference generator also writes the bundled api-reference pages; the Download to this computer action belongs in the project tree context menu."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T10:56:48.378010Z",
+      "pattern": "frontend/src/components/ProjectTree.parts/ContextMenu.tsx",
+      "reason": "The reference generator also writes the bundled api-reference pages; the Download to this computer action belongs in the project tree context menu."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:10:13.055966Z",
+      "pattern": "tests/api/test_ai_pty_internal_guard.py",
+      "reason": "Manager scope addition inside the ai_pty write set: AI Block worker callbacks under /api/ai/pty/internal/ are refused by any replacement guard; register the prefix as self-authenticating (every route checks the IPC token) and test it under the fake guard at both mounts."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:19:03.735422Z",
+      "pattern": "src/scistudio/api/routes/data.py",
+      "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:19:03.735427Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workspace.py",
+      "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:19:03.735429Z",
+      "pattern": "src/scistudio/api/runtime/_file_writes.py",
+      "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:19:03.735431Z",
+      "pattern": "tests/api/test_seam_project_access.py",
+      "reason": "Manager scope addition: #2328 seam project access, tool-result helpers, shared write path and upload listener, implemented as thin wrappers in scistudio.api.seam; data.py fires upload listeners; minimal hunks in tools_workspace (root parameter for author-path resolution) and runtime/_file_writes (bytes through the shared write path)."
+    }
+  ],
+  "session_id": "48c0d256-9cf6-4397-a9a7-122793cd1c23",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T10:51:18.423118Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_enterprise_capabilities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423123Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty_capability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423124Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_identity_seam.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423126Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423128Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/capabilities.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:51:18.423129Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/Enterprise/EnterpriseChrome.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:10:13.055975Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty_internal_guard.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:19:03.735529Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_seam_project_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

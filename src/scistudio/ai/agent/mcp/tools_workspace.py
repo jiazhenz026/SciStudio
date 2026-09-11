@@ -409,7 +409,9 @@ def _blacklist_refusal(rel_posix: str) -> _RefusedError | None:
     return None
 
 
-def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path, Path, str]:
+def _resolve_author_path(
+    path: str, *, follow_final: bool = True, project_root: Path | None = None
+) -> tuple[Path, Path, str]:
     """Resolve an author-tool path: project-confined, blacklist-checked.
 
     Returns ``(mutated_path, project_root, project_relative_posix)`` for the path
@@ -420,8 +422,11 @@ def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path,
     own location is confined and checked — it never follows a link to delete or
     move what it points to (#2279 audit AU3 P1-1). The lexical path is checked
     against the blacklist as well.
+
+    ``project_root`` defaults to the active project; the identity seam's
+    ``check_author_path`` passes an edition's root explicitly (#2328).
     """
-    root = _project_root()
+    root = _project_root() if project_root is None else Path(os.path.realpath(project_root))
     if root is None:
         raise _RefusedError(
             "no_active_project",
