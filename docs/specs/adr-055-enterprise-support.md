@@ -440,9 +440,12 @@ prefixed, guarded backend, and are refused after the context closes.
   has seen and accepted the runs-active warning, and `false` otherwise, so a
   backend can enforce the warning itself. The route answers
   `{"location": ...}`, and the frontend navigates there. A `409` answer means
-  runs became active after the status read, and its body names them. The
-  frontend then shows the warning with those names, requires confirmation
-  again, and retries with `true`. The frontend MUST NOT restart or reload on its
+  work became active after the status read. Its body is
+  `{"detail", "active", "confirm_field"}`, and `active` lists the kinds of
+  active work (`workflow_runs`, `transfers`). The frontend then shows the
+  warning with a label for each kind, treating an unknown kind or a missing
+  list as generic active work, requires confirmation again, and retries with
+  `true`. The frontend MUST NOT restart or reload on its
   own.
 - **FR-008**: The stdio MCP adapter (issue #2308) MUST serve MCP over stdio
   and forward `tools/list` to `GET /api/webmcp/tools` and `tools/call` to
@@ -499,8 +502,8 @@ prefixed, guarded backend, and are refused after the context closes.
     runs. `GET status_url` answers an **UpdateStatus**,
     `{running_version, installed_version, update_available, runs_active}`,
     which the frontend polls and never stores. `POST restart_url` takes
-    `{"confirm_active_runs": <bool>}` and answers `{location}`, or `409`
-    naming the active runs when they are unconfirmed. This replaces the
+    `{"confirm_active_runs": <bool>}` and answers `{location}`, or `409` with
+    `active` listing the kinds of active work when it is unconfirmed. This replaces the
     earlier static shape
     `{running_version, installed_version, runs_active, restart_url}`
     (umbrella #2321).

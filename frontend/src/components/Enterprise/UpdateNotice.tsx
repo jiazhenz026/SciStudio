@@ -16,8 +16,10 @@
  *
  * The backend can enforce the warning too (umbrella #2321): the restart POST
  * carries `confirm_active_runs`, `true` only once the warning has been shown
- * and accepted. A `409` answer means the backend saw active runs the status
- * read did not; the dialog then names them and asks again.
+ * and accepted. A `409` answer means the backend saw active work the status
+ * read did not. Its `active` list names the kinds (`workflow_runs`,
+ * `transfers`), and the dialog shows a label for each and asks again. An
+ * unknown kind, or a missing list, reads as generic active work.
  */
 
 import { ArrowUpCircle } from "lucide-react";
@@ -30,11 +32,24 @@ import { useUpdateStatus } from "./useUpdateStatus";
 const STATUS_UNREADABLE =
   "Could not check whether workflow runs are active. Close this and try again.";
 
+/** Human labels for the kinds of active work a `409` restart answer lists. */
+const ACTIVE_WORK_LABELS: Record<string, string> = {
+  workflow_runs: "analyses are running",
+  transfers: "file transfers are in progress",
+};
+const OTHER_ACTIVE_WORK = "other work is in progress";
+
+/** One label per kind, unknown kinds folded into one generic label. */
+function activeWorkLabels(kinds: string[]): string[] {
+  const labels = kinds.map((kind) => ACTIVE_WORK_LABELS[kind] ?? OTHER_ACTIVE_WORK);
+  return labels.length > 0 ? [...new Set(labels)] : [OTHER_ACTIVE_WORK];
+}
+
 interface RestartDialogProps {
   /** The status read when the dialog opened, or `null` while it is being read. */
   status: UpdateStatus | null;
-  /** Runs a `409` restart answer named, or `null` when none was received. */
-  activeRuns: string[] | null;
+  /** Kinds of work a `409` restart answer listed, or `null` when none arrived. */
+  activeWork: string[] | null;
   restarting: boolean;
   error: string | null;
   onConfirm: () => void;
@@ -43,15 +58,18 @@ interface RestartDialogProps {
 
 function RestartDialog({
   status,
-  activeRuns,
+  activeWork,
   restarting,
   error,
   onConfirm,
   onCancel,
 }: RestartDialogProps) {
   const checking = status === null && error === null;
-  const warn = Boolean(status?.runsActive) || activeRuns !== null;
-  const named = activeRuns !== null && activeRuns.length > 0 ? `: ${activeRuns.join(", ")}` : "";
+  const warn = Boolean(status?.runsActive) || activeWork !== null;
+  const warning =
+    activeWork !== null
+      ? `Restarting now would interrupt active work: ${activeWorkLabels(activeWork).join("; ")}.`
+      : "Workflow runs are still active. Restarting now stops them.";
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
@@ -85,7 +103,7 @@ function RestartDialog({
             data-testid="enterprise-restart-runs-warning"
             role="alert"
           >
-            Workflow runs are still active{named}. Restarting now stops them.
+            {warning}
           </p>
         ) : null}
         {error !== null ? (
@@ -122,8 +140,8 @@ export function UpdateNotice({ update }: { update: UpdateCapability }) {
   const [confirming, setConfirming] = useState(false);
   // The status the user is confirming against, read when the dialog opened.
   const [confirmed, setConfirmed] = useState<UpdateStatus | null>(null);
-  // Runs a 409 restart answer named; non-null means the warning is showing.
-  const [activeRuns, setActiveRuns] = useState<string[] | null>(null);
+  // Kinds of work a 409 restart answer listed; non-null means the warning is showing.
+  const [activeWork, setActiveWork] = useState<string[] | null>(null);
   const [restarting, setRestarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,7 +150,7 @@ export function UpdateNotice({ update }: { update: UpdateCapability }) {
   const openConfirmation = async () => {
     setConfirming(true);
     setConfirmed(null);
-    setActiveRuns(null);
+    setActiveWork(null);
     setError(null);
     const fresh = await refresh();
     if (fresh === null) {
@@ -145,14 +163,14 @@ export function UpdateNotice({ update }: { update: UpdateCapability }) {
   const closeConfirmation = () => {
     setConfirming(false);
     setConfirmed(null);
-    setActiveRuns(null);
+    setActiveWork(null);
     setError(null);
   };
 
   const restart = async () => {
     if (confirmed === null) return;
     // Whether the runs-active warning is on screen as the user confirms.
-    const warned = confirmed.runsActive || activeRuns !== null;
+    const warned = confirmed.runsActive || activeWork !== null;
     setRestarting(true);
     setError(null);
     // Read once more: runs may have started while the dialog was open.
@@ -170,9 +188,9 @@ export function UpdateNotice({ update }: { update: UpdateCapability }) {
     }
     try {
       const outcome = await postRestart(update.restartUrl, warned);
-      if (outcome.kind === "runs-active") {
-        // The backend saw runs the status read did not; name them and ask again.
-        setActiveRuns(outcome.runs);
+      if (outcome.kind === "work-active") {
+        // The backend saw work the status read did not; name its kinds and ask again.
+        setActiveWork(outcome.active);
         setConfirmed({ ...latest, runsActive: true });
         setRestarting(false);
         return;
@@ -209,7 +227,7 @@ export function UpdateNotice({ update }: { update: UpdateCapability }) {
       </div>
       {confirming ? (
         <RestartDialog
-          activeRuns={activeRuns}
+          activeWork={activeWork}
           error={error}
           onCancel={closeConfirmation}
           onConfirm={() => void restart()}

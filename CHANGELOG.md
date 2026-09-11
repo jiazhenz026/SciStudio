@@ -32,9 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Restart asks for confirmation, warns while workflow runs are active, and
   then follows the restart route. The restart request carries
   `{"confirm_active_runs": …}`, which is `true` only after the user has
-  accepted the warning, so the edition can enforce it. A `409` answer names
-  the runs that became active meanwhile, and the notice shows them and asks
-  again. Every capability URL is a backend route path
+  accepted the warning, so the edition can enforce it. A `409` answer lists
+  the kinds of work that became active meanwhile (analyses, file transfers),
+  and the notice names them and asks again. Every capability URL is a backend route path
   without the service prefix, resolved under the prefix the way API calls are.
   The declaration the page receives is now versioned. AI Block worker
   callbacks under `/api/ai/pty/internal/` are registered as
