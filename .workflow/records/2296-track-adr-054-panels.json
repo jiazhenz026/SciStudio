@@ -194,6 +194,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.363074Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.376574Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.389083Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.400959Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.413712Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.426316Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.438650Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.450642Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.465460Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.478087Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T06:34:09.491529Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -212,9 +278,9 @@
       ".workflow/records/2296-track-adr-054-panels.json",
       "docs/planning/adr-054-panels-checklist.md"
     ],
-    "diff_fingerprint": "sha256:01e18a2faff82be06e052c2f6af5873488f139e4c876d9dbb081ed6ceec61a0a",
+    "diff_fingerprint": "sha256:16a637b31bb4c3244ceb88d451407519db53e5a0a0baa577a4d6add0815a6d5b",
     "head": "HEAD",
-    "head_sha": "594f264d2",
+    "head_sha": "c40bd89c6",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -251,6 +317,14 @@
     {
       "at": "2026-09-11T06:34:06.642044Z",
       "diff_fingerprint": "sha256:01e18a2faff82be06e052c2f6af5873488f139e4c876d9dbb081ed6ceec61a0a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T06:34:09.491563Z",
+      "diff_fingerprint": "sha256:16a637b31bb4c3244ceb88d451407519db53e5a0a0baa577a4d6add0815a6d5b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,

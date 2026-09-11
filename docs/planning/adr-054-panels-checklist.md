@@ -38,7 +38,7 @@ language_source: en
   non-`main` base are avoided because they do not receive `ci.yml`.
 - Protected branch: `main`
 - Umbrella branch: `track/adr-054-panels`
-- Umbrella PR: `pending`
+- Umbrella PR: `#2299`
 - Umbrella PR title: `[DO NOT MERGE] ADR-054 panels dispatch — Phases A, B, C`
 - Final PR target: `main` — one PR per phase (owner directive, 2026-09-11)
 - Dispatch prompt templates:
@@ -95,9 +95,9 @@ language_source: en
 - [x] Gate record started. -> `.workflow/records/2296-track-adr-054-panels.json`
 - [x] Scope include/exclude recorded in the gate record.
 - [x] Umbrella branch created. -> `track/adr-054-panels`
-- [ ] Umbrella PR opened.
-- [ ] Umbrella PR title includes `[DO NOT MERGE]`.
-- [ ] Protected branch and umbrella PR number recorded in this checklist.
+- [x] Umbrella PR opened. -> #2299
+- [x] Umbrella PR title includes `[DO NOT MERGE]`.
+- [x] Protected branch and umbrella PR number recorded in this checklist. -> main / #2299
 - [x] No `pip install -e .` environment pollution found. -> gate CLI runs via
       `PYTHONPATH=./src`
 - [x] Dispatch checklist copied from the template and committed.
