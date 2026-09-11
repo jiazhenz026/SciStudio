@@ -113,6 +113,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T15:24:53.063288Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3d45d33c42e5f70315e9a68ed581716bf13ecb2cc46fbe009cdb72151cbd03e5",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T15:25:08.197571Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:59752134f3a1352604b9eec86324601c3c526cd4d2529dc70f2a6af6a7b17d33",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -124,10 +156,7 @@
     "trailers": []
   },
   "declared_scope": {
-    "exclude": [
-      "src/**",
-      "frontend/**"
-    ],
+    "exclude": [],
     "include": [
       "docs/planning/adr-054-*"
     ]
@@ -694,6 +723,138 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.272569Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.291015Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.350146Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.398239Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.429378Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.450854Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.471090Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.489124Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.511605Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.532584Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:25:08.559195Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.012354Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.022328Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.031945Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.042053Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.052216Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.062518Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.072933Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.083054Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.093188Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.103766Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:33:48.116655Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -706,7 +867,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "7b1321758ba81926a0d7065ee94e3b9655a1e4c3",
+    "base": "origin/main",
     "base_sha": "7b132175",
     "changed_files": [
       ".workflow/records/2296-adr054-coordination.json",
@@ -714,9 +875,9 @@
       "docs/planning/adr-054-panels-checklist.md",
       "docs/planning/adr-054-phase-a-dispatch.md"
     ],
-    "diff_fingerprint": "sha256:f1ced2f50dfbef70e8d50f2ec7f1db5be3c9e8ab2fd4736e51c82a10df6c5b54",
+    "diff_fingerprint": "sha256:a6946f78e9b1da9009007a5fd7026f2fdeafe43a5b22181b26de2c236fe51ebc",
     "head": "HEAD",
-    "head_sha": "5bee59d1",
+    "head_sha": "69d6bbd8",
     "surfaces": {
       "docs": 3,
       "frontend": 0,
@@ -807,6 +968,22 @@
       "at": "2026-09-11T15:15:43.700271Z",
       "diff_fingerprint": "sha256:f1ced2f50dfbef70e8d50f2ec7f1db5be3c9e8ab2fd4736e51c82a10df6c5b54",
       "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T15:25:08.559259Z",
+      "diff_fingerprint": "sha256:a6946f78e9b1da9009007a5fd7026f2fdeafe43a5b22181b26de2c236fe51ebc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T15:33:48.116697Z",
+      "diff_fingerprint": "sha256:a6946f78e9b1da9009007a5fd7026f2fdeafe43a5b22181b26de2c236fe51ebc",
+      "mode": "local",
       "result": "pass",
       "tier": 3,
       "unsatisfied": []

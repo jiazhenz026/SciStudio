@@ -40,6 +40,7 @@ You own only:
 
 - `src/scistudio/panels/**` EXCEPT `sdk/**`, `lib/**`, and `security.py`.
 - `src/scistudio/previewers/{models,registry,router,choices,project,session,assets}.py` and narrowly required helpers under `previewers/`, EXCEPT `data_access.py` and its new helper modules (A3).
+- `src/scistudio/api/runtime/_data.py` only for backend collection_ref snapshots at output registration and passing the current type registry to preview-service construction; `tests/api/test_panel_collection_authority.py` (manager amendment, 2026-09-11).
 - `src/scistudio/api/ws.py` only for new-panel context validation immediately before existing interactive-complete dispatch, and `tests/api/test_panel_interactive_ws.py` (manager amendment, 2026-09-11).
 - `src/scistudio/api/routes/panels.py`, `src/scistudio/api/routes/data.py`, `src/scistudio/api/routes/blocks.py`, and panel-related API schemas.
 - `src/scistudio/core/dropins.py` for tier roots only; record protected scope, do not claim the admin label is granted.
@@ -215,6 +216,7 @@ You own only:
 - `src/scistudio/previewers/data_access.py` and new narrowly scoped read helper modules beside it (tell A1 exact names first).
 - `src/scistudio/panels/security.py` only under panels; A1 owns the rest of its Python.
 - `src/scistudio/api/app.py` for panel router/lifecycle mounting and security middleware/startup CORS checks only.
+- `tests/architecture/test_placement.py` only adding the planned panels package to the known-package inventory, retaining all assertions (manager amendment, 2026-09-11).
 - `tests/previewers/test_preview_data_access.py` and new `tests/previewers/test_panel_read_extensions.py`; `tests/api/test_panel_security.py` and relevant minimal `tests/api/test_app.py` additions.
 - `CHANGELOG.md` for combined Phase A additions/hardening (coordinate input from A1/A2).
 - `docs/planning/adr-054-security-notes.md` and your gate ledger.

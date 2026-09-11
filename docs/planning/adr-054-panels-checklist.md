@@ -114,7 +114,7 @@ Audits get dedicated worktrees and a selected context mode after integration.
 
 ### 7.5 Integration
 
-- [ ] Every diff reviewed, write sets checked, conflicts resolved intentionally.
+- [~] A3 dependency `446a9321` and A1 dependency `f9922614` reviewed and integrated as `e0ab0a38` / `b9b6baeb`; subsequent fixes, A2, and final conflict review remain.
 - [ ] Enterprise PR #2336 overlap reconciled against its current state.
 - [ ] Root and prefixed replacement-guard checks pass on the integrated candidate.
 - [ ] Frontend/browser smoke and required containment evidence recorded.
@@ -125,8 +125,8 @@ Audits get dedicated worktrees and a selected context mode after integration.
 |---|---|---|---|
 | Manager local/pre-PR gate | `PYTHONPATH=src python -m scistudio.qa.governance.gate_record check` | [x] | Ledger events and `2966a1a9` |
 | Manager finalize/wrapper | `gate_record finalize`; `scripts/scistudio_pr_create.py` | [x] | Draft #2353 |
-| A targeted tests and pre-PR gate | Gate-selected checks from integration worktree | [ ] | Pending |
-| CI | GitHub checks on each PR | [ ] | Pending |
+| A targeted tests | Agent dependency slices | [~] | A3: 50 read/security tests; A1: 50 descriptor/routing/context tests. Integrated pre-PR gate remains pending |
+| Manager CI | `gh pr checks 2353` | [x] | All 17 checks passed on `69d6bbd8`; implementation CI remains pending |
 
 ## 9. Drift Log
 
@@ -135,8 +135,11 @@ Audits get dedicated worktrees and a selected context mode after integration.
 | 2026-09-11 | manager | Historical umbrella #2299 is closed; its branch predates the enterprise seam and MiniApp revision | New coordination branch from current main; retain historical record as context only | #2296 |
 | 2026-09-11 | manager | #2293 describes unavailable Lab middleware and an interim Panels sidebar | Use existing identity seam; owner chose to preserve A entry and consolidate UI in D | #2293, #2288 |
 | 2026-09-11 | manager | Current specs add D but #2296 lists only A/B/C | Coordinate all four phases; D depends on A | #2296 |
-
 | 2026-09-11 | manager | New-panel writeback needs a backend context check before the existing WS event | A1 scope amended to narrow `api/ws.py` hook and `tests/api/test_panel_interactive_ws.py`; no new completion path | #2293 |
+| 2026-09-11 | manager | Legacy collection membership is supplied by the browser; freezing it would not establish backend read authority | A1 scope amended to narrow runtime `_data.py` snapshot registration plus collection-authority tests; preserve single-item normalization and legacy behavior | #2293 |
+| 2026-09-11 | manager | Placement test rejects the newly planned panels package because the package inventory predates ADR-054 | A3 scope adds only the panels entry in `tests/architecture/test_placement.py`; unknown-package checks remain | #2293 |
+
+| 2026-09-11 | manager | Two pinned browser libraries exceed the added-file limit | Concrete fixed-path proposal in `adr-054-vendor-size-proposal.md`; no hook change or owner approval yet | #2293 |
 
 ## 10. Final Readiness
 
