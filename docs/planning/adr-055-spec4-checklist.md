@@ -315,7 +315,12 @@ language_source: en
   - machine-ID ownership with a 24 h cross-machine warning;
   - Spec 3 FR-015/FR-016 and §4.6;
   - the P3s, plus symlink-safe MCP pointer writes.
-- [~] Re-verification: AU5 re-verifies with context; AU6 re-audits without context at 4d02f0423. CI on the new head is being watched.
+- [~] Re-verification: AU5 re-verifies with context. AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
+  - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
+  - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
+  - New N2 (P2): uvicorn has no graceful timeout, and SSE and `/ws` keep it waiting, so the lifespan never runs before the force-kill.
+  - New P3s: N3 (deleting the project mid-run resurrects it) and N5 (the stdin pipe is used on every platform).
+  - All are routed to A3 in the same round as the main merge.
 - [ ] Owner approvals pending, batched with the merge request:
   - `ARCHITECTURE.md` §11.2 rows for `run-owners/` and `mcp.sock.path` need `admin-approved:architecture-doc`;
   - #2344 (core `finalize_run` guard) needs `admin-approved:core-change`.
