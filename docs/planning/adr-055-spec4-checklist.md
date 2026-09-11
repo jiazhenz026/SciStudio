@@ -143,6 +143,8 @@ language_source: en
 | `AU3` | `audit_reviewer` | `with-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-with-context.md` | product code | A2 PR | `[ ]` |
 | `AU4` | `audit_reviewer` | `no-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-no-context.md` | product code | A2 PR | `[ ]` |
 | `A3` | `implementer` | `N/A` | prompts §A3 | O3: remove the GUI-disconnect auto-cancel without regressing #1500 | `fix/2327-run-lifetime` | `.worktrees/fix-2327-run-lifetime` | see prompts §A3 | `seam.py`, `spa.py`, `ai_pty/**`, `webmcp.py`, `cli/**`, `frontend/**` | `#2327` | `[~]` |
+| `A4` | `implementer` | `N/A` | written at dispatch | O4: Package Manager for editions via a seam capability (owner option C) | `feat/2331-edition-package-manager` | `.worktrees/feat-2331-edition-package-manager` | `routes/packages.py`, seam capability, frontend Package Manager gate | everything else | `#2331` | `[ ]` queued after #2322 merges |
+| `A5` | `implementer` | `N/A` | written at dispatch | O5: ABI-keyed user site and automatic background reinstall (owner option C) | `feat/2332-user-site-abi-repair` | `.worktrees/feat-2332-user-site-abi-repair` | `desktop/paths.py`, `desktop/package_installer.py`, the startup repair in `api/runtime/__init__.py`, the frontend notice | everything else | `#2332` | `[ ]` queued after #2322 and #2327 merge |
 
 ## 7. Track: O1 — Capability Extensions And Enterprise UI (#2322)
 
