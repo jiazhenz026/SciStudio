@@ -51,6 +51,7 @@ from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 
 from . import _data, _projects, _runs, _workflows
+from ._file_writes import ProjectFileService
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
 # ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
@@ -364,6 +365,9 @@ class ApiRuntime:
         self.resource_manager = ResourceManager(event_bus=self.event_bus)
         self.process_registry = ProcessRegistry()
         self.runner = LocalRunner(event_bus=self.event_bus, registry=self.process_registry)
+        # ADR-055 Spec 2 FR-005 (#2279): the editor's write path bound to this
+        # runtime, reached by the MCP author tools as ``MCPContext.project_files``.
+        self.project_files = ProjectFileService(self)
         self.block_registry = BlockRegistry()
         self.type_registry = TypeRegistry()
         self.log_broadcaster = LogBroadcaster()

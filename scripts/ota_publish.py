@@ -25,11 +25,18 @@ Publishing is intentionally decoupled from local/dev builds: a developer builds
 and tests locally (OTA disabled, see ``stage-resources`` ``ota-config.json``),
 then runs this script from the *same checkout* to publish what was tested.
 
+#2307: once the upload succeeds, the same build is published to PyPI as the
+open-source wheel. The script dispatches ``.github/workflows/pypi-publish.yml``
+for the checkout's HEAD commit, which builds ``scistudio==<base>a<build>`` with
+the frontend and attaches it to the GitHub Release ``v<base>-<channel>``. See
+``decide_pypi_publish`` for when it does not.
+
 Usage::
 
     python scripts/ota_publish.py --channel alpha
     python scripts/ota_publish.py --channel alpha --dry-run
     python scripts/ota_publish.py --channel alpha --notes "Fix Export logs dialog"
+    python scripts/ota_publish.py --channel alpha --no-pypi
 
 Requires the GitHub CLI (``gh``) authenticated with write access to the repo,
 except under ``--dry-run`` which only builds the snapshot and manifest locally.
@@ -43,11 +50,16 @@ import hashlib
 import io
 import json
 import re
+import shlex
 import subprocess
+import sys
 import tarfile
 import tempfile
+import urllib.error
+import urllib.request
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 DEFAULT_REPO = "jiazhenz026/SciStudio"
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -89,6 +101,20 @@ SHELL_FILES = (
 DESKTOP_PACKAGE_JSON = REPO_ROOT / "desktop" / "package.json"
 
 _VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z]+)-build(\d+))?$")
+
+# #2307: the PyPI workflow's file name is fixed by the trusted publisher
+# registered on PyPI, and it runs from main's copy of the workflow.
+PYPI_WORKFLOW = "pypi-publish.yml"
+PYPI_WORKFLOW_BRANCH = "main"
+PYPI_PROJECT = "scistudio"
+
+# The PyPI version comes from the same deriver the wheel is stamped with, so the
+# number printed here is the number the workflow publishes.
+_SRC_DIR = REPO_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
+from scistudio.version import format_pep440  # noqa: E402
 
 
 # --------------------------------------------------------------------------- #
@@ -316,6 +342,122 @@ def make_snapshot(
 
 
 # --------------------------------------------------------------------------- #
+# #2307: every OTA build also publishes the open-source wheel to PyPI.
+# --------------------------------------------------------------------------- #
+PYPI_TRIGGER = "trigger"
+PYPI_SKIP = "skip"
+PYPI_REFUSE = "refuse"
+
+
+class PypiDecision(NamedTuple):
+    """What an OTA publish does about PyPI once its upload has succeeded.
+
+    ``trigger`` dispatches the workflow and ``skip`` is a deliberate no.
+    ``refuse`` means the build should reach PyPI but cannot from here; the
+    reason says what to fix before running the workflow by hand.
+
+    A NamedTuple rather than a dataclass: this script is also loaded by file
+    path (the tests do), and a dataclass under postponed annotations needs its
+    module registered in ``sys.modules``.
+    """
+
+    action: str
+    reason: str
+
+
+def pypi_version(base: str, channel: str, build: int) -> str:
+    """The version the workflow publishes: OTA build 29 of 0.3.4 alpha is ``0.3.4a29``."""
+    return format_pep440(base, channel, build)
+
+
+def pypi_json_url(version: str) -> str:
+    return f"https://pypi.org/pypi/{PYPI_PROJECT}/{version}/json"
+
+
+def decide_pypi_publish(
+    *,
+    dry_run: bool,
+    no_pypi: bool,
+    reinstall_notice: bool,
+    build: int,
+    latest_published_build: int | None,
+    baseline_build: int,
+    version: str,
+    on_pypi: Callable[[], bool | None],
+    head_on_main: Callable[[], bool],
+) -> PypiDecision:
+    """Decide whether this OTA build goes on to PyPI (#2307).
+
+    PyPI keeps every version forever -- it can be yanked, never replaced -- so
+    every rule errs towards not publishing. The rules run cheapest first; the
+    two that need the network or git are callables, consulted only when nothing
+    earlier has decided.
+
+    * ``--dry-run`` publishes nothing, and ``--no-pypi`` opts out outright.
+    * A reinstall notice swaps the snapshot's SPA for a page telling old clients
+      to reinstall. That build number does not stand for a product release.
+    * A build at or below the channel's sequence (the number
+      ``resolve_build_number`` guards) is a backfill: PyPI may already hold that
+      version, and otherwise would list it out of order.
+    * A version PyPI already has is skipped. ``None`` from ``on_pypi`` means PyPI
+      could not be asked; the workflow checks again before it builds.
+    * HEAD not on ``origin/main`` is refused. The workflow builds the commit
+      from GitHub, which cannot build an unpushed commit and must not publish an
+      unmerged one.
+    """
+    if dry_run:
+        return PypiDecision(PYPI_SKIP, "--dry-run publishes nothing")
+    if no_pypi:
+        return PypiDecision(PYPI_SKIP, "--no-pypi was passed")
+    if reinstall_notice:
+        return PypiDecision(PYPI_SKIP, "this snapshot's SPA is the reinstall notice, not the product")
+    sequence = max(baseline_build, latest_published_build or 0)
+    if build <= sequence:
+        return PypiDecision(
+            PYPI_SKIP,
+            f"build {build} is at or below the channel's latest build ({sequence}); a backfill must not "
+            f"publish {version}, which PyPI may already hold or would list out of order",
+        )
+    exists = on_pypi()
+    if exists:
+        return PypiDecision(PYPI_SKIP, f"scistudio {version} is already on PyPI, and a PyPI version cannot be replaced")
+    if not head_on_main():
+        return PypiDecision(
+            PYPI_REFUSE,
+            "HEAD is not on origin/main; the workflow builds the commit from GitHub, so push and merge it first",
+        )
+    if exists is None:
+        return PypiDecision(
+            PYPI_TRIGGER, f"PyPI could not be asked about {version}; the workflow checks again before building"
+        )
+    return PypiDecision(PYPI_TRIGGER, f"scistudio {version} is not on PyPI yet")
+
+
+def pypi_workflow_command(repo: str, sha: str, build: int, channel: str) -> list[str]:
+    """The ``gh workflow run`` that publishes commit *sha* as this build (#2307).
+
+    ``--ref`` only picks which branch's copy of the workflow runs. The commit it
+    builds is the ``ref`` input, pinned to the SHA the snapshot was taken from.
+    """
+    return [
+        "gh",
+        "workflow",
+        "run",
+        PYPI_WORKFLOW,
+        "--repo",
+        repo,
+        "--ref",
+        PYPI_WORKFLOW_BRANCH,
+        "-f",
+        f"ref={sha}",
+        "-f",
+        f"build_number={build}",
+        "-f",
+        f"channel={channel}",
+    ]
+
+
+# --------------------------------------------------------------------------- #
 # gh / IO side
 # --------------------------------------------------------------------------- #
 def _run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
@@ -377,6 +519,95 @@ def upload_assets(repo: str, tag: str, files: list[Path]) -> None:
     result = _run(["gh", "release", "upload", tag, "--repo", repo, "--clobber", *map(str, files)])
     if result.returncode != 0:
         raise RuntimeError(f"Asset upload failed: {result.stderr.strip()}")
+
+
+def version_on_pypi(version: str, timeout: float = 10.0) -> bool | None:
+    """True when PyPI has *version*, False when it does not, None when PyPI could not be asked."""
+    try:
+        with urllib.request.urlopen(pypi_json_url(version), timeout=timeout) as response:
+            return bool(response.status == 200)
+    except urllib.error.HTTPError as error:
+        return False if error.code == 404 else None
+    except OSError:
+        return None
+
+
+def head_sha(repo_root: Path = REPO_ROOT) -> str | None:
+    result = _run(["git", "-C", str(repo_root), "rev-parse", "HEAD"])
+    sha = result.stdout.strip()
+    return sha if result.returncode == 0 and sha else None
+
+
+def head_on_main(repo_root: Path = REPO_ROOT) -> bool:
+    """Whether HEAD is on ``origin/main``, after refreshing that ref.
+
+    The refresh is best effort. Offline, the check runs against the ref as it
+    stands, which can only make it stricter: a commit merged since the last
+    fetch reads as unmerged and is refused, never the other way round.
+    """
+    _run(["git", "-C", str(repo_root), "fetch", "--quiet", "origin", PYPI_WORKFLOW_BRANCH])
+    result = _run(
+        ["git", "-C", str(repo_root), "merge-base", "--is-ancestor", "HEAD", f"origin/{PYPI_WORKFLOW_BRANCH}"]
+    )
+    return result.returncode == 0
+
+
+def trigger_pypi_publish(
+    *,
+    repo: str,
+    channel: str,
+    base: str,
+    build: int,
+    latest_published_build: int | None,
+    baseline_build: int,
+    dry_run: bool = False,
+    no_pypi: bool = False,
+    reinstall_notice: bool = False,
+) -> PypiDecision:
+    """Dispatch the PyPI workflow for a build that has just been published (#2307).
+
+    Never raises for a PyPI-side problem. By the time this runs the OTA build is
+    live, and failing the command would suggest it was not. Every outcome prints
+    what happened and, when the workflow did not run, the command to run it.
+    """
+    version = pypi_version(base, channel, build)
+    decision = decide_pypi_publish(
+        dry_run=dry_run,
+        no_pypi=no_pypi,
+        reinstall_notice=reinstall_notice,
+        build=build,
+        latest_published_build=latest_published_build,
+        baseline_build=baseline_build,
+        version=version,
+        on_pypi=lambda: version_on_pypi(version),
+        head_on_main=head_on_main,
+    )
+    if decision.action == PYPI_SKIP:
+        print(f"\nPyPI: skipped -- {decision.reason}.")
+        return decision
+
+    sha = head_sha()
+    command = pypi_workflow_command(repo, sha or "<full commit sha>", build, channel)
+    if decision.action == PYPI_REFUSE or sha is None:
+        reason = decision.reason if decision.action == PYPI_REFUSE else "HEAD could not be resolved"
+        print(f"\nPyPI: NOT triggered for scistudio {version} -- {reason}.")
+        print("The OTA build is published. Once the commit is on main, publish it with:")
+        print(f"  {shlex.join(command)}")
+        return PypiDecision(PYPI_REFUSE, reason)
+
+    print(f"\nPyPI: publishing scistudio {version} ({decision.reason}).")
+    print(f"  $ {shlex.join(command)}")
+    result = _run(command)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
+        print(f"PyPI: the workflow was NOT dispatched: {detail}")
+        print("The OTA build is published. Fix the cause and run the command above.")
+        return PypiDecision(PYPI_REFUSE, f"gh workflow run failed: {detail}")
+    if result.stdout.strip():
+        print(result.stdout.strip())
+    print(f"  watch: gh run list --repo {repo} --workflow {PYPI_WORKFLOW} --limit 1")
+    print(f"         gh run watch <run-id> --repo {repo}")
+    return decision
 
 
 # --------------------------------------------------------------------------- #
@@ -450,6 +681,16 @@ def main(argv: list[str] | None = None) -> int:
             "min_build set), not as incompatible -- a native dialog cannot be copied from."
         ),
     )
+    parser.add_argument(
+        "--no-pypi",
+        action="store_true",
+        help=(
+            "#2307: do not dispatch pypi-publish.yml after the upload. By default every OTA "
+            "build is also published to PyPI as scistudio <base>a<build>, except dry runs, "
+            "reinstall notices, backfilled builds, versions PyPI already has, and a HEAD "
+            "that is not on origin/main."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt before uploading.")
     args = parser.parse_args(argv)
 
@@ -514,9 +755,21 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  sha256: {digest}")
     print(f"  url   : {manifest['url']}")
 
+    pypi_args = {
+        "repo": args.repo,
+        "channel": channel,
+        "base": baseline["base"],
+        "build": build,
+        "latest_published_build": latest,
+        "baseline_build": baseline["build"],
+        "no_pypi": args.no_pypi,
+        "reinstall_notice": args.reinstall_notice is not None,
+    }
+
     if args.dry_run:
         print(f"\n[dry-run] artifacts left in {workdir}")
         print(f"[dry-run] manifest:\n{manifest_path.read_text()}")
+        trigger_pypi_publish(dry_run=True, **pypi_args)
         return 0
 
     if not args.yes:
@@ -528,6 +781,9 @@ def main(argv: list[str] | None = None) -> int:
     ensure_release(args.repo, tag, channel)
     upload_assets(args.repo, tag, [tarball, manifest_path])
     print(f"\nPublished OTA build {build} to {args.repo} release {tag}.")
+    # #2307: only after the upload succeeded. The OTA build is live either way;
+    # a PyPI problem is printed, never raised.
+    trigger_pypi_publish(**pypi_args)
     return 0
 
 

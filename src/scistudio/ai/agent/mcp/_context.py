@@ -26,10 +26,31 @@ calls :func:`set_context` for the duration of the test.
 The Protocol is **structural**: callers only need attributes / methods
 the tools actually reach for. Anything broader would create a hidden
 coupling.
+
+ADR-055 Spec 2 (#2279) adds two *optional capabilities* beside the core
+Protocol, read through :func:`get_project_files` and
+:func:`get_process_registry` so a context without them (the standalone
+bridge, a unit-test stub) degrades to an explicit "unavailable" instead of an
+``AttributeError``:
+
+* ``project_files`` (:class:`ProjectFileWriter`) — the editor's shared write
+  path (atomic write, ``file.changed``, block reload). Production:
+  ``scistudio.api.runtime._file_writes.ProjectFileService``.
+* ``process_registry`` (:class:`CommandProcessRegistry`) — the registry the
+  backend's shutdown ``terminate_all`` runs on, so managed ``run_command``
+  processes stop with the backend.
+
+It also adds the bridge-call marker (:func:`bridge_call_scope` /
+:func:`invoked_through_bridge`): the WebMCP route sets it around dispatch so a
+tool can apply a rule to bridge calls without changing local-transport
+behavior.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import Context, ContextVar, copy_context
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -60,6 +81,107 @@ class MCPContext(Protocol):
     # ``get_active_workflow_context`` MCP tool so the agent has VS Code
     # Copilot-style editor awareness without per-message context bloat.
     active_workflow_id: str | None
+
+
+class ProjectFileWriter(Protocol):
+    """Optional capability: the shared project-file write path (ADR-055 Spec 2 FR-005).
+
+    Every method takes absolute targets, confines them to the active project,
+    and returns a plain dict whose ``status`` is ``"ok"`` or ``"conflict"``
+    (with ``condition``, ``message``, and the expected/current state
+    versions). Disk failures raise.
+    """
+
+    def state_version(self, target: Path) -> int | None:
+        """Current state version of a project file, ``None`` outside the project."""
+        ...
+
+    async def write_text(
+        self,
+        target: Path,
+        content: str,
+        *,
+        expected_state_version: int | None = None,
+        create_only: bool = False,
+        require_existing: bool = False,
+        create_parents: bool = False,
+        changed_by: str = ...,
+    ) -> dict[str, Any]: ...
+
+    async def make_directory(self, target: Path, *, parents: bool = False, changed_by: str = ...) -> dict[str, Any]: ...
+
+    async def delete(
+        self,
+        target: Path,
+        *,
+        recursive: bool = False,
+        expected_state_version: int | None = None,
+        changed_by: str = ...,
+    ) -> dict[str, Any]: ...
+
+    async def move(
+        self,
+        source_path: Path,
+        destination: Path,
+        *,
+        create_parents: bool = False,
+        expected_state_version: int | None = None,
+        changed_by: str = ...,
+    ) -> dict[str, Any]: ...
+
+
+class CommandProcessRegistry(Protocol):
+    """Optional capability: the backend's process registry (ADR-019, ADR-055 Spec 2 FR-009).
+
+    Structurally :class:`scistudio.engine.runners.process_handle.ProcessRegistry`.
+    """
+
+    def register(self, handle: Any) -> None: ...
+
+    def deregister(self, workflow_id: str, block_id: str) -> None: ...
+
+    def get_handle(self, workflow_id: str, block_id: str) -> Any: ...
+
+    def active_handles(self) -> list[Any]: ...
+
+
+def get_project_files(ctx: Any) -> ProjectFileWriter | None:
+    """Return the context's shared write path, or ``None`` when it has none."""
+    return getattr(ctx, "project_files", None)
+
+
+def get_process_registry(ctx: Any) -> CommandProcessRegistry | None:
+    """Return the context's backend process registry, or ``None`` when it has none."""
+    return getattr(ctx, "process_registry", None)
+
+
+_BRIDGE_CALL: ContextVar[bool] = ContextVar("scistudio_webmcp_bridge_call", default=False)
+
+
+@contextmanager
+def bridge_call_scope() -> Iterator[None]:
+    """Mark the enclosed tool dispatch as arriving through the WebMCP bridge."""
+    token = _BRIDGE_CALL.set(True)
+    try:
+        yield
+    finally:
+        _BRIDGE_CALL.reset(token)
+
+
+def invoked_through_bridge() -> bool:
+    """True inside a :func:`bridge_call_scope` (a WebMCP bridge dispatch)."""
+    return _BRIDGE_CALL.get()
+
+
+def outside_bridge_context() -> Context:
+    """A copy of the current context with the bridge-call marker cleared.
+
+    For background tasks a dispatch spawns (a ``run_command`` supervisor): they
+    outlive the call and must not look like bridge calls to anything they run.
+    """
+    context = copy_context()
+    context.run(_BRIDGE_CALL.set, False)
+    return context
 
 
 _current_context: MCPContext | None = None
@@ -199,12 +321,19 @@ def _resolve_project_path(target: str | Path) -> Path:
 
 # Re-export for test convenience.
 __all__ = [
+    "CommandProcessRegistry",
     "MCPContext",
+    "ProjectFileWriter",
     "_resolve_project_path",
     "_resolve_project_root",
     "_safe_under",
+    "bridge_call_scope",
     "get_context",
     "get_optional_context",
+    "get_process_registry",
+    "get_project_files",
+    "invoked_through_bridge",
+    "outside_bridge_context",
     "set_context",
 ]
 

@@ -604,6 +604,23 @@ def test_run_workflow_delegates_to_runtime(ctx: _StubRuntime, tmp_path: Path) ->
     assert "get_run_status" in result.next_step
 
 
+def test_run_workflow_result_carries_additive_poll_hint(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """ADR-055 Spec 2 (#2279) remind_poll_status parity: an additive field, existing fields unchanged."""
+    wf = tmp_path / "hint_wf.yaml"
+    wf.write_text(_WF_YAML, encoding="utf-8")
+    result = _run(tools_workflow.run_workflow(str(wf)))
+    dumped = result.model_dump()
+    # Every pre-existing field keeps its name and value shape.
+    assert dumped["run_id"] == "hint_wf"
+    assert dumped["status"] == "queued"
+    assert dumped["next_step"] == tools_workflow.RunWorkflowResult.model_fields["next_step"].default
+    # The hint names the run and the polling tool, with the real terminal states.
+    assert "get_run_status" in dumped["poll_hint"]
+    assert "run_id=hint_wf" in dumped["poll_hint"]
+    for state in ("succeeded", "failed", "cancelled"):
+        assert state in dumped["poll_hint"]
+
+
 def test_run_workflow_no_start_method_raises() -> None:
     class _PoorRuntime:
         block_registry = BlockRegistry()

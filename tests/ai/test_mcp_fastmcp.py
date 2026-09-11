@@ -2,10 +2,12 @@
 
 Asserts the FastMCP-backed MCP server matches the ADR-040 contract:
 
-* 36 tools discoverable via ``await mcp.list_tools()``
+* 50 tools discoverable via ``await mcp.list_tools()``
   (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488 + 6 plot tools
   from ADR-048 SPEC 2 + 1 qa tool ``open_gui`` from #1947 + 1 library
-  tool ``promote_to_user_library`` from ADR-053 FR-011).
+  tool ``promote_to_user_library`` from ADR-053 FR-011 + 14
+  external-audience tools from ADR-055 Spec 2 / #2279, which the local
+  socket transport hides).
 * Every write-class tool's result model has ``next_step: str``.
 * ``scaffold_block`` has the widened §3.2a signature with
   ``input_ports`` + ``output_ports`` dict args and a ``warnings`` field.
@@ -80,6 +82,21 @@ _EXPECTED_TOOL_NAMES = {
     "run_plot_job",
     # category (f) library (ADR-053 FR-011)
     "promote_to_user_library",
+    # ADR-055 Spec 2 / #2279 — external audience (WebMCP bridge only)
+    "get_agent_context",
+    "list_directory",
+    "get_file_info",
+    "search_files",
+    "read_file",
+    "write_file",
+    "create_directory",
+    "patch_file",
+    "move_path",
+    "delete_path",
+    "run_command",
+    "list_commands",
+    "get_command_status",
+    "cancel_command",
 }
 
 
@@ -92,10 +109,10 @@ def _run(coro: Coroutine[Any, Any, Any]) -> Any:
 # ---------------------------------------------------------------------------
 
 
-def test_fastmcp_lists_36_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011: 36 tools."""
+def test_fastmcp_lists_50_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011 + ADR-055 Spec 2: 50 tools."""
     tools = _run(mcp.list_tools())
-    assert len(tools) == 36
+    assert len(tools) == 50
     names = {t.name for t in tools}
     assert names == _EXPECTED_TOOL_NAMES, (
         f"missing: {_EXPECTED_TOOL_NAMES - names}; extra: {names - _EXPECTED_TOOL_NAMES}"
