@@ -370,7 +370,9 @@ allowed surfaces, and no commit message, PR text, issue, `docs/planning/**`,
 or other audit report or gate ledger read. The audit branch was updated by
 merging `origin/feat/2308-webmcp-adapter` at `26af14cf8`. Evidence comes from
 plain diffs against `f130ee558`, the current code, the test runs, and the
-re-run probes.
+re-run probes. One `git log --oneline` run, used to confirm this audit's own
+commits after the push, also printed the subject line of `26af14cf8`. That
+happened after this section was written, and it was not used as evidence.
 
 **Updated recommendation: pass-with-fixes.** The P1 and two of the three P2
 findings are fixed and covered by new tests. One P2 remains in part: the
