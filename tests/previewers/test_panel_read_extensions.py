@@ -57,7 +57,8 @@ def test_plane_extrema_include_unsampled_cells_in_bounded_reads(monkeypatch: pyt
     restored = np.frombuffer(result.to_bytes(), dtype="<f4").reshape(result.metadata["shape"])
     np.testing.assert_array_equal(restored, source[::33, ::49])
     encoded = result.to_json()
-    assert encoded["values"][0][0] is None
+    # NaN is conveyed distinctly as the sentinel "NaN", never erased to null (#1886 E).
+    assert encoded["values"][0][0] == "NaN"
     json.dumps(encoded, allow_nan=False)
 
 
@@ -80,7 +81,8 @@ def test_tile_flags_nonfinite_and_invalid_bounds(monkeypatch: pytest.MonkeyPatch
     access, ref, handle = array_reader(monkeypatch, source, max_cells=16, max_tile=4)
     result = access.panel_array_tile(ref, height=8, width=9)
     assert result.metadata["truncated"] and not result.metadata["complete"]
-    assert result.to_json()["values"][0][:2] == [None, None]
+    # +inf and -inf are conveyed as distinct sentinels, not both flattened to null.
+    assert result.to_json()["values"][0][:2] == ["Infinity", "-Infinity"]
     assert np.isinf(np.frombuffer(result.to_bytes(), dtype="<f8")[:2]).all()
     before = len(handle.keys)
     for kwargs in [{"y0": -1}, {"x0": 51}, {"height": -1}, {"axis_indices": {0: 1}}]:
@@ -249,3 +251,113 @@ def test_plane_extrema_preserve_large_integer_precision(monkeypatch: pytest.Monk
     assert result.metadata["vmax"] == 2**63 + 7
     assert result.to_json()["values"] == [[2**63 + 1, 2**63 + 7]]
     assert np.frombuffer(result.to_bytes(), dtype="<u8").tolist() == [2**63 + 1, 2**63 + 7]
+
+
+def test_numeric_read_conveys_all_three_nonfinite_kinds_distinctly() -> None:
+    """#1886 E: NaN / +inf / -inf are three distinct sentinels, never one null."""
+    from scistudio.previewers._read_arrays import numeric_read
+
+    values = np.array([[np.nan, np.inf, -np.inf, 1.5]], dtype="<f8")
+    encoded = numeric_read(values, {}, max_bytes=1024).to_json()["values"]
+    assert encoded == [["NaN", "Infinity", "-Infinity", 1.5]]
+    json.dumps(encoded, allow_nan=False)
+
+
+def test_collection_page_paging_reaches_every_item_beyond_first_page() -> None:
+    """#1886 B: dataframe-style page/page_size makes every item reachable."""
+    items = [{"data_ref": str(i)} for i in range(250)]
+    access = PreviewDataAccess(max_items=100)
+
+    first = access.collection_sample(count=250, item_type="Image", items=items, page=1, page_size=100)
+    assert (first.page, first.page_size, first.total_pages) == (1, 100, 3)
+    assert first.count == 250 and first.sampled
+    assert [it["data_ref"] for it in first.items] == [str(i) for i in range(100)]
+
+    # A specific later page is directly reachable — item 150+ lives past page 1.
+    third = access.collection_sample(count=250, item_type="Image", items=items, page=3, page_size=100)
+    assert third.page == 3
+    assert [it["data_ref"] for it in third.items] == [str(i) for i in range(200, 250)]
+
+    # Paging 1..total_pages reaches the whole inventory, nothing silently capped.
+    seen: list[str] = []
+    for p in range(1, first.total_pages + 1):
+        sample = access.collection_sample(count=250, item_type="Image", items=items, page=p, page_size=100)
+        seen.extend(it["data_ref"] for it in sample.items)
+    assert seen == [str(i) for i in range(250)]
+
+    # page_size is capped at the item budget (still every item reachable by paging).
+    capped = access.collection_sample(count=250, item_type="Image", items=items, page=1, page_size=999)
+    assert capped.page_size == 100 and capped.total_pages == 3
+
+    with pytest.raises(ValueError, match="either"):
+        access.collection_sample(count=250, item_type=None, items=items, page=1, cursor="x")
+    with pytest.raises(ValueError, match="inventory"):
+        access.collection_sample(count=250, item_type=None, items=items[:5], page=1)
+    with pytest.raises(ValueError, match="positive"):
+        access.collection_sample(count=250, item_type=None, items=items, page=0)
+
+
+def test_series_and_table_nonfinite_positions_surface_gaps(tmp_path: Path) -> None:
+    """#1886 D: dropped non-finite points report *where* they were, not just how many."""
+    access = PreviewDataAccess()
+    ref = StorageReference(backend="filesystem", path="/nonexistent")
+    series = access.series_points(ref, {"values": [1.0, float("nan"), 3.0, float("inf"), 5.0]})
+    assert series.nonnumeric == 2
+    assert series.nonfinite_positions == [1, 3]
+    assert series.nonfinite_positions_complete
+
+    path = tmp_path / "xy.parquet"
+    pq.write_table(pa.table({"x": [0.0, 1.0, float("nan"), 3.0], "y": [10.0, float("inf"), 12.0, 13.0]}), path)
+    xy = access.table_xy_points(StorageReference(backend="arrow", path=str(path)), x_column="x", y_column="y")
+    assert xy.nonnumeric == 2
+    assert xy.nonfinite_positions == [1, 2]
+
+
+def test_decimated_series_reports_bounded_gap_positions(tmp_path: Path) -> None:
+    """#1886 D: even a bounded decimated read surfaces (bounded) gap positions."""
+    values = [float(i) for i in range(100)]
+    for i in (7, 40, 88):
+        values[i] = float("nan")
+    path = tmp_path / "s.parquet"
+    pq.write_table(pa.table({"time": np.arange(100), "signal": values}), path)
+    ref = StorageReference(backend="arrow", path=str(path))
+    result = PreviewDataAccess().panel_series_points(ref, {"index_name": "time", "value_name": "signal"}, max_points=10)
+    assert result.metadata["nonnumeric"] == 3
+    assert result.metadata["nonfinite_positions"] == [7, 40, 88]
+    assert result.metadata["nonfinite_positions_complete"] is True
+
+    # When drops exceed the position budget, the list is bounded but the count stays exact.
+    dense = [float("nan")] * 50 + [float(i) for i in range(50)]
+    dense_path = tmp_path / "dense.parquet"
+    pq.write_table(pa.table({"time": np.arange(100), "signal": dense}), dense_path)
+    bounded = PreviewDataAccess().panel_series_points(
+        StorageReference(backend="arrow", path=str(dense_path)),
+        {"index_name": "time", "value_name": "signal"},
+        max_points=5,
+    )
+    assert bounded.metadata["nonnumeric"] == 50
+    assert len(bounded.metadata["nonfinite_positions"]) == 5
+    assert bounded.metadata["nonfinite_positions_complete"] is False
+
+
+def test_read_budget_is_20_mib_and_refuses_oversized_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1886 G: the transport budget is 20 MiB and an unfittable read is refused, not degraded."""
+    from scistudio.panels.contexts import READ_BYTES
+    from scistudio.previewers.data_access import DEFAULT_MAX_BYTES
+    from scistudio.previewers.models import PreviewLimits
+
+    assert DEFAULT_MAX_BYTES == 20 * 1024 * 1024
+    assert READ_BYTES == 20 * 1024 * 1024
+    assert PreviewLimits().max_bytes == 20 * 1024 * 1024
+
+    # A native-resolution tile too large for one read is refused with an explicit
+    # "too large" error, never a silent decimated/degraded stand-in.
+    access, ref, handle = array_reader(monkeypatch, np.ones((4096, 4096), dtype="<f8"), max_cells=10**9, max_tile=4096)
+    with pytest.raises(ValueError, match="budget"):
+        access.panel_array_tile(ref, height=4096, width=4096)
+    assert not handle.keys  # refused before touching storage
+
+    # A native-resolution tile that fits the 20 MiB budget is served in full.
+    fits = access.panel_array_tile(ref, height=512, width=512)
+    assert fits.values.shape == (512, 512)
+    assert not fits.metadata["sampled"] and fits.metadata["complete"]

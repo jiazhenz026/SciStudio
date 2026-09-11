@@ -627,8 +627,8 @@ class PreviewLimits:
 
     max_rows: int = 200
     """Maximum table rows returned in one page."""
-    max_bytes: int = 8 * 1024 * 1024
-    """Maximum payload size in bytes (default 8 MiB)."""
+    max_bytes: int = 20 * 1024 * 1024
+    """Maximum payload size in bytes (default 20 MiB)."""
     max_items: int = 100
     """Maximum collection items sampled at once."""
     max_tile: int = 256

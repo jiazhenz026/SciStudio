@@ -10,9 +10,36 @@ from typing import Any
 import numpy as np
 
 
+def encode_nonfinite(value: float) -> float | str:
+    """Encode one numeric cell for JSON transport, distinguishing non-finite kinds.
+
+    JSON has no ``NaN`` / ``Infinity`` literals, so a non-finite float cannot be
+    sent as a number. Rather than erase the distinction by mapping every
+    non-finite value to ``null`` (which cannot tell NaN from +-inf from a truly
+    missing cell), this is the single reading-layer encoding: finite values pass
+    through unchanged; ``NaN`` becomes the sentinel string ``"NaN"``; ``+inf``
+    becomes ``"Infinity"``; ``-inf`` becomes ``"-Infinity"``. The frontend can
+    then render ``NaN`` / ``∞`` / ``-∞`` faithfully instead of a blank cell. The
+    binary :meth:`NumericRead.to_bytes` path keeps full IEEE-754 fidelity and is
+    unaffected.
+    """
+    if math.isfinite(value):
+        return value
+    if math.isnan(value):
+        return "NaN"
+    return "Infinity" if value > 0 else "-Infinity"
+
+
 @dataclass(frozen=True)
 class NumericRead:
-    """A bounded numeric buffer with metadata shared by JSON and binary."""
+    """A bounded numeric buffer with metadata shared by JSON and binary.
+
+    ``to_bytes`` preserves the exact IEEE-754 payload. ``to_json`` encodes
+    non-finite float cells with distinct sentinel strings via
+    :func:`encode_nonfinite` (``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``) so a
+    masked scientific array stays strict-JSON-safe without losing the NaN vs
+    +-inf distinction.
+    """
 
     values: np.ndarray
     metadata: dict[str, Any]
@@ -27,7 +54,7 @@ class NumericRead:
             def safe(value: Any) -> Any:
                 if isinstance(value, list):
                     return [safe(item) for item in value]
-                return value if math.isfinite(value) else None
+                return encode_nonfinite(value)
 
             values = safe(values)
         return {**self.metadata, "values": values}

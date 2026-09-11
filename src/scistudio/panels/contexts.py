@@ -18,7 +18,7 @@ from scistudio.previewers.models import PreviewEnvelope
 
 TOKEN_TTL = 600
 MAX_CONTEXTS = 128
-READ_BYTES = 8 * 1024 * 1024
+READ_BYTES = 20 * 1024 * 1024
 READ_ITEMS = 200
 READ_ROWS = 200
 READ_DIM = 512
@@ -352,7 +352,7 @@ class PanelContexts:
             except (TypeError, ValueError) as exc:
                 raise PanelError(422, "invalid_response", "Interactive response must be JSON-safe") from exc
             if len(encoded.encode()) > READ_BYTES:
-                raise PanelError(413, "read_budget", "Interactive response exceeds 8 MiB")
+                raise PanelError(413, "read_budget", "Interactive response exceeds 20 MiB")
             self.close(context_id)
 
 

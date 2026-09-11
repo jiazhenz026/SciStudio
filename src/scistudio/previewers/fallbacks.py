@@ -318,6 +318,9 @@ def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
     if result.nonnumeric:
         diagnostics.append(f"skipped {result.nonnumeric} nonnumeric row(s)")
     table_rows = [{"index": p["x"], "value": p["y"]} for p in result.points]
+    # Surface *where* the non-finite rows were so the frontend can mark the gaps
+    # instead of letting the dropped samples silently vanish (#1886 item D).
+    gaps = {"count": result.nonnumeric, "positions": result.nonfinite_positions}
     return PreviewEnvelope(
         previewer_id=request.spec.previewer_id,
         target=request.target,
@@ -332,7 +335,12 @@ def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
             sampled=False,
             truncated=False,
             complete=result.nonnumeric == 0,
-            extra={"total": result.total, "shown": len(result.points), "nonnumeric_rows": result.nonnumeric},
+            extra={
+                "total": result.total,
+                "shown": len(result.points),
+                "nonnumeric_rows": result.nonnumeric,
+                "nonfinite_gaps": gaps,
+            },
         ),
     )
 

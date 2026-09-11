@@ -165,7 +165,7 @@ optional structured detail.
 
 ```python
 class PreviewLimits
-PreviewLimits(max_rows: 'int' = 200, max_bytes: 'int' = 8388608, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256) -> None
+PreviewLimits(max_rows: 'int' = 200, max_bytes: 'int' = 20971520, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256) -> None
 ```
 
 The bounded-read budgets applied to a preview session.

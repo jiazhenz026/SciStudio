@@ -48,7 +48,13 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
     """Select evenly spaced source indices, retaining endpoints when budget > 1.
 
     Nonfinite rows are omitted, never replaced with zeros. Their count covers
-    the entire source, which is streamed in bounded batches, not collected.
+    the entire source, which is streamed in bounded batches, not collected. The
+    0-based source positions of the omitted rows are also reported in
+    ``nonfinite_positions`` so the frontend can mark the gaps rather than let
+    them silently vanish; that list is bounded to ``max_points`` entries to stay
+    within the streaming budget, and ``nonfinite_positions_complete`` states
+    whether it lists every omitted row (the ``nonnumeric`` count is always the
+    complete tally).
     """
     path = Path(ref.path)
     if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
@@ -57,10 +63,13 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
     limit = min(total, max_points)
     selected = {i * (total - 1) // (limit - 1) for i in range(limit)} if limit > 1 else {0} if limit else set()
     points, nonnumeric = [], 0
+    nonfinite_positions: list[int] = []
     for index, (raw_x, raw_y) in enumerate(pairs):
         x, y = _finite(raw_x), _finite(raw_y)
         if x is None or y is None:
             nonnumeric += 1
+            if len(nonfinite_positions) < max_points:
+                nonfinite_positions.append(index)
         elif index in selected:
             points.append({"x": x, "y": y})
     sampled = total > max_points
@@ -72,4 +81,6 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
         "truncated": sampled,
         "complete": not sampled,
         "decimation": "uniform-index" if sampled else "none",
+        "nonfinite_positions": nonfinite_positions,
+        "nonfinite_positions_complete": len(nonfinite_positions) == nonnumeric,
     }

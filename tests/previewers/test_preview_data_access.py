@@ -317,13 +317,15 @@ def test_array_plane_signed_extent_not_clipped(monkeypatch: pytest.MonkeyPatch, 
     assert plane.slice_axes == []  # 2-D: nothing to slice
     assert plane.vmin is not None and plane.vmin < 0  # negative preserved
     assert plane.vmax is not None and plane.vmax > 0
-    # The matrix itself still carries the negative values.
-    finite_values = [v for row in plane.matrix for v in row if v is not None]
+    # The matrix itself still carries the negative values. Non-finite cells are
+    # sentinel strings ("NaN"/"Infinity"/"-Infinity"); finite cells are numbers.
+    finite_values = [v for row in plane.matrix for v in row if isinstance(v, (int, float))]
     assert min(finite_values) < 0
 
 
 def test_array_plane_all_nan_extent_is_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An all-NaN plane yields ``vmin``/``vmax`` of None (no misleading legend)."""
+    import json
     import sys
     import types
 
@@ -345,16 +347,20 @@ def test_array_plane_all_nan_extent_is_none(monkeypatch: pytest.MonkeyPatch, tmp
     plane = PreviewDataAccess().array_plane(ref)
     assert plane.vmin is None
     assert plane.vmax is None
-    # The matrix is JSON-safe: non-finite cells are encoded as ``None``.
-    assert all(v is None for row in plane.matrix for v in row)
+    # The matrix is JSON-safe: NaN cells are conveyed as the sentinel "NaN"
+    # (distinctly, never erased to ``null``).
+    assert all(v == "NaN" for row in plane.matrix for v in row)
+    json.dumps(plane.matrix, allow_nan=False)
 
 
 def test_array_plane_matrix_is_json_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A plane mixing NaN/inf with finite values serializes as strict JSON.
 
     Masked scientific arrays carry NaN/+-inf; the numeric matrix is the primary
-    preview payload, so non-finite cells must be encoded as ``null`` (not the
-    invalid ``NaN`` / ``Infinity`` JSON tokens) or the session response breaks.
+    preview payload, so non-finite cells are conveyed as the distinct sentinel
+    strings ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"`` (not the invalid ``NaN`` /
+    ``Infinity`` JSON tokens, and never erased to ``null``) so the frontend can
+    tell NaN from +-inf while the session response stays strict JSON (#1886 E).
     """
     import json
     import sys
@@ -382,9 +388,9 @@ def test_array_plane_matrix_is_json_safe(monkeypatch: pytest.MonkeyPatch, tmp_pa
     ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
     plane = PreviewDataAccess().array_plane(ref)
 
-    # Non-finite cells became None; finite cells survived.
-    assert plane.matrix[0] == [1.0, None, 3.0]
-    assert plane.matrix[1] == [None, -2.0, None]
+    # Non-finite cells became distinct sentinels; finite cells survived.
+    assert plane.matrix[0] == [1.0, "NaN", 3.0]
+    assert plane.matrix[1] == ["Infinity", -2.0, "-Infinity"]
     # vmin/vmax ignore the non-finite cells.
     assert plane.vmin == -7.0
     assert plane.vmax == 5.5
