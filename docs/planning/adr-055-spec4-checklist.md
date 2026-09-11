@@ -145,7 +145,9 @@ language_source: en
 | `AU2` | `audit_reviewer` | `no-context` | assigned after the A1 PR | audit O1 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o1-no-context.md` | product code | A1 PR | `[ ]` |
 | `AU3` | `audit_reviewer` | `with-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-with-context.md` | product code | A2 PR | `[ ]` |
 | `AU4` | `audit_reviewer` | `no-context` | assigned after the A2 PR | audit O2 | read-only | own worktree | `docs/audit/2026-09-*-adr-055-spec4-o2-no-context.md` | product code | A2 PR | `[ ]` |
-| `A3` | `implementer` | `N/A` | prompts §A3 | O3: remove the GUI-disconnect auto-cancel without regressing #1500 | `fix/2327-run-lifetime` | `.worktrees/fix-2327-run-lifetime` | see prompts §A3 | `seam.py`, `spa.py`, `ai_pty/**`, `webmcp.py`, `cli/**`, `frontend/**` | `#2327` | `[~]` |
+| `A3` | `implementer` | `N/A` | prompts §A3 | O3: remove the GUI-disconnect auto-cancel without regressing #1500 | `fix/2327-run-lifetime` | `.worktrees/fix-2327-run-lifetime` | see prompts §A3 | `seam.py`, `spa.py`, `ai_pty/**`, `webmcp.py`, `cli/**`, `frontend/**` | `#2327`, PR #2334 | `[~]` PR open, CI running |
+| `AU5` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O3, PR #2334 | `audit/2327-with-context` | `.worktrees/audit-2327-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o3-with-context.md` | product code | PR #2334 | `[~]` |
+| `AU6` | `audit_reviewer` | `no-context` | template filled at dispatch (2026-09-11) | audit O3 run lifetime | `audit/2327-no-context` | `.worktrees/audit-2327-no-context` | `docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md` | product code | none (no-context) | `[~]` |
 | `A4` | `implementer` | `N/A` | written at dispatch | O4: Package Manager for editions via a seam capability (owner option C) | `feat/2331-edition-package-manager` | `.worktrees/feat-2331-edition-package-manager` | `routes/packages.py`, seam capability, frontend Package Manager gate | everything else | `#2331` | `[ ]` queued after #2322 merges |
 | `A5` | `implementer` | `N/A` | written at dispatch | O5: ABI-keyed user site and automatic background reinstall (owner option C) | `feat/2332-user-site-abi-repair` | `.worktrees/feat-2332-user-site-abi-repair` | `desktop/paths.py`, `desktop/package_installer.py`, the startup repair in `api/runtime/__init__.py`, the frontend notice | everything else | `#2332` | `[ ]` queued after #2322 and #2327 merge |
 
@@ -285,7 +287,9 @@ language_source: en
 
 ### 9.4 Audit and Integration
 
-- [ ] Reviewed by the manager; audited with O1/O2 or on its own.
+- [x] PR opened -> #2334. It uses the existing lineage APIs and states, per-run owner markers, reconciliation when the store opens, and a bounded shutdown finalize. No core or schema change.
+- [~] Audits dispatched on their own -> AU5 (with-context), AU6 (no-context). Each report is committed on its audit branch, and the manager merges it into `fix/2327-run-lifetime`.
+- [ ] P1 findings fixed; P2/P3 fixed or tracked.
 - [ ] Track merged.
 
 ## 10. Verification Evidence
