@@ -1,7 +1,40 @@
 {
   "base_ref": "origin/feat/2322-enterprise-ui",
   "branch": "audit/2322-no-context",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-11T12:19:58.422562Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ef1cb0385b0053b4fdf2d8d811bae453ed71ddfe68b517bd1870384b91268d44",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:20:09.909387Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9badedc02d53b63441d263f318b579562693cfad55fc68a9ff60708b59f5c86f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -23,7 +56,74 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-11T12:20:09.960950Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:09.973253Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:09.985415Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:09.997839Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.010309Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.022472Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.035391Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.051779Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.064700Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.077040Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:20:10.091344Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -33,25 +133,72 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "79cfe2b7d9e689c02a07d497ab06a6722645bf5f",
+    "base_sha": "79cfe2b7d",
+    "changed_files": [
+      ".workflow/records/2322-audit-2322-o1-no-context.json",
+      "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md"
+    ],
+    "diff_fingerprint": "sha256:56311eb3e4a0ed9e1aff5664e0b0e8a813b2303b721377d0125a316e35f03fd1",
+    "head": "HEAD",
+    "head_sha": "4688128ac",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Manager dispatch: no-context audit of the ADR-055 identity seam, edition capabilities, AI PTY gating and seam project-access helpers on feat/2322-enterprise-ui; deliver an audit report only, no implementation edits",
   "persona": "audit_reviewer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T12:20:10.091382Z",
+      "diff_fingerprint": "sha256:56311eb3e4a0ed9e1aff5664e0b0e8a813b2303b721377d0125a316e35f03fd1",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2322-audit-2322-o1-no-context",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "4e573cf4-bb92-49f9-bdc9-d47a6b2fa12e",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "docs",
   "test_events": [
     {
