@@ -86,6 +86,19 @@ export function PanelPreview({
               // independent preview session, including composite-local slot refs.
               const envelope = await panelsApi.open(contextId, ref);
               if (mounted.current) setChild(envelope);
+              /*
+               * ADR-053 FR-052 — `preview_item_opened`, in the closed
+               * `UI_EVENT_NAMES` set. The compiled collection/composite viewers
+               * reported this when the reader opened one child; a panel cannot
+               * reach the store from its frame, so the host reports it here for
+               * every panel. Without it a tutorial step that asks the reader to
+               * open an item can never finish. Imported lazily: the store pulls
+               * in every slice, and this module is rendered by tests that mock a
+               * narrow API surface.
+               */
+              void import("../store").then(({ useAppStore }) =>
+                useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
+              );
               return null;
             } finally {
               busy.current = false;

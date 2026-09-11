@@ -18,8 +18,10 @@ describe("packaged panel libraries", () => {
   it("ships every indexed file with its recorded shipped digest and license", () => {
     expect(index.libraries.map((entry) => entry.name).sort()).toEqual([
       "d3",
+      "lucide",
       "pdfjs",
       "plotly",
+      "preact-htm",
       "three",
     ]);
     for (const entry of index.libraries) {
