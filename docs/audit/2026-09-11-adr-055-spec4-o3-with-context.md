@@ -457,3 +457,48 @@ next head needs:
   asserts a `cancelled` row within the 15 s bound;
 - decisions on R1 and R2;
 - green CI, including a Frontend rerun.
+
+## 8. Final Check (head de11b2848)
+
+Subject: fix commit `ec720a30d` on top of the main merge `5d8e17c18` (#2343,
+a docstring-only rewording). Head `de11b2848`.
+
+| Item | Verdict | Evidence |
+|---|---|---|
+| N1 (P1) | Fixed | The watcher now duplicates stdin to a private, non-inheritable descriptor. It points descriptor 0 and the Win32 standard input handle at the null device, and reads the private descriptor with `os.read`. My earlier reproduction no longer freezes: probe J, the real `gui --bundled` backend with the flag set, through a workflow execute and its pre-run git call. All three variants reached the run and then stopped. The new real-backend test `test_runtime_backend_stop.py` passes on Windows. |
+| N2 (P2) | Fixed, within the stated budget | `arm_stop_notice` chains SIGTERM, SIGINT and SIGBREAK to `begin_shutdown`, which runs before uvicorn's connection drain. `begin_shutdown` closes the log broadcaster and kills the AI terminal sessions. `/api/logs/stream` ends on the broadcaster's `END` item, and `/ws` returns when either of its loops ends. Probe J ran three ways: no connection held, `/ws` held (closed with 1012), and the log SSE stream held (it ended). Each time the backend exited 0.2–0.3 s after stdin closed, the row was `cancelled`, the marker was removed, and all 3 child processes were gone. The budget is runs 10 s + AI terminals 3 s + commands 5 s = 18 s, under the 20 s limit. `STOP_ESCALATION_MS` is 25 s, and quit and relaunch wait 30 s. The missing uvicorn `timeout_graceful_shutdown` is accepted as out of scope. |
+| R1 (P3) | Fixed | `terminate_ai_terminal_sessions` kills and deregisters every `_active_ptys` session, and clears its engine tab and run maps. It runs on the stop notice and again in the lifespan, with a 3 s join. `test_a_graceful_stop_kills_an_ai_terminal_session_with_no_socket` exercises the real lifespan with a real child process. |
+| N3 (P3) | Fixed | `_ensure_terminal_row` writes nothing once the project's `lineage.db` is gone, and marker annotation no longer creates directories. Test: `test_a_run_whose_project_was_deleted_does_not_recreate_it`. |
+| N5 (P3) | Fixed | `spawnRuntimeCandidate` gives the backend a stdin pipe on win32 only; POSIX keeps `ignore`. |
+| R2 (P3) | Resolved | The CHANGELOG entry for the MCP pointer hardening now credits #2333 and PR #2329. |
+| P2-2 | Unchanged, accepted | The `ARCHITECTURE.md` §11.2 row waits on `admin-approved:architecture-doc`. |
+
+Observation, no action needed. On Windows the backend exits with code 3 after a
+graceful stop. The likely cause is uvicorn re-raising the captured SIGTERM
+after its shutdown, which the C runtime's default action turns into exit code
+3. The desktop classifies an exit by its `stopRequested` flag, not by the code
+(`trackRuntime` → `statusAfterExit`). A Stop therefore still shows `stopped`.
+
+Checks:
+- **Local tests on Windows.** Files: `test_runtime_backend_stop.py`,
+  `test_runtime_backend_streams.py`, `test_runtime_stop_request.py`,
+  `test_runtime_run_lifetime.py`, `test_ws.py`,
+  `test_runtime_import_surface.py`, `test_runtime_mcp_pointer.py`,
+  `test_runtime_lineage_finalize_status.py`. Result: 56 passed, 2 skipped (the
+  POSIX-only pointer tests), exit 0.
+- **Desktop tests:** `node --test` gives 224/224.
+- **Docs:** Spec 3 (FR-007, FR-015, §4.6) and the CHANGELOG state the 25 s
+  force-kill and the 30 s wait. No stale 15 s or 20 s bound remains for the
+  stop path.
+- **CI at `de11b2848`:** 15 checks pass, including the Deferral discipline
+  ratchet and Frontend. Test (Python 3.11) and Test (Python 3.13) were pending
+  when this section was written.
+
+Final recommendation: **pass**, provided Test (Python 3.11) and Test (Python
+3.13) finish green at `de11b2848`. Every finding from both audit rounds is fixed
+or accepted:
+- The owner-gated items are accepted as out of scope: the `ARCHITECTURE.md`
+  row, the core `finalize_run` guard, and the uvicorn one-liner in
+  `cli/main.py`.
+- AGENTS.md §3.6 requires the one-liner to be tracked by an issue or a
+  checklist row until it lands.
