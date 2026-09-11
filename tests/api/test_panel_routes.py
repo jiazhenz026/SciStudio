@@ -6,8 +6,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.app import create_app
-from scistudio.api.routes.panels import router
-from scistudio.api.seam import register_self_authenticating_prefix
 from tests.api.fake_guard import RecordingFakeGuardFactory, authenticate_fake_session
 from tests.panels.conftest import make_runtime
 
@@ -18,8 +16,7 @@ def panel_client(request, tmp_path, monkeypatch):
     prefix = request.param
     guard = RecordingFakeGuardFactory()
     monkeypatch.setenv("SCISTUDIO_ROOT_PATH", prefix)
-    register_self_authenticating_prefix("/api/panels/t/")
-    app = create_app(guard=guard, routers=[router])
+    app = create_app(guard=guard)
     app.state.runtime = runtime
     client = TestClient(app, base_url="http://testserver")
     authenticate_fake_session(client)
@@ -83,6 +80,7 @@ def test_renew_and_guarded_read_metadata(panel_client):
     context = create(client, prefix)
     renewed = client.post(prefix + "/api/panels/contexts/" + context["context_id"] + "/renew").json()
     assert renewed["token"] == context["token"]
+    assert renewed["bootstrap_proof"] == context["bootstrap_proof"]
     assert renewed["expires_at"] >= context["expires_at"]
     result = client.post(
         prefix + "/api/panels/contexts/" + context["context_id"] + "/read", json={"ref": "data-a", "op": "metadata"}
@@ -128,9 +126,46 @@ def test_openapi_declares_context_and_binary_read(panel_client):
     client, _prefix, *_ = panel_client
     schema = client.app.openapi()
     assert "context_id" in schema["components"]["schemas"]["ContextResponse"]["required"]
+    assert "bootstrap_proof" in schema["components"]["schemas"]["ContextResponse"]["required"]
     response = schema["paths"]["/api/panels/contexts/{context_id}/read"]["post"]["responses"]["200"]
     assert "application/octet-stream" in response["content"]
     assert "X-Panel-Dtype" in response["headers"]
+
+
+def test_entry_bootstrap_precedes_author_markup_and_is_document_specific(panel_client):
+    client, prefix, runtime, store, _ = panel_client
+    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    original = (
+        b'<!doctype html><meta http-equiv="refresh" content="0;url=next.html"><script>window.author=true</script>'
+    )
+    (panel.root / panel.entry).write_bytes(original)
+    (panel.root / "next.html").write_bytes(b"<p>secondary document</p>")
+    (panel.root / "module.js").write_bytes(b"export const value=1;")
+    context = create(client, prefix)
+    other = create(client, prefix)
+    assert len(context["bootstrap_proof"]) >= 40
+    assert other["bootstrap_proof"] != context["bootstrap_proof"]
+    response = client.get(context["entry_url"])
+    assert response.content.startswith(b"<!doctype html><script>")
+    assert response.content.endswith(original)
+    trusted = response.content[: -len(original)].decode()
+    assert context["bootstrap_proof"] in trusted
+    assert "new MessageChannel()" in trusted
+    assert "ports:event.ports" in trusted and "port.close()" in trusted
+    assert trusted.index("host.postMessage") < len(trusted)
+    assert other["bootstrap_proof"] not in trusted
+    assert client.options(context["entry_url"]).content == b""
+    secondary = client.get(context["entry_url"].replace("index.html", "next.html"))
+    assert secondary.content == b"<p>secondary document</p>"
+    module = client.get(context["entry_url"].replace("index.html", "module.js"))
+    assert module.content == b"export const value=1;"
+    assert module.headers["content-type"].startswith("text/javascript")
+    # Even a future proof generator with markup characters cannot end the script.
+    store.contexts[context["context_id"]].bootstrap_proof = "</script><script>alert(1)</script>\u2028"
+    escaped = client.get(context["entry_url"]).content[: -len(original)]
+    assert escaped.count(b"</script>") == 1
+    assert b"\\u003c/script\\u003e" in escaped
+    assert b"\\u2028" in escaped
 
 
 def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):

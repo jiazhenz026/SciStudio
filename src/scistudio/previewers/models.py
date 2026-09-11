@@ -560,7 +560,8 @@ class PreviewEnvelope:
     for core fallbacks. The wire shape omits the backend-only ``asset_root``."""
 
     panel: dict[str, Any] | None = None
-    """Resolved panel identity for the sandbox host (ADR-054)."""
+    """Resolved panel identity for the sandbox host."""
+    # Development references: ADR-054.
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dict of the whole envelope for the API/wire."""

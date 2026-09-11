@@ -219,6 +219,14 @@
       "path": null,
       "rationale": "Existing adr-054-panels and adr-054-miniapp govern approved A1 implementation; owner controls ADR text.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:48:59.543674Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-backend-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": true,
@@ -728,6 +736,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/panels/test_panel_routing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:48:59.543958Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
       "rationale": null,
       "verified_in_diff": null
     }

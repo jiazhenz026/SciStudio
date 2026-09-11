@@ -119,3 +119,20 @@ removed by sharing asset validation in panels/files.py. Route/collection/WS
 authority coverage now includes root prefixes, artifact grant separation,
 binary byte order, thread-pool reads, and >1,024 retained collection outputs.
 Integrated generated docs/OpenAPI, full gate and CI remain manager obligations.
+
+Entry initialization uses a required `bootstrap_proof` on create/renew (256 random
+bits, stable during renewal). Only the descriptor entry response prepends a
+standards doctype and trusted inline script before all original bytes. The script
+keeps a private MessageChannel endpoint in its document closure and sends
+`{v:1,id:"bootstrap",type:"bootstrap",proof}` plus the other endpoint to the parent.
+The host verifies the expected frame, proof and one port, then sends canonical
+init and the SDK port only through that retained endpoint after load. The old
+document's channel cannot initialize a replacement document. Original SDK init
+receives one synthetic parent-source message; the bootstrap endpoint closes.
+Secondary HTML, modules, libraries, artifacts and OPTIONS carry no bootstrap.
+Proof escaping prevents markup termination; no CSP or sandbox permissions change.
+
+Post-bootstrap targeted suite: 118 passed across descriptor/routing/context,
+collection authority, WS claims, real installed guard/prefix routes, static
+security, import-cycle and docstring policy tests. Manager separately reproduced
+the earlier TIFF test successfully in the isolated A3 gate environment.

@@ -45,6 +45,7 @@ class PanelContext:
     token: str
     expires_at: float
     input: Any
+    bootstrap_proof: str = field(default_factory=lambda: secrets.token_urlsafe(32))
     view_state: Any = None
     root: FrozenTarget | None = None
     parent_context_id: str | None = None

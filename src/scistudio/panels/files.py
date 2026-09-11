@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import mimetypes
 import re
 from pathlib import Path, PurePosixPath
@@ -29,6 +30,26 @@ ASSET_SUFFIXES = frozenset(
         ".wasm",
     }
 )
+
+
+def bootstrap_entry(document: bytes, proof: str) -> bytes:
+    """Bind the initialization channel to this document before author scripts run."""
+    encoded = (
+        json.dumps(proof, ensure_ascii=True).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    )
+    # A leading doctype preserves standards mode while putting trusted code before
+    # every original tag, including refresh metadata and executable author code.
+    script = (
+        "<!doctype html><script>(()=>{"
+        "const host=parent,dispatch=window.dispatchEvent.bind(window),Event=MessageEvent;"
+        "const channel=new MessageChannel(),port=channel.port1;"
+        "port.onmessage=(event)=>{port.onmessage=null;"
+        "dispatch(new Event('message',{source:host,data:event.data,ports:event.ports}));port.close();};"
+        "port.start();host.postMessage({v:1,id:'bootstrap',type:'bootstrap',proof:"
+        + encoded
+        + "},'*',[channel.port2]);})();</script>"
+    )
+    return script.encode("utf-8") + document.removeprefix(b"\xef\xbb\xbf")
 
 
 def resolve_panel_file(root: Path, relative: str) -> Path:

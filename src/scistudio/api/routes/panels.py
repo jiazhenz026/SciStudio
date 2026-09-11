@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
-from scistudio.panels.files import content_policy, media_type, resolve_panel_file
+from scistudio.panels.files import bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.reads import read_context
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
@@ -60,6 +60,7 @@ class ContextResponse(BaseModel):
     input: dict[str, Any]
     view_state: Any = None
     token: str
+    bootstrap_proof: str
     expires_at: float
     entry_url: str
     sdk_url: str
@@ -125,6 +126,7 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
         "input": context.input,
         "view_state": context.view_state,
         "token": context.token,
+        "bootstrap_proof": context.bootstrap_proof,
         "expires_at": context.expires_at,
         "entry_url": f"{base}/assets/{context.panel.id}/{quote(context.panel.entry, safe='/')}",
         "sdk_url": f"{base}/sdk/1/scistudio-panel.js",
@@ -219,7 +221,7 @@ def _bounded_json(value: Any, *, limit: int = READ_BYTES) -> None:
         raise PanelError(413, "read_budget", "Panel JSON exceeds its byte budget")
 
 
-def _static_response(request: Request, path: Path, token: str) -> Response:
+def _static_response(request: Request, path: Path, token: str, *, bootstrap_proof: str | None = None) -> Response:
     headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -232,6 +234,8 @@ def _static_response(request: Request, path: Path, token: str) -> Response:
     headers["Content-Security-Policy"] = content_policy(f"{origin}{_base(request)}/api/panels/t/{token}/")
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=headers)
+    if bootstrap_proof is not None:
+        return Response(bootstrap_entry(path.read_bytes(), bootstrap_proof), media_type="text/html", headers=headers)
     return FileResponse(path, media_type=media_type(path), headers=headers)
 
 
@@ -242,7 +246,9 @@ def panel_asset(token: str, panel_id: str, path: str, request: Request) -> Respo
         context = get_panel_contexts(request.app.state.runtime).by_token(token)
         if context.panel.id != panel_id:
             raise PanelError(403, "invalid_token", "Token does not authorize this panel")
-        return _static_response(request, resolve_panel_file(context.panel.root, path), token)
+        file = resolve_panel_file(context.panel.root, path)
+        proof = context.bootstrap_proof if path == context.panel.entry else None
+        return _static_response(request, file, token, bootstrap_proof=proof)
     except PanelError as exc:
         raise _failure(exc) from exc
     except ValueError as exc:

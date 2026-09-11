@@ -70,7 +70,8 @@ class PanelDescriptor:
 def parse_descriptor(
     directory: Path, *, owner_kind: OwnerKind, owner_name: str, registered_types: Collection[str]
 ) -> tuple[PanelDescriptor, list[str]]:
-    """Validate FR-002/003 and MiniApp FR-001/002 or raise a diagnostic ValueError."""
+    """Validate a panel descriptor or raise a diagnostic ValueError."""
+    # Development references: FR-002/003 and MiniApp FR-001/002.
     from scistudio.panels.files import resolve_panel_file
 
     directory = Path(directory)

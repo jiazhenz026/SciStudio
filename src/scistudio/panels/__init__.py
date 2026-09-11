@@ -1,1 +1,2 @@
-"""Sandboxed HTML panel discovery and context runtime (ADR-054)."""
+"""Sandboxed HTML panel discovery and context runtime."""
+# Development references: ADR-054.
