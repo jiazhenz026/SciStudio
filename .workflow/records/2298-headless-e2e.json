@@ -1,0 +1,49 @@
+{
+  "base_ref": null,
+  "branch": "test/2298-headless-e2e",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/e2e/**",
+      ".github/workflows/ci.yml",
+      "docs/contributing/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2298,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner-approved plan (e2e option 2): a headless end-to-end suite that starts a real 'scistudio serve' subprocess in an isolated home and drives it over HTTP and the /ws WebSocket, using the core tutorial assets (projects are built by copying tutorial assets, not via the tutorial session API). The suite is opt-in via SCISTUDIO_RUN_E2E=1 and runs on every PR as a separate CI job; the owner explicitly approved adding that job to .github/workflows/ci.yml. Implementer persona because the test_engineer guard blocks CI workflow edits.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2298-headless-e2e",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "975ae35a-e3b8-467f-ac45-a3774bee7c20",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": []
+}

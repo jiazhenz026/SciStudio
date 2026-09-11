@@ -166,6 +166,31 @@ jobs:
           fi
           exit $rc
 
+  e2e:
+    # #2298: the headless end-to-end suite (tests/e2e). It starts a real
+    # ``scistudio serve`` process, builds projects from the core tutorial
+    # assets, and drives them over HTTP and the /ws WebSocket, so it catches
+    # what the in-process suites cannot: process startup, drop-in discovery,
+    # worker-process runs, and the GUI event protocol. The suite skips itself
+    # unless SCISTUDIO_RUN_E2E=1, so the Test job above does not run it.
+    name: E2E (headless)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: uv pip install --system -e ".[dev]" pytest-timeout
+      - name: Run headless e2e
+        env:
+          SCISTUDIO_RUN_E2E: "1"
+        run: timeout 1200 pytest tests/e2e -n 0 --no-cov --timeout=300 --timeout-method=thread
+
   import-lint:
     name: Import Contracts
     runs-on: ubuntu-latest
