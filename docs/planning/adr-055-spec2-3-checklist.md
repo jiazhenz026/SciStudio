@@ -266,10 +266,10 @@ language_source: en
 
 ### 8.5 Integration
 
-- [ ] Agent output reviewed by manager.
-- [ ] Scope compliance verified.
-- [ ] Conflicts resolved intentionally.
-- [ ] Track merged or integrated.
+- [x] Agent output reviewed by manager. -> initial delivery + A2-fix1 reviewed (sections 8.3/8.4)
+- [x] Scope compliance verified. -> AU1: all changed files inside the A2 write set plus gate-amended additions
+- [x] Conflicts resolved intentionally. -> `git merge-tree` of main (28 commits ahead) vs `5465bcc79`: no overlapping files, no conflicts
+- [x] Track merged or integrated. -> owner merged PR #2284 on 2026-09-11 at `f564a8b1a` (head `5465bcc79`); verified landed (0 commits of `feat/2280` outside main; `desktop/background-mode.js`, `connection.html`, `connection-preload.js` on main); #2280 CLOSED. The pending A2 merge-main step was cancelled before anything was pushed
 
 ## 9. Verification Evidence
 
