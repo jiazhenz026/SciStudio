@@ -25,8 +25,8 @@ from scistudio.api import runtime as runtime_module
 from scistudio.api.app import create_app
 from scistudio.api.routes import ai_pty
 from scistudio.api.runtime import ApiRuntime, LogBroadcaster, _rmtree_force, _run_lifetime, _stop_request
-from scistudio.blocks.base.state import BlockState
 from scistudio.api.ws import websocket_handler
+from scistudio.blocks.base.state import BlockState
 from scistudio.core.lineage.record import RunRecord
 from scistudio.core.lineage.store import LineageStore
 from scistudio.engine.events import EventBus
