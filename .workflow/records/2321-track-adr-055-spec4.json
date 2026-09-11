@@ -36,7 +36,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "80efb8ad01faecf4c000668537ebc1b876cf47fb",
+    "shas": [
+      "80efb8ad01faecf4c000668537ebc1b876cf47fb"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -113,6 +119,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.631721Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.644743Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.656716Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.668849Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.681544Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.692851Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.704335Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.715623Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.727219Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.738980Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:43:38.753623Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -132,9 +204,9 @@
       "docs/planning/adr-055-spec4-checklist.md",
       "docs/planning/adr-055-spec4-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:8142c7c0720987f14ae9cdc4535cefe7fbc3e4583a426d87dfbf1152ad1709e4",
+    "diff_fingerprint": "sha256:d73be177b467773db57f68058f8af3f1c242460509f3322ccf3c91bab7e71c02",
     "head": "HEAD",
-    "head_sha": "34f68ef70",
+    "head_sha": "80efb8ad0",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -151,11 +223,26 @@
   },
   "owner_directive": "Owner 2026-09-11: act as manager for implementing ADR-055 Spec 4 (open-source adr-055-enterprise-support and the private enterprise spec); push PRs in both repositories",
   "persona": "manager",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2321
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-11T10:43:37.962485Z",
       "diff_fingerprint": "sha256:8142c7c0720987f14ae9cdc4535cefe7fbc3e4583a426d87dfbf1152ad1709e4",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T10:43:38.753658Z",
+      "diff_fingerprint": "sha256:d73be177b467773db57f68058f8af3f1c242460509f3322ccf3c91bab7e71c02",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
