@@ -1,0 +1,137 @@
+{
+  "base_ref": "4b8f948a",
+  "branch": "codex/2293-panel-contract-docs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".workflow/records/2293-panel-contract-docs.json",
+      "docs/planning/adr-049-package-validator/contracts/*.json",
+      "docs/planning/adr-054-contract-notes.md",
+      "docs/planning/adr-054-owner-doc-proposal.md",
+      "docs/user/reference/**",
+      "docs/user/llms.txt"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T15:39:11.679627Z",
+      "owner_directive": "Sentrux MCP unavailable; record only actual gate-selected CLI evidence. Manager owns integrated finalize and CI.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T15:41:17.394891Z",
+      "owner_directive": "Extend existing-row scope to PV-09-002 only; prepare ADR-049 master-index proposal and compare unchanged checker errors against origin/main.",
+      "reason": "Manager approved narrow existing PV-09-002 metadata and FrontendManifest anchor update required by A1 changes; unrelated legacy table failures remain reported."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T15:39:11.679774Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-contract-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:39:11.679781Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-owner-doc-proposal.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:39:11.679788Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner-controlled text is proposed only.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:39:11.679791Z",
+      "class": "ai_workflow",
+      "kind": "na",
+      "path": null,
+      "rationale": "No wrapper, hook, ledger evaluator, CI or runtime tooling change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:39:11.679793Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Manager owns Phase A changelog and release integration.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:43:15.581411Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-owner-doc-proposal.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:43:15.581547Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator/contracts/pv-a3-sections-07-09.json",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:43:15.581549Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator/contracts/pv-a4-sections-10-12.json",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2293,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Phase A contract documentation only per committed dispatch; protected ADR/spec/architecture updates proposal-only; preserve existing sidebar; no CI completion claim.",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2293-panel-contract-docs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "017f198c-2c97-4545-a9fa-5c6e05dbd4fb",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T15:39:11.679796Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Documentation-only contract reconciliation; no runtime behavior changes.",
+      "verified_in_diff": null
+    }
+  ]
+}
