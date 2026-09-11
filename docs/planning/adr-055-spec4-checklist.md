@@ -70,6 +70,9 @@ language_source: en
         `add_upload_listener`.
   - **O2 (#2308):** the stdio MCP adapter over `/api/webmcp/*` and the per-user
     loopback token file (FR-008 to FR-011), with the adapter's spec details.
+    - Scope addition (manager, 2026-09-11): #2333, owner-only permissions on
+      the local MCP socket whatever the umask, and a private fallback
+      directory (`ai/agent/mcp/server.py`, `runtime.py`).
 - Out of scope:
   - Enterprise backend routes, guard, deployment, and runbook (private
     repository).
@@ -304,6 +307,8 @@ Append only.
 | 2026-09-11 | manager | The enterprise guard track found that `/api/ai/pty/internal/*` worker callbacks are refused by any replacement guard. No other internal callback routes exist. | Added to A1's scope (inside `ai_pty/**`): verify the IPC token on every internal route, then register the prefix as self-authenticating. | #2322 |
 | 2026-09-11 | manager | The enterprise guard track found that `ws.py` cancels every active run 2 s after the last `/ws` disconnect, which conflicts with ADR-055 external-AI mode and editions. | Opened #2327. Owner chose option 1 with the #1500 no-regression constraint. New track O3 (A3). | #2327 |
 | 2026-09-11 | manager | An edition's transfer track stopped: the seam offers no public project root, tool-result error, author-blacklist check, shared write path, or upload event, and only internals reach them. | Opened #2328 and folded it into A1's scope, because it is the same seam module. The edition proceeds behind an adapter bound to the planned names. | #2328 |
+| 2026-09-11 | manager | The edition's consumer fixed the #2328 signatures: `ToolRefusal(code, message, alternatives)`, `add_upload_listener` callback `(path, size, status)` returning an unsubscribe, and a new `"started"` status. | Sent to A1 as binding signatures. | #2328 |
+| 2026-09-11 | manager | An edition security review found the open-source local MCP socket is protected only by file permissions, and its `/tmp` fallback name is predictable. | Opened #2333 and folded it into A2's scope (MCP transport files, no other owner). | #2333 |
 
 ## 12. Final Readiness
 
