@@ -639,6 +639,11 @@
       "at": "2026-09-11T13:33:28.556625Z",
       "owner_directive": "Manager relay 2026-09-11 (re-audits): fix N1 (stdin watcher must not freeze inherited-stdin children), N2 (graceful stop must reach the lifespan with /ws and the log SSE stream open), N3 (no resurrecting a deleted project), N5 (stdin pipe on Windows only), R1 (terminate PTY sessions on graceful shutdown), a real-backend stop test, and R2/N4 attribution of the MCP pointer hardening to #2333 / PR #2329.",
       "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
+    },
+    {
+      "at": "2026-09-11T15:36:07.788619Z",
+      "owner_directive": "Manager relay 2026-09-11: after PR #2329 merged, merge main; #2351 authorized scope amendment for src/scistudio/cli/main.py to set timeout_graceful_shutdown (e.g. 3 s) inside the documented stop budget, with a test; #2352 skip retention (no lineage.db creation) when the project or its lineage.db is gone, tested through completion and cleanup, plus a POSIX SIGTERM real-backend stop test.",
+      "reason": "Manager-authorized scope amendment for #2351 (bound uvicorn's graceful-shutdown drain in serve and gui) and #2352 (no empty lineage.db from retention in a deleted project; POSIX SIGTERM real-backend stop test). main merged after PR #2329."
     }
   ],
   "docs_events": [
@@ -1836,6 +1841,18 @@
       "followup_rationale": null,
       "number": 2327,
       "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2351,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2352,
+      "url": null
     }
   ],
   "observed_admin_labels": [],
@@ -2097,6 +2114,24 @@
       "at": "2026-09-11T13:33:28.556648Z",
       "pattern": ".workflow/records/2327-audit-2327-o3-with-context.json",
       "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:36:07.788638Z",
+      "pattern": "src/scistudio/cli/main.py",
+      "reason": "Manager-authorized scope amendment for #2351 (bound uvicorn's graceful-shutdown drain in serve and gui) and #2352 (no empty lineage.db from retention in a deleted project; POSIX SIGTERM real-backend stop test). main merged after PR #2329."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:36:07.788644Z",
+      "pattern": "tests/cli/test_graceful_shutdown_bound.py",
+      "reason": "Manager-authorized scope amendment for #2351 (bound uvicorn's graceful-shutdown drain in serve and gui) and #2352 (no empty lineage.db from retention in a deleted project; POSIX SIGTERM real-backend stop test). main merged after PR #2329."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:38:51.799656Z",
+      "pattern": "tests/cli/test_cli.py",
+      "reason": "#2351: the CLI tests fake uvicorn.run with a fixed keyword list; they must accept the new timeout_graceful_shutdown keyword."
     }
   ],
   "session_id": "20b0cc57-8266-46e0-a867-95aa4c7de0c5",

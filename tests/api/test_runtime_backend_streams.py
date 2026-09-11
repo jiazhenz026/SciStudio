@@ -13,6 +13,7 @@ import asyncio
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -23,7 +24,8 @@ from fastapi.testclient import TestClient
 from scistudio.api import runtime as runtime_module
 from scistudio.api.app import create_app
 from scistudio.api.routes import ai_pty
-from scistudio.api.runtime import LogBroadcaster, _rmtree_force, _run_lifetime, _stop_request
+from scistudio.api.runtime import ApiRuntime, LogBroadcaster, _rmtree_force, _run_lifetime, _stop_request
+from scistudio.blocks.base.state import BlockState
 from scistudio.api.ws import websocket_handler
 from scistudio.core.lineage.record import RunRecord
 from scistudio.core.lineage.store import LineageStore
@@ -145,3 +147,31 @@ def _prepare_db(project: Path) -> Path:
     db = _run_lifetime.lineage_db_path(project)
     db.parent.mkdir(parents=True)
     return db
+
+
+def test_cleanup_after_a_completed_run_does_not_recreate_a_deleted_project(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2352: artifact retention after a successful run created an empty lineage.db.
+
+    Goes through completion (the run's own finalisation) and the cleanup it
+    triggers, for a project folder that is gone and for one whose database is.
+    """
+    monkeypatch.delenv("SCISTUDIO_ARTIFACT_RETENTION", raising=False)
+    gone = tmp_path / "deleted-project"
+    without_db = tmp_path / "project-without-lineage"
+    (without_db / ".scistudio").mkdir(parents=True)
+    runtime = object.__new__(ApiRuntime)
+    for project in (gone, without_db):
+        scheduler = SimpleNamespace(block_states=lambda: {"only": BlockState.DONE}, dispose=lambda: None)
+        finished = SimpleNamespace(cancelled=lambda: False, exception=lambda: None)
+        status = runtime._finalize_lineage_run(
+            _FakeRecorder(f"run-{project.name}"),
+            finished,  # type: ignore[arg-type]
+            scheduler,  # type: ignore[arg-type]
+            project_dir=str(project),
+        )
+        assert status == "completed", "the cleanup path only runs after a completed run"
+
+    assert not gone.exists(), "a deleted project must stay deleted"
+    assert not _run_lifetime.lineage_db_path(without_db).exists()

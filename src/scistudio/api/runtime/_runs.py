@@ -331,7 +331,13 @@ def _reclaim_artifacts_blocking(project_dir: str) -> None:
     from scistudio.core.lineage.retention import apply_retention, plan_retention
     from scistudio.core.lineage.store import LineageStore
 
-    store = LineageStore(str(Path(project_dir) / ".scistudio" / "lineage.db"))
+    db_path = Path(project_dir) / ".scistudio" / "lineage.db"
+    if not db_path.is_file():
+        # #2352: the project, or its lineage database, was deleted while the
+        # run was going. Opening a store here would create an empty database.
+        logger.debug("artifact retention skipped: %s no longer exists", db_path)
+        return
+    store = LineageStore(str(db_path))
     try:
         plan = plan_retention(store, project_dir)
         if plan.is_blocked:

@@ -69,7 +69,8 @@ const OTA_MAX_REDIRECTS = 5;
 // shutdown budget: its long-lived streams end on the stop request (well under
 // 2 s), live workflow runs get 10 s to record their outcome
 // (ApiRuntime.shutdown_workflow_runs), AI terminal sessions 3 s, and command
-// processes a 5 s grace -- 20 s at most, so the force-kill waits 25 s.
+// processes a 5 s grace, and uvicorn waits at most 3 s for any other open
+// connection (#2351) -- 21 s at most, so the force-kill waits 25 s.
 // #2280: liveness is judged by exit status.
 const STOP_ESCALATION_MS = 25000;
 // #2280: how long a relaunch -- and, #2327, a quit -- waits for the backend to

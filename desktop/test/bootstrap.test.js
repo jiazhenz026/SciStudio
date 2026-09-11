@@ -242,7 +242,8 @@ test("the shell clears the boot marker only from known-good, or from a user's qu
 });
 
 test("stopping leaves the backend time to end workflow runs before any force-kill (#2327)", () => {
-  // The backend's shutdown budget is at most 20 s: streams end on the stop
+  // The backend's shutdown budget is at most 21 s (uvicorn's 3 s drain bound
+  // included): streams end on the stop
   // request, live runs get 10 s to record their outcome
   // (ApiRuntime.shutdown_workflow_runs), AI terminal sessions 3 s, command
   // processes a 5 s grace. A force-kill inside it records runs as interrupted.

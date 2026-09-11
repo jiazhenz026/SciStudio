@@ -665,7 +665,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   in total for their history to record `cancelled`. It writes `cancelled`
   itself for any run still going after that. Open pages and AI terminal
   sessions no longer hold the shutdown up: the backend ends its log stream,
-  its event socket and its terminal sessions first. The desktop app now asks
+  its event socket and its terminal sessions first, and waits at most 3
+  seconds for any other connection a client keeps open. The desktop app now asks
   the backend to shut down this way when it quits, and force-stops it only 25
   seconds later. On Windows it asks by closing the backend's input, since
   Windows has no graceful stop signal. The backend keeps that input to itself,

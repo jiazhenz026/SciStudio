@@ -311,9 +311,9 @@ line.
   be delivered, closing the backend's stdin (FR-015). A backend still running
   25 s later MUST be force-killed, with SIGKILL or `taskkill /T /F`. The 25 s
   covers the backend's shutdown budget (section 4.6): its long-lived streams end
-  on the stop request, live workflow runs get 10 s to record their outcome, AI
-  terminal sessions 3 s, and command processes a 5 s grace, at most 20 s in
-  all. Liveness is judged by the process's exit status, never by Node's
+  on the stop request and uvicorn waits at most 3 s for any other open
+  connection, live workflow runs get 10 s to record their outcome, AI terminal
+  sessions 3 s, and command processes a 5 s grace, at most 21 s in all. Liveness is judged by the process's exit status, never by Node's
   `killed` flag, which only records that a signal was sent. The wait is bounded
   at 30 s as a last resort.
 - **FR-008**: Backend crash or death in external AI mode MUST surface, while a
@@ -583,7 +583,9 @@ implements this contract.
   `cancelled`. For any run still going after that, it records `cancelled`
   itself, and that run's own later completion does not overwrite it. It then
   gives the AI terminal kills 3 s and command processes a 5 s grace. The
-  budget is at most 20 s, and the desktop force-kills at 25 s (FR-007,
+  budget is at most 21 s, because uvicorn waits at most 3 s
+  (`timeout_graceful_shutdown`, set by `serve` and `gui`) for any connection
+  still open after the notice. The desktop force-kills at 25 s (FR-007,
   FR-015).
 - **Store lifetime.** Reopening the active project, as a page reload does, keeps
   its lineage store. Switching projects retires the previous store, which is

@@ -20,6 +20,7 @@ import contextlib
 import json
 import os
 import queue
+import signal
 import subprocess
 import sys
 import threading
@@ -146,20 +147,39 @@ def _kill_tree(pid: int) -> None:
 
 @pytest.mark.timeout(300)
 def test_real_backend_stops_gracefully_on_stdin_eof_with_streams_open(tmp_path: Path) -> None:
+    """The Windows desktop path: the shell closes the backend's stdin."""
+    _stop_mid_run_and_check(tmp_path, by_stdin=True)
+
+
+@pytest.mark.timeout(300)
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="POSIX stop path: the desktop sends SIGTERM on macOS and Linux; Windows uses the stdin request",
+)
+def test_real_backend_stops_gracefully_on_sigterm_with_streams_open(tmp_path: Path) -> None:
+    """The macOS and Linux desktop path: the shell sends SIGTERM (#2352)."""
+    _stop_mid_run_and_check(tmp_path, by_stdin=False)
+
+
+def _stop_mid_run_and_check(tmp_path: Path, *, by_stdin: bool) -> None:
     projects = tmp_path / "projects"
     projects.mkdir()
     stderr_path = tmp_path / "backend-stderr.txt"
+    env = _backend_env(tmp_path)
+    if not by_stdin:
+        # The POSIX shell spawns the backend with stdin closed and no flag.
+        env.pop("SCISTUDIO_STOP_ON_STDIN_EOF", None)
     with stderr_path.open("w", encoding="utf-8") as stderr_file:
         proc = subprocess.Popen(
             [sys.executable, "-m", "scistudio.cli.main", "gui", "--port", "0", "--bundled"],
-            stdin=subprocess.PIPE,
+            stdin=subprocess.PIPE if by_stdin else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=stderr_file,
-            env=_backend_env(tmp_path),
+            env=env,
             cwd=str(tmp_path),
             text=True,
         )
-    assert proc.stdout is not None and proc.stdin is not None
+    assert proc.stdout is not None
     stdout = proc.stdout
     lines: queue.Queue[str] = queue.Queue()
     threading.Thread(target=lambda: [lines.put(line.strip()) for line in stdout], daemon=True).start()
@@ -216,11 +236,15 @@ def test_real_backend_stops_gracefully_on_stdin_eof_with_streams_open(tmp_path: 
             time.sleep(1.0)
 
         stop_requested = time.monotonic()
-        proc.stdin.close()
+        if by_stdin:
+            assert proc.stdin is not None
+            proc.stdin.close()
+        else:
+            proc.send_signal(signal.SIGTERM)
         try:
             proc.wait(timeout=DESKTOP_FORCE_KILL_SEC)
         except subprocess.TimeoutExpired:
-            pytest.fail(f"the backend was still running {DESKTOP_FORCE_KILL_SEC:.0f} s after its stdin closed")
+            pytest.fail(f"the backend was still running {DESKTOP_FORCE_KILL_SEC:.0f} s after the stop request")
         elapsed = time.monotonic() - stop_requested
         assert stream_ended.wait(5), "the log stream ended with the backend"
 
