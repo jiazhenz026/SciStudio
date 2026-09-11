@@ -181,9 +181,11 @@ architecture. Tutorial projects are hidden from the recent-project surfaces and
 reachable only through the Learning Center, so a user cannot wander into one and
 mistake a disposable teaching artifact for their own work. Tutorial projects
 scan an isolated library directory instead of the user's real one, because one
-scenario has the user save a custom type to My Library in order to reuse it in
-the next scenario, and that must not deposit a teaching type into every real
-project the user opens afterwards. And progress drives exactly one thing: after
+scenario has the user save a custom type to My Library, and that must not
+deposit a teaching type into every real project the user opens afterwards.
+The isolation is what makes the promotion safe to teach; no scenario depends
+on a later one finding what an earlier one left there, because a level that
+needed another level's leftovers could not be played first. And progress drives exactly one thing: after
 the AI scenario, the product offers to bring the user's existing work across.
 ADR-053 §4.2's percentage threshold is replaced by that named milestone.
 

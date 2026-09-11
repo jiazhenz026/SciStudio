@@ -126,14 +126,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tutorials are unaffected in how they run — they are simply listed in their own
   source's tab now, alongside every other tutorial.
 
-- [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
+- [#2082] **Core tutorial 4 — *Two modalities, one answer*.** The multimodal
   level, and the git level. A scanner and a sequencer looked at the same three
   tissue sections and neither file can answer alone — the only thing joining
   them is the `y`/`x` every measured position carries, so the analysis is
   genuinely joint rather than two analyses in a row. It is also the first level
-  that mostly *reuses*: the `Image` type, the `Segment Cells` block, and the
-  `Image` previewer all arrive from My Library where tutorial 2 put them, and
-  the only new blocks are the two this experiment actually needs. The reader
+  that opens on a project already furnished: the `Image` type, the `Segment
+  Cells` block and the `Image` previewer are landed by the tutorial's own
+  bootstrap rather than carried in from My Library, so the level owes nothing
+  to any other level and can be played first; the only blocks it teaches are
+  the two this experiment actually needs. The reader
   builds the first forked canvas, meets index pairing as a real hazard — the
   stack's pages are in the scanner's acquisition order (`S05`, `S09`, `S01`)
   and the workbook's sheets in section-label order (`S01`, `S05`, `S09`), so

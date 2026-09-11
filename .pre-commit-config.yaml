@@ -34,6 +34,11 @@ repos:
         stages: [manual]
       - id: check-added-large-files
         args: ["--maxkb=1000"]
+        # Owner-approved exception (#2082): core tutorial 4 ships a real 10x
+        # Visium dataset — two ~15 MB per-spot count tables (2000 genes) that
+        # deflate to ~1.8 MB each inside the wheel. Scoped to that one data
+        # directory; every other path keeps the 1000 KB ceiling.
+        exclude: ^src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/
         stages: [manual]
       - id: check-merge-conflict
         stages: [manual]

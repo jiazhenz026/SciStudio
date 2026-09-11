@@ -1,0 +1,103 @@
+# The whole two-branch workflow of core tutorial 4, written for the reader when
+# the level reaches the canvas.
+#
+# This level is not a lesson in building a workflow — tutorials 1 and 2 already
+# taught dragging, Browse and wiring — so the reader receives it built and
+# spends the level changing it instead: pairing the sections, pointing a Load at
+# the second batch, switching the normalization, switching branches.
+#
+# Two roots, one per instrument. The branches cross Pair Editor, split again
+# (pictures to Segment Cells, counts to Normalize Expression) and meet in Joint
+# Region Profiles, the one block that sees both modalities.
+#
+# Pair Editor's ports are variadic (ADR-029 D1): the list lives in the node's
+# config. The output names are its own — the block places results by position —
+# so both sides carry the instrument's name to keep the canvas readable.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Pair a section stack with its per-section counts and cluster the tissue regions they share.
+  nodes:
+    - id: load-sections
+      block_type: load_data
+      config:
+        params:
+          # No capability_id: the stack reader is a drop-in block whose id
+          # carries its file's mtime, so a value written here would name a
+          # capability that does not exist on the reader's machine. Dispatch
+          # resolves (Image, .tif) to the one loader that claims it.
+          core_type: Image
+          path: data/raw/sections.tif
+      layout:
+        x: 120
+        y: 120
+    - id: load-counts
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path: data/raw/run1_counts.xlsx
+      layout:
+        x: 120
+        y: 380
+    - id: pair
+      block_type: paireditor_block
+      config:
+        params:
+          input_ports:
+            - name: sections
+              types: [Image]
+            - name: counts
+              types: [DataFrame]
+          output_ports:
+            - name: sections
+              types: [Image]
+            - name: counts
+              types: [DataFrame]
+          # Remember my choice, switched on for the reader (ADR-051 interaction
+          # memory). The first run still opens the dialog; after one confirm,
+          # runs on the same inputs reuse it, and a new file re-opens it. So the
+          # reader pairs once per batch instead of once per run — the lesson is
+          # the mispairing, not repeating the fix.
+          interactive_memory:
+            enabled: true
+            decision: null
+            signature: null
+      layout:
+        x: 440
+        y: 250
+    - id: segment
+      block_type: segment_cells
+      config:
+        params: {}
+      layout:
+        x: 760
+        y: 120
+    - id: normalize
+      block_type: normalize_expression
+      config:
+        params:
+          method: total_count
+      layout:
+        x: 760
+        y: 380
+    - id: joint
+      block_type: joint_region_profiles
+      config:
+        params: {}
+      layout:
+        x: 1080
+        y: 250
+  edges:
+    - source: load-sections:data
+      target: pair:sections
+    - source: load-counts:data
+      target: pair:counts
+    - source: pair:sections
+      target: segment:image
+    - source: pair:counts
+      target: normalize:counts
+    - source: segment:labels
+      target: joint:labels
+    - source: normalize:normalized
+      target: joint:expression

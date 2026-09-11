@@ -1,0 +1,207 @@
+{
+  "base_ref": null,
+  "branch": "guided/2082-tutorial-level-4-multimodal",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "tests/tutorials/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-26T20:28:41.584979Z",
+      "owner_directive": "Bring the old two-modalities-one-answer draft over as the base, then adapt it into the galgame dialogue-beat style used by levels 1-3. Also: drop level 4's dependency on the earlier levels \u2014 whatever resources it needs (the Image previewer/type, the segmentation block) should be recreated quietly into the tutorial project by the tutorial itself instead of being pulled from My Library.",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "at": "2026-08-26T20:45:48.849174Z",
+      "owner_directive": "Adapt the old draft into galgame dialogue beats and land the level's own prerequisites at bootstrap",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T12:54:44.870177Z",
+      "owner_directive": "\u5173\u53614\u6062\u590d\u56de\u6765\u7136\u540e\u7ee7\u7eed\u505a\uff1b\u8fd9\u56de\u5148\u505a\u5173\u53614\uff08\u65b0\u7684\u5173\u53615\u662f\u4ecb\u7ecd ADR-054 miniapp \u7684\u5173\u5361\uff0c\u540e\u9762\u518d\u8bf4\uff09",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "at": "2026-09-11T13:00:47.969920Z",
+      "owner_directive": "\u6559\u7a0b\u76ee\u7684\u4e0d\u662f\u6559\u7528\u6237\u600e\u4e48\u8bbe\u7f6eworkflow\u3001\u600e\u4e48\u8fde\u7ebf\u3002load the slides \u90a3\u91cc\u5148\u7ed9\u7528\u6237\u5199\u597d\u4e00\u4e2a\u57fa\u672c\u7684 workflow\uff0c\u7136\u540e\u8ba9\u7528\u6237\u52a8\u624b\u6539\uff1bdrag Load + Browse + \u8bbe\u7f6e\u8fd9\u4e9b\u5e2e\u7528\u6237\u505a\u597d\u3002\u5e9f\u8bdd\u592a\u591a\uff0c\u5148\u81ea\u5df1\u780d\u4e00\u4e0b\u7b80\u5316\uff0c\u7136\u540e\u628a\u6559\u7a0b yaml \u7ed9\u6211\u6279\u6ce8",
+      "reason": "Owner redirected level 4: it is not a wiring lesson; pre-build the workflow and trim the copy"
+    },
+    {
+      "at": "2026-09-11T13:14:48.192142Z",
+      "owner_directive": "\u6570\u636e\u73b0\u5728\u770b\u4e0a\u53bb\u592a\u5047\u4e86\u3002\u80fd\u4e0d\u80fd\u641e\u4e2a\u771f\u7684HE\u67d3\u8272\u7ec4\u7ec7\u56fe\uff0c\u8fd8\u6709\u5bf9\u5e94\u7684\u7a7a\u95f4\u8f6c\u5f55\u7ec4\u6570\u636e\uff1f",
+      "reason": "Owner: the synthetic dataset looks fake; replace it with real data"
+    },
+    {
+      "at": "2026-09-11T13:17:44.635674Z",
+      "owner_directive": "\u7528B\u5427\uff0810x Visium Human Breast Cancer Block A Section 1/2\uff09\uff0c2\u5f20\u5c31\u591f\u4e86\u3002\u65b0\u7684\u5267\u60c5\u6211\u91cd\u65b0\u8bbe\u8ba1\u3002\u4f60\u5148\u641e\u65b0\u6570\u636e",
+      "reason": "Owner chose the dataset; story to be redesigned by owner"
+    },
+    {
+      "at": "2026-09-11T13:21:04.614598Z",
+      "owner_directive": "\u90a3\u5c316mb\u5c31\u884c\u4e86\uff08\u4e24\u5f20\u5207\u7247\uff1aH&E 1000px JPEG + 200 \u4e2a\u57fa\u56e0\u7684\u8868\u8fbe\u8868\uff09",
+      "reason": "Owner approved the shipped size of the real dataset"
+    },
+    {
+      "at": "2026-09-11T13:43:21.275541Z",
+      "owner_directive": "\u4fdd\u75592000\u4e2a\u57fa\u56e0\uff0c\u5b58csv\u5427\uff0c29MB\u53ef\u4ee5\u63a5\u53d7",
+      "reason": "Owner widened the gene panel and chose CSV"
+    },
+    {
+      "at": "2026-09-11T13:48:59.986432Z",
+      "owner_directive": "\u5f00\u4f8b\u5916\uff08\u7ed9\u5173\u53614\u7684\u6570\u636e\u76ee\u5f55\u5f00 check-added-large-files \u4f8b\u5916\uff09\u3002\u5148\u63d0\u4ea4\u4e00\u4e2a\u8fdc\u7aef\u5206\u652f\uff0c\u6211\u53bb\u53e6\u5916\u4e00\u4e2a\u7535\u8111\u4e0a\u7ee7\u7eed\u5f00\u53d1",
+      "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-26T20:45:12.706607Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:12.706613Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849194Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849200Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849207Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision changes; the level uses the existing manifest vocabulary and adds no runtime capability",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2082,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Guided session: author core tutorial level 4 (multimodal joint analysis + git branches) as galgame-style dialogue beats, owner-directed live. Confirmed level 4 = the multimodal level (scenarios doc \u5173\u5361 3, issue #2082); the AI level shipped today as order 3.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2082-guided-2082-tutorial-level-4-multimodal",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:28:41.584999Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:28:41.585005Z",
+      "pattern": "tests/tutorials/**",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:45:12.706581Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "The dependency removal invalidates two landed claims: the changelog entry written for the old design, and the spec paragraph that justifies library isolation by a reuse no level performs any more"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:45:12.706600Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "The dependency removal invalidates two landed claims: the changelog entry written for the old design, and the spec paragraph that justifies library isolation by a reuse no level performs any more"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870206Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870215Z",
+      "pattern": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870219Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870222Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:48:59.986447Z",
+      "pattern": ".pre-commit-config.yaml",
+      "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    }
+  ],
+  "session_id": "d6328ecd-e6f7-47cb-9c27-1b1ba30f38df",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-26T20:45:12.706618Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849211Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
