@@ -161,3 +161,22 @@ unchanged. The same staged-addition reproduction passes with the subsequently
 authorized 30720 KiB configuration. Owner subsequently authorized a global 30 MiB threshold, committed
 by manager as 9ae3a0e2. Final integration must use that authorized configuration;
 this branch does not alter hooks or exclude files.
+
+## Audit Follow-up Verification
+
+The child-session and acknowledgement regression tests cover panel/legacy
+children, multiple Back levels, legacy-to-panel Back, independent composite-slot
+maximize, delayed acknowledgement without premature DELETE or memory writes,
+rejection/remount, identity mismatch, timeout and cancellation. At `72b38d91`
+all these tests passed in two complete frontend runs. The runs exposed two
+existing timing failures elsewhere: ESLint configuration loading exceeded its
+unchanged 5 second deadline once, and OpenAsDialog's immediate preselection
+assertion raced its existing selection effect once.
+
+The OpenAsDialog component and test were byte-identical to origin/main
+`7b132175`. Two unchanged-main baseline runs both passed its preselection test
+and all 2255 tests; one complete pipeline passed and the other reported an
+unhandled teardown import in PreviewHost.dynamic.test. Baseline gate evidence is
+committed as `76e8f5d0` on `codex/2293-panel-baseline`. Per manager's #2293 audit
+follow-up, the only stabilization waits for the same visible checked radio via
+the existing `waitFor`; production behavior and timeout thresholds are unchanged.

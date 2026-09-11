@@ -389,6 +389,38 @@
       "status": "fail",
       "summary": "exit 1",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:12:37.298305Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e63d4cbbabf1cd8f3c44ab698ae412418c6a1f12f8610f758afc1512d8bb2f30",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:13:37.046648Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:e63d4cbbabf1cd8f3c44ab698ae412418c6a1f12f8610f758afc1512d8bb2f30",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1996,6 +2028,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.376515Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.387917Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.400632Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.413054Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.425558Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.438554Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.450856Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.462290Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.475888Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.486673Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:12:37.529268Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.136925Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.149326Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.161826Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.174303Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.187957Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.201422Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.215334Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.231129Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.246228Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.259719Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:13:37.325262Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2258,9 +2466,9 @@
       "src/scistudio/panels/sdk/1/scistudio-panel.js",
       "tests/contracts/openapi.json"
     ],
-    "diff_fingerprint": "sha256:86bad580643d7f3db97bc89b7983b28c59d615809a52422d2b99bca1e3b38384",
+    "diff_fingerprint": "sha256:b54b0172b09209f6612e3cefc7aa329a25e5ceb2fe2e9b2d85c02d96609a1b3a",
     "head": "HEAD",
-    "head_sha": "837eea60",
+    "head_sha": "72b38d91",
     "surfaces": {
       "docs": 1,
       "frontend": 39,
@@ -2448,6 +2656,26 @@
       "unsatisfied": [
         "checks.frontend"
       ]
+    },
+    {
+      "at": "2026-09-11T16:12:37.529333Z",
+      "diff_fingerprint": "sha256:b54b0172b09209f6612e3cefc7aa329a25e5ceb2fe2e9b2d85c02d96609a1b3a",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-11T16:13:37.325312Z",
+      "diff_fingerprint": "sha256:b54b0172b09209f6612e3cefc7aa329a25e5ceb2fe2e9b2d85c02d96609a1b3a",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
     }
   ],
   "record_id": "2293-panel-frontend",
@@ -2506,6 +2734,12 @@
       "at": "2026-09-11T16:01:11.162720Z",
       "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchEvent.test.ts",
       "reason": "Manager-approved audit fix: hold new panel decision context and interaction memory until matching backend WebSocket acknowledgement; legacy paths unchanged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:19:15.200756Z",
+      "pattern": "frontend/src/components/__tests__/OpenAsDialog.test.tsx",
+      "reason": "Manager-approved targeted stabilization: OpenAsDialog selection is seeded by useEffect; immediate checked assertion races that effect. Two unchanged-main runs passed this assertion; preserve the assertion and existing timeout while waiting for visible selected state."
     }
   ],
   "session_id": "1ec514ef-1bed-4820-9fad-78271879bfa4",
@@ -2637,6 +2871,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/panels/decisions.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:19:15.200910Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/OpenAsDialog.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
