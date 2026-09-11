@@ -42,6 +42,7 @@ scope:
     - "App frameworks such as Streamlit or Gradio (ADR-054 §16)."
     - "Editing a MiniApp's source inside the application other than through the agent (tracked in #2288)."
     - "Mechanical conversion of a MiniApp into a block (ADR-054 §11.5)."
+    - "Directory promotion through the agent's `promote_to_user_library` tool, and ADR-053's canvas promotion entry on the new block context menu (tracked in #2288)."
 governs:
   modules: []
   contracts: []
@@ -103,7 +104,8 @@ language_source: en
 This spec implements ADR-054 §10 and §11. It came from a manual owner request
 tracked as issue #2341, and it is the second specification of ADR-054, beside
 `adr-054-panels`, which specifies the panel mechanism, the core migration, and the
-authoring docs as Phases A, B, and C. This spec is **Phase D**. It depends on
+authoring docs as Phases A, B, and C. This spec is **Phase D**, coordinated with
+the other phases under #2296 and tracked with them in #2288. It depends on
 Phase A — the panel descriptor and discovery, the context service, the sandboxed
 frame and its channel, the SDK, and the token-scoped file routes — and on nothing
 in Phases B and C.
@@ -275,25 +277,7 @@ only on `Image` blocks.
    **Then** the MiniApp tab stays open, its process keeps running, and the preview
    column returns to its width.
 
-### User Story 7 - A MiniApp becomes an interactive block (Priority: P3)
-
-The scientist settled on a threshold and wants the workflow to ask for it every
-run. They choose Convert to interactive block in the MiniApp tab.
-
-**Why this priority**: The path from exploration to a workflow step; it depends on
-everything above.
-
-**Independent Test**: With a fake agent provider, submit the conversion dialog and
-assert a session starts with a brief naming the MiniApp directory, the requested
-outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
-
-**Acceptance Scenarios**:
-
-1. **Given** a MiniApp tab, **When** the user chooses Convert to interactive block
-   and names one `Mask` output, **Then** an agent session opens whose brief names
-   that output and instructs `prepare_prompt`, one decision, and `run`.
-
-### User Story 8 - A faulty panel.py cannot take the application down (Priority: P2)
+### User Story 7 - A faulty panel.py cannot take the application down (Priority: P2)
 
 An agent's first attempt at `panel.py` loops forever in `setup`, or crashes.
 
@@ -312,6 +296,24 @@ state, Restart works, and closing kills the child.
    log.
 3. **Given** `panel.py` prints to stdout, **When** it is called, **Then** the output
    goes to the MiniApp's log and the call protocol is unaffected.
+
+### User Story 8 - A MiniApp becomes an interactive block (Priority: P3)
+
+The scientist settled on a threshold and wants the workflow to ask for it every
+run. They choose Convert to interactive block in the MiniApp tab.
+
+**Why this priority**: The path from exploration to a workflow step; it depends on
+everything above.
+
+**Independent Test**: With a fake agent provider, submit the conversion dialog and
+assert a session starts with a brief naming the MiniApp directory, the requested
+outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
+
+**Acceptance Scenarios**:
+
+1. **Given** a MiniApp tab, **When** the user chooses Convert to interactive block
+   and names one `Mask` output, **Then** an agent session opens whose brief names
+   that output and instructs `prepare_prompt`, one decision, and `run`.
 
 ### Edge Cases
 
@@ -371,15 +373,18 @@ state, Restart works, and closing kills the child.
 - **FR-006**: Opening a context that provides `call` for a panel with `panel.py`
   MUST start one subprocess, off the API event loop, using the interpreter the
   local runner uses for block workers, with the project directory as its working
-  directory, the runtime import roots blocks receive, and the panel directory on
-  its import path.
+  directory, the runtime import roots blocks receive, the panel directory on its
+  import path, and `PYTHONDONTWRITEBYTECODE=1`, so that importing `panel.py` writes
+  nothing into the panel directory.
 - **FR-007**: The subprocess MUST import `panel.py`, then call `setup(data)` if the
   module defines it, where `data` is the target reconstructed as a SciStudio data
   object by the engine's own reconstruction from its storage reference. Callable
   functions are the module's public, module-level callables other than `setup`
   and `teardown`.
-- **FR-008**: The subprocess MUST be registered in the process registry the API
-  exposes, under the namespace `panel-context` with the key `context-<context_id>`,
+- **FR-008**: The subprocess MUST be registered in the application's process
+  registry — the instance the agent's `run_command` registers in and whose
+  `terminate_all` runs at shutdown (`app.state.registry`), not the block runtime's
+  own registry — under the namespace `panel-context` with the key `context-<context_id>`,
   through a handle that ends the whole process tree — a process group on POSIX and
   a Job Object on Windows, as the agent's `run_command` does — and MUST be
   deregistered when it exits.
@@ -435,6 +440,9 @@ state, Restart works, and closing kills the child.
 - **FR-022**: For MiniApps at the project and user tiers, the host MUST watch the
   panel directory and reload the MiniApp — a new frame, context, and process on
   the same target — when a file in it changes, debounced by 500 milliseconds.
+  Only `panel.json`, `panel.py`, and files of the page types the token route
+  serves count; `__pycache__/` and every other file are ignored, so what
+  `panel.py` writes into its own directory never triggers a reload.
 
 **Creating a MiniApp**
 
@@ -510,8 +518,8 @@ state, Restart works, and closing kills the child.
   matches an output and New MiniApp; for a block without outputs the entries MUST
   be disabled with the reason. The hover toolbar is unchanged.
 - **FR-036**: Convert to interactive block MUST open a dialog asking for the
-  block's outputs (a name and type per port), what the decision is, and the
-  destination tier (project by default), and then start an agent session whose
+  block's outputs (a name and type per port), with an optional note for the agent,
+  and then start an agent session, which writes the block to the project, whose
   brief names the MiniApp directory, the `scistudio-write-block` skill, the ADR-051
   contract (`prepare_prompt` builds a self-contained view, one decision is written
   back, `run` computes the outputs), and the requested outputs. The MiniApp MUST be
@@ -544,7 +552,11 @@ state, Restart works, and closing kills the child.
   **Image** and choose **All projects**." to "In **All Previewers**, find **Image**
   and choose **All projects**." — a light change the owner asked for, in wording
   proposed here for the owner's review. The owner's design comments in both YAML
-  files MUST be kept.
+  files MUST be kept; English comments in them, and the passages of
+  `docs/specs/adr-053-learning-center.md` that describe the Previewers tab, MUST be
+  updated to the new location. The list stays in the preview column until the user
+  returns to the preview and covers no other pane, so later steps that route
+  elsewhere are unaffected.
 
 ### Key Entities
 
@@ -605,6 +617,9 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | `src/scistudio/api/ws.py` | modify | `panel.open_miniapp` outbound event |
 | `src/scistudio/api/routes/user_library.py` | modify | Panel directory promotion |
 | `src/scistudio/ai/agent/mcp/tools_panels.py` | create | `validate_panel`, `open_miniapp` |
+| `src/scistudio/ai/agent/mcp/__init__.py` | modify | Register the new tool module |
+| `src/scistudio/api/routes/work_import.py`, `src/scistudio/api/routes/ai_pty/engine.py` | modify if shared | Reuse the brief writer and the pre-spawned session path |
+| `docs/specs/adr-053-learning-center.md` | modify | Passages that describe the Previewers tab (FR-040) |
 | `src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md` | create | MiniApp skill |
 | `src/scistudio/agent_provisioning/skills.py` | modify | Provision the new skill |
 | `frontend/src/miniapps/**` | create | Tab, dialogs, sidebar list, conversion |
@@ -627,8 +642,8 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | Task | Title | Story | Files | Depends on | Verification |
 |---|---|---|---|---|---|
 | T-001 | Descriptor: `miniapp`, one-type rule, `panel.py` detection | US3 | `panels/` | Phase A T-001 | `test_panel_python_detection.py` |
-| T-002 | Process host: launcher, bootstrap, pipe protocol, log, registry handle | US2, US8 | `panels/`, `process_handle.py` | T-001 | `test_panel_process.py` |
-| T-003 | `miniapp` context, call route, lifecycle and crash handling | US2, US3, US8 | `panels/`, `routes/panels.py` | T-002, Phase A T-005 | `test_miniapp_context.py`, `test_panel_call_route.py` |
+| T-002 | Process host: launcher, bootstrap, pipe protocol, log, registry handle | US2, US7 | `panels/`, `process_handle.py` | T-001 | `test_panel_process.py` |
+| T-003 | `miniapp` context, call route, lifecycle and crash handling | US2, US3, US7 | `panels/`, `routes/panels.py` | T-002, Phase A T-005 | `test_miniapp_context.py`, `test_panel_call_route.py` |
 | T-004 | SDK `call` and `init` fields | US2 | `panels/sdk/` | T-003, Phase A T-010 | SDK tests |
 | T-005 | MiniApp tab kind, toolbar, preview column collapse, reload on change | US1, US2, US6 | `frontend/src/miniapps/`, `store/types.ts`, `ProjectWorkspace.tsx` | T-004, Phase A T-011 | `MiniAppTab.test.tsx` |
 | T-006 | Create route, template, brief, session; create dialog | US1 | `routes/panels.py`, `panels/`, `frontend/src/miniapps/` | T-005 | `test_miniapp_create.py`, `CreateMiniAppDialog.test.tsx` |
@@ -637,7 +652,7 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | T-009 | MiniApps tab, popover, All Previewers button | US5 | `frontend/src/miniapps/`, `ActivityBar.tsx`, `PreviewerPalette.tsx`, `DataPreview.tsx` | T-005 | `MiniAppPalette.test.tsx` |
 | T-010 | Target picker, canvas context menu, New menu | US6 | `frontend/src/miniapps/`, `WorkflowCanvas.tsx`, `FileOperationsGroup.tsx` | T-006 | `WorkflowCanvas.test.tsx` |
 | T-011 | Panel directory promotion | US5 | `user_library.py`, `promotable.ts` | T-009 | `test_user_library_panel_promotion.py` |
-| T-012 | Convert to interactive block | US7 | `frontend/src/miniapps/`, `routes/panels.py` | T-006 | conversion tests |
+| T-012 | Convert to interactive block | US8 | `frontend/src/miniapps/`, `routes/panels.py` | T-006 | conversion tests |
 | T-013 | MiniApp tips | US5 | `tipPool.ts` | T-009 | tip pool tests |
 | T-014 | Tutorial route to All Previewers; `save-the-previewer` copy | US5 | `targets.ts`, tutorial YAML | T-009 | tutorial target tests; both tutorials run through |
 
@@ -706,15 +721,20 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 - Phase A of `adr-054-panels` has merged before Phase D starts: discovery, the
   context service, `PanelFrame`, the SDK, and the token routes exist. (source: spec)
 - The agent's `run_command` handle already ends a whole process tree and releases
-  its registry entry, so a panel handle can follow its pattern. (source:
+  its registry entry, so a panel handle can follow its pattern. SciStudio holds two
+  registry instances — the block runtime's and the application's — and shutdown
+  terminates the application's, which is why FR-008 names it. (source:
   existing-system)
 - ADR-022's resource manager reserves no memory for any process, so MiniApp memory
   can be shown but not admitted. (source: existing-system)
 - "Bring in my work" already writes a brief and opens a pre-spawned agent session,
   and its availability check gives graded reasons, so the create route can reuse
   both. (source: existing-system)
-- No tool or event today asks the frontend to open a tab, so `open_miniapp` needs a
-  new event. (source: existing-system)
+- No tool today opens a tab of the agent's choosing; the frontend opens a workflow
+  tab only on `workflow_started` and on a created `workflow.changed`
+  (`frontend/src/hooks/useWebSocket.parts/handleLifecycle.ts`), so `open_miniapp`
+  follows that event-to-dispatcher pattern with a new event. (source:
+  existing-system)
 - ADR-053's promotion moves single files only, so panel directories need a new
   target. (source: existing-system)
 - The startup and call limits, the debounce, the log location, the brief location,
