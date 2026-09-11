@@ -54,6 +54,24 @@ class PanelContext:
     block_id: str | None = None
     prompt: Any = None
     grants: dict[str, tuple[str, FrozenTarget]] = field(default_factory=dict)
+    # MiniApp (miniapp kind) fields: the resident process and what a Restart
+    # needs to start a new one for the same context and target (FR-006/FR-014),
+    # plus the realtime client the context is bound to (FR-013).
+    port: str | None = None
+    source: dict[str, Any] | None = None
+    process: Any = None
+    project_dir: Any = None
+    setup_payload: Any = None
+    import_roots: tuple[str, ...] = ()
+    ws_client_id: str | None = None
+
+    def provides(self) -> tuple[list[str], list[str]]:
+        """The operations and services this context exposes to its page."""
+        if self.kind == "miniapp":
+            return ["read", "call"], ["save"]
+        if self.kind == "preview":
+            return ["read"], ["open", "save"]
+        return ["writeBack"], ["save"]
 
 
 class PanelContexts:
@@ -79,8 +97,19 @@ class PanelContexts:
 
     def close_all(self) -> None:
         with self.lock:
+            for context in list(self.contexts.values()):
+                self._stop(context)
             self.contexts.clear()
             self.prompts.clear()
+
+    @staticmethod
+    def _stop(context: PanelContext) -> None:
+        process = getattr(context, "process", None)
+        if process is not None:
+            try:
+                process.stop()
+            finally:
+                context.process = None
 
     def on_event(self, event: Any) -> None:
         with self.lock:
@@ -120,14 +149,16 @@ class PanelContexts:
             raise PanelError(409, "not_waiting", "The block is not waiting for an interactive decision")
         return prompt
 
-    def create(self, payload: dict[str, Any]) -> PanelContext:
+    def create(self, payload: dict[str, Any], *, process_registry: Any = None) -> PanelContext:
         with self.lock:
             self._synchronize()
             if self.runtime.active_project is None:
                 raise PanelError(409, "no_project", "Open a project before opening a panel")
             kind = payload.get("kind")
-            if kind not in ("preview", "interactive"):
-                raise PanelError(400, "unsupported", "Only preview and interactive contexts are implemented in Phase A")
+            if kind not in ("preview", "interactive", "miniapp"):
+                raise PanelError(400, "unsupported", "Panel context kind must be preview, interactive or miniapp")
+            if kind == "miniapp":
+                return self._create_miniapp(payload, process_registry=process_registry)
             service = self.runtime.get_preview_service()
             panel_id = payload.get("panel_id")
             root = None
@@ -202,6 +233,85 @@ class PanelContexts:
             self.contexts[context.context_id] = context
             return context
 
+    def _create_miniapp(self, payload: dict[str, Any], *, process_registry: Any) -> PanelContext:
+        """Open a miniapp context on a block output and start its process."""
+        from scistudio.panels.miniapp import build_setup_payload, miniapp_input, resolve_source
+
+        service = self.runtime.get_preview_service()
+        panel_id = payload.get("panel_id")
+        panel = service.registry.panels.get(panel_id) if service.registry.panels else None
+        if panel is None:
+            raise PanelError(404, "unknown_panel", f"Panel {panel_id!r} is not registered")
+        if "miniapp" not in panel.contexts:
+            raise PanelError(409, "context_mismatch", f"Panel {panel.id!r} does not declare miniapp")
+        source = payload.get("source") or {}
+        frozen = resolve_source(self.runtime, source, panel)
+        if len(self.contexts) >= MAX_CONTEXTS:
+            raise PanelError(429, "context_limit", "Close a panel before opening another")
+        project_dir = getattr(self.runtime.active_project, "path", None)
+        setup_payload = build_setup_payload(self.runtime, frozen)
+        context = PanelContext(
+            context_id="pc-" + secrets.token_hex(16),
+            panel=panel,
+            kind="miniapp",
+            project=self._project,
+            preview_service=service,
+            token=secrets.token_urlsafe(32),
+            expires_at=self.clock() + TOKEN_TTL,
+            input=miniapp_input(frozen, panel),
+            view_state=payload.get("view_state"),
+            root=frozen,
+            workflow_id=source.get("workflow_id"),
+            block_id=source.get("block_id"),
+            port=source.get("port"),
+            source={k: source.get(k) for k in ("workflow_id", "block_id", "port")},
+            project_dir=project_dir,
+            setup_payload=setup_payload,
+            ws_client_id=payload.get("ws_client_id"),
+        )
+        self.contexts[context.context_id] = context
+        if panel.has_python:
+            self._start_process(context, process_registry)
+        return context
+
+    def _start_process(self, context: PanelContext, process_registry: Any) -> None:
+        """Launch the resident subprocess for a miniapp context (FR-006)."""
+        from scistudio.panels.process import start_panel_process
+
+        if process_registry is None:
+            raise PanelError(500, "no_registry", "The application process registry is unavailable")
+        if context.project_dir is None:
+            raise PanelError(409, "no_project", "Open a project before opening a MiniApp")
+        context.process = start_panel_process(
+            context_id=context.context_id,
+            panel_dir=context.panel.root,
+            project_dir=context.project_dir,
+            registry=process_registry,
+            setup_payload=context.setup_payload,
+            import_roots=context.import_roots,
+        )
+
+    def restart(self, context_id: str, process_registry: Any = None) -> PanelContext:
+        """Start a new process for the same context and target (FR-014)."""
+        with self.lock:
+            context = self.get(context_id)
+            if context.kind != "miniapp":
+                raise PanelError(400, "unsupported", "Only a MiniApp context has a process to restart")
+            if context.process is not None:
+                context.process.stop()
+                context.process = None
+            if context.panel.has_python:
+                self._start_process(context, process_registry)
+            return context
+
+    def stop_process(self, context_id: str) -> PanelContext:
+        """Stop the process but keep the context so the tab can Restart it."""
+        with self.lock:
+            context = self.get(context_id)
+            if context.process is not None:
+                context.process.stop()
+            return context
+
     def _input(self, root: FrozenTarget) -> dict[str, Any]:
         if root.collection is not None:
             return {
@@ -237,10 +347,25 @@ class PanelContexts:
 
     def close(self, context_id: str) -> None:
         with self.lock:
-            self.contexts.pop(context_id, None)
+            context = self.contexts.pop(context_id, None)
+            if context is not None:
+                self._stop(context)
             for child in list(self.contexts.values()):
                 if child.parent_context_id == context_id:
                     self.close(child.context_id)
+
+    def close_for_client(self, ws_client_id: str) -> None:
+        """Close every miniapp context bound to a gone realtime client (FR-013).
+
+        The 30-second disconnect debounce lives in the realtime layer
+        (``src/scistudio/api/ws.py``), as the cancellation of browser-owned runs
+        does; this call performs the close once that layer decides the client is
+        gone.
+        """
+        with self.lock:
+            for context in list(self.contexts.values()):
+                if context.kind == "miniapp" and context.ws_client_id == ws_client_id:
+                    self.close(context.context_id)
 
     def renew(self, context_id: str) -> PanelContext:
         with self.lock:

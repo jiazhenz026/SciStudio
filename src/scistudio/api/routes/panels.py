@@ -38,6 +38,10 @@ class ContextCreate(BaseModel):
     block_id: str | None = None
     view_state: Any = None
     query: dict[str, Any] = Field(default_factory=dict)
+    # MiniApp (miniapp kind): the block output to open on, and the realtime
+    # client the context binds to (FR-004/FR-013).
+    source: dict[str, Any] | None = None
+    ws_client_id: str | None = None
 
 
 class ContextRead(BaseModel):
@@ -61,8 +65,8 @@ class PanelIdentity(BaseModel):
 class ContextResponse(BaseModel):
     context_id: str
     panel: PanelIdentity
-    kind: Literal["preview", "interactive"]
-    operations: list[Literal["read", "writeBack"]]
+    kind: Literal["preview", "interactive", "miniapp"]
+    operations: list[Literal["read", "writeBack", "call"]]
     services: list[Literal["open", "save"]]
     input: dict[str, Any]
     view_state: Any = None
@@ -72,6 +76,15 @@ class ContextResponse(BaseModel):
     entry_url: str
     sdk_url: str
     lib_base_url: str
+    process: dict[str, Any] | None = None
+
+
+class ContextCall(BaseModel):
+    """A MiniApp page calls one of its ``panel.py`` functions by name."""
+
+    model_config = ConfigDict(extra="forbid")
+    fn: str
+    args: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReadResult(BaseModel):
@@ -124,12 +137,14 @@ def _base(request: Request) -> str:
 
 def _context_response(request: Request, context: PanelContext) -> dict[str, Any]:
     base = f"{_base(request)}/api/panels/t/{context.token}"
+    operations, services = context.provides()
+    process = context.process.status() if getattr(context, "process", None) is not None else None
     return {
         "context_id": context.context_id,
         "panel": {"id": context.panel.id, "api_version": context.panel.api_version, "name": context.panel.name},
         "kind": context.kind,
-        "operations": ["read"] if context.kind == "preview" else ["writeBack"],
-        "services": ["open", "save"] if context.kind == "preview" else ["save"],
+        "operations": operations,
+        "services": services,
         "input": context.input,
         "view_state": context.view_state,
         "token": context.token,
@@ -138,6 +153,7 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
         "entry_url": f"{base}/assets/{context.panel.id}/{quote(context.panel.entry, safe='/')}",
         "sdk_url": f"{base}/sdk/1/scistudio-panel.js",
         "lib_base_url": f"{base}/lib/",
+        "process": process,
     }
 
 
@@ -157,13 +173,96 @@ def catalog(request: Request) -> dict[str, Any]:
 def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
     try:
         _bounded_json(payload.model_dump())
-        return _context_response(request, get_panel_contexts(request.app.state.runtime).create(payload.model_dump()))
+        store = get_panel_contexts(request.app.state.runtime)
+        registry = getattr(request.app.state, "registry", None)
+        context = store.create(payload.model_dump(), process_registry=registry)
+        return _context_response(request, context)
     except PanelError as exc:
         raise _failure(exc) from exc
     except PreviewError as exc:
         raise _failure(PanelError(409, exc.code.value, exc.message)) from exc
     except (ValueError, TypeError) as exc:
         raise _failure(PanelError(422, "invalid_request", str(exc))) from exc
+
+
+_CALL_STATUS = {"busy": 429, "timeout": 504, "too_large": 413, "process_exited": 409, "start_failed": 409}
+
+
+@router.post("/contexts/{context_id}/call", responses=_READ_RESPONSE)
+def panel_call(context_id: str, payload: ContextCall, request: Request) -> Response:
+    """Forward a MiniApp page call to its resident panel.py (session-authenticated).
+
+    Runs off the API event loop (FastAPI executes this sync route in the
+    threadpool). Returns ``{result}`` as JSON, ``application/octet-stream`` with
+    dtype/shape headers for a NumPy array, or ``{error}`` for an author
+    exception, which does not end the process (FR-010/FR-011).
+    """
+    from scistudio.panels.process import PanelCallError
+
+    try:
+        _bounded_json(payload.args, limit=8192)
+        store = get_panel_contexts(request.app.state.runtime)
+        context = store.get(context_id)
+        if context.kind != "miniapp" or getattr(context, "process", None) is None:
+            raise PanelError(400, "unsupported", "This context does not provide call")
+        try:
+            job = context.process.call(payload.fn, payload.args)
+        except PanelCallError as exc:
+            raise PanelError(_CALL_STATUS.get(exc.code, 409), exc.code, exc.message) from exc
+        # A close/project switch while the call ran must not deliver stale bytes.
+        store.get(context_id)
+        header = job.header or {}
+        if header.get("type") == "error":
+            return JSONResponse({"error": header.get("error")}, headers={"Cache-Control": "no-store"})
+        if header.get("binary"):
+            metadata = {"dtype": header["dtype"], "shape": header["shape"]}
+            return Response(
+                job.payload,
+                media_type="application/octet-stream",
+                headers={
+                    "X-Panel-Dtype": str(header["dtype"]),
+                    "X-Panel-Shape": json.dumps(header["shape"]),
+                    "X-Panel-Metadata": json.dumps(metadata, allow_nan=False),
+                    "Cache-Control": "no-store",
+                },
+            )
+        result = {"result": header.get("result")}
+        _bounded_json(result)
+        return JSONResponse(result, headers={"Cache-Control": "no-store"})
+    except PanelError as exc:
+        raise _failure(exc) from exc
+    except (ValueError, TypeError) as exc:
+        raise _failure(PanelError(422, "invalid_request", str(exc))) from exc
+
+
+@router.get("/contexts/{context_id}/process", responses=_ERRORS)
+def panel_process_status(context_id: str, request: Request) -> dict[str, Any]:
+    try:
+        context = get_panel_contexts(request.app.state.runtime).get(context_id)
+        if context.kind != "miniapp" or getattr(context, "process", None) is None:
+            raise PanelError(404, "no_process", "This context has no panel process")
+        return context.process.status()
+    except PanelError as exc:
+        raise _failure(exc) from exc
+
+
+@router.post("/contexts/{context_id}/process/restart", response_model=ContextResponse, responses=_ERRORS)
+def panel_process_restart(context_id: str, request: Request) -> dict[str, Any]:
+    try:
+        store = get_panel_contexts(request.app.state.runtime)
+        registry = getattr(request.app.state, "registry", None)
+        return _context_response(request, store.restart(context_id, registry))
+    except PanelError as exc:
+        raise _failure(exc) from exc
+
+
+@router.post("/contexts/{context_id}/process/stop", response_model=ContextResponse, responses=_ERRORS)
+def panel_process_stop(context_id: str, request: Request) -> dict[str, Any]:
+    try:
+        store = get_panel_contexts(request.app.state.runtime)
+        return _context_response(request, store.stop_process(context_id))
+    except PanelError as exc:
+        raise _failure(exc) from exc
 
 
 @router.delete("/contexts/{context_id}", status_code=204)
