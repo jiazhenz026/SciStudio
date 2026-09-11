@@ -1,9 +1,114 @@
 {
   "base_ref": null,
   "branch": "test/2297-contract-mocks",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-11T06:56:30.502548Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:79f070afca865eef44d548153d0c3517c39a603e8a02aad36c5358992a5850aa",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T06:56:30.528850Z",
+      "command": "ruff format tests/contracts/openapi_snapshot.py tests/contracts/test_openapi_snapshot.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5d5d5409336559d99b921b1f0568f8a848c3814ae0df3a37a2758673c965ccd0",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T06:57:31.932846Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6cc2a13433567bf1949786b3cf8f24d56ed13c587ed3903b20c8e6130013cf65",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T06:57:43.266569Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:91ad564ee2fc00a08d67c642e89d62ac3c3c3abedcbbd4d643d00edcdf4195ff",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T06:57:43.288219Z",
+      "command": "ruff check tests/contracts/openapi_snapshot.py tests/contracts/test_openapi_snapshot.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:16297ed4660dba6f0cb2ccdb828b49aa6b34698241f98e93e339693f4296e7be",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T07:03:07.855656Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3c59d30adc39b36a6360b027ffa9db10979d678a6caaca3d9f8891003c1d336c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -17,10 +122,377 @@
       "docs/contributing/**"
     ]
   },
-  "directive_events": [],
-  "docs_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T07:04:13.957142Z",
+      "owner_directive": "Owner-approved scope correction: the ESLint rule grandfathers 52 existing files (51 test files plus the shared BlockNode test-utils helper), tracked in #2300. Backend OpenAPI gaps found by the snapshot are tracked in #2301.",
+      "reason": "The owner approved this PR's frontend/eslint.config.js rule and the ajv/ajv-formats devDependencies (frontend/package.json, package-lock.json). test_engineer_scope_guard blocks frontend build config for the test_engineer persona and recommends an implementer handoff, so the task continues under implementer with the same scope."
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T06:55:51.252528Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/contributing/frontend-api-mocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T07:04:14.213513Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/contributing/frontend-api-mocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-11T07:03:07.914451Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.926623Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.938508Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.950503Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.963276Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.975449Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.987704Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:07.998986Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:08.011089Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:03:08.024382Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "classification": "blocked_production_surface",
+            "path": "frontend/eslint.config.js",
+            "persona": "test_engineer",
+            "recommended_handoff": "assign implementer or remove the blocked path"
+          },
+          "expected": null,
+          "file": "frontend/eslint.config.js",
+          "finding_class": "test_engineer_scope_guard",
+          "git_evidence": null,
+          "id": "test_engineer_scope_guard.blocked-path",
+          "line": null,
+          "message": "test_engineer changes must stay in test, validation, e2e, or explicitly scoped QA tooling paths",
+          "path": "frontend/eslint.config.js",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "test_engineer_scope_guard.blocked-path",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "classification": "blocked_production_surface",
+            "path": "frontend/package-lock.json",
+            "persona": "test_engineer",
+            "recommended_handoff": "assign implementer or remove the blocked path"
+          },
+          "expected": null,
+          "file": "frontend/package-lock.json",
+          "finding_class": "test_engineer_scope_guard",
+          "git_evidence": null,
+          "id": "test_engineer_scope_guard.blocked-path",
+          "line": null,
+          "message": "test_engineer changes must stay in test, validation, e2e, or explicitly scoped QA tooling paths",
+          "path": "frontend/package-lock.json",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "test_engineer_scope_guard.blocked-path",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "classification": "blocked_production_surface",
+            "path": "frontend/package.json",
+            "persona": "test_engineer",
+            "recommended_handoff": "assign implementer or remove the blocked path"
+          },
+          "expected": null,
+          "file": "frontend/package.json",
+          "finding_class": "test_engineer_scope_guard",
+          "git_evidence": null,
+          "id": "test_engineer_scope_guard.blocked-path",
+          "line": null,
+          "message": "test_engineer changes must stay in test, validation, e2e, or explicitly scoped QA tooling paths",
+          "path": "frontend/package.json",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "test_engineer_scope_guard.blocked-path",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "test_engineer_scope_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-11T07:03:08.062084Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.585140Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.596465Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.608460Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.619797Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.631299Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.642658Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.655741Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.667436Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.678901Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.689756Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:14.722968Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.887898Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.898673Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.909485Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.920800Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.932363Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.944358Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.955788Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.966924Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.977894Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:51.988839Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T07:04:52.026867Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -30,25 +502,151 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "c7b60f5775d131f614688e0f5f684bd1b6bfd8fb",
+    "base_sha": "c7b60f577",
+    "changed_files": [
+      ".workflow/records/2297-contract-mocks.json",
+      "docs/contributing/frontend-api-mocks.md",
+      "frontend/eslint.config.js",
+      "frontend/package-lock.json",
+      "frontend/package.json",
+      "frontend/src/__tests__/contract/mockBackend.test.ts",
+      "frontend/src/__tests__/contract/mockBackend.ts",
+      "frontend/src/__tests__/contract/openapi.ts",
+      "frontend/src/components/__tests__/CodeEditor.test.tsx",
+      "frontend/src/components/__tests__/workImport.test.ts",
+      "frontend/src/lib/__tests__/userLibrary.test.ts",
+      "frontend/src/lib/api/__tests__/agentAvailability.test.ts",
+      "frontend/src/lib/api/__tests__/filesystem.test.ts",
+      "frontend/src/lib/api/__tests__/plotPreview.test.ts",
+      "tests/contracts/openapi.json",
+      "tests/contracts/openapi_snapshot.py",
+      "tests/contracts/test_openapi_snapshot.py"
+    ],
+    "diff_fingerprint": "sha256:5e7b1620d2a91ca3c65fbc238b4397e2e1fca64866b632ab9e9d76d7e0a9f82b",
+    "head": "HEAD",
+    "head_sha": "cdc8c4834",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 12,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 12,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 15,
+      "test": 12,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Owner-approved plan (contract option B): commit a normalized backend OpenAPI snapshot with a pytest drift check; add an ajv-based frontend validator and a mockBackend() test helper that validates mocks against the schema; migrate frontend tests that stub fetch for real /api JSON endpoints; add an ESLint rule forbidding new vi.mock(lib/api) in tests with the 51 existing files grandfathered and tracked. Owner explicitly approved adding ajv/ajv-formats as frontend devDependencies and the ESLint config change.",
-  "persona": "test_engineer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "persona": "implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T07:03:08.062130Z",
+      "diff_fingerprint": "sha256:5e7b1620d2a91ca3c65fbc238b4397e2e1fca64866b632ab9e9d76d7e0a9f82b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "guard.test_engineer_scope_guard"
+      ]
+    },
+    {
+      "at": "2026-09-11T07:04:14.722997Z",
+      "diff_fingerprint": "sha256:5e7b1620d2a91ca3c65fbc238b4397e2e1fca64866b632ab9e9d76d7e0a9f82b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T07:04:52.026897Z",
+      "diff_fingerprint": "sha256:5e7b1620d2a91ca3c65fbc238b4397e2e1fca64866b632ab9e9d76d7e0a9f82b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2297-contract-mocks",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format",
+      "python_tests"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "031191d1-2fe2-4fa1-a7f5-ede4dc5ebfd4",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "maintenance",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-11T06:55:51.252551Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_openapi_snapshot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T06:55:51.252556Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/__tests__/contract/mockBackend.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T07:04:14.213532Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_openapi_snapshot.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T07:04:14.213535Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/__tests__/contract/mockBackend.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
