@@ -4,26 +4,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Composite preview</title>
-    <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
-      }
-      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-      .summary { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
-      button.slot { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; gap: 8px; padding: 10px 14px; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 12px; background: rgb(var(--ss-surface, 255 255 255)); cursor: pointer; }
-      button.slot:hover { background: rgb(var(--ss-ink, 40 33 24) / 0.05); }
-      .slot .n { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
-      .slot .t { display: block; margin-top: 2px; }
-      .err { color: #b3261e; padding: 8px; }
-    </style>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>

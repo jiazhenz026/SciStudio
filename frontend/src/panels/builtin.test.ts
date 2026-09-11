@@ -156,21 +156,8 @@ describe("core.artifact.basic", () => {
   });
 });
 
-describe("core.composite.basic", () => {
-  it("lists slots and drills in via open", async () => {
-    const { root, api } = mount("core.composite.basic", {
-      input: { ref: "comp" },
-      reads: {
-        "composite.slots": { slots: [{ name: "raster", type_name: "Array", ref: "comp#raster" }] },
-      },
-    });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=composite-slot-raster]")).toBeTruthy(),
-    );
-    (root().querySelector("[data-testid=composite-slot-raster]") as HTMLButtonElement).click();
-    expect(api.open).toHaveBeenCalledWith("comp#raster");
-  });
-});
+// core.composite.basic is an ES module on the shared component set; it is
+// covered by compositePanel.test.ts.
 
 describe("core.plot.basic", () => {
   it("renders an image artifact with zoom and save controls", async () => {

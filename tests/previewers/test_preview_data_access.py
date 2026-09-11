@@ -125,6 +125,47 @@ def test_composite_slots_inventory_only() -> None:
     assert slots.slots == {"raster": "Array", "obs": "DataFrame"}
 
 
+def test_composite_slots_read_the_type_from_a_recorded_slot_envelope() -> None:
+    """A slot recorded as a wire envelope reports its type, not the envelope.
+
+    The serializer writes each slot as ``{backend, path, format, metadata}`` with
+    the type in ``metadata.type_chain``. Stringifying that mapping put a whole
+    JSON blob on screen as the slot's "type" and matched no previewer, so opening
+    the slot failed to route.
+    """
+    access = PreviewDataAccess()
+    slots = access.composite_slots(
+        {
+            "slots": {
+                "image": {
+                    "backend": "zarr",
+                    "path": "/p/image/data.zarr",
+                    "format": None,
+                    "metadata": {"type_chain": ["DataObject", "Array"], "framework": {}},
+                },
+                "measurements": {
+                    "backend": "arrow",
+                    "path": "/p/measurements/data.parquet",
+                    "format": "parquet",
+                    "metadata": {"type_chain": ["DataObject", "DataFrame"]},
+                },
+                "notes": "Text",
+            }
+        }
+    )
+    assert slots.slots == {"image": "Array", "measurements": "DataFrame", "notes": "Text"}
+    for name, type_name in slots.slots.items():
+        assert "{" not in type_name, f"{name} leaked a mapping as its type"
+
+
+def test_composite_slots_report_no_type_when_the_record_carries_none() -> None:
+    # A bare storage descriptor has no type to report; an empty name is honest
+    # and lets the caller resolve the type from the slot itself.
+    access = PreviewDataAccess()
+    slots = access.composite_slots({"slots": {"raw": {"backend": "filesystem", "path": "/p/raw"}}})
+    assert slots.slots == {"raw": ""}
+
+
 def _write_composite(tmp_path: Path) -> StorageReference:
     """Persist a real two-slot composite via the core CompositeStore."""
     from scistudio.core.storage.composite_store import CompositeStore

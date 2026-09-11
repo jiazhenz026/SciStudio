@@ -174,19 +174,26 @@ def child_targets(
         if not Path(storage.path).resolve().is_relative_to(Path(parent.storage.path).resolve()):
             raise PanelError(403, "unauthorized_ref", "Composite child escapes its parent")
         ref = f"{parent.target.ref}#{name}"
+        md = deepcopy(storage.metadata or {})
+        # A composite manifest may record a slot as a storage descriptor rather
+        # than a type name, in which case the slot's own metadata is the only
+        # authority for its type. Without this the recorded type became the
+        # stringified descriptor: it was shown to the reader as the slot's type
+        # and matched no previewer, so opening the slot failed to route.
+        chain = md.get("type_chain") or []
+        resolved = type_name or (str(chain[-1]) if chain else "")
         if ref not in parent.children:
-            md = deepcopy(storage.metadata or {})
             parent.children[ref] = FrozenTarget(
                 target=PreviewTarget(
                     kind=TargetKind.DATA_REF,
                     ref=ref,
-                    recorded_type=type_name,
-                    type_chain=tuple(md.get("type_chain") or type_chain(runtime, type_name)),
+                    recorded_type=resolved,
+                    type_chain=tuple(chain or type_chain(runtime, resolved)),
                 ),
                 storage=storage,
                 metadata=md,
                 stamp=file_stamp(storage.path),
                 parent=parent,
             )
-        result.append({"name": name, "type_name": type_name, "ref": ref})
+        result.append({"name": name, "type_name": resolved, "ref": ref})
     return {"slots": result, "sampled": False, "truncated": False, "complete": True}

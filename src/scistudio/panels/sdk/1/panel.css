@@ -131,6 +131,18 @@ body {
 .panel-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-item-sub { font-size: 10px; color: rgb(var(--ink) / 0.45); }
 
+/* Full-width clickable row: a label over a value, with a trailing hint. */
+.panel-list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--gap);
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-card);
+  background: var(--surface); color: rgb(var(--ink)); padding: 12px 16px;
+}
+.panel-list-row:hover { background: rgb(var(--ink) / 0.05); }
+.panel-list-row-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ink) / 0.6); }
+.panel-list-row-value { display: block; margin-top: 2px; font-size: 14px; color: rgb(var(--ink)); }
+.panel-list-row-trailing { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+
 /* Pager: "rows 1–50 of 200 · page 1/4" with prev/next. Pagination is normal
    navigation, never a caveat about the data (#1886 Part 1). */
 .panel-pager { display: flex; align-items: center; gap: var(--gap); font-size: 10px; color: rgb(var(--ink) / 0.6); }

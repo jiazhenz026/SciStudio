@@ -912,6 +912,28 @@ class PreviewDataAccess:
     # -- Composite ----------------------------------------------------------
 
     @provisional(since="0.3.1")
+    @staticmethod
+    def _slot_type_name(value: Any) -> str:
+        """Return the type name a recorded composite slot holds.
+
+        A slot is recorded either as a bare type name or as the wire-format
+        envelope the serializer writes — ``{backend, path, format, metadata}``,
+        whose ``metadata.type_chain`` runs general to specific. Stringifying that
+        envelope is what put a whole JSON mapping on screen as the slot's "type"
+        and left it matching no previewer, so read the chain instead.
+        """
+        if not isinstance(value, dict):
+            return str(value)
+        meta = value.get("metadata")
+        chain = meta.get("type_chain") if isinstance(meta, dict) else None
+        if isinstance(chain, (list, tuple)) and chain:
+            return str(chain[-1])
+        for key in ("type_name", "type"):
+            name = value.get(key)
+            if isinstance(name, str) and name:
+                return name
+        return ""
+
     def composite_slots(self, metadata: dict[str, Any]) -> CompositeSlots:
         """Return a composite's slot inventory without rendering any child.
 
@@ -922,8 +944,9 @@ class PreviewDataAccess:
             A :class:`CompositeSlots` mapping slot name to its type name.
         """
         slots_raw = metadata.get("slots", {}) if isinstance(metadata, dict) else {}
-        slots = {str(k): str(v) for k, v in slots_raw.items()} if isinstance(slots_raw, dict) else {}
-        return CompositeSlots(slots=slots)
+        if not isinstance(slots_raw, dict):
+            return CompositeSlots(slots={})
+        return CompositeSlots(slots={str(name): self._slot_type_name(value) for name, value in slots_raw.items()})
 
     @provisional(since="0.3.1")
     def composite_slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:

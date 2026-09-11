@@ -157,6 +157,22 @@ export function Item({ name, sub, title, class: cls, elementRef, children, ...re
 }
 
 /**
+ * One full-width clickable row: a label over a value on the left, and an
+ * optional trailing hint on the right — the shape a slot inventory or any
+ * name/type listing uses.
+ */
+export function ListRow({ label, value, trailing, class: cls, elementRef, children, ...rest }) {
+  return html`<button type="button" class=${cx("panel-list-row", cls)} ref=${elementRef} ...${rest}>
+    <span class="panel-list-row-text">
+      ${label !== undefined ? html`<span class="panel-list-row-label">${label}</span>` : null}
+      ${value !== undefined ? html`<span class="panel-list-row-value">${value}</span>` : null}
+      ${children}
+    </span>
+    ${trailing !== undefined ? html`<span class="panel-list-row-trailing">${trailing}</span>` : null}
+  </button>`;
+}
+
+/**
  * Plain navigation for complete, paginated data: "rows 1–50 of 200 · page 1/4"
  * with prev/next. Paging is navigation, never a warning that the data is partial
  * (#1886 Part 1) — do not render a "truncated" badge alongside it.

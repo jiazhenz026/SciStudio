@@ -315,7 +315,7 @@ describe("core.array.basic — per-axis slice controls", () => {
 
     await vi.waitFor(() => {
       const planeReads = ops.filter((o) => o.op === "array.plane");
-      expect(planeReads.at(-1)?.params.axis_indices).toEqual({ 0: 5 });
+      expect(planeReads[planeReads.length - 1]?.params.axis_indices).toEqual({ 0: 5 });
     });
   });
 
@@ -331,7 +331,7 @@ describe("core.array.basic — per-axis slice controls", () => {
 
     await vi.waitFor(() => {
       const planeReads = ops.filter((o) => o.op === "array.plane");
-      expect(planeReads.at(-1)?.params.axis_indices).toEqual({ 0: 7 });
+      expect(planeReads[planeReads.length - 1]?.params.axis_indices).toEqual({ 0: 7 });
     });
   });
 });
