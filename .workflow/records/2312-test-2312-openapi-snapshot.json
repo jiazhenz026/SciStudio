@@ -72,7 +72,11 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -179,6 +183,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.028151Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.040079Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.052050Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.063684Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.075544Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.087716Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.100766Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.112724Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.128985Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.140680Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T09:09:02.153439Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -197,9 +289,9 @@
       ".workflow/records/2312-test-2312-openapi-snapshot.json",
       "tests/contracts/openapi.json"
     ],
-    "diff_fingerprint": "sha256:4878d2e47d3d6d7d8df3753597a0e03d34257026fdf94b92e646cfb28a2e2a43",
+    "diff_fingerprint": "sha256:14dbee0da146782f239d166925918b799b233d5485db0e40945862491735ce43",
     "head": "HEAD",
-    "head_sha": "06792cf71",
+    "head_sha": "5b2412dda",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -216,11 +308,26 @@
   },
   "owner_directive": "Manager-initiated: refresh the stale OpenAPI contract snapshot that turned main CI red after #2292 merged",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2312
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-11T09:09:01.356586Z",
       "diff_fingerprint": "sha256:4878d2e47d3d6d7d8df3753597a0e03d34257026fdf94b92e646cfb28a2e2a43",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T09:09:02.153481Z",
+      "diff_fingerprint": "sha256:14dbee0da146782f239d166925918b799b233d5485db0e40945862491735ce43",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
