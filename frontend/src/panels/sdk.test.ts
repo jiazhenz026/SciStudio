@@ -1,8 +1,9 @@
+import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it, vi } from "vitest";
 const source = readFileSync(
-  new URL("../../../src/scistudio/panels/sdk/1/scistudio-panel.js", import.meta.url),
+  resolve(process.cwd(), "../src/scistudio/panels/sdk/1/scistudio-panel.js"),
   "utf8",
 );
 function boot(standalone = false, sample = {}) {
@@ -29,6 +30,7 @@ function boot(standalone = false, sample = {}) {
     Set,
     Promise,
     ArrayBuffer,
+    Blob,
     setTimeout,
     clearTimeout,
   });
@@ -125,4 +127,29 @@ describe("dependency-free SDK", () => {
     expect(await api.read("metadata")).toEqual({ type_name: "Image", complete: true });
     await expect(api.read("table.page")).rejects.toMatchObject({ code: "not_found" });
   });
+});
+
+it("creates frame-local artifact Blob URLs and revokes on replacement and dispose", async () => {
+  const create = vi
+    .spyOn(URL, "createObjectURL")
+    .mockReturnValueOnce("blob:first")
+    .mockReturnValueOnce("blob:second");
+  const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  const { api, port, init, response } = boot();
+  init();
+  const ready = api.ready();
+  await Promise.resolve();
+  response();
+  await ready;
+  const first = api.read("artifact.file");
+  response({ data: new ArrayBuffer(3), mime_type: "image/png", complete: true });
+  expect(await first).toMatchObject({ url: "blob:first", complete: true });
+  const second = api.read("artifact.file");
+  response({ data: new ArrayBuffer(3), mime_type: "image/png" });
+  await second;
+  expect(revoke).toHaveBeenCalledWith("blob:first");
+  port.onmessage?.({ data: { v: 1, type: "dispose" } });
+  expect(revoke).toHaveBeenCalledWith("blob:second");
+  create.mockRestore();
+  revoke.mockRestore();
 });

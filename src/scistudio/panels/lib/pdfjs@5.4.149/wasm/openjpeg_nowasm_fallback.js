@@ -1,6 +1,6 @@
 /* THIS FILE IS GENERATED - DO NOT EDIT */
 var OpenJPEG = (() => {
-  
+
   return (
 function(moduleArg = {}) {
   var moduleRtn;

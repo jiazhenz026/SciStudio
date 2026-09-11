@@ -238,7 +238,9 @@ export async function mountDynamicPanel(
     // prefixed form so the module resolves under a mounted prefix.
     if (!warnedLegacyModules.has(manifest.module_url)) {
       warnedLegacyModules.add(manifest.module_url);
-      console.warn(`Legacy panel module ${manifest.module_url} is deprecated through 0.5.x; migrate to a panel folder before 0.6 (#2288).`);
+      console.warn(
+        `Legacy panel module ${manifest.module_url} is deprecated through 0.5.x; migrate to a panel folder before 0.6 (#2288).`,
+      );
     }
     mod = await importer(freshModuleUrl(apiUrl(manifest.module_url)));
   } catch (err) {

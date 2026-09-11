@@ -29,12 +29,15 @@ export function PanelFrame(props: PanelFrameProps) {
   const [height, setHeight] = useState(420);
   const [ready, setReady] = useState(false);
   const loaded = useRef(false);
+  const readsAbort = useRef<AbortController | null>(null);
   const readyTimer = useRef<ReturnType<typeof setTimeout>>();
   const requestKey = JSON.stringify(props.request);
 
   useEffect(() => {
     let disposed = false;
     let active: PanelContext | null = null;
+    const controller = new AbortController();
+    readsAbort.current = controller;
     let renewal: ReturnType<typeof setInterval> | undefined;
     setContext(null);
     setError(null);
@@ -43,6 +46,7 @@ export function PanelFrame(props: PanelFrameProps) {
     const close = () => {
       if (disposed) return;
       disposed = true;
+      controller.abort();
       clearTimeout(readyTimer.current);
       clearInterval(renewal);
       bridge.current?.dispose();
@@ -98,7 +102,8 @@ export function PanelFrame(props: PanelFrameProps) {
     loaded.current = true;
     const channel = new MessageChannel();
     bridge.current = createPanelBridge(channel.port1, context, {
-      read: (ref, op, params) => panelsApi.read(context.context_id, ref, op, params),
+      read: (ref, op, params) =>
+        panelsApi.read(context.context_id, ref, op, params, readsAbort.current?.signal),
       open: (ref) =>
         callbacks.current.onOpen?.(ref, context.context_id) ??
         Promise.reject(new Error("No preview host")),

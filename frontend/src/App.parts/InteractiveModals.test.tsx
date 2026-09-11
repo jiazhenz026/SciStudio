@@ -59,7 +59,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  backend.restore();
+  backend?.restore();
 });
 
 describe("<InteractiveModals> panel resolution", () => {

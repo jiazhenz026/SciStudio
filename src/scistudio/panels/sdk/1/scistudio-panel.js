@@ -8,6 +8,7 @@
   var themeCallbacks = new Set();
   var disposeCallbacks = new Set();
   var sample = null;
+  var artifactUrls = new Map();
   var errorBeforeInit = null;
   var initializedResolve;
   var initializedReject;
@@ -56,6 +57,8 @@
       item.reject(failure("disposed", "Panel has been disposed"));
     });
     pending.clear();
+    artifactUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+    artifactUrls.clear();
     disposeCallbacks.forEach(function (callback) { callback(); });
     if (port) { port.onmessage = null; port.close(); }
   }
@@ -81,7 +84,14 @@
           if (Object.prototype.hasOwnProperty.call(reads, op)) return Promise.resolve(reads[op]);
           return Promise.reject(failure("not_found", "No sample read for " + op));
         }
-        return request("read", { ref: ref, op: op, params: readParams });
+        return request("read", { ref: ref, op: op, params: readParams }).then(function (result) {
+          if (op !== "artifact.file" || !result || !(result.data instanceof ArrayBuffer)) return result;
+          if (disposed) throw failure("disposed", "Panel has been disposed");
+          if (artifactUrls.has(ref)) URL.revokeObjectURL(artifactUrls.get(ref));
+          var url = URL.createObjectURL(new Blob([result.data], { type: result.mime_type || "application/octet-stream" }));
+          artifactUrls.set(ref, url);
+          return Object.assign({}, result, { url: url });
+        });
       };
     }
     if (api.context === "preview" && services.indexOf("open") >= 0) {

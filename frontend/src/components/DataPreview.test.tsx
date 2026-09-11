@@ -1,6 +1,7 @@
 import { render, waitFor, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { PanelPreviewProps } from "../panels/PanelPreview";
 import type { PreviewEnvelope } from "../types/api";
 
 // Mock only PreviewHost's session methods; keep every other lib/api export
@@ -22,6 +23,18 @@ vi.mock("../lib/api", async (importOriginal) => {
     },
   };
 });
+
+vi.mock("../panels/PanelPreview", () => ({
+  PanelPreview: (props: PanelPreviewProps) => (
+    <button
+      onClick={() =>
+        props.onSnapshot?.({ target: props.target, panelId: props.panelId, viewState: { zoom: 3 } })
+      }
+    >
+      Report panel state
+    </button>
+  ),
+}));
 
 import { useAppStore } from "../store";
 
@@ -332,4 +345,30 @@ describe("DataPreview", () => {
       reportSpy.mockRestore();
     }
   });
+});
+
+it("maximizes a panel with its frozen resolved id and reported view state", async () => {
+  createPreviewSession.mockImplementation(async (target: { ref: string }) => ({
+    ...textEnvelope(target.ref, ""),
+    kind: "panel",
+    panel: { id: "lab.custom", api_version: "1.0" },
+  }));
+  render(
+    <DataPreview
+      selectedNodeId="n1"
+      selectedNodeLabel="Image"
+      blockOutputs={{ n1: { output: { data_ref: "image-1" } } }}
+    />,
+  );
+  fireEvent.click(await screen.findByText("Report panel state"));
+  fireEvent.click(screen.getByLabelText("Maximize preview"));
+  const tab = useAppStore.getState().tabs.find((entry) => entry.kind === "preview");
+  expect(tab).toMatchObject({
+    kind: "preview",
+    target: { ref: "image-1" },
+    panelId: "lab.custom",
+    viewState: { zoom: 3 },
+  });
+  fireEvent.click(screen.getByLabelText("Maximize preview"));
+  expect(useAppStore.getState().tabs.filter((entry) => entry.kind === "preview")).toHaveLength(1);
 });

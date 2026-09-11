@@ -49,7 +49,7 @@ import {
 export interface PreviewHostProps {
   panelId?: string;
   initialViewState?: unknown;
-  onPanelSnapshot?: (snapshot: PanelSnapshot) => void;
+  onPanelSnapshot?: (snapshot: PanelSnapshot | null) => void;
   /** The target to preview. A `null` target renders the empty state. */
   target: PreviewTarget | null;
   /** Optional initial query state (slice/page/sort). */
@@ -150,7 +150,9 @@ export function PreviewHost({
   initialViewState,
   onPanelSnapshot,
 }: PreviewHostProps) {
-  const [coreOnly, setCoreOnly] = useState(false);
+  const fallbackTargetKey = `${target?.kind}:${target?.ref}:${routingEpoch}`;
+  const [coreOnlyTarget, setCoreOnlyTarget] = useState<string | null>(null);
+  const coreOnly = coreOnlyTarget === fallbackTargetKey;
   const [status, setStatus] = useState<Status>("idle");
   const [envelope, setEnvelope] = useState<PreviewEnvelope | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -369,7 +371,8 @@ export function PreviewHost({
         return currentEnvelope();
       },
       get kind() {
-        return currentEnvelope().kind;
+        const kind = currentEnvelope().kind;
+        return kind === "panel" ? "error" : kind;
       },
       get provider() {
         const current = currentEnvelope();
@@ -535,7 +538,10 @@ export function PreviewHost({
         previewSessionId={activeEnvelope.session_id}
         initialViewState={initialViewState}
         onSnapshot={onPanelSnapshot}
-        onFallback={() => setCoreOnly(true)}
+        onFallback={() => {
+          onPanelSnapshot?.(null);
+          setCoreOnlyTarget(fallbackTargetKey);
+        }}
       />
     );
   }

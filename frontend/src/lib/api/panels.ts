@@ -1,4 +1,5 @@
 /** Guarded host operations. Static tokens are never sent as operation credentials. */
+import { materializePanelArtifact } from "../../panels/artifact";
 import { apiFetch, JSON_HEADERS } from "./core";
 import type { PanelContext, PanelCreateRequest } from "../../panels/types";
 import { PanelError } from "../../panels/types";
@@ -20,21 +21,31 @@ export const panelsApi = {
       body: "{}",
       timeoutMs: 15000,
     }),
-  async read(id: string, ref: string, op: string, params: Record<string, unknown>) {
+  async read(
+    id: string,
+    ref: string,
+    op: string,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) {
     // JSON requests use the shared mutation/auth seam. Binary uses the same
     // guarded route and prefix source, with no static token in its credentials.
-    if (params.format !== "binary")
-      return apiFetch<Record<string, unknown>>(`${contextPath(id)}/read`, {
+    if (params.format !== "binary") {
+      const result = await apiFetch<Record<string, unknown>>(`${contextPath(id)}/read`, {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ ref, op, params }),
         timeoutMs: 30000,
+        signal,
       });
+      return op === "artifact.file" ? materializePanelArtifact(result, signal) : result;
+    }
     const response = await apiFetch<Response>(`${contextPath(id)}/read`, {
       method: "POST",
       headers: JSON_HEADERS,
       body: JSON.stringify({ ref, op, params }),
       responseType: "response",
+      signal,
       timeoutMs: 30000,
     });
     if (!response.headers.get("Content-Type")?.startsWith("application/octet-stream")) {

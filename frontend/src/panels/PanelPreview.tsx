@@ -38,7 +38,17 @@ export function PanelPreview({
     context: PanelContext,
     viewState?: unknown,
   ) => {
-    const snapshot = { target: request.target!, panelId: context.panel.id, viewState };
+    const kind = context.input.kind;
+    const snapshot: PanelSnapshot = {
+      target: {
+        ...request.target!,
+        ...(kind === "data_ref" || kind === "collection_ref" || kind === "plot_artifact"
+          ? { kind }
+          : {}),
+      },
+      panelId: context.panel.id,
+      viewState,
+    };
     snapshots.current.set(index, snapshot);
     if (index === active) onSnapshot?.(snapshot);
   };
@@ -57,7 +67,10 @@ export function PanelPreview({
         </button>
       ) : null}
       {requests.map((request, index) => (
-        <div key={index} hidden={index !== active}>
+        <div
+          key={`${request.parent_context_id ?? "root"}:${request.target?.ref}`}
+          hidden={index !== active}
+        >
           <PanelFrame
             request={request}
             onFallback={onFallback}

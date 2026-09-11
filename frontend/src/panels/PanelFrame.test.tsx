@@ -46,7 +46,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  backend.restore();
+  backend?.restore();
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
