@@ -1,5 +1,5 @@
 {
-  "base_ref": "4b8f948a",
+  "base_ref": "defd2703",
   "branch": "codex/2293-panel-contract-docs",
   "check_events": [
     {
@@ -58,6 +58,11 @@
       "at": "2026-09-11T15:41:17.394891Z",
       "owner_directive": "Extend existing-row scope to PV-09-002 only; prepare ADR-049 master-index proposal and compare unchanged checker errors against origin/main.",
       "reason": "Manager approved narrow existing PV-09-002 metadata and FrontendManifest anchor update required by A1 changes; unrelated legacy table failures remain reported."
+    },
+    {
+      "at": "2026-09-11T15:48:48.585617Z",
+      "owner_directive": "Owner requires pause after Phase A before starting B, C or D; no full author guide or architecture narrative work in this slice.",
+      "reason": "Reviewed A1 followup moves external-reference validator; record true anchor and exact bootstrap proposal after A1/A2 field agreement."
     }
   ],
   "docs_events": [
@@ -146,6 +151,22 @@
       "class": null,
       "kind": "path",
       "path": "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:48:48.585902Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-owner-doc-proposal.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:48:48.585925Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-contract-notes.md",
       "rationale": null,
       "verified_in_diff": null
     }

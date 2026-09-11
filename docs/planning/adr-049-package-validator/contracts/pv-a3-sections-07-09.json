@@ -1078,6 +1078,11 @@
           "path": "tests/panels/test_panel_routing.py",
           "kind": "contains",
           "pattern": "def test_same_tier_panel_shadows_legacy_and_multi_claims_route"
+        },
+        {
+          "path": "tests/panels/test_panel_registry.py",
+          "kind": "contains",
+          "pattern": "def test_discovery_project_user_package_tiers_and_diagnostics"
         }
       ],
       "adr_alignment": "aligned",

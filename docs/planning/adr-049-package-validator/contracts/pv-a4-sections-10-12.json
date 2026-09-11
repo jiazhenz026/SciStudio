@@ -1033,7 +1033,7 @@
       },
       "code_evidence": [
         {
-          "path": "src/scistudio/panels/validation.py",
+          "path": "src/scistudio/panels/files.py",
           "kind": "contains",
           "pattern": "def validate_external_references(",
           "symbol": "validate_external_references"

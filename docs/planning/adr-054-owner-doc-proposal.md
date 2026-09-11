@@ -20,6 +20,10 @@ MiniApp spec owns shared existing surfaces without claiming its D behavior.
 Artifact transport wording is conditional on integrating A2 host materialization
 and SDK blob disposal, then verifying its checks; no PDF browser parity is claimed.
 
+The bootstrap patch is conditional on finalized A1/A2 implementation and checks.
+The agreed wire field is `ContextResponse.bootstrap_proof`; the proof remains
+backend-owned. No extra operation is added to the canonical SDK channel.
+
 ## 2. Proposed ADR And Spec Patch
 
 ```diff
@@ -148,9 +152,9 @@ and SDK blob disposal, then verifying its checks; no PDF browser parity is claim
 +FR-002's strict `core.*` reservation and ADR-054's same-id core customization
 +remain an owner-contract question under #2293; this amendment does not choose a
 +new rule or claim that same-id non-core overrides work.
- 
+
  ## 2. User Scenarios & Testing
- 
+
 @@ -603,9 +625,11 @@
    `/api/panels/t/{token}/sdk/{major}/scistudio-panel.js`, and
    `/api/panels/t/{token}/lib/{name}@{version}/{path}`, built from the configured
@@ -222,7 +226,7 @@ and SDK blob disposal, then verifying its checks; no PDF browser parity is claim
 +  | `artifact.file` | backend: a distinct context-target grant URL, including preview-cache plot artifacts; SDK: artifact metadata, an `ArrayBuffer` in `data`, and a frame-local blob URL in `url` |
    | `composite.slots` | slot names, types, and child references |
    | `collection.items` | a page of item references with types, and the next cursor |
- 
+
 @@ -611,6 +612,16 @@
    `Referrer-Policy: no-referrer`; their file-type allowlist MUST add `.html`,
    `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ttf`, `.otf`, and `.wasm` to today's
@@ -275,9 +279,66 @@ and SDK blob disposal, then verifying its checks; no PDF browser parity is claim
 +established by this evidence table. Table-anchor validation is not an install-time
 +validator run. Panel Python symbols named as evidence remain internal under
 +ADR-052; the author-facing panel surface is `panel.json` and the browser SDK.
- 
+
  ### 5.1 Section Coverage
- 
+
+--- a/docs/specs/adr-054-panels.md
++++ b/docs/specs/adr-054-panels.md
+@@ -543,9 +543,18 @@
+ - **FR-015**: The host MUST mount every panel in an `iframe` whose `sandbox`
+   attribute is exactly `allow-scripts`, whose `referrerpolicy` is `no-referrer`,
+   and whose `src` is the panel's token-scoped entry URL.
+-- **FR-016**: On the frame's first load the host MUST create a `MessageChannel`,
+-  transfer one port to the frame in a single `init` message addressed to that
+-  frame's window, and exchange every further message over that port. Messages
++- **FR-016**: Context creation MUST return an unpredictable 256-bit
++  `bootstrap_proof`, stable across renewal. The backend MUST prepend trusted
++  bootstrap code before all panel entry markup. That code creates a private
++  bootstrap `MessageChannel` and sends `{v: 1, id: "bootstrap", type: "bootstrap",
++  proof}` with exactly one port to the parent. The host MUST accept at most one
++  bootstrap from the intended iframe with the matching context proof. After the
++  first load and a valid bootstrap, the host creates the canonical
++  `MessageChannel` and transfers its `init` and one canonical port through the
++  retained bootstrap port, never through the iframe's current `contentWindow`.
++  The bootstrap forwards initialization once in its original document; a
++  replacement document cannot receive it. All subsequent operations use only
++  the canonical port. Messages
+   have the form `{v: <api major>, id, type, payload}`. Panel-to-host types:
+   `ready`, `read`, `writeBack`, `open`, `save`, `viewState`, `resize`,
+   `reportError`. Host-to-panel types: `init` (context kind, operations and
+@@ -616,7 +625,12 @@
+   token-scoped path, `'unsafe-inline'`, and the CDN allowlist hosts; and
+   `img-src` limited to the token-scoped path, `data:`, and `blob:`.
+ - **FR-029**: The host MUST dispose a panel frame, and close its context, when the
+-  frame loads any document other than its panel entry.
++  frame loads any document other than its panel entry. The first load event is
++  not proof of entry identity: without FR-016's valid document-bound bootstrap,
++  the host MUST withhold input and initialization. The existing ten-second
++  readiness deadline includes a missing entry handshake. A navigation before
++  initialization destroys the original document's bootstrap port, so the new
++  document receives no input; subsequent frame loads dispose the mount.
+ - **FR-030**: The backend MUST refuse `POST`, `PUT`, `PATCH`, and `DELETE`
+   requests whose `Origin` header is `null`, on every route.
+ - **FR-031**: The backend MUST refuse to start when `SCISTUDIO_CORS_ORIGINS`
+--- a/docs/adr/ADR-054.md
++++ b/docs/adr/ADR-054.md
+@@ -378,9 +378,13 @@
+ `allow-same-origin`. The browser gives the page an opaque origin of its own. The
+ page can run its script, but it cannot read the application's document, storage,
+ or cookies, and it cannot make an authenticated call to the backend or read a
+-backend response. It exchanges messages with its host over a channel the host
+-hands it when it opens, so neither another panel nor another page can speak to it
+-as the host.
++backend response. A trusted bootstrap prepended before the panel's markup binds
++initialization to that entry document using a per-context proof and private
++bootstrap channel. The host transfers input and the canonical message port
++through that retained document channel, not the frame's current window; a
++navigation before initialization cannot redirect the input to another document.
++All panel operations then use the canonical channel, so neither another panel
++nor another page can speak to it as the host.
+
+ The sandbox alone does not stop a page from sending requests, so three further
+ controls close the direct paths to the backend. The panel's HTML is served with a
 ```
 
 ## 3. Architecture And Follow-ups

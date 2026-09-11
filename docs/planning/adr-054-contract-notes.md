@@ -133,3 +133,27 @@ runtime in Phase D. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2
 
 TODO(#2288): Retain tracked 0.6 legacy removal, preview Python, and notebook/sync
 work outside Phase A. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2288.
+
+Owner pause boundary: stop after Phase A and wait for the owner before starting
+any Phase B, C or D work. Follow-up issue links above record future scope only;
+this slice does not start full author guides or architecture narrative work.
+
+### Dependency Follow-up
+
+Reviewed A2 commits `6d5379af`, `b8b4dde4`, `d0b2b8ba`, `f2b015c0` are now in
+this documentation tree. All eight new rows have matching local code/test
+anchors. The focused checker result is **10 errors, 5 warnings**, entirely the
+unchanged legacy evidence described above; no new panel inventory gaps remain.
+
+The full unfiltered checker was also compared: unchanged `origin/main` reports
+**99 errors, 12 warnings**; the candidate reports **105 errors, 14 warnings**.
+The exact added errors are the eight new ADR-049 master-index ids whose patches
+remain proposal-only. The two repaired FrontendManifest anchors account for the
+reduction from 99 baseline errors to 97 plus eight pending index rows.
+
+A1 follow-up `0ea6f63d` was imported. The external-reference validator now lives
+in `panels/files.py` and is re-exported by `panels/validation.py`; PV-12-006 points
+to its real definition. PV-09-008 now also cites the dedicated four-tier registry
+test. The proposed bootstrap wording records the A1/A2 agreed
+`ContextResponse.bootstrap_proof` and document-bound bootstrap channel; its
+implementation and final evidence remain conditional until those commits land.
