@@ -107,6 +107,8 @@ export function PreviewerCard({
         {previewer.frontend_manifest ? " · custom UI" : ""}
       </p>
 
+      {previewer.renderer === "panel" ? <p className="text-[11px] text-stone-500">Contexts: {previewer.panel?.contexts.join(", ")} · Priority: {previewer.priority}{previewer.shadowed ? " · Shadowed" : ""}</p> : <p className="text-[11px] text-stone-500">Legacy previewer (deprecated)</p>}
+
       {choiceHeldElsewhere ? (
         <p className="mt-1 text-[11px] text-stone-500" data-testid="previewer-current-choice">
           Current choice: <span className="font-medium text-stone-700">{choice.previewer_id}</span>
@@ -114,7 +116,7 @@ export function PreviewerCard({
         </p>
       ) : null}
 
-      <div
+      {previewer.renderer !== "panel" || (previewer.panel?.contexts.includes("preview") && !previewer.shadowed) ? <div
         aria-label={`Previewer choice for ${previewer.target_type}`}
         className="mt-2 inline-flex overflow-hidden rounded-full border border-stone-300 bg-white shadow-sm"
         data-testid="previewer-choice-segments"
@@ -143,7 +145,7 @@ export function PreviewerCard({
             </button>
           );
         })}
-      </div>
+      </div> : null}
 
       {error ? (
         <p className="mt-1 text-[11px] text-red-700" role="alert">

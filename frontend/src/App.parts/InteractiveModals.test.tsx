@@ -23,6 +23,7 @@ vi.mock("../hooks/useWebSocket", () => ({
 }));
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
+vi.mock("../lib/api/panels", () => ({ panelsApi: { create: vi.fn().mockRejectedValue(new Error("Panel myproj.foo not found")), close: vi.fn().mockResolvedValue(undefined) } }));
 
 function seedPrompt(
   manifest: PanelManifestDescriptor | null,
@@ -62,13 +63,13 @@ describe("<InteractiveModals> panel resolution", () => {
     render(<InteractiveModals />);
 
     // A window exists at all — this is what used to be `null`.
-    expect(screen.getByTestId("dynamic-panel")).toBeInTheDocument();
-    const error = await screen.findByTestId("dynamic-panel-error");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    const error = await screen.findByRole("alert");
     expect(error).toBeInTheDocument();
     // And it names the block, so the reader knows what is being waited on.
-    expect(screen.getByTestId("dynamic-panel-titlebar")).toHaveTextContent("myproj.foo");
+    expect(screen.getByRole("dialog")).toHaveTextContent("myproj.foo");
 
-    fireEvent.click(screen.getByTestId("dynamic-panel-cancel"));
+    fireEvent.click(screen.getAllByText("Cancel")[0]);
     expect(sendWebSocketMessage).toHaveBeenCalledWith({
       type: "cancel_block",
       block_id: "block-1",
@@ -83,7 +84,7 @@ describe("<InteractiveModals> panel resolution", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     render(<InteractiveModals />);
-    await screen.findByTestId("dynamic-panel-error");
+    await screen.findByRole("alert");
 
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(useAppStore.getState().interactivePrompt).toBeNull());
@@ -121,7 +122,7 @@ describe("<InteractiveModals> panel resolution", () => {
     render(<InteractiveModals />);
 
     expect(screen.getByTestId("dynamic-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("dynamic-panel-titlebar")).toHaveTextContent("myproj.foo");
+    expect(screen.getByRole("dialog")).toHaveTextContent("myproj.foo");
   });
 
   it("renders nothing when the prompt carries no panel manifest", () => {

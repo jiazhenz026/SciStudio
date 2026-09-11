@@ -85,6 +85,8 @@ export class ApiTimeoutError extends Error {
 }
 
 export interface ApiFetchOptions extends RequestInit {
+  /** Preserve the authenticated transport for binary panel reads. */
+  responseType?: "json" | "response";
   /**
    * #2019: abort the request after this many milliseconds and reject with
    * `ApiTimeoutError`. Omit for no client-side deadline (the default — most
@@ -114,7 +116,7 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
 
   // #2019: an AbortController rather than a bare Promise.race, so a timed-out
   // request actually releases the connection instead of running on unobserved.
-  const { timeoutMs, ...requestInit } = init ?? {};
+  const { timeoutMs, responseType, ...requestInit } = init ?? {};
   const controller = timeoutMs !== undefined ? new AbortController() : null;
   const timer =
     controller !== null && timeoutMs !== undefined
@@ -185,6 +187,7 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
   }
 
   logger.debug(`← ${method} ${url} ${response.status} ${elapsedMs}ms`, { request_id: requestId });
+  if (responseType === "response") return response as T;
   if (response.status === 204) {
     return undefined as T;
   }

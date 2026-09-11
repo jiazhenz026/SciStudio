@@ -26,6 +26,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
+import { PanelPreview } from "../../panels/PanelPreview";
+import type { PanelSnapshot } from "../../panels/types";
 import { apiUrl } from "../../lib/api/base-path";
 import type {
   PreviewEnvelope,
@@ -45,6 +47,9 @@ import {
 } from "./previewerHostApi";
 
 export interface PreviewHostProps {
+  panelId?: string;
+  initialViewState?: unknown;
+  onPanelSnapshot?: (snapshot: PanelSnapshot) => void;
   /** The target to preview. A `null` target renders the empty state. */
   target: PreviewTarget | null;
   /** Optional initial query state (slice/page/sort). */
@@ -140,8 +145,9 @@ export function PreviewHost({
   routingEpoch,
   cacheEnvelope,
   buildCacheKey,
-  importer,
+  importer, panelId, initialViewState, onPanelSnapshot,
 }: PreviewHostProps) {
+  const [coreOnly, setCoreOnly] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [envelope, setEnvelope] = useState<PreviewEnvelope | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -163,7 +169,7 @@ export function PreviewHost({
       setEnvelope(null);
       return;
     }
-    const query = { ...(initialQuery ?? {}) };
+    const query = { ...(initialQuery ?? {}), ...(coreOnly ? { core_only: true } : panelId ? { panel_id: panelId } : {}) };
     queryRef.current = query;
 
     setStatus("loading");
@@ -189,7 +195,7 @@ export function PreviewHost({
     // deliberate dep: a choice change must re-create the session so the new
     // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch]);
+  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch, coreOnly, panelId]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
@@ -513,6 +519,12 @@ export function PreviewHost({
     );
   }
   if (!activeEnvelope) return null;
+
+  if (activeEnvelope.panel) {
+    return <PanelPreview key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`} target={activeEnvelope.target}
+      panelId={panelId ?? activeEnvelope.panel.id} previewSessionId={activeEnvelope.session_id}
+      initialViewState={initialViewState} onSnapshot={onPanelSnapshot} onFallback={() => setCoreOnly(true)} />;
+  }
 
   const useDynamic = !!manifest && !dynamicFailed;
 

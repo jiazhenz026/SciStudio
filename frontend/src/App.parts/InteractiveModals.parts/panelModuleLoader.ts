@@ -204,6 +204,8 @@ function freshModuleUrl(moduleUrl: string): string {
  * Validate + import + mount a dynamic panel. Resolves to a {@link LoadResult}.
  * Never throws.
  */
+const warnedLegacyModules = new Set<string>();
+
 export async function mountDynamicPanel(
   manifest: PanelManifestDescriptor,
   container: HTMLElement,
@@ -234,6 +236,10 @@ export async function mountDynamicPanel(
   try {
     // ADR-055 Spec 0: the manifest emits a backend-relative URL; import the
     // prefixed form so the module resolves under a mounted prefix.
+    if (!warnedLegacyModules.has(manifest.module_url)) {
+      warnedLegacyModules.add(manifest.module_url);
+      console.warn(`Legacy panel module ${manifest.module_url} is deprecated through 0.5.x; migrate to a panel folder before 0.6 (#2288).`);
+    }
     mod = await importer(freshModuleUrl(apiUrl(manifest.module_url)));
   } catch (err) {
     return {

@@ -1,0 +1,268 @@
+{
+  "base_ref": "origin/main",
+  "branch": "codex/2293-panel-frontend",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/panels/**",
+      "frontend/src/components/DataPreview*",
+      "frontend/src/components/DataPreview.parts/**",
+      "frontend/src/App.parts/InteractiveModals*",
+      "frontend/src/App.parts/InteractiveModals.parts/**",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/store/**",
+      "frontend/src/types/api.ts",
+      "frontend/src/lib/api/**",
+      "frontend/src/components/PreviewerPalette*",
+      "frontend/src/components/PreviewerPalette.parts/**",
+      "frontend/src/App.tsx",
+      "src/scistudio/panels/sdk/**",
+      "src/scistudio/panels/lib/**",
+      "docs/planning/adr-054-frontend-notes.md",
+      ".workflow/records/2293-panel-frontend.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T15:13:14.428937Z",
+      "owner_directive": "Existing ADR-054 and panel spec govern architecture and SpecKit; implement T-010 to T-013 only. Manager owns combined changelog, final integration gate and CI.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T15:13:14.429092Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-frontend-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:14.431512Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Existing ADR-054 and ADR-055 govern the dispatched implementation; owner-controlled updates belong to manager.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:14.431520Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Existing adr-054-panels and adr-054-miniapp specify this implementation.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:14.431523Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Combined Phase A changelog assigned to A3 and integrated by manager.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-11T15:24:34.521316Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.542564Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.567554Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.589458Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.609536Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.632056Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.655326Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.677056Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.696981Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.715002Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:24:34.738022Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2293,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "7b1321758ba81926a0d7065ee94e3b9655a1e4c3",
+    "base_sha": "7b132175",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "7b132175",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Implement dispatched ADR-054 Phase A frontend SDK and library scope with ADR-055 prefix compatibility; preserve sidebar entry in A.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T15:24:34.738103Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2293-panel-frontend",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "1ec514ef-1bed-4820-9fad-78271879bfa4",
+  "strictness_tier": 1,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T15:13:14.431526Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/*.test.*",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:14.431529Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview*.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:14.431530Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals*.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:23:47.877201Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/panels.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:23:47.877351Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:23:47.877354Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/sdk.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

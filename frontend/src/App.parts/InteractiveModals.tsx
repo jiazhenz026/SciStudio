@@ -18,6 +18,7 @@ import type { InteractivePrompt } from "../store/types";
 
 import { DataRouterModal } from "../components/DataRouterModal";
 import { PairEditorModal } from "../components/PairEditorModal";
+import { InteractivePanel } from "../panels/InteractivePanel";
 import { DynamicPanel } from "./InteractiveModals.parts/DynamicPanel";
 
 interface PanelRenderProps {
@@ -80,7 +81,7 @@ export function InteractiveModals() {
   // user switched tabs while the prompt was open (codex P1).
   const promptWorkflowId = interactivePrompt.workflowId;
 
-  const onConfirm = (responseData: Record<string, unknown>) => {
+  const onConfirm = (responseData: Record<string, unknown>, contextId?: string) => {
     sendWebSocketMessage({
       type: "interactive_complete",
       block_id: interactivePrompt.blockId,
@@ -88,6 +89,7 @@ export function InteractiveModals() {
       // run-scope the response and not resolve a colliding block_id in another run.
       workflow_id: promptWorkflowId,
       data: responseData,
+      ...(contextId ? { context_id: contextId } : {}),
     });
 
     // ADR-051 interaction memory (Addendum 1): if this node has "remember and
@@ -145,7 +147,9 @@ export function InteractiveModals() {
   // other load failure already gets.
   if (manifest) {
     if (!manifest.module_url) {
-      console.warn(`[InteractiveModals] no registered panel for manifest panel_id "${panelId}"`);
+      return <InteractivePanel panelId={manifest.panel_id} workflowId={promptWorkflowId}
+        blockId={interactivePrompt.blockId} blockName={interactivePrompt.blockType}
+        onConfirm={onConfirm} onCancel={onCancel} />;
     }
     return (
       <DynamicPanel

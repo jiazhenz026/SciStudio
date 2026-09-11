@@ -323,6 +323,8 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
         <PreviewHost
           target={tab.target}
           initialQuery={tab.initialQuery}
+          panelId={tab.panelId}
+          initialViewState={tab.viewState}
           routingEpoch={previewerChoiceVersion}
           getCachedEnvelope={(key) => previewEnvelopeCache[key]}
           cacheEnvelope={cachePreviewEnvelope}
