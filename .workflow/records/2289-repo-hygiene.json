@@ -1,0 +1,1271 @@
+{
+  "base_ref": null,
+  "branch": "chore/repo-hygiene",
+  "check_events": [
+    {
+      "at": "2026-09-11T05:47:18.006640Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:47:18.085924Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T05:47:33.569143Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:47:33.642985Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T05:49:13.843791Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0deac04405434cdca6d65dc3c51f5b5938ddb201f6adf484ce98451ad607e155",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:49:15.829321Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3d04d5247f720d3ca4185c706fc755c2b89c9ac93ff1cbbe9b45010cd52ee291",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:49:17.239808Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:102f4fec721ebfc465e7a0ebf36ba896c75f73ca64a3d872407303e84c235e40",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:49:27.982047Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1400927dce8b4615c1eb1381109315ee192f4b3dafc66ed4ce7440d87dce310a",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:49:28.645825Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:179b1cba851dd153ae0ab07e4f5ff8b2a735cc2c3d6d4494d3c0100847360442",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:52:10.544886Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:47eac75ed95c8abfde2e5868831e97df5202e82116cf9c4a1b1122e549884f6c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:52:21.801053Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e94394e48009cd8fbd5108426e57662cdd3e4d99e817a3b4494b7e53776b5c37",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:53:29.938887Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6c35465529b3d145b6caaa9218638fe8375d9dee9c93f570fae391c808f019af",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:53:41.202947Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:80d992c57ebd7eb57756c2d15874ca996679ed2df093f72864b75b5860988838",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "0e27c72262d955826ac1e698bd220625e073dd36",
+    "shas": [
+      "0e27c72262d955826ac1e698bd220625e073dd36"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".workflow/records/**",
+      ".workflow/audit-pr-body.md",
+      "docs/audit/**",
+      "docs/planning/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T05:46:39.147611Z",
+      "class": "maintenance",
+      "kind": "na",
+      "path": null,
+      "rationale": "deletion of unreferenced historical process files; no user-facing or contract documentation changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-11T05:47:33.676236Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.688231Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.700160Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.712214Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.723959Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.736341Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.749538Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.762987Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.776481Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.791025Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:47:33.804328Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.854911Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.867825Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.881799Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.894644Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.906000Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.917518Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".workflow/audit-pr-body.md",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".workflow/audit-pr-body.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-11T05:52:21.929329Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.940788Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.952671Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.965597Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:21.983179Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.798432Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.811527Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.825359Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.840239Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.853934Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.867767Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".workflow/audit-pr-body.md",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".workflow/audit-pr-body.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-11T05:52:22.881551Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.894441Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.907282Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.919211Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:22.931655Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.749930Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.760903Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.772346Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.783144Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.794181Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.805114Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".workflow/audit-pr-body.md",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".workflow/audit-pr-body.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-11T05:52:25.816260Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.827098Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.838700Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.850756Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:52:25.862735Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.404546Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.417634Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.429275Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.441115Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.453152Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.467353Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.480679Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.492915Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.505083Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:41.516901Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:42.275302Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.246474Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.257489Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.268365Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.279818Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.290951Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.302099Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.313030Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.324409Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.335953Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:43.347281Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:53:44.023796Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2289,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "f564a8b1a",
+    "changed_files": [
+      ".workflow/records/1646-gate-check-incrementality.json",
+      ".workflow/records/1719-feat-1719-plot-card-actions.json",
+      ".workflow/records/1799-guided-1799-plot-target-picker.json",
+      ".workflow/records/1801-alpha-0-3-0-housekeeping.json",
+      ".workflow/records/1803-welcome-hero-layout.json",
+      ".workflow/records/1805-friendly-ota-dialog.json",
+      ".workflow/records/1807-windows-standalone-python.json",
+      ".workflow/records/1810-feature-1810-dataframe-xlsx-io.json",
+      ".workflow/records/1811-guided-1811-single-value-collection-xfail.json",
+      ".workflow/records/1811-single-value-collection-fix.json",
+      ".workflow/records/1812-display-name-convention.json",
+      ".workflow/records/1816-guided-1816-custom-block-template.json",
+      ".workflow/records/1819-guided-1819-public-api-contract-adr.json",
+      ".workflow/records/1823-guided-1823-previewer-storage-leak.json",
+      ".workflow/records/1824-guided-1824-plot-engine-relocation.json",
+      ".workflow/records/1828-guided-1828-scistudio-stability.json",
+      ".workflow/records/1830-guided-1830-composite-slot-ref.json",
+      ".workflow/records/1833-manager-1833-adr-052-public-api.json",
+      ".workflow/records/1837-guided-1837-alpha-ux-bug-batch.json",
+      ".workflow/records/1845-docstring-public-api.json",
+      ".workflow/records/1847-guided-1847-alpha-ux-batch.json",
+      ".workflow/records/1848-guided-1848-alpha-activation-gate.json",
+      ".workflow/records/1850-guided-1850-adr-052-author-docs.json",
+      ".workflow/records/1853-guided-1853-release-0-3-2.json",
+      ".workflow/records/1855-guided-1855-alpha-checkin.json",
+      ".workflow/records/1857-guided-1858-agent-data-protection.json",
+      ".workflow/records/1862-guided-1862-list-blocks-lean-catalog.json",
+      ".workflow/records/1865-guided-1865-backend-orphan-self-reap.json",
+      ".workflow/records/1867-guided-1867-desktop-orphan-mandatory-ota.json",
+      ".workflow/records/1870-jiazhenz026-feature-1870-appblock-prelaunch-hook.json",
+      ".workflow/records/1872-guided-1872-branch-switch-stale-config.json",
+      ".workflow/records/1874-appblock-multi-item-collection-stage.json",
+      ".workflow/records/1878-jiazhenz026-docs-1878-app-api-reference-drift.json",
+      ".workflow/records/1882-guided-1882-agent-block-shape-skill.json",
+      ".workflow/records/1885-guided-1885-unify-plugin-type-discovery.json",
+      ".workflow/records/1887-guided-1887-canvas-block-hover-detail.json",
+      ".workflow/records/1889-jiazhenz026-bugfix-1889-codex-mcp-pythonpath.json",
+      ".workflow/records/1890-agent-core-io-default.json",
+      ".workflow/records/1891-guided-1891-canvas-autosave-conflict-dialog.json",
+      ".workflow/records/1895-linux-desktop-appimage.json",
+      ".workflow/records/1896-ci-serial-test-isolation.json",
+      ".workflow/records/1898-guided-1898-ai-agent-reuse-last-output.json",
+      ".workflow/records/1900-guided-1900-agent-block-type-mcp-guard.json",
+      ".workflow/records/1901-readme-zh-cn.json",
+      ".workflow/records/1908-linux-appimage-release-inputs.json",
+      ".workflow/records/1910-guided-1910-workflow-id-filename-palette-reload.json",
+      ".workflow/records/1912-guided-1912-edit-workflow-mcp.json",
+      ".workflow/records/1913-guided-1913-data-processed-rename.json",
+      ".workflow/records/1915-guided-1915-dialog-project-root.json",
+      ".workflow/records/1918-guided-1918-plot-save-format.json",
+      ".workflow/records/1920-guided-1920-table-badge.json",
+      ".workflow/records/1922-remove-alpha-registration-slack.json",
+      ".workflow/records/1924-guided-1924-run-first-workflow-tutorial.json",
+      ".workflow/records/1926-version-bump-0-3-3.json",
+      ".workflow/records/1928-desktop-ota-workflow-inputs.json",
+      ".workflow/records/1929-guided-1929-tutorial-palette-search.json",
+      ".workflow/records/1933-test-env-entrypoint-isolation.json",
+      ".workflow/records/1936-redact-personal-paths.json",
+      ".workflow/records/1941-guided-1941-data-types-doc.json",
+      ".workflow/records/1942-how-scistudio-works.json",
+      ".workflow/records/1946-guided-1946-terminal-refresh-ghosting.json",
+      ".workflow/records/1947-open-gui.json",
+      ".workflow/records/1950-guided-1950-save-data-type-validation.json",
+      ".workflow/records/1953-guided-1953-workflow-selfwrite-race.json",
+      ".workflow/records/1954-guided-1954-tidy-preserve-annotations.json",
+      ".workflow/records/1957-guided-1957-codeblock-port-keys.json",
+      ".workflow/records/1967-guided-1967-codeblock-script-path.json",
+      ".workflow/records/1969-mcp-validate-project-dir.json",
+      ".workflow/records/1971-block-log-observability.json",
+      ".workflow/records/1974-node-elapsed-timer.json",
+      ".workflow/records/1980-guided-1980-zarr-auto-chunks.json",
+      ".workflow/records/1983-guided-1983-artifact-retention-gc.json",
+      ".workflow/records/1986-guided-1986-stable-runtime-port.json",
+      ".workflow/records/1988-guided-1988-node-fallback-visual.json",
+      ".workflow/records/1990-fix-1990-windows-app-icon.json",
+      ".workflow/records/1992-docs-1992-adr-034-multi-provider-spec.json",
+      ".workflow/records/1994-adr-034-api.json",
+      ".workflow/records/1994-adr-034-core.json",
+      ".workflow/records/1994-adr-034-docs.json",
+      ".workflow/records/1994-adr-034-engine.json",
+      ".workflow/records/1994-adr-034-fe-contract.json",
+      ".workflow/records/1994-adr-034-fe-ui.json",
+      ".workflow/records/1994-adr-034-multi-provider.json",
+      ".workflow/records/1994-adr-034-tests.json",
+      ".workflow/records/1994-live-test-findings.json",
+      ".workflow/records/1994-tab-rename-affordance.json",
+      ".workflow/records/1994-terminal-clipboard-ux.json",
+      ".workflow/records/1995-1995-origin-tiers-and-user-library-write.json",
+      ".workflow/records/1995-1995-palette-tiers-and-popover.json",
+      ".workflow/records/1995-adr-053-spec1-track-b-audit.json",
+      ".workflow/records/1995-adr-053-spec1-track-b-personal-tool-library.json",
+      ".workflow/records/1996-1996-promotion-and-new-file-flows.json",
+      ".workflow/records/1997-guided-1997-palette-tips.json",
+      ".workflow/records/1999-learning-center-scenarios.json",
+      ".workflow/records/2000-adr-053-work-import.json",
+      ".workflow/records/2000-feat-2000-work-import-availability.json",
+      ".workflow/records/2001-2001-work-import-paged-dialog.json",
+      ".workflow/records/2001-adr-053-work-import-no-context-audit.json",
+      ".workflow/records/2001-audit-2001-work-import-with-context.json",
+      ".workflow/records/2001-feat-2001-work-import-dialog.json",
+      ".workflow/records/2001-feat-2001-work-import-session.json",
+      ".workflow/records/2001-fix-2001-work-import-audit-findings.json",
+      ".workflow/records/2002-feat-2002-work-import-brief.json",
+      ".workflow/records/2005-docs-2005-adr-053-learning-center.json",
+      ".workflow/records/2010-guided-codebase-import-spec.json",
+      ".workflow/records/2014-fix-2014-kimi-ai-block-provider.json",
+      ".workflow/records/2017-feat-2017-user-previewer-tier.json",
+      ".workflow/records/2018-chore-2018-relicense-apache-2-0.json",
+      ".workflow/records/2019-fix-2019-new-project-mcp-deadlock.json",
+      ".workflow/records/2020-2020-dropin-provisioning-helper.json",
+      ".workflow/records/2020-adr-053-spec1-track-a-audit.json",
+      ".workflow/records/2020-adr-053-spec1-track-a-runtime-defects.json",
+      ".workflow/records/2021-2021-registry-reload-symmetry.json",
+      ".workflow/records/2022-1996-codex-review-findings.json",
+      ".workflow/records/2022-1996-track-b-audit-findings.json",
+      ".workflow/records/2022-2022-audit-p1-shadowing-and-registration.json",
+      ".workflow/records/2022-2022-dropin-type-import.json",
+      ".workflow/records/2022-2022-release-stale-name-refusals.json",
+      ".workflow/records/2023-2023-type-colour-and-types-api.json",
+      ".workflow/records/2025-2025-data-types-tab-and-canvas-colour.json",
+      ".workflow/records/2025-2025-type-package-attribution.json",
+      ".workflow/records/2030-test-2030-windows-test-failures.json",
+      ".workflow/records/2033-restore-single-recovery-path.json",
+      ".workflow/records/2040-fix-2040-hook-interpreter-self-heal.json",
+      ".workflow/records/2049-previewer-choice.json",
+      ".workflow/records/2054-2054-architecture-doc-guard.json",
+      ".workflow/records/2056-learning-center.json",
+      ".workflow/records/2061-tutorial-step-vocabulary.json",
+      ".workflow/records/2068-2068-startup-repair-and-splash.json",
+      ".workflow/records/2070-work-import-final-open-question.json",
+      ".workflow/records/2073-fix-2073-known-project-forward-compat.json",
+      ".workflow/records/2075-fix-2075-lc-windows-tests.json",
+      ".workflow/records/2075-windows-lc-tests.json",
+      ".workflow/records/2079-guided-2079-learning-center-auto-open.json",
+      ".workflow/records/2080-feat-2080-tutorials-public-root.json",
+      ".workflow/records/2081-audit-lc-levels-no-context.json",
+      ".workflow/records/2081-core-tutorial-2.json",
+      ".workflow/records/2081-lc-levels-with-context.json",
+      ".workflow/records/2081-test-2081-level-e2e-sessions.json",
+      ".workflow/records/2082-core-tutorial-3.json",
+      ".workflow/records/2083-core-tutorial-4.json",
+      ".workflow/records/2083-guided-2083-tutorial-level-3-ai.json",
+      ".workflow/records/2084-core-tutorial-5.json",
+      ".workflow/records/2085-feat-2085-core-tutorial-6.json",
+      ".workflow/records/2086-tutorial-library-previewer-tier.json",
+      ".workflow/records/2090-guided-2090-activity-bar-layout.json",
+      ".workflow/records/2093-desktop-dev-spawn.json",
+      ".workflow/records/2095-previewer-tier-surface.json",
+      ".workflow/records/2096-macos-signing-notarization.json",
+      ".workflow/records/2097-shell-ota-bootstrap-loader.json",
+      ".workflow/records/2112-feat-2112-data-preview-tab.json",
+      ".workflow/records/2113-guided-2113-previewer-tab.json",
+      ".workflow/records/2120-remove-semantic-dup-reland.json",
+      ".workflow/records/2120-remove-semantic-dup.json",
+      ".workflow/records/2135-guided-2135-levels-1-2-dialogue.json",
+      ".workflow/records/2137-guided-mio-assistant-name.json",
+      ".workflow/records/2141-guided-2141-edge-port-color.json",
+      ".workflow/records/2143-gate-failure-reporting-and-base.json",
+      ".workflow/records/2148-fix-2148-zarr-atomic-rename.json",
+      ".workflow/records/2150-guided-2150-commit-hooks-to-pre-pr.json",
+      ".workflow/records/2151-guided-2151-type-tab-auto-reload.json",
+      ".workflow/records/2157-guided-reading-doc-viewer.json",
+      ".workflow/records/2159-desktop-menu-bar.json",
+      ".workflow/records/2160-fix-2160-docs-path-containment.json",
+      ".workflow/records/2162-version-bump-0-3-4.json",
+      ".workflow/records/2163-release-runbook.json",
+      ".workflow/records/2165-macos-x64-ci.json",
+      ".workflow/records/2167-changelog-backfill.json",
+      ".workflow/records/2169-ota-min-base.json",
+      ".workflow/records/2172-build-timeouts.json",
+      ".workflow/records/2174-notarize-visibility.json",
+      ".workflow/records/2176-ci-2176-notarize-hook.json",
+      ".workflow/records/2179-fix-2179-shell-known-good.json",
+      ".workflow/records/2183-chore-2183-reinstall-notice-copy.json",
+      ".workflow/records/2187-guided-2187-memory-dispatch-gate.json",
+      ".workflow/records/2190-feat-2190-plot-run-elapsed.json",
+      ".workflow/records/2195-fix-2195-panel-escape-hatch.json",
+      ".workflow/records/2204-explore-session-adr.json",
+      ".workflow/records/2206-2206-ota-build-override.json",
+      ".workflow/records/2219-docs-adr-054-specs.json",
+      ".workflow/records/2220-fix-2220-native-dialog-blocks-event-loop.json",
+      ".workflow/records/2234-docs-readme-positioning.json",
+      ".workflow/records/2239-adr-055-webmcp.json",
+      ".workflow/records/2263-docs-2263-adr-055-specs.json",
+      ".workflow/records/2268-docs-2268-remove-adr-054.json",
+      ".workflow/records/2270-audit-2270-spec0-with-context.json",
+      ".workflow/records/2270-feat-2270-prefix-independence.json",
+      ".workflow/records/2285-adr-054-panel.json",
+      ".workflow/records/2289-repo-hygiene.json",
+      ".workflow/records/audit-adr-053-spec1-write-path-adr-053-spec1-write-path-audit.json",
+      ".workflow/records/guided-package-docs-core-guided-package-docs-core.json",
+      ".workflow/records/guided-personal-tool-library-spec-guided-personal-tool-library-spec.json",
+      ".workflow/records/track-learning-center-levels-learning-center-levels.json",
+      "docs/audit/2026-06-28-adr-052-public-api-no-context-1.md",
+      "docs/audit/2026-06-28-adr-052-public-api-no-context-2.md",
+      "docs/audit/2026-06-28-adr-052-public-api-no-context-3.md",
+      "docs/audit/2026-06-28-docstring-public-api-no-context-1.md",
+      "docs/audit/2026-06-28-docstring-public-api-no-context-2.md",
+      "docs/audit/2026-06-28-docstring-public-api-no-context-3.md",
+      "docs/audit/2026-08-07-adr-053-spec1-track-a.md",
+      "docs/audit/2026-08-07-adr-053-spec1-track-b.md",
+      "docs/audit/2026-08-07-adr-053-spec1-write-path.md",
+      "docs/audit/2026-08-07-adr-053-work-import-no-context.md",
+      "docs/audit/2026-08-07-adr-053-work-import-with-context.md",
+      "docs/audit/2026-08-08-previewer-user-tier-no-context.md",
+      "docs/audit/2026-08-09-learning-center-no-context.md",
+      "docs/audit/2026-08-22-lc-levels-no-context.md",
+      "docs/audit/2026-08-22-lc-levels-with-context.md",
+      "docs/audit/2026-09-06-adr-055-spec0-with-context.md",
+      "docs/audit/adr-034-multi-provider-no-context-20260806.md",
+      "docs/audit/latest/adr-037-desktop-mvp-full-audit.json",
+      "docs/audit/latest/desktop-pty-env-hotfix-full-audit.json",
+      "docs/audit/latest/facts-summary.json",
+      "docs/planning/1845-dispatch-prompts.md",
+      "docs/planning/1845-docstring-public-api-checklist.md",
+      "docs/planning/2026-05-21-bug-sweep-checklist.md",
+      "docs/planning/2026-05-23-ai-context-and-port-ux-checklist.md",
+      "docs/planning/adr-001-040-rewrite-checklist.md",
+      "docs/planning/adr-032-implementation-roadmap.md",
+      "docs/planning/adr-034-multi-provider-checklist.md",
+      "docs/planning/adr-034-multi-provider-dispatch-prompts.md",
+      "docs/planning/adr-035-036-checklist.md",
+      "docs/planning/adr-037-desktop-mvp-checklist.md",
+      "docs/planning/adr-037-desktop-mvp-spec.md",
+      "docs/planning/adr-039-addendum-1-impl-checklist.md",
+      "docs/planning/adr-040-a40-skel-report.md",
+      "docs/planning/adr-040-checklist.md",
+      "docs/planning/adr-040-code-scope.md",
+      "docs/planning/adr-040-skill-design.md",
+      "docs/planning/adr-041-codeblock-v2-checklist.md",
+      "docs/planning/adr-042-add6-implementation-plan.md",
+      "docs/planning/adr-042-add6-investigation-digest.md",
+      "docs/planning/adr-042-addendum1-implementation-checklist.md",
+      "docs/planning/adr-042-documentation-generation-checklist.md",
+      "docs/planning/adr-042-test-engineer-persona-implementation-checklist.md",
+      "docs/planning/adr-043-checklist.md",
+      "docs/planning/adr-044-dispatch/audit-no-context.md",
+      "docs/planning/adr-044-dispatch/backend.md",
+      "docs/planning/adr-044-dispatch/frontend.md",
+      "docs/planning/adr-044-subworkflow-checklist.md",
+      "docs/planning/adr-045-version-vector-checklist.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-audit.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-backend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-frontend.md",
+      "docs/planning/adr-048-dispatch-prompts/s1-imaging.md",
+      "docs/planning/adr-048-dispatch-prompts/s2-audit.md",
+      "docs/planning/adr-048-dispatch-prompts/s2-impl.md",
+      "docs/planning/adr-048-dispatch-prompts/s3-audit.md",
+      "docs/planning/adr-048-dispatch-prompts/s3-docs.md",
+      "docs/planning/adr-048-implementation-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-checklist.md",
+      "docs/planning/adr-048-pr-fix-dispatch-prompts.md",
+      "docs/planning/adr-048-pr1577-fix-dispatch-compat.md",
+      "docs/planning/adr-048-pr1577-fix-dispatch-packaging-e2e.md",
+      "docs/planning/adr-048-pr1577-fix-dispatch-plot.md",
+      "docs/planning/adr-049-package-validator-checklist.md",
+      "docs/planning/adr-050-canvas-node-readability-checklist.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/BE-contract-tests.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-1-square-node.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-2-focus-tidy-store.md",
+      "docs/planning/adr-050-canvas-node-readability-dispatch/FE-3-bottompanel-config.md",
+      "docs/planning/adr-051-interactive-blocks-checklist.md",
+      "docs/planning/adr-052-public-api-checklist.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/a-fix-audit-p1.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/a1-provisioning-helper.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/a2-reload-symmetry.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/a3-dropin-type-import.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/audit-a-track-a.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/audit-b-track-b.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/audit-sec-no-context.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b-fix-audit-findings.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b1-origin-and-write-path.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b2-type-colour-and-types-api.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b3-palette-tiers-and-popover.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b4-types-tab-and-canvas-colour.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b5-promotion-and-new-file.md",
+      "docs/planning/adr-053-spec1-dispatch-prompts/b6-type-package-attribution.md",
+      "docs/planning/adr-053-spec1-personal-tool-library-checklist.md",
+      "docs/planning/adr-053-work-import-dispatch-prompts.md",
+      "docs/planning/agent-prompt-templates/00-common-boilerplate.md",
+      "docs/planning/agent-prompt-templates/audit-agent.md",
+      "docs/planning/agent-prompt-templates/fix-agent.md",
+      "docs/planning/agent-prompt-templates/implement-agent.md",
+      "docs/planning/agent-prompt-templates/skeleton-agent.md",
+      "docs/planning/arch-drift-checklist.md",
+      "docs/planning/backend-god-file-refactor-prompts/A1-api-runtime.md",
+      "docs/planning/backend-god-file-refactor-prompts/A2-mcp-tools.md",
+      "docs/planning/backend-god-file-refactor-prompts/A3-ai-pty.md",
+      "docs/planning/backend-god-file-refactor-prompts/AUDIT-phase1.md",
+      "docs/planning/backend-god-file-refactor-prompts/B1-gate-record.md",
+      "docs/planning/block-sdk-rewrite-plan.md",
+      "docs/planning/bugfix-batch-841-888-891-1329-709-checklist.md",
+      "docs/planning/dispatch-prompts/1833/A1-core.md",
+      "docs/planning/dispatch-prompts/1833/A2-blocks.md",
+      "docs/planning/dispatch-prompts/1833/A3-prevdocs.md",
+      "docs/planning/dispatch-prompts/1833/A4-tests.md",
+      "docs/planning/dispatch-prompts/1833/A5-dedicated-tests.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a1-desktop-shell.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a2-cli-paths.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a3-package-discovery.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a4-validation.md",
+      "docs/planning/dispatch-prompts/adr-037-desktop-mvp-a5-audit.md",
+      "docs/planning/dispatch-prompts/adr-043-a1-core-io-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-a2-imaging-io-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-a3-frontend-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-b1-imaging-propagation-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-b2-srs-propagation-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-c1-audit-no-context-prompt.md",
+      "docs/planning/dispatch-prompts/adr-043-c1-fixes-prompt.md",
+      "docs/planning/dispatch-prompts/adr-045-a1-backend-versioning.md",
+      "docs/planning/dispatch-prompts/adr-045-a2-file-tabs.md",
+      "docs/planning/dispatch-prompts/adr-045-a3-frontend-reconcile.md",
+      "docs/planning/dispatch-prompts/adr-045-a4-audit-with-context.md",
+      "docs/planning/dispatch-prompts/agent-A-1353-1354.md",
+      "docs/planning/dispatch-prompts/agent-B-1355.md",
+      "docs/planning/dispatch-prompts/agent-C-1356.md",
+      "docs/planning/dispatch-prompts/fix-1335-router-defaults.md",
+      "docs/planning/dispatch-prompts/fix-1337-pair-cycles.md",
+      "docs/planning/dispatch-prompts/issue-1467-agent-a-code-guard.md",
+      "docs/planning/dispatch-prompts/issue-1467-agent-b-gate-record.md",
+      "docs/planning/dispatch-prompts/phase-0.5-docs-audit-no-context.md",
+      "docs/planning/dispatch-prompts/phase-1.5-audit-skeleton.md",
+      "docs/planning/dispatch-prompts/phase-1.6-fix-skeleton.md",
+      "docs/planning/dispatch-prompts/phase-2-i35a-backend.md",
+      "docs/planning/dispatch-prompts/phase-2-i35b-engine-mcp.md",
+      "docs/planning/dispatch-prompts/phase-2-i35c-frontend.md",
+      "docs/planning/dispatch-prompts/phase-2-i36a-tabstate-backend.md",
+      "docs/planning/dispatch-prompts/phase-2-i36b-codeeditor.md",
+      "docs/planning/dispatch-prompts/phase-2-i36c-projecttree-reload-template.md",
+      "docs/planning/dispatch-prompts/phase-2.5-audit-implementation.md",
+      "docs/planning/dispatch-prompts/phase-2.6-fix-implementation.md",
+      "docs/planning/dispatch-prompts/phase-D38-2.1-code-scope-audit-no-context.md",
+      "docs/planning/dispatch-prompts/phase-D39-2.1-refactor-scope-audit-and-fix.md",
+      "docs/planning/frontend-cleanup-1412-checklist.md",
+      "docs/planning/issue-1579-impact-scope.md",
+      "docs/planning/learning-center-levels-checklist.md",
+      "docs/planning/learning-center-levels-dispatch-prompts.md",
+      "docs/planning/learning-center-scenarios.md",
+      "docs/planning/no-cycles-1335-1337-checklist.md",
+      "docs/planning/phase3-bucket-d-checklist.md",
+      "docs/planning/spectroscopy-package-checklist.md"
+    ],
+    "diff_fingerprint": "sha256:53b281519bf2bf27122a8d11c01d19018ac6008b414699f4cde3d687ccd55e5d",
+    "head": "HEAD",
+    "head_sha": "0e27c7226",
+    "surfaces": {
+      "docs": 148,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Owner request: submit one PR that removes historical gate ledgers, old audit reports, and old manager/dispatch prompts and checklists from main to stop repository bloat; keep anything still referenced by ADRs/specs (incl. governs), CI, scripts, code, tests, or docs/ai-developer.",
+  "persona": "implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2289
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T05:47:33.804365Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:52:21.983211Z",
+      "diff_fingerprint": "sha256:2571a81067446452a454ee06977116ca9fcf6cb8745280b23202788d12dc3a14",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-11T05:52:22.931686Z",
+      "diff_fingerprint": "sha256:2571a81067446452a454ee06977116ca9fcf6cb8745280b23202788d12dc3a14",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-11T05:52:25.862765Z",
+      "diff_fingerprint": "sha256:1aa6fd0a45dd9501d7d4e66c463f65bc090928ef46d437d89b6777a482b7c28d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
+        "guard.mod_guard"
+      ]
+    },
+    {
+      "at": "2026-09-11T05:53:42.275336Z",
+      "diff_fingerprint": "sha256:53b281519bf2bf27122a8d11c01d19018ac6008b414699f4cde3d687ccd55e5d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-09-11T05:53:44.023856Z",
+      "diff_fingerprint": "sha256:53b281519bf2bf27122a8d11c01d19018ac6008b414699f4cde3d687ccd55e5d",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    }
+  ],
+  "record_id": "2289-repo-hygiene",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "remove-include",
+      "at": "2026-09-11T05:53:06.369492Z",
+      "pattern": ".workflow/audit-pr-body.md",
+      "reason": "Restore .workflow/audit-pr-body.md: guard.mod_guard treats it as governance-critical; its removal is left to a governance-scoped change"
+    }
+  ],
+  "session_id": "2c0775af-a2bb-4f42-ac50-adb730d221a3",
+  "strictness_tier": 2,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-11T05:46:39.147633Z",
+      "class": "maintenance",
+      "kind": "na",
+      "path": null,
+      "rationale": "no behaviour change; files removed are unreferenced by code and tests",
+      "verified_in_diff": null
+    }
+  ]
+}
