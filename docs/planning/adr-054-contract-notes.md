@@ -205,3 +205,22 @@ evidence; the manager still owns the full integrated candidate, PR and CI.
 The owner clarified the core-id rule after approval: ADR-054 §3/§6 and the
 copy-customization story now use non-core ids, and FR-007 explicitly retains
 FR-002 reservation. No unresolved core-id question remains in this slice.
+
+
+## 7. Child Open And Decision Acknowledgement Follow-up
+
+The approved Phase A reconciliation follows A1 `67ba02c0` and A2
+`03aa4343`/`535a6646`; final A2 `72b38d91` was inspected and does not change these
+contracts. FR-020 names the guarded child-open route and shared panel/legacy
+response. FR-039 preserves the child's `previewSessionId` during maximize.
+PV-09-009 and PV-12-007 cite independent frozen child authority and follow-up
+get/patch/resource validation, including composite ancestry and private-query
+refusal. FR-024 and PV-09-011 record scoped `panel_accepted`/`panel_error` and
+acknowledgement before success-driven close or memory persistence. Server
+acceptance confirms claim plus dispatch; existing engine/lineage payloads remain.
+
+No new ADR-049 row ids or author-facing Python APIs were added. The manager owns
+the updated OpenAPI snapshot (`902155a9`) and integrated runtime/CI validation.
+Proposed/Draft statuses, strict `core.*` reservation and the owner's pause before
+B–D remain unchanged. Only this documentation follow-up is handed back; imported
+implementation commits are dependencies already owned by the manager.

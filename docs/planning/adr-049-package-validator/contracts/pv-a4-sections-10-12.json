@@ -1106,7 +1106,7 @@
       "id": "PV-12-007",
       "section": "12_security_isolation",
       "title": "Panel read and decision authority belongs to the backend context",
-      "contract": "Preview contexts authorize backend-owned frozen targets and reachable children only; stale project/catalog/storage state is refused. Interactive contexts receive only the frozen prepare_prompt view, authorize no arbitrary reads and claim one decision on the existing ADR-051 completion path. Closing or expiring a context revokes its grants.",
+      "contract": "Preview contexts authorize backend-owned frozen targets and reachable children only; stale project/catalog/storage state is refused. Interactive contexts receive only the frozen prepare_prompt view, authorize no arbitrary reads and claim one decision on the existing ADR-051 completion path. Closing or expiring a context revokes its grants. Child preview sessions retain independent frozen source and ancestry authority after parent-context close and validate get, patch and resource operations; client private-field patches are refused. The server sends panel_accepted only after a valid one-shot claim and successful completion dispatch, or scoped panel_error with error code/message.",
       "status": "partial",
       "severity": "error",
       "environments": [
@@ -1140,6 +1140,21 @@
           "path": "src/scistudio/panels/reads.py",
           "kind": "contains",
           "pattern": "def read_context("
+        },
+        {
+          "path": "src/scistudio/panels/contexts.py",
+          "kind": "contains",
+          "pattern": "def open_child("
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "Private preview query fields are backend-owned"
+        },
+        {
+          "path": "src/scistudio/api/ws.py",
+          "kind": "contains",
+          "pattern": "outbound_queue.put_nowait({\"type\": \"panel_accepted\", **scope})"
         }
       ],
       "adr_evidence": [
@@ -1169,6 +1184,26 @@
           "path": "tests/panels/test_panel_contexts.py",
           "kind": "contains",
           "pattern": "def test_interactive_input_is_backend_snapshot_and_writeback_once"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_independent_child_session_validates_every_followup"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_composite_child_panel_maximizes_independently_after_parent_close"
+        },
+        {
+          "path": "tests/api/test_panel_interactive_ws.py",
+          "kind": "contains",
+          "pattern": "def test_ack_waits_for_dispatch_and_allows_close_only_after_acceptance"
+        },
+        {
+          "path": "tests/api/test_panel_interactive_ws.py",
+          "kind": "contains",
+          "pattern": "def test_dispatch_failure_returns_scoped_error_without_accepting"
         }
       ],
       "adr_alignment": "aligned",

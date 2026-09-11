@@ -1,5 +1,5 @@
 {
-  "base_ref": "31c299ab",
+  "base_ref": "01e576c1",
   "branch": "codex/2293-panel-contract-docs",
   "check_events": [
     {
@@ -174,6 +174,11 @@
       "at": "2026-09-11T15:54:42.803374Z",
       "owner_directive": "Preserve FR002 strict core.* reservation. Same-id shadowing applies only to non-core ids; customize core previews with a new id plus type routing or explicit user choice. B-D remain paused.",
       "reason": "Owner clarified existing behavior must continue refusing core-id overrides; reconcile contradictory same-id core customization prose without changing implementation."
+    },
+    {
+      "at": "2026-09-11T16:10:36.008581Z",
+      "owner_directive": "Update existing panel contract rows and approved A ADR/spec prose for authorized child open, independent frozen child sessions, scoped panel_accepted/panel_error and ack-before-close/memory. No B-D work or core-id changes.",
+      "reason": "Follow-up reconciles approved Phase A docs to reviewed backend child-open authority and server decision acknowledgement; prerequisite commits imported without production conflict resolution, OpenAPI snapshot left manager-owned."
     }
   ],
   "docs_events": [
@@ -310,6 +315,46 @@
       "class": null,
       "kind": "path",
       "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:13:42.949719Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:13:42.949856Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:13:42.949859Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-contract-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:13:42.949860Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator/contracts/pv-a3-sections-07-09.json",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:13:42.949861Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-049-package-validator/contracts/pv-a4-sections-10-12.json",
       "rationale": null,
       "verified_in_diff": null
     }

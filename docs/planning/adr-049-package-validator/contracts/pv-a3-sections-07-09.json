@@ -1093,7 +1093,7 @@
       "id": "PV-09-009",
       "section": "09_previewer_contracts",
       "title": "Panel and legacy candidates share preview routing",
-      "contract": "Panel preview type claims enter the existing PreviewRouter ladder, with same-tier panels shadowing legacy ids; exact type matches precede parent matches and unresolved ties remain errors. Interactive/MiniApp-only descriptors do not become preview candidates.",
+      "contract": "Panel preview type claims enter the existing PreviewRouter ladder, with same-tier panels shadowing legacy ids; exact type matches precede parent matches and unresolved ties remain errors. Interactive/MiniApp-only descriptors do not become preview candidates. Authorized child open returns the shared PreviewEnvelopeModel and routes through panel or legacy renderers while retaining a distinct frozen preview session.",
       "status": "partial",
       "severity": "error",
       "environments": [
@@ -1127,6 +1127,11 @@
           "path": "src/scistudio/previewers/router.py",
           "kind": "contains",
           "pattern": "class PreviewRouter:"
+        },
+        {
+          "path": "src/scistudio/api/routes/panels.py",
+          "kind": "contains",
+          "pattern": "@router.post(\"/contexts/{context_id}/open\", response_model=PreviewEnvelopeModel"
         }
       ],
       "adr_evidence": [
@@ -1146,6 +1151,16 @@
           "path": "tests/panels/test_panel_routing.py",
           "kind": "contains",
           "pattern": "def test_preview_envelope_dispatch_never_calls_python"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tampering"
+        },
+        {
+          "path": "frontend/src/panels/PanelPreview.test.tsx",
+          "kind": "contains",
+          "pattern": "opens panel and legacy children through authorized sessions and restores each parent on Back"
         }
       ],
       "adr_alignment": "aligned",
@@ -1215,7 +1230,7 @@
       "id": "PV-09-011",
       "section": "09_previewer_contracts",
       "title": "Panel SDK communicates over one context-bound channel",
-      "contract": "A sandboxed frame has one MessageChannel; preview read/open and interactive one-shot writeBack follow context capabilities. The SDK exposes no call or sync in Phase A; save is host-mediated and standalone sample mode reads panel.sample.json. Initialization is delivered through the retained original-document bootstrap port only after an unpredictable context proof and intended-frame source match; load alone never authorizes input delivery.",
+      "contract": "A sandboxed frame has one MessageChannel; preview read/open and interactive one-shot writeBack follow context capabilities. The SDK exposes no call or sync in Phase A; save is host-mediated and standalone sample mode reads panel.sample.json. Initialization is delivered through the retained original-document bootstrap port only after an unpredictable context proof and intended-frame source match; load alone never authorizes input delivery. The interactive host awaits panel_accepted matching context_id, workflow_id and block_id before success-driven close or interaction-memory persistence; scoped panel_error and acknowledgement timeout remain errors.",
       "status": "partial",
       "severity": "error",
       "environments": [
@@ -1259,6 +1274,11 @@
           "path": "frontend/src/panels/PanelFrame.tsx",
           "kind": "contains",
           "pattern": "bootstrapPort.current.postMessage("
+        },
+        {
+          "path": "frontend/src/panels/decisions.ts",
+          "kind": "contains",
+          "pattern": "export function submitPanelDecision("
         }
       ],
       "adr_evidence": [
@@ -1288,6 +1308,11 @@
           "path": "tests/api/test_panel_routes.py",
           "kind": "contains",
           "pattern": "def test_entry_bootstrap_precedes_author_markup_and_is_document_specific"
+        },
+        {
+          "path": "frontend/src/panels/decisions.test.ts",
+          "kind": "contains",
+          "pattern": "requires matching context, workflow and block before settling"
         }
       ],
       "adr_alignment": "aligned",

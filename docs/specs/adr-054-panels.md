@@ -608,9 +608,16 @@ CDNs, and renders.
   independently refuse reads outside the context (FR-011) and accept an
   interactive decision only for the block its context was opened for.
 - **FR-020**: `open(ref)` MUST be accepted only for a child of the preview
-  context's target. The host MUST resolve the child's panel through the routing
-  ladder, open a child context, mount it in the same area, and keep the
-  drill-down stack and back action the preview host keeps today.
+  context's target. The host MUST call guarded
+  `POST /api/panels/contexts/{context_id}/open` with `{ref}`; the backend
+  authorizes the child and returns a `PreviewEnvelopeModel` from the shared
+  panel/legacy routing pipeline. The host mounts the selected renderer in the
+  same area and retains the existing drill-down stack and Back action. The
+  child preview session retains independent backend-frozen authority, including
+  composite ancestry, so closing the parent context does not invalidate it.
+  Session get, query patch and resource reads MUST validate that authority;
+  changed project, registry or source data invalidates the child session.
+  Client query patches MUST NOT replace its backend-owned private fields.
 - **FR-021**: `save` MUST write only where the user chooses — the desktop's native
   dialog or a browser download — under a configurable size limit (100 MiB by
   default), and never into the project without that choice. `save` is available
@@ -629,9 +636,18 @@ CDNs, and renders.
   `interactive`, show an error naming both panels with Cancel. A `PanelManifest`
   with a `module_url` MUST keep using the legacy loader (FR-036).
 - **FR-024**: The host MUST map `writeBack` to the existing `interactive_complete`
-  message and its Cancel to the existing `cancel_block` message. The
-  interaction-memory toggle and the JSON-safety check on the response are
-  unchanged.
+  message and its Cancel to the existing `cancel_block` message. Panel completion
+  carries top-level `context_id`, `workflow_id` and `block_id`. After claiming
+  the context once and successfully dispatching the existing completion event,
+  the server sends `panel_accepted` with those same top-level identity fields.
+  A refused claim or failed dispatch sends `panel_error` with the same identity
+  fields and `error: {code, message}`. The host MUST match all three identity
+  fields and await acceptance before success-driven modal close, context
+  teardown or interaction-memory persistence. Rejection and the 30-second
+  acknowledgement timeout MUST surface as errors without recording acceptance;
+  cancellation/unmount aborts the wait. The acknowledgement confirms claim and
+  dispatch; the existing engine event, decision payload, interaction-memory
+  toggle and JSON-safety rules remain unchanged.
 
 **Phase A — serving and security**
 
@@ -722,7 +738,9 @@ CDNs, and renders.
   with the resolved panel id and the mount's latest view state; the tab MUST keep
   its `preview:<ref>` dedup and drop rule; dropping or closing a tab MUST dispose
   its frames and close its contexts; Data-tree open and the type-change chip MUST
-  re-resolve the panel for the chosen type.
+  re-resolve the panel for the chosen type. A maximized child MUST carry its
+  `previewSessionId` so its independent frozen authority survives parent-frame
+  teardown, including for composite slots absent from the top-level catalog.
 
 **Phase B — core migration**
 
