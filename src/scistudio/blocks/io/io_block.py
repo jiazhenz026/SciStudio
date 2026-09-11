@@ -50,6 +50,10 @@ class IOBlock(Block):
     - ``direction = "input"`` (a loader): override :meth:`load` to read the
       configured ``path`` and return a :class:`DataObject` or a
       :class:`Collection`. A loader has no data input port — it is a pure source.
+      Write it for one file: when the user selects several, the runtime calls it
+      once per path and collects the results. Set
+      :attr:`accepts_path_list` to ``True`` to take the whole list in one call
+      instead.
     - ``direction = "output"`` (a saver): override :meth:`save` to write the
       object arriving on the ``data`` input port to the configured ``path``.
 
@@ -99,6 +103,20 @@ class IOBlock(Block):
     """The file formats this block can read or write, as :class:`FormatCapability`
     records. This is the supported way to declare format support; the runtime and
     UI read it for extension-based routing. Empty on the base class."""
+    accepts_path_list: ClassVar[bool] = False
+    """Whether :meth:`load` wants a multi-file ``path`` list handed to it whole.
+
+    ``False`` (the default) means the loader reads one file per call. When the
+    core ``Load`` block is pointed at several files and dispatches to this
+    loader, the runtime calls :meth:`load` once per path with a single-path
+    config and collects the results into the :class:`Collection` the Load port
+    already declares.
+
+    Set it to ``True`` only when the loader needs the whole batch in one call —
+    to order a z-stack, or to align across files, say. :meth:`load` then
+    receives ``path`` as the list it was configured with and owns the looping,
+    the item ordering, and the returned :class:`Collection`.
+    """
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False),

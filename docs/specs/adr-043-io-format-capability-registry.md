@@ -250,29 +250,43 @@ the load → save round-trip reproduce the original file ↔ sheet grouping. Exc
 hard sheet limits (1,048,576 rows × 16,384 columns) are enforced with a clear
 error rather than silent truncation.
 
-#### A multi-file Load of a delegated type (#2146)
+#### A multi-file Load of a delegated type (#2146, #2355)
 
 Selecting several files in the core Load block makes `path` a list, and
 `LoadData` declares `is_collection=True` for it whatever the `core_type` is —
 including a package-registered or project-defined type, which is dispatched to
-its owning loader through `delegate_load`. Which loader that is decides who
-fans the list out:
+its owning loader through `delegate_load`.
 
-- A loader that inherits `SimpleLoader.load` reads one file: the author sets
-  three class attributes and implements `load_file(path, config)`, and the
-  inherited `load` resolves exactly one `path`. `delegate_load` calls it once
-  per entry with a single-path config and packs the results into a
-  `Collection` — the same division of labour the six core types already have,
-  where `_load_array` and its siblings read one file and `LoadData` loops.
-- A loader that implements `load` itself receives the list as written, because
-  it may want the whole batch: to order a z-stack, or to align across files.
-  Fanning that out would take the batch away from a loader that asked for it.
+**Fanning out is the default.** `delegate_load` calls the selected loader once
+per entry with a single-path config and packs the results into the `Collection`
+the port already promised — the same division of labour the six core types
+already have, where `_load_array` and its siblings read one file and `LoadData`
+loops. A loader is therefore written for one file, whether it derives
+`SimpleLoader` and implements `load_file(path, config)` or subclasses `IOBlock`
+and implements `load`. A loader that answers one path with its own `Collection`
+is flattened into the batch in the order it returned, so the result stays a flat
+`Collection` of data objects.
 
-`SimpleLoader` therefore stays single-file in both directions: it rejects a
-list handed to it directly, and never sees one through dispatch. The save
-direction already has the matching behaviour in
-`SaveData._delegate_save_collection`, which writes one file per Collection item
-and hands each delegated save a single path.
+**Taking the whole batch is a declaration.** A loader that genuinely consumes a
+path list as one unit — to order a z-stack, or to align across files — sets
+`accepts_path_list = True` (`IOBlock.accepts_path_list`, default `False`). It
+then receives `path` as the list it was configured with and owns the looping,
+the ordering, and the returned `Collection`. Core `LoadData` carries this
+declaration for its own multi-path and multi-sheet `.xlsx` fan-out.
+
+`SimpleLoader` stays single-file in both directions: it rejects a list handed to
+it directly, and never sees one through dispatch. The save direction already has
+the matching behaviour in `SaveData._delegate_save_collection`, which writes one
+file per Collection item and hands each delegated save a single path.
+
+The declaration replaced an inference (#2355). Fan-out used to be reserved for a
+loader whose `load` was *identically* `SimpleLoader.load`, which made the
+general documented pattern — subclass `IOBlock`, implement `load` — the broken
+one: it silently received the list, which was stringified into a path and
+surfaced as `FileNotFoundError: ... "['a.jpg', 'b.jpg']"` from inside whatever
+library the loader called. Intent that matters to the runtime is stated by the
+author, never read off which base class was inherited or which method was
+overridden.
 
 ## 3. Requirements
 
@@ -324,6 +338,11 @@ and hands each delegated save a single path.
   capabilities as migration scaffolding only. Existing published packages that
   still rely on `supported_extensions` MUST be reported as non-compliant until
   migrated under issue #1204.
+- FR-028: A delegated load with a list `path` MUST call the selected loader once
+  per path and return the results as one flat `Collection`, unless the loader
+  class declares `accepts_path_list = True`, in which case the list MUST be
+  passed through unchanged. The runtime MUST NOT infer either behaviour from the
+  loader's base class or from which methods it overrides (#2355).
 
 ### Metadata Fidelity Requirements
 

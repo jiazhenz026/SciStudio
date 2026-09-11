@@ -109,6 +109,16 @@ class LoadData(IOBlock):
     """One-line description shown in the UI."""
     subcategory: ClassVar[str] = "io"
     """Block-library subcategory this block is grouped under."""
+    # Development references: #2355. Nothing dispatches *to* ``LoadData`` —
+    # ``delegate_load`` refuses a capability that resolves back to it — but the
+    # declaration states this block's own contract rather than leaving it to be
+    # inferred.
+    accepts_path_list: ClassVar[bool] = True
+    """``True`` — :meth:`load` consumes a multi-file ``path`` list itself.
+
+    Its loop is what fans a list out across the per-file ``_load_*`` readers,
+    and it also flattens an ``.xlsx`` workbook into one object per sheet, so the
+    list must reach it intact."""
 
     # Capability id convention: ``core.{lower(type)}.{format_id}.load``. Pickle
     # records carry ``notes="requires allow_pickle=True"``; the runtime gate is

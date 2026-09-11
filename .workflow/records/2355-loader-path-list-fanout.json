@@ -1,0 +1,570 @@
+{
+  "base_ref": null,
+  "branch": "fix/2355-loader-path-list-fanout",
+  "check_events": [
+    {
+      "at": "2026-09-11T16:36:48.524093Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4e8d7d477138e84cf0fdcd1028a1bcb0b73d6a31ba6c7153452ee6bb2b096e14",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:36:51.195652Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:85f11e97f351ef02657109e0fdcd6b87575a8f90957c62226db349cda7bee2d6",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:36:52.315573Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a248d2954d81a67489007cac130646f2a015b57ac5dfbd5bb65ff4495f538bfa",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:36:52.639691Z",
+      "command": "ruff format src/scistudio/blocks/io/_unified_dispatch.py src/scistudio/blocks/io/io_block.py src/scistudio/blocks/io/loaders/load_data.py src/scistudio/blocks/io/simple_io.py tests/blocks/io/test_multi_path_delegated_load.py tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:31f33809b3b6935d894a42f0bb0de68cc173d0aa93b283302ec3de7fd8b1b7a5",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T16:36:58.215262Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:2040204643d60fae64e7edc59f74551b5df8148140612108dcd248b282e188fa",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:36:58.704304Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:776d31fa78947074a732eb70c700275e4a6272f2bb7cd6ff7787c7a50b859061",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:36:58.717737Z",
+      "command": "ruff check src/scistudio/blocks/io/_unified_dispatch.py src/scistudio/blocks/io/io_block.py src/scistudio/blocks/io/loaders/load_data.py src/scistudio/blocks/io/simple_io.py tests/blocks/io/test_multi_path_delegated_load.py tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e2ce3c0c48fc8afdac624b6810b2d539ef665604b91baaeecdf5e8bfbc9ae739",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T16:37:13.346334Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/blocks/io tests/blocks/io/test_multi_path_delegated_load.py tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3455708ffd016a3f21f82a1a4576c34cb7778ca2f061887774fe78f31a88f52a",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T16:37:16.749830Z",
+      "command": "mypy src/scistudio/blocks/io/_unified_dispatch.py src/scistudio/blocks/io/io_block.py src/scistudio/blocks/io/loaders/load_data.py src/scistudio/blocks/io/simple_io.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:226b6cd04ac88f774727a923c0fc4395e78a4d1d77e1b559937d5ae91a1dd659",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T16:25:12.486753Z",
+      "owner_directive": "Invert the delegated multi-path default: fan out unless the loader class declares IOBlock.accepts_path_list = True. Remove the SimpleLoader.load identity check.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T16:25:12.487266Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-043-io-format-capability-registry.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:25:12.487292Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-043.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:25:12.487297Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:30:13.989162Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:30:13.989166Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-11T16:37:16.821525Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.835901Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/_unified_dispatch.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/_unified_dispatch.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/io_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/io_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/loaders/load_data.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/simple_io.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/simple_io.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.849602Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.863208Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.877162Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.890569Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.903350Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.915681Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.927963Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.939659Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T16:37:16.953443Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2355,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "aedb83c19451607258b1912189be7c426ff85130",
+    "base_sha": "aedb83c1",
+    "changed_files": [
+      ".workflow/records/2355-loader-path-list-fanout.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-043.md",
+      "docs/specs/adr-043-io-format-capability-registry.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
+      "src/scistudio/blocks/io/_unified_dispatch.py",
+      "src/scistudio/blocks/io/io_block.py",
+      "src/scistudio/blocks/io/loaders/load_data.py",
+      "src/scistudio/blocks/io/simple_io.py",
+      "tests/blocks/io/test_multi_path_delegated_load.py",
+      "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py"
+    ],
+    "diff_fingerprint": "sha256:797a3a023f5cd3abb1153cfaab773406e484eea4426fbb4ee31cd7ff8d112469",
+    "head": "HEAD",
+    "head_sha": "7db55c7f",
+    "surfaces": {
+      "docs": 3,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 5,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 4,
+      "sentrux": 10,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "When a Load node's path is a list, fan it out to one call per path by default; a loader that genuinely consumes a path list must declare so explicitly instead of being detected by which base class it inherits.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T16:37:16.953479Z",
+      "diff_fingerprint": "sha256:797a3a023f5cd3abb1153cfaab773406e484eea4426fbb4ee31cd7ff8d112469",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit"
+      ]
+    }
+  ],
+  "record_id": "2355-loader-path-list-fanout",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487180Z",
+      "pattern": "src/scistudio/blocks/io/_unified_dispatch.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487192Z",
+      "pattern": "src/scistudio/blocks/io/io_block.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487194Z",
+      "pattern": "src/scistudio/blocks/io/simple_io.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487196Z",
+      "pattern": "tests/blocks/io/test_multi_path_delegated_load.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487198Z",
+      "pattern": "docs/specs/adr-043-io-format-capability-registry.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487200Z",
+      "pattern": "docs/adr/ADR-043.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:25:12.487208Z",
+      "pattern": "docs/specs/adr-052-public-api-surface.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:30:13.989011Z",
+      "pattern": "src/scistudio/blocks/io/loaders/load_data.py",
+      "reason": "Audit found two more loaders to declare the opt-out on, plus the changelog and generated API reference land with the contract change."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:30:13.989153Z",
+      "pattern": "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
+      "reason": "Audit found two more loaders to declare the opt-out on, plus the changelog and generated API reference land with the contract change."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:30:13.989155Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
+      "reason": "Audit found two more loaders to declare the opt-out on, plus the changelog and generated API reference land with the contract change."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T16:30:13.989157Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Audit found two more loaders to declare the opt-out on, plus the changelog and generated API reference land with the contract change."
+    }
+  ],
+  "session_id": "a6f1690d-1b0a-456e-8cba-0823aa2ac3d1",
+  "strictness_tier": 1,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-11T16:25:12.487306Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/io/test_multi_path_delegated_load.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

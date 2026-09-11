@@ -79,6 +79,12 @@ class SimpleLoader(IOBlock):
     those attributes, reads the ``path`` from config, and calls your
     :meth:`load_file`. This is an input-only block; :meth:`save` always raises.
 
+    One file per call is all you handle. A ``path`` holding several files is
+    fanned out by the caller — once per file, results collected into a
+    :class:`Collection` — which is the default for every loader
+    (:attr:`~scistudio.blocks.io.IOBlock.accepts_path_list`), not something this
+    base class opts into.
+
     Example:
         >>> class LoadJsonText(SimpleLoader):
         ...     output_type = Text
