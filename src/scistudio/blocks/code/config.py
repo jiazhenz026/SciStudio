@@ -107,9 +107,11 @@ class PortFileConfig(BaseModel):
 class MigrationDiagnostic(BaseModel):
     """Explicit diagnostic for legacy inline/function CodeBlock configs.
 
-    Internal (ADR-052 §7A): legacy-config migration diagnostic model; not part
+    Internal: legacy-config migration diagnostic model; not part
     of the public ``scistudio.blocks.code`` surface.
     """
+
+    # Development references: ADR-052.
 
     model_config = ConfigDict(extra="forbid")
 
@@ -282,13 +284,14 @@ def resolve_project_path(
 ) -> Path:
     """Resolve *raw_path* and require it to stay inside *project_dir*.
 
-    Internal (ADR-052 §7A): path-resolution helper, not part of the public
+    Internal: path-resolution helper, not part of the public
     ``scistudio.blocks.code`` surface.
 
 
-    The check resolves symlinks before comparing paths, matching ADR-041's
+    The check resolves symlinks before comparing paths, matching the API's
     project-local source requirement without scanning the project tree.
     """
+    # Development references: ADR-041, ADR-052.
 
     project_root = project_dir.resolve()
     candidate = Path(raw_path)
@@ -311,8 +314,9 @@ def resolve_project_path(
 def legacy_migration_diagnostics(config: Mapping[str, Any]) -> list[MigrationDiagnostic]:
     """Classify legacy CodeBlock config fields without mutating the config.
 
-    Internal (ADR-052 §7A): legacy-config migration tooling, not public surface.
+    Internal: legacy-config migration tooling, not public surface.
     """
+    # Development references: ADR-052.
 
     diagnostics: list[MigrationDiagnostic] = []
     mode = str(config.get("mode", "")).strip().lower()

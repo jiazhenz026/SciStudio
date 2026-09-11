@@ -1,27 +1,30 @@
-"""Core fallback previewer providers (ADR-048 FR-012 .. FR-019).
-
-Each provider is a :data:`scistudio.previewers.models.PreviewProvider` callable
-mapping a :class:`PreviewRequest` to a :class:`PreviewEnvelope`. They read only
-through the bounded :class:`PreviewDataAccess` on the request (FR-010) and embed
-typed error envelopes instead of raising for routine failures (FR-028).
-
-Providers (and their core :class:`PreviewerSpec` ids):
-
-* ``core.dataframe.basic`` — :func:`dataframe_previewer`
-* ``core.array.basic`` — :func:`array_previewer` (GENERIC numeric only;
-  NO image-domain LUT/OME/channel/label semantics, FR-013/FR-014)
-* ``core.series.basic`` — :func:`series_previewer` (chart + table, FR-015)
-* ``core.text.basic`` — :func:`text_previewer` (FR-016)
-* ``core.artifact.basic`` — :func:`artifact_previewer`
-* ``core.composite.basic`` — :func:`composite_previewer` (slot inventory, FR-017)
-* ``core.collection.basic`` — :func:`collection_previewer` (FR-009, tier-7 fallback)
-* ``core.plot.basic`` — :func:`plot_previewer` (PNG/JPEG/SVG/PDF, FR-018/FR-019)
-* ``core.base.fallback`` — :func:`base_fallback_previewer` (tier-8 universal)
-
-The collection and base fallbacks declare the sentinel ``target_type`` values
-``"Collection"`` / ``"DataObject"`` that :class:`PreviewRouter` matches for the
-core catch-all tiers.
-"""
+"""Core fallback previewer providers."""
+# Maintainer context (kept outside generated API documentation):
+# Core fallback previewer providers (ADR-048 FR-012 .. FR-019).
+#
+# Each provider is a :data:`scistudio.previewers.models.PreviewProvider` callable
+# mapping a :class:`PreviewRequest` to a :class:`PreviewEnvelope`. They read only
+# through the bounded :class:`PreviewDataAccess` on the request (FR-010) and embed
+# typed error envelopes instead of raising for routine failures (FR-028).
+#
+# Providers (and their core :class:`PreviewerSpec` ids):
+#
+# * ``core.dataframe.basic`` — :func:`dataframe_previewer`
+# * ``core.array.basic`` — :func:`array_previewer` (GENERIC numeric only;
+#   NO image-domain LUT/OME/channel/label semantics, FR-013/FR-014)
+# * ``core.series.basic`` — :func:`series_previewer` (chart + table, FR-015)
+# * ``core.text.basic`` — :func:`text_previewer` (FR-016)
+# * ``core.artifact.basic`` — :func:`artifact_previewer`
+# * ``core.composite.basic`` — :func:`composite_previewer` (slot inventory, FR-017)
+# * ``core.collection.basic`` — :func:`collection_previewer` (FR-009, tier-7 fallback)
+# * ``core.plot.basic`` — :func:`plot_previewer` (PNG/JPEG/SVG/PDF, FR-018/FR-019)
+# * ``core.base.fallback`` — :func:`base_fallback_previewer` (tier-8 universal)
+#
+# The collection and base fallbacks declare the sentinel ``target_type`` values
+# ``"Collection"`` / ``"DataObject"`` that :class:`PreviewRouter` matches for the
+# core catch-all tiers.
+# Development references: ADR-048, FR-009, FR-010, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018,
+# FR-019, FR-028.
 
 from __future__ import annotations
 
@@ -71,10 +74,11 @@ def _available_plot_formats(primary: object) -> list[str]:
     """Formats actually rendered for this plot, resolved from the sibling files.
 
     The plot run promotes one ``<stem>.<suffix>`` file per allowed format next to
-    the preferred-format primary (#1918). Globbing the primary's stem tells the
+    the preferred-format primary. Globbing the primary's stem tells the
     frontend which formats a Save-as menu can offer without re-rendering. Falls
     back to just the primary's own format when siblings cannot be enumerated.
     """
+    # Development references: #1918.
     from pathlib import Path
 
     path = primary if isinstance(primary, Path) else Path(str(primary))
@@ -92,7 +96,7 @@ def _available_plot_formats(primary: object) -> list[str]:
 
 
 def _ref_for(request: PreviewRequest) -> StorageReference:
-    """Return the runtime-resolved StorageReference for the target (FR-009, ADR-052 §8.5).
+    """Return the runtime-resolved StorageReference for the target.
 
     The sanctioned path is :attr:`PreviewRequest.storage`, which the
     :class:`~scistudio.previewers.session.PreviewSessionManager` populates so
@@ -100,6 +104,7 @@ def _ref_for(request: PreviewRequest) -> StorageReference:
     The legacy ``query["_storage"]`` rebuild is kept only as a defensive
     fallback for a request constructed outside the session manager.
     """
+    # Development references: ADR-052, FR-009.
     if request.storage is not None:
         return request.storage
     storage = request.query.get("_storage") or {}
@@ -112,12 +117,13 @@ def _ref_for(request: PreviewRequest) -> StorageReference:
 
 
 def _record_metadata(request: PreviewRequest) -> dict[str, object]:
-    """Return the recorded data-record metadata (ADR-052 §8.5).
+    """Return the recorded data-record metadata.
 
     Prefers the typed :attr:`PreviewRequest.record_metadata`; falls back to the
     legacy ``query["_record_metadata"]`` for requests built outside the session
     manager.
     """
+    # Development references: ADR-052.
     if request.record_metadata:
         return request.record_metadata
     md = request.query.get("_record_metadata")
@@ -143,7 +149,8 @@ def _error_envelope(request: PreviewRequest, code: object, message: str) -> Prev
 
 
 def dataframe_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Paginated DataFrame preview (FR-009 acceptance scenario 1)."""
+    """Paginated DataFrame preview."""
+    # Development references: FR-009.
     ref = _ref_for(request)
     q = request.query
     page = _coerce_int(q.get("page"), 1)
@@ -202,9 +209,10 @@ def array_previewer(request: PreviewRequest) -> PreviewEnvelope:
     non-displayed axis is independently navigable via ``slice_axes`` and the
     per-axis ``axis_indices`` query field.
 
-    Strictly generic per FR-013/FR-014: no image-domain LUT/OME/channel/label
+    Strictly generic: no image-domain LUT/OME/channel/label
     semantics. Rich image controls belong to ``scistudio-blocks-imaging``.
     """
+    # Development references: FR-013, FR-014.
     ref = _ref_for(request)
     slice_index = _coerce_int(request.query.get("slice_index"), 0)
     axis_indices = _coerce_axis_indices(request.query.get("axis_indices"))
@@ -297,7 +305,8 @@ def _degrade_to_artifact(request: PreviewRequest, ref: StorageReference, *, reas
 
 
 def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Series preview with complete chart points and a table view (FR-015)."""
+    """Series preview with complete chart points and a table view."""
+    # Development references: FR-015.
     ref = _ref_for(request)
     metadata = _record_metadata(request)
     try:
@@ -334,7 +343,8 @@ def series_previewer(request: PreviewRequest) -> PreviewEnvelope:
 
 
 def text_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Bounded plain-text preview with truncation marker + editor handoff (FR-016)."""
+    """Bounded plain-text preview with truncation marker + editor handoff."""
+    # Development references: FR-016.
     ref = _ref_for(request)
     try:
         chunk = request.data_access.text_chunk(ref)
@@ -391,7 +401,8 @@ def artifact_previewer(request: PreviewRequest) -> PreviewEnvelope:
 
 
 def composite_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Composite preview: slot inventory first; child routed only on select (FR-017)."""
+    """Composite preview: slot inventory first; child routed only on select."""
+    # Development references: FR-017.
     metadata = _record_metadata(request)
     slots = request.data_access.composite_slots(metadata)
     selected_slot = request.query.get("slot")
@@ -423,7 +434,7 @@ def composite_previewer(request: PreviewRequest) -> PreviewEnvelope:
 
 
 def _collection_item_params(index: int, item: object) -> dict[str, object]:
-    """Minimal child-resolve params for a collection item (#1837).
+    """Minimal child-resolve params for a collection item.
 
     Embed only the fields the resolver actually consumes — the item's
     ``ref`` and ``type_name`` — instead of round-tripping the whole item
@@ -434,6 +445,7 @@ def _collection_item_params(index: int, item: object) -> dict[str, object]:
     422. The rich descriptor still rides the COLLECTION envelope ``payload``,
     so nothing is lost. Resolver: ``PreviewSession._child_target_from_resource``.
     """
+    # Development references: #1837.
     params: dict[str, object] = {"index": index}
     if isinstance(item, dict):
         ref = str(item.get("data_ref") or item.get("ref") or "")
@@ -446,7 +458,8 @@ def _collection_item_params(index: int, item: object) -> dict[str, object]:
 
 
 def collection_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Collection fallback: count + item types + bounded sampled refs (FR-009)."""
+    """Collection fallback: count + item types + bounded sampled refs."""
+    # Development references: FR-009.
     q = request.query
     raw_items = q.get("_collection_items")
     items = raw_items if isinstance(raw_items, list) else []
@@ -490,12 +503,13 @@ def collection_previewer(request: PreviewRequest) -> PreviewEnvelope:
 
 
 def plot_previewer(request: PreviewRequest) -> PreviewEnvelope:
-    """Static plot artifact viewer for PNG / JPEG / SVG / PDF (FR-018).
+    """Static plot artifact viewer for PNG / JPEG / SVG / PDF.
 
     SVG is sanitized so script execution and external-resource loading do not
-    run in the app context (FR-019). Each supported format exposes a
+    run in the app context. Each supported format exposes a
     save/export resource descriptor.
     """
+    # Development references: FR-018, FR-019.
     from pathlib import Path
 
     ref = _ref_for(request)
@@ -590,12 +604,13 @@ def _coerce_int(value: object, default: int) -> int:
 
 
 def core_previewer_specs() -> list[PreviewerSpec]:
-    """Return the core fallback :class:`PreviewerSpec` list (FR-012).
+    """Return the core fallback :class:`PreviewerSpec` list.
 
     These are registered unconditionally by :meth:`PreviewerRegistry.load_core`.
     The collection and base specs use the sentinel ``target_type`` values the
     router matches for the core catch-all tiers (``"Collection"`` / ``"DataObject"``).
     """
+    # Development references: FR-012.
     return [
         PreviewerSpec(
             previewer_id="core.dataframe.basic",

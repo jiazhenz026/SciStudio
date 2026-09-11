@@ -1,33 +1,35 @@
-"""DAGScheduler — event-driven workflow execution with cancellation and skip propagation.
-
-ADR-046 / umbrella #1427 Phase 3: the original god-file
-``engine/scheduler.py`` (~1744 LOC) was split into this sub-package.
-The full public surface from before the split is preserved here:
-
-* :class:`DAGScheduler` (canonical class symbol stays at
-  ``scistudio.engine.scheduler.DAGScheduler``)
-* :class:`RunHandle`
-* :data:`logger`
-* the three module-level helpers ``_extract_error_summary``,
-  ``_collect_object_ids``, ``_object_ids_for_value``
-
-Method implementations live in concern-grouped private sibling
-modules and are bound onto :class:`DAGScheduler` via class-body
-static assignment — the Path D pattern established by PR #1445
-(:mod:`scistudio.api.runtime`) and PR #1460
-(:mod:`scistudio.blocks.io`). The split is **structural-only** with
-zero behavior change; #1449 scheduler state-machine contract test
-passes byte-identically.
-
-Sub-module layout:
-
-* :mod:`_helpers`    — three module-level helper functions re-exported here
-* :mod:`_dispatch`   — block dispatch loop                 (~440 LOC)
-* :mod:`_events`     — EventBus subscriber handlers        (~240 LOC)
-* :mod:`_lineage`    — output + lineage persistence        (~330 LOC)
-* :mod:`_state`      — state-machine helpers (ADR-046 §5)  (~75 LOC)
-* :mod:`_rerun`      — rerun / reset / graph-traversal     (~165 LOC)
-"""
+"""DAGScheduler — event-driven workflow execution with cancellation and skip propagation."""
+# Maintainer context (kept outside generated API documentation):
+# DAGScheduler — event-driven workflow execution with cancellation and skip propagation.
+#
+# ADR-046 / umbrella #1427 Phase 3: the original god-file
+# ``engine/scheduler.py`` (~1744 LOC) was split into this sub-package.
+# The full public surface from before the split is preserved here:
+#
+# * :class:`DAGScheduler` (canonical class symbol stays at
+#   ``scistudio.engine.scheduler.DAGScheduler``)
+# * :class:`RunHandle`
+# * :data:`logger`
+# * the three module-level helpers ``_extract_error_summary``,
+#   ``_collect_object_ids``, ``_object_ids_for_value``
+#
+# Method implementations live in concern-grouped private sibling
+# modules and are bound onto :class:`DAGScheduler` via class-body
+# static assignment — the Path D pattern established by PR #1445
+# (:mod:`scistudio.api.runtime`) and PR #1460
+# (:mod:`scistudio.blocks.io`). The split is **structural-only** with
+# zero behavior change; #1449 scheduler state-machine contract test
+# passes byte-identically.
+#
+# Sub-module layout:
+#
+# * :mod:`_helpers`    — three module-level helper functions re-exported here
+# * :mod:`_dispatch`   — block dispatch loop                 (~440 LOC)
+# * :mod:`_events`     — EventBus subscriber handlers        (~240 LOC)
+# * :mod:`_lineage`    — output + lineage persistence        (~330 LOC)
+# * :mod:`_state`      — state-machine helpers (ADR-046 §5)  (~75 LOC)
+# * :mod:`_rerun`      — rerun / reset / graph-traversal     (~165 LOC)
+# Development references: #1427, #1445, #1449, #1460, ADR-046.
 
 from __future__ import annotations
 
@@ -187,12 +189,13 @@ class DAGScheduler:
     def dispose(self) -> None:
         """Unsubscribe this scheduler's handlers from the shared EventBus.
 
-        #1517: ``ApiRuntime`` owns one process-global ``EventBus`` and builds a
+        ``ApiRuntime`` owns one process-global ``EventBus`` and builds a
         fresh ``DAGScheduler`` per run. Without symmetric teardown a finished
         run's scheduler keeps reacting to other runs' events (stale checkpoint
         overwrites, cross-run dispatch). Call this once the run task is done,
         alongside ``LineageRecorder.dispose()``. Idempotent.
         """
+        # Development references: #1517.
         if self._disposed:
             return
         # #2187: cancel any pending resource-retry timer so a disposed
@@ -211,12 +214,13 @@ class DAGScheduler:
         """Begin executing the workflow from its current state.
 
         Independent DAG branches run concurrently: ``_dispatch`` creates an
-        ``asyncio.Task`` per block (ADR-018 Addendum 1). The method body is
+        ``asyncio.Task`` per block. The method body is
         wrapped in ``try/finally`` so that any exception triggers
         ``_cancel_active_tasks_on_shutdown`` to terminate subprocess
         handles and cancel pre-subprocess tasks, preventing zombie
         processes on engine-level failure.
         """
+        # Development references: ADR-018, Addendum 1.
         await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_STARTED, data={"workflow_id": self._workflow.id}))
 
         if not self._dag.nodes:
@@ -304,7 +308,7 @@ class DAGScheduler:
         are cancelled via ``_cancel_if_active`` before the block is
         re-dispatched.  This prevents orphan processes and duplicate block
         executions that would otherwise arise when a caller re-dispatches a
-        block while the old run is still alive (bug #424).
+        block while the old run is still alive (bug).
 
         Unlike ``reset_block``, ``rerun_block`` does **not** walk the upstream
         or downstream dependency chain — it only resets and re-dispatches the
@@ -320,6 +324,7 @@ class DAGScheduler:
         ValueError
             If *block_id* is not part of the current workflow.
         """
+        # Development references: #424.
         if block_id not in self._block_states:
             raise ValueError(f"Unknown block: {block_id}")
 
@@ -345,14 +350,15 @@ class DAGScheduler:
     async def reset_block(self, block_id: str) -> None:
         """Reset a block and its dependency chain for selective re-run.
 
-        Algorithm (ADR-018):
+        Algorithm:
             1. Validate block exists.
-            1b. Cancel active task/subprocess if the block is RUNNING (#424).
+            1b. Cancel active task/subprocess if the block is RUNNING.
             2. Set target block to IDLE, clear cached outputs and skip reasons.
             3. Walk upstream: recursively reset non-DONE predecessors to IDLE.
             4. Walk downstream: reset SKIPPED blocks to IDLE.
             5. Re-evaluate readiness and batch-dispatch ready blocks.
         """
+        # Development references: #424, ADR-018.
         async with self._reset_lock:
             if block_id not in self._block_states:
                 raise ValueError(f"Unknown block: {block_id}")

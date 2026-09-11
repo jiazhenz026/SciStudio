@@ -1,42 +1,45 @@
-"""MCP server — FastMCP-backed implementation (ADR-040 §3.1).
-
-Owns the module-scope ``fastmcp.FastMCP`` instance the four
-``tools_*.py`` modules decorate their tool functions onto, plus the
-:class:`MCPServer` lifecycle wrapper preserved from the ADR-033 era so
-the FastAPI lifespan in :mod:`scistudio.api.app` and the standalone
-``scistudio mcp-bridge`` runtime can construct it by name.
-
-Transport (preserved from pre-FastMCP era so the bridge protocol does
-not move):
-
-* **POSIX** — Unix domain socket at the path provided by the caller
-  (default ``{project}/.scistudio/mcp.sock``). Line-delimited JSON-RPC.
-  The socket is the transport's only access control, so it is owner-only
-  whatever the process umask (#2333). It is bound in a directory that is the
-  current user's own with mode 0700, so no other user can reach it between
-  bind and chmod, and then set to 0600. The requested path is used when it
-  fits ``sun_path`` and its directory is private; a missing directory is
-  created 0700. Otherwise the socket goes in the private per-user directory
-  :func:`private_socket_dir` (``$XDG_RUNTIME_DIR/scistudio``, else a 0700
-  ``scistudio-<uid>`` directory under the temp dir), and
-  ``<requested>.path`` names it, which ``scistudio mcp-bridge`` follows. A
-  directory that is open to other users is never chmod-ed or reused, and a
-  per-user directory another user owns or can open is refused.
-* **Windows** — TCP loopback on ``127.0.0.1`` with an ephemeral port;
-  the port is written to ``<socket_path>.port`` next to the sentinel
-  socket-path file so the bridge subprocess can discover it. A loopback
-  port is reachable by every process on the computer, so on Windows the
-  transport assumes a single-user computer; a shared Windows host is not a
-  supported deployment (#2333).
-
-The wrapper bridges two impedance mismatches:
-
-1. FastMCP's native ``run_async`` blocks for the lifetime of the
-   server; the FastAPI lifespan wants ``start()``/``stop()`` that
-   return promptly while a background task owns the serve loop.
-2. The bridge subprocess wants a single blocking ``await server.serve()``
-   call. ``serve()`` is therefore the merge of ``start()`` + ``wait``.
-"""
+"""MCP server — FastMCP-backed implementation."""
+# Maintainer context (kept outside generated API documentation):
+# MCP server — FastMCP-backed implementation (ADR-040 §3.1).
+#
+# Owns the module-scope ``fastmcp.FastMCP`` instance the four
+# ``tools_*.py`` modules decorate their tool functions onto, plus the
+# :class:`MCPServer` lifecycle wrapper preserved from the ADR-033 era so
+# the FastAPI lifespan in :mod:`scistudio.api.app` and the standalone
+# ``scistudio mcp-bridge`` runtime can construct it by name.
+#
+# Transport (preserved from pre-FastMCP era so the bridge protocol does
+# not move):
+#
+# * **POSIX** — Unix domain socket at the path provided by the caller
+#   (default ``{project}/.scistudio/mcp.sock``). Line-delimited JSON-RPC.
+# * **Windows** — TCP loopback on ``127.0.0.1`` with an ephemeral port;
+#   the port is written to ``<socket_path>.port`` next to the sentinel
+#   socket-path file so the bridge subprocess can discover it.
+#
+# The wrapper bridges two impedance mismatches:
+#
+# 1. FastMCP's native ``run_async`` blocks for the lifetime of the
+#    server; the FastAPI lifespan wants ``start()``/``stop()`` that
+#    return promptly while a background task owns the serve loop.
+# 2. The bridge subprocess wants a single blocking ``await server.serve()``
+#    call. ``serve()`` is therefore the merge of ``start()`` + ``wait``.
+#
+# Socket permissions (#2333): on POSIX the socket is the transport's only
+# access control, so it is owner-only whatever the process umask. It is
+# bound, under a 0077 umask, in a directory that is the current user's own
+# with mode 0700, then set to 0600. The requested path is used when it fits
+# ``sun_path`` and its directory is private; a missing directory is created
+# 0700 (for the default ``{project}/.scistudio`` that is the project's
+# metadata directory). Otherwise the socket goes in ``private_socket_dir()``
+# ($XDG_RUNTIME_DIR/scistudio when that directory is private, else a 0700
+# ``scistudio-<uid>`` under the temp dir, or a unique mkdtemp directory when
+# another user took that name), and ``<requested>.path`` names it;
+# ``scistudio mcp-bridge`` follows it after checking who owns the pointer and
+# the socket. A directory open to other users is never chmod-ed or reused.
+# On Windows the transport is TCP loopback, which every local account can
+# reach, so it assumes a single-user computer.
+# Development references: ADR-033, ADR-040, #2333.
 
 from __future__ import annotations
 
@@ -46,9 +49,11 @@ import hashlib
 import json
 import logging
 import os
+import socket as socket_mod
 import stat
 import sys
 import tempfile
+import threading
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
@@ -68,11 +73,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 mcp: FastMCP = FastMCP(name="scistudio-mcp", version="0.1.0")
-"""Module-scope FastMCP instance (ADR-040 §3.1)."""
+"""Module-scope FastMCP instance."""
+# Development references: ADR-040.
 
 
 AUDIENCE_EXTERNAL_TAG = "audience:external"
-"""ADR-055 Spec 1 (FR-004): tag marking a tool as external-audience only.
+"""Tag marking a tool as external-audience only.
 
 A tool registered with this tag appears in the WebMCP HTTP bridge catalogue
 (:mod:`scistudio.api.routes.webmcp`) but is filtered out of the local socket
@@ -80,6 +86,7 @@ transport's ``tools/list`` — local agents already have native file/shell
 capability and must not pay for external-only tools. Visibility defaults to
 both transports; the filter is opt-in per tool tag.
 """
+# Development references: ADR-055, FR-004, Spec 1.
 
 
 def tool_category_and_mutation(tags: Iterable[str] | None) -> tuple[str, str]:
@@ -200,7 +207,7 @@ class MCPServer:
                 _unlink_if_present(socket_path)
                 _write_socket_pointer(pointer_path, socket_path)
             self.socket_path = socket_path
-            self._server = await asyncio.start_unix_server(self._handle_client, path=str(socket_path))
+            self._server = await asyncio.start_unix_server(self._handle_client, sock=_bind_owner_only(socket_path))
             os.chmod(socket_path, 0o600)
 
         logger.info(
@@ -215,7 +222,7 @@ class MCPServer:
         Retires the listener, hangs up on every still-attached client, then
         waits — with a bounded grace period — for the handler tasks to unwind.
 
-        Issue #2019: closing the listener alone is not enough. Established
+        closing the listener alone is not enough. Established
         connections survive ``close()``, and from Python 3.12 on
         ``wait_closed()`` does not return until each handler task has finished.
         Because ``_handle_client`` blocks on ``readline()`` until its peer
@@ -237,6 +244,7 @@ class MCPServer:
         time. Awaiting each transport keeps the teardown inside this coroutine,
         where the grace period still bounds it.
         """
+        # Development references: #2019.
         if self._server is None:
             return
         self._server.close()
@@ -471,7 +479,7 @@ def _posix_socket_pointer_path(socket_path: Path) -> Path:
 def socket_dir_problem(st: os.stat_result, *, uid: int) -> str | None:
     """Return why a directory may not hold the MCP socket, or ``None`` when it is private.
 
-    #2333: the directory must be a real directory (not a symbolic link), owned
+    The directory must be a real directory (not a symbolic link), owned
     by ``uid``, with no group or other permission bits. ``st`` comes from
     ``os.lstat``.
     """
@@ -505,24 +513,80 @@ def _ensure_private_dir(path: Path) -> None:
         raise PermissionError(f"refusing MCP socket directory {path}: it {problem}")
 
 
+_fallback_lock = threading.Lock()
+_fallback_socket_dir: Path | None = None
+
+
 def private_socket_dir() -> Path:
     """Return the private per-user directory for MCP sockets, creating it if needed (POSIX).
 
-    #2333: ``$XDG_RUNTIME_DIR/scistudio`` when ``XDG_RUNTIME_DIR`` names an
-    existing directory, otherwise ``scistudio-<uid>`` under the temp directory.
-    It is created 0700 whatever the umask. An existing one that is not a real
-    directory owned by the current user with mode 0700 is refused with
-    :class:`PermissionError`: another user may have placed it there first.
+    In order of preference:
+
+    * ``$XDG_RUNTIME_DIR/scistudio`` when ``XDG_RUNTIME_DIR`` is a private
+      directory of the current user. A ``scistudio`` entry in it that is not
+      private is refused with :class:`PermissionError`: only this user or root
+      could have put it there.
+    * ``scistudio-<uid>`` under the temp directory, created 0700 whatever the
+      umask.
+    * When another user has taken that predictable name, a unique ``mkdtemp``
+      directory under the temp directory, verified 0700. It is reused for the
+      life of the process, and the socket pointer records it.
     """
     if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
         raise RuntimeError("MCP socket directories exist on POSIX only")
+    uid = os.getuid()
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR", "").strip()
-    if runtime_dir and os.path.isabs(runtime_dir) and os.path.isdir(runtime_dir):
-        base = Path(runtime_dir) / "scistudio"
-    else:
-        base = Path(tempfile.gettempdir()) / f"scistudio-{os.getuid()}"
-    _ensure_private_dir(base)
+    if runtime_dir and os.path.isabs(runtime_dir):
+        try:
+            usable = socket_dir_problem(os.lstat(runtime_dir), uid=uid) is None
+        except OSError:
+            usable = False
+        if usable:
+            base = Path(runtime_dir) / "scistudio"
+            _ensure_private_dir(base)
+            return base
+    base = Path(tempfile.gettempdir()) / f"scistudio-{uid}"
+    try:
+        _ensure_private_dir(base)
+    except PermissionError as exc:
+        return _unique_socket_dir(str(exc))
     return base
+
+
+def _unique_socket_dir(reason: str) -> Path:
+    """Return a unique private socket directory for this process (see :func:`private_socket_dir`)."""
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("MCP socket directories exist on POSIX only")
+    global _fallback_socket_dir
+    with _fallback_lock:
+        existing = _fallback_socket_dir
+        if existing is not None:
+            with contextlib.suppress(OSError):
+                if socket_dir_problem(os.lstat(existing), uid=os.getuid()) is None:
+                    return existing
+        path = Path(tempfile.mkdtemp(prefix=f"scistudio-{os.getuid()}-"))
+        problem = socket_dir_problem(os.lstat(path), uid=os.getuid())
+        if problem is not None:
+            raise PermissionError(f"refusing MCP socket directory {path}: it {problem}")
+        logger.warning("MCPServer: %s; using the private directory %s instead", reason, path)
+        _fallback_socket_dir = path
+        return path
+
+
+def _bind_owner_only(path: Path) -> socket_mod.socket:
+    """Bind a Unix socket at ``path`` under a 0077 umask, so it is never created open to others."""
+    if sys.platform == "win32":  # pragma: no cover - Windows binds TCP loopback
+        raise RuntimeError("Unix sockets are bound on POSIX only")
+    sock = socket_mod.socket(socket_mod.AF_UNIX, socket_mod.SOCK_STREAM)
+    previous = os.umask(0o077)
+    try:
+        sock.bind(str(path))
+    except BaseException:
+        sock.close()
+        raise
+    finally:
+        os.umask(previous)
+    return sock
 
 
 def _requested_dir_is_private(directory: Path) -> bool:
@@ -538,7 +602,7 @@ def _requested_dir_is_private(directory: Path) -> bool:
 
 
 def _posix_bind_socket_path(socket_path: Path) -> Path:
-    """Return where to bind the socket requested at ``socket_path`` (#2333).
+    """Return where to bind the socket requested at ``socket_path``.
 
     The requested path when it fits AF_UNIX ``sun_path`` and its directory is
     private; otherwise a per-server name in :func:`private_socket_dir`, which
@@ -547,7 +611,8 @@ def _posix_bind_socket_path(socket_path: Path) -> Path:
     fits = len(str(socket_path).encode("utf-8")) <= _POSIX_SOCKET_PATH_LIMIT_BYTES
     if fits and _requested_dir_is_private(socket_path.parent):
         return socket_path
-    digest = hashlib.sha1(str(socket_path).encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
+    # Only a short, unique file name; SHA-256 so no scanner reads it as weak hashing.
+    digest = hashlib.sha256(str(socket_path).encode("utf-8")).hexdigest()[:12]
     return private_socket_dir() / f"mcp-{os.getpid()}-{digest}.sock"
 
 
@@ -555,7 +620,12 @@ def _write_socket_pointer(pointer_path: Path, socket_path: Path) -> None:
     """Name a relocated socket at ``<requested>.path``, where ``scistudio mcp-bridge`` looks."""
     try:
         pointer_path.parent.mkdir(parents=True, exist_ok=True)
-        pointer_path.write_text(str(socket_path), encoding="utf-8")
+        _unlink_if_present(pointer_path)
+        # O_EXCL | O_NOFOLLOW: never write through a file or symlink someone
+        # else placed there; 0600 so only this user reads or edits it.
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        with os.fdopen(os.open(pointer_path, flags, 0o600), "w", encoding="utf-8") as handle:
+            handle.write(str(socket_path))
     except OSError as exc:
         logger.warning("MCPServer: could not write the socket pointer %s (%s)", pointer_path, type(exc).__name__)
 
@@ -570,7 +640,7 @@ def serialise_result(result: object) -> object:
     """Coerce a FastMCP ToolResult-like object to a JSON-friendly value.
 
     Promoted from ``_serialise_result`` to the shared, importable adapter
-    contract by ADR-055 Spec 1 (FR-002): the local socket transport (below)
+    For the local socket transport (below)
     and the WebMCP HTTP bridge
     (:func:`adapt_tool_result`, used by
     :mod:`scistudio.api.routes.webmcp`) both normalise results through this
@@ -580,6 +650,7 @@ def serialise_result(result: object) -> object:
     ``structured_content``) or already-coerced primitives depending on
     version. We normalise to the most informative JSON value available.
     """
+    # Development references: ADR-055, FR-002, Spec 1.
     structured = getattr(result, "structured_content", None)
     if structured is not None:
         return structured
@@ -603,7 +674,7 @@ def serialise_result(result: object) -> object:
 def adapt_tool_result(result: object) -> dict[str, Any]:
     """Map a FastMCP tool result to the WebMCP bridge response shape.
 
-    ADR-055 Spec 1 (FR-003) — the explicit adapter contract the demo's
+    the explicit adapter contract the demo's
     text-only mapping violated. Declared mappings:
 
     * **structured content** — ``result.structured_content`` is preserved
@@ -619,13 +690,14 @@ def adapt_tool_result(result: object) -> dict[str, Any]:
     * **top-level error flag** — propagated from the result's ``isError``
       (or ``is_error``) attribute into the top-level ``isError`` field;
       absent means ``False``. Thrown exceptions never reach this function:
-      the router maps them to ``isError`` content itself (FR-003), so a
+      the router maps them to ``isError`` content itself, so a
       failed tool call is information the agent can act on rather than an
       HTTP 5xx.
     * **primitive results** (neither ``content`` nor
       ``structured_content``) — normalised through
       :func:`serialise_result` and wrapped in a single text block.
     """
+    # Development references: ADR-055, FR-003, Spec 1.
     structured = getattr(result, "structured_content", None)
     content = getattr(result, "content", None)
     is_error = bool(getattr(result, "isError", getattr(result, "is_error", False)))

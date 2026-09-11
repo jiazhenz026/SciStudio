@@ -1,51 +1,54 @@
-"""One answer to "which library tier did this block or data type come from?".
-
-ADR-053 / ``docs/specs/adr-053-personal-tool-library.md`` §3 (FR-001 to
-FR-005). ``map_block_origin`` used to collapse both drop-in tiers into one
-``custom`` label::
-
-    if raw == "tier1":
-        return "custom"
-
-so ``~/.scistudio/blocks/`` and ``{project}/blocks/`` arrived at the palette
-indistinguishable and the user tier was invisible. :func:`resolve_origin`
-splits them by comparing the item's file path against the tier roots
-:mod:`scistudio.core.dropins` defines, and falls back to ``custom`` for a path
-that resolves under neither (FR-002) — an absent file path, a symlink escaping
-both, a differing Windows drive. Behaviour degrades; it does not break.
-
-**FR-003 requires one implementation**, not two path comparisons that can
-diverge. The only things that actually differ between the block surface and the
-type surface are the tier child directory (``blocks`` vs ``types``), the label
-for an item that ships with SciStudio (``builtin`` vs ``core``), and the import
-root that identifies it. Those three facts are the whole of
-:class:`OriginSurface`; everything else — the realpath-before-comparing, the
-project-tier-before-user-tier order (FR-014), the ``custom`` fallback — is
-shared. :data:`BLOCK_SURFACE` and :data:`TYPE_SURFACE` are the two instances.
-
-Containment is decided on **resolved real paths**, never on string prefixes: a
-symlink inside a tier root that points outside it is not in that tier, and on
-Windows a path on a different drive is not relative to anything on this one.
-
-Layering: this module lives in ``scistudio.core`` for the same reason
-:mod:`scistudio.core.dropins` does — its consumers span layers, and no layer
-above ``core`` may be imported by the others. It began in
-``scistudio.api._block_source``, where the ``AI must not depend on api``
-import-linter contract put it out of reach of the agent's promotion tool
-(§6.2 E3), which therefore grew a second, narrower rule: the tool asked whether
-the source file's parent *equalled* the user library root, so a block whose
-origin resolved to the FR-002 ``custom`` fallback was hidden by the three
-frontend entry points and accepted by the agent. That is precisely the
-divergence FR-003 was written to prevent, and the fix is layering rather than a
-third comparison — recorded in
-``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
-``scistudio.api._block_source`` re-exports every name here, so the API-side
-call sites are unchanged.
-
-This module holds no rule about *directories*; it asks
-:mod:`scistudio.core.dropins` for those, which keeps FR-058's single tier
-definition single.
-"""
+"""One answer to "which library tier did this block or data type come from?"."""
+# Maintainer context (kept outside generated API documentation):
+# One answer to "which library tier did this block or data type come from?".
+#
+# ADR-053 / ``docs/specs/adr-053-personal-tool-library.md`` §3 (FR-001 to
+# FR-005). ``map_block_origin`` used to collapse both drop-in tiers into one
+# ``custom`` label::
+#
+#     if raw == "tier1":
+#         return "custom"
+#
+# so ``~/.scistudio/blocks/`` and ``{project}/blocks/`` arrived at the palette
+# indistinguishable and the user tier was invisible. :func:`resolve_origin`
+# splits them by comparing the item's file path against the tier roots
+# :mod:`scistudio.core.dropins` defines, and falls back to ``custom`` for a path
+# that resolves under neither (FR-002) — an absent file path, a symlink escaping
+# both, a differing Windows drive. Behaviour degrades; it does not break.
+#
+# **FR-003 requires one implementation**, not two path comparisons that can
+# diverge. The only things that actually differ between the block surface and the
+# type surface are the tier child directory (``blocks`` vs ``types``), the label
+# for an item that ships with SciStudio (``builtin`` vs ``core``), and the import
+# root that identifies it. Those three facts are the whole of
+# :class:`OriginSurface`; everything else — the realpath-before-comparing, the
+# project-tier-before-user-tier order (FR-014), the ``custom`` fallback — is
+# shared. :data:`BLOCK_SURFACE` and :data:`TYPE_SURFACE` are the two instances.
+#
+# Containment is decided on **resolved real paths**, never on string prefixes: a
+# symlink inside a tier root that points outside it is not in that tier, and on
+# Windows a path on a different drive is not relative to anything on this one.
+#
+# Layering: this module lives in ``scistudio.core`` for the same reason
+# :mod:`scistudio.core.dropins` does — its consumers span layers, and no layer
+# above ``core`` may be imported by the others. It began in
+# ``scistudio.api._block_source``, where the ``AI must not depend on api``
+# import-linter contract put it out of reach of the agent's promotion tool
+# (§6.2 E3), which therefore grew a second, narrower rule: the tool asked whether
+# the source file's parent *equalled* the user library root, so a block whose
+# origin resolved to the FR-002 ``custom`` fallback was hidden by the three
+# frontend entry points and accepted by the agent. That is precisely the
+# divergence FR-003 was written to prevent, and the fix is layering rather than a
+# third comparison — recorded in
+# ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
+# ``scistudio.api._block_source`` re-exports every name here, so the API-side
+# call sites are unchanged.
+#
+# This module holds no rule about *directories*; it asks
+# :mod:`scistudio.core.dropins` for those, which keeps FR-058's single tier
+# definition single.
+# Development references: ADR-053, FR-001, FR-002, FR-003, FR-005, FR-014, FR-058, adr-053-spec1-track-b,
+# docs/specs/adr-053-personal-tool-library.md.
 
 from __future__ import annotations
 
@@ -95,8 +98,10 @@ class OriginSurface:
 
     Three facts, and no behaviour: :func:`resolve_origin` owns the rules and
     reads them from here, so adding a surface can never add a second path
-    comparison (FR-003).
+    comparison.
     """
+
+    # Development references: FR-003.
 
     installed_origin: str
     """Label for an item that ships with SciStudio: ``builtin`` / ``core``."""
@@ -169,8 +174,9 @@ def _is_within(candidate: Path, root: Path) -> bool:
     """Return whether *candidate* sits at or under *root*, both already real.
 
     ``is_relative_to`` answers ``False`` rather than raising for a path on a
-    different Windows drive, which is exactly the FR-002 degradation.
+    different Windows drive, which is exactly the degradation.
     """
+    # Development references: FR-002.
     try:
         return candidate.is_relative_to(root)
     except (OSError, ValueError):  # pragma: no cover - defensive
@@ -185,7 +191,7 @@ def resolve_origin(
     is_dropin: bool = False,
     project_dir: str | Path | None = None,
 ) -> str:
-    """Return the origin tier of one registered block or data type (FR-003).
+    """Return the origin tier of one registered block or data type.
 
     The single implementation the block palette, the types listing, the source
     viewer and the agent's promotion tool all resolve through. ``surface``
@@ -208,6 +214,7 @@ def resolve_origin(
     Returns:
         One of ``surface.vocabulary``.
     """
+    # Development references: FR-003.
     if file_path:
         resolved = _real(file_path)
         if resolved is not None:
@@ -230,7 +237,7 @@ def resolve_origin(
 
 
 def map_block_origin(spec: Any, *, project_dir: str | Path | None = None) -> str:
-    """Return the FR-001/FR-002 origin tier of a block registry spec.
+    """Return the origin tier of a block registry spec.
 
     The block-side adapter over :func:`resolve_origin`: it reads the three
     fields a :class:`~scistudio.blocks.registry.BlockSpec` carries and asks the
@@ -239,8 +246,9 @@ def map_block_origin(spec: Any, *, project_dir: str | Path | None = None) -> str
     ``spec`` is read structurally rather than imported, because ``core`` may
     not depend on ``scistudio.blocks``. That is also what lets the API's block
     listing and the agent's promotion tool call *this* function rather than two
-    look-alikes (FR-025 / §6.2 E3).
+    look-alikes (E3).
     """
+    # Development references: FR-001, FR-002, FR-025.
     return resolve_origin(
         BLOCK_SURFACE,
         file_path=getattr(spec, "file_path", None),

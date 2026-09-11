@@ -1,19 +1,21 @@
-"""Private sibling for ``GitEngine`` history, diff, and restore operations.
-
-This module is **package-private** per ADR-028 Addendum 1 §C9 +
-ADR-046 Addendum 1 ("private functions, not helper classes"): every
-public symbol is prefixed with an underscore, the module name itself
-starts with an underscore, and it contains zero ``class`` definitions.
-External callers must import :class:`GitEngine` from
-:mod:`scistudio.core.versioning.git_engine`; importing helpers
-directly is unsupported and the names may change without notice.
-
-The functions here were extracted from
-:mod:`scistudio.core.versioning.git_engine` in issue #1472 (Phase 3
-of the backend god-file refactor umbrella #1427) per ADR-046
-Addendum 1. Bound-method bodies are byte-identical to the originals;
-only ``self.`` was rewritten to ``engine.``.
-"""
+"""Private sibling for ``GitEngine`` history, diff, and restore operations."""
+# Maintainer context (kept outside generated API documentation):
+# Private sibling for ``GitEngine`` history, diff, and restore operations.
+#
+# This module is **package-private** per ADR-028 Addendum 1 §C9 +
+# ADR-046 Addendum 1 ("private functions, not helper classes"): every
+# public symbol is prefixed with an underscore, the module name itself
+# starts with an underscore, and it contains zero ``class`` definitions.
+# External callers must import :class:`GitEngine` from
+# :mod:`scistudio.core.versioning.git_engine`; importing helpers
+# directly is unsupported and the names may change without notice.
+#
+# The functions here were extracted from
+# :mod:`scistudio.core.versioning.git_engine` in issue #1472 (Phase 3
+# of the backend god-file refactor umbrella #1427) per ADR-046
+# Addendum 1. Bound-method bodies are byte-identical to the originals;
+# only ``self.`` was rewritten to ``engine.``.
+# Development references: #1427, #1472, ADR-028, ADR-046, Addendum 1.
 
 from __future__ import annotations
 
@@ -216,9 +218,10 @@ def _files_unchanged_vs_commit(engine: GitEngine, commit_sha: str, files: list[s
     Uses ``git diff --quiet <commit> -- <files>``: rc 0 means no
     diff, rc 1 means diff, rc other means error.
 
-    Helper for the hotfix #997 skip-if-unchanged short-circuit in
+    Helper for the skip-if-unchanged short-circuit in
     :meth:`GitEngine.restore`.
     """
+    # Development references: #997.
     diff_args = ["diff", "--quiet", commit_sha, "--", *files]
     proc = engine._run(diff_args, check=False)
     if proc.returncode == 0:

@@ -23,11 +23,12 @@ def _external_app_launch_env() -> dict[str, str] | None:
     commands by name. Console scripts installed through the in-app Python
     terminal land in the shared user dependency site's script directory, which
     is not on the backend's inherited ``PATH``. Prepend that directory so
-    commands like ``napari`` resolve at launch time (#1772).
+    commands like ``napari`` resolve at launch time.
 
     Returns ``None`` when the script directory does not exist so the subprocess
     inherits the parent environment unchanged (``env=None`` to ``Popen``).
     """
+    # Development references: #1772.
     try:
         from scistudio.desktop.paths import user_python_script_dir
     except Exception:  # pragma: no cover - desktop paths always importable here
@@ -123,15 +124,15 @@ class FileExchangeBridge:
 
         The manifest entry per input is one of:
 
-        - data object:
+        data object:
           ``{"type": <ClassName>, "path": <abspath>, "extension": ".csv",
           "format": "csv"}``
-        - collection:
+        collection:
           ``{"type": "collection", "item_type": <ClassName | "mixed">,
           "items": [<entry>, ...]}``
-        - scalar: ``{"type": "scalar", "value": <value>}``
-        - bytes: ``{"type": "file", "path": <abspath>}`` (extension ``".bin"``)
-        - other: ``{"type": "json", "path": <abspath>, "extension": ".json",
+        scalar: ``{"type": "scalar", "value": <value>}``
+        bytes: ``{"type": "file", "path": <abspath>}`` (extension ``".bin"``)
+        other: ``{"type": "json", "path": <abspath>, "extension": ".json",
           "format": "json"}``
 
         Args:
@@ -148,8 +149,9 @@ class FileExchangeBridge:
                 :class:`~scistudio.core.types.base.DataObject` items. Wrap a batch
                 of data objects in a
                 :class:`~scistudio.core.types.collection.Collection` instead so
-                each item is materialised to its own file (#1874).
+                each item is materialised to its own file.
         """
+        # Development references: #1874.
         from scistudio.core.types.base import DataObject
         from scistudio.core.types.collection import Collection
 

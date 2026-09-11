@@ -4,6 +4,7 @@ import type { BlockSchemaResponse, LogEntry, WorkflowEdge, WorkflowNode } from "
 import type { BottomTab } from "../types/ui";
 
 import { TerminalTabs } from "./AIChat/TerminalTabs";
+import { AIBlockPresentationNotice } from "./AIBlockPresentationNotice";
 import { GitTab } from "./Git/GitTab";
 import { LineageTab } from "./Lineage/LineageTab";
 
@@ -127,6 +128,11 @@ export function BottomPanel({
           // from. Wrapped here rather than inside `ConfigPanel`, which returns
           // from four branches and would need the attribute on each.
           <div className="h-full" data-tutorial-target="config_panel">
+            {selectedNode && (
+              <AIBlockPresentationNotice
+                blockType={selectedSchema?.type_name ?? selectedNode.block_type}
+              />
+            )}
             <ConfigPanel
               onUpdateConfig={onUpdateConfig}
               schema={selectedSchema}

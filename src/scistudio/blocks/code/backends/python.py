@@ -91,8 +91,9 @@ def _resolve_existing_working_directory(context: CodeBlockRuntimeContext) -> Pat
     but :func:`subprocess.run` raises a low-level ``FileNotFoundError``
     when ``cwd`` doesn't exist. Surface a clear :class:`CodeBlockConfigError`
     instead so the failure points at the misconfigured field, not at a
-    Python subprocess internal. Codex P2 review of PR #1392.
+    Python subprocess internal.
     """
+    # Development references: #1392.
     script_cwd = context.config.resolve_working_directory(context.project_dir)
     if not script_cwd.exists():
         raise CodeBlockConfigError(

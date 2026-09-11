@@ -1,32 +1,34 @@
-"""Canonical bounded preview helpers for the ``tools_inspection`` package.
-
-The public ``preview_data`` MCP tool is SciStudio's AI-agent data-inspection
-read surface. The removed REST preview APIs are unrelated to this MCP contract.
-These helpers return small ``PreviewDataResult``-shaped payloads and enforce the MCP
-response budget via bounded reads (Zarr slicing, Parquet/CSV batch iteration)
-so previews never intentionally load a whole large payload.
-
-The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
-``_helpers`` leaf module at call time so tests that monkeypatch it reach
-the real call sites. Reading it from ``_helpers`` rather than back through
-the parent ``tools_inspection`` package keeps this module off the
-child -> parent import edge that closes a package-facade cycle
-(round-4 no-cycles).
-
-Import form matters here, and not only stylistically (#1994). This module
-must reach ``_helpers`` with ``import ...tools_inspection._helpers as
-_helpers``, never with ``from ...tools_inspection import _helpers``. The
-two bind the same module object at runtime, but they are **not**
-equivalent to import-graph analysis: ``from pkg import submodule`` is an
-attribute access on ``pkg``, so it registers an edge to the parent
-package as well as to the submodule, while ``import pkg.submodule as
-submodule`` registers only the submodule edge. The ``from`` form was what
-kept ``tools_inspection`` in a package-facade cycle even though this
-module already intended to stay out of one. Do not "simplify" the import
-below back to the ``from`` form; ``tests/architecture/
-test_no_new_cycles.py`` will fail, and its ``_collect_imports`` is where
-the asymmetry is implemented.
-"""
+"""Canonical bounded preview helpers for the ``tools_inspection`` package."""
+# Maintainer context (kept outside generated API documentation):
+# Canonical bounded preview helpers for the ``tools_inspection`` package.
+#
+# The public ``preview_data`` MCP tool is SciStudio's AI-agent data-inspection
+# read surface. The removed REST preview APIs are unrelated to this MCP contract.
+# These helpers return small ``PreviewDataResult``-shaped payloads and enforce the MCP
+# response budget via bounded reads (Zarr slicing, Parquet/CSV batch iteration)
+# so previews never intentionally load a whole large payload.
+#
+# The cap constant ``_MAX_PREVIEW_BYTES`` is resolved lazily through the
+# ``_helpers`` leaf module at call time so tests that monkeypatch it reach
+# the real call sites. Reading it from ``_helpers`` rather than back through
+# the parent ``tools_inspection`` package keeps this module off the
+# child -> parent import edge that closes a package-facade cycle
+# (round-4 no-cycles).
+#
+# Import form matters here, and not only stylistically (#1994). This module
+# must reach ``_helpers`` with ``import ...tools_inspection._helpers as
+# _helpers``, never with ``from ...tools_inspection import _helpers``. The
+# two bind the same module object at runtime, but they are **not**
+# equivalent to import-graph analysis: ``from pkg import submodule`` is an
+# attribute access on ``pkg``, so it registers an edge to the parent
+# package as well as to the submodule, while ``import pkg.submodule as
+# submodule`` registers only the submodule edge. The ``from`` form was what
+# kept ``tools_inspection`` in a package-facade cycle even though this
+# module already intended to stay out of one. Do not "simplify" the import
+# below back to the ``from`` form; ``tests/architecture/
+# test_no_new_cycles.py`` will fail, and its ``_collect_imports`` is where
+# the asymmetry is implemented.
+# Development references: #1994.
 
 from __future__ import annotations
 
@@ -90,10 +92,11 @@ def _grayscale_png(matrix: Any) -> bytes:
 def _preview_dataframe(path: Path) -> dict[str, Any]:
     """Read at most ``_DATAFRAME_PREVIEW_ROWS`` via streaming, never the full table.
 
-    Regression guard (PR #1053): do not use ``pq.read_table().slice(...)`` or
+    Regression guard: do not use ``pq.read_table().slice(...)`` or
     ``pcsv.read_csv().slice(...)`` here; those patterns materialize the entire
     file before slicing and defeat the MCP preview cap for large datasets.
     """
+    # Development references: #1053.
     import pyarrow as pa
     import pyarrow.parquet as pq
 

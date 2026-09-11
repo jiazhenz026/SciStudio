@@ -1,9 +1,11 @@
-"""Entry point for ``python -m scistudio.qa.governance.gate_record``.
-
-Kept minimal — CI hooks, ``scripts/scistudio_pr_create.py``, and the
-ADR-042 pre-commit hook all shell out to this module form, so the
-behavior must stay identical to the pre-refactor single-file module.
-"""
+"""Entry point for ``python -m scistudio.qa.governance.gate_record``."""
+# Maintainer context (kept outside generated API documentation):
+# Entry point for ``python -m scistudio.qa.governance.gate_record``.
+#
+# Kept minimal — CI hooks, ``scripts/scistudio_pr_create.py``, and the
+# ADR-042 pre-commit hook all shell out to this module form, so the
+# behavior must stay identical to the pre-refactor single-file module.
+# Development references: ADR-042.
 
 from __future__ import annotations
 

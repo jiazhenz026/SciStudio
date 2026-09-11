@@ -1,9 +1,11 @@
-"""Single GitHub-native label vocabulary for ADR-042 Addendum 6 (§7.5/§7.8).
-
-This module is the one source of the admin/bypass label vocabulary. The legacy
-``admin-approved:ai-override`` label is migrated to ``admin-approved:bypass``
-here and nowhere else owns the vocabulary.
-"""
+"""Single GitHub-native label vocabulary."""
+# Maintainer context (kept outside generated API documentation):
+# Single GitHub-native label vocabulary for ADR-042 Addendum 6 (§7.5/§7.8).
+#
+# This module is the one source of the admin/bypass label vocabulary. The legacy
+# ``admin-approved:ai-override`` label is migrated to ``admin-approved:bypass``
+# here and nowhere else owns the vocabulary.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

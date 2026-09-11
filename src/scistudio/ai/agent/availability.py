@@ -1,97 +1,100 @@
-"""Graded agent availability — four states over the ADR-034 provider registry.
-
-ADR-053 spec 2 (`docs/specs/adr-053-work-import.md`, FR-031 to FR-036). ADR-034's
-``GET /api/ai/status`` answers *presence*: the binary was found and
-``--version`` returned, and a credential file or an auth-status command says the
-user is logged in. That is two of the four states a consuming surface needs, and
-it is the cheap half.
-
-The half it cannot answer is the one that costs the user the most. A user whose
-CLI is installed, whose credential file is on disk, and whose account is out of
-quota is reported *ready* by every presence check there is, and then fails
-several steps into a session — at the point where recovery is most expensive,
-after they have already committed time and answered a dialog. FR-033 therefore
-requires a **live minimal call** to separate :attr:`AvailabilityState.READY`
-from :attr:`AvailabilityState.CALL_FAILED`: a real one-shot request through the
-provider's own CLI, which is the only thing that exercises credentials, quota,
-network, and provider health together.
-
-**No second discovery path (FR-032).** Nothing here re-implements presence.
-:func:`resolve_availability` consumes the rows ``GET /api/ai/status`` already
-produces — ``{name, available, version, logged_in, label}`` — and maps
-``available: false`` to ``not_installed`` and ``available: true,
-logged_in: false`` to ``not_authenticated``. The binary the live call runs is
-resolved through :func:`~scistudio.ai.agent.providers_registry.resolve_binary`,
-the same resolver the status endpoint, the spawn path, and the AI Block path
-use, so none of the four can disagree about which executable a provider means.
-
-**Shared, not private (FR-036).** Bring In My Work is the first consumer, not
-the only one; ADR-053 §5.2 names the Learning Center agent-setup entry as
-another. This module therefore lives beside the registry rather than inside a
-work-import package, and it is a *leaf* on the same terms the registry is: it
-imports stdlib and
-:mod:`scistudio.ai.agent.providers_registry` and nothing from
-:mod:`scistudio.api` or :mod:`scistudio.blocks`, so the API layer can depend on
-it without a cycle.
-
-**Never a stuck surface (FR-035).** Live calls are subprocesses that talk to a
-remote service, so any of them can hang. Three independent bounds apply: each
-call carries a :data:`LIVE_CALL_TIMEOUT_SECONDS` subprocess timeout, all calls
-run concurrently on worker threads, and the whole set is additionally bounded by
-:data:`REPORT_BUDGET_SECONDS` — a provider that blows through its own timeout
-(a Windows child that ignores termination, say) is reported as a *timed-out*
-provider rather than holding the report. Degrading to a reported state is the
-required behaviour; blocking is not.
-
-**Cost.** A live call is a real, billed model request. Two things keep that
-bounded, and both are deliberate rather than incidental:
-
-* Only providers that got past presence are called at all. ``not_installed``
-  and ``not_authenticated`` are decided from the status row, so a user with one
-  configured provider pays for one call, not five.
-* :func:`probe_availability` memoises the report for
-  :data:`CACHE_TTL_SECONDS`. Two surfaces asking within the window — the import
-  dialog and the Learning Center entry, or one dialog reopened — share a single
-  answer. ``refresh=True`` is the escape hatch a "try again" control needs, so a
-  user who has just topped up their quota is never told to wait out a cache.
-
-**What a probe may touch (the tool-restriction invariant).** A call fired on
-dialog open must leave nothing behind to reason about, so **no probe may write
-to or execute anything on the user's machine**. That bound is stated once, here,
-because it is not the same mechanism on every CLI and an invariant restated
-per-provider drifts:
-
-* ``claude-code``, ``qoder`` and ``qoder-cn`` pass ``--tools ""`` — an empty
-  tool allowlist, so the model has no tools at all and cannot read either.
-* ``kimi-code`` has no tool flag, but it does accept ``--agent-file <path>``,
-  and an agent definition's ``tools`` frontmatter field **is** its tool
-  allowlist. :data:`_KIMI_TOOL_FREE_PROFILE` is written into the probe's own
-  throwaway directory with an empty ``tools`` list, which lands in the same
-  place a flag would.
-* ``codex`` has neither, so ``--sandbox read-only`` is what bounds it: the
-  model may **read**, and cannot write or execute.
-
-``tests/api/test_agent_availability.py`` partitions :data:`MINIMAL_CALLS` over
-exactly those three mechanisms, so a sixth provider cannot land without stating
-which one bounds it.
-
-**Provenance of the per-provider call table.** Every argv in
-:data:`MINIMAL_CALLS` was run against the binary installed on the owner's
-workstation on **2026-08-07** and its wall-clock time observed; see
-:data:`MINIMAL_CALLS` for the per-provider table and the observations. Re-verify
-when a provider CLI's non-interactive surface changes.
-
-**Two facts about a provider that are not availability grades.** FR-031's four
-states answer "will a call work right now?". Two other things a consuming
-surface needs are registry facts rather than grades, and both ride on
-:class:`ProviderAvailability` rather than being re-derived per surface:
-:attr:`~ProviderAvailability.next_step` names the one action that moves *this*
-provider out of *this* state (SC-002), and
-:attr:`~ProviderAvailability.session_unsupported_reason` says when a provider
-cannot be handed an opening instruction on its command line at all — which is
-how every SciStudio-started session reaches its agent, so a provider that
-cannot take one cannot run one however ``ready`` it is.
-"""
+"""Graded agent availability — four states over the provider registry."""
+# Maintainer context (kept outside generated API documentation):
+# Graded agent availability — four states over the ADR-034 provider registry.
+#
+# ADR-053 spec 2 (`docs/specs/adr-053-work-import.md`, FR-031 to FR-036). ADR-034's
+# ``GET /api/ai/status`` answers *presence*: the binary was found and
+# ``--version`` returned, and a credential file or an auth-status command says the
+# user is logged in. That is two of the four states a consuming surface needs, and
+# it is the cheap half.
+#
+# The half it cannot answer is the one that costs the user the most. A user whose
+# CLI is installed, whose credential file is on disk, and whose account is out of
+# quota is reported *ready* by every presence check there is, and then fails
+# several steps into a session — at the point where recovery is most expensive,
+# after they have already committed time and answered a dialog. FR-033 therefore
+# requires a **live minimal call** to separate :attr:`AvailabilityState.READY`
+# from :attr:`AvailabilityState.CALL_FAILED`: a real one-shot request through the
+# provider's own CLI, which is the only thing that exercises credentials, quota,
+# network, and provider health together.
+#
+# **No second discovery path (FR-032).** Nothing here re-implements presence.
+# :func:`resolve_availability` consumes the rows ``GET /api/ai/status`` already
+# produces — ``{name, available, version, logged_in, label}`` — and maps
+# ``available: false`` to ``not_installed`` and ``available: true,
+# logged_in: false`` to ``not_authenticated``. The binary the live call runs is
+# resolved through :func:`~scistudio.ai.agent.providers_registry.resolve_binary`,
+# the same resolver the status endpoint, the spawn path, and the AI Block path
+# use, so none of the four can disagree about which executable a provider means.
+#
+# **Shared, not private (FR-036).** Bring In My Work is the first consumer, not
+# the only one; ADR-053 §5.2 names the Learning Center agent-setup entry as
+# another. This module therefore lives beside the registry rather than inside a
+# work-import package, and it is a *leaf* on the same terms the registry is: it
+# imports stdlib and
+# :mod:`scistudio.ai.agent.providers_registry` and nothing from
+# :mod:`scistudio.api` or :mod:`scistudio.blocks`, so the API layer can depend on
+# it without a cycle.
+#
+# **Never a stuck surface (FR-035).** Live calls are subprocesses that talk to a
+# remote service, so any of them can hang. Three independent bounds apply: each
+# call carries a :data:`LIVE_CALL_TIMEOUT_SECONDS` subprocess timeout, all calls
+# run concurrently on worker threads, and the whole set is additionally bounded by
+# :data:`REPORT_BUDGET_SECONDS` — a provider that blows through its own timeout
+# (a Windows child that ignores termination, say) is reported as a *timed-out*
+# provider rather than holding the report. Degrading to a reported state is the
+# required behaviour; blocking is not.
+#
+# **Cost.** A live call is a real, billed model request. Two things keep that
+# bounded, and both are deliberate rather than incidental:
+#
+# * Only providers that got past presence are called at all. ``not_installed``
+#   and ``not_authenticated`` are decided from the status row, so a user with one
+#   configured provider pays for one call, not five.
+# * :func:`probe_availability` memoises the report for
+#   :data:`CACHE_TTL_SECONDS`. Two surfaces asking within the window — the import
+#   dialog and the Learning Center entry, or one dialog reopened — share a single
+#   answer. ``refresh=True`` is the escape hatch a "try again" control needs, so a
+#   user who has just topped up their quota is never told to wait out a cache.
+#
+# **What a probe may touch (the tool-restriction invariant).** A call fired on
+# dialog open must leave nothing behind to reason about, so **no probe may write
+# to or execute anything on the user's machine**. That bound is stated once, here,
+# because it is not the same mechanism on every CLI and an invariant restated
+# per-provider drifts:
+#
+# * ``claude-code``, ``qoder`` and ``qoder-cn`` pass ``--tools ""`` — an empty
+#   tool allowlist, so the model has no tools at all and cannot read either.
+# * ``kimi-code`` has no tool flag, but it does accept ``--agent-file <path>``,
+#   and an agent definition's ``tools`` frontmatter field **is** its tool
+#   allowlist. :data:`_KIMI_TOOL_FREE_PROFILE` is written into the probe's own
+#   throwaway directory with an empty ``tools`` list, which lands in the same
+#   place a flag would.
+# * ``codex`` has neither, so ``--sandbox read-only`` is what bounds it: the
+#   model may **read**, and cannot write or execute.
+#
+# ``tests/api/test_agent_availability.py`` partitions :data:`MINIMAL_CALLS` over
+# exactly those three mechanisms, so a sixth provider cannot land without stating
+# which one bounds it.
+#
+# **Provenance of the per-provider call table.** Every argv in
+# :data:`MINIMAL_CALLS` was run against the binary installed on the owner's
+# workstation on **2026-08-07** and its wall-clock time observed; see
+# :data:`MINIMAL_CALLS` for the per-provider table and the observations. Re-verify
+# when a provider CLI's non-interactive surface changes.
+#
+# **Two facts about a provider that are not availability grades.** FR-031's four
+# states answer "will a call work right now?". Two other things a consuming
+# surface needs are registry facts rather than grades, and both ride on
+# :class:`ProviderAvailability` rather than being re-derived per surface:
+# :attr:`~ProviderAvailability.next_step` names the one action that moves *this*
+# provider out of *this* state (SC-002), and
+# :attr:`~ProviderAvailability.session_unsupported_reason` says when a provider
+# cannot be handed an opening instruction on its command line at all — which is
+# how every SciStudio-started session reaches its agent, so a provider that
+# cannot take one cannot run one however ``ready`` it is.
+# Development references: ADR-034, ADR-053, FR-031, FR-032, FR-033, FR-035, FR-036, SC-002,
+# docs/specs/adr-053-work-import.md, spec 2.
 
 from __future__ import annotations
 
@@ -148,11 +151,13 @@ StatusRow = Mapping[str, Any]
 
 
 class AvailabilityState(StrEnum):
-    """The four states FR-031 defines, in increasing order of usability.
+    """The four availability states, in increasing order of usability.
 
     The wire values are the contract shared with the frontend client and every
-    consuming surface; they are the spec's own spellings.
+    consuming surface.
     """
+
+    # Development references: FR-031.
 
     #: No agent CLI found. Installation instructions are the right guidance.
     NOT_INSTALLED = "not_installed"
@@ -191,21 +196,19 @@ class ProviderAvailability:
     cause: str | None = None
     """Why the live call failed. Populated **only** for
     :attr:`AvailabilityState.CALL_FAILED`, and never carrying reinstall
-    guidance (FR-034)."""
+    guidance."""
+    # Development references: FR-034.
 
     next_step: str | None = None
-    """The one action that moves this provider out of this state (SC-002).
+    """Actionable guidance for installing or authenticating this provider.
 
-    Populated for :attr:`AvailabilityState.NOT_INSTALLED` (how to install it)
-    and :attr:`AvailabilityState.NOT_AUTHENTICATED` (how to sign in), which are
-    exactly the two states FR-031 gives a guidance column to. ``None`` for
-    ``call_failed`` — there :attr:`cause` is the specific information, and FR-034
-    forbids sending a user whose CLI demonstrably runs off to fix their install —
-    and ``None`` for ``ready``, which needs no action.
+    Populated for :attr:`AvailabilityState.NOT_INSTALLED` and
+    :attr:`AvailabilityState.NOT_AUTHENTICATED`. It is ``None`` for ``ready``
+    and ``call_failed``; a failed call is explained by :attr:`cause`.
 
-    A *sentence*, not a bare command, because the surface renders it next to a
-    provider label and a user has to be able to read it as an instruction.
+    The value is a sentence that the interface can show beside the provider label.
     """
+    # Development references: FR-031, FR-034, SC-002.
 
     session_unsupported_reason: str | None = None
     """Why a SciStudio-started session cannot use this provider, if it cannot.
@@ -215,7 +218,7 @@ class ProviderAvailability:
     in changes it. Non-``None`` means the provider declares
     ``prompt_argv_prefix is None`` — it has no positional prompt argument, so
     the opening instruction that every SciStudio-started session is delivered
-    with cannot reach it (ADR-034 ``ProviderDescriptor.prompt_argv_prefix``).
+    with cannot reach it (``ProviderDescriptor.prompt_argv_prefix``).
     Such a provider is still a perfectly good hand-launched chat tab, which is
     why it is reported rather than hidden, and why this does not downgrade
     :attr:`state`.
@@ -225,6 +228,7 @@ class ProviderAvailability:
     descriptor that records the limitation, and paraphrasing it here would give
     the user two subtly different accounts of one fact.
     """
+    # Development references: ADR-034.
 
     def as_dict(self) -> dict[str, Any]:
         """Serialise to the wire shape of checklist contract C1."""
@@ -530,13 +534,14 @@ _CAUSE_NO_BINARY = "the provider CLI could not be located to make a live call"
 
 
 def _sanitise_cause(text: str) -> str | None:
-    """Reduce provider output to a short, user-readable cause (FR-034).
+    """Reduce provider output to a short, user-readable cause.
 
     Keeps the first few non-empty lines — CLIs put their diagnosis first and
     their stack trace last — drops any line offering reinstall guidance, and
     truncates. Returns ``None`` when nothing usable survives, so the caller can
     substitute an honest fallback rather than an empty string.
     """
+    # Development references: FR-034.
     kept: list[str] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
@@ -675,7 +680,7 @@ def _installable_name(descriptor: ProviderDescriptor) -> str:
 def install_hint(descriptor: ProviderDescriptor) -> str:
     """Name the executable to install and everywhere SciStudio looked for it.
 
-    Deliberately **not** a command. ADR-034 FR-014 already records why: the one
+    Deliberately **not** a command. The reason is that the one
     install command SciStudio owns, ``scistudio install``, wires this product's
     MCP server and skills into a CLI the user already has and cannot install the
     CLI itself, so an earlier hint pointing at it left discovery failing. The
@@ -687,6 +692,7 @@ def install_hint(descriptor: ProviderDescriptor) -> str:
     executable name, and the directories searched. Both are read off the
     descriptor, so a registry change cannot leave this sentence stale.
     """
+    # Development references: ADR-034, FR-014.
     names = " or ".join(f"`{name}`" for name in descriptor.binary_candidates)
     if not names:  # pragma: no cover - every agent descriptor declares a binary
         return f"Install {_installable_name(descriptor)} so SciStudio can find it."
@@ -746,11 +752,11 @@ def _next_step(descriptor: ProviderDescriptor, state: AvailabilityState) -> str 
 def _presence_state(row: StatusRow) -> AvailabilityState | None:
     """Map a status row's presence fields, or ``None`` if a live call is owed.
 
-    FR-032's mapping exactly: ``available: false`` is ``not_installed``, and
+    The API's mapping exactly: ``available: false`` is ``not_installed``, and
     ``available: true, logged_in: false`` is ``not_authenticated``. An installed
-    and authenticated provider is *not* decided here — that is the whole point
-    of FR-033.
+    and authenticated provider is *not* decided here — that is the whole point.
     """
+    # Development references: FR-032, FR-033.
     if not row.get("available"):
         return AvailabilityState.NOT_INSTALLED
     if not row.get("logged_in"):
@@ -762,7 +768,7 @@ def aggregate_state(providers: Sequence[ProviderAvailability]) -> AvailabilitySt
     """Collapse per-provider states into the aggregate of contract C1.
 
     ``ready`` when **any** provider is ready. That asymmetry is deliberate and
-    it is what makes FR-005 hold: a user with a working Claude Code and an
+    it is what makes hold: a user with a working Claude Code and an
     unconfigured Codex has a usable agent, and a surface that reported the worst
     state would block them over a CLI they never intended to use.
 
@@ -771,6 +777,7 @@ def aggregate_state(providers: Sequence[ProviderAvailability]) -> AvailabilitySt
     is the one closest to a working setup. An empty registry yields
     ``not_installed``: no agent providers means no agent.
     """
+    # Development references: FR-005.
     if not providers:
         return AvailabilityState.NOT_INSTALLED
     if any(provider.state is AvailabilityState.READY for provider in providers):
@@ -842,15 +849,16 @@ async def _settle_live_calls(
     graded: list[ProviderAvailability | None],
     pending: list[tuple[int, asyncio.Task[str | None]]],
 ) -> None:
-    """Await the live calls under :data:`REPORT_BUDGET_SECONDS` (FR-035).
+    """Await the live calls under :data:`REPORT_BUDGET_SECONDS`.
 
     Whatever has not finished when the budget expires is written down as a
     timed-out provider and left running: a worker thread blocked in a
     subprocess cannot be cancelled, so the alternative to reporting around it is
-    waiting for it, which is the stuck surface FR-035 forbids. The stragglers
+    waiting indefinitely. The stragglers
     get a done-callback that consumes their eventual result so a late failure
     cannot surface as an unretrieved-exception warning.
     """
+    # Development references: FR-035.
     await asyncio.wait([task for _, task in pending], timeout=REPORT_BUDGET_SECONDS)
 
     for index, task in pending:
@@ -923,7 +931,7 @@ async def probe_availability(
     *load_status* produces the ``GET /api/ai/status`` rows. It is injected
     rather than imported so this module stays a leaf under
     :mod:`scistudio.ai.agent` while still consuming the API layer's single
-    discovery path (FR-032), and so a cache hit costs nothing at all — not even
+    discovery path, and so a cache hit costs nothing at all — not even
     the presence probes.
 
     Concurrent callers arriving on a cold cache may each compute a report. That
@@ -931,6 +939,7 @@ async def probe_availability(
     and the cost of the rare duplicate is one extra minimal call against a
     provider that is by definition responding.
     """
+    # Development references: FR-032.
     global _cached_report
     now = time.monotonic()
     cached = _cached_report

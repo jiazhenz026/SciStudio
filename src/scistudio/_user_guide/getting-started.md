@@ -5,9 +5,21 @@ wire together **blocks** — load, process, analyze, save — on a canvas, run t
 and inspect the results, with an AI assistant on hand the whole time. This page
 takes you from an empty project to your first run.
 
-> **Want the AI assistant?** Install a provider first — Claude Code, Codex, Kimi
-> Code, Qoder CLI, or Qoder CLI (China). You only need one. See
-> [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
+## Choose how to use SciStudio
+
+Install the SciStudio desktop app from the
+[Releases page](https://github.com/jiazhenz026/SciStudio/releases), then choose
+a mode when you launch it:
+
+- **Desktop** opens the SciStudio window. To use its embedded AI assistant,
+  install and sign in to one supported CLI provider — see
+  [Install a provider](ai-assistant.md#before-you-start-install-a-provider).
+  You can use the canvas without an AI provider.
+- **External AI** lets you use SciStudio in the built-in browser of an AI app
+  such as ChatGPT. The browser must support WebMCP. Follow
+  [Using SciStudio in your AI app](using-with-ai-apps.md) to connect. This path
+  uses the AI app's own conversation and does not require a local agent CLI
+  for that conversation.
 
 ## 1. Create a project
 
@@ -22,7 +34,10 @@ start screen (or open an existing one). Inside, you will find:
 | **Parameter panel** | Appears when you select a block; shows that block's settings. |
 | **Bottom panel** | Tabbed: run **logs**, **plots**, **run history**, and **git** branches. |
 | **Preview** | Shows the data on any port you click. |
-| **AI chat** | The embedded assistant — ask it to build, fix, or explain things. |
+| **AI chat** | In Desktop mode, the embedded assistant. In an AI app, use that app's conversation to ask it to build, fix, or explain things. |
+
+The AI browser layout places the sidebar on the right and shows **Preview**
+as a separate card. The workflow steps below apply in either layout.
 
 If you are new to SciStudio, the start screen can also show **Run Your First
 SciStudio Workflow**. It creates a real tutorial project with a small
@@ -83,6 +98,7 @@ several variants of a pipeline side by side. See
 | See every built-in block and what it does | [built-in-blocks.md](built-in-blocks.md) |
 | Go back to past work; keep pipeline variants on branches | [history-and-branches.md](history-and-branches.md) |
 | Get the AI assistant to do the work | [ai-assistant.md](ai-assistant.md) |
+| Connect from an AI app's built-in browser | [using-with-ai-apps.md](using-with-ai-apps.md) |
 | Make a quick plot of a result | [writing-plots.md](writing-plots.md) |
 | Write your own block | [writing-blocks.md](writing-blocks.md) |
 | Make your own data type | [custom-types.md](custom-types.md) |

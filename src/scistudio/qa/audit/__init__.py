@@ -1,4 +1,5 @@
-"""ADR-042 audit checks."""
+"""Audit checks."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

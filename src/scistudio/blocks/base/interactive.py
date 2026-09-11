@@ -277,10 +277,12 @@ class SupportsInteraction(Protocol):
     A block satisfies it when it carries an :attr:`interactive_panel` manifest
     and a ``prepare_prompt`` method. The registry uses
     :class:`InteractiveMixin` inheritance for the hard biconditional check and
-    this protocol for duck-typed validation of the required members (FR-002).
+    this protocol for duck-typed validation of the required members.
 
-    Internal (ADR-052 §4.8): registry-validation protocol, not author surface.
+    Internal: registry-validation protocol, not author surface.
     """
+
+    # Development references: ADR-052, FR-002.
 
     interactive_panel: PanelManifest
 
@@ -294,8 +296,9 @@ def coerce_prompt(result: InteractivePrompt | dict[str, Any]) -> InteractiveProm
     full :class:`InteractivePrompt`. Used by the worker prompt phase so block
     authors are not forced to import the dataclass for the simple case.
 
-    Internal (ADR-052 §4.8): worker prompt-phase normalizer, not author surface.
+    Internal: worker prompt-phase normalizer, not author surface.
     """
+    # Development references: ADR-052.
     if isinstance(result, InteractivePrompt):
         return result
     if isinstance(result, dict):
@@ -314,8 +317,9 @@ def interactive_item_label(item: Any, index: int) -> str:
     the user is matching items by which file they came from, so this delegates
     to :func:`scistudio.core.meta._display_name.resolve_display_name` — the
     single canonical precedence authority shared with the previewer/API path
-    (#1812) — and supplies ``item_<index>`` as the last-resort fallback.
+    and supplies ``item_<index>`` as the last-resort fallback.
     """
+    # Development references: #1812.
     return resolve_display_name(item, fallback=f"item_{index}")
 
 
@@ -325,10 +329,11 @@ def interactive_input_signature(inputs: dict[str, Any]) -> dict[str, list[str]]:
     Maps each input port to the ordered list of its items' labels (the source
     filename via :func:`interactive_item_label`). Two runs whose inputs carry
     the same files in the same order per port produce equal signatures — the
-    basis for reusing a remembered decision and skipping the dialog (ADR-051
+    basis for reusing a remembered decision and skipping the dialog (
     interaction memory). Computed generically for every interactive block, so a
     package-provided block inherits the behaviour without extra code.
     """
+    # Development references: ADR-051.
     from scistudio.core.types.collection import Collection
 
     signature: dict[str, list[str]] = {}

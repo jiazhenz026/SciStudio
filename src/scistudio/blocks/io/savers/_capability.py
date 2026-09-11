@@ -1,21 +1,24 @@
-"""Save-direction :class:`FormatCapability` declarations for ``SaveData``.
-
-Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
-this module is package-private: every public symbol is prefixed with an
-underscore and the module name itself starts with an underscore.
-
-ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003 require
-:class:`SaveData` to expose explicit :class:`FormatCapability` records via
-its ``format_capabilities`` ClassVar so the block registry can discover
-the saver from a target ``data_type`` + extension query. This module
-holds the capability tuple, the legacy ``extension -> format_id`` lookup
-derived from it, and the format-resolution helper used by
-:meth:`SaveData._detect_format`.
-
-Extracted from :mod:`scistudio.blocks.io.savers.save_data` in issue #1459
-(Phase 2 of the backend god-file refactor umbrella #1427). Symmetric to
-:mod:`scistudio.blocks.io.loaders._capability` on the load side.
-"""
+"""Save-direction :class:`FormatCapability` declarations for ``SaveData``."""
+# Maintainer context (kept outside generated API documentation):
+# Save-direction :class:`FormatCapability` declarations for ``SaveData``.
+#
+# Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
+# this module is package-private: every public symbol is prefixed with an
+# underscore and the module name itself starts with an underscore.
+#
+# ADR-043 / spec ``adr-043-package-migration`` FR-002 / FR-003 require
+# :class:`SaveData` to expose explicit :class:`FormatCapability` records via
+# its ``format_capabilities`` ClassVar so the block registry can discover
+# the saver from a target ``data_type`` + extension query. This module
+# holds the capability tuple, the legacy ``extension -> format_id`` lookup
+# derived from it, and the format-resolution helper used by
+# :meth:`SaveData._detect_format`.
+#
+# Extracted from :mod:`scistudio.blocks.io.savers.save_data` in issue #1459
+# (Phase 2 of the backend god-file refactor umbrella #1427). Symmetric to
+# :mod:`scistudio.blocks.io.loaders._capability` on the load side.
+# Development references: #1427, #1459, ADR-028, ADR-043, Addendum 1, FR-002, FR-003, adr-043-package-
+# migration.
 
 from __future__ import annotations
 
@@ -49,7 +52,7 @@ def _save_capability(
 ) -> FormatCapability:
     """Build a single save-direction :class:`FormatCapability` record.
 
-    The capability id follows the spec FR-015 convention
+    The capability id follows the spec convention
     ``core.{lower(type)}.{format_id}.save`` and the roundtrip group
     mirrors the matching load capability so the registry can pair
     load+save handlers via :attr:`FormatCapability.roundtrip_group`.
@@ -63,6 +66,7 @@ def _save_capability(
     registry returns the unique non-default core capability normally per
     :meth:`BlockRegistry.find_saver_capability`.
     """
+    # Development references: FR-015.
 
     lower_type = type_name.lower()
     return FormatCapability(
@@ -580,12 +584,13 @@ def _resolve_save_format(
 ) -> str | None:
     """Resolve a path's format identifier from the SaveData capability map.
 
-    ADR-043 / spec FR-003: format dispatch is now derived from explicit
+    spec: format dispatch is now derived from explicit
     :attr:`SaveData.format_capabilities` rather than the deleted
     ``supported_extensions`` ClassVar. Resolution mirrors SaveImage:
     explicit ``config['format']`` wins, then ``capability_id``, then
     compound-suffix-first extension dispatch.
     """
+    # Development references: ADR-043, FR-003.
 
     if explicit is not None:
         return _save_format_from_explicit(explicit, data_type)

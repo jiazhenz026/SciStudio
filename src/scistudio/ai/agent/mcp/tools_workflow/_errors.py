@@ -1,12 +1,14 @@
-"""Run-level error capture for the ``tools_workflow`` sub-package.
-
-The engine emits ``block_error`` events whose ``data["error"]`` is the full
-Python traceback. The MCP layer surfaces it so the embedded agent can
-self-debug without copy/paste from the GUI.
-
-Extracted from the original single-file ``tools_workflow.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Run-level error capture for the ``tools_workflow`` sub-package."""
+# Maintainer context (kept outside generated API documentation):
+# Run-level error capture for the ``tools_workflow`` sub-package.
+#
+# The engine emits ``block_error`` events whose ``data["error"]`` is the full
+# Python traceback. The MCP layer surfaces it so the embedded agent can
+# self-debug without copy/paste from the GUI.
+#
+# Extracted from the original single-file ``tools_workflow.py`` (#1431,
+# umbrella #1427). No behavior change.
+# Development references: #1427, #1431.
 
 from __future__ import annotations
 

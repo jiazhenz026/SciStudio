@@ -1,24 +1,26 @@
-"""Spec-construction helpers for :class:`BlockRegistry`.
-
-Per ADR-047 §C9: this module hosts only module-level private helpers — it
-must contain **zero** ``class`` definitions. The public dataclass
-:class:`BlockSpec` and the :class:`BlockRegistry` class live in
-``__init__.py``.
-
-Owns:
-
-- ``_spec_from_class`` — turn a Block subclass into a :class:`BlockSpec`
-  (ADR-009 / ADR-028 Addendum 1 / ADR-029 / ADR-038 / ADR-043).
-- ``_infer_category`` / ``_type_name_for_class`` — base-category resolution.
-- ``_merge_config_schema`` — ADR-030 D1/D2 MRO merge with direction-aware
-  post-processing.
-- ``_resolve_distribution_version`` + ``_packages_distributions_cached`` —
-  ADR-038 §3.3 reproducibility version stamping.
-- ``_validate_simple_extension_declaration`` /
-  ``_validate_class_capability`` / ``_subclass_declares_field`` — ADR-043
-  capability sanity checks invoked from
-  ``_capability._format_capabilities_from_class``.
-"""
+"""Spec-construction helpers for :class:`BlockRegistry`."""
+# Maintainer context (kept outside generated API documentation):
+# Spec-construction helpers for :class:`BlockRegistry`.
+#
+# Per ADR-047 §C9: this module hosts only module-level private helpers — it
+# must contain **zero** ``class`` definitions. The public dataclass
+# :class:`BlockSpec` and the :class:`BlockRegistry` class live in
+# ``__init__.py``.
+#
+# Owns:
+#
+# - ``_spec_from_class`` — turn a Block subclass into a :class:`BlockSpec`
+#   (ADR-009 / ADR-028 Addendum 1 / ADR-029 / ADR-038 / ADR-043).
+# - ``_infer_category`` / ``_type_name_for_class`` — base-category resolution.
+# - ``_merge_config_schema`` — ADR-030 D1/D2 MRO merge with direction-aware
+#   post-processing.
+# - ``_resolve_distribution_version`` + ``_packages_distributions_cached`` —
+#   ADR-038 §3.3 reproducibility version stamping.
+# - ``_validate_simple_extension_declaration`` /
+#   ``_validate_class_capability`` / ``_subclass_declares_field`` — ADR-043
+#   capability sanity checks invoked from
+#   ``_capability._format_capabilities_from_class``.
+# Development references: ADR-009, ADR-028, ADR-029, ADR-030, ADR-038, ADR-043, ADR-047, Addendum 1.
 
 from __future__ import annotations
 
@@ -53,17 +55,17 @@ def _packages_distributions_cached() -> dict[str, list[str]]:
 def _resolve_distribution_version(cls: type) -> str:
     """Return the PyPI distribution version of the module hosting ``cls``.
 
-    ADR-038 §3.3 (D38-3.2 / closes audit D38-3.1a P1-2): ``block_version``
+    : ``block_version``
     is force-injected at registry scan time from
     ``importlib.metadata.version(<distribution_name>)``. In-tree blocks
     live under the ``scistudio`` distribution and read
     ``scistudio.__version__``. Plugin blocks read their entry-point
-    distribution version (ADR-037 D11). Drop-in ``.py`` files have no
+    distribution version. Drop-in ``.py`` files have no
     distribution, so they fall back to the SciStudio version as a uniform
     default.
 
     The function **raises** :class:`BlockRegistrationError` when no
-    distribution can be resolved. Per ADR §3.3 the historical
+    distribution can be resolved.  the historical
     ``"unknown"`` default is forbidden because every lineage row's
     ``block_version`` column must carry a real version for
     reproducibility. The Tier 1 / Tier 2 / monorepo scan loops already
@@ -71,6 +73,24 @@ def _resolve_distribution_version(cls: type) -> str:
     here does not kill the whole palette — only the offending block is
     dropped, with a logged warning.
     """
+    # Maintainer context:
+    # (D38-3.2 / closes audit D38-3.1a P1-2): ``block_version``
+    # is force-injected at registry scan time from
+    # ``importlib.metadata.version(<distribution_name>)``. In-tree blocks
+    # live under the ``scistudio`` distribution and read
+    # ``scistudio.__version__``. Plugin blocks read their entry-point
+    # distribution version. Drop-in ``.py`` files have no
+    # distribution, so they fall back to the SciStudio version as a uniform
+    # default.
+    # The function **raises** :class:`BlockRegistrationError` when no
+    # distribution can be resolved. Per ADR §3.3 the historical
+    # ``"unknown"`` default is forbidden because every lineage row's
+    # ``block_version`` column must carry a real version for
+    # reproducibility. The Tier 1 / Tier 2 / monorepo scan loops already
+    # wrap each block registration in ``try/except`` so a per-block raise
+    # here does not kill the whole palette — only the offending block is
+    # dropped, with a logged warning.
+    # Development references: ADR-037, ADR-038.
     from scistudio.blocks.registry import BlockRegistrationError
 
     module_name = getattr(cls, "__module__", "") or ""
@@ -167,17 +187,18 @@ def _subclass_declares_field(cls: type, field_name: str) -> bool:
 def _merge_config_schema(cls: type) -> dict[str, Any]:
     """Merge ``config_schema`` properties along the MRO (child wins on conflict).
 
-    ADR-030 D1: walks ``cls.__mro__`` in reverse (base first) and unions
+    walks ``cls.__mro__`` in reverse (base first) and unions
     all ``properties`` dicts.  Uses ``klass.__dict__`` (own attributes only),
     not ``getattr``, so intermediate classes that do not declare their own
     ``config_schema`` are skipped rather than inheriting the same dict
     repeatedly.
 
     After merging, applies direction-aware post-processing for IOBlock
-    subclasses (ADR-030 D2): if the block has ``direction == "output"``
+    subclasses: if the block has ``direction == "output"``
     and the ``path`` field was inherited (not declared in the leaf class),
     the path field is converted to single-string ``directory_browser``.
     """
+    # Development references: ADR-030.
     merged_properties: dict[str, Any] = {}
     merged_required: list[str] = []
     for klass in reversed(cls.__mro__):
@@ -272,8 +293,9 @@ def _infer_category(cls: type) -> str:
 
     Always returns one of the 6 base types (io, process, code, app, ai,
     subworkflow) based on isinstance checks.  Never reads a ClassVar
-    override — subcategory is a separate field.  See issue #588.
+    override — subcategory is a separate field.  See.
     """
+    # Development references: #588.
     # Lazy imports to avoid circular dependencies.
     from scistudio.blocks.ai.ai_block import AIBlock
     from scistudio.blocks.app.app_block import AppBlock
@@ -306,15 +328,16 @@ def _type_name_for_class(cls: type) -> str:
 
 
 def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:
-    """Return the ADR-043 :class:`FormatCapability` records declared on ``cls``.
+    """Return:class:`FormatCapability` records declared on ``cls``.
 
-    Issue #1482: relocated from :mod:`scistudio.blocks.registry._capability`
+    relocated from :mod:`scistudio.blocks.registry._capability`
     to break the static import cycle between ``_capability`` and ``_spec``.
     The only caller is :func:`_spec_from_class` below, so the helper now
     lives next to its caller. Dependent imports flow one-way:
     ``_spec → _capability`` (for ``_validate_capability_id`` via
     :func:`_validate_class_capability`).
     """
+    # Development references: #1482, ADR-043.
     from scistudio.blocks.io.io_block import IOBlock
     from scistudio.blocks.registry import CapabilityRegistrationError
 
@@ -336,16 +359,17 @@ def _format_capabilities_from_class(cls: type) -> list[FormatCapability]:
 def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     """Build a :class:`BlockSpec` from a Block subclass's class-level metadata.
 
-    ADR-028 Addendum 1 D3: validates ``dynamic_ports`` shape at scan time and
+    validates ``dynamic_ports`` shape at scan time and
     captures both ``direction`` (for IO blocks) and ``dynamic_ports`` (for
     enum-driven dynamic-port blocks) onto the spec.
 
-    ADR-030 D1: uses ``_merge_config_schema()`` instead of a simple
+    uses ``_merge_config_schema()`` instead of a simple
     ``getattr`` to merge config_schema properties along the MRO.
 
-    ADR-038 §3.3: ``version`` is force-injected from ``importlib.metadata``
+    ``version`` is force-injected from ``importlib.metadata``
     rather than the legacy ``getattr(cls, "version", "0.1.0")`` default.
     """
+    # Development references: ADR-028, ADR-030, ADR-038, Addendum 1.
     from scistudio.blocks.registry import BlockRegistry, BlockSpec
 
     # Fail loudly at scan time on malformed dynamic-port descriptors.

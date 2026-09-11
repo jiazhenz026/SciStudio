@@ -16,16 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `tools/call` to the WebMCP bridge (`/api/webmcp/tools` and
   `/api/webmcp/call`). The app therefore sees exactly the tools a WebMCP host
   sees, the external-audience workspace and execution tools included, and gets
-  their results unchanged. The adapter carries the catalogue's project
-  snapshot. When the open project changes, it refreshes the tool list, tells
-  the app, and reports the call as not executed instead of retrying it.
+  their results unchanged. Each call carries the project snapshot that was
+  current when the adapter read it, so a call queued behind others is never
+  redirected to a project opened in the meantime. When the open project
+  changes, the adapter tells the app to re-list its tools and reports the call
+  as not executed instead of retrying it.
   `--base-url` honors a service prefix, and `--token` (or
   `SCISTUDIO_MCP_TOKEN`) is sent as a bearer credential to a guarded lab
   server. A backend on the same computer needs no token: `scistudio serve` and
   `scistudio gui`, which the desktop app runs, now publish the per-launch
   bridge token in `~/.scistudio/webmcp/loopback-<port>.json`. The file is
   readable only by the user and is removed when the server stops. It is never
-  written when an edition installs its own guard.
+  written when an edition installs its own guard. It records the process
+  create time, so a reused PID never makes a leftover file look live, and a
+  second backend started on a busy port neither replaces nor removes it. The
+  adapter sends that token only to a loopback address, never through a proxy.
   `--print-config claude-desktop|claude-code|codex` prints a ready-to-paste
   configuration. Logs never carry arguments or credentials.
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
@@ -653,8 +658,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   A project's `.scistudio` directory that other users can open is left as it
   is. The socket then lives in a private per-user directory:
   `$XDG_RUNTIME_DIR/scistudio`, or a 0700 `scistudio-<uid>` directory in the
-  temp dir. `mcp.sock.path` points `scistudio mcp-bridge` to it. A per-user
-  directory that another user owns or can open is refused. Windows keeps its
+  temp dir. `mcp.sock.path` points `scistudio mcp-bridge` to it, and the
+  bridge follows it only when the pointer and the socket belong to the user
+  and the socket's directory is not writable by others. If another user has
+  taken the temp-dir name, the server uses a unique private directory instead.
+  A missing project `.scistudio` is now created 0700. Windows keeps its
   loopback TCP transport, which assumes a single-user computer.
 - [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
   Browse anywhere — a block's path field, Open Project, Bring In My Work, the

@@ -1,8 +1,10 @@
-"""ADR-036 §3.3 — server-side Python lint endpoint.
-
-Wraps ``ruff check --stdin --output-format json`` so the embedded Monaco
-editor can render diagnostics as squiggles via ``setModelMarkers``.
-"""
+"""Server-side Python lint endpoint."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-036 §3.3 — server-side Python lint endpoint.
+#
+# Wraps ``ruff check --stdin --output-format json`` so the embedded Monaco
+# editor can render diagnostics as squiggles via ``setModelMarkers``.
+# Development references: ADR-036.
 
 from __future__ import annotations
 
@@ -90,16 +92,17 @@ def _map_diagnostic(entry: dict[str, Any]) -> LintDiagnostic:
 
 
 def lint_python_source(content: str, filename: str = "snippet.py") -> LintResponse:
-    """Lint a Python source string with ruff. (ADR-036 §3.3)
+    """Lint a Python source string with ruff.
 
     Public helper extracted from :func:`lint_python` so other backend
-    routes (e.g. the blocks-reload-on-save hook in ADR-036 §3.5) can
+    routes (e.g. the blocks-reload-on-save hook in) can
     reuse the same diagnostics shape without going back through HTTP.
 
-    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times
+    Soft-fails (per  risk row 2) when ruff is missing, times
     out, or returns non-JSON — callers see an empty ``diagnostics`` list
     and a non-empty ``note`` string.
     """
+    # Development references: ADR-036.
     global _ruff_missing_warned
 
     try:
@@ -147,10 +150,11 @@ def lint_python_source(content: str, filename: str = "snippet.py") -> LintRespon
 
 @router.post("/python", response_model=LintResponse)
 async def lint_python(body: LintRequest) -> LintResponse:
-    """Lint a Python source string with ruff. (ADR-036 §3.3)
+    """Lint a Python source string with ruff.
 
-    Soft-fails (per ADR-036 §6 risk row 2) when ruff is missing, times out,
+    Soft-fails (per  risk row 2) when ruff is missing, times out,
     or returns non-JSON — the editor renders without squiggles in those
     cases and saves continue to work.
     """
+    # Development references: ADR-036.
     return lint_python_source(body.content, body.filename)

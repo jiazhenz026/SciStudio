@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
 import { DetailPopover } from "./palette/DetailPopover";
+import { AIBlockPresentationNotice } from "./AIBlockPresentationNotice";
 import { portSignature } from "./BlockPalette.parts/paletteModel";
 import type { PopoverAnchor } from "./palette/hoverPopover";
 import type { BlockSummary } from "../types/api";
@@ -82,6 +83,7 @@ export function BlockDetailPopover({
       onMouseLeave={onMouseLeave}
       testId="block-detail-popover"
     >
+      <AIBlockPresentationNotice blockType={block.type_name} />
       {block.description ? (
         <p className="mt-2 text-xs leading-snug text-stone-600">{block.description}</p>
       ) : null}

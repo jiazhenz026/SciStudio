@@ -1,24 +1,34 @@
-"""Compose the system prompt for the embedded agent.
+"""Compose the embedded agent's system prompt.
 
-ADR-040 §3.3 / §3.4 — I40a Phase 2a implementation:
+Load the base skill from packaged resources, falling back to a filesystem
+lookup for legacy installations. Enumerate available tools through FastMCP
+and insert project context between the prompt's project-context markers.
 
-1. :func:`_load_skill_md` prefers ``importlib.resources`` for
-   ``scistudio._skills.scistudio.SKILL.md`` (closes #824, wheel-install
-   regression). Falls back to the legacy walk-up resolver if the
-   packaged path is empty — the Skills track (S40b) ships the
-   relocated SKILL.md on a sibling tracking branch; the fallback keeps
-   this branch working in isolation.
-
-   TODO(#1012): drop the legacy walk-up fallback once the Skills track
-   merges to main. Followup: ADR-040 cascade Phase 2c.
-
-2. :func:`_render_tool_catalog` enumerates FastMCP's ``list_tools()``
-   surface (replacing the deleted ``_registry.TOOL_REGISTRY``).
-3. :func:`_render_project_context` renders a per-project dynamic block
-   spliced between ``<!-- project_context:begin/end -->`` markers
-   (closes #825). Fields: project_name, workflow_count,
-   installed_plugins, optional git branch/sha, recent workflows.
+Project context includes the project name, workflow count, installed plugins,
+recent workflows, and the git branch and commit when available.
 """
+# Maintainer context (kept outside generated API documentation):
+# Compose the system prompt for the embedded agent.
+#
+# ADR-040 §3.3 / §3.4 — I40a Phase 2a implementation:
+#
+# 1. :func:`_load_skill_md` prefers ``importlib.resources`` for
+#    ``scistudio._skills.scistudio.SKILL.md`` (closes #824, wheel-install
+#    regression). Falls back to the legacy walk-up resolver if the
+#    packaged path is empty — the Skills track (S40b) ships the
+#    relocated SKILL.md on a sibling tracking branch; the fallback keeps
+#    this branch working in isolation.
+#
+#    TODO(#1012): drop the legacy walk-up fallback once the Skills track
+#    merges to main. Followup: ADR-040 cascade Phase 2c.
+#
+# 2. :func:`_render_tool_catalog` enumerates FastMCP's ``list_tools()``
+#    surface (replacing the deleted ``_registry.TOOL_REGISTRY``).
+# 3. :func:`_render_project_context` renders a per-project dynamic block
+#    spliced between ``<!-- project_context:begin/end -->`` markers
+#    (closes #825). Fields: project_name, workflow_count,
+#    installed_plugins, optional git branch/sha, recent workflows.
+# Development references: #1012, #824, #825, ADR-040, TODO.
 
 from __future__ import annotations
 
@@ -45,7 +55,7 @@ __all__ = ["compose_system_prompt"]
 def compose_system_prompt(project_dir: Path) -> str:
     """Return the system prompt string for ``project_dir``.
 
-    Per ADR-040 §3.3, the ``project_dir`` argument is now load-bearing:
+    the ``project_dir`` argument is now load-bearing:
     a rendered project-context section is spliced into the SKILL.md
     between ``<!-- project_context:begin -->`` and
     ``<!-- project_context:end -->`` markers.
@@ -66,6 +76,7 @@ def compose_system_prompt(project_dir: Path) -> str:
     FileNotFoundError
         When SKILL.md cannot be located (broken install / worktree).
     """
+    # Development references: ADR-040.
     skill_md = _load_skill_md()
     catalog = _render_tool_catalog()
     project_context = _render_project_context(project_dir)
@@ -79,8 +90,8 @@ def _load_skill_md() -> str:
     Resolution order (first hit wins):
 
     1. ``importlib.resources.files("scistudio") / "_skills" / "scistudio" /
-       "SKILL.md"`` — the canonical post-ADR-040 §3.4 location. Survives
-       wheel installs (closes #824).
+       "SKILL.md"`` — the canonical legacy location. Survives
+       wheel installs.
     2. Legacy walk-up from ``__file__`` for repo-root
        ``skills/scistudio/SKILL.md``. Kept so this branch works while the
        Skills track ships the relocated file on a sibling tracking
@@ -96,6 +107,7 @@ def _load_skill_md() -> str:
     FileNotFoundError
         When neither resolution path finds a SKILL.md.
     """
+    # Development references: #824, ADR-040.
     # 1. Packaged path (ADR-040 §3.4 — wheel-safe).
     try:
         packaged = files("scistudio") / "_skills" / "scistudio" / "SKILL.md"
@@ -205,9 +217,9 @@ def _render_tool_catalog() -> str:
 
 
 def _render_project_context(project_dir: Path) -> str:
-    """Render the per-project dynamic context block (ADR-040 §3.3, closes #825).
+    """Render the per-project dynamic context block.
 
-    Fields per the §3.3 field-source table:
+    Project context fields:
 
     | Field | Source |
     |---|---|
@@ -219,6 +231,9 @@ def _render_project_context(project_dir: Path) -> str:
 
     Performance budget: <100ms even at 1000 workflows (uses os.scandir).
     """
+    # Maintainer context:
+    # Fields per the §3.3 field-source table:
+    # Development references: #825, ADR-040.
     if not project_dir or not Path(project_dir).is_dir():
         return (
             "No active SciStudio project is open. Most MCP tools (workflow read/write, "

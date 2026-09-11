@@ -1,12 +1,14 @@
-"""Shared low-level helpers for the runtime sub-package.
-
-Issue #1430 / umbrella #1427: extracted verbatim from the original
-``api/runtime.py`` god-file so behavior is unchanged. The public surface
-of these helpers (``_rmtree_force``, ``_now_iso``, ``_slugify``,
-``_safe_parent_dir``) is preserved via ``runtime/__init__.py`` so that
-existing callers (``from scistudio.api.runtime import _rmtree_force``)
-keep working.
-"""
+"""Shared low-level helpers for the runtime sub-package."""
+# Maintainer context (kept outside generated API documentation):
+# Shared low-level helpers for the runtime sub-package.
+#
+# Issue #1430 / umbrella #1427: extracted verbatim from the original
+# ``api/runtime.py`` god-file so behavior is unchanged. The public surface
+# of these helpers (``_rmtree_force``, ``_now_iso``, ``_slugify``,
+# ``_safe_parent_dir``) is preserved via ``runtime/__init__.py`` so that
+# existing callers (``from scistudio.api.runtime import _rmtree_force``)
+# keep working.
+# Development references: #1427, #1430.
 
 from __future__ import annotations
 
@@ -40,7 +42,7 @@ def _safe_parent_dir(path: str | Path | None) -> Path:
 def _rmtree_force(target: Path) -> None:
     """Remove a directory tree, retrying on Windows read-only / locked files.
 
-    ADR-039: auto-init creates ``.git/`` with read-only object files on
+    auto-init creates ``.git/`` with read-only object files on
     Windows. Plain ``shutil.rmtree`` cannot remove read-only files, and
     can also race with file watchers that briefly hold handles. This
     helper:
@@ -51,6 +53,7 @@ def _rmtree_force(target: Path) -> None:
     3. Does a small bounded retry loop for transient locks (file watcher
        holding a handle while we delete).
     """
+    # Development references: ADR-039.
 
     target_p = Path(target)
     if not target_p.exists():

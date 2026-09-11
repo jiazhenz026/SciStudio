@@ -242,3 +242,82 @@ def test_standalone_bridge_socket_without_a_project_is_private(
             await runtime_module.stop_inprocess_server(server)
 
     asyncio.run(scenario())
+
+
+@posix_only
+@pytest.mark.usefixtures("umask_002")
+def test_taken_over_temp_fallback_moves_to_a_unique_private_directory(
+    short_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No-context audit P3-6: another user holding ``scistudio-<uid>`` does not stop the server."""
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", str(short_dir))
+    monkeypatch.setattr(server_module, "_fallback_socket_dir", None)
+    planted = short_dir / "planted"
+    planted.mkdir()
+    (short_dir / f"scistudio-{os.getuid()}").symlink_to(planted)  # someone got there first
+
+    path = server_module.private_socket_dir()
+    assert path.parent == short_dir
+    assert path.name.startswith(f"scistudio-{os.getuid()}-")
+    assert _mode(path) == 0o700
+    assert server_module.private_socket_dir() == path, "reused for the life of the process"
+
+    project = short_dir / "proj"
+    shared = project / ".scistudio"
+    shared.mkdir(parents=True)
+    shared.chmod(0o755)
+    requested = shared / "mcp.sock"
+
+    async def scenario() -> None:
+        server = MCPServer(socket_path=requested, project_dir=project)
+        await server.start()
+        try:
+            assert server.socket_path.parent == path
+            assert (shared / "mcp.sock.path").read_text(encoding="utf-8") == str(server.socket_path)
+        finally:
+            await server.stop()
+
+    asyncio.run(scenario())
+
+
+@posix_only
+def test_xdg_runtime_dir_open_to_others_is_not_used(short_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    xdg = short_dir / "xdg-open"
+    xdg.mkdir()
+    xdg.chmod(0o777)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(xdg))
+    monkeypatch.setattr(tempfile, "tempdir", str(short_dir))
+    assert server_module.private_socket_dir() == short_dir / f"scistudio-{os.getuid()}"
+
+
+@posix_only
+@pytest.mark.usefixtures("runtime_dir")
+def test_socket_is_created_owner_only_before_any_chmod(short_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No-context audit P3-6: bound under a 0077 umask, so no window exists before the chmod."""
+    project = short_dir / "proj"
+    project.mkdir()
+    requested = project / ".scistudio" / "mcp.sock"
+    real_chmod = os.chmod
+
+    def chmod(path: object, mode: int, *args: object, **kwargs: object) -> None:
+        if Path(str(path)) == requested:
+            return  # skip the socket's chmod: observe the mode bind produced
+        real_chmod(path, mode, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(server_module.os, "chmod", chmod)
+    previous = os.umask(0)
+    try:
+
+        async def scenario() -> None:
+            server = MCPServer(socket_path=requested, project_dir=project)
+            await server.start()
+            try:
+                assert _mode(requested) & 0o077 == 0
+            finally:
+                await server.stop()
+
+        asyncio.run(scenario())
+        assert os.umask(0) == 0, "the process umask is restored after the bind"
+    finally:
+        os.umask(previous)

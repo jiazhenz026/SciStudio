@@ -1,14 +1,30 @@
 # The AI assistant
 
-SciStudio has an AI assistant built in. There are two ways it shows up: the
-**chat**, where you talk to an assistant about your project, and the **AI Agent
-block**, where you put an AI step *inside* a workflow. Most users lean on the
-chat heavily — it is the fastest way to get things done without memorizing the
-API.
+You can work with AI through your AI app's own conversation, through the
+assistant embedded in the SciStudio desktop window, or through an **AI Agent
+block** inside a workflow.
+
+| Where you use AI | How to start |
+|---|---|
+| **Your AI app** | Choose **External AI** at SciStudio startup and open its connection address in the AI app's WebMCP-capable browser. Use the AI app's own account and conversation. |
+| **SciStudio's embedded chat** | Choose **Desktop**, then install and sign in to a supported local CLI provider using the instructions below. |
+| **An AI Agent block** | Install and sign in to a supported local CLI provider, then select it in the block's settings. This also applies when the canvas is open in an external AI app. |
+
+## Use your AI app
+
+Follow [Using SciStudio in your AI app](using-with-ai-apps.md) for the full
+connection walkthrough. You can ask the AI to inspect your project, build
+workflows, write blocks and plots, or investigate a failed run while you watch
+the SciStudio canvas in its built-in browser.
+
+This conversation does not require a local agent CLI. Claude's desktop app is
+not currently supported through WebMCP; **Claude Code** remains a supported
+CLI for SciStudio's embedded chat and AI Agent blocks.
 
 ## Before you start: install a provider
 
-SciStudio does not ship its own model. It drives an AI **provider** — a small
+For the **embedded chat and AI Agent blocks**, SciStudio drives an AI
+**provider** — a small
 command-line tool (a "CLI") that runs on your computer and that SciStudio talks
 to. Five are supported:
 
@@ -133,8 +149,9 @@ assistant works from — is unaffected and works normally in a Kimi Code chat.
 
 ## The chat assistant
 
-Open the AI chat panel and describe what you want in plain language. The
-assistant works **inside your project** — it can see your workflows, your data,
+In Desktop mode, open the AI chat panel; in an external AI app, use that app's
+conversation with SciStudio open in its browser. Describe what you want in plain
+language. The assistant works **with your project** — it can see your workflows, your data,
 your blocks, and your run results — so it acts, not just advises. What it is good
 for:
 
@@ -164,6 +181,11 @@ The chat helps you *build* a workflow. The **AI Agent** block puts AI *into* the
 workflow as a step that runs every time the pipeline runs. Use it when part of
 your processing is a judgment task that is hard to write as fixed code —
 classifying, summarizing, extracting, or inferring something from messy inputs.
+
+An AI Agent block runs a **local CLI provider**, even when you open the canvas
+inside an external AI app. Connecting that app does not make its conversation
+the block's provider. Install and sign in to one of the block's supported CLIs
+before running it.
 
 Add the **AI Agent** block from the palette like any other block. Its parameter
 panel has:
@@ -214,6 +236,7 @@ inference; the workflow stays typed and reproducible around it.
 
 ## Next
 
+- [using-with-ai-apps.md](using-with-ai-apps.md) — connect from your AI app
 - [using-the-gui.md](using-the-gui.md) — where the chat and the AI Agent block fit
 - [built-in-blocks.md](built-in-blocks.md) — the AI Agent block alongside the
   other built-ins

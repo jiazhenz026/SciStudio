@@ -1,46 +1,49 @@
-"""ADR-055 Spec 1 — the WebMCP HTTP bridge over the shared FastMCP registry.
-
-An external AI host's page discovers tools over HTTP, registers browser
-callbacks with the host's WebMCP API (``document.modelContext`` /
-``navigator.modelContext``), and forwards invocations here. Both routes
-dispatch through the same module-level FastMCP registry
-(:data:`scistudio.ai.agent.mcp.server.mcp`) that serves the local socket
-transport — one tool definition, two front doors (ADR-055 §4). This module
-adds no business logic beyond dispatch, adaptation, binding checks, and
-logging (FR-011); router-internal tool synthesis is forbidden (spec decision
-1), so the demo's synthesized ``about_scistudio``/``import_data``/
-``write_file``/``read_file``/``run_bash`` tools are deliberately absent.
-
-Transplanted from the hackathon demo (``scistudio-web-demo`` commit
-``952f697b``, read-only reference) and hardened per ADR-055 §9.2:
-
-* results adapt through the shared, documented adapter
-  :func:`scistudio.ai.agent.mcp.server.adapt_tool_result` (FR-002/FR-003)
-  instead of a lossy text-only serialization;
-* tool visibility is tag-driven (:data:`AUDIENCE_EXTERNAL_TAG`, FR-004) —
-  this catalogue includes external-tagged tools, the socket transport
-  excludes them;
-* calls bind the caller's believed-active project, and mutation-tagged
-  calls with a stale selection are rejected (FR-005);
-* both endpoints sit behind one session middleware with a pluggable
-  identity-backend seam (FR-006); this spec ships the loopback token
-  backend, which ``create_app`` installs as its default guard. A replacement
-  guard passed to ``create_app`` (``adr-055-identity-seam``) takes its place
-  without router changes;
-* call logging records tool name, outcome, and bounded identifiers only —
-  never full arguments, file contents, or command bodies (FR-007).
-
-The default guard also publishes its loopback token in an owner-only file
-while a launcher arms it (ADR-055 Spec 4 FR-010, issue #2308), so the stdio
-MCP adapter ``scistudio webmcp-adapter`` can reach this bridge without the
-page; see the "Loopback token file" section below.
-
-Read-call policy (FR-005, declared explicitly): read-tagged calls are
-dispatched WITHOUT the staleness check — a read cannot silently redirect a
-write, and a read issued against a changed project simply observes current
-state. Read tools that require a project while none is open fail with the
-existing no-active-project error mapped through the adapter.
-"""
+"""The WebMCP HTTP bridge over the shared FastMCP registry."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-055 Spec 1 — the WebMCP HTTP bridge over the shared FastMCP registry.
+#
+# An external AI host's page discovers tools over HTTP, registers browser
+# callbacks with the host's WebMCP API (``document.modelContext`` /
+# ``navigator.modelContext``), and forwards invocations here. Both routes
+# dispatch through the same module-level FastMCP registry
+# (:data:`scistudio.ai.agent.mcp.server.mcp`) that serves the local socket
+# transport — one tool definition, two front doors (ADR-055 §4). This module
+# adds no business logic beyond dispatch, adaptation, binding checks, and
+# logging (FR-011); router-internal tool synthesis is forbidden (spec decision
+# 1), so the demo's synthesized ``about_scistudio``/``import_data``/
+# ``write_file``/``read_file``/``run_bash`` tools are deliberately absent.
+#
+# Transplanted from the hackathon demo (``scistudio-web-demo`` commit
+# ``952f697b``, read-only reference) and hardened per ADR-055 §9.2:
+#
+# * results adapt through the shared, documented adapter
+#   :func:`scistudio.ai.agent.mcp.server.adapt_tool_result` (FR-002/FR-003)
+#   instead of a lossy text-only serialization;
+# * tool visibility is tag-driven (:data:`AUDIENCE_EXTERNAL_TAG`, FR-004) —
+#   this catalogue includes external-tagged tools, the socket transport
+#   excludes them;
+# * calls bind the caller's believed-active project, and mutation-tagged
+#   calls with a stale selection are rejected (FR-005);
+# * both endpoints sit behind one session middleware with a pluggable
+#   identity-backend seam (FR-006); this spec ships the loopback token
+#   backend, which ``create_app`` installs as its default guard. A replacement
+#   guard passed to ``create_app`` (``adr-055-identity-seam``) takes its place
+#   without router changes;
+# * call logging records tool name, outcome, and bounded identifiers only —
+#   never full arguments, file contents, or command bodies (FR-007).
+#
+# Read-call policy (FR-005, declared explicitly): read-tagged calls are
+# dispatched WITHOUT the staleness check — a read cannot silently redirect a
+# write, and a read issued against a changed project simply observes current
+# state. Read tools that require a project while none is open fail with the
+# existing no-active-project error mapped through the adapter.
+#
+# The default guard also publishes its loopback token in an owner-only file
+# while a launcher arms it (ADR-055 Spec 4 FR-010, #2308), so the stdio MCP
+# adapter ``scistudio webmcp-adapter`` can reach this bridge without the page;
+# see the "Loopback token file" section below.
+# Development references: ADR-055, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-010, FR-011, Spec 1,
+# Spec 4, adr-055-identity-seam, #2308.
 
 from __future__ import annotations
 
@@ -107,9 +110,11 @@ class BridgeIdentityBackend(Protocol):
 
     A backend answers a header check. A deployment that needs more — login
     redirects, cookies, WebSocket and UI coverage — replaces the whole guard
-    through ``create_app(guard=...)`` instead (``adr-055-identity-seam``); the
+    through ``create_app(guard=...)`` instead; the
     router does not change either way.
     """
+
+    # Development references: adr-055-identity-seam.
 
     def authenticate(self, headers: dict[str, str]) -> BridgeIdentity | None:
         """Return the request's identity, or ``None`` to reject the call."""
@@ -119,10 +124,12 @@ class LoopbackTokenBackend:
     """Loopback identity backend: a per-launch random token.
 
     The token is generated once per backend launch and delivered through the
-    served page bootstrap (the ``adr-055-prefix-independence`` SPA injection),
+    served page bootstrap (the ```` SPA injection),
     so only the page this instance served can call the bridge. The threat
     model is single-user loopback; rotation happens on restart.
     """
+
+    # Development references: adr-055-prefix-independence.
 
     def __init__(self, token: str) -> None:
         self._token = token
@@ -140,12 +147,14 @@ class WebMCPSessionMiddleware:
     Scoped to ``/api/webmcp/*`` only; every other request passes through
     untouched. A deployment that protects more replaces this guard through
     ``create_app(guard=...)`` rather than widening this class. Requests under
-    a self-authenticating prefix (``adr-055-identity-seam``) pass through even
+    a self-authenticating prefix pass through even
     when this middleware is composed on its own; ``create_app`` also enforces
     that for whichever guard it installs. Pure ASGI — no response-body
     buffering — and added inside the CORS layer so preflight handling and
     CORS headers are unaffected.
     """
+
+    # Development references: adr-055-identity-seam.
 
     def __init__(
         self,
@@ -222,9 +231,14 @@ def loopback_token_guard(token: str) -> GuardFactory:
 #   the file lives in the user's profile, whose ACL grants the user, SYSTEM and
 #   Administrators only; POSIX mode bits do not apply there;
 # * written atomically (a ``mkstemp`` file, then ``os.replace``) and removed when
-#   the server stops. A backend that is killed cannot remove its file, so a
-#   reader treats a file whose PID is no longer running as stale, and the next
-#   writer prunes such files;
+#   the server stops, but only by the process that wrote it and only while it
+#   still holds that process's token. A backend that is killed cannot remove
+#   its file, so a reader treats a file as stale unless its PID is running with
+#   the process create time the file records (a reused PID does not count), and
+#   the next writer prunes stale files;
+# * never replaced while another running process owns it: uvicorn starts the
+#   application before it binds, so a second backend started on a busy port
+#   writes before it fails, and must not take the running backend's file away;
 # * written only while a launcher arms it: ``scistudio serve`` and
 #   ``scistudio gui`` (the desktop app runs ``gui --bundled``) know the port and
 #   wrap their server run in :func:`loopback_token_file`. A replacement guard
@@ -242,15 +256,17 @@ class LoopbackTokenFileError(Exception):
 
     ``retryable`` is true when waiting can fix it (the file is missing or its
     backend is gone, and a backend may be starting); false when the file is
-    unsafe or malformed, which waiting cannot fix. The message never contains
-    the token.
+    unsafe or malformed, which waiting cannot fix. ``kind`` is one of
+    ``"missing"``, ``"stale"``, ``"unsafe"``, ``"malformed"`` or ``"busy"`` (a
+    running backend owns the file). The message never contains the token.
     """
 
-    def __init__(self, path: Path, reason: str, *, retryable: bool) -> None:
+    def __init__(self, path: Path, reason: str, *, retryable: bool, kind: str = "unsafe") -> None:
         super().__init__(f"loopback token file {path} {reason}")
         self.path = path
         self.reason = reason
         self.retryable = retryable
+        self.kind = kind
 
 
 @dataclass(frozen=True)
@@ -263,6 +279,7 @@ class LoopbackTokenFile:
     port: int
     base_url: str
     started_at: float
+    create_time: float | None = None
 
 
 def loopback_token_dir() -> Path:
@@ -281,6 +298,51 @@ def _pid_alive(pid: int) -> bool:
     import psutil
 
     return bool(psutil.pid_exists(pid))
+
+
+# The run-owner markers use the same identity rule (``engine.runners.process_handle``).
+_PID_IDENTITY_TOLERANCE_SEC = 1.0
+
+
+def _process_create_time(pid: int) -> float | None:
+    import psutil
+
+    try:
+        return float(psutil.Process(pid).create_time())
+    except (psutil.Error, OSError):
+        return None
+
+
+def _record_alive(pid: int, create_time: float | None) -> bool:
+    """Return whether the process a token file names is still running as that process.
+
+    The PID must be running and, when the file records a create time, the
+    running process must have been created at that time: a reused PID does not
+    make a leftover file look live.
+    """
+    if not _pid_alive(pid):
+        return False
+    if create_time is None:
+        return True
+    actual = _process_create_time(pid)
+    return actual is not None and abs(actual - create_time) <= _PID_IDENTITY_TOLERANCE_SEC
+
+
+def _recorded_owner(path: Path) -> tuple[int, float | None, str | None] | None:
+    """Return ``(pid, create_time, token)`` recorded in ``path``, or ``None`` when unreadable."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("pid"), int):
+        return None
+    create_time = data.get("createTime")
+    token = data.get("token")
+    return (
+        int(data["pid"]),
+        float(create_time) if isinstance(create_time, (int, float)) else None,
+        token if isinstance(token, str) else None,
+    )
 
 
 def token_file_permission_problem(st: os.stat_result, *, uid: int | None = None) -> str | None:
@@ -307,7 +369,9 @@ def _ensure_private_dir(directory: Path) -> None:
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
     if sys.platform != "win32":
         st = directory.stat()
-        if st.st_uid == os.getuid() and stat.S_IMODE(st.st_mode) & 0o077:
+        if st.st_uid != os.getuid():
+            raise PermissionError(f"loopback token directory {directory} belongs to uid {st.st_uid}, not this user")
+        if stat.S_IMODE(st.st_mode) & 0o077:
             directory.chmod(0o700)
 
 
@@ -326,11 +390,8 @@ def _replace_with_retry(source: str, target: Path) -> None:
 
 def _prune_stale_token_files(directory: Path) -> None:
     for path in directory.glob(f"{_TOKEN_FILE_PREFIX}*{_TOKEN_FILE_SUFFIX}"):
-        try:
-            pid = json.loads(path.read_text(encoding="utf-8")).get("pid")
-        except (OSError, ValueError, AttributeError):
-            continue
-        if isinstance(pid, int) and not _pid_alive(pid):
+        owner = _recorded_owner(path)
+        if owner is not None and not _record_alive(owner[0], owner[1]):
             with contextlib.suppress(OSError):
                 path.unlink()
 
@@ -341,19 +402,30 @@ def write_loopback_token_file(*, token: str, port: int, base_url: str, directory
     The file is created owner-only (``mkstemp`` creates it 0600 on POSIX) in a
     0700 directory, then moved into place, so a reader never sees a partial
     file. Files left by backends that are no longer running are pruned first.
+    A file that another running process wrote for ``port`` is never replaced:
+    :class:`LoopbackTokenFileError` (``kind="busy"``) is raised instead.
     """
     directory = directory or loopback_token_dir()
     _ensure_private_dir(directory)
     _prune_stale_token_files(directory)
+    target = loopback_token_path(port, directory)
+    owner = _recorded_owner(target)
+    if owner is not None and owner[0] != os.getpid() and _record_alive(owner[0], owner[1]):
+        raise LoopbackTokenFileError(
+            target,
+            f"belongs to the running SciStudio backend with pid {owner[0]}; not replacing it",
+            retryable=False,
+            kind="busy",
+        )
     payload = {
         "version": LOOPBACK_TOKEN_FILE_VERSION,
         "token": token,
         "pid": os.getpid(),
+        "createTime": _process_create_time(os.getpid()),
         "port": port,
         "baseUrl": base_url,
         "startedAt": time.time(),
     }
-    target = loopback_token_path(port, directory)
     fd, tmp = tempfile.mkstemp(dir=directory, prefix=".loopback-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -370,17 +442,25 @@ def write_loopback_token_file(*, token: str, port: int, base_url: str, directory
     return target
 
 
-def remove_loopback_token_file(path: Path, *, pid: int | None = None) -> None:
-    """Remove ``path`` if it is still the file written by ``pid`` (this process by default).
+def remove_loopback_token_file(path: Path, *, token: str | None = None, pid: int | None = None) -> None:
+    """Remove ``path`` only if it is still the file this process wrote.
 
-    A file another backend has since written for the same port is left alone.
+    The recorded PID must be ``pid`` (this process by default); for this
+    process the recorded create time must match as well, and when ``token`` is
+    given the recorded token must equal it. A file another backend has written
+    for the same port is left alone.
     """
-    expected = os.getpid() if pid is None else pid
-    try:
-        recorded = json.loads(path.read_text(encoding="utf-8")).get("pid")
-    except (OSError, ValueError, AttributeError):
+    owner = _recorded_owner(path)
+    if owner is None:
         return
-    if recorded != expected:
+    recorded_pid, recorded_create_time, recorded_token = owner
+    if recorded_pid != (os.getpid() if pid is None else pid):
+        return
+    if pid is None and recorded_create_time is not None:
+        own = _process_create_time(os.getpid())
+        if own is None or abs(own - recorded_create_time) > _PID_IDENTITY_TOLERANCE_SEC:
+            return
+    if token is not None and (recorded_token is None or not secrets.compare_digest(recorded_token, token)):
         return
     for attempt in range(5):
         try:
@@ -398,11 +478,12 @@ def _parse_token_file(path: Path, raw: bytes) -> LoopbackTokenFile:
     try:
         data = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
-        raise LoopbackTokenFileError(path, "is not valid JSON", retryable=False) from None
+        raise LoopbackTokenFileError(path, "is not valid JSON", retryable=False, kind="malformed") from None
     if not isinstance(data, dict) or data.get("version") != LOOPBACK_TOKEN_FILE_VERSION:
-        raise LoopbackTokenFileError(path, "has an unknown format", retryable=False)
+        raise LoopbackTokenFileError(path, "has an unknown format", retryable=False, kind="malformed")
     token, pid, port = data.get("token"), data.get("pid"), data.get("port")
     base_url, started_at = data.get("baseUrl"), data.get("startedAt")
+    create_time = data.get("createTime")
     if not (
         isinstance(token, str)
         and token
@@ -411,10 +492,17 @@ def _parse_token_file(path: Path, raw: bytes) -> LoopbackTokenFile:
         and 0 < port < 65536
         and isinstance(base_url, str)
         and isinstance(started_at, (int, float))
+        and (create_time is None or isinstance(create_time, (int, float)))
     ):
-        raise LoopbackTokenFileError(path, "is missing a required field", retryable=False)
+        raise LoopbackTokenFileError(path, "is missing a required field", retryable=False, kind="malformed")
     return LoopbackTokenFile(
-        path=path, token=token, pid=pid, port=port, base_url=base_url, started_at=float(started_at)
+        path=path,
+        token=token,
+        pid=pid,
+        port=port,
+        base_url=base_url,
+        started_at=float(started_at),
+        create_time=float(create_time) if create_time is not None else None,
     )
 
 
@@ -425,10 +513,11 @@ def read_loopback_token_file(path: Path) -> LoopbackTokenFile:
     symbolic link, not a regular file, not owner-only (POSIX), malformed, or
     stale (its backend PID is no longer running).
     """
+    missing = "does not exist; is SciStudio running?"
     try:
         st = os.lstat(path)
     except FileNotFoundError:
-        raise LoopbackTokenFileError(path, "does not exist; is SciStudio running?", retryable=True) from None
+        raise LoopbackTokenFileError(path, missing, retryable=True, kind="missing") from None
     except OSError as exc:
         raise LoopbackTokenFileError(path, f"cannot be inspected ({exc.strerror})", retryable=False) from None
     if stat.S_ISLNK(st.st_mode):
@@ -438,25 +527,31 @@ def read_loopback_token_file(path: Path) -> LoopbackTokenFile:
     problem = token_file_permission_problem(st)
     if problem is not None:
         raise LoopbackTokenFileError(path, problem, retryable=False)
+    # O_NONBLOCK: a FIFO swapped in after the lstat must not block the open.
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
     try:
-        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
+        fd = os.open(path, flags)
     except FileNotFoundError:
-        raise LoopbackTokenFileError(path, "does not exist; is SciStudio running?", retryable=True) from None
+        raise LoopbackTokenFileError(path, missing, retryable=True, kind="missing") from None
     except OSError as exc:
         raise LoopbackTokenFileError(path, f"cannot be opened ({exc.strerror})", retryable=False) from None
     with os.fdopen(fd, "rb") as handle:
         # Re-check the opened file itself: the path could have been swapped
         # between the lstat above and the open.
-        problem = token_file_permission_problem(os.fstat(handle.fileno()))
+        opened = os.fstat(handle.fileno())
+        if not stat.S_ISREG(opened.st_mode):
+            raise LoopbackTokenFileError(path, "is not a regular file", retryable=False)
+        problem = token_file_permission_problem(opened)
         if problem is not None:
             raise LoopbackTokenFileError(path, problem, retryable=False)
         raw = handle.read(_TOKEN_FILE_MAX_BYTES)
     record = _parse_token_file(path, raw)
-    if not _pid_alive(record.pid):
+    if not _record_alive(record.pid, record.create_time):
         raise LoopbackTokenFileError(
             path,
             f"is stale: the SciStudio backend that wrote it (pid {record.pid}) is no longer running",
             retryable=True,
+            kind="stale",
         )
     return record
 
@@ -465,8 +560,10 @@ def find_loopback_token_file(port: int | None = None, *, directory: Path | None 
     """Return the token file for ``port``, or the newest live one when ``port`` is ``None``.
 
     With several backends running, "newest" is the one started most recently.
-    Stale files are skipped; an unsafe or malformed file is refused outright,
-    because waiting cannot fix it and it may have been planted.
+    Stale files are skipped. A malformed file, or one from a newer SciStudio,
+    is skipped with a warning so it cannot hide the other backends. An unsafe
+    file (a symbolic link, not owner-only) is refused outright: waiting cannot
+    fix it, and it may have been planted.
     """
     directory = directory or loopback_token_dir()
     if port is not None:
@@ -477,13 +574,16 @@ def find_loopback_token_file(port: int | None = None, *, directory: Path | None 
             try:
                 live.append(read_loopback_token_file(path))
             except LoopbackTokenFileError as exc:
-                if not exc.retryable:
+                if exc.kind == "unsafe":
                     raise
+                if exc.kind == "malformed":
+                    logger.warning("webmcp loopback token file skipped: %s %s", path.name, exc.reason)
     if not live:
         raise LoopbackTokenFileError(
             directory,
             "holds no token file of a running SciStudio backend; start SciStudio, or pass --base-url and --token",
             retryable=True,
+            kind="missing",
         )
     return max(live, key=lambda record: record.started_at)
 
@@ -493,7 +593,7 @@ class _TokenFileRequest:
     port: int
     base_url: str
     directory: Path | None
-    written: list[Path] = field(default_factory=list)
+    written: list[tuple[Path, str]] = field(default_factory=list)
 
 
 _token_file_lock = threading.Lock()
@@ -521,9 +621,9 @@ def loopback_token_file(*, port: int, base_url: str, directory: Path | None = No
         with _token_file_lock:
             if _token_file_request is request:
                 _token_file_request = None
-        for path in request.written:
+        for path, token in request.written:
             try:
-                remove_loopback_token_file(path)
+                remove_loopback_token_file(path, token=token)
             except OSError:
                 logger.warning("webmcp loopback token file could not be removed: port=%s", request.port)
 
@@ -537,13 +637,17 @@ def _publish_loopback_token(token: str) -> None:
         path = write_loopback_token_file(
             token=token, port=request.port, base_url=request.base_url, directory=request.directory
         )
+    except LoopbackTokenFileError as exc:
+        # Another running backend owns this port's file: leave it alone.
+        logger.warning("webmcp loopback token file not written: port=%s reason=%s", request.port, exc.reason)
+        return
     except OSError as exc:
         # The backend still starts; the adapter then reports the missing file.
         logger.warning(
             "webmcp loopback token file could not be written: port=%s error_type=%s", request.port, type(exc).__name__
         )
         return
-    request.written.append(path)
+    request.written.append((path, token))
     logger.info("webmcp loopback token file written: port=%s", request.port)
 
 
@@ -556,8 +660,10 @@ class ToolCallRequest(BaseModel):
     """One WebMCP tool invocation forwarded from the browser.
 
     ``project_id`` is the caller's believed-active project identifier,
-    acquired from the catalogue's context snapshot (FR-005).
+    acquired from the catalogue's context snapshot.
     """
+
+    # Development references: FR-005.
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -573,10 +679,11 @@ async def build_catalogue(active_project_id: str | None) -> dict[str, Any]:
     (``mcp.list_tools()``) with ``category``/``mutation`` derived from the
     tool's tags through the same helper the socket transport uses, so the
     two surfaces cannot drift. External-audience-tagged tools are INCLUDED
-    here (FR-004). The ``context`` snapshot identifies the active project
+    here. The ``context`` snapshot identifies the active project
     at catalogue-fetch time; the caller presents it back on each call so a
-    project switch is detectable (FR-005).
+    project switch is detectable.
     """
+    # Development references: FR-004, FR-005.
     from scistudio.ai.agent.mcp.server import mcp, tool_category_and_mutation
 
     tools: list[dict[str, Any]] = []

@@ -1,13 +1,15 @@
-"""ADR-042 Addendum 6 governance runtime.
-
-Single append-only gate ledger plus one shared evaluator. The historical
-top-level guard modules and the flat ``GateRecord`` schema are gone
-(delete-and-replace, ADR-042 Addendum 6 §3); guards are now evaluator-owned
-calculators under ``gate_record.guards`` and the ledger lives in
-``gate_record.ledger``.
-
-The public surface delegates to the ``gate_record`` package.
-"""
+"""Governance runtime."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-042 Addendum 6 governance runtime.
+#
+# Single append-only gate ledger plus one shared evaluator. The historical
+# top-level guard modules and the flat ``GateRecord`` schema are gone
+# (delete-and-replace, ADR-042 Addendum 6 §3); guards are now evaluator-owned
+# calculators under ``gate_record.guards`` and the ledger lives in
+# ``gate_record.ledger``.
+#
+# The public surface delegates to the ``gate_record`` package.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

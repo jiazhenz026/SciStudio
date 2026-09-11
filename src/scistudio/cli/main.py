@@ -107,13 +107,14 @@ def _report_validation_errors(diagnostics: list[str]) -> None:
     (``api/runtime/_workflows.py``), but this CLI treated the list as
     all-or-nothing, so an advisory made ``scistudio run`` refuse to dispatch.
 
-    That was latent until #1988: the validator's unregistered-block-type report
+    That was latent until: the validator's unregistered-block-type report
     used to reach only nodes that had edges, and a node whose block does not
     resolve has no ports and therefore no edges — so the warning that now fires
     for those nodes had no way to fire before. Widening the report exposed the
     prefix being ignored here. Warnings are printed either way; only hard errors
     stop the command.
     """
+    # Development references: #1988.
     warnings = [d for d in diagnostics if d.startswith("Warning:")]
     errors = [d for d in diagnostics if not d.startswith("Warning:")]
     if warnings:
@@ -419,7 +420,7 @@ def serve(
     # prefix rides along so worker callbacks resolve under it (FR-006), and
     # the callback host follows the bind host (a specific non-loopback bind
     # does not listen on 127.0.0.1 — Codex review on PR #2274).
-    local_url = f"http://{_worker_callback_host(host)}:{port}{root_path}"
+    local_url = f"http://{_url_host(_worker_callback_host(host))}:{port}{root_path}"
     os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", local_url)
     # ADR-055 Spec 4 FR-010 (#2308): publish the default guard's loopback
     # token in an owner-only file for the stdio MCP adapter while the server
@@ -436,16 +437,22 @@ def serve(
 
 
 def _worker_callback_host(bind_host: str) -> str:
-    """Host that worker subprocesses should call back on (ADR-035 §3.10).
+    """Host that worker subprocesses should call back on.
 
     Workers run on the same machine. A wildcard bind (``0.0.0.0``/``::``) or
     an explicit loopback bind is reachable via ``127.0.0.1``; a specific
     non-loopback bind does NOT listen on loopback, so the callback must
-    advertise the bind host itself (Codex review on PR #2274).
+    advertise the bind host itself (Codex review on).
     """
+    # Development references: #2274, ADR-035.
     if bind_host in ("0.0.0.0", "::"):
         return "127.0.0.1"
     return bind_host
+
+
+def _url_host(host: str) -> str:
+    """Return ``host`` as it appears in a URL: an IPv6 literal gets brackets (``[::1]``)."""
+    return f"[{host}]" if ":" in host and not host.startswith("[") else host
 
 
 def _normalize_root_path_or_exit(raw: str) -> str:
@@ -512,7 +519,7 @@ def gui(
     server_host = host or ("127.0.0.1" if bundled else "0.0.0.0")
     public_host = host if host and host not in ("0.0.0.0", "::") else ("127.0.0.1" if bundled else "localhost")
     bound_port = _ephemeral_port(public_host) if port == 0 else port
-    url = f"http://{public_host}:{bound_port}{root_path}"
+    url = f"http://{_url_host(public_host)}:{bound_port}{root_path}"
     if bundled:
         os.environ.setdefault("SCISTUDIO_BUNDLED", "1")
         typer.echo(
@@ -535,7 +542,7 @@ def gui(
     # the mount prefix rides along so callbacks resolve under it (FR-006), and
     # the callback host follows the bind host (a specific non-loopback bind
     # does not listen on 127.0.0.1 — Codex review on PR #2274).
-    local_url = f"http://{_worker_callback_host(server_host)}:{bound_port}{root_path}"
+    local_url = f"http://{_url_host(_worker_callback_host(server_host))}:{bound_port}{root_path}"
     os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", local_url)
     if not no_browser and not bundled:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()

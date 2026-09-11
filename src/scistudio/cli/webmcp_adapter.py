@@ -1,8 +1,5 @@
 """``scistudio webmcp-adapter`` — a stdio MCP server over SciStudio's WebMCP HTTP bridge.
 
-ADR-055 Spec 4 (``docs/specs/adr-055-enterprise-support.md``, FR-008 to
-FR-011), issue #2308, owner option B of 2026-09-11.
-
 Several AI apps (Claude Desktop, Claude Code, Codex, Cursor) can launch a local
 MCP server over stdio but do not expose WebMCP in a browser. This adapter is
 that local server. The AI app launches it; it speaks MCP to the app on
@@ -14,50 +11,56 @@ stdin/stdout and forwards to the WebMCP HTTP bridge
 
 That is the catalogue and the result contract the browser registration uses,
 so the ``audience:external`` tools are included, and the adapter adds neither a
-second tool registry nor a new server transport (ADR-055 §4). It keeps no tool
+second tool registry nor a new server transport. It keeps no tool
 list of its own: every ``tools/list`` is fetched from the bridge, and a
 ``tools/call`` result is passed through unchanged (``isError``,
 ``structuredContent`` and the bridge's marked substitutions for non-text
 content survive as they are).
 
-**Project binding (Spec 1 FR-005).** The adapter carries the catalogue's
-project snapshot on every call. When the bridge answers
-``409 stale_project_context``, the adapter re-fetches the catalogue, sends
-``notifications/tools/list_changed``, and reports the call as an ``isError``
-result. It never retries a call.
+**Project binding.** Each call carries the project snapshot
+that was current when the adapter read the request, so calls queued behind
+others keep the project they were issued for. Only a ``tools/list`` adopts a
+new snapshot. When the bridge answers ``409 stale_project_context``, the
+adapter sends ``notifications/tools/list_changed`` and reports the call as an
+``isError`` result; calls still bound to the old snapshot fail the same way.
+It never retries or redirects a call.
 
-**Target and credentials (FR-009).** ``--base-url`` (or
+**Target and credentials.** ``--base-url`` (or
 ``SCISTUDIO_MCP_BASE_URL``) names the service and honors a service prefix, for
 example ``https://lab.example.org/user/alice/scistudio``. With ``--token`` (or
 ``SCISTUDIO_MCP_TOKEN``) every bridge request carries
 ``Authorization: Bearer <token>``; an edition's guard validates it (the lab
 uses a JupyterHub API token). With no token, the adapter uses the per-user
-loopback token file the local backend writes (FR-010), sent as the bridge's
+loopback token file the local backend writes, sent as the bridge's
 ``x-scistudio-webmcp-token`` header: the file for the port of a loopback
 ``--base-url``, or, with no base URL, the most recently started backend that
 is still running. The token file is never used for a non-loopback URL, and a
 missing, stale, or non-owner-only file is refused with a clear message.
 
-**Logging (FR-011, Spec 1 FR-007).** Operation identifiers and outcomes only,
-on stderr; never arguments and never a credential. ``--print-config`` prints a
-ready-to-paste configuration for Claude Desktop, Claude Code, or Codex.
+**Logging.** Operation identifiers and outcomes only, on stderr; never
+arguments and never a credential. ``--print-config`` prints a ready-to-paste
+configuration for Claude Desktop, Claude Code, or Codex.
 """
+# Development references: ADR-055 section 4; Spec 4 (adr-055-enterprise-support,
+# FR-008 to FR-011); Spec 1 FR-005 (project binding) and FR-007 (logging);
+# #2308; owner option B of 2026-09-11.
 
 from __future__ import annotations
 
+import contextlib
 import enum
 import functools
 import ipaddress
 import json
 import logging
 import os
+import queue
 import shlex
 import subprocess
 import sys
 import threading
 import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import IO, TYPE_CHECKING, Annotated, Any
 from urllib.parse import urlsplit
@@ -88,9 +91,15 @@ TOKEN_PLACEHOLDER = "PASTE_YOUR_TOKEN_HERE"
 
 _TOOLS_PATH = "api/webmcp/tools"
 _CALL_PATH = "api/webmcp/call"
-_CATALOGUE_TIMEOUT = httpx.Timeout(30.0)
+_CATALOGUE_SECONDS = 30.0
+# The shortest attempt the startup wait makes, even with little time left.
+_MIN_ATTEMPT_SECONDS = 0.5
 # A tool decides how long it runs; the AI app cancels or times out on its side.
 _CALL_TIMEOUT = httpx.Timeout(30.0, read=None)
+# After stdin closes: time for in-flight calls to finish, then time for the
+# workers to notice the aborted bridge before the adapter exits regardless.
+_DRAIN_SECONDS = 2.0
+_ABORT_GRACE_SECONDS = 1.0
 _RETRYABLE_STATUSES = frozenset({502, 503, 504})
 _CANCELLED_MEMORY = 256
 
@@ -177,9 +186,11 @@ def normalize_base_url(raw: str) -> str:
             "the base URL must not carry a query string or fragment; pass a token with --token or SCISTUDIO_MCP_TOKEN"
         )
     if parts.scheme not in ("http", "https") or not parts.hostname:
+        # Never echoed: a token pasted into the wrong option would land in the
+        # AI app's MCP log.
         raise AdapterConfigError(
             "the base URL must be an http(s) URL such as http://127.0.0.1:8000 or "
-            f"https://lab.example.org/user/<name>/scistudio, got {text!r}"
+            "https://lab.example.org/user/<name>/scistudio"
         )
     segments = [segment for segment in parts.path.split("/") if segment]
     path = "/" + "/".join(segments) if segments else ""
@@ -214,7 +225,7 @@ def _read_token_file(port: int | None) -> LoopbackTokenFile:
 
 
 def resolve_target(base_url: str | None, token: str | None) -> BridgeTarget:
-    """Resolve the bridge target from the configured base URL and token (FR-009).
+    """Resolve the bridge target from the configured base URL and token.
 
     * a token: sent as a bearer credential to ``base_url``, which is required;
     * no token and no base URL: the newest running local backend's token file;
@@ -229,7 +240,20 @@ def resolve_target(base_url: str | None, token: str | None) -> BridgeTarget:
         return BridgeTarget(normalize_base_url(base_url), token, "bearer")
     if base_url is None:
         record = _read_token_file(None)
-        return BridgeTarget(normalize_base_url(record.base_url), record.token, "token-file")
+        try:
+            recorded = normalize_base_url(record.base_url)
+        except AdapterConfigError:
+            raise AdapterConfigError(
+                f"the loopback token file {record.path} names a base URL this adapter cannot use; pass --base-url"
+            ) from None
+        if not is_loopback_url(recorded):
+            # The loopback token never leaves the computer, whatever the file says.
+            raise AdapterConfigError(
+                f"the loopback token file {record.path} names {recorded}, which is not this computer's loopback "
+                "address. The loopback token is only sent to 127.0.0.1, ::1 or localhost: run SciStudio on "
+                "loopback, or pass --base-url with --token."
+            )
+        return BridgeTarget(recorded, record.token, "token-file")
     url = normalize_base_url(base_url)
     if not is_loopback_url(url):
         raise AdapterConfigError(
@@ -275,13 +299,13 @@ class _Bridge:
             transport=transport,
             timeout=_CALL_TIMEOUT,
             follow_redirects=False,
-            # A proxy configured in the environment must never see a loopback
-            # token; a lab URL may need that proxy.
-            trust_env=not is_loopback_url(target.base_url),
+            # A proxy configured in the environment must never see the
+            # loopback token, or any loopback traffic; a lab URL may need it.
+            trust_env=target.source == "bearer" and not is_loopback_url(target.base_url),
         )
 
-    def get_catalogue(self) -> httpx.Response:
-        return self._client.get(_TOOLS_PATH, timeout=_CATALOGUE_TIMEOUT)
+    def get_catalogue(self, timeout: float | None = None) -> httpx.Response:
+        return self._client.get(_TOOLS_PATH, timeout=httpx.Timeout(timeout or _CATALOGUE_SECONDS))
 
     def post_call(self, body: dict[str, Any]) -> httpx.Response:
         return self._client.post(_CALL_PATH, json=body)
@@ -385,6 +409,13 @@ def _adapter_version() -> str:
         return "0"
 
 
+@dataclass(frozen=True)
+class _Bound:
+    """The project snapshot a request was bound to when the adapter read it."""
+
+    project_id: str | None
+
+
 class WebMCPAdapter:
     """Translate MCP requests into WebMCP bridge calls.
 
@@ -416,9 +447,14 @@ class WebMCPAdapter:
 
     @property
     def project_id(self) -> str | None:
-        """The project snapshot of the last catalogue fetched (FR-005)."""
+        """The current project snapshot: from ``connect`` or the last ``tools/list``."""
         with self._lock:
             return self._project_id
+
+    def bind(self) -> _Bound:
+        """Bind a request to the current snapshot; :func:`serve_stdio` does this on receipt."""
+        with self._lock:
+            return _Bound(self._project_id)
 
     def close(self) -> None:
         with self._lock:
@@ -457,7 +493,9 @@ class WebMCPAdapter:
         A missing or stale token file, a refused connection, or a gateway
         error is waited out; an unsafe token file, a rejected credential, or
         any other HTTP error is not, because waiting cannot fix it. Raises
-        :class:`AdapterConfigError` with the reason.
+        :class:`AdapterConfigError` with the reason. Each attempt is capped at
+        the time left, so a backend that accepts and never answers cannot hold
+        the adapter past the bound.
         """
         deadline = clock() + timeout
         while True:
@@ -468,22 +506,24 @@ class WebMCPAdapter:
                     raise AdapterConfigError(str(exc)) from None
                 last = str(exc)
             else:
-                reason = self._try_catalogue(self._use(target))
+                attempt = min(_CATALOGUE_SECONDS, max(deadline - clock(), _MIN_ATTEMPT_SECONDS))
+                reason = self._try_catalogue(self._use(target), timeout=attempt)
                 if reason is None:
                     return
                 last = reason
-            if clock() >= deadline:
+            remaining = deadline - clock()
+            if remaining <= 0:
                 raise AdapterConfigError(
                     f"gave up waiting for SciStudio after {timeout:g} s: {last}. Start SciStudio (the desktop "
                     "app, `scistudio gui` or `scistudio serve`), or check --base-url."
                 )
-            sleep(interval)
+            sleep(min(interval, remaining))
 
-    def _try_catalogue(self, bridge: _Bridge) -> str | None:
+    def _try_catalogue(self, bridge: _Bridge, *, timeout: float | None = None) -> str | None:
         """Fetch the catalogue once; return why it should be retried, or ``None`` on success."""
         base_url = bridge.target.base_url
         try:
-            response = bridge.get_catalogue()
+            response = bridge.get_catalogue(timeout)
         except httpx.TransportError as exc:
             return f"SciStudio at {base_url} is not reachable ({type(exc).__name__})"
         status = response.status_code
@@ -538,21 +578,24 @@ class WebMCPAdapter:
             self._project_id = project_id if isinstance(project_id, str) else None
         return [entry for entry in tools if isinstance(entry, dict) and isinstance(entry.get("name"), str)]
 
-    def _refresh_catalogue_and_notify(self) -> None:
-        try:
-            response = self._current().get_catalogue()
-            if response.status_code == 200:
-                self._record_catalogue(response)
-            else:
-                logger.warning("catalogue refresh: outcome=http_error status=%d", response.status_code)
-        except (httpx.TransportError, _RpcError) as exc:
-            logger.warning("catalogue refresh: outcome=failed error_type=%s", type(exc).__name__)
+    def _notify_list_changed(self) -> None:
+        """Tell the client its tool list is out of date.
+
+        No new snapshot is adopted here. Calls already read keep the snapshot
+        they were bound to, so a mutation issued for the old project fails as
+        stale instead of running against the new one; the client's next
+        ``tools/list`` adopts the new snapshot.
+        """
         self.emit({"jsonrpc": "2.0", "method": "notifications/tools/list_changed"})
 
     # -- requests -----------------------------------------------------------
 
-    def handle(self, message: Any) -> dict[str, Any] | None:
-        """Handle one decoded JSON-RPC message; return the response, or ``None`` for none."""
+    def handle(self, message: Any, *, bound: _Bound | None = None) -> dict[str, Any] | None:
+        """Handle one decoded JSON-RPC message; return the response, or ``None`` for none.
+
+        ``bound`` is the project snapshot the request was bound to when it was
+        read; without it, the request binds the current snapshot now.
+        """
         if isinstance(message, list):
             return _error(None, _INVALID_REQUEST, "batch requests are not supported")
         if not isinstance(message, dict):
@@ -576,7 +619,8 @@ class WebMCPAdapter:
             response = _error(req_id, _INVALID_PARAMS, "params must be an object")
         else:
             try:
-                response = {"jsonrpc": "2.0", "id": req_id, "result": self._dispatch(method, params)}
+                result = self._dispatch(method, params, bound or self.bind())
+                response = {"jsonrpc": "2.0", "id": req_id, "result": result}
             except _RpcError as exc:
                 response = _error(req_id, exc.code, exc.message)
             except Exception as exc:
@@ -585,7 +629,7 @@ class WebMCPAdapter:
         # MCP: a request the client cancelled gets no response.
         return None if self._take_cancelled(req_id) else response
 
-    def _dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    def _dispatch(self, method: str, params: dict[str, Any], bound: _Bound) -> dict[str, Any]:
         if method == "initialize":
             return self._initialize(params)
         if method == "ping":
@@ -593,7 +637,7 @@ class WebMCPAdapter:
         if method == "tools/list":
             return self._tools_list()
         if method == "tools/call":
-            return self._tools_call(params)
+            return self._tools_call(params, bound.project_id)
         raise _RpcError(_METHOD_NOT_FOUND, f"unknown method '{method}'")
 
     def _notification(self, method: str, params: Any) -> None:
@@ -662,7 +706,7 @@ class WebMCPAdapter:
         logger.info("tools/list: outcome=ok tools=%d project=%s", len(tools), self.project_id)
         return {"tools": tools}
 
-    def _tools_call(self, params: dict[str, Any]) -> dict[str, Any]:
+    def _tools_call(self, params: dict[str, Any], project_id: str | None) -> dict[str, Any]:
         name = params.get("name")
         arguments = params.get("arguments")
         if arguments is None:
@@ -673,13 +717,15 @@ class WebMCPAdapter:
             raise _RpcError(_INVALID_PARAMS, "tools/call 'arguments' must be an object")
         bridge = self._current()
         try:
-            response = bridge.post_call({"name": name, "arguments": arguments, "projectId": self.project_id})
+            # The snapshot this call was bound to on receipt, never a newer one
+            # another call's stale answer brought in (Spec 1 FR-005).
+            response = bridge.post_call({"name": name, "arguments": arguments, "projectId": project_id})
         except httpx.TransportError as exc:
             # A refused connection never reached SciStudio; a failure once
             # connected may have happened after the tool started.
             outcome_unknown = not isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout))
             if self._refresh_target() is not None:
-                self._refresh_catalogue_and_notify()
+                self._notify_list_changed()
                 logger.info("tools/call: tool=%s outcome=backend_restarted", name)
                 return _restarted_result(name, outcome_unknown=outcome_unknown)
             logger.warning("tools/call: tool=%s outcome=unreachable error_type=%s", name, type(exc).__name__)
@@ -698,7 +744,7 @@ class WebMCPAdapter:
         if status == 409 and (detail := _stale_detail(response)) is not None:
             # FR-005: never retried; the client re-lists and the model decides.
             logger.info("tools/call: tool=%s outcome=%s", name, STALE_PROJECT_CODE)
-            self._refresh_catalogue_and_notify()
+            self._notify_list_changed()
             return _stale_result(name, detail)
         if status == 404:
             logger.info("tools/call: tool=%s outcome=unknown_tool", name)
@@ -706,7 +752,7 @@ class WebMCPAdapter:
         if _is_auth_status(status):
             # The guard refused before dispatch, so the tool did not run.
             if self._refresh_target() is not None:
-                self._refresh_catalogue_and_notify()
+                self._notify_list_changed()
                 logger.info("tools/call: tool=%s outcome=backend_restarted", name)
                 return _restarted_result(name, outcome_unknown=False)
             logger.warning("tools/call: tool=%s outcome=auth_rejected status=%d", name, status)
@@ -722,14 +768,31 @@ class WebMCPAdapter:
 # ---------------------------------------------------------------------------
 
 
-def serve_stdio(adapter: WebMCPAdapter, stdin: IO[bytes], stdout: IO[bytes], *, max_workers: int = 8) -> int:
+def serve_stdio(
+    adapter: WebMCPAdapter,
+    stdin: IO[bytes],
+    stdout: IO[bytes],
+    *,
+    max_workers: int = 8,
+    drain_timeout: float = _DRAIN_SECONDS,
+) -> int:
     """Serve MCP on ``stdin``/``stdout`` until ``stdin`` closes; return the exit code.
 
-    Each request runs on a worker thread, so a long tool call does not hold up
-    others; responses and notifications are written whole, one per line.
-    Nothing else is ever written to ``stdout``.
+    Each request is bound to the current project snapshot when it is read,
+    then runs on a worker thread, so a long tool call does not hold up others
+    and a call queued behind others keeps the project it was issued for.
+    Responses and notifications are written whole, one per line; nothing else
+    is ever written to ``stdout``.
+
+    When ``stdin`` closes, queued and in-flight calls get ``drain_timeout``
+    seconds to finish. After that, queued calls are dropped, the bridge client
+    is closed to abort the calls in flight, and the function returns within a
+    short grace period. The workers are daemon threads, so a call that still
+    hangs cannot keep the process alive.
     """
     write_lock = threading.Lock()
+    closing = threading.Event()
+    work: queue.Queue[tuple[Any, _Bound] | None] = queue.Queue()
 
     def write(message: dict[str, Any]) -> None:
         data = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8") + b"\n"
@@ -737,14 +800,9 @@ def serve_stdio(adapter: WebMCPAdapter, stdin: IO[bytes], stdout: IO[bytes], *, 
             stdout.write(data)
             stdout.flush()
 
-    def process(line: bytes) -> None:
+    def process(message: Any, bound: _Bound) -> None:
         try:
-            try:
-                message = json.loads(line)
-            except ValueError:
-                write(_error(None, _PARSE_ERROR, "parse error: the line is not valid JSON"))
-                return
-            response = adapter.handle(message)
+            response = adapter.handle(message, bound=bound)
             if response is not None:
                 write(response)
         except OSError as exc:
@@ -752,13 +810,50 @@ def serve_stdio(adapter: WebMCPAdapter, stdin: IO[bytes], stdout: IO[bytes], *, 
         except Exception as exc:
             logger.error("request handling failed: error_type=%s", type(exc).__name__)
 
+    def worker() -> None:
+        while True:
+            item = work.get()
+            if item is None:
+                return
+            if not closing.is_set():
+                process(*item)
+
     adapter.emit = write
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="scistudio-webmcp-adapter") as pool:
-        for raw in iter(stdin.readline, b""):
-            line = raw.strip()
-            if line:
-                pool.submit(process, line)
+    workers = [
+        threading.Thread(target=worker, name=f"scistudio-webmcp-adapter-{index}", daemon=True)
+        for index in range(max(1, max_workers))
+    ]
+    for thread in workers:
+        thread.start()
+    for raw in iter(stdin.readline, b""):
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+        except ValueError:
+            with contextlib.suppress(OSError):
+                write(_error(None, _PARSE_ERROR, "parse error: the line is not valid JSON"))
+            continue
+        # Bind now, on receipt: a snapshot adopted after this line was read must never reach this call.
+        work.put((message, adapter.bind()))
+
+    for _ in workers:
+        work.put(None)
+    if not _join_all(workers, drain_timeout):
+        # The client has gone; stop waiting for calls it will never read.
+        closing.set()
+        adapter.close()
+        _join_all(workers, _ABORT_GRACE_SECONDS)
     return 0
+
+
+def _join_all(threads: list[threading.Thread], timeout: float) -> bool:
+    """Join ``threads`` within one shared ``timeout``; return whether they all finished."""
+    deadline = time.monotonic() + max(timeout, 0.0)
+    for thread in threads:
+        thread.join(max(deadline - time.monotonic(), 0.0))
+    return not any(thread.is_alive() for thread in threads)
 
 
 # ---------------------------------------------------------------------------
@@ -797,10 +892,10 @@ def render_config(client: str, *, base_url: str | None, needs_token: bool) -> st
             server["env"] = env
         return json.dumps({"mcpServers": {SERVER_NAME: server}}, indent=2)
     if client == ConfigClient.CLAUDE_CODE:
-        argv = ["claude", "mcp", "add", "--transport", "stdio"]
-        for key, value in env.items():
-            argv += ["--env", f"{key}={value}"]
-        argv += [SERVER_NAME, "--", *command]
+        # No ``--env``: a token on a command line lands in shell history and
+        # process listings. The adapter reads SCISTUDIO_MCP_TOKEN from the
+        # environment Claude Code runs in.
+        argv = ["claude", "mcp", "add", "--transport", "stdio", SERVER_NAME, "--", *command]
         return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
     if client == ConfigClient.CODEX:
         lines = [
@@ -841,6 +936,9 @@ def _configure_logging(level: str) -> None:
 
 def _print_config(client: str, *, base_url: str | None, token: str | None) -> int:
     try:
+        if token is not None and base_url is None:
+            # The adapter would refuse this configuration at runtime.
+            raise AdapterConfigError("a token needs --base-url naming the SciStudio service it belongs to")
         normalized = normalize_base_url(base_url) if base_url else None
         needs_token = token is not None or (normalized is not None and not is_loopback_url(normalized))
         snippet = render_config(client, base_url=normalized, needs_token=needs_token)
@@ -849,7 +947,11 @@ def _print_config(client: str, *, base_url: str | None, token: str | None) -> in
         return 2
     sys.stdout.write(snippet + "\n")
     sys.stdout.flush()
-    if needs_token:
+    if needs_token and client == ConfigClient.CLAUDE_CODE:
+        _stderr(
+            "set SCISTUDIO_MCP_TOKEN in the environment Claude Code runs in; the token never goes on a command line"
+        )
+    elif needs_token:
         _stderr(f"the token is never printed; replace {TOKEN_PLACEHOLDER} with it")
     return 0
 
@@ -879,6 +981,8 @@ def run(
     adapter: WebMCPAdapter | None = None
     try:
         normalized = normalize_base_url(base_url) if base_url else None
+        if token and normalized and urlsplit(normalized).scheme == "http" and not is_loopback_url(normalized):
+            _stderr("warning: the bearer token is sent over plain http to another computer; use an https URL")
         adapter = WebMCPAdapter(functools.partial(resolve_target, normalized, token), transport=transport)
         adapter.connect(timeout=max(startup_timeout, 0.0))
         logger.info("serving MCP over stdio")

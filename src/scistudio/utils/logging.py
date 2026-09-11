@@ -1,15 +1,17 @@
-"""Structured logging configuration (level routing, layered file sink).
-
-#827 introduced the minimal stderr entry point. #1741 extends it:
-``configure_logging`` now also installs rotating human-readable file handlers
-(via :mod:`scistudio.utils.log_setup`) so backend / engine / event-bus /
-websocket logs persist to disk for alpha closed-beta bug reproduction. On-disk
-output is a combined ``scistudio-<pid>.log`` plus one file per layer
-(``api`` / ``engine`` / ``frontend``), human-readable with correlation/run ids
-(owner direction: no JSON files on disk). File logging is best-effort and
-degrades to stderr-only when the log directory is unwritable, so it never
-crashes a process.
-"""
+"""Structured logging configuration (level routing, layered file sink)."""
+# Maintainer context (kept outside generated API documentation):
+# Structured logging configuration (level routing, layered file sink).
+#
+# #827 introduced the minimal stderr entry point. #1741 extends it:
+# ``configure_logging`` now also installs rotating human-readable file handlers
+# (via :mod:`scistudio.utils.log_setup`) so backend / engine / event-bus /
+# websocket logs persist to disk for alpha closed-beta bug reproduction. On-disk
+# output is a combined ``scistudio-<pid>.log`` plus one file per layer
+# (``api`` / ``engine`` / ``frontend``), human-readable with correlation/run ids
+# (owner direction: no JSON files on disk). File logging is best-effort and
+# degrades to stderr-only when the log directory is unwritable, so it never
+# crashes a process.
+# Development references: #1741, #827.
 
 from __future__ import annotations
 

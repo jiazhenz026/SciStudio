@@ -1,4 +1,5 @@
-"""ADR/spec frontmatter and first-section validation per ADR-042."""
+"""ADR/spec frontmatter and first-section validation."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

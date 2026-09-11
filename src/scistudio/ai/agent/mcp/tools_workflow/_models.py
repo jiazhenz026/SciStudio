@@ -1,11 +1,13 @@
-"""Pydantic result-model envelopes for the ``tools_workflow`` tools.
-
-ADR-040 §3.1 FastMCP migration — typed envelopes. Write-class tools
-carry ``next_step: str`` per ADR-040 §3.2.
-
-Extracted from the original single-file ``tools_workflow.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Pydantic result-model envelopes for the ``tools_workflow`` tools."""
+# Maintainer context (kept outside generated API documentation):
+# Pydantic result-model envelopes for the ``tools_workflow`` tools.
+#
+# ADR-040 §3.1 FastMCP migration — typed envelopes. Write-class tools
+# carry ``next_step: str`` per ADR-040 §3.2.
+#
+# Extracted from the original single-file ``tools_workflow.py`` (#1431,
+# umbrella #1427). No behavior change.
+# Development references: #1427, #1431, ADR-040.
 
 from __future__ import annotations
 
@@ -251,11 +253,13 @@ class FinishAIBlockError(BaseModel):
 class ActiveWorkflowContextResult(BaseModel):
     """Result envelope for ``get_active_workflow_context``.
 
-    ADR-040 Addendum 5 / #1488. Both fields are ``None`` when no
+    Both fields are ``None`` when no
     workflow is open in the GUI. ``workflow_name`` falls back to
     ``workflow_id`` when the underlying YAML carries no separate
     ``metadata.title`` / ``metadata.name``.
     """
+
+    # Development references: #1488, ADR-040, Addendum 5.
 
     workflow_id: str | None = Field(
         default=None,

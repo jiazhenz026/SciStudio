@@ -16,12 +16,14 @@ from scistudio.workflow.definition import (
 
 
 class ExposedPortModel(BaseModel):
-    """One ``exposed_ports`` entry (ADR-044 §6).
+    """One ``exposed_ports`` entry.
 
     ``internal`` uses the dot form ``block_id.port`` (NOT the colon wire form
     enforced by :class:`EdgeModel`); it points at a block + port inside the
     same subworkflow file.
     """
+
+    # Development references: ADR-044.
 
     name: str
     internal: str
@@ -50,7 +52,9 @@ class ExposedPortModel(BaseModel):
 
 
 class ExposedPortsModel(BaseModel):
-    """Top-level ``exposed_ports`` section of a workflow YAML file (ADR-044 §6)."""
+    """Top-level ``exposed_ports`` section of a workflow YAML file."""
+
+    # Development references: ADR-044.
 
     inputs: list[ExposedPortModel] = []
     outputs: list[ExposedPortModel] = []

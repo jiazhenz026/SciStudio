@@ -1,25 +1,27 @@
-"""Version deriver: ``base + channel + build`` -> PEP 440 / SemVer / display.
-
-#1742. The single source of truth is :mod:`scistudio._version` (``BASE_VERSION``
-and ``CHANNEL``). The build number comes from the ``SCISTUDIO_BUILD_NUMBER``
-environment override, or a local gitignored counter file
-(``.build-counter.json`` at the repo root), defaulting to ``0``.
-
-Three formats are derived from ``base + channel + build`` so each consumer gets
-a valid string for its ecosystem:
-
-* **PEP 440** (Python packaging — ``pyproject``, ``importlib.metadata``)::
-
-      0.2.1a7   (alpha)    0.2.1b7   (beta)    0.2.1   (stable)
-
-* **display / SemVer** (npm, electron, UI, bug reports)::
-
-      0.2.1-alpha-build0007   0.2.1-beta-build0007   0.2.1   (stable)
-
-The display form ``a.b.c-<channel>-build<NNNN>`` is what the owner asked for; it
-is intentionally NOT PEP 440 (hyphens in the core are invalid), which is why the
-Python track uses the compact ``a<N>``/``b<N>`` prerelease form instead.
-"""
+"""Version deriver: ``base + channel + build`` -> PEP 440 / SemVer / display."""
+# Maintainer context (kept outside generated API documentation):
+# Version deriver: ``base + channel + build`` -> PEP 440 / SemVer / display.
+#
+# #1742. The single source of truth is :mod:`scistudio._version` (``BASE_VERSION``
+# and ``CHANNEL``). The build number comes from the ``SCISTUDIO_BUILD_NUMBER``
+# environment override, or a local gitignored counter file
+# (``.build-counter.json`` at the repo root), defaulting to ``0``.
+#
+# Three formats are derived from ``base + channel + build`` so each consumer gets
+# a valid string for its ecosystem:
+#
+# * **PEP 440** (Python packaging — ``pyproject``, ``importlib.metadata``)::
+#
+#       0.2.1a7   (alpha)    0.2.1b7   (beta)    0.2.1   (stable)
+#
+# * **display / SemVer** (npm, electron, UI, bug reports)::
+#
+#       0.2.1-alpha-build0007   0.2.1-beta-build0007   0.2.1   (stable)
+#
+# The display form ``a.b.c-<channel>-build<NNNN>`` is what the owner asked for; it
+# is intentionally NOT PEP 440 (hyphens in the core are invalid), which is why the
+# Python track uses the compact ``a<N>``/``b<N>`` prerelease form instead.
+# Development references: #1742.
 
 from __future__ import annotations
 
@@ -78,7 +80,7 @@ def repo_root() -> Path | None:
 def counter_path() -> Path | None:
     """Return the local build-counter file path, or ``None`` outside a source tree.
 
-    Codex P2: never fall back to the launch CWD. An installed/bundled app has no
+    Never fall back to the launch CWD. An installed/bundled app has no
     ancestor ``pyproject.toml``, and reading a stray ``.build-counter.json`` from
     the user's working directory would report an unrelated build number. Installed
     builds derive the build from packaged metadata instead (see

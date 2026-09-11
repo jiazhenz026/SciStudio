@@ -1,57 +1,71 @@
-"""Write multi-skill split to both provider trees (ADR-040 §3.4 + §3.5 + §3.8).
+"""Install bundled skills for Claude Code and Codex.
 
-Per ADR §3.4, the monolithic ``SKILL.md`` is split into 1 base index +
-task-scoped skills. ADR-048 SPEC 2 adds ``scistudio-write-plot``, taking
-the bundle to 1 base + 6 task-scoped skills (7 total). Per ADR §3.8, all
-are auto-installed under both:
+The base ``scistudio`` skill and six task skills are installed as siblings
+under ``<project>/.claude/skills/`` and ``<project>/.agents/skills/``. Each
+skill has its own ``<name>/SKILL.md`` so both providers can discover it.
 
-  - ``<project>/.claude/skills/<name>/SKILL.md`` (Claude Code)
-  - ``<project>/.agents/skills/<name>/SKILL.md`` (Codex)
+The task skills cover building workflows, writing blocks, debugging runs,
+inspecting data, project questions, and writing preview plots.
 
-Skills land FLAT under ``skills/`` rather than nested under
-``skills/scistudio/`` because Claude Code's skill discovery
-(https://code.claude.com/docs/en/skills) and Codex Skills
-(https://developers.openai.com/codex/skills) both walk one level only.
-The skill named ``scistudio`` keeps its own ``scistudio/`` directory at this
-top level; task skills sit beside it as siblings. Discovered during
-ADR-040 Phase 4 e2e — the original ADR §3.5/§3.8 nested layout caused
-``Skill(scistudio-write-block) -> Unknown skill`` because the agent's
-skill registry never recursed into ``skills/scistudio/``.
-
-Skill names (per ADR §3.4):
-
-  1. scistudio                  — base index
-  2. scistudio-build-workflow   — design a new workflow
-  3. scistudio-write-block      — author a custom block (#875 + §3.4 port rules)
-  4. scistudio-debug-run        — diagnose a failed run
-  5. scistudio-inspect-data     — explore data references / lineage
-  6. scistudio-project-qa       — project structure / docs Q&A
-  7. scistudio-write-plot       — author a preview-only plot job (ADR-048 SPEC 2)
-
-Source resolution (I40c):
-
-  Skill source content lives at ``src/scistudio/_skills/scistudio/<name>/SKILL.md``
-  per ADR §3.4. That tree is owned by the Skills track (Phase 2b — S40b
-  scaffolds; I40b authors body in Phase 2c). On this implementation
-  branch, the Skills track has NOT yet merged, so the source tree is
-  partially absent. Resolution strategy:
-
-    1. importlib.resources lookup in ``scistudio._skills.scistudio.<name>``
-       (primary, wheel-safe per #824).
-    2. Walk-up filesystem lookup for ``<repo>/_skills/scistudio/<name>/SKILL.md``.
-    3. Walk-up filesystem lookup for ``<repo>/src/scistudio/_skills/scistudio/<name>/SKILL.md``.
-    4. Legacy monolithic ``<repo>/skills/scistudio/SKILL.md`` is used for the
-       base ``scistudio`` skill IF the multi-skill source is not yet present
-       (Phase 2c relocates content into ``_skills/``).
-    5. Placeholder body (marked with ``TODO(#1013)``) for any name that
-       none of the above resolves to. Each placeholder embeds a
-       reference to the Phase 2c followup.
-
-# TODO(#1013): post-cascade cleanup once Skills track merges to main:
-#   collapse fallback chain to importlib.resources-only. The dual-path
-#   logic is a sequencing accommodation for parallel-track development.
-#   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
+Content is loaded from packaged resources first, then the repository's
+``_skills`` and ``src/scistudio/_skills`` directories, then the legacy base
+skill location. A missing skill receives a notice in place of its content.
 """
+# Maintainer context (kept outside generated API documentation):
+# Write multi-skill split to both provider trees (ADR-040 §3.4 + §3.5 + §3.8).
+#
+# Per ADR §3.4, the monolithic ``SKILL.md`` is split into 1 base index +
+# task-scoped skills. ADR-048 SPEC 2 adds ``scistudio-write-plot``, taking
+# the bundle to 1 base + 6 task-scoped skills (7 total). Per ADR §3.8, all
+# are auto-installed under both:
+#
+#   - ``<project>/.claude/skills/<name>/SKILL.md`` (Claude Code)
+#   - ``<project>/.agents/skills/<name>/SKILL.md`` (Codex)
+#
+# Skills land FLAT under ``skills/`` rather than nested under
+# ``skills/scistudio/`` because Claude Code's skill discovery
+# (https://code.claude.com/docs/en/skills) and Codex Skills
+# (https://developers.openai.com/codex/skills) both walk one level only.
+# The skill named ``scistudio`` keeps its own ``scistudio/`` directory at this
+# top level; task skills sit beside it as siblings. Discovered during
+# ADR-040 Phase 4 e2e — the original ADR §3.5/§3.8 nested layout caused
+# ``Skill(scistudio-write-block) -> Unknown skill`` because the agent's
+# skill registry never recursed into ``skills/scistudio/``.
+#
+# Skill names (per ADR §3.4):
+#
+#   1. scistudio                  — base index
+#   2. scistudio-build-workflow   — design a new workflow
+#   3. scistudio-write-block      — author a custom block (#875 + §3.4 port rules)
+#   4. scistudio-debug-run        — diagnose a failed run
+#   5. scistudio-inspect-data     — explore data references / lineage
+#   6. scistudio-project-qa       — project structure / docs Q&A
+#   7. scistudio-write-plot       — author a preview-only plot job (ADR-048 SPEC 2)
+#
+# Source resolution (I40c):
+#
+#   Skill source content lives at ``src/scistudio/_skills/scistudio/<name>/SKILL.md``
+#   per ADR §3.4. That tree is owned by the Skills track (Phase 2b — S40b
+#   scaffolds; I40b authors body in Phase 2c). On this implementation
+#   branch, the Skills track has NOT yet merged, so the source tree is
+#   partially absent. Resolution strategy:
+#
+#     1. importlib.resources lookup in ``scistudio._skills.scistudio.<name>``
+#        (primary, wheel-safe per #824).
+#     2. Walk-up filesystem lookup for ``<repo>/_skills/scistudio/<name>/SKILL.md``.
+#     3. Walk-up filesystem lookup for ``<repo>/src/scistudio/_skills/scistudio/<name>/SKILL.md``.
+#     4. Legacy monolithic ``<repo>/skills/scistudio/SKILL.md`` is used for the
+#        base ``scistudio`` skill IF the multi-skill source is not yet present
+#        (Phase 2c relocates content into ``_skills/``).
+#     5. Placeholder body (marked with ``TODO(#1013)``) for any name that
+#        none of the above resolves to. Each missing-content notice embeds a
+#        reference to the Phase 2c followup.
+#
+# # TODO(#1013): post-cascade cleanup once Skills track merges to main:
+# #   collapse fallback chain to importlib.resources-only. The dual-path
+# #   logic is a sequencing accommodation for parallel-track development.
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
+# Development references: #1013, #824, #875, ADR-040, ADR-048, SPEC 2, TODO.
 
 from __future__ import annotations
 
@@ -77,11 +91,13 @@ _DEST_TREES = (
 
 
 def _placeholder_skill_body(name: str) -> str:
-    """Generate a placeholder body (with ``TODO(#1013)`` marker) for a skill not yet sourced.
-
-    Phase 2c (I40b) authors the real bodies and removes the need for this
-    fallback (the importlib.resources path will resolve instead).
-    """
+    """Return a notice for a skill whose bundled content could not be found."""
+    # Maintainer context (kept outside generated API documentation):
+    # Generate a placeholder body (with ``TODO(#1013)`` marker) for a skill not yet sourced.
+    #
+    #     Phase 2c (I40b) authors the real bodies and removes the need for this
+    #     fallback (the importlib.resources path will resolve instead).
+    # Development references: #1013, TODO.
     return (
         f"---\nname: {name}\ndescription: |\n"
         f"  SciStudio task-scoped skill ({name}). Content authored in\n"
@@ -155,15 +171,16 @@ def write_skills(
 ) -> list[str]:
     """Cross-install the SciStudio skill bundle to both provider trees.
 
-    With 7 skill names (1 base + 6 task skills, including the ADR-048
+    With 7 skill names (1 base + 6 task skills, including the
     ``scistudio-write-plot`` plot skill) cross-installed to both
     ``.claude/skills`` and ``.agents/skills``, a fresh install writes 14
     files. Existing files are refreshed when unchanged since SciStudio last
-    wrote them and preserved when the user edited them (#1860).
+    wrote them and preserved when the user edited them.
 
     Returns:
       List of project-relative paths actually written (max 14 entries).
     """
+    # Development references: #1860, ADR-048.
     project_dir.mkdir(parents=True, exist_ok=True)
     written: list[str] = []
     if manifest is None:

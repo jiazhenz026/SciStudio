@@ -1,23 +1,25 @@
-"""Private helpers shared by ``LoadData`` and its dispatch functions.
-
-This module is **package-private** per ADR-028 Addendum 1 §C9
-("private functions, not helper classes"): every public symbol is
-prefixed with an underscore and the module name itself starts with an
-underscore. External callers must import :class:`LoadData` from
-:mod:`scistudio.blocks.io.loaders`; importing helpers directly is
-unsupported and the names may change without notice.
-
-The functions here were extracted from
-:mod:`scistudio.blocks.io.loaders.load_data` in issue #1459 (Phase 2 of
-the backend god-file refactor umbrella #1427). They keep the
-``_load_*`` dispatch functions and the :class:`LoadData` class in the
-sibling ``load_data`` module short enough to fit under the 750-LOC
-god-file threshold while preserving the exact behavior of every public
-entry point.
-
-Symmetric to :mod:`scistudio.blocks.io.savers._helpers` on the save
-side.
-"""
+"""Private helpers shared by ``LoadData`` and its dispatch functions."""
+# Maintainer context (kept outside generated API documentation):
+# Private helpers shared by ``LoadData`` and its dispatch functions.
+#
+# This module is **package-private** per ADR-028 Addendum 1 §C9
+# ("private functions, not helper classes"): every public symbol is
+# prefixed with an underscore and the module name itself starts with an
+# underscore. External callers must import :class:`LoadData` from
+# :mod:`scistudio.blocks.io.loaders`; importing helpers directly is
+# unsupported and the names may change without notice.
+#
+# The functions here were extracted from
+# :mod:`scistudio.blocks.io.loaders.load_data` in issue #1459 (Phase 2 of
+# the backend god-file refactor umbrella #1427). They keep the
+# ``_load_*`` dispatch functions and the :class:`LoadData` class in the
+# sibling ``load_data`` module short enough to fit under the 750-LOC
+# god-file threshold while preserving the exact behavior of every public
+# entry point.
+#
+# Symmetric to :mod:`scistudio.blocks.io.savers._helpers` on the save
+# side.
+# Development references: #1427, #1459, ADR-028, Addendum 1.
 
 from __future__ import annotations
 
@@ -122,10 +124,11 @@ def _check_pickle_allowed(path: Path, config: BlockConfig) -> bool:
 def _read_xlsx_sheets(path: Path) -> list[tuple[str, Any]]:
     """Read every sheet of an .xlsx workbook into ``(sheet_name, pa.Table)``.
 
-    Uses the pandas + openpyxl bridge (#1810). Returns one entry per sheet in
+    Uses the pandas + openpyxl bridge. Returns one entry per sheet in
     workbook order so the loader can fan a multi-sheet workbook out into a
     Collection of one DataObject per sheet, preserving the sheet name.
     """
+    # Development references: #1810.
     import pandas as pd
     import pyarrow as pa
 

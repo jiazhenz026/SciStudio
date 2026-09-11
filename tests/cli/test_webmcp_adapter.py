@@ -32,7 +32,9 @@ import logging
 import os
 import pathlib
 import shlex
+import socket
 import sys
+import threading
 import time
 import tomllib
 from collections.abc import Callable, Iterator
@@ -90,7 +92,7 @@ def _isolate(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Keep the adapter's logger, credentials, and proxies from leaking between tests."""
     for name in (TOKEN_ENV, "SCISTUDIO_MCP_BASE_URL", "SCISTUDIO_MCP_LOG_LEVEL"):
         monkeypatch.delenv(name, raising=False)
-    # httpx mounts environment proxies ahead of an injected transport.
+    # Keep this machine's own proxy settings out of the tests.
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
         monkeypatch.delenv(name, raising=False)
     log = logging.getLogger(adapter_module.__name__)
@@ -398,10 +400,13 @@ def test_stale_project_call_is_reported_refetched_and_never_retried(
     assert fixture_tools["write"] == [], "the stale mutation must not execute"
     assert len(transport.posts()) == 1, "the stale call must not be retried"
     assert emitted == [LIST_CHANGED]
-    assert adapter.project_id == project_b, "the catalogue must be re-fetched"
+    assert adapter.project_id == opened_project, "only the client's tools/list adopts a new snapshot"
 
-    # The model re-issues the call deliberately: it now runs against B.
-    again = _rpc(adapter, "tools/call", {"name": "adapter_fixture_write", "arguments": {"marker": "b"}}, 2)["result"]
+    # The client re-lists after list_changed, and the model re-issues the
+    # call deliberately: it now runs against B.
+    _rpc(adapter, "tools/list", req_id=2)
+    assert adapter.project_id == project_b
+    again = _rpc(adapter, "tools/call", {"name": "adapter_fixture_write", "arguments": {"marker": "b"}}, 3)["result"]
     assert again["isError"] is False
     assert fixture_tools["write"] == ["b"]
 
@@ -796,7 +801,14 @@ def test_base_url_normalization_keeps_the_service_prefix() -> None:
 
 @pytest.mark.parametrize(
     "raw",
-    ["https://alice:pw-SECRET-3@lab.example.org", "https://lab.example.org/?token=pw-SECRET-3", "ftp://x", "nonsense"],
+    [
+        "https://alice:pw-SECRET-3@lab.example.org",
+        "https://lab.example.org/?token=pw-SECRET-3",
+        "alice:pw-SECRET-3@lab.example.org",  # no scheme: fails the scheme check
+        "hub-pw-SECRET-3-token",  # a token pasted into the base-URL slot
+        "ftp://x",
+        "nonsense",
+    ],
 )
 def test_base_url_refusals_never_echo_a_secret(raw: str) -> None:
     with pytest.raises(AdapterConfigError) as excinfo:
@@ -837,13 +849,29 @@ def test_codex_snippet_is_valid_toml() -> None:
     assert server["startup_timeout_sec"] > adapter_module.DEFAULT_STARTUP_TIMEOUT
 
 
-def test_claude_code_snippet() -> None:
-    snippet = render_config("claude-code", base_url=None, needs_token=True)
-    assert snippet.startswith("claude mcp add --transport stdio --env ")
-    assert f"{TOKEN_ENV}={TOKEN_PLACEHOLDER}" in snippet
+def test_claude_code_snippet_never_carries_the_token() -> None:
+    """The token is read from the environment, never put on a command line."""
+    snippet = render_config("claude-code", base_url="https://lab.example.org", needs_token=True)
+    assert snippet.startswith("claude mcp add --transport stdio scistudio -- ")
+    assert "--env" not in snippet
+    assert TOKEN_PLACEHOLDER not in snippet
     if os.name != "nt":
         argv = shlex.split(snippet)
-        assert argv[argv.index("--") + 1 :] == [sys.executable, "-m", "scistudio", "webmcp-adapter"]
+        assert argv[argv.index("--") + 1 :] == [
+            sys.executable,
+            "-m",
+            "scistudio",
+            "webmcp-adapter",
+            "--base-url",
+            "https://lab.example.org",
+        ]
+
+
+def test_print_config_with_a_token_needs_a_base_url() -> None:
+    result = CliRunner().invoke(cli_app, ["webmcp-adapter", "--print-config", "codex", "--token", "SECRET-NOURL-5"])
+    assert result.exit_code == 2
+    assert "needs --base-url" in result.output
+    assert "SECRET-NOURL-5" not in result.output
 
 
 def test_print_config_command_never_prints_the_token() -> None:
@@ -907,3 +935,180 @@ def test_gui_publishes_the_token_file_while_uvicorn_runs(monkeypatch: pytest.Mon
     assert result.exit_code == 0
     assert seen == {"app_target": "scistudio.api.app:create_app", "port": 8124, "base_url": "http://127.0.0.1:8124"}
     assert bridge._token_file_request is None
+
+
+def test_serve_brackets_an_ipv6_host_in_the_published_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr("uvicorn.run", _capture_armed_request(seen))
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", "")
+    monkeypatch.delenv("SCISTUDIO_ENGINE_API_URL", raising=False)
+    result = CliRunner().invoke(cli_app, ["serve", "--host", "::1", "--port", "8125"])
+    assert result.exit_code == 0
+    assert seen["base_url"] == "http://[::1]:8125"
+    assert is_loopback_url(normalize_base_url(seen["base_url"]))
+
+
+# ---------------------------------------------------------------------------
+# PR #2329 audits: queued calls, loopback-only token, shutdown, startup bound.
+# ---------------------------------------------------------------------------
+
+
+def _call_line(req_id: int, name: str, arguments: dict[str, Any]) -> bytes:
+    message = {"jsonrpc": "2.0", "id": req_id, "method": "tools/call", "params": {"name": name, "arguments": arguments}}
+    return json.dumps(message).encode("utf-8") + b"\n"
+
+
+def test_queued_parallel_mutations_across_a_project_switch_never_run_on_the_new_project(
+    backend: TestClient, opened_project: str, fixture_tools: dict[str, list[str]], tmp_path: Path
+) -> None:
+    """P1 (both audits): calls queued behind a stale one keep the snapshot they were read with."""
+    adapter, transport, _ = _connected(backend)
+    project_b = _open_project(backend, tmp_path / "projects", "Project B")
+    stdin = io.BytesIO(b"".join(_call_line(i, "adapter_fixture_write", {"marker": f"m{i}"}) for i in (1, 2, 3)))
+    stdout = io.BytesIO()
+    # One worker: the second and third calls wait behind the first, which gets the 409.
+    assert serve_stdio(adapter, stdin, stdout, max_workers=1, drain_timeout=30) == 0
+
+    messages = [json.loads(line) for line in stdout.getvalue().splitlines()]
+    results = {message["id"]: message["result"] for message in messages if "id" in message}
+    assert set(results) == {1, 2, 3}
+    for result in results.values():
+        assert result["isError"] is True
+        assert result["structuredContent"] == {
+            "error": "stale_project_context",
+            "presentedProjectId": opened_project,
+            "activeProjectId": project_b,
+        }
+    assert fixture_tools["write"] == [], "no queued mutation may run on the project opened meanwhile"
+    assert [json.loads(request.content)["projectId"] for request in transport.posts()] == [opened_project] * 3
+    assert LIST_CHANGED in messages
+    assert adapter.project_id == opened_project, "only the client's tools/list adopts a new snapshot"
+
+    # After list_changed the client re-lists; only then does a call bind project B.
+    _rpc(adapter, "tools/list", req_id=4)
+    assert adapter.project_id == project_b
+    again = _rpc(adapter, "tools/call", {"name": "adapter_fixture_write", "arguments": {"marker": "b"}}, req_id=5)
+    assert again["result"]["isError"] is False
+    assert fixture_tools["write"] == ["b"]
+
+
+def test_token_file_naming_a_non_loopback_url_is_refused(fake_home: Path, capsys: pytest.CaptureFixture) -> None:
+    """P2 (both audits): the loopback token is only ever sent to a loopback address."""
+    bridge.write_loopback_token_file(token="lan-secret-77", port=8931, base_url="http://10.1.2.3:8931")
+    with pytest.raises(AdapterConfigError, match="not this computer's loopback address"):
+        resolve_target(None, None)
+    started = time.monotonic()
+    assert run(startup_timeout=10) == 2
+    assert time.monotonic() - started < 5, "refused at once, not waited out"
+    assert "lan-secret-77" not in capsys.readouterr().err
+
+
+_PROXY_VARIABLES = ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy")
+
+
+def _set_unreachable_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in _PROXY_VARIABLES:
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    monkeypatch.delenv("NO_PROXY", raising=False)
+    monkeypatch.delenv("no_proxy", raising=False)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        BridgeTarget("http://127.0.0.1:8000", "tok", "token-file"),
+        BridgeTarget("http://localhost:8000", "tok", "bearer"),
+        BridgeTarget("http://[::1]:8000", "tok", "bearer"),
+    ],
+    ids=["token-file", "bearer-localhost", "bearer-ipv6"],
+)
+def test_loopback_targets_never_use_environment_proxies(monkeypatch: pytest.MonkeyPatch, target: BridgeTarget) -> None:
+    """P2 (both audits): the loopback token, and any loopback traffic, never go through a proxy.
+
+    httpx ignores environment proxies whenever a transport is injected, so this
+    inspects the real client the adapter builds rather than sending a request.
+    """
+    _set_unreachable_proxy(monkeypatch)
+    client = adapter_module._Bridge(target, None)
+    try:
+        assert client._client.trust_env is False
+        assert not client._client._mounts, "no proxy transport is mounted"
+    finally:
+        client.close()
+
+
+def test_a_remote_bearer_target_still_honors_environment_proxies(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The control for the test above: a lab URL may need the proxy, and gets it."""
+    _set_unreachable_proxy(monkeypatch)
+    client = adapter_module._Bridge(BridgeTarget("https://lab.example.org", "tok", "bearer"), None)
+    try:
+        assert client._client.trust_env is True
+        assert client._client._mounts, "the environment proxy is mounted"
+    finally:
+        client.close()
+
+
+def test_stdin_close_abandons_hung_calls_within_a_bound() -> None:
+    """P3 (both audits): a hung call cannot keep the adapter alive after its host has gone."""
+    release = threading.Event()
+    posted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            posted.append(json.loads(request.content)["name"])
+            release.wait(30)
+            return httpx.Response(200, json={"content": [], "isError": False})
+        return httpx.Response(200, json={"tools": [], "context": {"projectId": "p1"}})
+
+    adapter = WebMCPAdapter(
+        functools.partial(resolve_target, "https://lab.example.org", "tok"), transport=httpx.MockTransport(handler)
+    )
+    adapter.connect(timeout=0)
+    stdin = io.BytesIO(b"".join(_call_line(i, f"slow_{i}", {}) for i in (1, 2, 3)))
+    started = time.monotonic()
+    try:
+        assert serve_stdio(adapter, stdin, io.BytesIO(), max_workers=2, drain_timeout=0.3) == 0
+        assert time.monotonic() - started < 5
+    finally:
+        release.set()
+    assert sorted(posted) == ["slow_1", "slow_2"], "the queued third call was dropped, not started"
+
+
+def test_startup_timeout_bounds_a_backend_that_never_answers(capsys: pytest.CaptureFixture) -> None:
+    """P3 (with-context audit): each attempt is capped at the time left."""
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(8)  # accepts into the backlog, never answers
+    port = listener.getsockname()[1]
+    try:
+        started = time.monotonic()
+        assert run(base_url=f"http://127.0.0.1:{port}", token="tok", startup_timeout=1) == 2
+        assert time.monotonic() - started < 6
+    finally:
+        listener.close()
+    assert "gave up waiting for SciStudio after 1 s" in capsys.readouterr().err
+
+
+def test_bearer_over_plain_http_to_another_computer_warns_once(capsys: pytest.CaptureFixture) -> None:
+    transport, _ = _fake_bridge()
+    code = run(
+        base_url="http://lab.test",
+        token="tok",
+        startup_timeout=0,
+        transport=transport,
+        stdin=io.BytesIO(),
+        stdout=io.BytesIO(),
+    )
+    assert code == 0
+    assert capsys.readouterr().err.count("plain http") == 1
+    transport, _ = _fake_bridge()
+    code = run(
+        base_url="https://lab.test",
+        token="tok",
+        startup_timeout=0,
+        transport=transport,
+        stdin=io.BytesIO(),
+        stdout=io.BytesIO(),
+    )
+    assert code == 0
+    assert "plain http" not in capsys.readouterr().err

@@ -14,10 +14,12 @@ from scistudio.stability import stable
 class Port:
     """Shared base for block connection endpoints.
 
-    Internal (ADR-052 §4.3): authors declare ports with :class:`InputPort` /
+    Internal: authors declare ports with :class:`InputPort` /
     :class:`OutputPort`; ``Port`` is the shared field carrier and is not part of
     the public ``scistudio.blocks.base`` surface.
     """
+
+    # Development references: ADR-052.
 
     name: str
     accepted_types: list[type]
@@ -92,7 +94,7 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     ``port.accepted_types``.  An empty ``accepted_types`` list means the port
     accepts anything.
 
-    ADR-020-Add6: If *data_type* is a Collection **instance**, checks its
+    If *data_type* is a Collection **instance**, checks its
     ``item_type`` against the port's accepted types.  The Collection wrapper
     is transparent to the port system.  Callers should pass the Collection
     instance directly (not ``type(collection)``).
@@ -101,6 +103,7 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     name is treated as compatible via :func:`same_registered_type`, so runtime
     validation matches what the static workflow validator accepts.
     """
+    # Development references: ADR-020-Add6.
     if not port.accepted_types:
         return True
 
@@ -117,15 +120,21 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
 def port_accepts_signature(port: Port, signature: TypeSignature) -> bool:
     """Check whether *port* accepts a :class:`TypeSignature`.
 
-    Builds the signature for each accepted type and checks if the incoming
-    signature matches (i.e. is a subtype of) at least one of them.
-
-    Internal (ADR-052 §4.3): framework helper, not part of the public surface.
-
-    TODO(#1817): dead code (0 call sites) — keep-or-delete tracked under #1817.
-      Out of scope per ADR-052 §4.3 (demote-only this PR).
-      Followup: https://github.com/jiazhenz026/SciStudio/issues/1817.
+    Build the signature for each accepted type and return whether the incoming
+    signature is a subtype of at least one of them.
     """
+    # Maintainer context (kept outside generated API documentation):
+    # Check whether *port* accepts a :class:`TypeSignature`.
+    #
+    #     Builds the signature for each accepted type and checks if the incoming
+    #     signature matches (i.e. is a subtype of) at least one of them.
+    #
+    #     Internal (ADR-052 §4.3): framework helper, not part of the public surface.
+    #
+    #     TODO(#1817): dead code (0 call sites) — keep-or-delete tracked under #1817.
+    #       Out of scope per ADR-052 §4.3 (demote-only this PR).
+    #       Followup: https://github.com/jiazhenz026/SciStudio/issues/1817.
+    # Development references: #1817, ADR-052, TODO.
     if not port.accepted_types:
         return True
     for accepted in port.accepted_types:
@@ -138,7 +147,7 @@ def port_accepts_signature(port: Port, signature: TypeSignature) -> bool:
 def validate_port_constraint(port: InputPort, value: Any) -> tuple[bool, str]:
     """Validate *value* against the input port's constraint function.
 
-    ADR-020: *value* is a :class:`Collection` (not an individual DataObject).
+    *value* is a :class:`Collection` (not an individual DataObject).
     Constraint functions should iterate over the Collection if they need
     per-item checks::
 
@@ -150,6 +159,7 @@ def validate_port_constraint(port: InputPort, value: Any) -> tuple[bool, str]:
     Returns ``(True, "")`` if valid or no constraint is set.
     Returns ``(False, description)`` on constraint failure.
     """
+    # Development references: ADR-020.
     if port.constraint is None:
         return True, ""
     try:
@@ -172,8 +182,9 @@ def ports_from_config_dicts(
     names fall back to ``DataObject``.  Port names must be unique within
     *dicts* — duplicates are silently de-duplicated (last wins).
 
-    ADR-029 D1: variadic port lists stored in block config use this format.
+    variadic port lists stored in block config use this format.
     """
+    # Development references: ADR-029.
     from scistudio.core.types.base import DataObject
 
     def _resolve_type(name: str) -> type:

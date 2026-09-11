@@ -1,9 +1,11 @@
-"""Scaffold a new SciStudio block package from templates.
-
-Reads ``.tpl`` files from ``cli/templates/block_package/``, performs
-placeholder substitution, and writes the resulting project structure
-to disk.  See ADR-026 Task 3.2/3.3.
-"""
+"""Scaffold a new SciStudio block package from templates."""
+# Maintainer context (kept outside generated API documentation):
+# Scaffold a new SciStudio block package from templates.
+#
+# Reads ``.tpl`` files from ``cli/templates/block_package/``, performs
+# template-field substitution, and writes the resulting project structure
+# to disk.  See ADR-026 Task 3.2/3.3.
+# Development references: ADR-026.
 
 from __future__ import annotations
 

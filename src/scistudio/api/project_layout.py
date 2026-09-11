@@ -1,22 +1,24 @@
-"""The directory layout a new project workspace is created with (#2095).
-
-Two entry points create projects — ``ApiRuntime.create_project`` (the GUI's
-"New project") and ``scistudio init`` (the CLI) — and until this module existed
-they each carried their own hand-written list. They had already drifted: the
-CLI omitted ``data/processed`` while claiming in a comment to be "Symmetric
-with ``api/runtime.py::create_project``", and neither created the drop-in
-directories for previewers or tutorials even though both tiers are discovered
-from a project (:mod:`scistudio.core.dropins`).
-
-The drop-in directory names are imported from :mod:`scistudio.core.dropins`
-rather than respelled here, so the folder a project offers and the folder the
-registry scans cannot disagree. Adding a fifth drop-in kind means adding one
-name to that module and one entry here, not finding every scaffold.
-
-Kept as a leaf module with no heavyweight imports: ``scistudio init`` is a
-fast mkdir command and must not pay for the API runtime to learn what a
-project looks like.
-"""
+"""The directory layout a new project workspace is created with."""
+# Maintainer context (kept outside generated API documentation):
+# The directory layout a new project workspace is created with (#2095).
+#
+# Two entry points create projects — ``ApiRuntime.create_project`` (the GUI's
+# "New project") and ``scistudio init`` (the CLI) — and until this module existed
+# they each carried their own hand-written list. They had already drifted: the
+# CLI omitted ``data/processed`` while claiming in a comment to be "Symmetric
+# with ``api/runtime.py::create_project``", and neither created the drop-in
+# directories for previewers or tutorials even though both tiers are discovered
+# from a project (:mod:`scistudio.core.dropins`).
+#
+# The drop-in directory names are imported from :mod:`scistudio.core.dropins`
+# rather than respelled here, so the folder a project offers and the folder the
+# registry scans cannot disagree. Adding a fifth drop-in kind means adding one
+# name to that module and one entry here, not finding every scaffold.
+#
+# Kept as a leaf module with no heavyweight imports: ``scistudio init`` is a
+# fast mkdir command and must not pay for the API runtime to learn what a
+# project looks like.
+# Development references: #2095.
 
 from __future__ import annotations
 

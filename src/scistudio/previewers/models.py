@@ -633,7 +633,7 @@ class PreviewLimits:
 @internal()
 @dataclass
 class PreviewSession:
-    """Backend-owned preview session (spec Key Entities / FR-007).
+    """Backend-owned preview session.
 
     Attributes:
         session_id: Opaque session identifier.
@@ -644,6 +644,8 @@ class PreviewSession:
         cache_key: Preview cache key where applicable.
         limits: Applied bounded-read budgets.
     """
+
+    # Development references: FR-007.
 
     session_id: str
     previewer_id: str
@@ -805,33 +807,41 @@ class PreviewError(Exception):
 
 @internal()
 class RoutingAmbiguityError(PreviewError):
-    """Two previewers tie on tier, specificity, and priority (FR-004).
+    """Two previewers tie on tier, specificity, and priority.
 
     Runtime-raised by the router; an author signals routing problems through a
     :class:`PreviewErrorCode` on a returned envelope rather than importing this
-    type (ADR-052 §8.1 — Internal).
+    type.
     """
+
+    # Development references: ADR-052, FR-004.
 
     code = PreviewErrorCode.ROUTING_AMBIGUITY
 
 
 @internal()
 class UnknownPreviewerError(PreviewError):
-    """The requested previewer id is not registered (runtime-raised; ADR-052 §8.1 Internal)."""
+    """The requested previewer id is not registered (runtime-raised;  Internal)."""
+
+    # Development references: ADR-052.
 
     code = PreviewErrorCode.UNKNOWN_PREVIEWER
 
 
 @internal()
 class UnknownTargetError(PreviewError):
-    """No previewer (not even a core fallback) matched the target (runtime-raised; ADR-052 §8.1 Internal)."""
+    """No previewer (not even a core fallback) matched the target (runtime-raised;  Internal)."""
+
+    # Development references: ADR-052.
 
     code = PreviewErrorCode.UNKNOWN_TARGET
 
 
 @internal()
 class MissingBundleError(PreviewError):
-    """A previewer declares a frontend manifest but no servable bundle (runtime-raised; ADR-052 §8.1 Internal)."""
+    """A previewer declares a frontend manifest but no servable bundle (runtime-raised;  Internal)."""
+
+    # Development references: ADR-052.
 
     code = PreviewErrorCode.MISSING_BUNDLE
 
@@ -851,14 +861,18 @@ class ProviderError(PreviewError):
 
 @internal()
 class InvalidSpecError(PreviewError):
-    """A previewer spec failed validation at registration time (runtime-raised; ADR-052 §8.1 Internal)."""
+    """A previewer spec failed validation at registration time (runtime-raised;  Internal)."""
+
+    # Development references: ADR-052.
 
     code = PreviewErrorCode.INVALID_SPEC
 
 
 @internal()
 class DuplicatePreviewerIdError(PreviewError):
-    """Two specs declare the same ``previewer_id`` (FR-006; runtime-raised; ADR-052 §8.1 Internal)."""
+    """Two specs declare the same ``previewer_id`` (runtime-raised;  Internal)."""
+
+    # Development references: ADR-052, FR-006.
 
     code = PreviewErrorCode.DUPLICATE_PREVIEWER_ID
 

@@ -1,24 +1,26 @@
-"""weakened_ci_check calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: removal of required check tokens or addition of CI-weakening
-constructs in governed CI/pre-commit/pyproject diffs.
-
-Ported from the legacy ``weakened_ci_check`` (deleted on this branch). Two
-changes per the digest/spec:
-
-1. The ``SCISTUDIO_GATE_BYPASS_LABELS`` environment-variable bypass channel is
-   removed (authorization flows through the ledger; ``mod_guard`` owns the
-   governance-authorization decision).
-2. The required-removal token set is derived from the CI command graph
-   (``checks.CHECK_CATALOG``) rather than a hand-maintained static list, so it
-   tracks the single CI snapshot the evaluator already uses for check selection.
-
-The guard does NOT run git. The evaluator supplies the governed unified diff via
-``GuardInputs.extras['governed_diff_text']`` (a unified-diff string) or
-``extras['governed_diff_lines']`` (pre-parsed ``(path, sign, text)`` triples).
-When no governed diff is supplied, there is nothing to scan and the guard
-passes, recording the absence in its summary.
-"""
+"""Weakened_ci_check calculator."""
+# Maintainer context (kept outside generated API documentation):
+# weakened_ci_check calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: removal of required check tokens or addition of CI-weakening
+# constructs in governed CI/pre-commit/pyproject diffs.
+#
+# Ported from the legacy ``weakened_ci_check`` (deleted on this branch). Two
+# changes per the digest/spec:
+#
+# 1. The ``SCISTUDIO_GATE_BYPASS_LABELS`` environment-variable bypass channel is
+#    removed (authorization flows through the ledger; ``mod_guard`` owns the
+#    governance-authorization decision).
+# 2. The required-removal token set is derived from the CI command graph
+#    (``checks.CHECK_CATALOG``) rather than a hand-maintained static list, so it
+#    tracks the single CI snapshot the evaluator already uses for check selection.
+#
+# The guard does NOT run git. The evaluator supplies the governed unified diff via
+# ``GuardInputs.extras['governed_diff_text']`` (a unified-diff string) or
+# ``extras['governed_diff_lines']`` (pre-parsed ``(path, sign, text)`` triples).
+# When no governed diff is supplied, there is nothing to scan and the guard
+# passes, recording the absence in its summary.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

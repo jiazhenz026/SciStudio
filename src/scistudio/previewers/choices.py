@@ -1,37 +1,39 @@
-"""A user's chosen previewer per type (#2049).
-
-ADR-048 FR-003 fixes one precedence ladder — project, then user, then package,
-then core — and that ladder answers "which previewer is best" without ever
-asking the person looking at the data. When several previewers can render a
-type, the person may prefer one the ladder does not pick: a package's tailored
-spectrum plot over a project-local experiment, or the plain core table over
-either.
-
-This module stores that preference. It is deliberately *not* the FR-005
-project-default mechanism, which stays exactly as specified: a tie-breaker
-between same-tier previewers of equal priority, declared by whoever authored
-the project. That is an author's declaration about a project; this is a
-person's choice about their own view. Keeping them in separate files keeps the
-two from being mistaken for each other, and keeps FR-005's semantics untouched.
-
-**Two layers, project over user.** A choice recorded against the open project
-wins over the same person's global choice, mirroring the tier model blocks,
-types, and previewers already follow. The user layer lives under the library
-root :func:`scistudio.core.dropins.library_root_for_project` resolves, so a
-tutorial project's choices land in the tutorial-scoped library rather than
-following the user into every real project afterwards (ADR-053 FR-070/FR-071).
-
-**Keyed on the exact type name.** A choice made for ``Spectrum`` applies to
-``Spectrum`` and not to a type that merely descends from it. The narrower rule
-is the predictable one: a choice silently governing subtypes the person never
-looked at is harder to explain than one that simply does not apply yet.
-
-Every read is best-effort. A missing file, malformed JSON, an unknown key from
-a newer build, or an entry of the wrong shape is skipped rather than raised —
-the same forward-compatibility rule ``projects.json`` learned in #2073, and for
-the same reason: this file outlives the build that wrote it, and losing a
-preference must never be able to stop a preview from rendering.
-"""
+"""A user's chosen previewer per type."""
+# Maintainer context (kept outside generated API documentation):
+# A user's chosen previewer per type (#2049).
+#
+# ADR-048 FR-003 fixes one precedence ladder — project, then user, then package,
+# then core — and that ladder answers "which previewer is best" without ever
+# asking the person looking at the data. When several previewers can render a
+# type, the person may prefer one the ladder does not pick: a package's tailored
+# spectrum plot over a project-local experiment, or the plain core table over
+# either.
+#
+# This module stores that preference. It is deliberately *not* the FR-005
+# project-default mechanism, which stays exactly as specified: a tie-breaker
+# between same-tier previewers of equal priority, declared by whoever authored
+# the project. That is an author's declaration about a project; this is a
+# person's choice about their own view. Keeping them in separate files keeps the
+# two from being mistaken for each other, and keeps FR-005's semantics untouched.
+#
+# **Two layers, project over user.** A choice recorded against the open project
+# wins over the same person's global choice, mirroring the tier model blocks,
+# types, and previewers already follow. The user layer lives under the library
+# root :func:`scistudio.core.dropins.library_root_for_project` resolves, so a
+# tutorial project's choices land in the tutorial-scoped library rather than
+# following the user into every real project afterwards (ADR-053 FR-070/FR-071).
+#
+# **Keyed on the exact type name.** A choice made for ``Spectrum`` applies to
+# ``Spectrum`` and not to a type that merely descends from it. The narrower rule
+# is the predictable one: a choice silently governing subtypes the person never
+# looked at is harder to explain than one that simply does not apply yet.
+#
+# Every read is best-effort. A missing file, malformed JSON, an unknown key from
+# a newer build, or an entry of the wrong shape is skipped rather than raised —
+# the same forward-compatibility rule ``projects.json`` learned in #2073, and for
+# the same reason: this file outlives the build that wrote it, and losing a
+# preference must never be able to stop a preview from rendering.
+# Development references: #2049, #2073, ADR-048, ADR-053, FR-003, FR-005, FR-070, FR-071.
 
 from __future__ import annotations
 

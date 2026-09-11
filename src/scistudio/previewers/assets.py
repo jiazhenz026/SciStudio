@@ -1,19 +1,21 @@
-"""Same-origin frontend asset serving + manifest validation (ADR-048 FR-022/FR-024).
-
-Package- and project-owned previewers ship a JavaScript ESM module plus
-optional CSS. The frontend PreviewHost imports those at runtime, but ONLY from
-backend-validated, same-origin URLs (FR-022). This module:
-
-* validates a :class:`FrontendManifest` (required fields, api_version,
-  version, remote-URL rejection);
-* path-confines an asset request under the previewer's declared
-  ``asset_root`` so a manifest cannot read arbitrary files (FR-024);
-* returns a typed result the API route can serve.
-
-No remote (http/https/protocol-relative) URLs are ever served — the manifest
-``module_url`` and css entries must be backend-relative
-(``/api/previews/assets/...``) and resolve to a real file under the asset root.
-"""
+"""Same-origin frontend asset serving + manifest validation."""
+# Maintainer context (kept outside generated API documentation):
+# Same-origin frontend asset serving + manifest validation (ADR-048 FR-022/FR-024).
+#
+# Package- and project-owned previewers ship a JavaScript ESM module plus
+# optional CSS. The frontend PreviewHost imports those at runtime, but ONLY from
+# backend-validated, same-origin URLs (FR-022). This module:
+#
+# * validates a :class:`FrontendManifest` (required fields, api_version,
+#   version, remote-URL rejection);
+# * path-confines an asset request under the previewer's declared
+#   ``asset_root`` so a manifest cannot read arbitrary files (FR-024);
+# * returns a typed result the API route can serve.
+#
+# No remote (http/https/protocol-relative) URLs are ever served — the manifest
+# ``module_url`` and css entries must be backend-relative
+# (``/api/previews/assets/...``) and resolve to a real file under the asset root.
+# Development references: ADR-048, FR-022, FR-024.
 
 from __future__ import annotations
 
@@ -61,17 +63,19 @@ class ServedAsset:
 
 
 def is_remote_url(url: str) -> bool:
-    """Return True if *url* points off-origin and must be rejected (FR-022)."""
+    """Return True if *url* points off-origin and must be rejected."""
+    # Development references: FR-022.
     lowered = url.strip().lower()
     return any(lowered.startswith(prefix) for prefix in _REMOTE_PREFIXES)
 
 
 def validate_manifest(manifest: FrontendManifest | None) -> ManifestValidation:
-    """Validate a previewer frontend manifest (FR-024).
+    """Validate a previewer frontend manifest.
 
     Checks required fields, rejects remote URLs, and flags an api_version
     mismatch as a non-fatal diagnostic (the host may still refuse to mount).
     """
+    # Development references: FR-024.
     if manifest is None:
         return ManifestValidation(valid=False, diagnostics=("no frontend manifest declared",))
 
@@ -107,12 +111,13 @@ def validate_manifest(manifest: FrontendManifest | None) -> ManifestValidation:
 
 
 def resolve_asset(manifest: FrontendManifest, relative_path: str) -> ServedAsset:
-    """Confine *relative_path* under the manifest asset root and return it (FR-024).
+    """Confine *relative_path* under the manifest asset root and return it.
 
     Raises :class:`MissingBundleError` when no asset root is declared, the
     resolved path escapes the root, the suffix is disallowed, or the file is
     absent.
     """
+    # Development references: FR-024.
     if not manifest.asset_root:
         raise MissingBundleError(
             f"previewer {manifest.previewer_id!r} declares a manifest but no asset_root",
