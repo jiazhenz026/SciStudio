@@ -1,43 +1,45 @@
-"""Serve the shipped user documentation to the in-app reader (#2157).
-
-SciStudio already writes a complete user documentation set: ``scistudio/_user_guide/``
-— the guide pages plus the generated, self-contained API reference. It ships in
-the wheel, provisioning copies it into every project, and the published site is
-that same tree (site = Home + this tree + the repo-only package development
-guide). Until now the product gave a reader no way to open it without leaving
-for the browser.
-
-These two endpoints are what the Learning Center's Reading tab reads:
-
-* ``GET /api/user-docs/nav``          — the navigation tree
-* ``GET /api/user-docs/pages/{path}`` — one file's text
-
-**The packaged tree, not a project's copy.** The reader is served from
-``importlib.resources``, so the documentation opens with no project on screen and
-can never disagree with the code it was generated from. A project's provisioned
-``user-guide/`` is a copy for the in-project human and the embedded agent; it is
-not a second source of truth.
-
-**The navigation is the site's own.** The owner asked for the web version's left
-menu, so the tree here is not an editorial re-listing: it reproduces the rules
-MkDocs applies when it generates a nav from a directory (MkDocs 1.6,
-``mkdocs.structure.files.get_files`` and ``mkdocs.utils.nest_paths``), which are
-the rules that produced the published sidebar. :func:`_nav_of` documents each one
-against the behaviour it mirrors. Package Development is absent because it is a
-developer document that lives in the repository rather than in this tree — it was
-never part of what ships.
-
-**The page path is a request parameter, and is treated as one** (#2160). It is
-split into plain names by :func:`_segments` — no separator of *either* platform,
-no ``..``, nothing absolute or drive-lettered — and :func:`_contained` checks the
-resolved real path against the tree root behind that. Two locks, because the
-first version had one and it was the wrong one: splitting on ``/`` alone left a
-backslash inside a single segment, where it passed the ``..`` refusal and then
-became a separator the moment ``Path`` joined it on Windows.
-
-The tree is read once per process and cached: it is packaged data, so it cannot
-change under a running server.
-"""
+"""Serve the shipped user documentation to the in-app reader."""
+# Maintainer context (kept outside generated API documentation):
+# Serve the shipped user documentation to the in-app reader (#2157).
+#
+# SciStudio already writes a complete user documentation set: ``scistudio/_user_guide/``
+# — the guide pages plus the generated, self-contained API reference. It ships in
+# the wheel, provisioning copies it into every project, and the published site is
+# that same tree (site = Home + this tree + the repo-only package development
+# guide). Until now the product gave a reader no way to open it without leaving
+# for the browser.
+#
+# These two endpoints are what the Learning Center's Reading tab reads:
+#
+# * ``GET /api/user-docs/nav``          — the navigation tree
+# * ``GET /api/user-docs/pages/{path}`` — one file's text
+#
+# **The packaged tree, not a project's copy.** The reader is served from
+# ``importlib.resources``, so the documentation opens with no project on screen and
+# can never disagree with the code it was generated from. A project's provisioned
+# ``user-guide/`` is a copy for the in-project human and the embedded agent; it is
+# not a second source of truth.
+#
+# **The navigation is the site's own.** The owner asked for the web version's left
+# menu, so the tree here is not an editorial re-listing: it reproduces the rules
+# MkDocs applies when it generates a nav from a directory (MkDocs 1.6,
+# ``mkdocs.structure.files.get_files`` and ``mkdocs.utils.nest_paths``), which are
+# the rules that produced the published sidebar. :func:`_nav_of` documents each one
+# against the behaviour it mirrors. Package Development is absent because it is a
+# developer document that lives in the repository rather than in this tree — it was
+# never part of what ships.
+#
+# **The page path is a request parameter, and is treated as one** (#2160). It is
+# split into plain names by :func:`_segments` — no separator of *either* platform,
+# no ``..``, nothing absolute or drive-lettered — and :func:`_contained` checks the
+# resolved real path against the tree root behind that. Two locks, because the
+# first version had one and it was the wrong one: splitting on ``/`` alone left a
+# backslash inside a single segment, where it passed the ``..`` refusal and then
+# became a separator the moment ``Path`` joined it on Windows.
+#
+# The tree is read once per process and cached: it is packaged data, so it cannot
+# change under a running server.
+# Development references: #2157, #2160.
 
 from __future__ import annotations
 

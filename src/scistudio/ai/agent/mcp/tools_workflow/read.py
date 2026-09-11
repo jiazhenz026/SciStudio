@@ -1,11 +1,13 @@
-"""Read-class workflow tools (6 of 10).
-
-Tools: ``list_blocks``, ``get_block_schema``, ``list_types``,
-``get_workflow``, ``validate_workflow``, ``get_run_status``.
-
-Extracted from the original single-file ``tools_workflow.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Read-class workflow tools (6 of 10)."""
+# Maintainer context (kept outside generated API documentation):
+# Read-class workflow tools (6 of 10).
+#
+# Tools: ``list_blocks``, ``get_block_schema``, ``list_types``,
+# ``get_workflow``, ``validate_workflow``, ``get_run_status``.
+#
+# Extracted from the original single-file ``tools_workflow.py`` (#1431,
+# umbrella #1427). No behavior change.
+# Development references: #1427, #1431.
 
 from __future__ import annotations
 
@@ -93,15 +95,16 @@ async def list_blocks() -> ListBlocksResult:
     when you need a specific block's full configuration.
 
     Use when:
-      - You need to choose a block type for a new workflow node.
-      - You're verifying a block name before referencing it in YAML.
-      - Closing the #875 block-reuse gap before authoring a new block.
+      You need to choose a block type for a new workflow node.
+      You're verifying a block name before referencing it in YAML.
+      Closing the block-reuse gap before authoring a new block.
 
     Do NOT use to:
-      - Inspect a specific block's full schema or config — call
+      Inspect a specific block's full schema or config — call
         ``get_block_schema`` with the block name.
-      - Enumerate data types (use ``list_types``).
+      Enumerate data types (use ``list_types``).
     """
+    # Development references: #875.
     ctx = get_context()
     specs = ctx.block_registry.all_specs()
     blocks = [

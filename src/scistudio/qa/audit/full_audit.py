@@ -1,4 +1,5 @@
-"""Aggregate ADR-042 audit reports and render human-readable summaries."""
+"""Aggregate audit reports and render human-readable summaries."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from scistudio.qa.audit.architecture_drift import check as check_architecture_dr
 from scistudio.qa.audit.closure import check_bidirectional
 from scistudio.qa.audit.developer_docs import check_report as check_developer_docs
 from scistudio.qa.audit.doc_drift import classify_repo
+from scistudio.qa.audit.docstrings import check as check_docstrings
 from scistudio.qa.audit.fact_drift import check_substitutions
 from scistudio.qa.audit.facts import (
     DEFAULT_FACTS_PATH,
@@ -158,11 +160,14 @@ def run(
     include_architecture_drift: bool = True,
     include_vulture: bool = True,
 ) -> AuditReport:
-    """Run the currently implemented ADR-042 aggregate audit checks."""
+    """Run the currently implemented aggregate audit checks."""
+    # Development references: ADR-042.
 
     root = repo_root.resolve()
     facts_child = _facts_report(root, facts_path=facts_path, check_stale=check_stale)
     child_reports = [facts_child]
+    # Documentation safety is independent of the generated facts registry.
+    child_reports.append(check_docstrings(root))
     deferred_children: list[str] = []
     if not facts_child.blocks_merge:
         if include_frontmatter_lint:
@@ -228,7 +233,8 @@ def _summary_value(summary: Mapping[str, Any], key: str) -> Any:
 
 
 def render_markdown(report: AuditReport) -> str:
-    """Render an ADR-042 audit report for human readers."""
+    """Render an audit report for human readers."""
+    # Development references: ADR-042.
 
     facts_report = report.child_reports[0] if report.child_reports else report
     summary = facts_report.summary

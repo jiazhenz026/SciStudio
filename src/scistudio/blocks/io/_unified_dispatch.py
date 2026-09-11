@@ -1,9 +1,11 @@
-"""Runtime helpers for ADR-043 unified Load/Save dispatch.
-
-Core ``Load`` / ``Save`` remain the user-facing blocks. When their selected
-capability belongs to a package IO block, these helpers resolve and invoke the
-owning block while preserving the stable core block surface in workflow YAML.
-"""
+"""Runtime helpers for unified Load/Save dispatch."""
+# Maintainer context (kept outside generated API documentation):
+# Runtime helpers for ADR-043 unified Load/Save dispatch.
+#
+# Core ``Load`` / ``Save`` remain the user-facing blocks. When their selected
+# capability belongs to a package IO block, these helpers resolve and invoke the
+# owning block while preserving the stable core block surface in workflow YAML.
+# Development references: ADR-043.
 
 from __future__ import annotations
 
@@ -30,18 +32,19 @@ def _scan_runtime_registry(
 ) -> Any:
     """Apply the shared drop-in scan directories and execute the scan.
 
-    ADR-053 FR-057: the directories come from :mod:`scistudio.core.dropins`,
+    the directories come from :mod:`scistudio.core.dropins`,
     so IO dispatch sees exactly what the API runtime, the agent runtime, and
     worker-side type reconstruction see. The dispatch path's only input is
     whether a project context exists, which it reads from
     ``SCISTUDIO_PROJECT_DIR``.
 
-    FR-060 deleted the former ``always_home`` parameter. It was ``False`` for
+    deleted the former ``always_home`` parameter. It was ``False`` for
     blocks and ``True`` for types, which made the user block library invisible
     to a worker running outside a project while the user type library stayed
     visible. The user tier is now unconditional for both, so there is no
     decision left for a caller to make.
     """
+    # Development references: ADR-053, FR-057, FR-060.
     register_scan_dirs(registry, project_dir_from_env())
     getattr(registry, scan_method)()
     return registry
@@ -311,9 +314,10 @@ def _effective_params(config: BlockConfig) -> dict[str, Any]:
     IO capability selection: with no ``path`` there is no extension, so
     :func:`selected_capability` matches no format capability and core ``Load`` /
     ``Save`` of a package-registered type fails with "no load/save capability is
-    registered for type ...". Mirror :meth:`BlockConfig.get` (#565) by merging
+    registered for type ...". Mirror :meth:`BlockConfig.get` by merging
     the extras with explicit ``params`` (explicit ``params`` wins on conflict).
     """
+    # Development references: #565.
     extras = getattr(config, "__pydantic_extra__", None) or {}
     merged: dict[str, Any] = dict(extras)
     merged.update(config.params or {})
@@ -321,7 +325,7 @@ def _effective_params(config: BlockConfig) -> dict[str, Any]:
 
 
 def _reads_one_file_at_a_time(loader_cls: type[Any]) -> bool:
-    """True when *loader_cls* leaves multi-file handling to its caller (#2146).
+    """True when *loader_cls* leaves multi-file handling to its caller.
 
     :class:`~scistudio.blocks.io.SimpleLoader` is deliberately a single-file
     base class: an author sets three class attributes and implements
@@ -338,6 +342,7 @@ def _reads_one_file_at_a_time(loader_cls: type[Any]) -> bool:
     that overrides ``load``, including a :class:`SimpleLoader` subclass that
     chooses to.
     """
+    # Development references: #2146.
     from scistudio.blocks.io.simple_io import SimpleLoader
 
     return getattr(loader_cls, "load", None) is SimpleLoader.load
@@ -352,9 +357,10 @@ def delegate_load(
     """Load through the package block selected by a core Load capability.
 
     Returns a :class:`Collection` when ``path`` is a list and the selected loader
-    reads one file at a time (#2146); the core ``Load`` block's output port
+    reads one file at a time; the core ``Load`` block's output port
     declares that Collection for the same config.
     """
+    # Development references: #2146.
     from scistudio.blocks.registry import AmbiguousCapabilityError
 
     data_type = resolve_type_class(core_type)
@@ -400,12 +406,13 @@ def _delegate_load_each(
 
     The item type is inferred from what the loader returned rather than declared
     from the registry. A drop-in type imported by path is a distinct class object
-    with the same ``__name__`` as the registry's (#1950), and ``Collection``
+    with the same ``__name__`` as the registry's, and ``Collection``
     compares item types by identity — declaring the registry's class here fails
     with ``item[0] is Image, expected Image``. Only an empty list needs a type
     stated, and it comes from the capability, whose ``data_type`` is the class
     the loader itself declared.
     """
+    # Development references: #1950.
     items: list[DataObject] = []
     with _activated_package_import_roots():
         for single_path in path_list:

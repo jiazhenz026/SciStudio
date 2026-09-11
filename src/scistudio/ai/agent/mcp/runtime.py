@@ -1,36 +1,38 @@
-"""Reusable MCP runtime setup, shared by the FastAPI lifespan and the standalone bridge.
-
-T-ECA-205 + #787; adapted for ADR-040 FastMCP migration (S40a skeleton).
-
-The FastAPI process and the standalone ``scistudio mcp-bridge`` (used by
-external CLIs like ``claude`` and ``codex``) both need to:
-
-1. Build a :class:`scistudio.blocks.registry.BlockRegistry` scoped to the
-   active project (plus the user-wide ``~/.scistudio/blocks`` and
-   entry-point plugin packages).
-2. Build a :class:`scistudio.core.types.registry.TypeRegistry` populated
-   with builtins, entry-point plugins, and the same project/user drop-in
-   type dirs (ADR-053 FR-059; before that it saw no drop-in type at all).
-3. Install a :class:`MCPContext` against ``_context.set_context`` so the
-   26 MCP tools can reach those registries plus the project root.
-4. Stand up an :class:`MCPServer` (FastMCP-backed per ADR-040 §3.1)
-   listening on the project-local socket.
-
-Previously this lived inline inside ``api/app.py::lifespan``. Issue #787
-extracted it here so the standalone bridge can do exactly the same setup
-without depending on FastAPI / uvicorn.
-
-Important layering note: this module sits inside the AI layer and must
-not import from ``scistudio.api`` (the import-linter contracts forbid
-that direction). We therefore build a thin local context class instead
-of re-using ``ApiRuntime``.
-
-ADR-040 note: S40a skeleton phase preserves the public surface
-(``StandaloneMCPRuntime``, ``make_mcp_runtime``, ``start_inprocess_server``,
-``stop_inprocess_server``). The underlying :class:`MCPServer` is now a
-FastMCP wrapper whose ``start()``/``stop()`` raise ``NotImplementedError``;
-I40a Phase 2a wires the real FastMCP transport into ``start_inprocess_server``.
-"""
+"""Reusable MCP runtime setup, shared by the FastAPI lifespan and the standalone bridge."""
+# Maintainer context (kept outside generated API documentation):
+# Reusable MCP runtime setup, shared by the FastAPI lifespan and the standalone bridge.
+#
+# T-ECA-205 + #787; adapted for ADR-040 FastMCP migration (S40a skeleton).
+#
+# The FastAPI process and the standalone ``scistudio mcp-bridge`` (used by
+# external CLIs like ``claude`` and ``codex``) both need to:
+#
+# 1. Build a :class:`scistudio.blocks.registry.BlockRegistry` scoped to the
+#    active project (plus the user-wide ``~/.scistudio/blocks`` and
+#    entry-point plugin packages).
+# 2. Build a :class:`scistudio.core.types.registry.TypeRegistry` populated
+#    with builtins, entry-point plugins, and the same project/user drop-in
+#    type dirs (ADR-053 FR-059; before that it saw no drop-in type at all).
+# 3. Install a :class:`MCPContext` against ``_context.set_context`` so the
+#    26 MCP tools can reach those registries plus the project root.
+# 4. Stand up an :class:`MCPServer` (FastMCP-backed per ADR-040 §3.1)
+#    listening on the project-local socket.
+#
+# Previously this lived inline inside ``api/app.py::lifespan``. Issue #787
+# extracted it here so the standalone bridge can do exactly the same setup
+# without depending on FastAPI / uvicorn.
+#
+# Important layering note: this module sits inside the AI layer and must
+# not import from ``scistudio.api`` (the import-linter contracts forbid
+# that direction). We therefore build a thin local context class instead
+# of re-using ``ApiRuntime``.
+#
+# ADR-040 note: S40a skeleton phase preserves the public surface
+# (``StandaloneMCPRuntime``, ``make_mcp_runtime``, ``start_inprocess_server``,
+# ``stop_inprocess_server``). The underlying :class:`MCPServer` is now a
+# FastMCP wrapper whose ``start()``/``stop()`` raise ``NotImplementedError``;
+# I40a Phase 2a wires the real FastMCP transport into ``start_inprocess_server``.
+# Development references: #787, ADR-040, ADR-053, ECA-205, FR-059.
 
 from __future__ import annotations
 
@@ -52,9 +54,9 @@ logger = logging.getLogger(__name__)
 def dropin_revision(scan_dirs: Iterable[Path]) -> tuple[tuple[str, int, int], ...]:
     """Return a cheap signature of the drop-in files *scan_dirs* would register.
 
-    ADR-053 FR-065's cross-process half. A process that holds registries has no
+    The API's cross-process half. A process that holds registries has no
     way to be *told* that another process wrote into a shared drop-in directory
-    — the user library is a directory on disk, not a channel — so the signal is
+    the user library is a directory on disk, not a channel — so the signal is
     the directory content itself: every ``.py`` file's path, size, and
     modification time. Comparing two signatures answers "has anything a scan
     would read changed since I last scanned?" without importing anything.
@@ -69,17 +71,22 @@ def dropin_revision(scan_dirs: Iterable[Path]) -> tuple[tuple[str, int, int], ..
     registries' behaviour of skipping absent scan directories.
 
     Two shapes beyond a plain ``<name>.py`` have to be watched, because both
-    are things a scan would read (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``,
-    P3-9 and P3-2):
+    are things a scan would read (
+     and):
 
     * ``<name>/__init__.py``. A package-shaped drop-in type is a first-class
-      citizen of the FR-016 guard, so it must not be invisible to the detector
+      citizen of the guard, so it must not be invisible to the detector
       that decides whether to re-scan.
     * ``<NAME>.PY``. Windows ``glob("*.py")`` is case-insensitive, so an
       uppercase suffix is a live drop-in there, and a case-sensitive comparison
       here meant editing one never moved the signature. The product refuses to
       *create* such a file, but a user can still place one by hand.
     """
+    # Maintainer context:
+    # Two shapes beyond a plain ``<name>.py`` have to be watched, because both
+    # are things a scan would read (
+    # P3-9 and P3-2):
+    # Development references: ADR-053, FR-016, FR-065, adr-053-spec1-write-path.
     entries: list[tuple[str, int, int]] = []
     for directory in scan_dirs:
         try:
@@ -115,7 +122,7 @@ class StandaloneMCPRuntime:
       ``None`` when no project is open.
     * ``workflow_runs`` — empty dict; the bridge has no scheduler.
 
-    **ADR-053 FR-065 — the bridge's invalidation channel.** Under FastAPI the
+    the bridge's invalidation channel.** Under FastAPI the
     context is a read-through adapter over the live ``ApiRuntime``, so anything
     that refreshes the API's registries is immediately visible to the agent.
     The standalone bridge had no equivalent: it built its two registries once
@@ -139,13 +146,16 @@ class StandaloneMCPRuntime:
     the runtime-dependent ``run_workflow`` tool will surface a clear error if
     invoked here.
 
-    # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
-    #   here to satisfy the MCPContext Protocol surface that
-    #   tools_workflow.finish_ai_block reads. Today
-    #   ``_resolve_ai_block_run_dir`` falls back to the env var when the
-    #   attribute is absent, so this is a NICE-TO-HAVE not a blocker.
-    #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
     """
+
+    # Maintainer context (kept outside generated API documentation):
+    # # TODO(#1012): I40a Phase 2a may need to add ``ai_block_run_dir``
+    # #   here to satisfy the MCPContext Protocol surface that
+    # #   tools_workflow.finish_ai_block reads. Today
+    # #   ``_resolve_ai_block_run_dir`` falls back to the env var when the
+    # #   attribute is absent, so this is a NICE-TO-HAVE not a blocker.
+    # #   Out of scope per ADR-040 §3.1 / phase: 2a I40a. Followup: #1012.
+    # Development references: #1012, ADR-040, ADR-053, FR-065, TODO.
 
     _block_registry: BlockRegistry
     _type_registry: TypeRegistry
@@ -218,8 +228,9 @@ def _build_block_registry(project_dir: Path | None) -> BlockRegistry:
 def _build_type_registry(project_dir: Path | None) -> TypeRegistry:
     """Scan project + user types plus plugins; dirs from ``core.dropins``.
 
-    ADR-053 FR-059: this used to register no scan directory at all.
+    this used to register no scan directory at all.
     """
+    # Development references: ADR-053, FR-059.
     from scistudio.core.dropins import register_type_scan_dirs
     from scistudio.core.types.registry import TypeRegistry
 
@@ -234,9 +245,9 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
 
     Equivalent to the setup the FastAPI lifespan performs: both registries
     scan builtins, entry-point plugins, and the project/user drop-in dirs
-    resolved by :mod:`scistudio.core.dropins` (ADR-053 FR-057). Before ADR-053
+    resolved by :mod:`scistudio.core.dropins`. After the update
     this docstring claimed drop-in coverage for both registries while
-    :func:`_build_type_registry` registered no directory at all (FR-059).
+    :func:`_build_type_registry` registered no directory at all.
     Does *not* install the global context — callers are responsible for that
     so they can also tear it down.
 
@@ -248,13 +259,14 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
         with a clear "no project open" error from
         :func:`scistudio.ai.agent.mcp._context._resolve_project_root`. The
         user tier (``~/.scistudio/blocks`` and ``~/.scistudio/types``) is
-        scanned either way (FR-060).
+        scanned either way.
 
     Returns
     -------
     StandaloneMCPRuntime
         A runtime ready to be passed to ``_context.set_context``.
     """
+    # Development references: ADR-053, FR-057, FR-059, FR-060.
     from scistudio.core.dropins import block_scan_dirs, type_scan_dirs
 
     block_registry = _build_block_registry(project_dir)

@@ -327,7 +327,7 @@ class Array(DataObject):
 
     @internal()
     def iter_over(self, axis: str) -> Iterator[Array]:
-        """Yield sub-arrays along one named axis (ADR-027 D4).
+        """Yield sub-arrays along one named axis.
 
         Example::
 
@@ -344,6 +344,7 @@ class Array(DataObject):
                 :attr:`shape` is ``None`` (cannot determine iteration
                 length).
         """
+        # Development references: ADR-027.
         if axis not in self.axes:
             raise ValueError(f"Axis {axis!r} not in {self.axes}")
         if self.shape is None:

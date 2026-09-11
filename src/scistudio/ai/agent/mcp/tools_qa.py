@@ -1,15 +1,17 @@
-"""Category (d) MCP tools — documentation and project Q&A (6 tools).
-
-ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
-
-The 6 tools (all read-class) are:
-
-``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``,
-``open_gui`` (the last added for #1947 so the agent can open the running
-GUI in a browser and self-debug plots / previewers / interactive blocks),
-and ``get_agent_context`` (ADR-055 Spec 2, #2279: the external-audience
-entry point to the project's already-provisioned agent assets).
-"""
+"""MCP tools for documentation and project Q&A (6 tools)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (d) MCP tools — documentation and project Q&A (6 tools).
+#
+# ADR-040 §3.1 FastMCP migration, I40a Phase 2a implementation.
+#
+# The 6 tools (all read-class) are:
+#
+# ``search_docs``, ``get_doc``, ``list_data``, ``get_project_info``,
+# ``open_gui`` (the last added for #1947 so the agent can open the running
+# GUI in a browser and self-debug plots / previewers / interactive blocks),
+# and ``get_agent_context`` (ADR-055 Spec 2, #2279: the external-audience
+# entry point to the project's already-provisioned agent assets).
+# Development references: #1947, #2279, ADR-040, ADR-055, Spec 2.
 
 from __future__ import annotations
 
@@ -96,7 +98,9 @@ class GetProjectInfoResult(BaseModel):
 
 
 class OpenGuiResult(BaseModel):
-    """Result envelope for ``open_gui`` (#1947)."""
+    """Result envelope for ``open_gui``."""
+
+    # Development references: #1947.
 
     url: str = Field(
         description="Base URL of the running SciStudio GUI. Open this in a browser tab.",
@@ -112,32 +116,13 @@ class OpenGuiResult(BaseModel):
 
 
 def _docs_root() -> Path:
-    """Locate the ``docs/`` tree visible to the active MCP session.
+    """Locate the documentation tree of the active MCP project.
 
-    The **only** docs root MCP tools ever resolve is
-    ``ctx.project_dir/docs``. If the active project has no ``docs/``
-    subdirectory this raises :class:`FileNotFoundError`.
-
-    Issue #1097 (P0 information-disclosure): prior to this change
-    ``_docs_root()`` fell back to walking ``__file__.parents`` looking
-    for any ``docs/`` directory. With SciStudio installed editable from a
-    developer checkout (as it commonly is during e2e testing), that walk
-    landed on the developer's source-tree docs/ — letting a production
-    embedded agent search and read SciStudio ADRs / specs / planning
-    documents and disclosing absolute developer-machine paths via MCP
-    responses. This violated the ADR-040 §2.1 dev/prod boundary.
-
-    **No env-var backdoor.** An earlier draft of this fix gated the
-    parents-walk behind ``SCISTUDIO_DEV=1``, mirroring the monorepo-scan
-    convention. That was rejected: any env-var-controlled escape into
-    "dev mode" is a soft attack surface — a compromised shell init, a
-    malicious launcher script, or a supply-chain dependency that sets
-    env vars could silently re-open the leak. The MCP docs surface is
-    therefore identical in production and development. Contributors
-    iterating on SciStudio itself should read source-tree docs through
-    their editor / filesystem tools, not through the production MCP
-    server.
+    Return ``ctx.project_dir/docs``. Raise :class:`FileNotFoundError` when the
+    project has no documentation directory. Searches stay within the active
+    project and do not fall back to the installed package's source tree.
     """
+    # Development references: #1097, ADR-040.
     ctx = get_context()
     if ctx.project_dir is not None:
         candidate = ctx.project_dir / "docs"
@@ -415,24 +400,25 @@ async def open_gui() -> OpenGuiResult:
     """Return the URL of the running SciStudio GUI so you can open it in a browser.
 
     Use when:
-      - You need to SEE the live rendered frontend — a plot, a previewer,
+      You need to SEE the live rendered frontend — a plot, a previewer,
         or an interactive block panel — to debug how it renders or behaves.
-      - You want to drive the GUI yourself with your own browser tooling.
+      You want to drive the GUI yourself with your own browser tooling.
 
     Do NOT use to:
-      - Read a data payload — use ``inspect_data`` / ``preview_data``.
-      - Render a plot artifact headlessly — use ``run_plot_job``.
+      Read a data payload — use ``inspect_data`` / ``preview_data``.
+      Render a plot artifact headlessly — use ``run_plot_job``.
 
     Open the returned URL in a browser tab (the frontend renders the same
     in a plain browser as in the desktop app) and use your own browser
     tools from there. SciStudio does not drive the browser for you.
 
     The URL is read from the ``SCISTUDIO_ENGINE_API_URL`` the backend
-    publishes on startup (ADR-035 §3.10); the SciStudio SPA is served at
+    publishes on startup; the SciStudio SPA is served at
     that server's root. Raises ``RuntimeError`` when no GUI server is
     running for this session — for example when the MCP bridge is in
     standalone mode with no backend behind it.
     """
+    # Development references: ADR-035.
     url = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip()
     if not url:
         raise RuntimeError(

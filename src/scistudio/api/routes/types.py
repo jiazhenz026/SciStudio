@@ -1,26 +1,28 @@
-"""Registered data type listing and the data-type template (ADR-053 §7).
-
-The Data types tab and the canvas both read type colour from here, and
-:func:`list_types` is the only endpoint that reports it (FR-050). Before this
-router, type information reached the frontend only as ``type_hierarchy`` riding
-on the block *schema* response — with no origin tier, no file path, and a
-``ui_ring_color`` field nothing ever populated. FR-027 makes the two
-independent: the Data types tab must not have to fetch blocks to draw types,
-and refreshing types must not mean refreshing the palette.
-
-``type_hierarchy`` is deliberately left exactly as it was. FR-066 moves canvas
-port colour onto this endpoint rather than adding a colour field to
-``TypeHierarchyEntry``, because two supply points for one fact are what this
-work exists to remove; the dead ``ui_ring_color`` field stays dead.
-
-Everything here is derived, never stored. Origin comes from the shared resolver
-(:func:`scistudio.api._block_source.resolve_origin`, FR-003), colour from the
-type registry's validated collection (FR-050/FR-052), extensions from the IO
-format capability table (FR-054), and the owning package name from the block
-registry's own record of it (FR-040) so the two tabs cannot title one
-distribution two ways. This module owns no rule of its own — it asks four
-existing sources one question each and assembles the answer.
-"""
+"""Registered data type listing and the data-type template."""
+# Maintainer context (kept outside generated API documentation):
+# Registered data type listing and the data-type template (ADR-053 §7).
+#
+# The Data types tab and the canvas both read type colour from here, and
+# :func:`list_types` is the only endpoint that reports it (FR-050). Before this
+# router, type information reached the frontend only as ``type_hierarchy`` riding
+# on the block *schema* response — with no origin tier, no file path, and a
+# ``ui_ring_color`` field nothing ever populated. FR-027 makes the two
+# independent: the Data types tab must not have to fetch blocks to draw types,
+# and refreshing types must not mean refreshing the palette.
+#
+# ``type_hierarchy`` is deliberately left exactly as it was. FR-066 moves canvas
+# port colour onto this endpoint rather than adding a colour field to
+# ``TypeHierarchyEntry``, because two supply points for one fact are what this
+# work exists to remove; the dead ``ui_ring_color`` field stays dead.
+#
+# Everything here is derived, never stored. Origin comes from the shared resolver
+# (:func:`scistudio.api._block_source.resolve_origin`, FR-003), colour from the
+# type registry's validated collection (FR-050/FR-052), extensions from the IO
+# format capability table (FR-054), and the owning package name from the block
+# registry's own record of it (FR-040) so the two tabs cannot title one
+# distribution two ways. This module owns no rule of its own — it asks four
+# existing sources one question each and assembles the answer.
+# Development references: ADR-053, FR-003, FR-027, FR-040, FR-050, FR-052, FR-054, FR-066.
 
 from __future__ import annotations
 
@@ -71,10 +73,10 @@ _TEMPLATE_PACKAGE = "scistudio.core.types._templates"
 
 
 def _type_origin(spec: Any, project_dir: Path | None) -> str:
-    """Return the FR-005 origin tier of one type registry spec.
+    """Return the origin tier of one type registry spec.
 
     The type-side adapter over :func:`resolve_origin`, the counterpart of
-    ``map_block_origin`` and holding no rule of its own: FR-003 requires one
+    ``map_block_origin`` and holding no rule of its own: consumers share one
     implementation for both surfaces, so a second path comparison here is
     precisely what must not exist.
 
@@ -86,6 +88,7 @@ def _type_origin(spec: Any, project_dir: Path | None) -> str:
     so without the flag it would read as a plugin distribution instead of
     falling back to ``custom``.
     """
+    # Development references: FR-003, FR-005.
     is_dropin = bool(getattr(spec, "is_dropin", False))
     return resolve_origin(
         TYPE_SURFACE,
@@ -105,7 +108,7 @@ _AMBIGUOUS = ""
 def package_names_by_import_root(block_registry: Any) -> dict[str, str]:
     """Map each import root to the package name the Blocks tab shows for it.
 
-    ADR-053 FR-040. The Data types tab must title a package exactly as the
+    The Data types tab must title a package exactly as the
     Blocks tab does, and the only way to guarantee that is to report the same
     string rather than a second string derived to look like it — an inferred
     name that disagreed with the block side for one distribution would be worse
@@ -122,6 +125,7 @@ def package_names_by_import_root(block_registry: Any) -> dict[str, str]:
     that route blanks is one the Blocks tab never shows, so honouring it here
     would invent a section the other tab does not have.
     """
+    # Development references: ADR-053, FR-040.
     names: dict[str, str] = {}
     for spec in block_registry.all_specs().values():
         name = getattr(spec, "package_name", "") or ""
@@ -139,8 +143,9 @@ def _package_name(spec: Any, origin: str, names: dict[str, str]) -> str | None:
 
     ``None`` covers core, the two drop-in tiers, the ``custom`` fallback, and a
     package whose distribution the block side does not name — the last of which
-    keeps the type in the lumped section rather than dropping it (FR-040).
+    keeps the type in the lumped section rather than dropping it.
     """
+    # Development references: FR-040.
     if origin != PACKAGE_ORIGIN:
         return None
     return names.get(getattr(spec, "package_root", "") or "") or None
@@ -178,9 +183,9 @@ def _summary(
 async def get_type_template(kind: str = "basic") -> TypeTemplateResponse:
     """Return the source of a starter template for a new data type.
 
-    ADR-053 FR-028. The response shape matches ``GET /api/blocks/template``
+    The response shape matches ``GET /api/blocks/template``
     exactly so the new-block and new-data-type flows can share their
-    fetch-write-open steps (FR-033); only the template kind and the target
+    fetch-write-open steps; only the template kind and the target
     subdirectory differ.
 
     Declared as the first route on this router so it stays ahead of any future
@@ -189,6 +194,7 @@ async def get_type_template(kind: str = "basic") -> TypeTemplateResponse:
     Returns HTTP 400 for an unknown ``kind``, and HTTP 500 if the bundled
     template asset is missing from the installation.
     """
+    # Development references: ADR-053, FR-028, FR-033.
     if kind not in _KNOWN_TEMPLATES:
         raise HTTPException(
             status_code=400,
@@ -221,7 +227,7 @@ class TypeReloadResponse(BaseModel):
 async def reload_types(runtime: RuntimeDep) -> TypeReloadResponse:
     """Re-scan the drop-in type directories and broadcast the change.
 
-    The Data types tab's "Reload" button had exactly the defect #1910 fixed on
+    The Data types tab's "Reload" button had exactly the defect fixed on
     the Blocks tab, one release on and one tab over: it re-fetched
     :func:`list_types`, which answers from the in-memory registry and costs no
     scan, so a type the user had just written to ``{project}/types/`` was
@@ -231,12 +237,12 @@ async def reload_types(runtime: RuntimeDep) -> TypeReloadResponse:
     type "did not show up no matter how many times I reloaded", then appeared
     at some unrelated moment for no reason the user could see.
 
-    ADR-053 FR-062 — the re-scan is ``refresh_all_registries()``, the same
+    the re-scan is ``refresh_all_registries()``, the same
     whole-registry rebuild ``POST /api/blocks/reload`` performs, because a
     reload is an *event that invalidates the registry* and the two registries
     share one drop-in scan. This is not a second implementation of that event:
     it is a second surface reaching the one implementation, which is what
-    FR-027 asks for — the Data types tab must not have to speak to the block
+    used by the Data types tab, so it does not have to speak to the block
     endpoints to do its own job, while both endpoints still rebuild the same
     world.
 
@@ -245,9 +251,10 @@ async def reload_types(runtime: RuntimeDep) -> TypeReloadResponse:
     treats it as "``refresh_all_registries()`` ran, re-read both catalogues"
     (``frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts``). Inventing a
     ``types.reloaded`` sibling would mean two events for one fact, which is the
-    drift ADR-053 exists to remove; and the name is accurate here, because the
+    drift exists to remove; and the name is accurate here, because the
     block registry really was rebuilt.
     """
+    # Development references: #1910, ADR-053, FR-027, FR-062.
     before = set(runtime.type_registry.all_types().keys())
     blocks_before = set(runtime.block_registry.all_specs().keys())
     runtime.refresh_all_registries()
@@ -295,18 +302,19 @@ async def list_types(
 ) -> TypeListResponse:
     """Return every registered data type, with origin, colour, and extensions.
 
-    ADR-053 FR-026. Answered entirely from the two registries this request
+    Answered entirely from the two registries this request
     already has, so it costs no scan and can be re-fetched on every reload
-    event without the Data types tab needing a block request (FR-027).
+    event without the Data types tab needing a block request.
 
     Both extension tables and the import-root -> package-name map are built
     once per request rather than per type: the capability list is walked twice
     and the block registry once, not once per registered type.
 
     The listing is sorted by name. The palette groups by origin tier itself
-    (FR-038), and a name sort is the ordering that stays stable when a type's
+    and a name sort is the ordering that stays stable when a type's
     tier changes underneath it.
     """
+    # Development references: ADR-053, FR-026, FR-027, FR-038.
     project_dir = _active_project_dir(runtime)
     load_extensions = format_extensions_by_type(registry, direction="load")
     save_extensions = format_extensions_by_type(registry, direction="save")
@@ -326,7 +334,9 @@ async def list_types(
 
 
 class TypeSourceResponse(BaseModel):
-    """Read-only source backing a registered data type (ADR-053 FR-068)."""
+    """Read-only source backing a registered data type."""
+
+    # Development references: ADR-053, FR-068.
 
     type_name: str
     path: str
@@ -341,14 +351,14 @@ async def get_type_source(
     type_registry: TypeRegistryDep,
     runtime: OptionalRuntimeDep,
 ) -> TypeSourceResponse:
-    """Return the read-only source backing one registered data type (FR-068).
+    """Return the read-only source backing one registered data type.
 
     The type-side counterpart of ``GET /api/blocks/{block_type}/source``, and
     registry-gated for the same reason: the name is looked up in the registry
     and the path comes off the spec, so the only readable files are ones this
     process already loaded. No caller-supplied path reaches the filesystem —
     which is the whole difference between this and the unvalidated path joins
-    filed as #2037 and #2038.
+    filed as and.
 
     **Read-only, for every tier, structurally.** The response carries an
     absolute path, and no save route accepts one: a project file is written
@@ -358,12 +368,13 @@ async def get_type_source(
     a caller wanted one, and it does not pretend otherwise with an ``editable``
     flag that nothing could act on.
 
-    That is also why it is not the whole of FR-068. A type the user owns — the
+    That is also why it is not the whole . A type the user owns — the
     project and user-library tiers — opens through the editable path that tier
     already has, and only a core or packaged type, whose file belongs to an
     installed distribution, comes here. ``origin`` is reported so the tab can
     say which library the source came from.
     """
+    # Development references: #2037, #2038, FR-068.
     spec = type_registry.all_types().get(type_name)
     if spec is None:
         raise HTTPException(status_code=404, detail=f"Unknown data type: {type_name}")

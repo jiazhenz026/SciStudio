@@ -1,54 +1,57 @@
-"""Category (f) MCP tool — promotion into the personal tool library (1 tool).
-
-ADR-053 ``docs/specs/adr-053-personal-tool-library.md`` §4 FR-011 and §6.2 E3.
-Promotion is reachable from five entry points and this is the agent's: without
-it the agent cannot act on the promotion opportunities ADR-053 §3 expects it to
-offer — for instance right after it authors a block the user runs successfully.
-
-Promotion **moves** (FR-017): the library copy is written first, and the
-project's own file is then removed. It used to copy, and leaving both files in
-place turned out to be the worse outcome — the two tiers then hold the same
-block name, and which of them the process actually loads is decided by a
-registry duplicate policy the user cannot see. The user's block keeps working
-in this project either way, because the user tier is scanned unconditionally
-(FR-060); what changes is that "it is in My Library now" becomes true rather
-than approximately true.
-
-A failed removal never fails the promotion. The library copy is on disk, so
-something did happen; the result reports that it is a copy rather than a move
-and says why, which is the only outcome the caller can act on.
-
-**FR-019 is one condition, not a list of cases.** Promotion is offered when
-the block's *resolved origin tier* is ``project`` and refused for every other
-value in the vocabulary — ``builtin``, ``package``, ``user``, and the FR-002
-``custom`` fallback. That is literally the condition E1, E2 and E5 apply
-(``isPromotableOrigin(origin) => origin === "project"`` in
-``frontend/src/components/promotion/promotable.ts``), because both sides now
-read the same resolver.
-
-They did not always. This tool used to ask two narrower questions of its own —
-"is there a file path" and "is the file's parent the library root" — because
-:func:`~scistudio.core.origins.resolve_origin` lived in ``scistudio.api`` and
-the "AI must not depend on api" import-linter contract put it out of reach. The
-result was the divergence FR-003 exists to prevent: a block whose file resolved
-under neither tier root (a symlinked drop-in escaping the project, a differing
-Windows drive) was **hidden by the three frontend entry points and accepted
-here**. The resolver moved to :mod:`scistudio.core.origins`, which both layers
-may import, and this tool now calls
-:func:`~scistudio.core.origins.map_block_origin` — the same function
-``GET /api/blocks/`` calls to fill the ``origin`` field the frontend condition
-reads. See ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
-
-The remaining refusal is FR-008/FR-018's: an existing destination file is
-reported rather than overwritten, and overwriting requires ``overwrite=True``.
-``new_name`` is the save-as-new-name half of the same prompt.
-
-Layering: this module sits in the AI layer, which must not import
-``scistudio.api``, so it reaches the user library through
-:mod:`scistudio.core.dropins` — the same single answer to "where does the user
-tier live" the HTTP endpoint uses (FR-058) — and it never spells out
-``~/.scistudio`` itself.
-"""
+"""MCP tools for promotion into the personal tool library (1 tool)."""
+# Maintainer context (kept outside generated API documentation):
+# Category (f) MCP tool — promotion into the personal tool library (1 tool).
+#
+# ADR-053 ``docs/specs/adr-053-personal-tool-library.md`` §4 FR-011 and §6.2 E3.
+# Promotion is reachable from five entry points and this is the agent's: without
+# it the agent cannot act on the promotion opportunities ADR-053 §3 expects it to
+# offer — for instance right after it authors a block the user runs successfully.
+#
+# Promotion **moves** (FR-017): the library copy is written first, and the
+# project's own file is then removed. It used to copy, and leaving both files in
+# place turned out to be the worse outcome — the two tiers then hold the same
+# block name, and which of them the process actually loads is decided by a
+# registry duplicate policy the user cannot see. The user's block keeps working
+# in this project either way, because the user tier is scanned unconditionally
+# (FR-060); what changes is that "it is in My Library now" becomes true rather
+# than approximately true.
+#
+# A failed removal never fails the promotion. The library copy is on disk, so
+# something did happen; the result reports that it is a copy rather than a move
+# and says why, which is the only outcome the caller can act on.
+#
+# **FR-019 is one condition, not a list of cases.** Promotion is offered when
+# the block's *resolved origin tier* is ``project`` and refused for every other
+# value in the vocabulary — ``builtin``, ``package``, ``user``, and the FR-002
+# ``custom`` fallback. That is literally the condition E1, E2 and E5 apply
+# (``isPromotableOrigin(origin) => origin === "project"`` in
+# ``frontend/src/components/promotion/promotable.ts``), because both sides now
+# read the same resolver.
+#
+# They did not always. This tool used to ask two narrower questions of its own —
+# "is there a file path" and "is the file's parent the library root" — because
+# :func:`~scistudio.core.origins.resolve_origin` lived in ``scistudio.api`` and
+# the "AI must not depend on api" import-linter contract put it out of reach. The
+# result was the divergence FR-003 exists to prevent: a block whose file resolved
+# under neither tier root (a symlinked drop-in escaping the project, a differing
+# Windows drive) was **hidden by the three frontend entry points and accepted
+# here**. The resolver moved to :mod:`scistudio.core.origins`, which both layers
+# may import, and this tool now calls
+# :func:`~scistudio.core.origins.map_block_origin` — the same function
+# ``GET /api/blocks/`` calls to fill the ``origin`` field the frontend condition
+# reads. See ``docs/audit/2026-08-07-adr-053-spec1-track-b.md`` (P2-2).
+#
+# The remaining refusal is FR-008/FR-018's: an existing destination file is
+# reported rather than overwritten, and overwriting requires ``overwrite=True``.
+# ``new_name`` is the save-as-new-name half of the same prompt.
+#
+# Layering: this module sits in the AI layer, which must not import
+# ``scistudio.api``, so it reaches the user library through
+# :mod:`scistudio.core.dropins` — the same single answer to "where does the user
+# tier live" the HTTP endpoint uses (FR-058) — and it never spells out
+# ``~/.scistudio`` itself.
+# Development references: ADR-053, FR-002, FR-003, FR-008, FR-011, FR-017, FR-018, FR-019, FR-058, FR-060,
+# adr-053-spec1-track-b, docs/specs/adr-053-personal-tool-library.md.
 
 from __future__ import annotations
 
@@ -325,9 +328,9 @@ def _atomic_write(destination: Path, payload: bytes) -> None:
     scan — hence :data:`_WRITE_TEMP_SUFFIX` rather than ``.py``, so the temp
     file is not itself a drop-in while it exists. Cleanup catches every
     exception rather than only ``OSError``, because whatever escapes it leaves
-    that file behind permanently
-    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-2).
+    that file behind permanently.
     """
+    # Development references: adr-053-spec1-write-path.
     tmp_fd, tmp_path = tempfile.mkstemp(
         prefix=".__scistudio_promote_",
         suffix=_WRITE_TEMP_SUFFIX,

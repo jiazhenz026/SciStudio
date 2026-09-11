@@ -1,9 +1,11 @@
-"""``finish_ai_block`` tool — write-class (ADR-035 §3.5 path (a)).
-
-Signal the active AI Block that all declared outputs have been written.
-Extracted from the original single-file ``tools_workflow.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Validate and finish an AI Block run."""
+# Maintainer context (kept outside generated API documentation):
+# ``finish_ai_block`` tool — write-class (ADR-035 §3.5 path (a)).
+#
+# Signal the active AI Block that all declared outputs have been written.
+# Extracted from the original single-file ``tools_workflow.py`` (#1431,
+# umbrella #1427). No behavior change.
+# Development references: #1427, #1431, ADR-035.
 
 from __future__ import annotations
 
@@ -49,15 +51,15 @@ async def finish_ai_block(
     """Signal the active AI Block that all declared outputs have been written.
 
     Use when:
-      - You're an AI Block worker that has finished writing every output
+      You're an AI Block worker that has finished writing every output
         file declared in the block's port manifest. Call this exactly once.
 
     Do NOT use to:
-      - Signal partial completion — the AI Block treats the signal as
+      Signal partial completion — the AI Block treats the signal as
         terminal. If you can't produce an output, raise an error in your
         worker code instead.
-      - Call from outside an AI Block context — returns
-        ``not_in_ai_block_context`` error envelope per ADR-035 §3.5.
+      Call from outside an AI Block context — returns
+        ``not_in_ai_block_context`` error envelope.
 
     The tool writes ``signals/finish_ai_block.json`` under the active
     run dir; the CompletionWatcher polls for that file and transitions
@@ -65,11 +67,12 @@ async def finish_ai_block(
     (tempfile + os.replace) — partial writes cannot deceive the watcher.
 
     Error codes:
-      - ``not_in_ai_block_context`` — no active AI Block run dir.
-      - ``invalid_outputs`` — outputs is not dict[str, str].
-      - ``already_finished`` — signal file already exists for this run.
-      - ``io_error`` — disk-level write failure.
+      ``not_in_ai_block_context`` — no active AI Block run dir.
+      ``invalid_outputs`` — outputs is not dict[str, str].
+      ``already_finished`` — signal file already exists for this run.
+      ``io_error`` — disk-level write failure.
     """
+    # Development references: ADR-035.
     run_dir = _resolve_ai_block_run_dir()
     if run_dir is None:
         return FinishAIBlockError(

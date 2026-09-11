@@ -1,4 +1,5 @@
-"""Extract ADR-042 expected signature facts from governed documents."""
+"""Extract expected signature facts from governed documents."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

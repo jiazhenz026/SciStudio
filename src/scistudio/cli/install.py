@@ -1,49 +1,51 @@
-"""``scistudio install`` — wire SciStudio's MCP server + skill into external CLIs.
-
-Issue #787; cross-install + project-scope codex landed in I40d (ADR-040 §3.7
-+ §3.9, #1035). Lets developers use their **own** ``claude`` or ``codex`` CLI
-against SciStudio projects with the full 25-tool MCP surface and SciStudio-aware
-skills installed.
-
-ADR-034 multi-provider (T-013) made the accepted ``--target`` set *derived* from
-the provider registry instead of the hand-maintained ``{"claude", "codex"}``
-literal: every agent provider key is a target, and the historical ``claude`` /
-``codex`` spellings survive as aliases so existing invocations, scripts, and
-``--all`` keep working unchanged. Adding a sixth provider adds a target with no
-edit here — see :func:`install_targets`.
-
-Layout of supported targets:
-
-| Target      | Scope   | File(s) mutated                                                          |
-|-------------|---------|--------------------------------------------------------------------------|
-| claude      | user    | ``~/.claude.json`` (top-level ``mcpServers``)                            |
-| claude      | project | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)                           |
-| codex       | user    | ``~/.codex/config.toml`` (``[mcp_servers.…]``)                           |
-| codex       | project | ``<cwd>/.codex/config.toml`` (``[mcp_servers.…]``) — Codex 2026          |
-| claude-code | both    | Registry-key alias of ``claude``                                        |
-| kimi-code   | project | ``<cwd>/.kimi-code/mcp.json`` (top-level ``mcpServers``)                 |
-| qoder       | project | ``<cwd>/.mcp.json`` (Qoder's own project-scope discovery location)       |
-| qoder-cn    | project | ``<cwd>/.mcp.json`` (same, per its identical adapter strategy)           |
-| skill       | user    | ``~/.claude/skills/scistudio/`` AND ``~/.agents/skills/scistudio/``       |
-| skill       | project | ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/`` |
-
-All operations are idempotent. ``--remove`` reverses any install.
-
-The exact file layouts above were determined empirically (not
-guessed): we inspected ``~/.claude.json`` to confirm Claude Code uses
-a top-level ``mcpServers`` map for user scope, and we ran
-``codex mcp add`` to observe the TOML mutation Codex performs. The
-provider-scoped rows come from the registry's verified adapter matrix
-(ADR-034 spec §1, verified 2026-08-06).
-
-The three providers added by ADR-034 are **project scope only**, and that is a
-decision rather than an omission. Kimi Code's user-scope MCP file is
-``<KIMI_CODE_HOME>/mcp.json``, shared user state that ADR-034 §6 explicitly
-records SciStudio must never mutate; neither Qoder channel was observed to have
-a user-scope MCP config location at all. A user-scope request for those targets
-raises rather than guessing at a path — spec §1's verified facts are the only
-sanctioned source, and inventing one would write into a file the user owns.
-"""
+"""``scistudio install`` — wire SciStudio's MCP server + skill into external CLIs."""
+# Maintainer context (kept outside generated API documentation):
+# ``scistudio install`` — wire SciStudio's MCP server + skill into external CLIs.
+#
+# Issue #787; cross-install + project-scope codex landed in I40d (ADR-040 §3.7
+# + §3.9, #1035). Lets developers use their **own** ``claude`` or ``codex`` CLI
+# against SciStudio projects with the full 25-tool MCP surface and SciStudio-aware
+# skills installed.
+#
+# ADR-034 multi-provider (T-013) made the accepted ``--target`` set *derived* from
+# the provider registry instead of the hand-maintained ``{"claude", "codex"}``
+# literal: every agent provider key is a target, and the historical ``claude`` /
+# ``codex`` spellings survive as aliases so existing invocations, scripts, and
+# ``--all`` keep working unchanged. Adding a sixth provider adds a target with no
+# edit here — see :func:`install_targets`.
+#
+# Layout of supported targets:
+#
+# | Target      | Scope   | File(s) mutated                                                          |
+# |-------------|---------|--------------------------------------------------------------------------|
+# | claude      | user    | ``~/.claude.json`` (top-level ``mcpServers``)                            |
+# | claude      | project | ``<cwd>/.mcp.json`` (top-level ``mcpServers``)                           |
+# | codex       | user    | ``~/.codex/config.toml`` (``[mcp_servers.…]``)                           |
+# | codex       | project | ``<cwd>/.codex/config.toml`` (``[mcp_servers.…]``) — Codex 2026          |
+# | claude-code | both    | Registry-key alias of ``claude``                                        |
+# | kimi-code   | project | ``<cwd>/.kimi-code/mcp.json`` (top-level ``mcpServers``)                 |
+# | qoder       | project | ``<cwd>/.mcp.json`` (Qoder's own project-scope discovery location)       |
+# | qoder-cn    | project | ``<cwd>/.mcp.json`` (same, per its identical adapter strategy)           |
+# | skill       | user    | ``~/.claude/skills/scistudio/`` AND ``~/.agents/skills/scistudio/``       |
+# | skill       | project | ``<cwd>/.claude/skills/scistudio/`` AND ``<cwd>/.agents/skills/scistudio/`` |
+#
+# All operations are idempotent. ``--remove`` reverses any install.
+#
+# The exact file layouts above were determined empirically (not
+# guessed): we inspected ``~/.claude.json`` to confirm Claude Code uses
+# a top-level ``mcpServers`` map for user scope, and we ran
+# ``codex mcp add`` to observe the TOML mutation Codex performs. The
+# provider-scoped rows come from the registry's verified adapter matrix
+# (ADR-034 spec §1, verified 2026-08-06).
+#
+# The three providers added by ADR-034 are **project scope only**, and that is a
+# decision rather than an omission. Kimi Code's user-scope MCP file is
+# ``<KIMI_CODE_HOME>/mcp.json``, shared user state that ADR-034 §6 explicitly
+# records SciStudio must never mutate; neither Qoder channel was observed to have
+# a user-scope MCP config location at all. A user-scope request for those targets
+# raises rather than guessing at a path — spec §1's verified facts are the only
+# sanctioned source, and inventing one would write into a file the user owns.
+# Development references: #1035, #787, ADR-034, ADR-040.
 
 from __future__ import annotations
 
@@ -84,13 +86,15 @@ _LEGACY_TARGET_ALIASES = {"claude": "claude-code", "codex": "codex"}
 
 
 def install_targets() -> tuple[str, ...]:
-    """Every accepted ``--target`` value, legacy aliases first (T-013).
+    """Every accepted ``--target`` value, legacy aliases first.
 
     Derived from :data:`~scistudio.ai.agent.providers_registry.REGISTRY` rather
     than hand-maintained, so a provider added to the registry becomes an install
     target with no edit to this module. ``user-terminal`` is excluded because it
     is a shell, not an agent CLI with an MCP config to wire.
     """
+    # Maintainer context:
+    # Every accepted ``--target`` value, legacy aliases first (T-013).
     return tuple(dict.fromkeys((*_LEGACY_TARGET_ALIASES, *agent_keys())))
 
 
@@ -148,7 +152,7 @@ def _scistudio_command_for_env() -> tuple[str, list[str]]:
     wrong scistudio gets pinned into every project's ``.scistudio/mcp.json``
     and claude's MCP bridge silently uses the stale install. The
     user-visible symptom is "scistudio MCP server failed" inside the AI
-    Block PTY, which kills ADR-035 §3.5 path (a).
+    Block PTY, which kills path (a).
 
     Now anchors at the **current interpreter's** scistudio via
     ``{sys.executable} -m scistudio ...`` so the bridge always runs from
@@ -156,6 +160,7 @@ def _scistudio_command_for_env() -> tuple[str, list[str]]:
     invocation is robust against renamed venvs, PATH order, and
     Windows ``.exe`` shim differences.
     """
+    # Development references: ADR-035.
     return sys.executable, ["-m", "scistudio"]
 
 
@@ -169,7 +174,7 @@ def _mcp_bridge_pythonpath() -> str | None:
     backend ``src`` snapshot.
 
     The two embedded providers launch the MCP server with different inherited
-    environments, which is why Claude Code worked while Codex did not (#1889):
+    environments, which is why Claude Code worked while Codex did not:
 
     * **Claude Code** launches the stdio MCP server inheriting the backend
       process's full environment, so its ``PYTHONPATH`` carries through and
@@ -185,6 +190,7 @@ def _mcp_bridge_pythonpath() -> str | None:
     when no path can be determined (``scistudio`` already on the default path
     and no ambient ``PYTHONPATH``).
     """
+    # Development references: #1889.
     import scistudio
 
     parts: list[str] = [str(Path(scistudio.__file__).resolve().parents[1])]
@@ -208,8 +214,9 @@ def _mcp_entry_payload(project_dir: Path | None) -> dict[str, object]:
     a project scope is in play, or leave it unset (the bridge falls
     back to ``cwd``) at user scope. ``PYTHONPATH`` is injected so the bridge
     imports ``scistudio`` even when the launcher (Codex) strips the parent
-    environment — see :func:`_mcp_bridge_pythonpath` (#1889).
+    environment — see :func:`_mcp_bridge_pythonpath`.
     """
+    # Development references: #1889.
     command, prefix_args = _scistudio_command_for_env()
     entry: dict[str, object] = {
         "command": command,
@@ -456,7 +463,7 @@ def _remove_json_mcp(target: str, descriptor: ProviderDescriptor, scope: str, cw
 def _codex_config_path(scope: str = "user", cwd: Path | None = None) -> Path:
     """Return the Codex config path for *scope*.
 
-    Per ADR-040 §3.7, Codex 2026 supports project-scope ``.codex/config.toml``:
+    Codex 2026 supports project-scope ``.codex/config.toml``:
     Codex walks from project root to cwd loading every ``.codex/config.toml``
     it finds. So we can write a project-scope MCP entry that takes effect
     only when Codex is launched inside that project.
@@ -466,6 +473,7 @@ def _codex_config_path(scope: str = "user", cwd: Path | None = None) -> Path:
     * ``user``:    ``~/.codex/config.toml``
     * ``project``: ``<cwd>/.codex/config.toml`` (cwd defaults to ``Path.cwd()``)
     """
+    # Development references: ADR-040.
     if scope == "user":
         return Path.home() / ".codex" / "config.toml"
     if scope == "project":
@@ -557,7 +565,7 @@ def _strip_codex_block(existing: str) -> tuple[str, bool]:
 def _install_codex(scope: str, cwd: Path) -> InstallResult:
     """Write ``[mcp_servers.scistudio]`` block to Codex's config file.
 
-    Per ADR-040 §3.7 (Codex 2026 project-scope support):
+    (Codex 2026 project-scope support):
 
     * ``scope="user"`` writes ``~/.codex/config.toml`` with no
       ``SCISTUDIO_PROJECT_DIR`` env pin (the bridge resolves cwd dynamically).
@@ -569,6 +577,7 @@ def _install_codex(scope: str, cwd: Path) -> InstallResult:
     differs only by whether ``project_dir`` is ``None`` (user) or ``cwd``
     (project).
     """
+    # Development references: ADR-040.
     if scope == "user":
         project_dir: Path | None = None
     elif scope == "project":
@@ -620,8 +629,9 @@ def _remove_codex(scope: str, cwd: Path) -> InstallResult:
 
     Symmetric to :func:`_install_codex`: user scope edits
     ``~/.codex/config.toml``; project scope edits ``<cwd>/.codex/config.toml``
-    (Codex 2026 project-scope support per ADR-040 §3.7).
+    (Codex 2026 project-scope support).
     """
+    # Development references: ADR-040.
     path = _codex_config_path(scope, cwd)
     if not path.is_file():
         return InstallResult(target="codex", scope=scope, path=path, action="noop", detail="no config file")
@@ -650,12 +660,13 @@ def _skill_tree_roots(scope: str, cwd: Path) -> tuple[Path, Path]:
     """Return ``(claude_skills_root, codex_skills_root)`` for *scope*.
 
     These are the ``skills/`` directories one level *above* each installed
-    skill, i.e. the directory skill discovery walks. Per ADR-040 §3.9 the
+    skill, i.e. the directory skill discovery walks. the
     skill bundle is cross-installed to both Claude Code and Codex skill trees:
 
     * user scope:    ``~/.claude/skills/``   AND ``~/.agents/skills/``
     * project scope: ``<cwd>/.claude/skills/`` AND ``<cwd>/.agents/skills/``
     """
+    # Development references: ADR-040.
     if scope == "user":
         base = Path.home()
     elif scope == "project":
@@ -699,7 +710,7 @@ def _discover_skill_layout(src: Path) -> dict[str, Path]:
 
     Claude Code and Codex skill discovery walk exactly one level under
     ``skills/`` (see :mod:`scistudio.agent_provisioning.skills` module
-    docstring, confirmed by ADR-040 Phase 4 e2e). Copying the whole tree into
+    docstring, confirmed by  e2e). Copying the whole tree into
     a single ``skills/scistudio/`` directory buries every sub-skill one level
     too deep, yielding ``Skill(scistudio-write-block) -> Unknown skill``.
 
@@ -707,6 +718,7 @@ def _discover_skill_layout(src: Path) -> dict[str, Path]:
     skill under its own ``scistudio/`` name, and each task-scoped sub-skill as
     a top-level sibling. Each value is the source directory to copy from.
     """
+    # Development references: ADR-040.
     layout: dict[str, Path] = {MCP_SERVER_NAME: src}
     for child in sorted(src.iterdir()):
         if child.is_dir() and (child / "SKILL.md").is_file():
@@ -717,21 +729,32 @@ def _discover_skill_layout(src: Path) -> dict[str, Path]:
 def _find_skill_source() -> Path:
     """Locate the bundled ``scistudio`` skill tree.
 
-    Resolution order per ADR-040 §3.4:
+    Resolution order:
 
     1. **Packaged location** (preferred): ``importlib.resources.files("scistudio")
-       / "_skills" / "scistudio"``. This is where the skill tree lives in both
-       editable installs (since the S40b relocation, ``src/scistudio/_skills/``)
+       "_skills" / "scistudio"``. This is where the skill tree lives in both
+       editable installs (``src/scistudio/_skills/``)
        and wheel installs (packaged as ``scistudio.data`` via setuptools).
     2. **Repo-root walk-up fallback** (dev checkouts): walk up from this
        module looking for ``<repo>/skills/scistudio/SKILL.md``. Retained because
        some editable-install configurations keep an authoring tree at the
        legacy repo-root path.
 
-    TODO(#1011): Once the packaged ``src/scistudio/_skills/`` tree is the
-    canonical source of truth across all install types (post-Phase 2c), the
-    walk-up fallback should be removed. Out of scope for I40d.
     """
+    # Maintainer context:
+    # 1. **Packaged location** (preferred): ``importlib.resources.files("scistudio")
+    #    "_skills" / "scistudio"``. This is where the skill tree lives in both
+    #    editable installs (since the S40b relocation, ``src/scistudio/_skills/``)
+    #    and wheel installs (packaged as ``scistudio.data`` via setuptools).
+    # 2. **Repo-root walk-up fallback** (dev checkouts): walk up from this
+    #    module looking for ``<repo>/skills/scistudio/SKILL.md``. Retained because
+    #    some editable-install configurations keep an authoring tree at the
+    #    legacy repo-root path.
+    # Maintainer context (kept outside generated API documentation):
+    # TODO(#1011): Once the packaged ``src/scistudio/_skills/`` tree is the
+    # canonical source of truth across all install types (post-Phase 2c), the
+    # walk-up fallback should be removed. Out of scope for I40d.
+    # Development references: #1011, ADR-040, TODO.
     # Path 1: importlib.resources (handles both editable and wheel installs)
     try:
         traversable = importlib_resources.files("scistudio") / "_skills" / MCP_SERVER_NAME
@@ -793,7 +816,7 @@ def _copy_base_skill(src: Path, dest: Path) -> None:
 def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
     """Cross-install the SciStudio skill bundle FLAT to both provider trees.
 
-    Per ADR-040 §3.9, the skill is cross-installed to both providers:
+    the skill is cross-installed to both providers:
 
     * user scope:    ``~/.claude/skills/`` AND ``~/.agents/skills/``
     * project scope: ``<cwd>/.claude/skills/`` AND ``<cwd>/.agents/skills/``
@@ -805,7 +828,7 @@ def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
     ``scistudio-debug-run``, ``scistudio-inspect-data``, ``scistudio-project-qa``)
     lands as a *sibling* at ``<tree>/<name>/SKILL.md``. This is required because
     Claude Code and Codex skill discovery walk exactly one level under
-    ``skills/`` (#1521) — the previous nested ``skills/scistudio/<name>/``
+    ``skills/`` — the previous nested ``skills/scistudio/<name>/``
     layout produced ``Skill(<name>) -> Unknown skill``.
 
     Source is resolved via :func:`_find_skill_source` (preferring the packaged
@@ -817,6 +840,7 @@ def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
     copies (never symlinks) for Windows compatibility — symlinks require
     admin / developer mode on Windows.
     """
+    # Development references: #1521, ADR-040.
     src = _find_skill_source()
     layout = _discover_skill_layout(src)
     claude_root, codex_root = _skill_tree_roots(scope, cwd)
@@ -849,8 +873,8 @@ def _install_skill(scope: str, cwd: Path) -> list[InstallResult]:
 def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
     """Symmetric removal across both Claude and Codex skill trees.
 
-    Per ADR-040 §3.9, mirrors :func:`_install_skill`: removes the FLAT layout
-    — the base ``scistudio/`` directory plus every task-scoped sibling
+    mirrors :func:`_install_skill`: removes the FLAT layout
+    the base ``scistudio/`` directory plus every task-scoped sibling
     sub-skill (``scistudio-*``) — under both ``.claude/skills/`` and
     ``.agents/skills/`` at the requested scope. Returns one ``InstallResult``
     per destination *tree* (``removed`` if anything was deleted, ``noop``
@@ -861,6 +885,7 @@ def _remove_skill(scope: str, cwd: Path) -> list[InstallResult]:
     ``scistudio-*`` sibling directories present in the tree so an install whose
     sub-skill set has since changed still cleans up fully.
     """
+    # Development references: ADR-040.
     claude_root, codex_root = _skill_tree_roots(scope, cwd)
     # Determine the set of skill names to remove. Prefer the bundled layout;
     # fall back to the canonical base name if the source can't be located.
@@ -920,12 +945,12 @@ def perform_install(
     Encapsulates the install/remove logic in a callable form so tests
     (and any future programmatic caller) don't need to drive Typer.
 
-    Per ADR-040 §3.7 + §3.9, the ``--skill`` flag cross-installs to **both**
+    the ``--skill`` flag cross-installs to **both**
     Claude (``~/.claude/skills/``) and Codex (``~/.agents/skills/``) trees,
     and the ``--target codex --scope project`` combination now writes
     ``<cwd>/.codex/config.toml`` (Codex 2026 project-scope support).
 
-    ADR-034 T-013: the accepted target set is :func:`install_targets`, derived
+    the accepted target set is :func:`install_targets`, derived
     from the provider registry. ``--all`` deliberately stays ``claude + codex +
     skill``: it is a convenience for the two CLIs SciStudio can wire at user
     scope, and widening it would make one flag write into every provider's
@@ -949,6 +974,7 @@ def perform_install(
         Project scope's base directory. Defaults to the current
         working directory.
     """
+    # Development references: ADR-034, ADR-040.
     if cwd is None:
         cwd = Path.cwd()
     if scope not in {"user", "project"}:

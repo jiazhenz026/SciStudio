@@ -1,55 +1,57 @@
-"""Worker ↔ engine PTY control IPC for ADR-035 (§3.10).
-
-ADR-035 §3.10 introduces two control events that flow from the AI Block
-**worker subprocess** (running ``AIBlock.run()`` under
-``scistudio.engine.runners.worker``) **back to the engine process**:
-
-  1. :func:`request_pty_tab` — worker asks the engine to open a new
-     PTY tab for a named provider. Engine allocates the tab,
-     emits ``block_pty_opened`` over the workflow WS, returns ``tab_id``.
-  2. :func:`notify_block_pty_event` — worker tells the engine that a
-     completion / cancellation event happened so the engine can update
-     lineage and emit the appropriate frontend WS message.
-
-These are the **only** new wire-surface events introduced by ADR-035
-(per §3.10 "These two control events are the only new wire surface").
-
-ADR-039 §3.4a — agent commit convention
----------------------------------------
-``pty_control`` does **not** itself invoke ``GitEngine.commit()``. The
-ADR-034 / ADR-035 PTY agent runs ``git`` inside the PTY tab (the
-agent's own shell session); for those CLI-level commits the convention
-``agent: <summary> (session=<block_execution_id>)`` is documented in
-``docs/cli-integration.md`` and the agent's system prompt. When the
-agent uses the ``mcp__scistudio__git_commit`` MCP tool instead, the MCP
-server-side wrapper passes ``prefix="agent"`` to
-:meth:`scistudio.core.versioning.git_engine.GitEngine.commit`.
-
-If a future programmatic commit path is added to this module — for
-example, an engine-driven auto-commit on PTY tab close — it MUST pass
-``prefix="agent"`` to keep ADR-039 §3.4 History filtering correct.
-
-Transport
----------
-The current worker→engine IPC channel is one-shot (stdin payload in,
-stdout envelope out — see ``scistudio.engine.runners.worker``). A
-bidirectional reply path does not exist. Per the ADR-035 implementation
-brief (and to avoid touching ``engine/runners/`` which is frozen), this
-module uses **HTTP loopback** to the engine's own FastAPI app:
-
-  * The engine process exposes its own URL via the
-    ``SCISTUDIO_ENGINE_API_URL`` environment variable (e.g.
-    ``http://127.0.0.1:8000``). Worker subprocesses inherit this var.
-  * The engine generates a per-process token in
-    ``SCISTUDIO_ENGINE_IPC_TOKEN`` so opportunistic local processes
-    cannot drive engine-initiated tabs.
-  * The worker POSTs to two internal routes registered by
-    ``scistudio.api.routes.ai_pty`` and authenticates with the token.
-
-For unit tests that do not boot the FastAPI server, an in-process
-override is exposed via :func:`set_in_process_handler` — tests register
-a callable that receives the IPC payload directly.
-"""
+"""Exchange terminal control messages between block workers and the engine."""
+# Maintainer context (kept outside generated API documentation):
+# Worker ↔ engine PTY control IPC for ADR-035 (§3.10).
+#
+# ADR-035 §3.10 introduces two control events that flow from the AI Block
+# **worker subprocess** (running ``AIBlock.run()`` under
+# ``scistudio.engine.runners.worker``) **back to the engine process**:
+#
+#   1. :func:`request_pty_tab` — worker asks the engine to open a new
+#      PTY tab for a named provider. Engine allocates the tab,
+#      emits ``block_pty_opened`` over the workflow WS, returns ``tab_id``.
+#   2. :func:`notify_block_pty_event` — worker tells the engine that a
+#      completion / cancellation event happened so the engine can update
+#      lineage and emit the appropriate frontend WS message.
+#
+# These are the **only** new wire-surface events introduced by ADR-035
+# (per §3.10 "These two control events are the only new wire surface").
+#
+# ADR-039 §3.4a — agent commit convention
+# ---------------------------------------
+# ``pty_control`` does **not** itself invoke ``GitEngine.commit()``. The
+# ADR-034 / ADR-035 PTY agent runs ``git`` inside the PTY tab (the
+# agent's own shell session); for those CLI-level commits the convention
+# ``agent: <summary> (session=<block_execution_id>)`` is documented in
+# ``docs/cli-integration.md`` and the agent's system prompt. When the
+# agent uses the ``mcp__scistudio__git_commit`` MCP tool instead, the MCP
+# server-side wrapper passes ``prefix="agent"`` to
+# :meth:`scistudio.core.versioning.git_engine.GitEngine.commit`.
+#
+# If a future programmatic commit path is added to this module — for
+# example, an engine-driven auto-commit on PTY tab close — it MUST pass
+# ``prefix="agent"`` to keep ADR-039 §3.4 History filtering correct.
+#
+# Transport
+# ---------
+# The current worker→engine IPC channel is one-shot (stdin payload in,
+# stdout envelope out — see ``scistudio.engine.runners.worker``). A
+# bidirectional reply path does not exist. Per the ADR-035 implementation
+# brief (and to avoid touching ``engine/runners/`` which is frozen), this
+# module uses **HTTP loopback** to the engine's own FastAPI app:
+#
+#   * The engine process exposes its own URL via the
+#     ``SCISTUDIO_ENGINE_API_URL`` environment variable (e.g.
+#     ``http://127.0.0.1:8000``). Worker subprocesses inherit this var.
+#   * The engine generates a per-process token in
+#     ``SCISTUDIO_ENGINE_IPC_TOKEN`` so opportunistic local processes
+#     cannot drive engine-initiated tabs.
+#   * The worker POSTs to two internal routes registered by
+#     ``scistudio.api.routes.ai_pty`` and authenticates with the token.
+#
+# For unit tests that do not boot the FastAPI server, an in-process
+# override is exposed via :func:`set_in_process_handler` — tests register
+# a callable that receives the IPC payload directly.
+# Development references: ADR-034, ADR-035, ADR-039.
 
 from __future__ import annotations
 
@@ -69,15 +71,15 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class PtyTabSpec:
-    """Spec for the PTY tab the engine should allocate (ADR-035 §3.10).
+    """Spec for the PTY tab the engine should allocate.
 
-    ADR-034 multi-provider (FR-010): the spec carries the **provider key**
+    multi-provider: the spec carries the **provider key**
     explicitly. It previously carried a fully composed ``spawn_argv`` that
     the engine used only to guess the provider from ``argv[0]``; every
     other element was discarded because the engine's spawn factories
-    re-derive their own argv. Carrying the key removes that guess (FR-011)
+    re-derive their own argv. Carrying the key removes that guess
     and, with it, the worker-side argv composition whose system-prompt
-    temp file nothing ever deleted (FR-013).
+    temp file nothing ever deleted.
 
     Attributes
     ----------
@@ -90,7 +92,7 @@ class PtyTabSpec:
         default for it.
     cwd
         Project directory; the agent runs with this as its cwd. No
-        ``--add-dir`` restriction — full filesystem reach per ADR-035 §3.7.
+        ``--add-dir`` restriction — full filesystem reach.
     initial_stdin
         First user-prompt line piped to the agent. References the
         manifest path under ``.scistudio/ai-block-runs/{run_id}/``.
@@ -108,8 +110,10 @@ class PtyTabSpec:
         is always set so the engine WS handler can locate the right
         directory when writing the ``signals/mark_done.json`` file in
         response to the ``block_user_marked_done`` WS frame
-        (ADR-035 §3.5 path c).
+        (path c).
     """
+
+    # Development references: ADR-034, ADR-035, FR-010, FR-011, FR-013.
 
     title: str
     provider: str
@@ -166,7 +170,7 @@ def request_pty_tab(spec: PtyTabSpec) -> str:
     """Worker → engine: ask the engine to open a PTY tab; return tab_id.
 
     Blocks until the engine confirms the tab spawned. The spawn happens
-    via the existing ADR-034 PTY allocation logic in
+    via the existing PTY allocation logic in
     ``scistudio.ai.agent.terminal``; this function only carries the IPC
     that lets the worker subprocess trigger it.
 
@@ -182,7 +186,7 @@ def request_pty_tab(spec: PtyTabSpec) -> str:
        spec dict and the IPC token from ``SCISTUDIO_ENGINE_IPC_TOKEN``.
     4. Parse the JSON reply ``{"tab_id": str, "error": str|None}``.
        Non-None ``error`` → :class:`RuntimeError`. HTTP 503 (cap
-       exceeded per ADR-034 §8) → :class:`RuntimeError` with cap message.
+       exceeded) → :class:`RuntimeError` with cap message.
 
     Edge cases
     ----------
@@ -199,6 +203,7 @@ def request_pty_tab(spec: PtyTabSpec) -> str:
     BrokenPipeError
         On underlying connection failure.
     """
+    # Development references: ADR-034.
     payload = {"type": "request_pty_tab", "spec": asdict(spec)}
 
     if _in_process_handler is not None:
@@ -271,7 +276,7 @@ def notify_block_pty_event(
 
       * update lineage records,
       * emit ``block_pty_closed`` (or status-update) WS frame to frontend,
-      * decorate the tab title with ✓/✗ per ADR-035 §3.9.
+      * decorate the tab title with ✓/✗.
 
     Implementation
     --------------
@@ -289,6 +294,7 @@ def notify_block_pty_event(
     ValueError
         If ``event`` is not one of the documented literals.
     """
+    # Development references: ADR-035.
     if event not in _VALID_NOTIFY_EVENTS:
         raise ValueError(
             f"notify_block_pty_event: unknown event {event!r}; expected one of {sorted(_VALID_NOTIFY_EVENTS)}"

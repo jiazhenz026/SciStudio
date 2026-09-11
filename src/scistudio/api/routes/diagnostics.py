@@ -1,14 +1,16 @@
-"""Diagnostics endpoints: version, client-log reflux, diagnostic bundle.
-
-#1741 / #1742. Three boundary endpoints for the alpha closed-beta:
-
-* ``GET  /api/version``        — structured version for bug reports.
-* ``POST /api/client-logs``    — frontend logs/errors persisted on the backend
-  (logger ``scistudio.frontend``) so the file sink captures them — no third
-  party.
-* ``GET  /api/diagnostics/bundle`` — a zip of recent log files + an environment
-  manifest + per-run logs, for one-click bug reports.
-"""
+"""Diagnostics endpoints: version, client-log reflux, diagnostic bundle."""
+# Maintainer context (kept outside generated API documentation):
+# Diagnostics endpoints: version, client-log reflux, diagnostic bundle.
+#
+# #1741 / #1742. Three boundary endpoints for the alpha closed-beta:
+#
+# * ``GET  /api/version``        — structured version for bug reports.
+# * ``POST /api/client-logs``    — frontend logs/errors persisted on the backend
+#   (logger ``scistudio.frontend``) so the file sink captures them — no third
+#   party.
+# * ``GET  /api/diagnostics/bundle`` — a zip of recent log files + an environment
+#   manifest + per-run logs, for one-click bug reports.
+# Development references: #1741, #1742.
 
 from __future__ import annotations
 
@@ -132,8 +134,9 @@ def _build_bundle_bytes(frontend_records: object, log_dirs: list[Path]) -> bytes
     :func:`run_in_threadpool`. Walking + DEFLATE-compressing the rotating log
     files (10 MB x N per layer + run logs) is the slow step; doing it inside the
     async handler blocked the event loop and — for the native-dialog export —
-    delayed the save dialog until the whole bundle was built (#1760 bug2).
+    delayed the save dialog until the whole bundle was built (bug2).
     """
+    # Development references: #1760.
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
         manifest = {
@@ -200,9 +203,10 @@ async def diagnostics_bundle(request: Request) -> Any:
     path and a small JSON receipt is returned instead of streaming the bytes
     back. This lets the desktop export show the save dialog *first* and build the
     (potentially large) bundle afterwards, so the dialog no longer waits for the
-    whole zip to be assembled (#1760 bug2). The bundle build always runs off the
+    whole zip to be assembled (bug2). The bundle build always runs off the
     event loop via :func:`run_in_threadpool`.
     """
+    # Development references: #1760.
     frontend_records = None
     destination_raw: object = None
     if request.method == "POST":

@@ -96,7 +96,7 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
     A config may arrive with its fields at the top level or nested under a
     ``params`` key, and may carry keys that are not part of the script config:
     runtime-only keys the runtime injects (such as the project directory) and
-    the ADR-029 variadic canvas-port keys (``input_ports`` / ``output_ports``)
+    the variadic canvas-port keys (``input_ports`` / ``output_ports``)
     the port editor persists. This returns the script settings only, flattened
     and with those non-script keys removed.
 
@@ -106,6 +106,7 @@ def codeblock_config_payload(config: Mapping[str, Any]) -> dict[str, Any]:
     Returns:
         The persisted Code Block settings as a plain dictionary.
     """
+    # Development references: ADR-029.
 
     params = config.get("params")
     if isinstance(params, Mapping):

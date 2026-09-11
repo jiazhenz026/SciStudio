@@ -306,7 +306,7 @@ def render_script_template(language: PlotLanguage) -> str:
     """Return the starter render-script text for a language.
 
     Gives the template body written into a new plot: a ``render(collection)``
-    skeleton with inline guidance and paste-over examples.
+    template with inline guidance and paste-over examples.
 
     Args:
         language: Render-script language (``"python"`` or ``"r"``).

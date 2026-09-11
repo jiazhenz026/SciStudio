@@ -62,14 +62,14 @@ class FrameworkMeta(BaseModel):
     def derive(self, **changes: Any) -> FrameworkMeta:
         """Return a new ``FrameworkMeta`` for a derived object.
 
-        ADR-027 D5 propagation rule: derived slices get a fresh
+        propagation rule: derived slices get a fresh
         ``object_id``, a fresh ``created_at``, and ``derived_from`` set
         to the parent's ``object_id``. Other fields (``source``,
         ``lineage_id``) are inherited unless explicitly overridden via
         ``changes``.
 
         Used by ``Array.sel()``, ``Array.iter_over()``, and
-        ``iterate_over_axes()`` (T-006, T-011) to keep lineage hints
+        ``iterate_over_axes()`` to keep lineage hints
         consistent across derivations.
 
         Args:
@@ -92,6 +92,7 @@ class FrameworkMeta(BaseModel):
             >>> child.object_id != parent.object_id
             True
         """
+        # Development references: ADR-027.
         return type(self)(
             created_at=changes.pop("created_at", datetime.now(UTC)),
             object_id=changes.pop("object_id", uuid4().hex),
@@ -105,7 +106,7 @@ class FrameworkMeta(BaseModel):
     def with_lineage_id(self, lineage_id: str) -> FrameworkMeta:
         """Return a copy of this ``FrameworkMeta`` with ``lineage_id`` set.
 
-        Per ADR-038 §3.2 / ADR-027 D5 the framework slot's ``lineage_id``
+        the framework slot's ``lineage_id``
         field is a foreign key into the unified ``lineage.db`` —
         specifically the ``block_executions.block_execution_id`` that
         produced this DataObject.
@@ -114,17 +115,9 @@ class FrameworkMeta(BaseModel):
         post-execution stamping surface: the scheduler / lineage recorder
         invokes it when materialising ``data_objects`` rows so the
         persisted ``wire_payload`` carries the lineage join key. Because
-        :class:`FrameworkMeta` is ``frozen=True`` per ADR-027 D5, all
+        :class:`FrameworkMeta` is ``frozen=True``, all
         identity / provenance fields (``object_id``, ``derived_from``,
         ``created_at``, ``source``) are preserved verbatim on the copy.
-
-        Phase D38-2.3 introduces this helper. The corresponding scheduler
-        wiring that calls it end-to-end is tracked separately because it
-        requires aligning the ``LineageRecorder.block_execution_id``
-        allocation site with ADR §3.2 (today the recorder allocates the
-        id at terminal-event time; per the ADR the scheduler should
-        allocate it pre-dispatch and propagate). See #929 escalation
-        comment for the cross-phase boundary.
 
         Args:
             lineage_id: The ``block_execution_id`` to stamp.
@@ -141,6 +134,15 @@ class FrameworkMeta(BaseModel):
             >>> stamped.object_id == fm.object_id
             True
         """
+        # Maintainer context:
+        # Phase D38-2.3 introduces this helper. The corresponding scheduler
+        # wiring that calls it end-to-end is tracked separately because it
+        # requires aligning the ``LineageRecorder.block_execution_id``
+        # allocation site with ADR §3.2 (today the recorder allocates the
+        # id at terminal-event time; per the ADR the scheduler should
+        # allocate it pre-dispatch and propagate). See escalation
+        # comment for the cross-phase boundary.
+        # Development references: #929, ADR-027, ADR-038.
         # Pydantic v2 model_copy preserves immutability and re-validates
         # the supplied override. ``deep=False`` is correct: every field is
         # a scalar / datetime — no nested mutable structure to copy.

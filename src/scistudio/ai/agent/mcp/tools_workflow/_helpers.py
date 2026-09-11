@@ -1,12 +1,14 @@
-"""Shared helpers for the ``tools_workflow`` sub-package.
-
-ADR-040 §3.1 FastMCP migration. Extracted from the original single-file
-``tools_workflow.py`` (#1431, umbrella #1427) so each sub-module stays
-below the 750 LOC god-file threshold. No behavior change.
-
-Public surface preserved at ``scistudio.ai.agent.mcp.tools_workflow``
-via the package ``__init__`` re-exports.
-"""
+"""Shared helpers for the ``tools_workflow`` sub-package."""
+# Maintainer context (kept outside generated API documentation):
+# Shared helpers for the ``tools_workflow`` sub-package.
+#
+# ADR-040 §3.1 FastMCP migration. Extracted from the original single-file
+# ``tools_workflow.py`` (#1431, umbrella #1427) so each sub-module stays
+# below the 750 LOC god-file threshold. No behavior change.
+#
+# Public surface preserved at ``scistudio.ai.agent.mcp.tools_workflow``
+# via the package ``__init__`` re-exports.
+# Development references: #1427, #1431, ADR-040.
 
 from __future__ import annotations
 
@@ -20,7 +22,8 @@ from typing import Any
 from scistudio.ai.agent.mcp._context import get_context
 
 _LOCK_TIMEOUT_SECONDS: float = 10.0
-"""ADR-033 OQ7: file lock timeout for atomic-write tools."""
+"""File lock timeout for atomic-write tools."""
+# Development references: ADR-033.
 
 
 def _spec_to_dict(spec: Any) -> dict[str, Any]:
@@ -45,8 +48,9 @@ def _port_to_dict(port: Any) -> dict[str, Any]:
     ``type`` renders the port's ``accepted_types`` exactly as the
     ``list_blocks`` signature does (``A|B``, ``Any``, a ``[]`` suffix for
     collection ports). Ports have no ``.type`` attribute; reading one made
-    every type an empty string (#2315).
+    every type an empty string.
     """
+    # Development references: #2315.
     if isinstance(port, dict):
         return port
     return {

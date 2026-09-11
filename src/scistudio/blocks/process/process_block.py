@@ -233,11 +233,16 @@ class ProcessBlock(Block):
     def _process_item_takes_state(self) -> bool:
         """Return True if this block's ``process_item`` accepts a ``state`` arg.
 
-        Used by :meth:`run` to stay backward-compatible with pre-T-009
+        Used by :meth:`run` to stay backward-compatible with pre-the update
         subclasses that override ``process_item(self, item, config)`` with
         only two arguments. New subclasses should use the three-argument
         form ``process_item(self, item, config, state=None)``.
         """
+        # Maintainer context:
+        # Used by :meth:`run` to stay backward-compatible with pre-T-009
+        # subclasses that override ``process_item(self, item, config)`` with
+        # only two arguments. New subclasses should use the three-argument
+        # form ``process_item(self, item, config, state=None)``.
         try:
             sig = inspect.signature(self.process_item)
         except (TypeError, ValueError):

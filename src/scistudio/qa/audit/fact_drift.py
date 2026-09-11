@@ -1,4 +1,5 @@
-"""Validate ADR-042 fact substitutions in Markdown prose."""
+"""Validate fact substitutions in Markdown prose."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 

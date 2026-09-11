@@ -99,7 +99,7 @@ def _extract_params(func_node: ast.FunctionDef) -> list[dict[str, Any]]:
 
 
 def _params_to_port_dicts(params: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Convert ``_extract_params()`` output to variadic port dict list (ADR-029 D7).
+    """Convert ``_extract_params()`` output to variadic port dict list.
 
     Maps each parameter to a port dict ``{"name": str, "types": list[str]}``.
     Annotation strings are the ``ast.dump()`` representation produced by
@@ -120,6 +120,7 @@ def _params_to_port_dicts(params: list[dict[str, Any]]) -> list[dict[str, Any]]:
         # → [{"name": "x", "types": ["DataObject"]},
         #    {"name": "y", "types": ["DataObject"]}]
     """
+    # Development references: ADR-029.
     _skip_params = {"self", "config"}
     port_dicts: list[dict[str, Any]] = []
     for param in params:

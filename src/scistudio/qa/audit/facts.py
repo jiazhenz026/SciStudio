@@ -1,4 +1,7 @@
-"""Persistent facts registry helpers for ADR-042."""
+"""Persistent facts registry helpers."""
+# Maintainer context (kept outside generated API documentation):
+# Persistent facts registry helpers for ADR-042.
+# Development references: ADR-042.
 
 from __future__ import annotations
 
@@ -86,12 +89,13 @@ def generate_facts(
     package: str = "scistudio",
     generated_at: datetime = DEFAULT_GENERATED_AT,
 ) -> FactsRegistry:
-    """Generate ADR-042 facts from the repository.
+    """Generate facts from the repository.
 
     ``include_observed`` and ``include_signature_contracts`` are accepted for
-    ADR-042 API compatibility; the initial implementation emits griffe-backed
+    API compatibility; the initial implementation emits griffe-backed
     Python symbol facts only.
     """
+    # Development references: ADR-042.
 
     del include_observed
     root = repo_root.resolve()

@@ -1,25 +1,33 @@
 #!/usr/bin/env python
-"""hook_enforce_list_blocks_before_block_write.py — PreToolUse (ADR-040 §3.6).
-
-Enforces the block-reuse half of #875: BEFORE writing a custom block,
-the agent MUST have called ``mcp__scistudio__list_blocks`` in the current
-session so they can confirm no existing block matches the I/O contract.
-
-Hook contract:
-  - Matcher: ``"Edit|Write|Bash|mcp__scistudio__scaffold_block"``.
-  - Exit 2 = block; exit 0 = allow.
-
-Known hook-layer blind spot (per ADR §3.6 + §7.3):
-  Exotic Bash writes (``python -c '...'``, ``mv``, here-doc piping
-  through ``sh -c``) bypass the regex. This is defense-in-depth, not
-  absolute prevention.
-
-# TODO(#1015): Layer 7 filesystem ACL on <project>/blocks/ is the
-#   bulletproof escalation path — out of scope per ADR-040 §3.10
-#   (cross-cutting policy decision affecting human-authored blocks too;
-#   deferred to a future ADR if drift surfaces in production).
-#   Followup: https://github.com/zjzcpj/SciStudio/issues/1015.
-"""
+"""hook_enforce_list_blocks_before_block_write.py — PreToolUse."""
+# Maintainer context (kept outside generated API documentation):
+# hook_enforce_list_blocks_before_block_write.py — PreToolUse (ADR-040 §3.6).
+#
+# Enforces the block-reuse half of #875: BEFORE writing a custom block,
+# the agent MUST have called ``mcp__scistudio__list_blocks`` in the current
+# session so they can confirm no existing block matches the I/O contract.
+#
+# Hook contract:
+#   - Matcher: ``"Edit|Write|Bash|mcp__scistudio__scaffold_block"``.
+#   - Exit 2 = block; exit 0 = allow.
+#
+# Known hook-layer blind spot (per ADR §3.6 + §7.3):
+#   Exotic Bash writes (``python -c '...'``, ``mv``, here-doc piping
+#   through ``sh -c``) bypass the regex. This is defense-in-depth, not
+#   absolute prevention.
+#
+# # TODO(#1015): Layer 7 filesystem ACL on <project>/blocks/ is the
+# #   bulletproof escalation path — out of scope per ADR-040 §3.10
+# #   (cross-cutting policy decision affecting human-authored blocks too;
+# #   deferred to a future ADR if drift surfaces in production).
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1015.
+# Maintainer context (kept outside generated API documentation):
+# # TODO(#1015): Layer 7 filesystem ACL on <project>/blocks/ is the
+# #   bulletproof escalation path — out of scope per ADR-040 §3.10
+# #   (cross-cutting policy decision affecting human-authored blocks too;
+# #   deferred to a future ADR if drift surfaces in production).
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1015.
+# Development references: #1015, #875, ADR-040, TODO.
 
 from __future__ import annotations
 
@@ -49,7 +57,7 @@ _MESSAGE = (
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -64,6 +72,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}

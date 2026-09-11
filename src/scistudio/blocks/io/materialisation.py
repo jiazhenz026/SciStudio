@@ -156,12 +156,13 @@ def _format_supported_savers(obj: DataObject, registry: BlockRegistry) -> str:
     Used to build informative error messages when no saver matches the
     requested extension.
 
-    Per ADR-047, this helper migrated from the removed
+    this helper migrated from the removed
     ``BlockRegistry.find_io_blocks_for_type`` API to the
     capability-aware :meth:`BlockRegistry.list_format_capabilities`
     enumeration. The output is grouped per block-class so the original
     ``"<ClassName>=[<exts>]"`` shape is preserved.
     """
+    # Development references: ADR-047.
     capabilities = registry.list_format_capabilities(
         direction="save",
         data_type=type(obj),

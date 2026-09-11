@@ -1,14 +1,16 @@
-"""Embedded render-harness sources for preview-side plot jobs (ADR-048).
-
-The harness is the outer program the plot subprocess runs. It loads the
-runtime-written input envelope, builds a context-free plot ``collection`` user
-object, imports the user's render script, calls ``render(collection)``, and
-prints a single JSON result line on stdout for the runtime to parse.
-
-These are stored as string templates rather than importable SciStudio modules so
-the subprocess only depends on the project environment's ordinary Python/R
-scientific packages.
-"""
+"""Embedded render-harness sources for preview-side plot jobs."""
+# Maintainer context (kept outside generated API documentation):
+# Embedded render-harness sources for preview-side plot jobs (ADR-048).
+#
+# The harness is the outer program the plot subprocess runs. It loads the
+# runtime-written input envelope, builds a context-free plot ``collection`` user
+# object, imports the user's render script, calls ``render(collection)``, and
+# prints a single JSON result line on stdout for the runtime to parse.
+#
+# These are stored as string templates rather than importable SciStudio modules so
+# the subprocess only depends on the project environment's ordinary Python/R
+# scientific packages.
+# Development references: ADR-048.
 
 from __future__ import annotations
 

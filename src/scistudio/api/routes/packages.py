@@ -1,4 +1,5 @@
-"""Desktop package installation and Package Manager endpoints (#1784)."""
+"""Desktop package installation and Package Manager endpoints."""
+# Development references: #1784.
 
 from __future__ import annotations
 
@@ -108,26 +109,27 @@ def _refresh_active_project_package_docs(runtime: ApiRuntime) -> None:
 def _after_package_change(runtime: ApiRuntime) -> None:
     """Re-discover everything an install, update, rollback, or delete moved.
 
-    ADR-053 FR-063 + #2009: a package can ship blocks, types, and previewers,
+    a package can ship blocks, types, and previewers,
     and all four routes below used to refresh only the block registry — so a
     package's types and previewers stayed invisible until the user switched
     projects, with no error to explain it.
 
-    Learning Center FR-078 is deliberately **not** here. All four routes call
+    Learning Center discovery is handled separately. All four routes call
     this function, and only uninstall may drop a package's tutorial progress: an
     update or a rollback moves the same package's code without the user losing
     anything they completed, so forgetting their progress there would be a data
     loss with no requirement behind it. :func:`_forget_package_progress` is
     called from the delete route alone.
     """
+    # Development references: #2009, ADR-053, FR-063, FR-078.
     runtime.refresh_all_registries()
     _refresh_active_project_package_docs(runtime)
 
 
 def _forget_package_progress(package_name: str) -> None:
-    """Drop an uninstalled package's tutorial progress group (FR-078).
+    """Drop an uninstalled package's tutorial progress group.
 
-    ADR-053 Learning Center FR-078: uninstalling a package deletes that
+    Learning Center: uninstalling a package deletes that
     package's progress group, and reinstalling starts it from zero. Deleting
     rather than retaining is the requirement — a retained record would make a
     reinstalled package look already-finished to a user who has never seen its
@@ -146,6 +148,7 @@ def _forget_package_progress(package_name: str) -> None:
     raising would fail a request whose work succeeded; the cost of a swallowed
     failure is a stale progress group, which the user can still clear.
     """
+    # Development references: ADR-053, FR-078.
     from scistudio.tutorials.discovery import normalize_distribution_name
     from scistudio.tutorials.progress import ProgressStore
 

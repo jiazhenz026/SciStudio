@@ -1,13 +1,15 @@
-"""Disk I/O, git observation, discovery, session state, and sanitization.
-
-APPEND-ONLY semantics (Addendum 6 §7.2): writers never overwrite or delete
-prior events; corrections are new events. The legacy overwrite mutators
-(``_write_record``/``_mark_stage``/``_upsert_check``) are gone.
-
-Session state lives under ``.git/scistudio/gates/`` (local, never committed).
-Raw transcripts live under ``.workflow/local/**`` (gitignored). The committed
-ledger is sanitized by :func:`sanitize_ledger` before write (§8).
-"""
+"""Disk I/O, git observation, discovery, session state, and sanitization."""
+# Maintainer context (kept outside generated API documentation):
+# Disk I/O, git observation, discovery, session state, and sanitization.
+#
+# APPEND-ONLY semantics (Addendum 6 §7.2): writers never overwrite or delete
+# prior events; corrections are new events. The legacy overwrite mutators
+# (``_write_record``/``_mark_stage``/``_upsert_check``) are gone.
+#
+# Session state lives under ``.git/scistudio/gates/`` (local, never committed).
+# Raw transcripts live under ``.workflow/local/**`` (gitignored). The committed
+# ledger is sanitized by :func:`sanitize_ledger` before write (§8).
+# Development references: Addendum 6.
 
 from __future__ import annotations
 
@@ -77,11 +79,13 @@ def record_path(
     slug: str,
     explicit: Path | None,
 ) -> Path:
-    """Resolve the generated ledger path (§5.2).
+    """Resolve the generated ledger path.
 
     Prefer ``<issue>-<slug>.json`` when an issue is known; otherwise
     ``<branch-slug>-<slug>.json``.
     """
+    # Maintainer context:
+    # Resolve the generated ledger path (§5.2).
 
     if explicit is not None:
         return explicit if explicit.is_absolute() else repo_root / explicit
@@ -164,16 +168,28 @@ def resolve_default_base(repo_root: Path, *, upstream: str | None = None, head: 
     """Resolve the default diff base to the merge-base of ``upstream`` and ``head``.
 
     A branch's delta is its own commits, so the correct default base is
-    ``git merge-base <upstream> HEAD`` rather than the raw ref (Fix D / §7.5).
+    ``git merge-base <upstream> HEAD`` rather than the raw ref.
     When ``upstream`` is not given, it resolves from the ``SCISTUDIO_GATE_BASE``
     environment variable (so the commit-msg / pre-commit framework hooks of a
     track-stacked sub-PR diff against their track rather than the hardcoded
-    ``origin/main`` that misreads the whole track delta as authored here, #1627),
+    ``origin/main`` that misreads the whole track delta as authored here),
     falling back to ``origin/main``. An explicit ``upstream`` (e.g. a resolved
     ``--base``) is honored verbatim and never env-overridden. When the merge-base
     cannot be computed (no common ancestor, missing upstream, git unavailable),
     fall back to the raw upstream ref.
     """
+    # Maintainer context:
+    # A branch's delta is its own commits, so the correct default base is
+    # ``git merge-base <upstream> HEAD`` rather than the raw ref (Fix D / §7.5).
+    # When ``upstream`` is not given, it resolves from the ``SCISTUDIO_GATE_BASE``
+    # environment variable (so the commit-msg / pre-commit framework hooks of a
+    # track-stacked sub-PR diff against their track rather than the hardcoded
+    # ``origin/main`` that misreads the whole track delta as authored here),
+    # falling back to ``origin/main``. An explicit ``upstream`` (e.g. a resolved
+    # ``--base``) is honored verbatim and never env-overridden. When the merge-base
+    # cannot be computed (no common ancestor, missing upstream, git unavailable),
+    # fall back to the raw upstream ref.
+    # Development references: #1627.
 
     if upstream is None:
         upstream = os.environ.get(GATE_BASE_ENV_VAR, "").strip() or DEFAULT_BASE_REF
@@ -197,9 +213,9 @@ def normalize_base_ref(repo_root: Path, ref: str) -> str | None:
 
     Returning ``None`` lets the caller refuse an unresolvable base loudly:
     diffing against a ref git cannot find yields an empty changed-file set, and
-    a gate that observed nothing reports no findings and reads as a pass
-    (#2143).
+    a gate that observed nothing reports no findings and reads as a pass.
     """
+    # Development references: #2143.
 
     candidate = ref.strip()
     if not candidate:
@@ -228,7 +244,9 @@ def resolve_sha(repo_root: Path, ref: str) -> str | None:
 
 
 def changed_files(repo_root: Path, base: str, head: str, *, staged: bool = False) -> list[str]:
-    """Return the observed changed-file set from git (the evidence, §3.3.1)."""
+    """Return the observed changed-file set from git (the evidence)."""
+    # Maintainer context:
+    # Return the observed changed-file set from git (the evidence, §3.3.1).
 
     if staged:
         try:
@@ -252,7 +270,7 @@ def scope_changed_files(repo_root: Path, base: str, head: str, *, staged: bool =
     Distinct from :func:`changed_files` (which returns the full merge-base diff
     used for surface classification, tier derivation, and check selection): the
     scope check must judge only files the PR branch INTENTIONALLY authored, not
-    files that entered the branch via ``git merge origin/main`` (issue #1463
+    files that entered the branch via ``git merge origin/main`` (
     Bug A). A 2-parent merge commit's diff can attribute main-side or
     conflict-resolution edits to the branch even though no PR-authored,
     non-merge commit ever touched them.
@@ -265,6 +283,7 @@ def scope_changed_files(repo_root: Path, base: str, head: str, *, staged: bool =
     be resolved (staged/pre-commit mode, shallow clone, git unavailable) so the
     check fails closed to the broader set rather than silently checking nothing.
     """
+    # Development references: #1463.
 
     if staged:
         return changed_files(repo_root, base, head, staged=True)
@@ -293,12 +312,13 @@ def scope_changed_files(repo_root: Path, base: str, head: str, *, staged: bool =
 def tracked_files(repo_root: Path, ref: str) -> list[str]:
     """Return the tracked file paths at ``ref`` (for stale-include detection).
 
-    Used by the evaluator's main-side rename tolerance (#1463 Bug B): a declared
+    Used by the evaluator's main-side rename tolerance (Bug B): a declared
     include glob that matches zero files at either the base or head tree is a
     candidate stale path. Returns an empty list when the ref cannot be listed
     (missing ref, git unavailable) so the caller treats "unknown" as "no tracked
     files" and falls back to the non-tolerant path rather than crashing.
     """
+    # Development references: #1463.
 
     try:
         return git_lines(repo_root, ["ls-tree", "-r", "--name-only", ref])
@@ -325,10 +345,15 @@ def diff_text(repo_root: Path, base: str, head: str, *, staged: bool = False, pa
     """Return the raw unified diff text (optionally limited to ``paths``).
 
     Used by the evaluator to feed ``weakened_ci_check`` the governed-surface diff
-    hunks (§4). Returns an empty string when git cannot produce a diff (no common
+    hunks. Returns an empty string when git cannot produce a diff (no common
     ancestor, missing ref, git unavailable) so callers treat "no diff" and
     "git failed" identically: nothing to scan, guard passes.
     """
+    # Maintainer context:
+    # Used by the evaluator to feed ``weakened_ci_check`` the governed-surface diff
+    # hunks (§4). Returns an empty string when git cannot produce a diff (no common
+    # ancestor, missing ref, git unavailable) so callers treat "no diff" and
+    # "git failed" identically: nothing to scan, guard passes.
 
     path_args = ["--", *paths] if paths else []
     base_args = ["diff", "--cached", *path_args] if staged else ["diff", f"{base}...{head}", *path_args]
@@ -447,7 +472,7 @@ def discover_ledger(
     include_finalized: bool = False,
     include_finalized_paths: Sequence[Path | str] | None = None,
 ) -> DiscoveryResult:
-    """Discover the active ledger for the CURRENT branch (§5.1 / §10.2).
+    """Discover the active ledger for the CURRENT branch.
 
     A record matches only when its ``branch`` equals the target branch, it is a
     schema-v2 ledger, and it is not finalized unless ``include_finalized`` is
@@ -463,6 +488,8 @@ def discover_ledger(
     The single canonical discovery used by every command, the PR wrapper, and the
     worktree write guard; none reimplement it.
     """
+    # Maintainer context:
+    # Discover the active ledger for the CURRENT branch (§5.1 / §10.2).
 
     records_dir = repo_root / RECORDS_DIR
     records = sorted(records_dir.glob("*.json")) if records_dir.exists() else []
@@ -573,13 +600,15 @@ def _scan_value(value: Any, path: str, violations: list[str]) -> None:
 
 
 def sanitize_ledger(ledger: GateLedger, *, repo_root: Path | None = None) -> None:
-    """Validate that the ledger carries no forbidden local-machine details (§8).
+    """Validate that the ledger carries no forbidden local-machine details.
 
     Raises :class:`SanitizationError` on any violation. The serialized payload
     is scanned for absolute paths, home/venv references, and the like. Raw
     transcripts are referenced only via ``raw_log_ref`` under
     ``.workflow/local/**``; the ref itself must be repo-relative.
     """
+    # Maintainer context:
+    # Validate that the ledger carries no forbidden local-machine details (§8).
 
     payload = ledger.model_dump(mode="json", by_alias=True)
     violations: list[str] = []

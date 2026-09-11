@@ -1,42 +1,44 @@
-"""ADR-035 §3.10 — server-side (pre-spawned) PTY tab opens.
-
-The existing ``WS /api/ai/pty/{tab_id}`` route in :mod:`._websocket` is
-the **user-launched** path: the frontend connects, the route validates
-query params, spawns the PTY, pumps bytes both ways. That route is
-FROZEN per ADR-034 — do not modify.
-
-This module adds the SECOND path, where the PTY exists *before* any
-WebSocket does. Two features use it, through one shared body
-(:func:`_open_prespawned_tab`):
-
-* **AI Block** (ADR-035 §3.10) — the worker calls
-  :func:`scistudio.engine.pty_control.request_pty_tab` → the engine
-  consults the internal HTTP route to allocate a tab from the inside
-  and returns the ``tab_id`` to the worker. The frontend then receives
-  a ``block_pty_opened`` WS frame on the main workflow WS and connects
-  to the tab via the existing user-launched route, just like it would
-  for a hand-launched tab. See :func:`open_engine_initiated_tab`.
-
-* **Bring In My Work** (ADR-053 FR-022) — ``POST
-  /api/work-import/sessions`` writes the session brief, then opens the
-  session's PTY here and returns the ``tab_id`` in its own HTTP
-  response, so no broadcast is needed. See
-  :func:`open_work_import_tab`.
-
-Sharing one body is what makes ADR-053 FR-022 literally true: work
-import runs its agent through the mechanism the AI Block already uses
-rather than introducing a second way to run an agent. What it does
-**not** share is AI Block control semantics — the ``_engine_tab_to_run``
-/ ``_engine_run_to_run_dir`` maps that carry block cancel and mark-done
-frames are populated only when a ``block_run_id`` is supplied, which a
-work-import tab never does.
-
-Mutable seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
-``_engine_tab_to_run``, ``_engine_run_to_run_dir``) are looked up on
-the package namespace at call time so monkeypatching them on
-``scistudio.api.routes.ai_pty`` keeps working — pre-existing test
-contract.
-"""
+"""Server-side (pre-spawned) PTY tab opens."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-035 §3.10 — server-side (pre-spawned) PTY tab opens.
+#
+# The existing ``WS /api/ai/pty/{tab_id}`` route in :mod:`._websocket` is
+# the **user-launched** path: the frontend connects, the route validates
+# query params, spawns the PTY, pumps bytes both ways. That route is
+# FROZEN per ADR-034 — do not modify.
+#
+# This module adds the SECOND path, where the PTY exists *before* any
+# WebSocket does. Two features use it, through one shared body
+# (:func:`_open_prespawned_tab`):
+#
+# * **AI Block** (ADR-035 §3.10) — the worker calls
+#   :func:`scistudio.engine.pty_control.request_pty_tab` → the engine
+#   consults the internal HTTP route to allocate a tab from the inside
+#   and returns the ``tab_id`` to the worker. The frontend then receives
+#   a ``block_pty_opened`` WS frame on the main workflow WS and connects
+#   to the tab via the existing user-launched route, just like it would
+#   for a hand-launched tab. See :func:`open_engine_initiated_tab`.
+#
+# * **Bring In My Work** (ADR-053 FR-022) — ``POST
+#   /api/work-import/sessions`` writes the session brief, then opens the
+#   session's PTY here and returns the ``tab_id`` in its own HTTP
+#   response, so no broadcast is needed. See
+#   :func:`open_work_import_tab`.
+#
+# Sharing one body is what makes ADR-053 FR-022 literally true: work
+# import runs its agent through the mechanism the AI Block already uses
+# rather than introducing a second way to run an agent. What it does
+# **not** share is AI Block control semantics — the ``_engine_tab_to_run``
+# / ``_engine_run_to_run_dir`` maps that carry block cancel and mark-done
+# frames are populated only when a ``block_run_id`` is supplied, which a
+# work-import tab never does.
+#
+# Mutable seams (``_spawn``, ``MAX_ACTIVE_PTYS``, ``_active_ptys``,
+# ``_engine_tab_to_run``, ``_engine_run_to_run_dir``) are looked up on
+# the package namespace at call time so monkeypatching them on
+# ``scistudio.api.routes.ai_pty`` keeps working — pre-existing test
+# contract.
+# Development references: ADR-034, ADR-035, ADR-053, FR-022.
 
 from __future__ import annotations
 
@@ -59,9 +61,10 @@ def get_run_dir_for_block_run(block_run_id: str) -> Path | None:
     """Return the run_dir path registered for *block_run_id*, or None.
 
     Used by ``scistudio.api.ws`` to handle the ``block_user_marked_done``
-    inbound WS frame (ADR-035 §3.5 path c) without bringing the AI Block
+    inbound WS frame (path c) without bringing the AI Block
     module into the WS layer's import surface.
     """
+    # Development references: ADR-035.
     return _pkg._engine_run_to_run_dir.get(block_run_id)
 
 
@@ -155,7 +158,7 @@ def _open_prespawned_tab(
     The single body behind every pre-spawned tab. Returns the fresh
     ``tab_id`` the frontend then connects with.
 
-    Steps (ADR-035 §3.10):
+    Steps:
 
       1. Reject a ``cwd`` that is not an existing absolute directory, a
          ``permission_mode`` outside ``safe`` | ``bypass``, and a
@@ -163,9 +166,9 @@ def _open_prespawned_tab(
          key must fail loudly rather than silently fall back to
          claude-code, which is what the deleted argv-basename sniffing
          did. The accepted set is registry-derived, so a sixth provider
-         needs no edit here (ADR-034 FR-001, FR-010, FR-011).
+         needs no edit here.
       2. Bail with :class:`RuntimeError` if ``len(_active_ptys) >=
-         MAX_ACTIVE_PTYS`` (ADR-034 §8 cap).
+         MAX_ACTIVE_PTYS`` (cap).
       3. Spawn through the same registry-driven ``_spawn`` dispatch the
          user-launched route uses — the agent must not be able to tell
          the tab was opened server-side rather than user-side. The
@@ -180,7 +183,7 @@ def _open_prespawned_tab(
          WS connect joins the existing PTY instead of spawning.
 
     ``prompt`` is delivered to the agent as a positional CLI argument by
-    the spawn helpers rather than typed into the TUI over stdin (#1789):
+    the spawn helpers rather than typed into the TUI over stdin:
     a raw-mode agent TUI ignores the trailing carriage return, so a typed
     prompt sat unsubmitted and the agent never ran.
 
@@ -188,9 +191,10 @@ def _open_prespawned_tab(
     additionally registered in the block-run maps that carry the AI
     Block's cancel / mark-done control frames, and the AI-Block metadata
     is stamped on the PTY. A caller that passes ``None`` — Bring In My
-    Work — gets an ordinary chat session (ADR-053 FR-025) with none of
+    Work — gets an ordinary chat session with none of
     those semantics attached.
     """
+    # Development references: #1789, ADR-034, ADR-035, ADR-053, FR-001, FR-010, FR-011, FR-025.
     cwd_path = Path(cwd)
     if not cwd_path.is_absolute() or not cwd_path.is_dir():
         raise RuntimeError(f"pre-spawned PTY tab: cwd must be an existing absolute dir, got {cwd!r}")
@@ -250,10 +254,10 @@ def open_work_import_tab(
     opening_message: str,
     permission_mode: str,
 ) -> str:
-    """Open the Bring In My Work session PTY (ADR-053 FR-022, FR-028, FR-029).
+    """Open the Bring In My Work session PTY.
 
     Called by ``POST /api/work-import/sessions`` *after* the session
-    brief has been written and closed (FR-024). Returns the ``tab_id``
+    brief has been written and closed. Returns the ``tab_id``
     the endpoint hands back to the caller, which connects the existing
     ``WS /api/ai/pty/{tab_id}`` route and joins this PTY. No
     ``block_pty_opened`` broadcast is emitted and no new frame type is
@@ -261,11 +265,11 @@ def open_work_import_tab(
     request and already holds the ``tab_id``.
 
     ``opening_message`` is the single line the user sees when the
-    session starts (FR-028). It is delivered exactly as the AI Block's
+    session starts. It is delivered exactly as the AI Block's
     prompt is — a positional CLI argument on the spawned agent — which
     is what keeps delivery independent of a provider's system-prompt
-    capability (FR-029). Only ``claude-code`` is ``FLAG_FILE`` in the
-    ADR-034 registry; ``codex``, ``kimi-code`` and both Qoder channels
+    capability. Only ``claude-code`` is ``FLAG_FILE`` in the
+    registry; ``codex``, ``kimi-code`` and both Qoder channels
     are ``AMBIENT`` and have no per-session prompt channel at all, so
     routing the brief through a file plus this pointer is what makes
     that difference invisible.
@@ -281,7 +285,7 @@ def open_work_import_tab(
     and the AI Block does the same at config time.
 
     Args:
-        provider: A registry agent key (ADR-034 FR-010).
+        provider: A registry agent key.
         cwd: The project directory, absolute and existing.
         opening_message: The one-line pointer at the brief file.
         permission_mode: ``"safe"`` or ``"bypass"`` — the backend
@@ -295,6 +299,7 @@ def open_work_import_tab(
         RuntimeError: Invalid ``cwd``, ``permission_mode`` or
             ``provider``, or the PTY cap is already reached.
     """
+    # Development references: ADR-034, ADR-053, FR-010, FR-022, FR-024, FR-028, FR-029.
     tab_id = _open_prespawned_tab(
         provider=provider,
         cwd=cwd,
@@ -327,19 +332,20 @@ def open_engine_initiated_tab(
     :func:`scistudio.engine.pty_control.request_pty_tab`). Returns the
     ``tab_id`` so the worker can correlate completion events.
 
-    Implementation per ADR-035 §3.10. Validation, the ADR-034 §8 cap
+    Implementation. Validation, the cap
     check, the registry-driven ``_spawn`` dispatch, the PTY stamping and
     the ``_active_ptys`` registration all live in
     :func:`_open_prespawned_tab`, which Bring In My Work shares so that
-    ADR-053 FR-022 holds literally. What stays here is what is specific
+    holds literally. What stays here is what is specific
     to the AI Block: the ``SCISTUDIO_AI_BLOCK_RUN_DIR`` export, the
     block-run maps (populated by the helper from ``block_run_id``), and
     the ``block_pty_opened`` broadcast that tells the frontend to open a
     tab it did not ask for.
 
     The ``initial_stdin`` arg is delivered to the agent as a positional
-    CLI argument at spawn (#1789), not replayed over stdin.
+    CLI argument at spawn, not replayed over stdin.
     """
+    # Development references: #1789, ADR-034, ADR-035, ADR-053, FR-022.
     # ADR-035 §3.5 path (a): export SCISTUDIO_AI_BLOCK_RUN_DIR into the PTY
     # so the spawned mcp-bridge subprocess (which the agent invokes via
     # --mcp-config <project>/.scistudio/mcp.json) can resolve the active

@@ -1,45 +1,59 @@
 #!/usr/bin/env python
-"""hook_enforce_concrete_port_types.py — PostToolUse (ADR-040 §3.6).
-
-After a write touched ``<project>/blocks/*.py``, AST-parse the file and
-scan ``InputPort(...)`` / ``OutputPort(...)`` constructor calls for
-generic-``DataObject`` port types. Stderr-warn the agent so the next
-turn corrects the type.
-
-The live API on ``scistudio.blocks.base.ports`` is::
-
-    @dataclass(kw_only=True)
-    class Port:
-        name: str
-        accepted_types: list[type]
-        ...
-
-    class InputPort(Port): ...
-    class OutputPort(Port): ...
-
-A port is "generic" if ``accepted_types=[]`` (matches everything) or any
-element of ``accepted_types`` is the bare ``DataObject`` name (the
-top-of-tree root that defeats edge-time type checking).
-
-The previous incarnation of this hook scanned for ``PortSpec(type=...)``
-— a legacy shape that no longer exists in the live API. The mismatch
-was identified in A1 + A3 Phase 3 audits (ADR-040) as F1.
-
-Always exits 0 (PostToolUse cannot block).
-
-# TODO(#1016): BlockRegistry runtime rejection of DataObject-typed ports
-#   is the hard enforcement — out of scope per ADR-040 §3.10 (cross-cutting
-#   policy decision affecting human-authored blocks too; deferred to a
-#   future ADR if pursued).
-#   Followup: https://github.com/zjzcpj/SciStudio/issues/1016.
-
-# TODO(#1013): live TypeRegistry lookup (call mcp__scistudio__list_types
-#   out-of-band and validate every accepted_types element against the
-#   snapshot). The current implementation flags only the bare DataObject
-#   case; typo'd / unregistered type names are deferred until the hook
-#   can subprocess into the MCP layer safely.
-#   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
-"""
+"""hook_enforce_concrete_port_types.py — PostToolUse."""
+# Maintainer context (kept outside generated API documentation):
+# hook_enforce_concrete_port_types.py — PostToolUse (ADR-040 §3.6).
+#
+# After a write touched ``<project>/blocks/*.py``, AST-parse the file and
+# scan ``InputPort(...)`` / ``OutputPort(...)`` constructor calls for
+# generic-``DataObject`` port types. Stderr-warn the agent so the next
+# turn corrects the type.
+#
+# The live API on ``scistudio.blocks.base.ports`` is::
+#
+#     @dataclass(kw_only=True)
+#     class Port:
+#         name: str
+#         accepted_types: list[type]
+#         ...
+#
+#     class InputPort(Port): ...
+#     class OutputPort(Port): ...
+#
+# A port is "generic" if ``accepted_types=[]`` (matches everything) or any
+# element of ``accepted_types`` is the bare ``DataObject`` name (the
+# top-of-tree root that defeats edge-time type checking).
+#
+# The previous incarnation of this hook scanned for ``PortSpec(type=...)``
+# — a legacy shape that no longer exists in the live API. The mismatch
+# was identified in A1 + A3 Phase 3 audits (ADR-040) as F1.
+#
+# Always exits 0 (PostToolUse cannot block).
+#
+# # TODO(#1016): BlockRegistry runtime rejection of DataObject-typed ports
+# #   is the hard enforcement — out of scope per ADR-040 §3.10 (cross-cutting
+# #   policy decision affecting human-authored blocks too; deferred to a
+# #   future ADR if pursued).
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1016.
+#
+# # TODO(#1013): live TypeRegistry lookup (call mcp__scistudio__list_types
+# #   out-of-band and validate every accepted_types element against the
+# #   snapshot). The current implementation flags only the bare DataObject
+# #   case; typo'd / unregistered type names are deferred until the hook
+# #   can subprocess into the MCP layer safely.
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
+# Maintainer context (kept outside generated API documentation):
+# # TODO(#1016): BlockRegistry runtime rejection of DataObject-typed ports
+# #   is the hard enforcement — out of scope per ADR-040 §3.10 (cross-cutting
+# #   policy decision affecting human-authored blocks too; deferred to a
+# #   future ADR if pursued).
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1016.
+# # TODO(#1013): live TypeRegistry lookup (call mcp__scistudio__list_types
+# #   out-of-band and validate every accepted_types element against the
+# #   snapshot). The current implementation flags only the bare DataObject
+# #   case; typo'd / unregistered type names are deferred until the hook
+# #   can subprocess into the MCP layer safely.
+# #   Followup: https://github.com/zjzcpj/SciStudio/issues/1013.
+# Development references: #1013, #1016, ADR-040, TODO.
 
 from __future__ import annotations
 
@@ -60,7 +74,7 @@ _PORT_CTOR_NAMES = frozenset({"InputPort", "OutputPort", "Port"})
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -75,6 +89,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}
@@ -133,15 +148,13 @@ def _accepted_type_elements(value: ast.expr) -> list[ast.expr] | None:
     """Return the element nodes of literal ``accepted_types=[T, ...]``.
 
     Returns:
-        - ``list[ast.expr]`` with element nodes for literal List/Tuple expressions.
-        - ``None`` for non-literal expressions (``accepted_types=MY_TYPES``,
+        ``list[ast.expr]`` with element nodes for literal List/Tuple expressions.
+        ``None`` for non-literal expressions (``accepted_types=MY_TYPES``,
           ``accepted_types=build_types()``, etc.) — caller must NOT flag these
           as generic/empty, since the runtime value is opaque to static AST
           analysis.
-
-    Codex P2 fix (#1089): previously returned ``[]`` for non-literal, causing
-    false generic-port warnings on valid patterns like ``accepted_types=MY_TYPES``.
     """
+    # Development references: #1089.
     if isinstance(value, (ast.List, ast.Tuple)):
         return list(value.elts)
     return None

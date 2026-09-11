@@ -1,30 +1,32 @@
-"""The shared project-file write path: atomic write, change event, registry reload.
-
-ADR-036 §3.2/§3.5 and ADR-045 define what a first-party write to a project file
-does: the bytes land atomically, the FS watcher is told the change is ours, the
-file's state version advances, a ``file.changed`` event reaches every connected
-UI, and a clean save under a drop-in tier (``blocks/``, ``types/``) rebuilds the
-registries. That sequence used to live inside the editor's
-``PUT /api/projects/{id}/file`` handler, which meant a second writer could only
-reach it by re-implementing it — the WebMCP prototype's bare ``write_text`` fork
-that left the open UI stale.
-
-ADR-055 Spec 2 FR-005 (#2279) extracts it here so the editor route and the
-external-audience MCP author tools run the same code:
-
-* :func:`write_project_file` is the write the route calls.
-* :func:`delete_project_path` and :func:`move_project_path` are the structural
-  operations the author tools add, built from the same event and reload pieces.
-* :class:`ProjectFileService` is the same path bound to the runtime, exposed to
-  MCP tools as ``MCPContext.project_files``. The ``ai`` layer may not import
-  ``api`` (import-linter "AI must not depend on api"), so the service confines
-  every target to the active project itself and returns plain dicts.
-
-The optional expected ``state_version`` (#2279 owner decision 5) turns a write
-based on a stale read into an explicit :class:`FileWriteConflictError` instead of a
-silent overwrite. The editor route passes it only when its request carries one,
-so its observable behavior is unchanged.
-"""
+"""The shared project-file write path: atomic write, change event, registry reload."""
+# Maintainer context (kept outside generated API documentation):
+# The shared project-file write path: atomic write, change event, registry reload.
+#
+# ADR-036 §3.2/§3.5 and ADR-045 define what a first-party write to a project file
+# does: the bytes land atomically, the FS watcher is told the change is ours, the
+# file's state version advances, a ``file.changed`` event reaches every connected
+# UI, and a clean save under a drop-in tier (``blocks/``, ``types/``) rebuilds the
+# registries. That sequence used to live inside the editor's
+# ``PUT /api/projects/{id}/file`` handler, which meant a second writer could only
+# reach it by re-implementing it — the WebMCP prototype's bare ``write_text`` fork
+# that left the open UI stale.
+#
+# ADR-055 Spec 2 FR-005 (#2279) extracts it here so the editor route and the
+# external-audience MCP author tools run the same code:
+#
+# * :func:`write_project_file` is the write the route calls.
+# * :func:`delete_project_path` and :func:`move_project_path` are the structural
+#   operations the author tools add, built from the same event and reload pieces.
+# * :class:`ProjectFileService` is the same path bound to the runtime, exposed to
+#   MCP tools as ``MCPContext.project_files``. The ``ai`` layer may not import
+#   ``api`` (import-linter "AI must not depend on api"), so the service confines
+#   every target to the active project itself and returns plain dicts.
+#
+# The optional expected ``state_version`` (#2279 owner decision 5) turns a write
+# based on a stale read into an explicit :class:`FileWriteConflictError` instead of a
+# silent overwrite. The editor route passes it only when its request carries one,
+# so its observable behavior is unchanged.
+# Development references: #2279, ADR-036, ADR-045, ADR-055, FR-005, Spec 2.
 
 from __future__ import annotations
 
@@ -53,7 +55,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 BLOCKS_RELOADED_EVENT_TYPE: str = "blocks.reloaded"
-"""WS event the palette listens on after a registry-invalidating save (ADR-036 §3.5)."""
+"""WS event the palette listens on after a registry-invalidating save."""
+# Development references: ADR-036.
 
 DIRECTORY_OPERATION_FILE_LIMIT: int = 2000
 """Most files one directory delete or move may touch.
@@ -64,7 +67,8 @@ belong to ``run_command``.
 """
 
 AGENT_SOURCE: str = "agent"
-"""ADR-045 change source recorded for writes made through the MCP author tools."""
+"""Change source recorded for writes made through the MCP author tools."""
+# Development references: ADR-045.
 
 
 class FileWriteConflictError(Exception):
@@ -125,7 +129,8 @@ class FileChange:
 
 
 def project_relative_entity_id(project_root: Path, target: Path) -> str:
-    """Return the ADR-045 file entity id for a sandboxed project file."""
+    """Return the file entity id for a sandboxed project file."""
+    # Development references: ADR-045.
     try:
         relative = target.relative_to(project_root)
     except ValueError:
@@ -136,11 +141,12 @@ def project_relative_entity_id(project_root: Path, target: Path) -> str:
 def project_dropin_dir(project_root: Path | None, target: Path) -> str | None:
     """Return the drop-in tier child dir ``target`` sits in, else ``None``.
 
-    ADR-053 FR-062: ``<project>/types`` is a drop-in tier exactly as
+    ``<project>/types`` is a drop-in tier exactly as
     ``<project>/blocks`` is (:mod:`scistudio.core.dropins`), so a save under it
     invalidates the registries the same way. Uses ``Path.relative_to`` to avoid
     string-prefix gotchas on Windows.
     """
+    # Development references: ADR-053, FR-062.
     if project_root is None or target.suffix.lower() != ".py":
         return None
     try:
@@ -169,8 +175,14 @@ def confine_to_project(project_root: Path, target: Path, *, follow_final: bool =
     With ``follow_final=False`` only the parent directories are resolved, so a
     *target* that is itself a symlink or junction names the link, not what it
     points to. Delete and move act on the path they are given (lstat
-    semantics), so they confine that path (#2279 audit AU3 P1-1).
+    semantics), so they confine that path.
     """
+    # Maintainer context:
+    # With ``follow_final=False`` only the parent directories are resolved, so a
+    # *target* that is itself a symlink or junction names the link, not what it
+    # points to. Delete and move act on the path they are given (lstat
+    # semantics), so they confine that path (audit AU3 P1-1).
+    # Development references: #2279.
     root = os.path.realpath(project_root)
     joined = os.path.normpath(os.path.join(root, target))
     if follow_final:
@@ -204,16 +216,27 @@ def _disk_mtime_ns(path: Path) -> int:
 def observed_entity_version(runtime: ApiRuntime, entity_id: str, target: Path) -> int:
     """Return the file's state version as a write would see it, without advancing it.
 
-    Compare-only (#2279 audits AU3 P2-1 / AU4 P2-2). Advancing the version here
+    Compare-only. Advancing the version here
     would also record the new disk mtime as already seen, and the watcher emits
     ``file.changed`` only when the disk is newer than the last known disk version
-    (ADR-045 §3.3) — so it would drop the external edit as a delayed echo and the
+    so it would drop the external edit as a delayed echo and the
     open UI would never learn of it. Only a real write through the shared path
     advances a version. An external edit the watcher has not delivered yet (disk
     mtime newer than the cached disk version) is projected as the version the
     watcher will assign when it does: current + 1. A conflict check therefore
     still sees it, and a write based on the projected version lines up with it.
     """
+    # Maintainer context:
+    # Compare-only (audits AU3 P2-1 / AU4 P2-2). Advancing the version here
+    #    would also record the new disk mtime as already seen, and the watcher emits
+    #    ``file.changed`` only when the disk is newer than the last known disk version
+    # so it would drop the external edit as a delayed echo and the
+    #    open UI would never learn of it. Only a real write through the shared path
+    #    advances a version. An external edit the watcher has not delivered yet (disk
+    #    mtime newer than the cached disk version) is projected as the version the
+    #    watcher will assign when it does: current + 1. A conflict check therefore
+    #    still sees it, and a write based on the projected version lines up with it.
+    # Development references: #2279, ADR-045.
     current = runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
     cached_disk = runtime.current_entity_disk_version(FILE_ENTITY_CLASS, entity_id, path=target)
     disk = _disk_mtime_ns(target)
@@ -298,11 +321,12 @@ async def project_mutation_lock(project_root: Path) -> AsyncIterator[None]:
     file), the disk change, and the version advance must form one critical
     section. Otherwise two writes based on the same version can both pass the
     check before either lands, and one silently overwrites the other (Codex
-    review on #2292). One lock per project, per event loop, also orders a file
+    review on). One lock per project, per event loop, also orders a file
     write against a delete or move of a directory that holds the file. The
     lint-gated registry rebuild after a drop-in save runs inside it, because it
     must see the file that was written.
     """
+    # Development references: #2292.
     key = (id(asyncio.get_running_loop()), os.path.normcase(str(project_root)))
     lock = _PROJECT_LOCKS.get(key)
     if lock is None:
@@ -318,7 +342,8 @@ async def project_mutation_lock(project_root: Path) -> AsyncIterator[None]:
 
 
 def _mark_watcher_self_write(target: Path) -> None:
-    """Best-effort FS-watcher echo suppression (ADR-034 Phase 2)."""
+    """Best-effort FS-watcher echo suppression."""
+    # Development references: ADR-034.
     from scistudio.api.routes.workflow_watcher import mark_self_write
 
     try:
@@ -337,13 +362,21 @@ def atomic_write_bytes(runtime: ApiRuntime, *, target: Path, entity_id: str, kin
     untouched and removes the temp file. The temp file carries a fixed
     ``.tmp`` suffix so it is never itself a drop-in while it exists: the
     directory may be ``blocks/`` or ``types/``, which are globbed for ``*.py``
-    and executed on every scan (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
-    P2-2).
+    and executed on every scan.
 
     The watcher is marked before the rename, so the call lands before the FS
     event fires, and again after it, so the ``(path, mtime, size)`` triple
     matches the file the watcher will see.
     """
+    # Maintainer context:
+    # Temp file in the destination's directory + ``os.replace`` — atomic on
+    # POSIX and Windows. Any failure before the rename leaves the destination
+    # untouched and removes the temp file. The temp file carries a fixed
+    # ``.tmp`` suffix so it is never itself a drop-in while it exists: the
+    # directory may be ``blocks/`` or ``types/``, which are globbed for ``*.py``
+    # and executed on every scan (
+    # P2-2).
+    # Development references: adr-053-spec1-write-path.
     tmp_fd, tmp_path = tempfile.mkstemp(prefix=".__scistudio_write_", suffix=".tmp", dir=str(target.parent))
     try:
         with os.fdopen(tmp_fd, "wb") as tmp_file:
@@ -384,7 +417,8 @@ async def emit_file_changed(
     kind: str,
     changed_by: str | None,
 ) -> dict[str, Any]:
-    """Advance the file's version and broadcast the ADR-045 ``file.changed`` event."""
+    """Advance the file's version and broadcast the ``file.changed`` event."""
+    # Development references: ADR-045.
     version = runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
     runtime.mark_entity_first_party_write(FILE_ENTITY_CLASS, entity_id, version, path=target, kind=kind)
     payload = runtime.versioned_change_payload(
@@ -424,10 +458,11 @@ def _lint_clean(content: str, filename: str) -> bool:
 async def refresh_registries_and_broadcast(runtime: ApiRuntime, *, reloaded: list[str], path: Path) -> bool:
     """Rebuild every registry and broadcast ``blocks.reloaded``; True on success.
 
-    ADR-053 FR-062: rebuild every registry the change invalidates, not just
+    rebuild every registry the change invalidates, not just
     blocks. Exceptions are swallowed because the file operation itself already
     succeeded — losing the palette refresh is annoying, surfacing a 500 is worse.
     """
+    # Development references: ADR-053, FR-062.
     before = set(runtime.block_registry.all_specs().keys())
     try:
         runtime.refresh_all_registries()
@@ -451,10 +486,11 @@ async def refresh_registries_and_broadcast(runtime: ApiRuntime, *, reloaded: lis
 async def maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, content: str) -> bool:
     """If ``target`` is a lint-clean ``blocks/*.py`` or ``types/*.py``, reload.
 
-    Lint failure keeps the registry stable per ADR-036 §3.5 — the file is saved
+    Lint failure keeps the registry stable — the file is saved
     but not loaded, so a broken module never poisons the palette. Returns
     whether the registries were rebuilt.
     """
+    # Development references: ADR-036.
     active = runtime.active_project
     project_root = Path(active.path) if active is not None else None
     if project_dropin_dir(project_root, target) is None:
@@ -654,12 +690,20 @@ async def delete_project_path(
     """Delete a file, directory, or link and emit a ``deleted`` event per removed entry.
 
     A symlink or junction is removed as a link and what it points to is
-    untouched (lstat semantics, #2279 audit AU3 P1-1); a directory tree is
+    untouched (lstat semantics); a directory tree is
     removed without ever descending through a link inside it. Returns
     ``(changes, registry_refreshed)``. Deleting a drop-in ``.py`` rebuilds the
     registries without a lint gate — there is no longer a module that could
     poison them. The walk and the removal run in a worker thread.
     """
+    # Maintainer context:
+    # A symlink or junction is removed as a link and what it points to is
+    # untouched (lstat semantics,  audit AU3 P1-1); a directory tree is
+    # removed without ever descending through a link inside it. Returns
+    # ``(changes, registry_refreshed)``. Deleting a drop-in ``.py`` rebuilds the
+    # registries without a lint gate — there is no longer a module that could
+    # poison them. The walk and the removal run in a worker thread.
+    # Development references: #2279.
     entity_id = project_relative_entity_id(project_root, target)
     async with project_mutation_lock(project_root):
         if not os.path.lexists(target):
@@ -724,13 +768,21 @@ async def move_project_path(
 ) -> tuple[list[FileChange], bool]:
     """Rename or move a file, directory, or link; never overwrites.
 
-    A symlink or junction is moved as a link (#2279 audit AU3 P1-1). Each
+    A symlink or junction is moved as a link. Each
     moved entry emits ``deleted`` at its old entity id and ``created`` at the
     new one, so an open editor tab learns its file went away. A move that
     touches a drop-in ``.py`` rebuilds the registries, unless a moved-in module
-    fails lint (ADR-036 §3.5 keeps the registry stable in that case). Disk work
+    fails lint (keeps the registry stable in that case). Disk work
     and lint run in a worker thread.
     """
+    # Maintainer context:
+    # A symlink or junction is moved as a link (audit AU3 P1-1). Each
+    # moved entry emits ``deleted`` at its old entity id and ``created`` at the
+    # new one, so an open editor tab learns its file went away. A move that
+    # touches a drop-in ``.py`` rebuilds the registries, unless a moved-in module
+    # fails lint (keeps the registry stable in that case). Disk work
+    # and lint run in a worker thread.
+    # Development references: #2279, ADR-036.
     source_id_rel = project_relative_entity_id(project_root, source_path)
     dest_id_rel = project_relative_entity_id(project_root, destination)
     async with project_mutation_lock(project_root):
@@ -822,7 +874,7 @@ def _change_summary(change: FileChange) -> dict[str, Any]:
 
 
 class ProjectFileService:
-    """The shared write path bound to the live runtime (ADR-055 Spec 2 FR-005).
+    """The shared write path bound to the live runtime.
 
     Every method takes absolute targets, re-confines them to the ACTIVE
     project's root (the author tools confine too; this is the second line),
@@ -834,6 +886,8 @@ class ProjectFileService:
     before any parent directory is created, so a refused call leaves nothing new
     behind.
     """
+
+    # Development references: ADR-055, FR-005, Spec 2.
 
     def __init__(self, runtime: ApiRuntime) -> None:
         self._runtime = runtime
@@ -919,7 +973,7 @@ class ProjectFileService:
     async def make_directory(
         self, target: Path, *, parents: bool = False, changed_by: str = "mcp.workspace"
     ) -> dict[str, Any]:
-        """Create a directory. No ``file.changed`` event: the contract covers files."""
+        """Create a directory without emitting a file-change event."""
         _, root = self._active()
         confined = confine_to_project(root, target, follow_final=False)
         entity_id = project_relative_entity_id(root, confined)

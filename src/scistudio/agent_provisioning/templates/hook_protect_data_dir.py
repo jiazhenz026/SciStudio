@@ -1,29 +1,31 @@
 #!/usr/bin/env python
-"""hook_protect_data_dir.py — PreToolUse guard (ADR-040 §3.6 + Addendum 6).
-
-Blocks the in-app agent (Claude Code / Codex) from DIRECTLY modifying files
-under the project's ``data/`` tree. The intent is to stop the agent from
-"hand-editing" the user's scientific data; it is NOT a sandbox.
-
-Allowed (NOT blocked):
-  - Reading anything under ``data/`` (Read/cat/head/ls ...).
-  - Editing or deleting files OUTSIDE ``data/`` (e.g. ``workflows/``,
-    ``blocks/``) — the agent may still ``rm`` an unrelated workflow.
-  - The workflow runtime writing artifacts into ``data/`` — that happens in
-    the backend, not through the agent's Edit/Write/Bash tools, so it never
-    reaches this hook.
-
-Blocked (exit 2):
-  - ``Edit`` / ``Write`` / ``MultiEdit`` / ``apply_patch`` whose target file
-    resolves under ``<project>/data/`` (reliable).
-  - ``Bash`` commands that obviously write to or delete something under
-    ``data/`` (``rm``/``mv``/redirect into ``data/`` ...). This is a
-    best-effort textual check, not a shell parser; the file-tool matchers
-    above are the reliable layer.
-
-stdin: Claude Code / Codex hook JSON (``tool_name``, ``tool_input``, ``cwd``).
-exit 2 + stderr blocks the call; exit 0 allows it.
-"""
+"""hook_protect_data_dir.py — PreToolUse guard."""
+# Maintainer context (kept outside generated API documentation):
+# hook_protect_data_dir.py — PreToolUse guard (ADR-040 §3.6 + Addendum 6).
+#
+# Blocks the in-app agent (Claude Code / Codex) from DIRECTLY modifying files
+# under the project's ``data/`` tree. The intent is to stop the agent from
+# "hand-editing" the user's scientific data; it is NOT a sandbox.
+#
+# Allowed (NOT blocked):
+#   - Reading anything under ``data/`` (Read/cat/head/ls ...).
+#   - Editing or deleting files OUTSIDE ``data/`` (e.g. ``workflows/``,
+#     ``blocks/``) — the agent may still ``rm`` an unrelated workflow.
+#   - The workflow runtime writing artifacts into ``data/`` — that happens in
+#     the backend, not through the agent's Edit/Write/Bash tools, so it never
+#     reaches this hook.
+#
+# Blocked (exit 2):
+#   - ``Edit`` / ``Write`` / ``MultiEdit`` / ``apply_patch`` whose target file
+#     resolves under ``<project>/data/`` (reliable).
+#   - ``Bash`` commands that obviously write to or delete something under
+#     ``data/`` (``rm``/``mv``/redirect into ``data/`` ...). This is a
+#     best-effort textual check, not a shell parser; the file-tool matchers
+#     above are the reliable layer.
+#
+# stdin: Claude Code / Codex hook JSON (``tool_name``, ``tool_input``, ``cwd``).
+# exit 2 + stderr blocks the call; exit 0 allows it.
+# Development references: ADR-040, Addendum 6.
 
 from __future__ import annotations
 
@@ -56,7 +58,7 @@ _PREFIX_WORDS = {"sudo", "env", "command", "nohup", "time", "exec", "builtin"}
 def _read_payload() -> dict:
     """Read the hook payload, degrading to ``{}`` instead of ever crashing.
 
-    #1994: this used to guard only ``OSError``. When a CLI starts a hook with
+    this used to guard only ``OSError``. When a CLI starts a hook with
     no usable stdin, Python sets ``sys.stdin`` to ``None``, so
     ``sys.stdin.read()`` raised ``AttributeError`` — which nothing caught. The
     hook died with **exit 1** before evaluating anything, which the CLI reports
@@ -71,6 +73,7 @@ def _read_payload() -> dict:
     the exposure it removes. ``BaseException`` is deliberately not caught; only
     the ways reading a missing or closed stream can fail.
     """
+    # Development references: #1994.
     stream = sys.stdin
     if stream is None:
         return {}

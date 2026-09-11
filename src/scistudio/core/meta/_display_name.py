@@ -1,51 +1,53 @@
-"""resolve_display_name — the single canonical user-facing-name resolver (#1812).
-
-User-facing item names used to be computed by two divergent fallback chains: a
-backend one for interactive panels (``interactive_item_label``) and a frontend
-one for preview pills (``deriveDisplayName``). Each new origin (xlsx sheets, OME
-``source_file``, …) needed a new special case in both places, and they could
-disagree.
-
-This module is the **single precedence authority** for that name. Both
-consumers delegate here:
-
-- ``scistudio.blocks.base.interactive.interactive_item_label`` calls it on the
-  live ``DataObject`` to label an interactive panel row.
-- ``scistudio.api.runtime`` calls it on the serialized wire ``metadata`` dict to
-  stamp a resolved ``display_name`` onto each item descriptor; the frontend then
-  reads that one field instead of re-deriving.
-
-Living in ``scistudio.core.meta`` keeps the import direction clean: both
-``blocks`` and ``api`` depend on ``core``, never the reverse. This is an
-**internal** helper — it is deliberately not exported from
-``scistudio.core.meta.__all__`` (it is framework presentation plumbing, not a
-package-author-facing symbol per ADR-052 §3.10).
-
-The resolver is **input-shape agnostic**: it reads its fields through a
-duck-typed accessor, so the same function handles both a live ``DataObject``
-(Pydantic ``meta``/``framework`` attributes) and the serialized wire ``metadata``
-dict (nested ``meta``/``framework``/``user`` mappings). See
-``scistudio.core.types.serialization`` for the wire shape.
-
-Precedence (highest first):
-
-1. ``user["display_name"]`` — an explicit presentation override declared once by
-   the producing block (e.g. the xlsx loader composes ``"<file> — <sheet>"`` so
-   same-file/different-sheet items do not collide). This is the canonical
-   override channel a producer reaches for when the structural default is wrong.
-2. ``name`` — an explicit object name, if the object carries one (defensive; no
-   core ``DataObject`` declares ``name`` today, but a plugin type might).
-3. ``meta.source_file`` — the originating filename from typed domain metadata,
-   reduced to its basename (loaders for spectra, images, etc. populate this).
-4. ``file_path`` — an :class:`~scistudio.core.types.artifact.Artifact`-style file
-   path, reduced to its basename.
-5. ``framework.source`` — the framework provenance origin, used only when it
-   looks like a path (contains a separator); package-name provenance such as
-   ``"scistudio-blocks-spectroscopy"`` is not a filename and is skipped.
-6. the caller-supplied ``fallback`` (``"item_<index>"`` for an interactive row,
-   ``""`` for a wire descriptor so the field is simply omitted when nothing
-   resolves and the frontend keeps its own truncated-ref fallback).
-"""
+"""Resolve display names: the single canonical user-facing-name resolver."""
+# Maintainer context (kept outside generated API documentation):
+# resolve_display_name — the single canonical user-facing-name resolver (#1812).
+#
+# User-facing item names used to be computed by two divergent fallback chains: a
+# backend one for interactive panels (``interactive_item_label``) and a frontend
+# one for preview pills (``deriveDisplayName``). Each new origin (xlsx sheets, OME
+# ``source_file``, …) needed a new special case in both places, and they could
+# disagree.
+#
+# This module is the **single precedence authority** for that name. Both
+# consumers delegate here:
+#
+# - ``scistudio.blocks.base.interactive.interactive_item_label`` calls it on the
+#   live ``DataObject`` to label an interactive panel row.
+# - ``scistudio.api.runtime`` calls it on the serialized wire ``metadata`` dict to
+#   stamp a resolved ``display_name`` onto each item descriptor; the frontend then
+#   reads that one field instead of re-deriving.
+#
+# Living in ``scistudio.core.meta`` keeps the import direction clean: both
+# ``blocks`` and ``api`` depend on ``core``, never the reverse. This is an
+# **internal** helper — it is deliberately not exported from
+# ``scistudio.core.meta.__all__`` (it is framework presentation plumbing, not a
+# package-author-facing symbol per ADR-052 §3.10).
+#
+# The resolver is **input-shape agnostic**: it reads its fields through a
+# duck-typed accessor, so the same function handles both a live ``DataObject``
+# (Pydantic ``meta``/``framework`` attributes) and the serialized wire ``metadata``
+# dict (nested ``meta``/``framework``/``user`` mappings). See
+# ``scistudio.core.types.serialization`` for the wire shape.
+#
+# Precedence (highest first):
+#
+# 1. ``user["display_name"]`` — an explicit presentation override declared once by
+#    the producing block (e.g. the xlsx loader composes ``"<file> — <sheet>"`` so
+#    same-file/different-sheet items do not collide). This is the canonical
+#    override channel a producer reaches for when the structural default is wrong.
+# 2. ``name`` — an explicit object name, if the object carries one (defensive; no
+#    core ``DataObject`` declares ``name`` today, but a plugin type might).
+# 3. ``meta.source_file`` — the originating filename from typed domain metadata,
+#    reduced to its basename (loaders for spectra, images, etc. populate this).
+# 4. ``file_path`` — an :class:`~scistudio.core.types.artifact.Artifact`-style file
+#    path, reduced to its basename.
+# 5. ``framework.source`` — the framework provenance origin, used only when it
+#    looks like a path (contains a separator); package-name provenance such as
+#    ``"scistudio-blocks-spectroscopy"`` is not a filename and is skipped.
+# 6. the caller-supplied ``fallback`` (``"item_<index>"`` for an interactive row,
+#    ``""`` for a wire descriptor so the field is simply omitted when nothing
+#    resolves and the frontend keeps its own truncated-ref fallback).
+# Development references: #1812, ADR-052.
 
 from __future__ import annotations
 

@@ -1,26 +1,28 @@
-"""Top-level orchestration entry point (ADR-040 §3.8).
-
-The orchestrator coordinates per-project provisioning:
-
-  - CLAUDE.md + AGENTS.md (§3.5)         → ``claude_agents_md.py``
-  - .claude/settings.json + hook scripts (§3.6) → ``hooks.py``
-  - Skill cross-install to .claude/skills + .agents/skills (§3.4/§3.5/§3.8) → ``skills.py``
-  - .codex/config.toml (§3.7)            → ``codex_config.py``
-
-A version-marker file at ``<project>/.claude/.scistudio-provision-version``
-records the provisioning version. On every open the top-up writes any
-*missing* canonical assets and additively registers any newly-added canonical
-hook in an existing ``.claude/settings.json`` (ADR-040 Addendum 6, #1858), so
-old projects pick up new hooks/docs without overwriting user edits. Since
-0.3.0 (#1860) the agent guide and skill files additionally get
-*content-aware refresh*: files unchanged since SciStudio last wrote them
-(tracked by the hash manifest in ``_refresh.py``) are updated to the current
-canonical content, while user-edited files are preserved.
-
-Per ADR §7, failures are NOT fatal — they log at WARNING and return a
-``ProvisionResult`` summarizing what succeeded. Callers continue with
-project open / create flow regardless.
-"""
+"""Top-level orchestration entry point."""
+# Maintainer context (kept outside generated API documentation):
+# Top-level orchestration entry point (ADR-040 §3.8).
+#
+# The orchestrator coordinates per-project provisioning:
+#
+#   - CLAUDE.md + AGENTS.md (§3.5)         → ``claude_agents_md.py``
+#   - .claude/settings.json + hook scripts (§3.6) → ``hooks.py``
+#   - Skill cross-install to .claude/skills + .agents/skills (§3.4/§3.5/§3.8) → ``skills.py``
+#   - .codex/config.toml (§3.7)            → ``codex_config.py``
+#
+# A version-marker file at ``<project>/.claude/.scistudio-provision-version``
+# records the provisioning version. On every open the top-up writes any
+# *missing* canonical assets and additively registers any newly-added canonical
+# hook in an existing ``.claude/settings.json`` (ADR-040 Addendum 6, #1858), so
+# old projects pick up new hooks/docs without overwriting user edits. Since
+# 0.3.0 (#1860) the agent guide and skill files additionally get
+# *content-aware refresh*: files unchanged since SciStudio last wrote them
+# (tracked by the hash manifest in ``_refresh.py``) are updated to the current
+# canonical content, while user-edited files are preserved.
+#
+# Per ADR §7, failures are NOT fatal — they log at WARNING and return a
+# ``ProvisionResult`` summarizing what succeeded. Callers continue with
+# project open / create flow regardless.
+# Development references: #1858, #1860, ADR-040, Addendum 6.
 
 from __future__ import annotations
 
@@ -66,10 +68,21 @@ class ProvisionResult:
                        and were preserved (force=False).
       failed         — list of ``(label, reason)`` tuples for sub-steps that
                        errored. Surfacing failures here (instead of raising)
-                       supports ADR §7 non-fatal degraded mode.
+                       supports non-fatal degraded operation.
       version        — value written to the marker file
                        ``<project>/.claude/.scistudio-provision-version``.
     """
+
+    # Maintainer context:
+    # Fields:
+    #   written        — list of project-relative paths that were created.
+    #   skipped        — list of project-relative paths that already existed
+    #                    and were preserved (force=False).
+    #   failed         — list of ``(label, reason)`` tuples for sub-steps that
+    #                    errored. Surfacing failures here (instead of raising)
+    #                    supports ADR §7 non-fatal degraded mode.
+    #   version        — value written to the marker file
+    #                    ``<project>/.claude/.scistudio-provision-version``.
 
     written: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
@@ -190,12 +203,13 @@ def install_project_agent_assets(
 
 
 def _expected_doc_paths() -> list[str]:
-    """Representative landing files the docs sub-step is expected to write (#1850).
+    """Representative landing files the docs sub-step is expected to write.
 
     Used only to compute the skipped delta; the full set (every user-guide page,
     example, and API-reference page, plus the agent reference docs) is discovered
     from the packaged trees at write time.
     """
+    # Development references: #1850.
     return [
         "user-guide/README.md",
         "user-guide/getting-started.md",
@@ -210,9 +224,10 @@ def _expected_doc_paths() -> list[str]:
 def _expected_skill_paths() -> list[str]:
     """Return the 14 skill-file paths the skills sub-step is expected to write.
 
-    1 base + 6 task skills (including ADR-048 ``scistudio-write-plot``) across
+    1 base + 6 task skills (including  ``scistudio-write-plot``) across
     2 provider trees = 14.
     """
+    # Development references: ADR-048.
     names = [
         "scistudio",
         "scistudio-build-workflow",

@@ -1,30 +1,33 @@
-"""SPA fallback static file handler.
-
-Returns index.html for any request path that does not match a real static
-file.  Required for client-side routing: deep URLs like
-``/projects/123/workflows`` must return the SPA shell, not 404.
-
-ADR-055 Spec 0 (FR-003): when the app is mounted under a configured prefix
-(``SCISTUDIO_ROOT_PATH`` / ``--root-path``), the served ``index.html`` — and
-only that document — is templated with a bootstrap assignment
-(``window.__SCISTUDIO_BASE_PATH__``) so the already-built SPA learns the
-prefix at runtime. Hashed asset files are served byte-identical, so caching
-and OTA packaging are unaffected, and no per-deployment rebuild is needed.
-With the default empty prefix the base-path assignment is not emitted
-(Spec 0 FR-002).
-
-ADR-055 Spec 1 (FR-006) extends the same bootstrap with the per-launch
-WebMCP bridge session token (``window.__SCISTUDIO_WEBMCP_TOKEN__``). Unlike
-the base path, the token applies to every mount including the default root
-mount — desktop and ordinary local-browser pages acquire it transparently
-and present it as a header on every bridge call.
-
-The ADR-055 identity seam (``docs/specs/adr-055-identity-seam.md``, decision
-2d) adds the capability declaration (``window.__SCISTUDIO_CAPABILITIES__``)
-an edition passes to ``create_app``. It is emitted only when at least one
-capability is on, so the open-source shell is unchanged; the frontend reads
-it through ``frontend/src/lib/capabilities.ts``.
-"""
+"""SPA fallback static file handler."""
+# Maintainer context (kept outside generated API documentation):
+# SPA fallback static file handler.
+#
+# Returns index.html for any request path that does not match a real static
+# file.  Required for client-side routing: deep URLs like
+# ``/projects/123/workflows`` must return the SPA shell, not 404.
+#
+# ADR-055 Spec 0 (FR-003): when the app is mounted under a configured prefix
+# (``SCISTUDIO_ROOT_PATH`` / ``--root-path``), the served ``index.html`` — and
+# only that document — is templated with a bootstrap assignment
+# (``window.__SCISTUDIO_BASE_PATH__``) so the already-built SPA learns the
+# prefix at runtime. Hashed asset files are served byte-identical, so caching
+# and OTA packaging are unaffected, and no per-deployment rebuild is needed.
+# With the default empty prefix the base-path assignment is not emitted
+# (Spec 0 FR-002).
+#
+# ADR-055 Spec 1 (FR-006) extends the same bootstrap with the per-launch
+# WebMCP bridge session token (``window.__SCISTUDIO_WEBMCP_TOKEN__``). Unlike
+# the base path, the token applies to every mount including the default root
+# mount — desktop and ordinary local-browser pages acquire it transparently
+# and present it as a header on every bridge call.
+#
+# The ADR-055 identity seam (``docs/specs/adr-055-identity-seam.md``, decision
+# 2d) adds the capability declaration (``window.__SCISTUDIO_CAPABILITIES__``)
+# an edition passes to ``create_app``. It is emitted only when at least one
+# capability is on, so the open-source shell is unchanged; the frontend reads
+# it through ``frontend/src/lib/capabilities.ts``.
+# Development references: ADR-055, FR-002, FR-003, FR-006, Spec 0, Spec 1, docs/specs/adr-055-identity-
+# seam.md.
 
 from __future__ import annotations
 
@@ -152,12 +155,12 @@ def _templated_index_response(
       fallback instead of the static file. The base element pins resolution
       to the prefix root. Root-absolute URLs (``/api/...``) and full
       WebSocket URLs are unaffected by ``<base>``, so the API/WS contract is
-      unchanged. The empty prefix emits no ``<base>`` (Spec 0 FR-002).
+      unchanged. The empty prefix emits no ``<base>``.
     * ``window.__SCISTUDIO_BASE_PATH__`` (only when a prefix is configured) —
-      the runtime prefix the frontend base-path module reads (Spec 0 FR-003).
+      the runtime prefix the frontend base-path module reads.
     * ``window.__SCISTUDIO_WEBMCP_TOKEN__`` (when a bridge session token is
       configured) — the per-launch WebMCP bridge session token, injected on
-      every mount including the default root mount (Spec 1 FR-006).
+      every mount including the default root mount.
     * ``window.__SCISTUDIO_CAPABILITIES__`` (only when an edition turned a
       capability on) — the capability declaration of the identity seam,
       already serialized by :func:`_script_safe_json`.
@@ -169,6 +172,7 @@ def _templated_index_response(
     prefixed deployment, and a cached page must never carry a stale session
     token.
     """
+    # Development references: FR-002, FR-003, FR-006, Spec 0, Spec 1.
     html = Path(index_path).read_text(encoding="utf-8")
     injection = ""
     if base_path:

@@ -1,21 +1,24 @@
-"""The session context the "Bring in my work" dialog collects.
-
-ADR-053 spec 2 (``docs/specs/adr-053-work-import.md``) FR-021 and FR-023: every
-answer the dialog collects reaches the agent's brief, and a *skipped* question is
-conveyed as skipped rather than omitted, so the agent can tell "the user did not
-say" from "the user said nothing applies". That distinction is the reason
-``skipped`` is a field of its own rather than being inferred from a null answer.
-
-Field names, types, and order are fixed by contract C2 in
-``docs/planning/adr-053-work-import-checklist.md`` §7.2. The dialog (frontend),
-the session endpoint (``POST /api/work-import/sessions``), and
-:func:`scistudio.ai.work_import.brief.compose_brief` are written against this
-exact shape, so a rename here breaks three call sites at once.
-
-Layering: ``scistudio.ai.work_import`` is a leaf. It must not import from
-``scistudio.api`` or ``scistudio.blocks`` (contract C2, and the "AI must not
-depend on api" import-linter contract in ``pyproject.toml``).
-"""
+"""The session context the "Bring in my work" dialog collects."""
+# Maintainer context (kept outside generated API documentation):
+# The session context the "Bring in my work" dialog collects.
+#
+# ADR-053 spec 2 (``docs/specs/adr-053-work-import.md``) FR-021 and FR-023: every
+# answer the dialog collects reaches the agent's brief, and a *skipped* question is
+# conveyed as skipped rather than omitted, so the agent can tell "the user did not
+# say" from "the user said nothing applies". That distinction is the reason
+# ``skipped`` is a field of its own rather than being inferred from a null answer.
+#
+# Field names, types, and order are fixed by contract C2 in
+# ``docs/planning/adr-053-work-import-checklist.md`` §7.2. The dialog (frontend),
+# the session endpoint (``POST /api/work-import/sessions``), and
+# :func:`scistudio.ai.work_import.brief.compose_brief` are written against this
+# exact shape, so a rename here breaks three call sites at once.
+#
+# Layering: ``scistudio.ai.work_import`` is a leaf. It must not import from
+# ``scistudio.api`` or ``scistudio.blocks`` (contract C2, and the "AI must not
+# depend on api" import-linter contract in ``pyproject.toml``).
+# Development references: ADR-053, FR-021, FR-023, docs/planning/adr-053-work-import-checklist.md,
+# docs/specs/adr-053-work-import.md, spec 2.
 
 from __future__ import annotations
 
@@ -23,14 +26,19 @@ from dataclasses import dataclass
 from typing import Final, Literal
 
 DestinationTier = Literal["project", "user_library"]
-"""Where a session's blocks and types land (FR-011)."""
+"""Where a session's blocks and types land."""
+# Development references: FR-011.
 
 PermissionMode = Literal["safe", "bypass"]
-"""The agent permission mode chosen in the dialog (FR-041).
+"""The agent permission mode chosen in the dialog.
 
 This is the *backend* spelling used by the PTY spawn. The frontend union is
-``"safe" | "dangerous"`` and is mapped at the request boundary (checklist §7.4).
+``"safe" | "dangerous"`` and is mapped at the request boundary.
 """
+# Maintainer context:
+# This is the *backend* spelling used by the PTY spawn. The frontend union is
+# ``"safe" | "dangerous"`` and is mapped at the request boundary (checklist §7.4).
+# Development references: FR-041.
 
 DESTINATION_TIERS: Final[tuple[DestinationTier, ...]] = ("project", "user_library")
 """Valid :attr:`ImportSessionContext.destination_tier` values, in the order the
@@ -45,16 +53,17 @@ SKIPPABLE_QUESTIONS: Final[tuple[str, ...]] = (
     "other_software",
     "anything_else",
 )
-"""The questions FR-020 allows the user to skip.
+"""The questions allows the user to skip.
 
 Question 1 (``data_kinds``), the destination tier, and the source-or-no-codebase
-choice are required, so they are not members here. Question 2
-(``workflow_description``) is skippable only in codebase mode (FR-016, FR-017);
+Choice are required, so they are not members here. Question 2
+(``workflow_description``) is skippable only in codebase mode;
 that conditionality is enforced by the dialog, not by this dataclass, which
 records what the user actually did. Question 5 (``anything_else``) is skippable
-unconditionally (FR-019a): it is the open question, and having nothing to add to
+unconditionally: it is the open question, and having nothing to add to
 four specific ones is an ordinary answer to it.
 """
+# Development references: FR-016, FR-017, FR-019a, FR-020.
 
 
 @dataclass(frozen=True)
@@ -62,7 +71,7 @@ class ImportSessionContext:
     """Everything the "Bring in my work" dialog collects for one session.
 
     Frozen because the brief is composed from it and then written to disk before
-    the session is spawned (FR-024); nothing downstream may mutate the record of
+    the session is spawned; nothing downstream may mutate the record of
     what the user was asked and what they answered.
 
     ``data_kinds`` and ``skipped`` are normalised to a tuple and a frozenset so a
@@ -72,9 +81,11 @@ class ImportSessionContext:
         ValueError: if the context describes a state the dialog cannot produce —
             an unknown destination tier or permission mode, an unknown skippable
             question, a source location supplied alongside "I don't have a
-            codebase" (or neither supplied, against FR-020), or a question marked
+            codebase" (or neither supplied, against), or a question marked
             skipped that nevertheless carries an answer.
     """
+
+    # Development references: FR-020, FR-024.
 
     source_location: str | None
     has_no_codebase: bool
@@ -128,9 +139,10 @@ class ImportSessionContext:
         """Whether ``question`` reaches the brief as skipped rather than answered.
 
         A question is skipped when the user pressed its skip control *or* left it
-        blank: FR-021 gives the brief two renderings, the answer and the skip
+        blank: the brief uses either the answer or the skip
         wording, so a blank answer can only be conveyed as "they did not say".
         """
+        # Development references: FR-021.
         if question not in SKIPPABLE_QUESTIONS:
             raise ValueError(f"{question!r} is not a skippable question; expected one of {SKIPPABLE_QUESTIONS!r}")
         return question in self.skipped or not (getattr(self, question) or "").strip()

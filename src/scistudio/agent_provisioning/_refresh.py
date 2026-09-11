@@ -1,33 +1,35 @@
-"""Content-aware refresh for managed agent assets (#1860, PR #2144 review).
-
-Before this module, provisioning was existence-only: with ``force=False``
-every writer skipped any file that already existed, so a project created by
-an older SciStudio kept its stale ``CLAUDE.md`` / ``AGENTS.md`` / skill
-files forever — a rebrand or contract fix shipped in a new release never
-reached existing projects.
-
-The refresh rule is *unchanged-since-we-wrote-it*:
-
-- A per-project hash manifest at
-  ``<project>/.claude/.scistudio-provision-hashes.json`` records the sha256
-  of every managed file the last provisioning run wrote. On the next run, a
-  file whose content still matches its manifest entry was not touched by the
-  user and is refreshed to the current canonical content; a mismatch means
-  the user edited it and the file is preserved verbatim.
-- Projects provisioned before the manifest existed have no entries. For
-  one-time adoption, ``templates/legacy_content_hashes.json`` (generated
-  from git history at introduction time and frozen) carries the sha256 of
-  every content SciStudio ever shipped at each managed path. A file matching
-  any of those is by construction unmodified canonical content and is
-  refreshed; anything else is preserved.
-
-Both hashes are computed on LF-normalised UTF-8 content so a developer
-checkout with ``core.autocrlf`` (CRLF working-tree files) and a wheel install
-(LF package data) produce the same digest.
-
-The manifest only ever *permits* a rewrite; a stale or missing manifest entry
-falls back to preserve, never to clobber.
-"""
+"""Content-aware refresh for managed agent assets."""
+# Maintainer context (kept outside generated API documentation):
+# Content-aware refresh for managed agent assets (#1860, PR #2144 review).
+#
+# Before this module, provisioning was existence-only: with ``force=False``
+# every writer skipped any file that already existed, so a project created by
+# an older SciStudio kept its stale ``CLAUDE.md`` / ``AGENTS.md`` / skill
+# files forever — a rebrand or contract fix shipped in a new release never
+# reached existing projects.
+#
+# The refresh rule is *unchanged-since-we-wrote-it*:
+#
+# - A per-project hash manifest at
+#   ``<project>/.claude/.scistudio-provision-hashes.json`` records the sha256
+#   of every managed file the last provisioning run wrote. On the next run, a
+#   file whose content still matches its manifest entry was not touched by the
+#   user and is refreshed to the current canonical content; a mismatch means
+#   the user edited it and the file is preserved verbatim.
+# - Projects provisioned before the manifest existed have no entries. For
+#   one-time adoption, ``templates/legacy_content_hashes.json`` (generated
+#   from git history at introduction time and frozen) carries the sha256 of
+#   every content SciStudio ever shipped at each managed path. A file matching
+#   any of those is by construction unmodified canonical content and is
+#   refreshed; anything else is preserved.
+#
+# Both hashes are computed on LF-normalised UTF-8 content so a developer
+# checkout with ``core.autocrlf`` (CRLF working-tree files) and a wheel install
+# (LF package data) produce the same digest.
+#
+# The manifest only ever *permits* a rewrite; a stale or missing manifest entry
+# falls back to preserve, never to clobber.
+# Development references: #1860, #2144.
 
 from __future__ import annotations
 

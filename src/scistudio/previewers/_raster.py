@@ -1,15 +1,17 @@
-"""Raster preview encoding helpers (previewers-owned).
-
-ADR-048 / issue #1598: the raster load/downsample/encode pipeline used by the
-previewer subsystem previously lived under ``scistudio.api.runtime._preview_image``,
-forcing the lower previewer layer to import *up* into the API layer. It now lives
-here so ``previewers`` is self-contained; the API layer's legacy composite-preview
-path imports these *down* from previewers.
-
-The helper now stays inside core Array semantics: it may encode numeric matrices
-as browser-friendly PNG data URIs and load core-owned Zarr Array storage, but it
-does not decode package-owned image formats such as TIFF/PNG/JPEG.
-"""
+"""Raster preview encoding helpers (previewers-owned)."""
+# Maintainer context (kept outside generated API documentation):
+# Raster preview encoding helpers (previewers-owned).
+#
+# ADR-048 / issue #1598: the raster load/downsample/encode pipeline used by the
+# previewer subsystem previously lived under ``scistudio.api.runtime._preview_image``,
+# forcing the lower previewer layer to import *up* into the API layer. It now lives
+# here so ``previewers`` is self-contained; the API layer's legacy composite-preview
+# path imports these *down* from previewers.
+#
+# The helper now stays inside core Array semantics: it may encode numeric matrices
+# as browser-friendly PNG data URIs and load core-owned Zarr Array storage, but it
+# does not decode package-owned image formats such as TIFF/PNG/JPEG.
+# Development references: #1598, ADR-048.
 
 from __future__ import annotations
 

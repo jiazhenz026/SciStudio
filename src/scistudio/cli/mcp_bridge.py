@@ -1,37 +1,39 @@
-"""``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio.
-
-Per ADR-033 §3 D2 / spec OQ2, an external MCP client (Claude Code, Codex,
-etc.) is configured (via the generated ``mcp.json``) to spawn this
-subprocess when the user opens a chat session. The bridge supports two
-modes:
-
-* **Attached mode** — if the SciStudio backend is already running and has
-  bound its in-process :class:`scistudio.ai.agent.mcp.server.MCPServer` to
-  the project-local socket (``<project>/.scistudio/mcp.sock`` on POSIX,
-  ``mcp.sock.port`` on Windows), the bridge connects to it and proxies
-  JSON-RPC frames bidirectionally between its own stdin/stdout and the
-  socket.
-
-* **Standalone mode** — if no backend is running (or the socket is
-  unreachable), the bridge spawns an in-process MCP server inside its
-  own event loop via
-  :func:`scistudio.ai.agent.mcp.runtime.start_inprocess_server` and proxies
-  through that. This lets external CLIs use SciStudio's MCP tools even
-  when the GUI/API isn't running, which is the model #787 introduced.
-
-Project discovery: the env var ``SCISTUDIO_PROJECT_DIR`` (set by the
-``mcp.json`` written by ``scistudio install``) tells the bridge which
-SciStudio project to scope the registries to. If unset, ``run()`` exits
-with code 2 so the calling CLI surfaces a clear configuration error
-rather than a silent fail-open.
-
-Framing: line-delimited JSON over the socket, matching
-:class:`MCPServer`'s framing.
-
-The proxy uses a threaded stdin reader because Windows asyncio's
-``loop.connect_read_pipe`` does not support ``sys.stdin``. Both
-platforms therefore share the same ``run_in_executor`` pump.
-"""
+"""``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio."""
+# Maintainer context (kept outside generated API documentation):
+# ``scistudio mcp-bridge`` — stdio proxy between an external MCP client and SciStudio.
+#
+# Per ADR-033 §3 D2 / spec OQ2, an external MCP client (Claude Code, Codex,
+# etc.) is configured (via the generated ``mcp.json``) to spawn this
+# subprocess when the user opens a chat session. The bridge supports two
+# modes:
+#
+# * **Attached mode** — if the SciStudio backend is already running and has
+#   bound its in-process :class:`scistudio.ai.agent.mcp.server.MCPServer` to
+#   the project-local socket (``<project>/.scistudio/mcp.sock`` on POSIX,
+#   ``mcp.sock.port`` on Windows), the bridge connects to it and proxies
+#   JSON-RPC frames bidirectionally between its own stdin/stdout and the
+#   socket.
+#
+# * **Standalone mode** — if no backend is running (or the socket is
+#   unreachable), the bridge spawns an in-process MCP server inside its
+#   own event loop via
+#   :func:`scistudio.ai.agent.mcp.runtime.start_inprocess_server` and proxies
+#   through that. This lets external CLIs use SciStudio's MCP tools even
+#   when the GUI/API isn't running, which is the model #787 introduced.
+#
+# Project discovery: the env var ``SCISTUDIO_PROJECT_DIR`` (set by the
+# ``mcp.json`` written by ``scistudio install``) tells the bridge which
+# SciStudio project to scope the registries to. If unset, ``run()`` exits
+# with code 2 so the calling CLI surfaces a clear configuration error
+# rather than a silent fail-open.
+#
+# Framing: line-delimited JSON over the socket, matching
+# :class:`MCPServer`'s framing.
+#
+# The proxy uses a threaded stdin reader because Windows asyncio's
+# ``loop.connect_read_pipe`` does not support ``sys.stdin``. Both
+# platforms therefore share the same ``run_in_executor`` pump.
+# Development references: #787, ADR-033.
 
 from __future__ import annotations
 

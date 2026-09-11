@@ -1,15 +1,17 @@
-"""Plain data records shared across the ``api.runtime`` sub-modules.
-
-#1597 / round-4 no-cycles: these dataclasses used to live in the package
-``__init__``. The free-function sub-modules (``_data``, ``_runs``,
-``_projects``) construct them at runtime, so they imported them back from
-``scistudio.api.runtime`` — a child -> parent edge that closed an import
-cycle around the package facade. Hosting the records in this leaf module
-breaks that edge: ``models`` imports nothing from its own package (every
-type reference is annotation-only under ``TYPE_CHECKING``), and the package
-``__init__`` re-exports the records so the public
-``from scistudio.api.runtime import DataRecord`` surface is unchanged.
-"""
+"""Plain data records shared across the ``api.runtime`` sub-modules."""
+# Maintainer context (kept outside generated API documentation):
+# Plain data records shared across the ``api.runtime`` sub-modules.
+#
+# #1597 / round-4 no-cycles: these dataclasses used to live in the package
+# ``__init__``. The free-function sub-modules (``_data``, ``_runs``,
+# ``_projects``) construct them at runtime, so they imported them back from
+# ``scistudio.api.runtime`` — a child -> parent edge that closed an import
+# cycle around the package facade. Hosting the records in this leaf module
+# breaks that edge: ``models`` imports nothing from its own package (every
+# type reference is annotation-only under ``TYPE_CHECKING``), and the package
+# ``__init__`` re-exports the records so the public
+# ``from scistudio.api.runtime import DataRecord`` surface is unchanged.
+# Development references: #1597.
 
 from __future__ import annotations
 
@@ -28,19 +30,21 @@ if TYPE_CHECKING:
 class KnownProject:
     """Persisted metadata for a known project workspace.
 
-    ADR-053 Learning Center FR-063 and FR-064: a tutorial project is recorded
+    Learning Center and: a tutorial project is recorded
     here like any other project — several routes resolve a project's real path
     through this registry, including the path-containment check in
     ``api/routes/projects.py``, so an unregistered one could not be operated —
     and carries a marker distinguishing it from a user project. The marker is
-    the tutorial's full identity (FR-019: source kind, source id, tutorial id)
+    the tutorial's full identity (: source kind, source id, tutorial id)
     rather than a boolean, because restarting has to delete the previous project
-    *of that tutorial* (FR-066) and progress is keyed the same way (FR-075).
+    *of that tutorial* and progress is keyed the same way.
 
     The three fields default to ``None``, so a ``projects.json`` written before
     they existed still loads: ``_load_known_projects`` constructs entries with
     ``KnownProject(**entry)``, and a missing key takes its default.
     """
+
+    # Development references: ADR-053, FR-019, FR-063, FR-064, FR-066, FR-075.
 
     id: str
     name: str
@@ -71,15 +75,17 @@ class DataRecord:
 class WorkflowRun:
     """Track a live scheduler task for a workflow.
 
-    ADR-039 §3.4 / §3.4a: ``workflow_git_commit`` captures the HEAD SHA of
+    a: ``workflow_git_commit`` captures the HEAD SHA of
     the project's git repo at workflow-start time (post pre-run auto-commit
-    when the working tree was dirty). It is the ADR-038 ``runs.workflow_git_commit``
+    when the working tree was dirty). It is the ``runs.workflow_git_commit``
     join key. Populated by :meth:`ApiRuntime.start_workflow` end-to-end; the
-    LineageRecorder (ADR-038) reads this when persisting the ``runs`` row.
+    LineageRecorder reads this when persisting the ``runs`` row.
 
     The field is ``None`` only when the project is not a git repository
-    (degraded mode per ADR-039 §3.9) or auto-commit failed both ways.
+    (degraded mode) or auto-commit failed both ways.
     """
+
+    # Development references: ADR-038, ADR-039.
 
     scheduler: DAGScheduler
     task: asyncio.Task[None]

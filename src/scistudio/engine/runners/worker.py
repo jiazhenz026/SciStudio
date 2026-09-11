@@ -1,37 +1,39 @@
-"""Subprocess entry point — invoked by spawn_block_process().
-
-ADR-017: All block execution happens in isolated subprocesses. This module
-is the entry point for those subprocesses.
-
-ADR-027 D11 + Addendum 1 §1 (T-014): per-item reconstruction delegates
-to :func:`scistudio.core.types.serialization._reconstruct_one` which
-returns typed :class:`~scistudio.core.types.base.DataObject` instances
-(e.g. a :class:`~scistudio.core.types.array.Array`). Lazy loading is
-preserved at the method level: returned instances have ``storage_ref``
-set but do not read payload data until ``to_memory()`` / ``sel()`` /
-``iter_over()`` is called (ADR-031 D2: ViewProxy eliminated).
-Serialisation delegates symmetrically to
-:func:`~scistudio.core.types.serialization._serialise_one`, which writes
-the full metadata sidecar (``type_chain`` + ``framework`` + ``meta`` +
-``user`` + base-class extras).
-
-Protocol:
-    1. Scan the TypeRegistry for plugin-provided types (ADR-027 D11).
-    2. Receive serialized payload via stdin:
-       - block_class: str (dotted module path + class name)
-       - inputs: dict[str, Any] (wire-format typed payload items)
-       - config: dict[str, Any]
-       - output_dir: str (optional, for persisting outputs)
-    3. Reconstruct inputs into typed DataObject instances.
-    4. Import block class, instantiate, call block.run(inputs, config).
-    5. Serialize outputs to wire format and write JSON result to stdout.
-    6. On error: serialize traceback, return error payload, exit with code 1.
-
-Stdout is reserved for that JSON envelope, so :func:`main` claims a private
-duplicate of it and redirects the process's own fd 1 to stderr before running
-anything block-controlled (#1971). A block is free to ``print()``; its output
-joins the worker's stderr, which the engine forwards into the per-run log.
-"""
+"""Subprocess entry point — invoked by spawn_block_process()."""
+# Maintainer context (kept outside generated API documentation):
+# Subprocess entry point — invoked by spawn_block_process().
+#
+# ADR-017: All block execution happens in isolated subprocesses. This module
+# is the entry point for those subprocesses.
+#
+# ADR-027 D11 + Addendum 1 §1 (T-014): per-item reconstruction delegates
+# to :func:`scistudio.core.types.serialization._reconstruct_one` which
+# returns typed :class:`~scistudio.core.types.base.DataObject` instances
+# (e.g. a :class:`~scistudio.core.types.array.Array`). Lazy loading is
+# preserved at the method level: returned instances have ``storage_ref``
+# set but do not read payload data until ``to_memory()`` / ``sel()`` /
+# ``iter_over()`` is called (ADR-031 D2: ViewProxy eliminated).
+# Serialisation delegates symmetrically to
+# :func:`~scistudio.core.types.serialization._serialise_one`, which writes
+# the full metadata sidecar (``type_chain`` + ``framework`` + ``meta`` +
+# ``user`` + base-class extras).
+#
+# Protocol:
+#     1. Scan the TypeRegistry for plugin-provided types (ADR-027 D11).
+#     2. Receive serialized payload via stdin:
+#        - block_class: str (dotted module path + class name)
+#        - inputs: dict[str, Any] (wire-format typed payload items)
+#        - config: dict[str, Any]
+#        - output_dir: str (optional, for persisting outputs)
+#     3. Reconstruct inputs into typed DataObject instances.
+#     4. Import block class, instantiate, call block.run(inputs, config).
+#     5. Serialize outputs to wire format and write JSON result to stdout.
+#     6. On error: serialize traceback, return error payload, exit with code 1.
+#
+# Stdout is reserved for that JSON envelope, so :func:`main` claims a private
+# duplicate of it and redirects the process's own fd 1 to stderr before running
+# anything block-controlled (#1971). A block is free to ``print()``; its output
+# joins the worker's stderr, which the engine forwards into the per-run log.
+# Development references: #1971, ADR-017, ADR-027, ADR-031, Addendum 1.
 
 from __future__ import annotations
 
@@ -68,7 +70,7 @@ def _claim_result_channel() -> TextIO:
     The engine parses this process's stdout as one JSON document
     (``LocalRunner._spawn_worker``), so anything a block prints lands in front
     of the envelope and fails the parse — a ``print()`` in ``run()`` used to
-    fail the whole run with ``Failed to parse worker output`` (#1971).
+    fail the whole run with ``Failed to parse worker output``.
 
     We duplicate fd 1 for our own use and then point fd 1 itself at fd 2, so
     output escapes to stderr no matter which layer produced it: Python
@@ -77,6 +79,7 @@ def _claim_result_channel() -> TextIO:
     buffering instead of racing it. The engine already forwards worker stderr
     into the per-run log, so block output becomes visible for free.
     """
+    # Development references: #1971.
     envelope_fd = os.dup(1)
     os.dup2(2, 1)
     sys.stdout = sys.stderr
@@ -96,14 +99,11 @@ def _emit_envelope(payload: dict[str, Any]) -> None:
 def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
     """Prepend block-local import roots after worker core startup.
 
-    ADR-053 FR-013/FR-016: the drop-in type tiers among these roots go on
-    ``sys.path`` permanently for the life of this process, so the collision
-    guard has to run here as well as during the palette scan. Without it a
-    block importing a name a ``{project}/types/<name>.py`` also claims gets
-    the installed module in the API process and the type file here — the
-    scan-time-versus-run-time divergence FR-013 exists to eliminate, and the
-    one FR-016 says the rejection closes.
+    Drop-in type directories remain on ``sys.path`` for this worker's lifetime.
+    Reject name collisions before adding them so the API process and worker
+    resolve a module name to the same source.
     """
+    # Development references: ADR-053, FR-013, FR-016.
     if not isinstance(raw_roots, list):
         return ()
 
@@ -188,17 +188,17 @@ def _emit_storage_error(
 def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     """Reconstruct typed DataObject inputs from the JSON wire payload.
 
-    ADR-027 D11 + Addendum 1 §1: returns typed :class:`DataObject`
+    Returns typed :class:`DataObject`
     instances (e.g. a :class:`~scistudio.core.types.array.Array` or a
     plugin subclass like ``FluorImage``). Lazy loading is preserved
     at the method level: returned instances have ``storage_ref`` set
     but do not read payload data until ``to_memory()`` / ``sel()`` /
-    ``iter_over()`` is called (ADR-031 D2: ViewProxy eliminated).
+    ``iter_over()`` is called.
 
-    Three dispatch cases (per the ADR pseudocode):
+    Three payload cases:
 
     1. ``{"_collection": True, "items": [...], "item_type": "..."}``
-       — reconstruct each item via :func:`_reconstruct_one`, then wrap
+       reconstruct each item via :func:`_reconstruct_one`, then wrap
        in a :class:`~scistudio.core.types.collection.Collection` whose
        ``item_type`` is resolved via :class:`TypeRegistry`.
     2. ``{"backend": ..., "path": ..., "metadata": {...}}`` — single
@@ -206,6 +206,7 @@ def reconstruct_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     3. Anything else — scalar / list / dict pass-through for
        config-derived inputs that are not DataObjects.
     """
+    # Development references: ADR-027, ADR-031, Addendum 1.
     from scistudio.core.types.base import DataObject
     from scistudio.core.types.collection import Collection
     from scistudio.core.types.serialization import _get_type_registry, _reconstruct_one
@@ -247,19 +248,19 @@ def _normalize_outputs(
     outputs: dict[str, Any],
     output_ports: list[Any],
 ) -> dict[str, Any]:
-    """Normalize block outputs to satisfy the ADR-020 §3 transport contract.
+    """Normalize block outputs to satisfy the transport contract.
 
-    ADR-020 §3 makes a hard contract claim: every value crossing a block
+    Every value crossing a block
     boundary is represented as a :class:`Collection`. A single item is a
     length-one Collection; a multi-file or multi-object input is a longer
     Collection. The engine, not the block, is responsible for honouring
     that contract.
 
-    #1811: this wrap is **unconditional** — it applies to every declared
+    this wrap is **unconditional** — it applies to every declared
     output port, not just ``is_collection=True`` ports. ``is_collection``
     is a UI hint only and does not change runtime transport
     (collection-guide.md). The earlier ``is_collection=True``-gated wrap
-    (#1330) left single-value ports transporting a bare DataObject, which
+    left single-value ports transporting a bare DataObject, which
     violated the contract and produced wire-format drift at the downstream
     port; gating is removed so the wire format is uniform.
 
@@ -277,7 +278,7 @@ def _normalize_outputs(
     3. If ``value`` is a bare ``list`` of :class:`DataObject` items (every
        element is a DataObject and the list is non-empty), pack it as
        ``Collection(value, item_type=type(value[0]))``. Catches the
-       ADR-020 §3 "multi-file → longer Collection" case where a block
+       "multi-file → longer Collection" case where a block
        returned a native list without packing — without this, the bare
        list would either fall through unwrapped or be wrapped as a single
        1-item Collection containing the list (which violates Collection's
@@ -307,6 +308,7 @@ def _normalize_outputs(
         The same ``outputs`` dict, mutated in-place and returned for
         chainability.
     """
+    # Development references: #1330, #1811, ADR-020.
     from scistudio.core.types.base import DataObject
     from scistudio.core.types.collection import Collection
 
@@ -349,7 +351,7 @@ def _normalize_outputs(
 
 
 def _validate_outputs(outputs: dict[str, Any], output_ports: list[Any]) -> None:
-    """Enforce the block's declared output-port contract (#1518 / DSN-2).
+    """Enforce the block's declared output-port contract.
 
     Every required output port must be present in *outputs* with a
     non-``None`` value. A block that silently drops a required output
@@ -360,6 +362,7 @@ def _validate_outputs(outputs: dict[str, Any], output_ports: list[Any]) -> None:
     Ports with ``required=False`` may be absent. ``ValueError`` is raised
     on the first violation, mirroring :meth:`Block.validate` for inputs.
     """
+    # Development references: #1518, DSN-2.
     for port in output_ports:
         if not getattr(port, "required", True):
             continue
@@ -370,7 +373,7 @@ def _validate_outputs(outputs: dict[str, Any], output_ports: list[Any]) -> None:
 def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any]:
     """Serialize block outputs to JSON-compatible wire format.
 
-    ADR-027 D11 + Addendum 1 §1: each output value (or each item in an
+    each output value (or each item in an
     output :class:`Collection`) is serialised via
     :func:`_serialise_one`, which writes the typed-instance metadata
     sidecar (``type_chain`` + ``framework`` + ``meta`` + ``user`` +
@@ -378,7 +381,7 @@ def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any
     (``backend``/``path``/``format``/``metadata``/``_collection``/
     ``items``/``item_type``) are unchanged.
 
-    Auto-flush behaviour from ADR-020-Add5 is preserved: in-memory
+    Auto-flush behaviour is preserved: in-memory
     :class:`DataObject` instances without a :class:`StorageReference`
     are written to ``output_dir`` (via :meth:`Block._auto_flush`)
     before being handed to :func:`_serialise_one`. When no flush
@@ -393,6 +396,7 @@ def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any
     output_dir:
         Directory for writing output artifacts when auto-flushing.
     """
+    # Development references: ADR-020-Add5, ADR-027, Addendum 1.
     from scistudio.blocks.base.block import Block
     from scistudio.core.storage.flush_context import clear, get_output_dir, set_output_dir
     from scistudio.core.types.base import DataObject
@@ -473,7 +477,7 @@ def serialise_outputs(outputs: dict[str, Any], output_dir: str) -> dict[str, Any
 def main() -> None:
     """Subprocess entry point.
 
-    ADR-027 D11 + Addendum 1: warms up the :class:`TypeRegistry`
+    warms up the :class:`TypeRegistry`
     singleton at startup (so plugin types can be resolved during
     :func:`reconstruct_inputs`), then reconstructs typed inputs,
     runs the block, and serialises typed outputs.
@@ -488,6 +492,7 @@ def main() -> None:
         7. Serialize outputs via the typed wire format.
         8. On exception: write {"error": traceback_str} to stdout, exit 1.
     """
+    # Development references: ADR-027, Addendum 1.
     global _ENVELOPE_STREAM
 
     # #1971: claim the result channel before anything the block controls can

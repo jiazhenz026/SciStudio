@@ -10,10 +10,12 @@ from typing import Any
 class BlockResult:
     """Outcome of a single block execution.
 
-    Internal (ADR-052 §4.6): the engine's execution-outcome container; block
+    Internal: the engine's execution-outcome container; block
     authors return ``dict[str, Collection]`` from :meth:`Block.run`. Not part of
     the public ``scistudio.blocks.base`` surface.
     """
+
+    # Development references: ADR-052.
 
     outputs: dict[str, Any]
     duration_ms: int = 0

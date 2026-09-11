@@ -1,46 +1,48 @@
-"""ADR-053 §4 — the Bring In My Work session endpoint (FR-022 to FR-030).
-
-One route: ``POST /api/work-import/sessions``. It turns the answers the
-framing dialog collected into a running agent session, in a fixed order
-that the rest of the feature depends on.
-
-**Why the order is fixed.** The session's opening message is a single
-line naming a file (FR-028); the agent has no other source of
-instructions. If the spawn raced the write, the agent would open a file
-that does not exist yet, or read half a brief, and the session would be
-unrecoverable — the user would have to notice, kill the tab, and start
-over. So the endpoint validates, composes, writes the brief *and closes
-and fsyncs it*, and only then spawns (FR-024).
-
-**Why the brief is a file rather than a system prompt.** Of the five
-agent providers in the ADR-034 registry only ``claude-code`` is
-``FLAG_FILE`` and can carry a hidden per-session prompt; ``codex``,
-``kimi-code`` and both Qoder channels are ``AMBIENT`` and have no
-per-session channel at all. A file plus a one-line pointer is the only
-delivery that does not vary with that difference, and a sixth provider
-needs nothing of this module beyond reading a file it is told to read
-(FR-029).
-
-**The one thing delivery still requires of a provider.** The pointer
-itself is a positional command-line argument, so a CLI that parses its
-first positional as a *subcommand* cannot receive it — Kimi Code is the
-observed case and the registry records it as
-``prompt_argv_prefix is None``. FR-029 removes the *system-prompt*
-difference between providers; it does not remove that one. Such a
-provider is refused up front by
-:func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
-with the registry's own explanation and before anything is written, so a
-session that cannot start leaves nothing behind.
-
-**Why one file per session.** Two sessions started in one project must
-not overwrite each other's instructions, and a brief that outlives its
-session is how a user finds out what their agent was actually told when
-a session went wrong (FR-030). The brief lives under the project's
-``.scistudio/`` directory, which the default project ``.gitignore``
-(:mod:`scistudio.core.versioning.gitignore_template`) already excludes
-as per-machine runtime state, so session state never enters the user's
-version history (FR-027).
-"""
+"""The Bring In My Work session endpoint."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-053 §4 — the Bring In My Work session endpoint (FR-022 to FR-030).
+#
+# One route: ``POST /api/work-import/sessions``. It turns the answers the
+# framing dialog collected into a running agent session, in a fixed order
+# that the rest of the feature depends on.
+#
+# **Why the order is fixed.** The session's opening message is a single
+# line naming a file (FR-028); the agent has no other source of
+# instructions. If the spawn raced the write, the agent would open a file
+# that does not exist yet, or read half a brief, and the session would be
+# unrecoverable — the user would have to notice, kill the tab, and start
+# over. So the endpoint validates, composes, writes the brief *and closes
+# and fsyncs it*, and only then spawns (FR-024).
+#
+# **Why the brief is a file rather than a system prompt.** Of the five
+# agent providers in the ADR-034 registry only ``claude-code`` is
+# ``FLAG_FILE`` and can carry a hidden per-session prompt; ``codex``,
+# ``kimi-code`` and both Qoder channels are ``AMBIENT`` and have no
+# per-session channel at all. A file plus a one-line pointer is the only
+# delivery that does not vary with that difference, and a sixth provider
+# needs nothing of this module beyond reading a file it is told to read
+# (FR-029).
+#
+# **The one thing delivery still requires of a provider.** The pointer
+# itself is a positional command-line argument, so a CLI that parses its
+# first positional as a *subcommand* cannot receive it — Kimi Code is the
+# observed case and the registry records it as
+# ``prompt_argv_prefix is None``. FR-029 removes the *system-prompt*
+# difference between providers; it does not remove that one. Such a
+# provider is refused up front by
+# :func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+# with the registry's own explanation and before anything is written, so a
+# session that cannot start leaves nothing behind.
+#
+# **Why one file per session.** Two sessions started in one project must
+# not overwrite each other's instructions, and a brief that outlives its
+# session is how a user finds out what their agent was actually told when
+# a session went wrong (FR-030). The brief lives under the project's
+# ``.scistudio/`` directory, which the default project ``.gitignore``
+# (:mod:`scistudio.core.versioning.gitignore_template`) already excludes
+# as per-machine runtime state, so session state never enters the user's
+# version history (FR-027).
+# Development references: ADR-034, ADR-053, FR-022, FR-024, FR-027, FR-028, FR-029, FR-030.
 
 from __future__ import annotations
 
@@ -77,24 +79,26 @@ BRIEF_DIR_PARTS = (".scistudio", "work-import")
 
 
 def _new_brief_filename() -> str:
-    """Return a fresh, collision-proof brief filename (FR-030).
+    """Return a fresh, collision-proof brief filename.
 
     Timestamp first so a directory listing reads chronologically — the
     brief outlives its session precisely so it stays findable — and a
     random suffix so two sessions started in the same second still get
     distinct files.
     """
+    # Development references: FR-030.
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return f"{stamp}-{uuid.uuid4().hex[:8]}.md"
 
 
 def _opening_message(brief_relpath: str) -> str:
-    """Return the single line the user sees when the session starts (FR-028).
+    """Return the single line the user sees when the session starts.
 
     One sentence, naming the file. The agent reads the brief itself, so a
     user watching the terminal sees a sentence rather than the full
     instruction set scrolling past.
     """
+    # Development references: FR-028.
     return f"Read the file {brief_relpath} and follow the instructions in it."
 
 
@@ -174,11 +178,11 @@ def _write_brief(project_dir: Path, text: str) -> Path:
 
     Opened with mode ``"x"`` so the filesystem itself enforces one brief
     per session: a name collision fails loudly instead of overwriting a
-    concurrent session's instructions (FR-030). Flushed and fsynced
+    concurrent session's instructions. Flushed and fsynced
     before the handle closes, so the file the agent is about to be
-    pointed at is complete on disk and not merely complete in a buffer
-    (FR-024).
+    pointed at is complete on disk and not merely complete in a buffer.
     """
+    # Development references: FR-024, FR-030.
     # ``project_dir`` reaches here only through
     # :func:`~scistudio.api.routes.ai_pty.validation._validate_project_dir`,
     # the same validator the PTY route uses: absolute, ``resolve(strict=True)``

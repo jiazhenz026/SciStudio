@@ -1,24 +1,26 @@
-"""Markdown methods export for a lineage run (ADR-038 §3.7, §5.1).
-
-Renders a human-readable Methods-section markdown document that answers the
-four user questions surfaced in ADR-038 §3.7:
-
-1. Which run? (run_id, started_at, status, workflow_id, git commit + dirty,
-   environment snapshot)
-2. Which workflow was running? (workflow_yaml_snapshot literal)
-3. Which blocks ran? (per-block list: block_id, block_type, version, timing,
-   termination)
-4a. Per-block params? (block_config_resolved per block)
-4b. Per-block I/O DataObjects? (block_io ↔ data_objects join per block)
-
-The renderer is **read-only** against the :class:`LineageStore` — it does
-not modify any rows. Callers (the `/api/runs/{run_id}/methods` route)
-serve the returned string as ``text/markdown``.
-
-The output is intentionally plain markdown — no YAML/HTML scaffolding, no
-front-matter — so users can paste it directly into a Methods section of a
-paper, a notebook, or a plain markdown editor without post-processing.
-"""
+"""Markdown methods export for a lineage run."""
+# Maintainer context (kept outside generated API documentation):
+# Markdown methods export for a lineage run (ADR-038 §3.7, §5.1).
+#
+# Renders a human-readable Methods-section markdown document that answers the
+# four user questions surfaced in ADR-038 §3.7:
+#
+# 1. Which run? (run_id, started_at, status, workflow_id, git commit + dirty,
+#    environment snapshot)
+# 2. Which workflow was running? (workflow_yaml_snapshot literal)
+# 3. Which blocks ran? (per-block list: block_id, block_type, version, timing,
+#    termination)
+# 4a. Per-block params? (block_config_resolved per block)
+# 4b. Per-block I/O DataObjects? (block_io ↔ data_objects join per block)
+#
+# The renderer is **read-only** against the :class:`LineageStore` — it does
+# not modify any rows. Callers (the `/api/runs/{run_id}/methods` route)
+# serve the returned string as ``text/markdown``.
+#
+# The output is intentionally plain markdown — no YAML/HTML scaffolding, no
+# front-matter — so users can paste it directly into a Methods section of a
+# paper, a notebook, or a plain markdown editor without post-processing.
+# Development references: ADR-038.
 
 from __future__ import annotations
 
@@ -69,7 +71,7 @@ def render_methods_markdown(store: LineageStore, run_id: str) -> str:
 
 
 def _render_run_header(run: dict[str, Any]) -> list[str]:
-    """Q1 + Q2 header — run identity, workflow identity, git commit, status."""
+    """Render run identity, workflow identity, git commit, and status."""
     started = run.get("started_at") or "?"
     finished = run.get("finished_at") or "(still running)"
     status = run.get("status") or "?"
@@ -151,7 +153,7 @@ def _render_environment(run: dict[str, Any]) -> list[str]:
 
 
 def _render_workflow_snapshot(run: dict[str, Any]) -> list[str]:
-    """Q2 — workflow YAML literal (the recipe)."""
+    """Render the workflow YAML recipe."""
     snapshot = run.get("workflow_yaml_snapshot") or ""
     if not snapshot.strip():
         return []
@@ -166,7 +168,7 @@ def _render_workflow_snapshot(run: dict[str, Any]) -> list[str]:
 
 
 def _render_block_executions(store: LineageStore, run_id: str) -> list[str]:
-    """Q3 + Q4a + Q4b — per-block params + I/O DataObjects."""
+    """Render per-block parameters and input/output DataObjects."""
     block_execs = store.list_block_executions(run_id)
     if not block_execs:
         return ["", "## Blocks", "", "_No blocks executed in this run._"]

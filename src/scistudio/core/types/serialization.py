@@ -1,40 +1,42 @@
-"""Serialization helpers for typed DataObject reconstruction.
-
-Implements ADR-027 Addendum 1 §1 (Decision D11': worker subprocess
-returns typed ``DataObject`` instances, not ``ViewProxy``).
-
-This module owns :func:`_reconstruct_one` and :func:`_serialise_one` —
-the helpers that round-trip a single :class:`~scistudio.core.types.base.DataObject`
-through the JSON wire format used by the engine↔worker subprocess
-boundary.
-
-The functions delegate to each base class's
-``reconstruct_extra_kwargs`` / ``serialise_extra_metadata`` classmethod
-hooks via polymorphic class lookup. They never know about the
-scalar per-class surface of ``Array`` / ``Series`` / ``DataFrame`` /
-``Text`` / ``Artifact`` — that knowledge lives on the base classes
-themselves.
-
-The one exception is :class:`~scistudio.core.types.composite.CompositeData`,
-whose slots are nested ``DataObject``s. Round-4 no-cycles (#1342): the
-serialiser owns that recursion directly (``_serialise_one`` /
-``_reconstruct_one`` handle the ``CompositeData`` case) so the type does
-not import the serialiser back — that ``composite -> serialisation`` edge
-closed a core.types-internal import cycle.
-
-Per Open Question 1 of the Phase 10 implementation standards doc, this
-module lives in :mod:`scistudio.core.types.serialization` rather than in
-:mod:`scistudio.engine.runners.worker` so the import direction is always
-``core ← engine``, never the reverse. That keeps the importlinter
-contract ``core must not depend on blocks/engine/api/ai/workflow``
-clean.
-
-T-013 shipped this module as a stub whose bodies raised
-:class:`NotImplementedError` with a pointer at T-014. T-014 replaces
-those bodies with the full implementations described in ADR-027
-Addendum 1 §1. The signatures (single payload-item dict in, single
-typed ``DataObject`` out; and the reverse) are locked from T-013 onward.
-"""
+"""Serialization helpers for typed DataObject reconstruction."""
+# Maintainer context (kept outside generated API documentation):
+# Serialization helpers for typed DataObject reconstruction.
+#
+# Implements ADR-027 Addendum 1 §1 (Decision D11': worker subprocess
+# returns typed ``DataObject`` instances, not ``ViewProxy``).
+#
+# This module owns :func:`_reconstruct_one` and :func:`_serialise_one` —
+# the helpers that round-trip a single :class:`~scistudio.core.types.base.DataObject`
+# through the JSON wire format used by the engine↔worker subprocess
+# boundary.
+#
+# The functions delegate to each base class's
+# ``reconstruct_extra_kwargs`` / ``serialise_extra_metadata`` classmethod
+# hooks via polymorphic class lookup. They never know about the
+# scalar per-class surface of ``Array`` / ``Series`` / ``DataFrame`` /
+# ``Text`` / ``Artifact`` — that knowledge lives on the base classes
+# themselves.
+#
+# The one exception is :class:`~scistudio.core.types.composite.CompositeData`,
+# whose slots are nested ``DataObject``s. Round-4 no-cycles (#1342): the
+# serialiser owns that recursion directly (``_serialise_one`` /
+# ``_reconstruct_one`` handle the ``CompositeData`` case) so the type does
+# not import the serialiser back — that ``composite -> serialisation`` edge
+# closed a core.types-internal import cycle.
+#
+# Per Open Question 1 of the Phase 10 implementation standards doc, this
+# module lives in :mod:`scistudio.core.types.serialization` rather than in
+# :mod:`scistudio.engine.runners.worker` so the import direction is always
+# ``core ← engine``, never the reverse. That keeps the importlinter
+# contract ``core must not depend on blocks/engine/api/ai/workflow``
+# clean.
+#
+# T-013 shipped this module as a stub whose bodies raised
+# :class:`NotImplementedError` with a pointer at T-014. T-014 replaces
+# those bodies with the full implementations described in ADR-027
+# Addendum 1 §1. The signatures (single payload-item dict in, single
+# typed ``DataObject`` out; and the reverse) are locked from T-013 onward.
+# Development references: #1342, ADR-027, Addendum 1.
 
 from __future__ import annotations
 
@@ -64,7 +66,7 @@ def _get_type_registry() -> TypeRegistry:
     declared in this section. Subsequent calls return the same
     instance.
 
-    Scan-directory wiring (#1365, ADR-053 FR-057): the worker
+    Scan-directory wiring: the worker
     subprocess does not own an
     :class:`~scistudio.api.runtime.ApiRuntime`, so the drop-in type
     directories the API path wires must be wired here too. They are
@@ -72,7 +74,7 @@ def _get_type_registry() -> TypeRegistry:
     :func:`scistudio.core.dropins.register_type_scan_dirs`, which is
     the single answer to which directories the tier comprises. This
     used to be a hand-maintained copy kept in step by a comment,
-    which is the drift ADR-053 §2.6 exists to remove.
+    which is the drift exists to remove.
 
     The worker discovers the active project root via the
     ``SCISTUDIO_PROJECT_DIR`` environment variable (the same contract
@@ -80,7 +82,7 @@ def _get_type_registry() -> TypeRegistry:
     layer); :class:`~scistudio.engine.runners.local.LocalRunner`
     propagates that env var to the worker subprocess. When the env
     var is unset (CLI standalone runs, tests) the user-wide tier is
-    still scanned (FR-060); no error if it does not exist.
+    still scanned; no error if it does not exist.
 
     Entry-point and drop-in scanning are wrapped in best-effort
     try/except: a broken plugin or unparseable drop-in must not
@@ -93,11 +95,12 @@ def _get_type_registry() -> TypeRegistry:
     the singleton before the first :func:`_reconstruct_one` call, so
     the scan is paid upfront rather than hidden inside the first
     reconstruction. This mirrors the "scan once at startup" model
-    described in ADR-027 D11.
+    described .
 
     Tests can reset the singleton by setting the module-level
     ``_registry_instance`` to ``None``; the next call will re-scan.
     """
+    # Development references: #1365, ADR-027, ADR-053, FR-057, FR-060.
     import contextlib
 
     from scistudio.core.dropins import project_dir_from_env, register_type_scan_dirs
@@ -137,7 +140,7 @@ def _get_type_registry() -> TypeRegistry:
 def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
     """Reconstruct one typed ``DataObject`` from a wire-format payload item.
 
-    Implements ADR-027 Addendum 1 §1 (D11' pseudocode). The payload
+    The payload
     item shape is the JSON dict that :func:`_serialise_one` writes::
 
         {
@@ -176,8 +179,7 @@ def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
     The returned instance has ``storage_ref`` set (when the payload
     provided one) but does **not** read its backing data until
     :meth:`to_memory` / :meth:`view` / :meth:`sel` / :meth:`iter_over`
-    is called. Lazy loading is preserved at the method level per
-    ADR-027 D4.
+    is called. Lazy loading is preserved at the method level.
 
     Args:
         payload_item: The wire-format JSON dict produced by
@@ -192,6 +194,7 @@ def _reconstruct_one(payload_item: dict[str, Any]) -> DataObject:
             via ``raise ... from exc`` with a message pointing at the
             offending class).
     """
+    # Development references: ADR-027, Addendum 1.
     from scistudio.core.meta import FrameworkMeta
     from scistudio.core.storage.ref import StorageReference
     from scistudio.core.types.base import DataObject
@@ -291,18 +294,14 @@ def _serialise_one(obj: DataObject) -> dict[str, Any]:
     top-level ``backend``/``path``/``format``/``metadata`` envelope
     that the engine's wire format expects.
 
-    Per ADR-027 Addendum 1 §"Out of scope", the top-level wire-format
-    keys are unchanged from the pre-Addendum format; only the contents
-    of the ``metadata`` sidecar become richer.
-
-    Auto-flush behaviour from ADR-020-Add5 is preserved **outside** this
+    Auto-flush behaviour is preserved **outside** this
     function: the worker's :func:`serialise_outputs` calls
     :meth:`Block._auto_flush` before handing the object to
     :func:`_serialise_one`. If the flush succeeded, ``obj.storage_ref``
     is set and the wire-format payload carries the concrete backend /
     path / format. If no flush context was configured, ``obj.storage_ref``
     may still be ``None``; we tolerate that by emitting ``backend=None``
-    / ``path=None`` rather than raising, so downstream code can round-
+    ``path=None`` rather than raising, so downstream code can round-
     trip in-memory metadata-only objects through the wire format.
 
     Args:
@@ -315,6 +314,7 @@ def _serialise_one(obj: DataObject) -> dict[str, Any]:
     Raises:
         ValueError: if ``obj`` is not a :class:`DataObject`.
     """
+    # Development references: ADR-020-Add5, ADR-027, Addendum 1.
     from scistudio.core.types.base import DataObject
 
     if not isinstance(obj, DataObject):

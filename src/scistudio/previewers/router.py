@@ -1,36 +1,38 @@
-"""PreviewRouter — ADR-048 §3 / FR-003 / FR-004 / FR-005 resolution.
-
-Resolves a :class:`PreviewTarget` to exactly one :class:`PreviewerSpec` or a
-typed routing error.
-
-The precedence order (highest first) is exactly ADR-048 §3 / spec FR-003:
-
-1. project exact ``Collection[T]``
-2. project exact ``T``
-3. user exact ``Collection[T]``
-4. user exact ``T``
-5. package exact ``Collection[T]``
-6. package exact ``T``
-7. project parent (walk the type chain general-ward, project tier)
-8. user parent (walk the type chain general-ward, user tier)
-9. package parent (walk the type chain general-ward, package tier)
-10. core collection fallback
-11. core base fallback
-12. unknown / error
-
-Specificity is driven by the target's ``type_chain`` (ordered general ->
-specific). "Exact" means the spec's ``target_type`` equals the most specific
-recorded type; "parent" means it equals an ancestor in the chain, with closer
-ancestors preferred. Within one tier + specificity, the highest ``priority``
-wins; an unresolved priority tie raises :class:`RoutingAmbiguityError`
-(FR-004). A project explicit default previewer resolves a project-tier tie
-(FR-005).
-
-The ladder is table-driven (:data:`_EXACT_TIERS` / :data:`_PARENT_TIERS`)
-rather than hand-expanded branches: adding the user tier (#2017, precedence
-project > user > package per the owner decision recorded there) cost one
-tuple entry instead of four more branches, and the next tier costs the same.
-"""
+"""PreviewRouter — resolution."""
+# Maintainer context (kept outside generated API documentation):
+# PreviewRouter — ADR-048 §3 / FR-003 / FR-004 / FR-005 resolution.
+#
+# Resolves a :class:`PreviewTarget` to exactly one :class:`PreviewerSpec` or a
+# typed routing error.
+#
+# The precedence order (highest first) is exactly ADR-048 §3 / spec FR-003:
+#
+# 1. project exact ``Collection[T]``
+# 2. project exact ``T``
+# 3. user exact ``Collection[T]``
+# 4. user exact ``T``
+# 5. package exact ``Collection[T]``
+# 6. package exact ``T``
+# 7. project parent (walk the type chain general-ward, project tier)
+# 8. user parent (walk the type chain general-ward, user tier)
+# 9. package parent (walk the type chain general-ward, package tier)
+# 10. core collection fallback
+# 11. core base fallback
+# 12. unknown / error
+#
+# Specificity is driven by the target's ``type_chain`` (ordered general ->
+# specific). "Exact" means the spec's ``target_type`` equals the most specific
+# recorded type; "parent" means it equals an ancestor in the chain, with closer
+# ancestors preferred. Within one tier + specificity, the highest ``priority``
+# wins; an unresolved priority tie raises :class:`RoutingAmbiguityError`
+# (FR-004). A project explicit default previewer resolves a project-tier tie
+# (FR-005).
+#
+# The ladder is table-driven (:data:`_EXACT_TIERS` / :data:`_PARENT_TIERS`)
+# rather than hand-expanded branches: adding the user tier (#2017, precedence
+# project > user > package per the owner decision recorded there) cost one
+# tuple entry instead of four more branches, and the next tier costs the same.
+# Development references: #2017, ADR-048, FR-003, FR-004, FR-005.
 
 from __future__ import annotations
 
@@ -63,16 +65,16 @@ class PreviewRouter:
         self._registry = registry
 
     def resolve(self, target: PreviewTarget) -> PreviewerSpec:
-        """Return the single best previewer spec for *target* (FR-003).
+        """Return the single best previewer spec for *target*.
 
-        A person's own choice for the target's type wins outright (#2049,
-        FR-034); everything below it is the unchanged FR-003 ladder, which also
+        A person's own choice for the target's type wins outright; everything below it is the unchanged ladder, which also
         serves as the fallback whenever no usable choice applies.
 
         Raises :class:`RoutingAmbiguityError` on an unresolved priority tie
         within a tier+specificity and :class:`UnknownTargetError` when nothing
         matches (not even a core fallback).
         """
+        # Development references: #2049, FR-003, FR-034.
         specs = self._registry.all_specs()
         is_collection = target.is_collection
         # Type chain ordered specific -> general for "closest parent wins".
@@ -153,10 +155,28 @@ class PreviewRouter:
           below considers, so a choice can reorder that set but never widen it.
         * **The choice cannot serve this target.** A previewer that does not
           declare ``supports_collection`` must not be handed a collection, the
-          same rule FR-003/US4 enforces down the ladder: a single-item viewer
+          same selection rule used throughout the priority order: a single-item viewer
           given a whole collection is a broken view, not an honoured
           preference.
         """
+        # Maintainer context:
+        # * **No choice for this type.** The common case.
+        # * **The chosen previewer is gone** — a package uninstalled, a drop-in
+        #   deleted or renamed. The choice stays on disk, because the person may
+        #   reinstall, and takes effect again the moment its previewer does.
+        # * **The chosen previewer does not claim this type or any ancestor of
+        #   it.** Choosing an ancestor's previewer is legitimate and expected —
+        #   picking core's plain ``Series`` view for a ``Spectrum`` is exactly
+        #   the kind of preference this exists to serve — but a previewer for an
+        #   unrelated type would render nothing meaningful. Restricting the
+        #   choice to ``chain`` bounds it to the same candidate set the ladder
+        #   below considers, so a choice can reorder that set but never widen it.
+        # * **The choice cannot serve this target.** A previewer that does not
+        #   declare ``supports_collection`` must not be handed a collection, the
+        #   same rule /US4 enforces down the ladder: a single-item viewer
+        #   given a whole collection is a broken view, not an honoured
+        #   preference.
+        # Development references: FR-003.
         if not type_name:
             return None
         previewer_id = self._registry.choice_for(type_name)
@@ -213,8 +233,9 @@ class PreviewRouter:
         """Pick the winning spec for one (tier, type, collection) bucket.
 
         Highest priority wins; an unresolved priority tie raises ambiguity
-        unless a project default resolves it (FR-004/FR-005).
+        unless a project default resolves it.
         """
+        # Development references: FR-004, FR-005.
         if not type_name:
             return None
         candidates = [
