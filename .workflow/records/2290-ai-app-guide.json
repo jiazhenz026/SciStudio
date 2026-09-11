@@ -138,6 +138,11 @@
       "at": "2026-09-11T10:56:47.153644Z",
       "owner_directive": "The shortened tutorial has four connection steps and compact controls and troubleshooting. MkDocs build passed; all 286 local links and anchors on five rendered pages passed. The pre-PR gate passed.",
       "reason": "Verified the shortened tutorial and revised introduction."
+    },
+    {
+      "at": "2026-09-11T11:00:11.403843Z",
+      "owner_directive": "Verify Learning Center Reading against the shipped guide. Update its published navigation expectation and add an HTTP regression proving obsolete project-local docs cannot replace the current packaged guide. No runtime change is needed because both site and reader use the same packaged source.",
+      "reason": "Owner requests verification that Learning Center reads the updated guide."
     }
   ],
   "docs_events": [
@@ -905,6 +910,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.639023Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.658142Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.676921Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.696369Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.715300Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.734331Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.758578Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.781092Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.801194Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.819584Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T11:00:12.840709Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -917,7 +1010,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "8f90db3ef36a2101c926cbef36e6ce09d9db706f",
+    "base": "origin/main",
     "base_sha": "8f90db3ef",
     "changed_files": [
       ".workflow/records/2290-ai-app-guide.json",
@@ -928,9 +1021,9 @@
       "src/scistudio/_user_guide/getting-started.md",
       "src/scistudio/_user_guide/using-with-ai-apps.md"
     ],
-    "diff_fingerprint": "sha256:d219ffa28ff70b55eb26d8eb4d57f5bdbaa19ba4e543490db302a28a2bb11961",
+    "diff_fingerprint": "sha256:30fba0a507f368b57200ffdaf7ba784de1933e8d5364f016e721d13d130b8479",
     "head": "HEAD",
-    "head_sha": "9f0513cdd",
+    "head_sha": "8b3a9f247",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -1019,6 +1112,14 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T11:00:12.840747Z",
+      "diff_fingerprint": "sha256:30fba0a507f368b57200ffdaf7ba784de1933e8d5364f016e721d13d130b8479",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
     }
   ],
   "record_id": "2290-ai-app-guide",
@@ -1049,7 +1150,14 @@
   },
   "runtime": "codex",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:00:11.403860Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "Owner requests verification that Learning Center reads the updated guide."
+    }
+  ],
   "session_id": "18473463-f4b2-4122-8d3f-11d0f6698143",
   "strictness_tier": 3,
   "task_kind": "docs",
@@ -1060,6 +1168,22 @@
       "kind": "na",
       "path": null,
       "rationale": "User-facing Markdown only; no runtime changes.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:00:11.403871Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:00:12.162931Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]
