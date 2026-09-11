@@ -229,7 +229,7 @@ const SCENARIOS = {
       h.startMain();
       await h.untilRunning();
       let view = await h.act("get-state");
-      assert.match(view.address, /^http:\/\/127\.0\.0\.1:\d+$/);
+      assert.match(view.address, /^http:\/\/127\.0\.0\.1:\d+\/\?ui=ai$/);
       // FR-002 (AU1 M10): external-AI mode never creates the main window.
       assert.equal(h.mainWin(), undefined, "no main window in external-AI mode");
       assert.equal(h.splashWin(), undefined, "the splash closed");
@@ -238,7 +238,7 @@ const SCENARIOS = {
       assert.equal(h.connWin().menuRemoved, true);
       assert.deepEqual(h.readJson("launch-mode.json"), { version: 1, mode: "external-ai", askAtLaunch: true });
       const remembered = h.readJson("runtime-port.json").port;
-      assert.equal(view.address, `http://127.0.0.1:${remembered}`, "the shown address is the bound port");
+      assert.equal(view.address, `http://127.0.0.1:${remembered}/?ui=ai`, "the shown address uses the bound port and AI presentation");
       // FR-013: vouched once the connection page proved itself over IPC.
       await h.until(() => h.knownGoodWritten(), 5000, "known-good recorded");
 
@@ -272,7 +272,7 @@ const SCENARIOS = {
       // Restart reuses the readiness chain and the remembered port.
       await h.act("restart");
       await h.until(async () => (await h.status()) === "running", 30000, "restarted");
-      assert.equal((await h.act("get-state")).address, `http://127.0.0.1:${remembered}`);
+      assert.equal((await h.act("get-state")).address, `http://127.0.0.1:${remembered}/?ui=ai`);
 
       // A crash with the window open surfaces with Restart, and does not quit.
       h.killPid(h.pids()[1]);
@@ -289,7 +289,9 @@ const SCENARIOS = {
       await h.until(async () => (await h.status()) === "running", 30000, "restarted after the crash");
       stub.app.emit("second-instance", {}, [], h.tmp, { requestedMode: "desktop" });
       await h.until(() => h.mainWin() && h.mainWin().visible, 5000, "desktop window attached");
-      assert.ok(String(h.mainWin().loaded).startsWith((await h.act("get-state")).address));
+      const desktopUrl = new URL(h.mainWin().loaded);
+      assert.equal(desktopUrl.origin, new URL((await h.act("get-state")).address).origin);
+      assert.equal(desktopUrl.searchParams.get("ui"), null, "desktop attachment keeps its workbench entry");
       assert.equal(h.pids().length, 3, "attaching spawned no backend");
 
       // Stop while a desktop window is attached asks first; Cancel keeps it running.

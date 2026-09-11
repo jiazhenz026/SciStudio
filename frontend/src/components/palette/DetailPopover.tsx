@@ -60,10 +60,17 @@ export function DetailPopover({
       className={`fixed z-50 w-64 rounded-xl border border-stone-200 bg-white p-3 shadow-panel${
         interactive ? "" : " pointer-events-none"
       }`}
+      data-palette-popover
       data-testid={testId}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      style={{ left: anchor.left, top: anchor.top }}
+      style={{
+        left: anchor.left,
+        top: anchor.top,
+        maxWidth: "calc(100vw - 16px)",
+        maxHeight: `calc(100vh - ${anchor.top + 8}px)`,
+        overflowY: "auto",
+      }}
     >
       {header}
       {children}

@@ -76,7 +76,9 @@ export function TabBar({
   unreadLogsCount,
   pinned,
   onTogglePin,
+  showAiChat = true,
 }: {
+  showAiChat?: boolean;
   activeTab: BottomTab;
   onTabChange: (tab: BottomTab) => void;
   unreadLogsCount: number;
@@ -91,12 +93,12 @@ export function TabBar({
 
   return (
     <div className="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
-      <div className="flex flex-1 gap-2">
-        {ALL_TABS.map((tab) => {
+      <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+        {ALL_TABS.filter((tab) => showAiChat || tab !== "ai").map((tab) => {
           const badge = badgeFor(tab);
           return (
             <button
-              className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
+              className={`inline-flex shrink-0 items-center rounded-full px-4 py-2 text-sm font-medium ${activeTab === tab ? "bg-ink text-white" : "bg-white text-stone-600"}`}
               key={tab}
               onClick={() => onTabChange(tab)}
               type="button"

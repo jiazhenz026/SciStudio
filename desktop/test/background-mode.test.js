@@ -377,9 +377,9 @@ test("quitOnServiceChange: desktop mode never quits from a status change; its wi
 // Service status and the connection window view.
 // --------------------------------------------------------------------------- //
 
-test("connectionAddress: the origin the backend actually bound", () => {
-  assert.equal(bm.connectionAddress("http://127.0.0.1:51234/"), "http://127.0.0.1:51234");
-  assert.equal(bm.connectionAddress("http://127.0.0.1:8123/index.html?x=1"), "http://127.0.0.1:8123");
+test("connectionAddress: the ready origin with explicit AI presentation", () => {
+  assert.equal(bm.connectionAddress("http://127.0.0.1:51234/"), "http://127.0.0.1:51234/?ui=ai");
+  assert.equal(bm.connectionAddress("http://127.0.0.1:8123/index.html?x=1"), "http://127.0.0.1:8123/?ui=ai");
   assert.equal(bm.connectionAddress("http://127.0.0.1/"), null);
   assert.equal(bm.connectionAddress("not a url"), null);
   assert.equal(bm.connectionAddress(null), null);

@@ -166,3 +166,36 @@ describe("useHoverPopover", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe("sidebar-facing popover placement", () => {
+  it("opens left in a right sidebar even when there is room on the right", () => {
+    expect(
+      computeTileAnchor({ left: 500, right: 600, top: 40 }, 900, {
+        preferredSide: "left",
+        viewportWidth: 1400,
+      }),
+    ).toEqual({ left: 236, top: 40 });
+  });
+  it("flips from the preferred side at the viewport edge", () => {
+    expect(
+      computeTileAnchor({ left: 10, right: 90, top: 40 }, 900, {
+        preferredSide: "left",
+        viewportWidth: 800,
+      }).left,
+    ).toBe(98);
+    expect(
+      computeTileAnchor({ left: 700, right: 790, top: 40 }, 900, {
+        preferredSide: "right",
+        viewportWidth: 800,
+      }).left,
+    ).toBe(436);
+  });
+  it("clamps cards in viewports smaller than the normal card width", () => {
+    expect(
+      computeTileAnchor({ left: 90, right: 180, top: -20 }, 100, {
+        preferredSide: "left",
+        viewportWidth: 200,
+      }),
+    ).toEqual({ left: 8, top: 8 });
+  });
+});

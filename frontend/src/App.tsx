@@ -22,7 +22,7 @@
 //     BlockNode split; useAppKeyboardShortcuts here).
 
 import { ReactFlowProvider } from "@xyflow/react";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useLogStream } from "./hooks/useSSE";
 import { useWorkflowWebSocket } from "./hooks/useWebSocket";
@@ -34,7 +34,7 @@ import { AppLevelMergeFlow } from "./App.parts/AppLevelMergeFlow";
 import { AppDialogs } from "./App.parts/AppDialogs";
 import { closeCurrentProject } from "./App.parts/closeProject";
 import { InteractiveModals } from "./App.parts/InteractiveModals";
-import { ProjectWorkspace, type LeftTab } from "./App.parts/ProjectWorkspace";
+import { ProjectWorkspace } from "./App.parts/ProjectWorkspace";
 import { WelcomePane } from "./App.parts/WelcomePane";
 import { useActiveTab } from "./App.parts/useActiveTab";
 import { useAppKeyboardShortcuts } from "./App.parts/useAppKeyboardShortcuts";
@@ -46,6 +46,7 @@ import { useDesktopMenuActions } from "./App.parts/useDesktopMenuActions";
 import { useFileTabsAutosave } from "./App.parts/useFileTabsAutosave";
 import { useLearningCenter } from "./App.parts/useLearningCenter";
 import { useTutorialReplayTab } from "./App.parts/useTutorialReplayTab";
+import { useWorkspaceSections } from "./App.parts/useWorkspaceSections";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
@@ -218,39 +219,8 @@ export default function App() {
   const openBlockSourceTab = useAppStore((state) => state.openBlockSourceTab);
   const { activeFileTab, activePreviewTab, activeTabKind } = useActiveTab(tabs, activeTabId);
   const [busy, setBusy] = useState(false);
-  const [leftTab, setLeftTab] = useState<LeftTab>("blocks");
   const paletteCollapsed = useAppStore((state) => state.paletteCollapsed);
-  /*
-   * #2090 — left-panel section routing.
-   *
-   * `selectLeftTab` is the programmatic switch (library reveal, tutorial
-   * routing): it always expands the panel, because a section switch that
-   * lands behind a collapsed panel is invisible. `handleActivitySelect` is
-   * the activity-bar icon click: clicking the active section while the panel
-   * is open collapses it (VS Code behavior), anything else opens that
-   * section.
-   *
-   * Both read collapse state through `getState()` so neither needs
-   * `paletteCollapsed` / `togglePalette` in its dependency array.
-   */
-  const selectLeftTab = useCallback((tab: LeftTab) => {
-    setLeftTab(tab);
-    if (useAppStore.getState().paletteCollapsed) {
-      useAppStore.getState().togglePalette();
-    }
-  }, []);
-  const handleActivitySelect = useCallback(
-    (tab: LeftTab) => {
-      const { paletteCollapsed: collapsed, togglePalette: toggle } = useAppStore.getState();
-      if (tab === leftTab && !collapsed) {
-        toggle();
-      } else {
-        setLeftTab(tab);
-        if (collapsed) toggle();
-      }
-    },
-    [leftTab],
-  );
+  const { leftTab, selectLeftTab, handleActivitySelect } = useWorkspaceSections();
   const openNewPlotPicker = useAppStore((state) => state.openNewPlotPicker);
   const { promptRequest, promptInput, clearPrompt } = usePromptInput();
   const {

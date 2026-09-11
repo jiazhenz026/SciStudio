@@ -48,7 +48,7 @@ export function ToolbarButton({
           data-tutorial-target={dataTutorialTarget}
         >
           <Icon className={iconClassName ? `size-3.5 ${iconClassName}` : "size-3.5"} />
-          <span className="hidden xl:inline">{label}</span>
+          <span className="toolbar-primary-label hidden xl:inline">{label}</span>
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom">

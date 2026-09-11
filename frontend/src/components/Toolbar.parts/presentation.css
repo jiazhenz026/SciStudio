@@ -1,0 +1,17 @@
+.toolbar-scroll {
+  container-type: inline-size;
+  container-name: toolbar;
+}
+
+/* Actual available toolbar width, including embedded browser splits. */
+@container toolbar (min-width: 900px) {
+  [data-presentation="ai"] .toolbar-primary-label {
+    display: inline;
+  }
+}
+
+@container toolbar (min-width: 1200px) {
+  [data-presentation="ai"] .toolbar-secondary-label {
+    display: inline;
+  }
+}

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { usePresentation } from "../lib/presentation";
 import type { BlockSchemaResponse, LogEntry, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
 
@@ -54,7 +56,7 @@ function PlaceholderTab() {
 }
 
 export function BottomPanel({
-  activeTab,
+  activeTab: requestedTab,
   selectedNode,
   selectedSchema,
   logEntries,
@@ -66,6 +68,15 @@ export function BottomPanel({
   pinned = false,
   onTogglePin,
 }: BottomPanelProps) {
+  const isAi = usePresentation() === "ai";
+  const activeTab = isAi && requestedTab === "ai" ? "config" : requestedTab;
+  // Keep an already-mounted chat session alive when changing presentation.
+  // Direct AI entry never mounts the chat surface or its setup effects.
+  const [chatMounted, setChatMounted] = useState(!isAi);
+  useEffect(() => {
+    if (!isAi) setChatMounted(true);
+  }, [isAi]);
+
   // ADR-039 §3.5 — MergeFlow modal is mounted at App.tsx level (NOT
   // here) so it survives BOTH bottom-tab switches AND project close
   // (Codex round-2 P1 on PR #974, follow-up issue #975). BottomPanel
@@ -76,6 +87,7 @@ export function BottomPanel({
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <TabBar
+        showAiChat={!isAi}
         activeTab={activeTab}
         onTabChange={onTabChange}
         unreadLogsCount={unreadLogsCount}
@@ -97,9 +109,14 @@ export function BottomPanel({
             active-tab body fills the available space without a nested
             scroll context. The lineage tab (ADR-038 §3.8) and git tab
             (ADR-039 §3.5, #972) both render inside this flat container. */}
-        <div className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}>
-          <TerminalTabs active={activeTab === "ai"} surface="chat" />
-        </div>
+        {chatMounted && (
+          <div
+            hidden={activeTab !== "ai"}
+            className={`h-full ${activeTab === "ai" ? "" : "hidden"}`}
+          >
+            <TerminalTabs active={activeTab === "ai"} surface="chat" />
+          </div>
+        )}
         <div className={`h-full ${activeTab === "terminal" ? "" : "hidden"}`}>
           <TerminalTabs active={activeTab === "terminal"} surface="terminal" />
         </div>

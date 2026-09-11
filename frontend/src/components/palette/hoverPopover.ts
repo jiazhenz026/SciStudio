@@ -6,11 +6,11 @@
 //   interactive and survives the tile→popover gap), FR-046 (one popover
 //   implementation serves blocks and types).
 //
-// The left palettes are pinned to the window's left edge, so a tile popover
-// always opens to the right. The canvas has its own anchor
+// Palette popovers open toward the workspace stage, based on sidebar placement. The canvas has its own anchor
 // (`nodes/BlockNode.parts/nodeDetailAnchor.ts`) because a placed node can sit
 // anywhere and the viewport pans/zooms; that geometry is deliberately separate.
 
+import { useSidebarSide } from "../../lib/presentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface PopoverAnchor {
@@ -39,21 +39,36 @@ export const POPOVER_CLOSE_DELAY_MS = 120;
 
 /** The part of a `DOMRect` the tile anchor needs. */
 export interface TileRect {
+  left?: number;
   right: number;
   top: number;
 }
 
-/**
- * Anchor a popover to the right of `rect`, clamped so the card stays on screen.
- *
- * `viewportHeight` defaults to `window.innerHeight`; when neither is available
- * (SSR / a bare jsdom document) the tile's own top is used unclamped.
- */
-export function computeTileAnchor(rect: TileRect, viewportHeight?: number): PopoverAnchor {
-  const height = viewportHeight ?? (typeof window === "undefined" ? undefined : window.innerHeight);
-  const maxTop =
-    height === undefined ? rect.top : Math.max(POPOVER_GAP, height - POPOVER_MAX_HEIGHT);
-  return { left: rect.right + POPOVER_GAP, top: Math.min(rect.top, maxTop) };
+export const POPOVER_WIDTH = 256;
+
+/** Prefer the stage-facing side, flip on collision, then clamp to the viewport. */
+export function computeTileAnchor(
+  rect: TileRect,
+  viewportHeight = window.innerHeight,
+  {
+    preferredSide = "right",
+    viewportWidth = window.innerWidth,
+  }: {
+    preferredSide?: "left" | "right";
+    viewportWidth?: number;
+  } = {},
+): PopoverAnchor {
+  const width = Math.min(POPOVER_WIDTH, Math.max(0, viewportWidth - 2 * POPOVER_GAP));
+  const right = rect.right + POPOVER_GAP;
+  const left = (rect.left ?? rect.right) - POPOVER_GAP - width;
+  const fits = (x: number) => x >= POPOVER_GAP && x + width <= viewportWidth - POPOVER_GAP;
+  const preferred = preferredSide === "left" ? left : right;
+  const alternate = preferredSide === "left" ? right : left;
+  const candidate = fits(preferred) ? preferred : fits(alternate) ? alternate : preferred;
+  return {
+    left: Math.max(POPOVER_GAP, Math.min(candidate, viewportWidth - POPOVER_GAP - width)),
+    top: Math.max(POPOVER_GAP, Math.min(rect.top, viewportHeight - POPOVER_MAX_HEIGHT)),
+  };
 }
 
 /** The item a popover is currently open for, and where it sits. */
@@ -98,6 +113,8 @@ export interface HoverPopoverController<T> {
  * card and click what is inside it.
  */
 export function useHoverPopover<T>(): HoverPopoverController<T> {
+  const sidebarSide = useSidebarSide();
+  const preferredSide = sidebarSide === "right" ? "left" : "right";
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hovered, setHovered] = useState<HoverTarget<T> | null>(null);
@@ -122,6 +139,21 @@ export function useHoverPopover<T>(): HoverPopoverController<T> {
     setHovered(null);
   }, [clearOpen, keepOpen]);
 
+  // A moved/resized/scrolled sidebar invalidates viewport-space anchors.
+  useEffect(() => {
+    closeNow();
+    window.addEventListener("resize", closeNow);
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest("[data-palette-popover]")) return;
+      closeNow();
+    };
+    window.addEventListener("scroll", onScroll, true);
+    return () => {
+      window.removeEventListener("resize", closeNow);
+      window.removeEventListener("scroll", onScroll, true);
+    };
+  }, [preferredSide, closeNow]);
+
   // Never leave a timer behind on unmount.
   useEffect(() => closeNow, [closeNow]);
 
@@ -129,13 +161,13 @@ export function useHoverPopover<T>(): HoverPopoverController<T> {
     (item: T, rect: TileRect) => {
       clearOpen();
       keepOpen();
-      const anchor = computeTileAnchor(rect);
+      const anchor = computeTileAnchor(rect, window.innerHeight, { preferredSide });
       openTimer.current = setTimeout(() => {
         openTimer.current = null;
         setHovered({ item, anchor });
       }, POPOVER_OPEN_DELAY_MS);
     },
-    [clearOpen, keepOpen],
+    [clearOpen, keepOpen, preferredSide],
   );
 
   const scheduleClose = useCallback(() => {
