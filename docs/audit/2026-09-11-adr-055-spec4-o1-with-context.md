@@ -390,3 +390,138 @@ The following must also be closed before completion:
 The P3 items can be follow-ups. The rest of the PR matches the #2321 contract
 and the #2328 signatures as the manager fixed them. Once these are resolved I
 expect a pass.
+
+## 6. Re-verification (head 07c474836)
+
+Subject: `feat/2322-enterprise-ui` @ `07c474836`, fix round
+`git diff aef739e2e...07c474836`: 29 files, +2674/-366. It includes:
+
+- merges of both audit branches;
+- the fixes in `5ad2720e8`, `7e116e7df` and `c063860ea`;
+- gate evidence commits.
+
+I read the fix diff, the PR review threads (Codex and CodeQL, each with the
+implementer's reply), the #2321 contract comments on the restart confirmation
+and its correction, and follow-up issue #2337. I re-ran the suites and new
+throwaway probes (uncommitted). Mode and rules are unchanged: with-context,
+read-only on implementation.
+
+**Verdict: pass.** P1-1 is fixed at the seam and in the route, and I could
+not reproduce it with any variant. Every P2 is either fixed or deferred to
+open issue #2337 with a tracked `TODO`. One condition remains: the Python
+3.13 CI job was still running when this section was written; Python 3.11 had
+passed (Section 6.5).
+
+### 6.1 Per-Finding Verdicts
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| **P1-1** bare `/api/ai/pty/internal` WebSocket bypass | **Fixed** | Two layers. (1) `is_self_authenticating_path` now exempts only paths strictly below a prefix (`seam.py:323`). (2) `pty_endpoint` refuses tab id `internal`, compared with `casefold()`, before `accept()` (`websocket.py:43-45`, `_state.RESERVED_TAB_IDS`). Probe under the fake replacement guard at `/` and `/user/alice/scistudio`: `internal`, `INTERNAL`, `Internal`, `%69nternal` and `%49NTERNAL` were refused at the handshake (1008) with **no spawn**. Bare HTTP `/api/ai/pty/internal` gets the guard's 401. Under the default guard the reserved id is refused too. Tests: `test_the_bare_prefix_path_is_never_exempt`, `test_the_terminal_route_refuses_the_reserved_tab_id_without_spawning`, `test_http_requests_to_the_bare_prefix_reach_no_route_without_a_session`. Seam FR-009, FR-011 and FR-022 are amended, and the CHANGELOG "Changed" entry records the provisional matching change (ADR-052). |
+| Strictly-below matching regresses nothing | **Verified** | Real internal routes: without the IPC token, the route's own 401; with it, `notify` answers 204, at both mounts and under both guards. A fixture `/api/panels/t/` prefix with a guarded sibling `/api/panels/{panel_id}`: `/api/panels/t/good/asset` gives 200 and `/bad/asset` gives the route's 403, both past the replacement guard. Bare `/api/panels/t` and `/api/panels/tx` get the guard's 401. |
+| **P2-1** deferral ratchet red | **Fixed** | "placeholder" became "marker" (`_PATH_MARKER`, docs and frontend). The Deferral discipline ratchet passes on `07c474836`. |
+| **P2-2** restart confirm on a stale `runs_active` | **Fixed** | Opening the dialog awaits a fresh read, and Confirm stays disabled until it arrives (`disabled={restarting \|\| status === null}`). Confirm reads again before posting, and asks again if runs started with no warning shown. `POST restart_url` sends `{"confirm_active_runs": <warned>}`. A `409` reads `active` kinds per the corrected #2321 contract (`{"detail", "active", "confirm_field"}`): known kinds are labeled, unknown or missing kinds get a generic label, and the dialog asks again and retries with `true`. An unreadable status keeps Confirm disabled. Five new `EnterpriseChrome` tests cover this. |
+| **P2-3** tutorial replay hidden; CHANGELOG claim | **Resolved by tracked deferral** | The CHANGELOG no longer claims replays work; it says they are hidden and tracked in #2337. The enterprise-support spec edge case says the same. `BottomPanel.tsx` carries `TODO(#2337)`. #2337 is open and names both follow-ups. |
+| **P2-4** Bring In My Work returns 500 after writing a brief | **Resolved by tracked deferral** | Behavior unchanged. `Toolbar.tsx` carries `TODO(#2337)`, and the CHANGELOG and spec state the gap. `work_import.py` is still outside the write set. |
+| **P2-5** upload `started` semantics | **Fixed (documented)** | FR-027, the `add_upload_listener` docstring, the `upload_data` docstring, the `data.ts` comments and the CHANGELOG now say that `started` marks the staging copy after FastAPI has received the whole body, and that a client cancel mid-transfer produces no event. |
+| **P3-1** URL dot segments | **Fixed** | `_has_dot_segment` on the backend and `hasDotSegment` on the frontend decode percent escapes for up to three rounds. Rejected: `/api/./x`, `/api/../x`, `%2e%2e`, `%2E.`, `%252e%252e`, `%25252e%25252e`, `x%2F..%2Fy`, and a template `/api/d/%2e%2e/{path}`. Still accepted, correctly: `?next=../y`, `#../y`, `..x`, `x..`, and both template shapes. |
+| **P3-2** BOM and invisible characters | **Fixed** | Unicode `Cc`, `Cf`, `Zs`, `Zl` and `Zp` are refused on the backend, and `[\s\p{Cc}\p{Cf}\p{Z}]` on the frontend. U+FEFF and U+200B are rejected. |
+| **P3-3** upload path when the project changes | **Fixed** | `upload_relative_path` is computed once, at staging, and passed to all three notifications (`data.py:123-145`). Test: `test_upload_paths_stay_relative_to_the_project_the_upload_was_staged_in`. |
+| **P3-4** CodeQL 286 | **Fixed** | The refusal branch rebuilds the fixed sentence from `agent_session_refusal` and no longer returns `str(exc)`. The alert's instance on `refs/pull/2336/head` is `fixed`. |
+| **P3-5** process-wide `_agent_sessions_disabled` | **Open (P3, follow-up)** | Unchanged and documented in the code. Acceptable as a follow-up. |
+| **P3-6** two `ToolRefusal` types | **Fixed** | Both docstrings now cross-reference each other. |
+| **P3-7** `public-api.md` row | **Fixed** | The seam row lists `active_project_root`, `ToolRefusal`, `check_author_path`, `write_project_file` and `add_upload_listener`. |
+| **P3-8** mypy error at `test_identity_seam.py:171` | **Unchanged (pre-existing)** | Not introduced by this PR; no action. |
+
+### 6.2 New Contract Points
+
+- **One shared resolver, used by both helpers.** `check_author_path` and
+  `write_project_file` both call `_resolve_in_project`, and
+  `write_project_file` now applies the author blacklist itself. Tests at both
+  mounts refuse `data/…`, `DATA/…`, `workflows/*.yaml`, `*.yml`, and
+  `~/../data/x.csv` (409 `protected_data_dir`). The live-app arm of my probe
+  could not open a project, so that behavior is evidenced by the suite and by
+  code reading.
+- **No `~` expansion.** The path is joined onto the root before the author
+  resolver sees it. Probe: `~/notes/x.md` resolved to `<root>/~/notes/x.md`,
+  and the home directory was untouched.
+- **Windows syntax and control characters.** Probed on Windows:
+
+  | Input | Result |
+  |---|---|
+  | `workflows/new.yaml::$DATA`, `workflows/new.yaml:stream`, `C:name.md`, `C:notes/x.md` | `invalid_path` |
+  | NUL and `\x1f` | `invalid_path` |
+  | trailing dot, trailing space, `WORKFLOWS/NEW.YAML` | `protected_workflow_yaml` |
+  | `Data/x.csv`, `notes/../data/x.csv` | `protected_data_dir` |
+  | UNC `\\server\share\x`, `..\outside.txt`, an absolute outside path | `outside_project` |
+  | `.` | `project_root` |
+  | empty | `empty_path` |
+
+  POSIX keeps `:` legal, because the stream check runs only when
+  `os.name == "nt"`.
+- **Script-safe bootstrap everywhere.** The base path and the WebMCP token
+  now use `_script_safe_json` too, which fixes no-context P3-2. My breakout
+  payloads still produce one script element, and the value round-trips at
+  both mounts.
+- **`GET /api/ai/status` probes no agent under `ai_chat_disabled`.** Each
+  agent row is reported `available: false, disabled: true`. The availability
+  report therefore grades those providers `not_installed` and never runs the
+  live minimal call (`availability.py:754`).
+
+### 6.3 New Issues
+
+- **N-1 (P3). The availability report calls a disabled agent "not
+  installed".**
+  - `/api/ai/availability` derives its grade from the status row, so a
+    provider turned off by `ai_chat_disabled` is graded `not_installed`. The
+    row's `disabled: true` is not carried through.
+  - A surface that reads availability, such as the Bring In My Work picker
+    or AI Block configuration, could show install guidance for an agent the
+    administrator turned off.
+  - No process is spawned, so this is a UX follow-up. It fits #2337's scope.
+- **N-2 (P3, informational). `write_project_file` is narrower than first
+  shipped.**
+  - It now refuses `data/` and `workflows/*.yaml`, so an edition can no
+    longer place files there through the seam.
+  - This is manager-directed (directive event, 2026-09-11) and documented in
+    FR-026 and the CHANGELOG. The names are new in this PR, so nothing
+    published changes.
+  - The edition consumer that fixed the #2328 signatures should be told that
+    `data/` placement goes through the staged `POST /api/data/upload`.
+
+No new P1 or P2 issues were found.
+
+### 6.4 Scope, Checklist, And Gate Evidence
+
+- The ledger adds five `add-include` scope events: both audit reports and
+  their ledgers, and `src/scistudio/api/routes/ai.py`. It also adds two
+  manager directive events, one per audit merge-and-fix round. Every changed
+  file is in scope.
+- Read-only `gate_record check --mode pre-pr --base origin/main --head origin/feat/2322-enterprise-ui`
+  on the PR ledger ends in "reconciliation passed". Its ledger mutation was
+  discarded.
+- **Checklist drift.** §7.4 requires "P2/P3 findings fixed or tracked with
+  owner-approved rationale". The `TODO(#2337)` lines cite "the #2322 audit
+  and manager". No owner approval for deferring P2-3 and P2-4 is recorded. The
+  manager should record it in §7.4. The A1 and AU1 rows in §6 and §7 are still
+  unchecked on the track branch.
+
+### 6.5 Checks Run
+
+| Check | Result |
+|---|---|
+| Backend: the six suites of Section 4 at `07c474836` (`-o addopts="" --no-cov`) | 365 passed |
+| Frontend: `capabilities.test.ts`, `src/components/Enterprise`, `BottomPanel`, `Toolbar` | 16 files, 280 tests passed |
+| Probe: bare-prefix bypass (both guards, both mounts, case and percent variants), IPC-token routes, fixture `/api/panels/t/` | all as expected; zero spawns on reserved ids |
+| Probe: resolver, URL validation, injection | all as expected; the live `write_project_file` arm was skipped (no project opened), and the suite covers it |
+| `gh pr checks 2336` | every check passes (Deferral discipline ratchet, Frontend, E2E, Full Audit, Type Check, CodeQL, Test (Python 3.11) and the rest) except **Test (Python 3.13)**, still pending at the last poll |
+| Sentrux | N/A: MCP not available in this runtime |
+
+### 6.6 Updated Recommendation
+
+**Pass**, on two conditions:
+
+- The pending Python 3.13 CI job finishes green (3.11 has passed).
+- The manager records owner approval for the #2337 deferral of P2-3 and P2-4
+  in checklist §7.4.
+
+P3-5, N-1 and N-2 are follow-ups and do not block the merge.
