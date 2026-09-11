@@ -3,27 +3,6 @@
   "retention": "Keep every superseded version served for at least one minor release after its replacement ships.",
   "libraries": [
     {
-      "name": "plotly",
-      "version": "2.35.3",
-      "package": "plotly.js",
-      "license": "MIT",
-      "files": [
-        "dist/plotly.min.js",
-        "LICENSE"
-      ],
-      "sha256": {
-        "dist/plotly.min.js": "db8942a5fcb846ef3c2a3b3e678573b18d74feed72a3b156c1c96f4460f64484",
-        "LICENSE": "67a26cf80f03ff388f26945dfc1f6caed1a0746ff43871190339b3aee49b94bb"
-      },
-      "source": "https://registry.npmjs.org/plotly.js/-/plotly.js-2.35.3.tgz",
-      "integrity": "sha512-7RaC6FxmCUhpD6H4MpD+QLUu3hCn76I11rotRefrh3m1iDvWqGnVqVk9dSaKmRAhFD3vsNsYea0OxnR1rc2IzQ==",
-      "upstream_sha256": {
-        "dist/plotly.min.js": "fc84e3cfa55d23d3654c562ea5deb3c274eb6972a6adf66941d1a821e34825e4",
-        "LICENSE": "67a26cf80f03ff388f26945dfc1f6caed1a0746ff43871190339b3aee49b94bb"
-      },
-      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
-    },
-    {
       "name": "d3",
       "version": "7.9.0",
       "package": "d3",
@@ -45,28 +24,26 @@
       "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
     },
     {
-      "name": "three",
-      "version": "0.180.0",
-      "package": "three",
-      "license": "MIT",
+      "name": "lucide",
+      "version": "1.45.0",
+      "package": "lucide",
+      "license": "ISC",
       "files": [
-        "build/three.module.min.js",
-        "build/three.core.min.js",
+        "dist/lucide.min.js",
         "LICENSE"
       ],
       "sha256": {
-        "build/three.module.min.js": "e2b5ee6bccd38fd6d8a2428546b83c5f2426d84b152ef82be8055556e3b40eb6",
-        "build/three.core.min.js": "61ba0df005b05991361d040d8ff670e1aadfd0ce7aeebd1fdb0725957a8957de",
-        "LICENSE": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+        "dist/lucide.min.js": "1876a30f8dd16a23af5ee36d503460202b35af298973e28e194014b79c51fb13",
+        "LICENSE": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
       },
-      "source": "https://registry.npmjs.org/three/-/three-0.180.0.tgz",
-      "integrity": "sha512-o+qycAMZrh+TsE01GqWUxUIKR1AL0S8pq7zDkYOQw8GqfX8b8VoCKYUoHbhiX5j+7hr8XsuHDVU6+gkQJQKg9w==",
+      "source": "https://registry.npmjs.org/lucide/-/lucide-1.45.0.tgz",
+      "integrity": "sha512-Paze7TONAGAOSwg2qh2GXY0zkNY6p4+E6BTthwyY6LpVQnqcpV73jtY9UtAZeMfDiZpevZhKINpLu4WeahOXyw==",
       "upstream_sha256": {
-        "build/three.module.min.js": "e2b5ee6bccd38fd6d8a2428546b83c5f2426d84b152ef82be8055556e3b40eb6",
-        "build/three.core.min.js": "61ba0df005b05991361d040d8ff670e1aadfd0ce7aeebd1fdb0725957a8957de",
-        "LICENSE": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+        "dist/lucide.min.js": "1876a30f8dd16a23af5ee36d503460202b35af298973e28e194014b79c51fb13",
+        "LICENSE": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57"
       },
-      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
+      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged.",
+      "notes": "UMD build carrying the full icon set; exposes window.lucide with createIcons()/icons. Chosen over the per-icon ESM tree (3,600+ files) to keep the vendored set reviewable."
     },
     {
       "name": "pdfjs",
@@ -665,6 +642,76 @@
         "standard_fonts/LiberationSans-Regular.ttf": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
         "wasm/openjpeg.wasm": "cb031f36245b389e1f5bffc59d10eed35bb0f85d7368b46c3f0b462042ec8e9e",
         "wasm/qcms_bg.wasm": "6017eca5939cde1836e88e6d8cd27ae039246f206515ea4487bdfd0e3fb16e26"
+      },
+      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
+    },
+    {
+      "name": "plotly",
+      "version": "2.35.3",
+      "package": "plotly.js",
+      "license": "MIT",
+      "files": [
+        "dist/plotly.min.js",
+        "LICENSE"
+      ],
+      "sha256": {
+        "dist/plotly.min.js": "db8942a5fcb846ef3c2a3b3e678573b18d74feed72a3b156c1c96f4460f64484",
+        "LICENSE": "67a26cf80f03ff388f26945dfc1f6caed1a0746ff43871190339b3aee49b94bb"
+      },
+      "source": "https://registry.npmjs.org/plotly.js/-/plotly.js-2.35.3.tgz",
+      "integrity": "sha512-7RaC6FxmCUhpD6H4MpD+QLUu3hCn76I11rotRefrh3m1iDvWqGnVqVk9dSaKmRAhFD3vsNsYea0OxnR1rc2IzQ==",
+      "upstream_sha256": {
+        "dist/plotly.min.js": "fc84e3cfa55d23d3654c562ea5deb3c274eb6972a6adf66941d1a821e34825e4",
+        "LICENSE": "67a26cf80f03ff388f26945dfc1f6caed1a0746ff43871190339b3aee49b94bb"
+      },
+      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
+    },
+    {
+      "name": "preact-htm",
+      "version": "3.1.1",
+      "package": "htm",
+      "license": "Apache-2.0 AND MIT",
+      "files": [
+        "dist/preact-standalone.module.js",
+        "LICENSE",
+        "LICENSE-preact"
+      ],
+      "sha256": {
+        "dist/preact-standalone.module.js": "72284e8e9079c87817145df1110f74e8a2aa040b2fc384922e18dfcb46fc1fd7",
+        "LICENSE": "991e82b20ea949fbc98923edc2e4253fe177181bc50ff5383a325e58924ba7c2",
+        "LICENSE-preact": "1fe6958409c8c257a70c587a18b6f7f412b179b456630790d30b2ec9a8e4b7d4"
+      },
+      "source": "https://registry.npmjs.org/htm/-/htm-3.1.1.tgz",
+      "integrity": "sha512-983Vyg8NwUE7JkZ6NmOqpCZ+sh1bKv2iYTlUkzlWmA5JD2acKoxd4KVxbMmxX/85mtfdnDmTFoNKcg5DGAvxNQ==",
+      "upstream_sha256": {
+        "dist/preact-standalone.module.js": "72284e8e9079c87817145df1110f74e8a2aa040b2fc384922e18dfcb46fc1fd7",
+        "LICENSE": "740725f7252e750af735d0028cc534970772f513331e9f68150fede8fb3ce00f",
+        "LICENSE-preact": "1fe6958409c8c257a70c587a18b6f7f412b179b456630790d30b2ec9a8e4b7d4"
+      },
+      "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged.",
+      "notes": "htm/preact/standalone.module.js: Preact 10.27.2 (MIT, bundled) + hooks + htm 3.1.1 (Apache-2.0) in one build-free ES module. LICENSE is htm's; LICENSE-preact is Preact 10.27.2's (https://registry.npmjs.org/preact/-/preact-10.27.2.tgz, sha512-5SYSgFKSyhCbk6SrXyMpqjb5+MQBgfvEKE/OC+PujcY34sOpqtr+0AZQtPYx5IA6VxynQ7rUPCtKzyovpj9Bpg==)."
+    },
+    {
+      "name": "three",
+      "version": "0.180.0",
+      "package": "three",
+      "license": "MIT",
+      "files": [
+        "build/three.module.min.js",
+        "build/three.core.min.js",
+        "LICENSE"
+      ],
+      "sha256": {
+        "build/three.module.min.js": "e2b5ee6bccd38fd6d8a2428546b83c5f2426d84b152ef82be8055556e3b40eb6",
+        "build/three.core.min.js": "61ba0df005b05991361d040d8ff670e1aadfd0ce7aeebd1fdb0725957a8957de",
+        "LICENSE": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
+      },
+      "source": "https://registry.npmjs.org/three/-/three-0.180.0.tgz",
+      "integrity": "sha512-o+qycAMZrh+TsE01GqWUxUIKR1AL0S8pq7zDkYOQw8GqfX8b8VoCKYUoHbhiX5j+7hr8XsuHDVU6+gkQJQKg9w==",
+      "upstream_sha256": {
+        "build/three.module.min.js": "e2b5ee6bccd38fd6d8a2428546b83c5f2426d84b152ef82be8055556e3b40eb6",
+        "build/three.core.min.js": "61ba0df005b05991361d040d8ff670e1aadfd0ce7aeebd1fdb0725957a8957de",
+        "LICENSE": "bfe119ea4fd413f5f7ca3fcd63adb0c4a073ed39daa2fe7d3e6b769e21272601"
       },
       "normalization": "Repository hygiene: trim trailing whitespace and normalize final newline in text files; binary files unchanged."
     }

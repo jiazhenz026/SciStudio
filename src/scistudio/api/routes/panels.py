@@ -277,14 +277,22 @@ def panel_asset(token: str, panel_id: str, path: str, request: Request) -> Respo
         raise _failure(PanelError(404, "invalid_asset", str(exc))) from exc
 
 
-@router.get("/t/{token}/sdk/{major}/scistudio-panel.js")
-@router.options("/t/{token}/sdk/{major}/scistudio-panel.js", include_in_schema=False)
-def panel_sdk(token: str, major: str, request: Request) -> Response:
+# The SDK major serves a fixed, reviewed file set: the dependency-free client,
+# the shared stylesheet every panel links for the application's look, and the
+# Preact component set panels assemble their interface from.
+_SDK_FILES = ("scistudio-panel.js", "panel.css", "panel-ui.js")
+
+
+@router.get("/t/{token}/sdk/{major}/{name}")
+@router.options("/t/{token}/sdk/{major}/{name}", include_in_schema=False)
+def panel_sdk(token: str, major: str, name: str, request: Request) -> Response:
     try:
         get_panel_contexts(request.app.state.runtime).by_token(token)
         if major != "1":
             raise ValueError("Unsupported SDK major")
-        return _static_response(request, resolve_panel_file(_STATIC_ROOT / "sdk", "1/scistudio-panel.js"), token)
+        if name not in _SDK_FILES:
+            raise ValueError("Unknown SDK asset")
+        return _static_response(request, resolve_panel_file(_STATIC_ROOT / "sdk", f"1/{name}"), token)
     except PanelError as exc:
         raise _failure(exc) from exc
     except ValueError as exc:

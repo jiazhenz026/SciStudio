@@ -1,259 +1,478 @@
-/* core.array.basic — native-resolution numeric inspection (parity: ArrayViewer).
+/* core.array.basic — bounded numeric inspection of an Array.
  *
- * Faithful display (#1886 item A): the DEFAULT value surface is the array's REAL
- * cell values read at native resolution via array.tile — a numeric heatmap grid
- * of actual numbers with per-cell colour and a vmin..vmax legend. Every cell is
- * reachable by panning the tile window; N-D arrays keep one slider per extra
- * axis. array.plane's strided read is used ONLY as a small, clearly-labelled
- * navigation minimap, never as the value surface. Non-finite cells arrive as the
- * sentinel strings "NaN"/"Infinity"/"-Infinity" and render as NaN / ∞ / -∞
- * (never blank) (#1886 item E). */
-(function () {
-  "use strict";
-  var api = window.scistudio;
-  var root = document.getElementById("root");
-  var state = { axis_indices: {}, y0: 0, x0: 0, tile: 64 };
-  var meta = null;
+ * Built with Preact and the shared panel component set, so it looks like the
+ * rest of the application without restating its styling. The surface matches the
+ * viewer it replaces: a numeric heatmap table of the ACTUAL values with per-cell
+ * colour, sticky row/column headers, a min..max legend, and one index control per
+ * non-displayed axis.
+ *
+ * Faithful display (#1886 A/E): the cells are the array's REAL values, read at
+ * native resolution through array.tile and virtualized (spacer rows and padding
+ * cells) so scrolling a large plane moves through real data instead of a
+ * decimated stand-in. vmin/vmax come from the backend's full-plane extent.
+ * NaN / +-inf arrive as sentinel strings and render as NaN / ∞ / -∞, never blank.
+ */
+import {
+  html,
+  render,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+import {
+  Card,
+  ErrorState,
+  Field,
+  Input,
+  Legend,
+  LoadingState,
+  Meta,
+  Panel,
+  ScrollArea,
+  Table,
+} from "../../sdk/1/panel-ui.js";
 
-  function isSentinel(v) { return v === "NaN" || v === "Infinity" || v === "-Infinity"; }
-  function numeric(v) { return typeof v === "number" && isFinite(v) ? v : null; }
-  function formatCell(v) {
-    if (v === "NaN") return "NaN";
-    if (v === "Infinity") return "∞";
-    if (v === "-Infinity") return "-∞";
-    if (v === null || v === undefined) return "—";
-    if (typeof v !== "number" || !isFinite(v)) return String(v);
-    if (v === 0) return "0";
-    var abs = Math.abs(v);
-    if (Number.isInteger(v) && abs < 1e6) return String(v);
-    if (abs >= 1e5 || abs < 1e-3) return v.toExponential(2);
-    return v.toFixed(3);
-  }
-  function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
-  function heatmapColor(v, vmin, vmax) {
-    var n = numeric(v);
-    if (n === null) return "transparent";
-    if (typeof vmin !== "number" || typeof vmax !== "number") return "transparent";
-    if (vmin < 0 && vmax > 0) {
-      var mag = Math.max(Math.abs(vmin), Math.abs(vmax)) || 1;
-      var t = Math.max(-1, Math.min(1, n / mag));
-      if (t < 0) { var k = -t; return "rgb(" + lerp(247, 33, k) + "," + lerp(247, 102, k) + "," + lerp(247, 172, k) + ")"; }
-      return "rgb(" + lerp(247, 178, t) + "," + lerp(247, 24, t) + "," + lerp(247, 43, t) + ")";
+const api = window.scistudio;
+
+const VIEWPORT = 320; // the scroll surface's max height, from panel.css
+const OVERSCAN = 8; // rows/columns kept beyond the viewport
+const COL_W = 44; // fixed column width, mirrored by panel.css
+const ROW_H = 19; // row height before one is measured
+const TILE_CAP = 256; // per-read tile bound; the backend caps it too
+
+// ---- value formatting and colour (the viewer's exact behaviour) -------------
+
+const SENTINELS = { NaN: "NaN", Infinity: "∞", "-Infinity": "-∞" };
+
+function numeric(v) {
+  return typeof v === "number" && isFinite(v) ? v : null;
+}
+export function formatCell(v) {
+  if (v in SENTINELS) return SENTINELS[v];
+  if (v === null || v === undefined) return "—";
+  if (typeof v !== "number") return String(v);
+  if (!isFinite(v)) return Number.isNaN(v) ? "NaN" : v > 0 ? "∞" : "-∞";
+  if (v === 0) return "0";
+  const abs = Math.abs(v);
+  if (Number.isInteger(v) && abs < 1e6) return String(v);
+  if (abs >= 1e5 || abs < 1e-3) return v.toExponential(2);
+  return v.toFixed(3);
+}
+const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+export function heatmapColor(v, vmin, vmax) {
+  const n = numeric(v);
+  if (n === null || typeof vmin !== "number" || typeof vmax !== "number") return "transparent";
+  if (vmin < 0 && vmax > 0) {
+    // Diverging, centred at 0 so negatives stay distinct.
+    const mag = Math.max(Math.abs(vmin), Math.abs(vmax)) || 1;
+    const t = Math.max(-1, Math.min(1, n / mag));
+    if (t < 0) {
+      const k = -t;
+      return `rgb(${lerp(247, 33, k)}, ${lerp(247, 102, k)}, ${lerp(247, 172, k)})`;
     }
-    var span = (vmax - vmin) || 1;
-    var s = Math.max(0, Math.min(1, (n - vmin) / span));
-    return "rgb(" + lerp(247, 8, s) + "," + lerp(252, 64, s) + "," + lerp(253, 129, s) + ")";
+    return `rgb(${lerp(247, 178, t)}, ${lerp(247, 24, t)}, ${lerp(247, 43, t)})`;
   }
-  function displayAxes(shape, axes, sliceAxes) {
-    var sliced = {};
-    (sliceAxes || []).forEach(function (a) { sliced[a.axis] = true; });
-    var remaining = [];
-    for (var i = 0; i < shape.length; i++) if (!sliced[i]) remaining.push(i);
-    var y, x;
-    if (axes && axes.indexOf("y") >= 0 && axes.indexOf("x") >= 0) { y = axes.indexOf("y"); x = axes.indexOf("x"); }
-    else if (remaining.length >= 2) { y = remaining[remaining.length - 2]; x = remaining[remaining.length - 1]; }
-    else if (remaining.length === 1) { y = remaining[0]; x = remaining[0]; }
-    else { y = 0; x = 0; }
-    return { y: y, x: x };
-  }
+  const span = vmax - vmin || 1;
+  const s = Math.max(0, Math.min(1, (n - vmin) / span));
+  return `rgb(${lerp(247, 8, s)}, ${lerp(252, 64, s)}, ${lerp(253, 129, s)})`;
+}
+function cellTextColor(v, vmin, vmax) {
+  const n = numeric(v);
+  if (n === null) return "rgb(var(--ink) / 0.4)";
+  const mag =
+    vmin < 0 && vmax > 0 ? Math.max(Math.abs(vmin), Math.abs(vmax)) || 1 : vmax - vmin || 1;
+  const intensity = vmin < 0 && vmax > 0 ? Math.abs(n) / mag : (n - vmin) / mag;
+  return intensity > 0.6 ? "#fffdf8" : "rgb(var(--ink))";
+}
 
-  function el(tag, props, kids) {
-    var node = document.createElement(tag);
-    if (props) Object.keys(props).forEach(function (k) {
-      if (k === "text") node.textContent = props[k];
-      else if (k === "onclick") node.onclick = props[k];
-      else if (k === "oninput") node.oninput = props[k];
-      else if (k === "style") node.setAttribute("style", props[k]);
-      else if (k === "disabled") { if (props[k]) node.setAttribute("disabled", ""); }
-      else node.setAttribute(k, props[k]);
-    });
-    (kids || []).forEach(function (c) { if (c) node.appendChild(c); });
-    return node;
+/** Resolve which axes are displayed as rows/columns. */
+export function displayAxes(shape, axes, sliceAxes) {
+  const sliced = new Set((sliceAxes || []).map((a) => a.axis));
+  const remaining = shape.map((_, i) => i).filter((i) => !sliced.has(i));
+  if (axes && axes.includes("y") && axes.includes("x")) {
+    return { y: axes.indexOf("y"), x: axes.indexOf("x") };
   }
+  if (remaining.length >= 2) {
+    return { y: remaining[remaining.length - 2], x: remaining[remaining.length - 1] };
+  }
+  if (remaining.length === 1) return { y: remaining[0], x: remaining[0] };
+  return { y: 0, x: 0 };
+}
 
-  function heatGrid(tileData) {
-    var values = tileData.values || [];
-    var y0 = typeof tileData.y0 === "number" ? tileData.y0 : state.y0;
-    var x0 = typeof tileData.x0 === "number" ? tileData.x0 : state.x0;
-    var cols = values[0] ? values[0].length : 0;
-    var head = el("tr", null, [el("th", { class: "corner" })].concat(
-      Array.from({ length: cols }, function (_, c) { return el("th", { text: String(x0 + c) }); })
-    ));
-    var body = values.map(function (row, r) {
-      var cells = row.map(function (v, c) {
-        var td = el("td", {
-          "data-testid": "array-cell-" + (y0 + r) + "-" + (x0 + c),
-          title: isSentinel(v) ? "non-finite (" + v + ")" : String(v),
-          style: "background:" + heatmapColor(v, meta.vmin, meta.vmax),
-          text: formatCell(v),
+/**
+ * Plane geometry, following the backend's selection: a 0-D or 1-D source has a
+ * single row (a 1-D array is one row of N columns), so rows are never derived
+ * from shape[y] for those.
+ */
+function planeMeta(plane) {
+  const shape = plane.source_shape || plane.shape || [];
+  const da = displayAxes(shape, plane.axes || [], plane.slice_axes || []);
+  const displayed = shape.length - (plane.slice_axes || []).length;
+  const twoD = displayed >= 2;
+  return {
+    shape,
+    dtype: plane.source_dtype || plane.dtype || "?",
+    axes: plane.axes || [],
+    vmin: typeof plane.vmin === "number" ? plane.vmin : null,
+    vmax: typeof plane.vmax === "number" ? plane.vmax : null,
+    rows: twoD ? shape[da.y] || 1 : 1,
+    cols: shape.length ? shape[da.x] || 1 : 1,
+    scalar: shape.length === 0,
+  };
+}
+
+// ---- components -------------------------------------------------------------
+
+/**
+ * One index control per non-displayed axis. The handle runs on a normalised
+ * 0..1 track so it moves continuously with the pointer rather than snapping
+ * between index stops; the index it resolves to loads live, and releasing snaps
+ * the handle onto that index.
+ */
+function SliceAxes({ sliceAxes, indices, onChange }) {
+  // While the pointer is down the handle is left alone: re-rendering with the
+  // committed index as its value would yank it to the snapped position for a
+  // frame, and it would only return to the pointer on the next move. The handle
+  // is synchronised to the index when the gesture ends and on outside changes.
+  const dragging = useRef(new Set());
+  const handles = useRef({});
+  const frac = useCallback((idx, last) => (last > 0 ? idx / last : 0), []);
+
+  useLayoutEffect(() => {
+    for (const ax of sliceAxes) {
+      const node = handles.current[ax.axis];
+      if (!node || dragging.current.has(ax.axis)) continue;
+      const last = Math.max(0, ax.size - 1);
+      const next = String(frac(indices[ax.axis] ?? ax.index, last));
+      if (node.value !== next) node.value = next;
+    }
+  }, [sliceAxes, indices, frac]);
+
+  if (!sliceAxes.length) return null;
+  return html`<div data-testid="array-slice-selectors">
+    ${sliceAxes.map((ax) => {
+      const last = Math.max(0, ax.size - 1);
+      const value = indices[ax.axis] ?? ax.index;
+      const clamp = (raw) => Math.max(0, Math.min(Math.round(isFinite(raw) ? raw : 0), last));
+      const fromFrac = (f) => clamp((isFinite(f) ? f : 0) * last);
+      const endDrag = (e) => {
+        dragging.current.delete(ax.axis);
+        // Snap the handle onto the index it committed to.
+        const idx = fromFrac(parseFloat(e.currentTarget.value));
+        e.currentTarget.value = String(frac(idx, last));
+        onChange(ax.axis, idx);
+      };
+      return html`<${Field}
+        key=${ax.axis}
+        name=${`${ax.name} (${ax.size})`}
+        readout=${`${value} / ${last}`}
+        data-testid=${`array-slice-row-${ax.axis}`}
+      >
+        <${Input}
+          class="panel-field-range"
+          type="range"
+          min="0"
+          max="1"
+          step="0.0001"
+          elementRef=${(node) => {
+            if (node) {
+              handles.current[ax.axis] = node;
+              // Uncontrolled: set the starting position once, then leave it to
+              // the pointer and the layout effect above.
+              if (node.dataset.init !== "1") {
+                node.value = String(frac(value, last));
+                node.dataset.init = "1";
+              }
+            }
+          }}
+          aria-label=${`Slice along ${ax.name}`}
+          data-testid=${`array-slice-slider-${ax.axis}`}
+          onPointerDown=${() => dragging.current.add(ax.axis)}
+          onInput=${(e) => onChange(ax.axis, fromFrac(parseFloat(e.target.value)))}
+          onPointerUp=${endDrag}
+          onPointerCancel=${endDrag}
+          onChange=${endDrag}
+        />
+        <${Input}
+          number
+          type="number"
+          min="0"
+          max=${last}
+          value=${value}
+          aria-label=${`Index along ${ax.name}`}
+          data-testid=${`array-slice-input-${ax.axis}`}
+          onInput=${(e) => onChange(ax.axis, clamp(parseFloat(e.target.value)))}
+        />
+      <//>`;
+    })}
+  </div>`;
+}
+
+/**
+ * The numeric heatmap. Only the visible window is in the DOM: rows outside it
+ * become two spacer rows of exactly their height and columns outside the loaded
+ * band become padding cells of exactly their width, so both scrollbars describe
+ * the whole plane while the cells on screen are real values.
+ */
+function HeatmapTable({ meta, tile, rowHeight, onScroll, scrollRef }) {
+  const values = tile?.values ?? [];
+  const y0 = typeof tile?.y0 === "number" ? tile.y0 : 0;
+  const x0 = typeof tile?.x0 === "number" ? tile.x0 : 0;
+  const wCols = values[0]?.length ?? 0;
+  const yEnd = y0 + values.length;
+  const xEnd = x0 + wCols;
+  const leftPad = x0 * COL_W;
+  const rightPad = Math.max(0, meta.cols - xEnd) * COL_W;
+  const pad = (w) => html`<td class="panel-table-pad" style=${`min-width:${w}px`}></td>`;
+  const padHead = (w) => html`<th class="panel-table-pad" style=${`min-width:${w}px`}></th>`;
+
+  return html`<${ScrollArea}
+    data-testid="array-2d-heatmap"
+    tabindex="0"
+    elementRef=${scrollRef}
+    onScroll=${onScroll}
+  >
+    <${Table} data-testid="array-heatmap">
+      <thead>
+        <tr>
+          <th class="panel-table-corner"></th>
+          ${leftPad ? padHead(leftPad) : null}
+          ${values[0]?.map((_, c) => html`<th key=${c}>${x0 + c}</th>`)}
+          ${rightPad ? padHead(rightPad) : null}
+        </tr>
+      </thead>
+      <tbody>
+        ${y0 > 0 ? html`<tr aria-hidden="true" style=${`height:${y0 * rowHeight}px`}></tr>` : null}
+        ${values.map(
+          (row, r) => html`<tr key=${y0 + r} data-row=${y0 + r}>
+            <th>${y0 + r}</th>
+            ${leftPad ? pad(leftPad) : null}
+            ${row.map((v, c) => {
+              const nonFinite = numeric(v) === null;
+              return html`<td
+                key=${c}
+                data-testid=${`array-cell-${y0 + r}-${x0 + c}`}
+                title=${nonFinite ? "non-finite" : String(v)}
+                class=${nonFinite ? "panel-table-nonfinite" : undefined}
+                style=${`background:${heatmapColor(v, meta.vmin, meta.vmax)};color:${cellTextColor(v, meta.vmin, meta.vmax)}`}
+              >${formatCell(v)}</td>`;
+            })}
+            ${rightPad ? pad(rightPad) : null}
+          </tr>`,
+        )}
+        ${yEnd < meta.rows
+          ? html`<tr aria-hidden="true" style=${`height:${(meta.rows - yEnd) * rowHeight}px`}></tr>`
+          : null}
+      </tbody>
+    <//>
+  <//>`;
+}
+
+function ValueLegend({ meta }) {
+  if (typeof meta.vmin !== "number" || typeof meta.vmax !== "number") {
+    return html`<div class="panel-legend" data-testid="array-legend">no finite values</div>`;
+  }
+  const stops = Array.from({ length: 9 }, (_, i) =>
+    heatmapColor(meta.vmin + ((meta.vmax - meta.vmin) * i) / 8, meta.vmin, meta.vmax),
+  );
+  const mid = meta.vmin < 0 && meta.vmax > 0 ? 0 : (meta.vmin + meta.vmax) / 2;
+  return html`<${Legend}
+    data-testid="array-legend"
+    min=${html`<span data-testid="array-legend-min">${formatCell(meta.vmin)}</span>`}
+    mid=${html`<span data-testid="array-legend-mid">${formatCell(mid)}</span>`}
+    max=${html`<span data-testid="array-legend-max">${formatCell(meta.vmax)}</span>`}
+    stops=${stops}
+  />`;
+}
+
+function ArrayPanel({ initialView }) {
+  const [plane, setPlane] = useState(null);
+  const [tile, setTile] = useState(null);
+  const [error, setError] = useState(null);
+  // A failed read is shown here AND reported to the host: the surrounding
+  // preview shell offers the remount / core-preview recovery on that signal.
+  const fail = useCallback((err) => {
+    const message = err?.message || String(err);
+    setError(message);
+    api.reportError(message);
+  }, []);
+  const [indices, setIndices] = useState(initialView.axis_indices || {});
+  const [rowHeight, setRowHeight] = useState(ROW_H);
+
+  const scrollRef = useRef(null);
+  const scrollPos = useRef({ top: initialView.scrollTop || 0, left: initialView.scrollLeft || 0 });
+  // Only the newest response is applied, and at most one read of each kind is in
+  // flight, so dragging an axis tracks the pointer instead of queueing a
+  // round-trip per intermediate index.
+  const planeReq = useRef(0);
+  const tileReq = useRef(0);
+
+  const meta = useMemo(() => (plane ? planeMeta(plane) : null), [plane]);
+  const sliceAxes = plane?.slice_axes ?? [];
+  const firstIndex = useMemo(() => {
+    const keys = Object.keys(indices);
+    return keys.length ? indices[keys[0]] : 0;
+  }, [indices]);
+
+  const readPlane = useCallback(
+    (axisIndices) => {
+      const req = ++planeReq.current;
+      const keys = Object.keys(axisIndices);
+      const slice = keys.length ? axisIndices[keys[0]] : 0;
+      api
+        .read("array.plane", { slice_index: slice, axis_indices: axisIndices })
+        .then((p) => {
+          if (req === planeReq.current) {
+            setPlane(p);
+            setError(null);
+          }
+        })
+        .catch((err) => {
+          if (req === planeReq.current) fail(err);
         });
-        if (numeric(v) === null) td.className = "nonfinite";
-        return td;
+    },
+    [fail],
+  );
+
+  const readTile = useCallback(() => {
+    if (!meta || meta.scalar) return;
+    const box = scrollRef.current;
+    const maxRow = Math.max(0, meta.rows - 1);
+    const maxCol = Math.max(0, meta.cols - 1);
+    const firstRow = Math.max(
+      0,
+      Math.min(Math.floor(scrollPos.current.top / rowHeight) - OVERSCAN, maxRow),
+    );
+    const firstCol = Math.max(
+      0,
+      Math.min(Math.floor(scrollPos.current.left / COL_W) - OVERSCAN, maxCol),
+    );
+    const visRows = Math.ceil((box?.clientHeight || VIEWPORT) / rowHeight) + 2 * OVERSCAN;
+    const visCols = Math.ceil((box?.clientWidth || 480) / COL_W) + 2 * OVERSCAN;
+    const height = Math.max(1, Math.min(TILE_CAP, visRows, meta.rows - firstRow));
+    const width = Math.max(1, Math.min(TILE_CAP, visCols, meta.cols - firstCol));
+    const req = ++tileReq.current;
+    api
+      .read("array.tile", {
+        y0: firstRow,
+        x0: firstCol,
+        height,
+        width,
+        slice_index: firstIndex,
+        axis_indices: indices,
+      })
+      .then((t) => {
+        if (req === tileReq.current) setTile(t);
+      })
+      .catch((err) => {
+        if (req === tileReq.current) fail(err);
       });
-      return el("tr", null, [el("th", { text: String(y0 + r) })].concat(cells));
+  }, [meta, rowHeight, firstIndex, indices, fail]);
+
+  // First read, and a re-read whenever the selected slice changes.
+  useEffect(() => {
+    readPlane(indices);
+  }, [indices, readPlane]);
+
+  // The plane defines the geometry; load the window it exposes. A 0-D source has
+  // exactly one cell, so read that instead of a window.
+  useEffect(() => {
+    if (!meta) return;
+    if (meta.scalar) {
+      const req = ++tileReq.current;
+      api
+        .read("array.tile", { y0: 0, x0: 0, height: 1, width: 1, slice_index: firstIndex, axis_indices: indices })
+        .then((t) => {
+          if (req === tileReq.current) setTile(t);
+        })
+        .catch((err) => {
+          if (req === tileReq.current) fail(err);
+        });
+      return;
+    }
+    readTile();
+  }, [meta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Measure a real row once so the spacer heights match the rendered rows.
+  useLayoutEffect(() => {
+    const row = scrollRef.current?.querySelector("tbody tr[data-row]");
+    const measured = row instanceof HTMLElement ? row.offsetHeight : 0;
+    if (measured > 0 && measured !== rowHeight) setRowHeight(measured);
+  }, [tile, rowHeight]);
+
+  // Restore the scroll offset after the geometry is known.
+  useLayoutEffect(() => {
+    const box = scrollRef.current;
+    if (!box) return;
+    if (box.scrollTop !== scrollPos.current.top) box.scrollTop = scrollPos.current.top;
+    if (box.scrollLeft !== scrollPos.current.left) box.scrollLeft = scrollPos.current.left;
+  }, [meta]);
+
+  useEffect(() => {
+    api.setViewState({
+      axis_indices: indices,
+      scrollTop: scrollPos.current.top,
+      scrollLeft: scrollPos.current.left,
     });
-    return el("div", { class: "grid" }, [el("table", { class: "heat", "data-testid": "array-heatmap" }, [el("thead", null, [head]), el("tbody", null, body)])]);
+  }, [indices, tile]);
+
+  const onScroll = useCallback(
+    (e) => {
+      scrollPos.current = { top: e.currentTarget.scrollTop, left: e.currentTarget.scrollLeft };
+      readTile();
+    },
+    [readTile],
+  );
+
+  const onSliceChange = useCallback((axis, index) => {
+    scrollPos.current = { top: 0, left: 0 };
+    setIndices((prev) => (prev[axis] === index ? prev : { ...prev, [axis]: index }));
+  }, []);
+
+  if (error) {
+    return html`<${Panel}><${ErrorState}>Could not read array: ${error}<//><//>`;
+  }
+  // Reading a large array takes a moment; say so rather than showing an empty
+  // surface until the first plane lands.
+  if (!meta) {
+    return html`<${Panel}><${LoadingState} data-testid="array-loading">Loading array…<//><//>`;
   }
 
-  function legend() {
-    var vmin = meta.vmin, vmax = meta.vmax;
-    if (typeof vmin !== "number" || typeof vmax !== "number") {
-      return el("div", { class: "legend", "data-testid": "array-legend", text: "no finite values" });
-    }
-    var stops = [];
-    for (var i = 0; i <= 8; i++) stops.push(heatmapColor(vmin + (vmax - vmin) * i / 8, vmin, vmax));
-    var mid = vmin < 0 && vmax > 0 ? 0 : (vmin + vmax) / 2;
-    return el("div", { class: "legend", "data-testid": "array-legend" }, [
-      el("span", { "data-testid": "array-legend-min", text: formatCell(vmin) }),
-      el("div", { class: "ramp", style: "background:linear-gradient(to right," + stops.join(",") + ")" }),
-      el("span", { "data-testid": "array-legend-mid", text: formatCell(mid) }),
-      el("span", { "data-testid": "array-legend-max", text: formatCell(vmax) }),
-    ]);
-  }
+  const items = ["Array", `shape [${meta.shape.join(", ")}]`, `dtype ${meta.dtype}`];
+  if (meta.axes.length) items.push(`axes [${meta.axes.join(", ")}]`);
 
-  function minimap(planeData) {
-    var values = planeData.values || [];
-    var rows = values.length, cols = values[0] ? values[0].length : 0;
-    if (!rows || !cols) return null;
-    var box = el("div", { class: "minimap" });
-    var scale = Math.max(1, Math.round(120 / Math.max(rows, cols)));
-    var canvas = el("canvas", { width: cols * scale, height: rows * scale, "data-testid": "array-minimap", title: "Overview — click to navigate; not the value surface" });
-    var ctx = null;
-    try { ctx = canvas.getContext && canvas.getContext("2d"); } catch (e) { ctx = null; }
-    if (ctx) {
-      for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
-        ctx.fillStyle = heatmapColor(values[r][c], meta.vmin, meta.vmax);
-        ctx.fillRect(c * scale, r * scale, scale, scale);
-      }
-    }
-    canvas.onclick = function (ev) {
-      var rect = canvas.getBoundingClientRect();
-      var fx = rect.width ? (ev.clientX - rect.left) / rect.width : 0;
-      var fy = rect.height ? (ev.clientY - rect.top) / rect.height : 0;
-      state.x0 = Math.max(0, Math.min(Math.round(fx * meta.planeW) - Math.floor(state.tile / 2), Math.max(0, meta.planeW - 1)));
-      state.y0 = Math.max(0, Math.min(Math.round(fy * meta.planeH) - Math.floor(state.tile / 2), Math.max(0, meta.planeH - 1)));
-      loadTile();
-    };
-    box.appendChild(canvas);
-    box.appendChild(el("span", { text: "overview (navigation aid)" }));
-    return box;
-  }
+  return html`<${Panel}>
+    <${Meta} items=${items} data-testid="array-info" />
+    <${SliceAxes} sliceAxes=${sliceAxes} indices=${indices} onChange=${onSliceChange} />
+    ${meta.scalar
+      ? html`<${Card} data-testid="array-scalar">
+          ${formatCell(tile?.values?.[0]?.[0] ?? "")}
+        <//>`
+      : html`
+          <${HeatmapTable}
+            meta=${meta}
+            tile=${tile}
+            rowHeight=${rowHeight}
+            onScroll=${onScroll}
+            scrollRef=${scrollRef}
+          />
+          <${ValueLegend} meta=${meta} />
+          <div class="panel-hint" data-testid="array-grid-info">
+            ${meta.shape.length ? `${meta.shape.join(" × ")} | ` : ""}displaying ${meta.rows} × ${meta.cols}
+          </div>
+        `}
+  <//>`;
+}
 
-  function controls() {
-    function num(label, key, max) {
-      return el("label", { text: label + " " }, [el("input", {
-        type: "number", min: 0, max: Math.max(0, max), value: state[key],
-        "aria-label": label,
-        oninput: function (e) { var v = parseInt(e.target.value, 10); state[key] = isFinite(v) ? Math.max(0, Math.min(v, Math.max(0, max))) : 0; loadTile(); },
-      })]);
-    }
-    var sizes = [16, 32, 64, 128, 256];
-    var sel = el("select", { "aria-label": "Tile size", oninput: function (e) { state.tile = parseInt(e.target.value, 10) || 64; loadTile(); } },
-      sizes.map(function (s) { var o = el("option", { value: s, text: s + "×" + s }); if (s === state.tile) o.setAttribute("selected", ""); return o; }));
-    return el("div", { class: "controls" }, [
-      num("Row", "y0", Math.max(0, meta.planeH - 1)),
-      num("Col", "x0", Math.max(0, meta.planeW - 1)),
-      el("label", { text: "Window " }, [sel]),
-    ]);
-  }
+api
+  .ready()
+  .then(() => {
+    const view = api.viewState && typeof api.viewState === "object" ? api.viewState : {};
+    render(html`<${ArrayPanel} initialView=${view} />`, document.getElementById("root"));
+  })
+  .catch((err) => api.reportError(String(err?.message || err)));
 
-  function sliceSelectors(planeData) {
-    var sliceAxes = planeData.slice_axes || [];
-    if (!sliceAxes.length) return null;
-    var box = el("div", { "data-testid": "array-slice-selectors", class: "controls" });
-    sliceAxes.forEach(function (ax) {
-      var value = state.axis_indices[ax.axis] != null ? state.axis_indices[ax.axis] : ax.index;
-      function change(v) {
-        var clamped = Math.max(0, Math.min(v, ax.size - 1));
-        state.axis_indices[ax.axis] = clamped;
-        state.y0 = 0; state.x0 = 0;
-        loadPlane();
-      }
-      box.appendChild(el("label", { text: ax.name + " (" + ax.size + ") " }, [
-        el("input", { type: "range", min: 0, max: ax.size - 1, value: value, "aria-label": "Slice along " + ax.name, oninput: function (e) { change(parseInt(e.target.value, 10)); } }),
-        el("input", { type: "number", min: 0, max: ax.size - 1, value: value, "aria-label": "Index along " + ax.name, oninput: function (e) { change(parseInt(e.target.value, 10)); } }),
-        el("span", { text: (value + 1) + "/" + ax.size }),
-      ]));
-    });
-    return box;
-  }
-
-  function render(planeData, tileData) {
-    root.textContent = "";
-    var shape = meta.source_shape || [];
-    var info = el("div", { class: "info", "data-testid": "array-info" }, [
-      el("span", null, [el("b", { text: "Array" })]),
-      el("span", { text: "shape [" + shape.join(", ") + "]" }),
-      el("span", { text: "dtype " + (meta.dtype || "?") }),
-      meta.axes && meta.axes.length ? el("span", { text: "axes [" + meta.axes.join(", ") + "]" }) : null,
-    ]);
-    root.appendChild(info);
-
-    var ss = sliceSelectors(planeData);
-    if (ss) root.appendChild(ss);
-
-    var isScalar = shape.length === 0;
-    if (isScalar) {
-      var v = (tileData.values && tileData.values[0]) ? tileData.values[0][0] : "";
-      root.appendChild(el("div", { class: "info", "data-testid": "array-scalar", text: formatCell(v) }));
-    } else {
-      root.appendChild(controls());
-      var shown = "rows " + state.y0 + "–" + (state.y0 + (tileData.height || 0) - 1) + " of " + meta.planeH +
-        " · cols " + state.x0 + "–" + (state.x0 + (tileData.width || 0) - 1) + " of " + meta.planeW;
-      root.appendChild(el("div", { class: "note", "data-testid": "array-window-note", text: "native-resolution values — " + shown }));
-      root.appendChild(heatGrid(tileData));
-      root.appendChild(legend());
-      var mm = minimap(planeData);
-      if (mm) root.appendChild(mm);
-    }
-    if (tileData.truncated) {
-      root.appendChild(el("div", { class: "note", text: "Window clipped to the read budget — pan to reach the rest." }));
-    }
-    api.setViewState({ axis_indices: state.axis_indices, y0: state.y0, x0: state.x0, tile: state.tile });
-  }
-
-  var lastPlane = null;
-  function computeMeta(planeData) {
-    var shape = planeData.source_shape || planeData.shape || [];
-    var da = displayAxes(shape, planeData.axes || [], planeData.slice_axes || []);
-    meta = {
-      source_shape: shape,
-      dtype: planeData.source_dtype || planeData.dtype || "?",
-      axes: planeData.axes || [],
-      vmin: typeof planeData.vmin === "number" ? planeData.vmin : null,
-      vmax: typeof planeData.vmax === "number" ? planeData.vmax : null,
-      planeH: shape.length ? (shape[da.y] || 1) : 1,
-      planeW: shape.length ? (shape[da.x] || 1) : 1,
-    };
-  }
-
-  function fail(err) {
-    root.textContent = "";
-    root.appendChild(el("div", { class: "err", role: "alert", text: "Could not read array: " + (err && err.message || err) }));
-    api.reportError(String(err && err.message || err));
-  }
-
-  function loadTile() {
-    return api.read("array.tile", { y0: state.y0, x0: state.x0, height: state.tile, width: state.tile, slice_index: state.axis_indices[Object.keys(state.axis_indices)[0]] || 0, axis_indices: state.axis_indices })
-      .then(function (tileData) { render(lastPlane, tileData); })
-      .catch(fail);
-  }
-  function loadPlane() {
-    return api.read("array.plane", { slice_index: state.axis_indices[Object.keys(state.axis_indices)[0]] || 0, axis_indices: state.axis_indices })
-      .then(function (planeData) { lastPlane = planeData; computeMeta(planeData); return loadTile(); })
-      .catch(fail);
-  }
-
-  api.ready().then(function () {
-    var vs = api.viewState;
-    if (vs && typeof vs === "object") {
-      if (vs.axis_indices && typeof vs.axis_indices === "object") state.axis_indices = vs.axis_indices;
-      if (typeof vs.y0 === "number") state.y0 = vs.y0;
-      if (typeof vs.x0 === "number") state.x0 = vs.x0;
-      if (typeof vs.tile === "number") state.tile = vs.tile;
-    }
-    loadPlane();
-  }).catch(function (err) { api.reportError(String(err && err.message || err)); });
-
-  window.__panel = { formatCell: formatCell, heatmapColor: heatmapColor, numeric: numeric, isSentinel: isSentinel, displayAxes: displayAxes };
-})();
+window.__panel = { formatCell, heatmapColor, displayAxes };
