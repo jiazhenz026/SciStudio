@@ -345,7 +345,7 @@ CI is 17/17 green at f4e3199cf, and the PR is mergeable (CLEAN), ready for the o
     - N3 is partially fixed: artifact cleanup still creates an empty `lineage.db` in a deleted project, with no data loss.
     - N4 (the bundled MCP pointer hardening) is kept by manager decision and documented.
     - The N3 remainder and the missing POSIX SIGTERM end-to-end test are tracked in #2352, to land with A3's next main merge.
-  - Both audits pass. Remaining: Python 3.13 CI, and a main merge after #2329 and #2336 land (the `app.py` lifespan, plus #2351).
+  - Both audits pass. CI is 17/17 green at de11b2848 and the PR is mergeable (CLEAN). Remaining: a main merge after #2329 and #2336 land (the `app.py` lifespan, plus #2351 and #2352).
 - [~] AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
   - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
   - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
