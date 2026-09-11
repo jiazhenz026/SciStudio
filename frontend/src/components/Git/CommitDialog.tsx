@@ -81,7 +81,11 @@ export function CommitDialog(props: CommitDialogProps): JSX.Element | null {
       // ADR-053 FR-011b (#2082) — a tutorial step may seed the message. Read at
       // open time so it is the step on screen now. A default, never a decision:
       // the reader can edit it, and a message they already typed is kept.
-      const seeded = tutorialPrefillValue(useAppStore.getState().learningCenterSession, "git_commit", "message");
+      const seeded = tutorialPrefillValue(
+        useAppStore.getState().learningCenterSession,
+        "git_commit",
+        "message",
+      );
       if (seeded) setMessage((current) => current || seeded);
     }
   }, [open, loadStatus]);

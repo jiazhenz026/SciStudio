@@ -165,6 +165,170 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:23.439618Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:12b57a1a551f600f097aa0af5f5fb7281c37a3d6ad8072e51a672971b854aa50",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:24.598484Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fc9e934d5614e75daaf805d8e4c20d40ad449e0a338c3b4781747904a326683d",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:25.990732Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:131dddb2fedab0b3c0ad4bf0693effb9f0b1388d6badf016aa5423ca1a3fc3c0",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:26.032622Z",
+      "command": "ruff format src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:74f8c2debac38e8dd2ac0cadf28b8bb25354791413c2231139daab87bd4f7940",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:19:35.554978Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8192f28384061847ad70a8b6cf7890b81565743c95e7a88b64a42ce98b510ccd",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.110219Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:80bd543585168e6a9b49f2c7f42b09eef78c131bab6744714acf03d973269989",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.252943Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5f8e2b76631e23ac1bf00538642779cc69c604176027b3df10f4c9dce149474b",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.263173Z",
+      "command": "ruff check src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a2eb2c24c5452c1b2d92a15a000790ecbb83cc11509c7c1303ed4138f46990c1",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:23:12.035302Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d463b4ded80d2cd816585a1ffcd5fab1dec54a595628c3f388f31e9781bbb99c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:23:12.377288Z",
+      "command": "mypy src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ff4984f0804391aea94ed795efff73ccbf79125cab55a39e6c4c469407e84feb",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -580,6 +744,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.422271Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.433066Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.444946Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.457042Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.469667Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.481701Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.493239Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.505326Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.518607Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.529821Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.542192Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -618,17 +870,17 @@
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_plot.yaml",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_counts.csv",
-      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_he.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_mask.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_counts.csv",
-      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_he.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_mask.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/SOURCE.md",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_counts.csv",
-      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_he.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_mask.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_counts.csv",
-      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_he.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_mask.png",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/SOURCE.md",
       "src/scistudio/tutorials/core/two-modalities-one-answer/assets/notes/conclusion.md",
@@ -642,9 +894,9 @@
       "tests/tutorials/test_core_tutorial_two_modalities.py",
       "tests/tutorials/test_manifest_schema.py"
     ],
-    "diff_fingerprint": "sha256:35c89f8293f4322883def87b9d38d94cd66cf69800d5035accab2bbda45ac900",
+    "diff_fingerprint": "sha256:e4a98b0e07e2ee15e19d987b139384ba9ec5fd5636b4973dfc91883bf8fd7f8b",
     "head": "HEAD",
-    "head_sha": "f473f2ae",
+    "head_sha": "4dd3dbc1",
     "surfaces": {
       "docs": 1,
       "frontend": 6,
@@ -672,6 +924,16 @@
       "unsatisfied": [
         "checks.frontend",
         "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-11T21:23:12.542235Z",
+      "diff_fingerprint": "sha256:e4a98b0e07e2ee15e19d987b139384ba9ec5fd5636b4973dfc91883bf8fd7f8b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
       ]
     }
   ],
