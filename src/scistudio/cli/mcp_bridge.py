@@ -40,6 +40,7 @@ import contextlib
 import logging
 import os
 import socket as socket_mod
+import stat
 import sys
 from pathlib import Path
 
@@ -95,6 +96,10 @@ def _try_connect_attached(project_dir: Path) -> socket_mod.socket | None:
             s.connect(str(connect_path))
             s.settimeout(None)
             return s
+    except PermissionError as exc:
+        # #2333: a pointer or socket another user could have planted.
+        print(f"scistudio mcp-bridge: {exc}; starting a standalone server instead", file=sys.stderr)
+        return None
     except OSError as exc:
         logger.info("mcp-bridge: no running backend at %s (%s); falling back to standalone", sock_path, exc)
         return None
@@ -294,15 +299,72 @@ def run(socket: str | None) -> int:
         return 0
 
 
+def pointer_file_problem(st: os.stat_result, *, uid: int) -> str | None:
+    """Return why a ``mcp.sock.path`` pointer may not be followed, or ``None`` (#2333).
+
+    ``st`` comes from ``os.lstat``: the pointer must be a regular file, not a
+    symbolic link, owned by ``uid``.
+    """
+    if not stat.S_ISREG(st.st_mode):
+        return "is not a regular file (or is a symbolic link)"
+    if st.st_uid != uid:
+        return f"is owned by uid {st.st_uid}, not by the current user (uid {uid})"
+    return None
+
+
+def socket_target_problem(st: os.stat_result, dir_st: os.stat_result, *, uid: int) -> str | None:
+    """Return why the bridge may not connect to a socket, or ``None`` (#2333).
+
+    The socket (``st`` from ``os.lstat``) must be a Unix socket owned by
+    ``uid``, in a directory (``dir_st``) that is not group- or world-writable,
+    so no other user can have placed or swapped it.
+    """
+    if not stat.S_ISSOCK(st.st_mode):
+        return "is not a Unix socket"
+    if st.st_uid != uid:
+        return f"is owned by uid {st.st_uid}, not by the current user (uid {uid})"
+    dir_mode = stat.S_IMODE(dir_st.st_mode)
+    if dir_mode & 0o022:
+        return f"sits in a directory other users can write to (mode {dir_mode:04o})"
+    return None
+
+
 def _posix_socket_connect_path(socket_path: Path) -> Path:
+    """Return the socket to connect to for ``socket_path``, following ``mcp.sock.path``.
+
+    #2333: the pointer must be a regular file owned by the current user, and
+    the socket connected to (the pointer's target, or ``socket_path`` itself)
+    must be a socket owned by the current user in a directory that is not
+    group- or world-writable. Anything else raises :class:`PermissionError`,
+    so a bridge is never pointed at a socket another user controls.
+    """
+    if sys.platform == "win32":
+        return socket_path
+    uid = os.getuid()
     pointer_path = socket_path.with_suffix(socket_path.suffix + ".path")
-    if not pointer_path.exists():
-        return socket_path
+    target = socket_path
     try:
-        target = Path(pointer_path.read_text(encoding="utf-8").strip())
+        pointer_st: os.stat_result | None = os.lstat(pointer_path)
     except OSError:
-        return socket_path
-    return target if target.exists() else socket_path
+        pointer_st = None
+    if pointer_st is not None:
+        problem = pointer_file_problem(pointer_st, uid=uid)
+        if problem is not None:
+            raise PermissionError(f"refusing socket pointer {pointer_path}: it {problem}")
+        try:
+            named = Path(pointer_path.read_text(encoding="utf-8").strip())
+        except OSError:
+            named = None
+        if named is not None and named.exists():
+            target = named
+    try:
+        target_st = os.lstat(target)
+    except OSError:
+        return target  # nothing there; the caller's connect fails and falls back
+    problem = socket_target_problem(target_st, os.stat(target.parent), uid=uid)
+    if problem is not None:
+        raise PermissionError(f"refusing MCP socket {target}: it {problem}")
+    return target
 
 
 def _typer_command(

@@ -693,6 +693,11 @@
       "at": "2026-09-11T11:50:52.954936Z",
       "owner_directive": "Manager directive 2026-09-11: PR also closes #2333. Write set adds src/scistudio/ai/agent/mcp/server.py and runtime.py (socket path, directory and permission code only) plus their tests; stay out of tools_workspace.py (#2328) and src/scistudio/api/runtime/** (#2327). Windows keeps TCP loopback, documented.",
       "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    },
+    {
+      "at": "2026-09-11T12:42:20.125648Z",
+      "owner_directive": "Manager directive 2026-09-11 (audit fixes): fix P1-1 snapshot binding, P2-1 loopback-only token, P2-2 ADR-055 section 4 paragraph (docs/adr/ADR-055.md, section 4 only), P2-3 mcp_bridge.py pointer validation only, and the P3s; reply to Codex threads.",
+      "reason": "Manager scope amendment after the with-context audit of PR #2329: ADR-055 section 4 amendment (P2-2) and mcp-bridge pointer validation (P2-3)."
     }
   ],
   "docs_events": [
@@ -726,6 +731,22 @@
       "kind": "na",
       "path": null,
       "rationale": "Spec 4 (adr-055-enterprise-support) already specifies FR-008 to FR-011; this change fills in its adapter section.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:42:20.125674Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-055.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T12:47:47.587368Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-webmcp-bridge.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -2009,6 +2030,24 @@
       "at": "2026-09-11T11:50:52.954961Z",
       "pattern": "tests/cli/test_mcp_bridge.py",
       "reason": "Manager scope addition (umbrella #2321): this PR also closes #2333, owner-only local MCP socket permissions and a private per-user fallback directory."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:42:20.125664Z",
+      "pattern": "docs/adr/ADR-055.md",
+      "reason": "Manager scope amendment after the with-context audit of PR #2329: ADR-055 section 4 amendment (P2-2) and mcp-bridge pointer validation (P2-3)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:42:20.125669Z",
+      "pattern": "src/scistudio/cli/mcp_bridge.py",
+      "reason": "Manager scope amendment after the with-context audit of PR #2329: ADR-055 section 4 amendment (P2-2) and mcp-bridge pointer validation (P2-3)."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:47:47.587345Z",
+      "pattern": "docs/specs/adr-055-webmcp-bridge.md",
+      "reason": "No-context audit P3-8 and manager directive: the #2333 socket rules go in the spec that governs server.py (adr-055-webmcp-bridge)."
     }
   ],
   "session_id": "fc606d96-ad95-4a4a-99d4-27dba383fad2",

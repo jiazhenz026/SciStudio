@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -445,23 +446,31 @@ def token_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return home
 
 
-def _plant_token_file(directory: Path, *, port: int, pid: int, started_at: float, token: str = "t") -> Path:
+def _plant_token_file(
+    directory: Path,
+    *,
+    port: int,
+    pid: int,
+    started_at: float,
+    token: str = "t",
+    create_time: float | None = None,
+) -> Path:
     """Write a token file by hand, owner-only, as another backend would have."""
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = webmcp_routes.loopback_token_path(port, directory)
+    payload: dict[str, Any] = {
+        "version": 1,
+        "token": token,
+        "pid": pid,
+        "port": port,
+        "baseUrl": f"http://127.0.0.1:{port}",
+        "startedAt": started_at,
+    }
+    if create_time is not None:
+        payload["createTime"] = create_time
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        json.dump(
-            {
-                "version": 1,
-                "token": token,
-                "pid": pid,
-                "port": port,
-                "baseUrl": f"http://127.0.0.1:{port}",
-                "startedAt": started_at,
-            },
-            handle,
-        )
+        json.dump(payload, handle)
     return path
 
 
@@ -602,3 +611,82 @@ def test_reader_refuses_a_file_other_users_can_read(tmp_path: Path) -> None:
     assert "perm-secret-1" not in str(excinfo.value)
     with pytest.raises(webmcp_routes.LoopbackTokenFileError):
         webmcp_routes.find_loopback_token_file(directory=tmp_path / "webmcp")
+
+
+def test_a_reused_pid_does_not_make_a_leftover_file_look_live(tmp_path: Path) -> None:
+    """The file records the process create time; the same PID with another create time is stale."""
+    path = _plant_token_file(tmp_path / "webmcp", port=8012, pid=os.getpid(), started_at=1.0, create_time=12345.0)
+    with pytest.raises(webmcp_routes.LoopbackTokenFileError, match="is stale") as excinfo:
+        webmcp_routes.read_loopback_token_file(path)
+    assert excinfo.value.retryable is True
+
+
+_RUNNING_BACKEND = (
+    "import sys\n"
+    "from pathlib import Path\n"
+    "from scistudio.api.routes import webmcp\n"
+    "port = int(sys.argv[2])\n"
+    "webmcp.write_loopback_token_file(token='token-A', port=port, base_url=f'http://127.0.0.1:{port}', "
+    "directory=Path(sys.argv[1]))\n"
+    "print('ready', flush=True)\n"
+    "sys.stdin.readline()\n"
+)
+
+
+def test_a_second_backend_on_a_busy_port_leaves_the_running_backends_file_alone(tmp_path: Path) -> None:
+    """No-context audit P2-1, with a real second process holding the port's file.
+
+    uvicorn starts the application, and so writes the token file, before it
+    binds. A second backend on a busy port must neither replace the running
+    backend's file nor remove it when its own run ends.
+    """
+    directory = tmp_path / "webmcp"
+    src = str(Path(webmcp_routes.__file__).resolve().parents[3])
+    running = subprocess.Popen(
+        [sys.executable, "-c", _RUNNING_BACKEND, str(directory), "8013"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env={**os.environ, "PYTHONPATH": src},
+    )
+    try:
+        assert running.stdout is not None
+        assert running.stdout.readline().strip() == b"ready"
+        path = webmcp_routes.loopback_token_path(8013, directory)
+        with webmcp_routes.loopback_token_file(port=8013, base_url="http://127.0.0.1:8013", directory=directory):
+            # What the second backend's default guard does as it starts.
+            webmcp_routes._publish_loopback_token("token-B")
+            assert webmcp_routes.read_loopback_token_file(path).token == "token-A"
+        # Its run ended (it could not bind): the running backend's file is untouched.
+        # (On Windows a venv's python.exe launches the interpreter as a child, so
+        # the recorded PID is not necessarily ``running.pid``.)
+        record = webmcp_routes.read_loopback_token_file(path)
+        assert record.token == "token-A"
+        assert record.pid != os.getpid()
+    finally:
+        if running.stdin is not None:
+            running.stdin.close()
+        running.wait(timeout=60)
+
+
+def test_removal_needs_this_process_and_its_token(tmp_path: Path) -> None:
+    path = webmcp_routes.write_loopback_token_file(
+        token="mine", port=8014, base_url="http://127.0.0.1:8014", directory=tmp_path / "webmcp"
+    )
+    webmcp_routes.remove_loopback_token_file(path, token="someone-else")
+    assert path.exists()
+    webmcp_routes.remove_loopback_token_file(path, token="mine")
+    assert not path.exists()
+
+
+def test_malformed_or_newer_files_do_not_block_discovery(token_home: Path, caplog: pytest.LogCaptureFixture) -> None:
+    """No-context audit P3-4: one bad file must not hide the other backends."""
+    directory = webmcp_routes.loopback_token_dir()
+    _plant_token_file(directory, port=8015, pid=os.getpid(), started_at=100.0)
+    newer = _plant_token_file(directory, port=8016, pid=os.getpid(), started_at=200.0)
+    newer.write_text('{"version": 2}', encoding="utf-8")
+    corrupt = _plant_token_file(directory, port=8017, pid=os.getpid(), started_at=300.0)
+    corrupt.write_text("{not json", encoding="utf-8")
+    with caplog.at_level("WARNING", logger="scistudio.api.routes.webmcp"):
+        assert webmcp_routes.find_loopback_token_file().port == 8015
+    assert "loopback-8016.json" in caplog.text
+    assert "loopback-8017.json" in caplog.text
