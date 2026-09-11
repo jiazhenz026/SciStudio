@@ -547,6 +547,61 @@ Gate: amend before new files; `gate_record check --record <ledger> --mode pre-pr
 
 ---
 
+## A1b — Take over the interrupted A1-fix2 round and move PR #2292 onto main
+
+```markdown
+[DISPATCH-TEMPLATE-V1: fix]
+
+## Task Identity
+
+- Repository: SciStudio
+- Owner request: finish the PR #2292 fix round (A1-fix2) and move the branch onto main now that PR #2275 has merged.
+- Task kind: feature; Persona: implementer; Issue: #2279; PR: #2292 (-> main)
+- Umbrella PR: #2283 `[DO NOT MERGE]`; Umbrella branch: track/adr-055-spec2-3
+- Agent branch: feat/2279-agent-context-workspace (remote head f28dd2ffd)
+- Agent worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/feat-2279-agent-context-workspace
+- Gate record: .workflow/records/2279-feat-2279-agent-context-workspace.json (finalized; pass `--record <path>`; base-ref currently feat/2271-webmcp-bridge)
+- Checklist: docs/planning/adr-055-spec2-3-checklist.md on origin/track/adr-055-spec2-3 (manager maintains; do not edit)
+
+## Situation
+
+The previous implementer (A1) was interrupted in the middle of A1-fix2 (section "A1-fix2" of docs/planning/adr-055-spec2-3-dispatch-prompts.md on origin/track/adr-055-spec2-3 — read it). Its worktree holds UNCOMMITTED, UNPUSHED edits to 8 files (+676/-207): docs/specs/adr-055-agent-context-workspace.md, tools_execution.py, tools_workspace.py, api/routes/projects.py, api/runtime/_file_writes.py, engine/runners/platform.py, tests/ai/test_mcp_execution_tools.py, tests/ai/test_mcp_workspace_tools.py. Treat them as a draft: read every hunk, map it to the A1-fix2 items, keep what is correct, fix or finish the rest. Do not discard them unread, and do not assume any item is done until its test proves it.
+
+PR #2275 (Spec 1) merged into main at 84643e354; main is 26 commits ahead of the branch. The owner approved the engine/runners core change and applies `admin-approved:core-change` on #2292 (already recorded in the ledger).
+
+## Required Rules
+
+AGENTS.md; docs/ai-developer/rules.md; docs/ai-developer/specific_rules/gated-workflow.md; docs/ai-developer/personas/implementer.md; issue #2279 decisions and the later owner decisions in the checklist.
+
+## Environment Notes (Windows, Git Bash)
+
+- Prefix every git/gate command with `cd /c/Users/jiazh/workspace/SciStudio/.worktrees/feat-2279-agent-context-workspace && `; run `git branch --show-current` before add/commit; `git add -A` before every commit.
+- Python: `PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python`. Never `pip install -e .`; never modify the shared .venv (use a scratch venv / `uv pip install --target` in your scratch space to reproduce fastmcp 4.0.3 / mcp 2.2.0).
+- `git show <ref>:<path>` needs `MSYS_NO_PATHCONV=1`.
+- Never kill a process you did not start. Run long commands in the foreground, output redirected to a log, long timeout; do not background them.
+
+## Work To Do
+
+1. Finish every A1-fix2 item (1-9), each with a test where behavior changes: mcp 2.2 `CallToolResult` construction; POSIX cancel not reaping the asyncio-owned shell; atomic expected-version check + replace; Windows Job Object failure refuses the command; search deadline inside a file scan; root cause of the 3.11 "distutils already imported" collection errors (fix the cause, no skip/reorder); deferral-ratchet wording; CodeQL #274-276 via a code fix (stop and report if a real false positive remains); Codex replies.
+2. Commit the fixes on the committed diff with `gate_record check --record <ledger> --mode pre-pr --base origin/feat/2271-webmcp-bridge --head HEAD --pr-body-file .workflow/local/pr-body.md`.
+3. Move onto main: `gate_record amend --record <ledger> --base-ref main --reason "#2275 merged into main at 84643e354; base moves from feat/2271-webmcp-bridge to main"`; `git merge origin/main` (merge, not rebase — the PR is open); resolve conflicts deliberately and report them.
+4. Update `.workflow/local/pr-body.md`: drop the "depends on #2275" note (merged); keep Closes #2279, the gate record path, the core-change note, the final `🤖 Generated with [Claude Code](https://claude.com/claude-code)` line. Update the PR body on GitHub (`gh pr edit 2292 --body-file ...`).
+5. `gate_record check --record <ledger> --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md`; commit; push; post-PR finalize `--record <ledger> --commit <sha> --pr 2292 --pr-body-file .workflow/local/pr-body.md`; commit + push; wait for CI.
+6. Expected remaining red only: Verify Workflow Compliance until the owner applies the label.
+
+Commits: Conventional Commits; trailers Gate-Record / Task-Kind: feature / Issue: #2279 / Assisted-by: claude-code:claude-opus-5 / `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`. MUST NOT merge any PR.
+
+## Output Required
+
+Which draft hunks you kept / changed / dropped and why; fix commits; root cause of the collection errors; CodeQL outcome; merge commit and conflicts; final CI state on #2292.
+
+## Stop Conditions
+
+Out-of-scope file needed; CodeQL false positive that needs dismissal; unclear check failures; you cannot add a required test.
+```
+
+---
+
 ## AU3 — Audit the Spec 2 branch, with-context
 
 ```markdown
