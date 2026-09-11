@@ -9,6 +9,7 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { mockBackend, type MockBackend } from "../../__tests__/contract/mockBackend";
 import { CodeEditor } from "../CodeEditor";
 import type { FileTab } from "../../store/types";
 
@@ -154,7 +155,10 @@ function makeFileTab(overrides: Partial<FileTab> = {}): FileTab {
   };
 }
 
-let fetchSpy: ReturnType<typeof vi.fn>;
+// The lint endpoint is served by the contract-checked fake backend (#2297), so
+// the diagnostics a test feeds the editor must be ones the backend can send.
+let backend: MockBackend;
+let lintResponse: unknown;
 
 beforeEach(() => {
   editorState.lastProps = null;
@@ -164,15 +168,13 @@ beforeEach(() => {
   editorState.markersByOwner.clear();
   editorState.definedThemes.clear();
   editorState.completionProviders = [];
-  fetchSpy = vi.fn().mockResolvedValue({
-    ok: true,
-    json: async () => ({ diagnostics: [] }),
-  });
-  vi.stubGlobal("fetch", fetchSpy);
+  lintResponse = { diagnostics: [] };
+  backend = mockBackend({ "POST /api/lint/python": () => lintResponse });
 });
 
 afterEach(() => {
   cleanup();
+  backend.restore();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -206,7 +208,7 @@ describe("CodeEditor", () => {
     await vi.waitFor(() => expect(editorState.onChangeCb).not.toBeNull());
     // The onMount handler also schedules an initial lint; clear that timer
     // by counting fetches at 0 first.
-    expect(fetchSpy).toHaveBeenCalledTimes(0);
+    expect(backend.fetch).toHaveBeenCalledTimes(0);
     // Fire 5 rapid edits.
     for (let i = 0; i < 5; i++) {
       act(() => {
@@ -217,35 +219,32 @@ describe("CodeEditor", () => {
     await act(async () => {
       vi.advanceTimersByTime(599);
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(0);
+    expect(backend.fetch).toHaveBeenCalledTimes(0);
     // 1 ms more → exactly one fetch.
     await act(async () => {
       vi.advanceTimersByTime(2);
     });
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(fetchSpy).toHaveBeenCalledWith(
+    expect(backend.fetch).toHaveBeenCalledTimes(1);
+    expect(backend.fetch).toHaveBeenCalledWith(
       "/api/lint/python",
       expect.objectContaining({ method: "POST" }),
     );
   });
 
   it("renders Monaco markers from /api/lint/python response", async () => {
-    fetchSpy.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        diagnostics: [
-          {
-            line: 1,
-            column: 1,
-            end_line: 1,
-            end_column: 10,
-            code: "F401",
-            severity: "warning",
-            message: "imported but unused",
-          },
-        ],
-      }),
-    });
+    lintResponse = {
+      diagnostics: [
+        {
+          line: 1,
+          column: 1,
+          end_line: 1,
+          end_column: 10,
+          code: "F401",
+          severity: "warning",
+          message: "imported but unused",
+        },
+      ],
+    };
     vi.useFakeTimers();
     render(<CodeEditor tab={makeFileTab()} onContentChange={vi.fn()} onSave={vi.fn()} />);
     await vi.waitFor(() => expect(editorState.onChangeCb).not.toBeNull());

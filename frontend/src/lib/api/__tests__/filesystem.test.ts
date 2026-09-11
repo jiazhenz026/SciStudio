@@ -3,56 +3,54 @@
  *
  * The `preferHome` flag is the only per-caller opt-out (create/open project and
  * the diagnostic export). These tests pin the request body the helpers send so
- * the exclusion contract can't silently regress.
+ * the exclusion contract can't silently regress. The fake backend checks that
+ * body against the backend's `NativeDialogRequest` too (#2297).
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { mockBackend, type MockBackend } from "../../../__tests__/contract/mockBackend";
 import { filesystemApi } from "../filesystem";
 
-function mockFetchOk(): { url: string; init: RequestInit }[] {
-  const calls: { url: string; init: RequestInit }[] = [];
-  const mock = vi.fn((url: string, init: RequestInit) => {
-    calls.push({ url, init });
-    return Promise.resolve({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ paths: [] }),
-    } as unknown as Response);
-  });
-  vi.stubGlobal("fetch", mock);
-  return calls;
+let backend: MockBackend | undefined;
+
+function serveDialog(): MockBackend {
+  backend = mockBackend({ "POST /api/filesystem/native-dialog": { paths: [] } });
+  return backend;
 }
 
-const bodyOf = (calls: { init: RequestInit }[]) => JSON.parse(calls[0].init.body as string);
+const bodyOf = (b: MockBackend) => b.calls[0]?.body as Record<string, unknown>;
 
 describe("filesystemApi native-dialog prefer_home (#1915)", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    backend?.restore();
+    backend = undefined;
+  });
 
   it("openNativeDialog omits prefer_home by default (project-scope)", async () => {
-    const calls = mockFetchOk();
+    const b = serveDialog();
     await filesystemApi.openNativeDialog("directory");
-    const body = bodyOf(calls);
+    const body = bodyOf(b);
     expect(body.mode).toBe("directory");
     expect(body.prefer_home).toBeUndefined();
   });
 
   it("openNativeDialog forwards prefer_home=true for excluded dialogs", async () => {
-    const calls = mockFetchOk();
+    const b = serveDialog();
     await filesystemApi.openNativeDialog("directory", undefined, true);
-    expect(bodyOf(calls).prefer_home).toBe(true);
+    expect(bodyOf(b).prefer_home).toBe(true);
   });
 
   it("openNativeSaveDialog forwards prefer_home", async () => {
-    const calls = mockFetchOk();
+    const b = serveDialog();
     await filesystemApi.openNativeSaveDialog({ defaultFilename: "x.zip", preferHome: true });
-    const body = bodyOf(calls);
+    const body = bodyOf(b);
     expect(body.mode).toBe("save_file");
     expect(body.prefer_home).toBe(true);
   });
 
   it("openNativeSaveDialog omits prefer_home by default (project-scope)", async () => {
-    const calls = mockFetchOk();
+    const b = serveDialog();
     await filesystemApi.openNativeSaveDialog({ defaultFilename: "x.zip" });
-    expect(bodyOf(calls).prefer_home).toBeUndefined();
+    expect(bodyOf(b).prefer_home).toBeUndefined();
   });
 });

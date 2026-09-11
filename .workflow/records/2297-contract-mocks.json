@@ -1,0 +1,54 @@
+{
+  "base_ref": null,
+  "branch": "test/2297-contract-mocks",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/contracts/**",
+      "frontend/src/__tests__/contract/**",
+      "frontend/src/**/*.test.ts",
+      "frontend/src/**/*.test.tsx",
+      "frontend/eslint.config.js",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "docs/contributing/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2297,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner-approved plan (contract option B): commit a normalized backend OpenAPI snapshot with a pytest drift check; add an ajv-based frontend validator and a mockBackend() test helper that validates mocks against the schema; migrate frontend tests that stub fetch for real /api JSON endpoints; add an ESLint rule forbidding new vi.mock(lib/api) in tests with the 51 existing files grandfathered and tracked. Owner explicitly approved adding ajv/ajv-formats as frontend devDependencies and the ESLint config change.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2297-contract-mocks",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "031191d1-2fe2-4fa1-a7f5-ede4dc5ebfd4",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": []
+}

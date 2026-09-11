@@ -7,8 +7,15 @@
  * below pin the request path and the field names, because a rename here is a
  * break neither consumer can see until runtime.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import {
+  mockBackend,
+  reply,
+  type MockBackend,
+  type MockHandler,
+  type RecordedCall,
+} from "../../../__tests__/contract/mockBackend";
 import {
   fetchAgentAvailability,
   type AgentAvailabilityResponse,
@@ -16,18 +23,12 @@ import {
   type ProviderAvailability,
 } from "../agentAvailability";
 
-function mockFetch(body: unknown, ok = true, status = 200): { url: string }[] {
-  const calls: { url: string }[] = [];
-  const mock = vi.fn((url: string) => {
-    calls.push({ url });
-    return Promise.resolve({
-      ok,
-      status,
-      json: () => Promise.resolve(body),
-    } as unknown as Response);
-  });
-  vi.stubGlobal("fetch", mock);
-  return calls;
+let backend: MockBackend | undefined;
+
+/** Answer `GET /api/ai/availability`, checked against the backend contract (#2297). */
+function serveAvailability(handler: MockHandler): RecordedCall[] {
+  backend = mockBackend({ "GET /api/ai/availability": handler });
+  return backend.calls;
 }
 
 const READY: AgentAvailabilityResponse = {
@@ -84,10 +85,13 @@ const NEEDS_SETUP: AgentAvailabilityResponse = {
 };
 
 describe("fetchAgentAvailability", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    backend?.restore();
+    backend = undefined;
+  });
 
   it("GETs /api/ai/availability and returns the report unchanged", async () => {
-    const calls = mockFetch(READY);
+    const calls = serveAvailability(READY);
     const report = await fetchAgentAvailability();
 
     expect(calls).toHaveLength(1);
@@ -98,20 +102,20 @@ describe("fetchAgentAvailability", () => {
   it("omits the refresh parameter by default so surfaces share the cached report", async () => {
     // Every live call behind this endpoint is a billed request; an unconditional
     // refresh would charge the user once per surface per open (FR-036).
-    const calls = mockFetch(READY);
+    const calls = serveAvailability(READY);
     await fetchAgentAvailability({ refresh: false });
     expect(calls[0].url).toBe("/api/ai/availability");
   });
 
   it("passes refresh=true for an explicit retry", async () => {
     // A user who has just topped up their quota must not have to wait out a cache.
-    const calls = mockFetch(READY);
+    const calls = serveAvailability(READY);
     await fetchAgentAvailability({ refresh: true });
     expect(calls[0].url).toBe("/api/ai/availability?refresh=true");
   });
 
   it("surfaces the per-provider fields a guidance renderer needs", async () => {
-    mockFetch(READY);
+    serveAvailability(READY);
     const report = await fetchAgentAvailability();
 
     const failing = report.providers.find((p) => p.state === "call_failed");
@@ -125,7 +129,7 @@ describe("fetchAgentAvailability", () => {
   it("reports ready in aggregate while a provider is failing", async () => {
     // One unusable provider must never block a user who has a working one
     // (FR-005). The backend decides this; the client must not re-derive it.
-    mockFetch(READY);
+    serveAvailability(READY);
     const report = await fetchAgentAvailability();
     expect(report.state).toBe("ready");
     expect(report.providers.map((p) => p.state)).toContain("call_failed");
@@ -134,7 +138,7 @@ describe("fetchAgentAvailability", () => {
   it("propagates a failed request rather than inventing an availability state", async () => {
     // A network failure is not "no agent installed"; guessing would send a user
     // to install software they already have.
-    mockFetch({ detail: "boom" }, false, 500);
+    serveAvailability(reply(500, { detail: "boom" }));
     await expect(fetchAgentAvailability()).rejects.toThrow();
   });
 
@@ -164,7 +168,7 @@ describe("fetchAgentAvailability", () => {
     // it is made of — binary names, search directories, sign-in commands — live
     // in the ADR-034 registry. The client must carry them through rather than
     // let a consumer reinvent them per surface.
-    mockFetch(NEEDS_SETUP);
+    serveAvailability(NEEDS_SETUP);
     const report = await fetchAgentAvailability();
 
     const notInstalled = report.providers.find((p) => p.state === "not_installed");
@@ -182,7 +186,7 @@ describe("fetchAgentAvailability", () => {
     // instruction is a positional command-line argument some CLIs cannot take.
     // Collapsing the two would make `ready` mean something different to this
     // dialog than to every other consumer of the shared report.
-    mockFetch(NEEDS_SETUP);
+    serveAvailability(NEEDS_SETUP);
     const report = await fetchAgentAvailability();
 
     const kimi = report.providers.find((p) => p.key === "kimi-code");
