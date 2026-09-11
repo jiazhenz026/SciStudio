@@ -77,6 +77,7 @@ def main() -> None:
             )
         runtime.get_preview_service().registry.install_panels(panels)
         router = APIRouter()
+
         @router.get("/__panel_test__/host", response_class=HTMLResponse)
         def host() -> str:
             html = (build / "e2e/helpers/panel-browser-host.html").read_text()
