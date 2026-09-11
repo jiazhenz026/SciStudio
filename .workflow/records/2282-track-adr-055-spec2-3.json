@@ -37,9 +37,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "b86e0cd0b2bca0c1faca339fec2d53119ac81553",
+    "sha": "58b4c58d97d8947f7ea9aa38689bc18b1989e473",
     "shas": [
-      "b86e0cd0b2bca0c1faca339fec2d53119ac81553"
+      "58b4c58d97d8947f7ea9aa38689bc18b1989e473"
     ],
     "trailers": []
   },
@@ -268,6 +268,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.321657Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.333758Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.346261Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.358063Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.369490Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.380948Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.392006Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.403536Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.414654Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.426102Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T02:58:25.441692Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -280,16 +346,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "f87c6ad40f22b2f1cb50c42499d7b1b747173e7e",
     "base_sha": "f87c6ad40",
     "changed_files": [
       ".workflow/records/2282-track-adr-055-spec2-3.json",
       "docs/planning/adr-055-spec2-3-checklist.md",
       "docs/planning/adr-055-spec2-3-dispatch-prompts.md"
     ],
-    "diff_fingerprint": "sha256:e1efb96988c83782837205792f5bf3f2cf2d182bf10f625118997c665261633d",
+    "diff_fingerprint": "sha256:e9e16b6368cbb915db0b5da72e24719d212d130f559bdd170328b03844dc3c39",
     "head": "HEAD",
-    "head_sha": "70eb85cab",
+    "head_sha": "58b4c58d9",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -311,7 +377,7 @@
     "closes": [
       2282
     ],
-    "number": null,
+    "number": 2283,
     "url": null
   },
   "reconcile_events": [
@@ -338,6 +404,17 @@
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T02:58:25.441715Z",
+      "diff_fingerprint": "sha256:e9e16b6368cbb915db0b5da72e24719d212d130f559bdd170328b03844dc3c39",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 3,
+      "unsatisfied": [
+        "checks.commit_hygiene",
+        "checks.full_audit"
+      ]
     }
   ],
   "record_id": "2282-track-adr-055-spec2-3",
