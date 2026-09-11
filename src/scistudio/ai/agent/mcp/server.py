@@ -608,7 +608,8 @@ def _posix_bind_socket_path(socket_path: Path) -> Path:
     fits = len(str(socket_path).encode("utf-8")) <= _POSIX_SOCKET_PATH_LIMIT_BYTES
     if fits and _requested_dir_is_private(socket_path.parent):
         return socket_path
-    digest = hashlib.sha1(str(socket_path).encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
+    # Only a short, unique file name; SHA-256 so no scanner reads it as weak hashing.
+    digest = hashlib.sha256(str(socket_path).encode("utf-8")).hexdigest()[:12]
     return private_socket_dir() / f"mcp-{os.getpid()}-{digest}.sock"
 
 
