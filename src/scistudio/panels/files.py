@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 CDN_HOSTS = ("cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com")
+MAX_SOURCE_BYTES = 16 * 1024 * 1024
 ASSET_SUFFIXES = frozenset(
     {
         ".html",
@@ -102,7 +103,7 @@ def validate_external_references(root: Path) -> list[str]:
             continue
         if not file.resolve().is_relative_to(root.resolve()):
             raise ValueError("FR-038: panel contains an escaping asset symlink")
-        if file.stat().st_size > 16 * 1024 * 1024:
+        if file.stat().st_size > MAX_SOURCE_BYTES:
             raise ValueError("FR-038: panel source exceeds 16 MiB validation budget")
         for url in _URL.findall(file.read_text(encoding="utf-8", errors="replace")):
             parsed = urlsplit(url if not url.startswith("//") else "https:" + url)

@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from scistudio.previewers.models import OwnerKind, PreviewerSpec
@@ -123,6 +123,7 @@ def parse_descriptor(
     entry = data.get("entry", "index.html")
     if resolve_panel_file(directory, entry).suffix.lower() != ".html":
         raise ValueError("FR-003: entry must name a confined HTML file")
+    entry = PurePosixPath(entry).as_posix()
     notes = [f"FR-003: unknown key {key!r} ignored" for key in sorted(data.keys() - _KEYS)]
     has_python = (directory / "panel.py").is_file()
     if has_python and "miniapp" not in contexts:

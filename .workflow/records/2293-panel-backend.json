@@ -746,6 +746,22 @@
       "path": "tests/api/test_panel_routes.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:50:17.858640Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:50:17.859453Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_descriptor.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

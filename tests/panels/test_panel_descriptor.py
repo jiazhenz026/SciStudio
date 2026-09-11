@@ -55,6 +55,11 @@ def test_multi_type_preview_and_miniapp_shape_without_python_execution(tmp_path)
     assert panel.candidates() == []
 
 
+def test_entry_dot_segments_are_canonicalized(tmp_path):
+    panel, _ = parse(tmp_path, entry="./index.html")
+    assert panel.entry == "index.html"
+
+
 def test_python_and_traversal_and_symlink_escape_refused(panel_runtime, tmp_path):
     runtime, _ = panel_runtime
     panel = runtime.get_preview_service().registry.panels.get("lab.text")

@@ -168,6 +168,80 @@ def test_entry_bootstrap_precedes_author_markup_and_is_document_specific(panel_c
     assert b"\\u2028" in escaped
 
 
+@pytest.mark.parametrize("entry", ["./index.html", "./views/./index.html"])
+def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, entry):
+    import json
+    from pathlib import PurePosixPath
+
+    from scistudio.panels.descriptor import parse_descriptor
+    from scistudio.panels.registry import PanelRegistry
+    from scistudio.previewers.models import OwnerKind
+
+    client, prefix, runtime, _, _ = panel_client
+    root = runtime.get_preview_service().registry.panels.get("lab.text").root
+    entry_path = root / entry
+    entry_path.parent.mkdir(parents=True, exist_ok=True)
+    entry_path.write_text("<p>entry</p>")
+    manifest = json.loads((root / "panel.json").read_text())
+    manifest["entry"] = entry
+    (root / "panel.json").write_text(json.dumps(manifest))
+    panels = PanelRegistry()
+    panel, _ = parse_descriptor(root, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Text"})
+    panels.register(panel)
+    runtime.get_preview_service().registry.install_panels(panels)
+    context = create(client, prefix)
+    assert context["entry_url"].endswith("/assets/lab.text/" + PurePosixPath(entry).as_posix())
+    assert "/./" not in context["entry_url"]
+    response = client.get(context["entry_url"])
+    assert response.status_code == 200
+    assert context["bootstrap_proof"] in response.text
+    assert response.text.endswith("<p>entry</p>")
+    assert "http://testserver" + prefix + "/api/panels/t/" in response.headers["content-security-policy"]
+
+
+def test_entry_modified_after_discovery_has_bounded_source_read(panel_client, monkeypatch):
+    from contextlib import contextmanager
+    from pathlib import Path
+
+    from scistudio.panels.files import MAX_SOURCE_BYTES
+
+    client, prefix, runtime, _, _ = panel_client
+    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    path = panel.root / panel.entry
+    context = create(client, prefix)
+    with path.open("wb") as source:
+        source.truncate(MAX_SOURCE_BYTES + 1)
+    original_open = Path.open
+    read_sizes = []
+
+    class ObservedSource:
+        def __init__(self, source):
+            self.source = source
+
+        def fileno(self):
+            return self.source.fileno()
+
+        def read(self, size=-1):
+            assert 0 <= size <= MAX_SOURCE_BYTES + 1
+            read_sizes.append(size)
+            return self.source.read(size)
+
+    @contextmanager
+    def observed_open(self, *args, **kwargs):
+        with original_open(self, *args, **kwargs) as source:
+            yield ObservedSource(source) if self == path else source
+
+    monkeypatch.setattr(Path, "open", observed_open)
+    response = client.get(context["entry_url"])
+    assert response.status_code == 413
+    assert response.json()["detail"]["code"] == "read_budget"
+    assert read_sizes == []  # Reject oversized files without materializing their bytes.
+    with original_open(path, "wb") as source:
+        source.write(b"<p>small again</p>")
+    assert client.get(context["entry_url"]).status_code == 200
+    assert read_sizes == [MAX_SOURCE_BYTES + 1]  # Concurrent growth is still capped.
+
+
 def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
     import json
     from dataclasses import replace

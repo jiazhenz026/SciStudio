@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,7 +15,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
-from scistudio.panels.files import bootstrap_entry, content_policy, media_type, resolve_panel_file
+from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.reads import read_context
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
@@ -235,7 +236,13 @@ def _static_response(request: Request, path: Path, token: str, *, bootstrap_proo
     if request.method == "OPTIONS":
         return Response(status_code=204, headers=headers)
     if bootstrap_proof is not None:
-        return Response(bootstrap_entry(path.read_bytes(), bootstrap_proof), media_type="text/html", headers=headers)
+        with path.open("rb") as source:
+            if os.fstat(source.fileno()).st_size > MAX_SOURCE_BYTES:
+                raise PanelError(413, "read_budget", "Panel entry exceeds 16 MiB source budget")
+            document = source.read(MAX_SOURCE_BYTES + 1)
+        if len(document) > MAX_SOURCE_BYTES:
+            raise PanelError(413, "read_budget", "Panel entry exceeds 16 MiB source budget")
+        return Response(bootstrap_entry(document, bootstrap_proof), media_type="text/html", headers=headers)
     return FileResponse(path, media_type=media_type(path), headers=headers)
 
 

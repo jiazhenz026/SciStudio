@@ -136,3 +136,11 @@ Post-bootstrap targeted suite: 118 passed across descriptor/routing/context,
 collection authority, WS claims, real installed guard/prefix routes, static
 security, import-cycle and docstring policy tests. Manager separately reproduced
 the earlier TIFF test successfully in the isolated A3 gate environment.
+
+Entry review follow-up: descriptor entry paths normalize redundant dot segments
+before URL generation, so `./index.html` and nested `./views/./index.html`
+receive the same document bootstrap as their browser-normalized paths. Bootstrap
+serving checks the opened file size against the shared 16 MiB source-validation
+limit before reading and still caps the subsequent read at limit + 1 byte to
+handle concurrent growth. Oversized sources return 413/read_budget. The targeted
+route/descriptor suite passes 38 cases; Ruff and mypy (10 sources) pass.
