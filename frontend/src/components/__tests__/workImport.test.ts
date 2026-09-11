@@ -9,8 +9,9 @@
  * the wrong mode, which is either a wall of prompts the user did not ask for or
  * an agent running unattended when they wanted to approve each step.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import { mockBackend, type MockBackend } from "../../__tests__/contract/mockBackend";
 import {
   buildRequest,
   INITIAL_FORM_STATE,
@@ -312,43 +313,43 @@ describe("buildRequest always satisfies A2's rules", () => {
 });
 
 describe("startWorkImportSession (contract C3)", () => {
+  let backend: MockBackend | undefined;
+
+  afterEach(() => {
+    backend?.restore();
+    backend = undefined;
+  });
+
   it("POSTs the context to /api/work-import/sessions", async () => {
-    const fetchMock = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
+    // The fake backend also checks the composed request against the backend's
+    // WorkImportSessionRequest, so a field the dialog adds or renames fails here.
+    backend = mockBackend({
+      "POST /api/work-import/sessions": {
         tab_id: "a1b2c3d4e5f6",
         title: "Bring in my work",
         brief_path: ".scistudio/work-import/s1.md",
         provider: "claude-code",
         permission_mode: "safe",
-      }),
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+      },
+    });
 
     const request = buildRequest(form({ sourceLocation: "/repo", dataKinds: ["Array"] }), "/p");
     const response = await startWorkImportSession(request);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/work-import/sessions");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(String(init.body))).toEqual(request);
+    expect(backend.calls).toHaveLength(1);
+    expect(backend.calls[0]?.url).toBe("/api/work-import/sessions");
+    expect(backend.calls[0]?.method).toBe("POST");
+    expect(backend.calls[0]?.body).toEqual(request);
     expect(response.tab_id).toBe("a1b2c3d4e5f6");
-
-    vi.unstubAllGlobals();
   });
 
   it("refuses to send a body the backend would reject", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    backend = mockBackend({});
 
     await expect(
       startWorkImportSession(validRequest({ source_location: "/repo", has_no_codebase: true })),
     ).rejects.toThrow(/cannot both be sent/i);
     // The point of the guard: no request was made at all.
-    expect(fetchMock).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
+    expect(backend.fetch).not.toHaveBeenCalled();
   });
 });

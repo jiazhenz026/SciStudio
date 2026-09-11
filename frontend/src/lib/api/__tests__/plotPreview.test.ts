@@ -8,10 +8,14 @@
  * through the core PlotPreviewer. A successful run MUST yield a routable target;
  * a failed/empty run MUST yield `null` so the UI shows the failure instead of an
  * empty preview.
+ *
+ * The client round trips run against `mockBackend()`, which checks every
+ * request and response body against the backend contract (#2297).
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { PlotRunResponse } from "../../../types/api";
+import { mockBackend, reply, type MockBackend } from "../../../__tests__/contract/mockBackend";
 import { dataApi, plotTargetFromRunResponse } from "../data";
 
 function successResponse(overrides: Partial<PlotRunResponse> = {}): PlotRunResponse {
@@ -28,6 +32,28 @@ function successResponse(overrides: Partial<PlotRunResponse> = {}): PlotRunRespo
     ...overrides,
   };
 }
+
+const PLOT_TARGET = {
+  target_id: "tgt_1",
+  workflow_path: "workflows/main.yaml",
+  workflow_id: "main",
+  node_id: "node_a",
+  node_label: "Load",
+  block_type: "io.load",
+  output_port: "data",
+  output_type: "DataFrame",
+  is_collection: false,
+  latest_run_id: null,
+  latest_output_available: false,
+  diagnostics: [],
+};
+
+let backend: MockBackend | undefined;
+
+afterEach(() => {
+  backend?.restore();
+  backend = undefined;
+});
 
 describe("plotTargetFromRunResponse (#1606 production trigger)", () => {
   it("builds a routable plot_artifact target from a successful run", () => {
@@ -66,65 +92,32 @@ describe("plotTargetFromRunResponse (#1606 production trigger)", () => {
 describe("dataApi.runPlotJob (#1606 run route)", () => {
   it("POSTs the plot run request to /api/plots/run and returns the response", async () => {
     const body = successResponse();
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    backend = mockBackend({ "POST /api/plots/run": body });
 
     const out = await dataApi.runPlotJob({ plot_id: "p1" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/plots/run");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ plot_id: "p1" });
+    expect(backend.calls).toHaveLength(1);
+    expect(backend.calls[0]?.url).toBe("/api/plots/run");
+    expect(backend.calls[0]?.body).toEqual({ plot_id: "p1" });
     expect(out).toEqual(body);
 
     // The run response feeds straight into the production trigger.
     const target = plotTargetFromRunResponse(out);
     expect(target?.kind).toBe("plot_artifact");
     expect(target?.ref).toBe("data-abc123");
-
-    vi.unstubAllGlobals();
   });
 });
 
 describe("dataApi plot list + preview resource save", () => {
   it("GETs /api/plots/targets with the active workflow filter", async () => {
-    const body = {
-      targets: [
-        {
-          target_id: "tgt_1",
-          workflow_path: "workflows/main.yaml",
-          workflow_id: "main",
-          node_id: "node_a",
-          node_label: "Load",
-          block_type: "io.load",
-          output_port: "data",
-          output_type: "DataFrame",
-          is_collection: false,
-          latest_run_id: null,
-          latest_output_available: false,
-          diagnostics: [],
-        },
-      ],
-      count: 1,
-    };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    const body = { targets: [PLOT_TARGET], count: 1 };
+    backend = mockBackend({ "GET /api/plots/targets": body });
 
     const out = await dataApi.listPlotTargets({ workflowId: "main" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/plots/targets?workflow_id=main");
+    expect(backend.calls).toHaveLength(1);
+    expect(backend.calls[0]?.url).toBe("/api/plots/targets?workflow_id=main");
     expect(out).toEqual(body);
-    vi.unstubAllGlobals();
   });
 
   it("POSTs a plot scaffold request to /api/plots", async () => {
@@ -134,27 +127,9 @@ describe("dataApi plot list + preview resource save", () => {
       script_path: "plots/my_plot/render.py",
       bytes_written: 100,
       warnings: [],
-      target: {
-        target_id: "tgt_1",
-        workflow_path: "workflows/main.yaml",
-        workflow_id: "main",
-        node_id: "node_a",
-        node_label: "Load",
-        block_type: "io.load",
-        output_port: "data",
-        output_type: "DataFrame",
-        is_collection: false,
-        latest_run_id: null,
-        latest_output_available: false,
-        diagnostics: [],
-      },
+      target: PLOT_TARGET,
     };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    backend = mockBackend({ "POST /api/plots": body });
 
     const out = await dataApi.createPlot({
       plot_id: "my_plot",
@@ -163,32 +138,24 @@ describe("dataApi plot list + preview resource save", () => {
       language: "python",
     });
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/plots");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(backend.calls[0]?.method).toBe("POST");
+    expect(backend.calls[0]?.url).toBe("/api/plots");
+    expect(backend.calls[0]?.body).toEqual({
       plot_id: "my_plot",
       target_id: "tgt_1",
       title: "My Plot",
       language: "python",
     });
     expect(out).toEqual(body);
-    vi.unstubAllGlobals();
   });
 
   it("DELETEs a plot by its encoded id", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 204,
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    backend = mockBackend({ "DELETE /api/plots/{plot_id}": reply(204) });
 
     await dataApi.deletePlot("plot one");
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/plots/plot%20one");
-    expect(init.method).toBe("DELETE");
-    vi.unstubAllGlobals();
+    expect(backend.calls[0]?.method).toBe("DELETE");
+    expect(backend.calls[0]?.url).toBe("/api/plots/plot%20one");
   });
 
   it("GETs /api/plots with block filters", async () => {
@@ -210,19 +177,13 @@ describe("dataApi plot list + preview resource save", () => {
       count: 1,
       warnings: [],
     };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
-    });
-    vi.stubGlobal("fetch", fetchMock);
+    backend = mockBackend({ "GET /api/plots": body });
 
     const out = await dataApi.listPlots({ workflowId: "main", nodeId: "node_a" });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/plots?workflow_id=main&node_id=node_a");
+    expect(backend.calls).toHaveLength(1);
+    expect(backend.calls[0]?.url).toBe("/api/plots?workflow_id=main&node_id=node_a");
     expect(out).toEqual(body);
-    vi.unstubAllGlobals();
   });
 
   it("POSTs preview resource saves to the selected destination path", async () => {
@@ -232,26 +193,21 @@ describe("dataApi plot list + preview resource save", () => {
       size_bytes: 7,
       mime_type: "image/svg+xml",
     };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve(body),
+    backend = mockBackend({
+      "POST /api/previews/sessions/{session_id}/resources/{resource_id}/save": body,
     });
-    vi.stubGlobal("fetch", fetchMock);
 
     const out = await dataApi.savePreviewResource("pv-1", "export", {
       destination_path: "C:/Users/test/plot.svg",
       params: { format: "svg" },
     });
 
-    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/previews/sessions/pv-1/resources/export/save");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(backend.calls[0]?.method).toBe("POST");
+    expect(backend.calls[0]?.url).toBe("/api/previews/sessions/pv-1/resources/export/save");
+    expect(backend.calls[0]?.body).toEqual({
       destination_path: "C:/Users/test/plot.svg",
       params: { format: "svg" },
     });
     expect(out).toEqual(body);
-    vi.unstubAllGlobals();
   });
 });
