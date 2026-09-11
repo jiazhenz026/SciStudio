@@ -486,8 +486,8 @@ class _ApiProductState:
     project can change underneath: constructing them at read time is what keeps
     them from going stale without making the protocol's shape a lie.
 
-    These methods do not create a file,
-    mutates a registry, opens a project, or triggers a run; the two methods that
+    These methods do not create files,
+    mutate registries, open projects, or trigger runs; the two methods that
     touch a database open it read-only through the existing store, and every
     failure path returns "no" rather than raising, because a condition that
     cannot be judged is not satisfied and must not end the session.
