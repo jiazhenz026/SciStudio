@@ -402,6 +402,7 @@ def test_lifespan_unsubscribes_original_bus_after_runtime_replacement(tmp_path):
     runtime, store = make_runtime(tmp_path)
     original_bus = runtime.event_bus
     app = SimpleNamespace(state=SimpleNamespace(runtime=runtime))
+
     async def replace_bus():
         async with panels_lifespan(app):
             assert all(store.on_event in original_bus._subscribers[event] for event in PANEL_EVENTS)
@@ -409,3 +410,32 @@ def test_lifespan_unsubscribes_original_bus_after_runtime_replacement(tmp_path):
 
     asyncio.run(replace_bus())
     assert all(store.on_event not in original_bus._subscribers[event] for event in PANEL_EVENTS)
+
+
+@pytest.mark.parametrize("user_contexts,user_types", [(["preview", "interactive"], ["Text"]), (["interactive"], [])])
+def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path, user_contexts, user_types):
+    from scistudio.panels.registry import PanelRegistry
+    from scistudio.previewers.models import OwnerKind
+    from tests.panels.test_panel_registry import folder
+
+    client, prefix, runtime, _, _ = panel_client
+    project = folder(tmp_path / "project", "lab.shaded", priority=5, types=["Text", "Collection[Text]"])
+    user = folder(tmp_path / "user", "lab.shaded", priority=99, contexts=user_contexts, types=user_types)
+    panels = PanelRegistry()
+    panels.load(project, OwnerKind.PROJECT, {"Text"}, "active project")
+    panels.load(user, OwnerKind.USER, {"Text"}, "user library")
+    runtime.get_preview_service().registry.install_panels(panels)
+    response = client.get(prefix + "/api/previews/previewers")
+    assert response.status_code == 200, response.text
+    cards = [card for card in response.json()["previewers"] if card["previewer_id"] == "lab.shaded"]
+    assert [(card["owner_kind"], card["shadowed"]) for card in cards] == [("project", False), ("user", True)]
+    assert all(card["renderer"] == "panel" for card in cards)
+    assert cards[0]["panel"]["types"] == ["Text", "Collection[Text]"]
+    assert cards[1]["panel"]["types"] == user_types
+    assert cards[1]["panel"]["contexts"] == user_contexts
+    assert cards[1]["priority"] == cards[1]["panel"]["priority"] == 99
+    assert cards[1]["owner_name"] == "user library"
+    assert cards[1]["target_type"] == ("Text" if "preview" in user_contexts else "")
+    context = create(client, prefix)
+    assert context["panel"]["id"] == "lab.shaded"
+    assert runtime.get_preview_service().registry.get("lab.shaded").owner_kind is OwnerKind.PROJECT

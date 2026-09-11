@@ -172,3 +172,10 @@ cover real legacy child content, composite independent mounts, private-query
 tampering, project/service/data invalidation for every session operation,
 eviction, delayed WS acknowledgements, duplicate/error scoping, original-bus
 cleanup and direct/entry-point core reservation. Ruff and mypy (12 sources) pass.
+
+Final catalog audit fix: the shared preview catalog also adapts the PanelRegistry
+shadowed descriptors into complete panel cards. Winner and shadowed cards retain
+owner tier/name, contexts, all declared types and priority, including interactive-
+only panels. These cards never enter the routing candidate set. Same-id project
+and user panel regressions cover both registry and root/prefixed API listings;
+48 focused tests pass, with Ruff and targeted mypy checks.

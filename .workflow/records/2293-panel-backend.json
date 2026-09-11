@@ -802,6 +802,22 @@
       "path": "tests/api/test_panel_routes.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:21:20.924781Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:21:20.924919Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

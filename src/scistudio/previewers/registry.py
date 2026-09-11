@@ -31,7 +31,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
-from typing import Any
+from typing import Any, cast
 
 from scistudio.core.entry_points import (
     EntryPointDiagnostic,
@@ -162,7 +162,10 @@ class PreviewerRegistry:
 
     def catalog_specs(self) -> list[tuple[PreviewerSpec, bool]]:
         """Include shadowed candidates in discovery while routing uses winners only."""
-        return [(s, False) for s in self._by_id.values()] + [(s, True) for s in self._shadowed]
+        panel_cards: list[tuple[PreviewerSpec, bool]] = (
+            [(_panel_catalog_spec(panel), True) for panel in self.panels.shadowed] if self.panels is not None else []
+        )
+        return [(s, False) for s in self._by_id.values()] + [(s, True) for s in self._shadowed] + panel_cards
 
     def install_panels(self, panels: Any) -> None:
         """Merge descriptors into the legacy namespace, panel wins same-tier ids."""
@@ -182,16 +185,7 @@ class PreviewerRegistry:
                 self._diagnostics.append(f"legacy previewer {panel.id!r} shadowed by panel {panel.owner_kind.value}")
             candidates = panel.candidates()
             # Interactive/MiniApp-only ids still occupy the shared namespace.
-            catalog = PreviewerSpec(
-                previewer_id=panel.id,
-                owner_kind=panel.owner_kind,
-                owner_name=panel.owner_name,
-                target_type="",
-                priority=panel.priority,
-                api_version=panel.api_version,
-                panel=panel.to_dict(),
-            )
-            self._by_id[panel.id] = candidates[0] if candidates else catalog
+            self._by_id[panel.id] = _panel_catalog_spec(panel)
             self._panel_candidates[panel.id] = candidates
 
     def specs_for_owner(self, owner_kind: OwnerKind) -> list[PreviewerSpec]:
@@ -405,6 +399,22 @@ class PreviewerRegistry:
             if skip_existing and spec.previewer_id in self._by_id:
                 continue
             self.register(spec)
+
+
+def _panel_catalog_spec(panel: Any) -> PreviewerSpec:
+    """Adapt one complete panel card independently of its routing eligibility."""
+    candidates = panel.candidates()
+    if candidates:
+        return cast(PreviewerSpec, candidates[0])
+    return PreviewerSpec(
+        previewer_id=panel.id,
+        owner_kind=panel.owner_kind,
+        owner_name=panel.owner_name,
+        target_type="",
+        priority=panel.priority,
+        api_version=panel.api_version,
+        panel=panel.to_dict(),
+    )
 
 
 def _entry_point_root_module(ep: importlib.metadata.EntryPoint) -> str | None:

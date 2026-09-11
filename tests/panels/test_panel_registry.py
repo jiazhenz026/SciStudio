@@ -65,3 +65,31 @@ def test_panel_roots_share_tutorial_library_substitution(tmp_path, monkeypatch):
     library = tmp_path / "tutorial-library"
     monkeypatch.setattr(dropins, "library_root_for_project", lambda _project: library)
     assert dropins.panel_scan_dirs(tmp_path / "project") == (tmp_path / "project" / "panels", library / "panels")
+
+
+def test_shared_catalog_keeps_shadowed_panel_cards_out_of_routing(tmp_path):
+    from scistudio.panels.registry import PanelRegistry
+    from scistudio.previewers.models import PreviewTarget, TargetKind
+    from scistudio.previewers.router import PreviewRouter
+
+    project = folder(tmp_path / "project", priority=5, types=["Text", "Collection[Text]"])
+    user = folder(tmp_path / "user", priority=99, types=["Text"], contexts=["preview", "interactive"])
+    panels = PanelRegistry()
+    panels.load(user, OwnerKind.USER, {"Text"}, "user library")
+    panels.load(project, OwnerKind.PROJECT, {"Text"}, "project")
+    registry = PreviewerRegistry()
+    registry.install_panels(panels)
+    cards = registry.catalog_specs()
+    assert [(spec.owner_kind, shadowed) for spec, shadowed in cards] == [
+        (OwnerKind.PROJECT, False),
+        (OwnerKind.USER, True),
+    ]
+    assert cards[0][0].panel["types"] == ["Text", "Collection[Text]"]
+    assert cards[1][0].panel["contexts"] == ["preview", "interactive"]
+    assert cards[1][0].priority == 99 and cards[1][0].owner_name == "user library"
+    assert all(spec.owner_kind is OwnerKind.PROJECT for spec in registry.all_specs())
+    target = PreviewTarget(
+        kind=TargetKind.DATA_REF, ref="text", recorded_type="Text", type_chain=("DataObject", "Text")
+    )
+    assert PreviewRouter(registry).resolve(target).owner_kind is OwnerKind.PROJECT
+    assert registry.catalog_specs() == cards  # Listing does not accumulate duplicate cards.
