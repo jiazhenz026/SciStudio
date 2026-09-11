@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import mimetypes
+import re
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
@@ -66,3 +67,29 @@ def content_policy(token_base_url: str) -> str:
         f"img-src {token_base_url} data: blob:; connect-src 'none'; object-src 'none'; "
         "base-uri 'none'; form-action 'none'; frame-src 'none'"
     )
+
+
+_URL = re.compile(r"""(?:https?:)?//[^\s"'<>`)]+""")
+_PINNED = re.compile(r"(?:@|/)(?:v)?\d+\.\d+\.\d+(?:[/.-]|$)")
+
+
+def validate_external_references(root: Path) -> list[str]:
+    """Refuse off-allowlist references and report unpinned CDN versions."""
+    notes = []
+    for file in root.rglob("*"):
+        if not file.is_file() or file.suffix.lower() not in {".html", ".css", ".js", ".mjs"}:
+            continue
+        if not file.resolve().is_relative_to(root.resolve()):
+            raise ValueError("FR-038: panel contains an escaping asset symlink")
+        if file.stat().st_size > 16 * 1024 * 1024:
+            raise ValueError("FR-038: panel source exceeds 16 MiB validation budget")
+        for url in _URL.findall(file.read_text(encoding="utf-8", errors="replace")):
+            parsed = urlsplit(url if not url.startswith("//") else "https:" + url)
+            # XML namespace identifiers are names, not loads.
+            if url in ("http://www.w3.org/2000/svg", "http://www.w3.org/1999/xhtml"):
+                continue
+            if parsed.hostname not in CDN_HOSTS or parsed.scheme != "https" or parsed.username or parsed.port:
+                raise ValueError(f"FR-038: external reference outside CDN allowlist: {url}")
+            if not _PINNED.search(parsed.path):
+                notes.append(f"FR-038: unpinned CDN reference {url}")
+    return notes

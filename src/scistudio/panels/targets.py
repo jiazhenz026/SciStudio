@@ -6,7 +6,7 @@ from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from scistudio.core.storage.ref import StorageReference
@@ -31,7 +31,7 @@ def collection_store(runtime: Any) -> OrderedDict[str, dict[str, Any]]:
     if getattr(runtime, "_panel_collection_project", None) != identity:
         runtime._panel_collections = OrderedDict()
         runtime._panel_collection_project = identity
-    return runtime._panel_collections
+    return cast(OrderedDict[str, dict[str, Any]], runtime._panel_collections)
 
 
 def register_collection(runtime: Any, payload: dict[str, Any]) -> dict[str, Any]:
@@ -143,7 +143,7 @@ def child_targets(
                 child = freeze_target(runtime, ref)
                 parent.children[ref] = child
             items.append({"ref": ref, "type_name": child.target.recorded_type, "kind": child.target.kind.value})
-        return {**page, "items": items}
+        return {**page, "items": items, "truncated": page["sampled"], "complete": not page["sampled"]}
     if parent.storage is None:
         raise PanelError(400, "unsupported", "This target has no composite slots")
     slots = access.composite_slots(parent.metadata).slots

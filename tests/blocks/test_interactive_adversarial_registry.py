@@ -34,6 +34,7 @@ from scistudio.blocks.registry._spec import _spec_from_class
 from scistudio.previewers.assets import resolve_asset
 from scistudio.previewers.models import MissingBundleError
 from tests.fixtures.interactive_blocks import EmitNumbersBlock, SelectOptionBlock
+from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
 # ===========================================================================
 # F. Real Tier-1 drop-in scan — malformed interactive blocks rejected at scan.
@@ -283,7 +284,8 @@ class _PackagePanelBlock(InteractiveMixin, ProcessBlock):
 
 def test_package_panel_asset_root_kept_off_the_wire() -> None:
     """§4.2: asset_root is server-only — it must never appear in the serialized manifest."""
-    spec = _spec_from_class(_PackagePanelBlock)
+    with pytest.warns(DeprecationWarning, match="module_url is deprecated"):
+        spec = _spec_from_class(_PackagePanelBlock)
     assert spec.panel_manifest is not None
     assert "asset_root" not in spec.panel_manifest, "asset_root leaked onto the wire"
     assert spec.panel_manifest["module_url"].startswith("/api/")

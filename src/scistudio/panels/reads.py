@@ -43,7 +43,9 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
     if op == "table.xy":
         _only(options, {"x_column", "y_column", "max_points"})
         options["max_points"] = min(READ_POINTS, max(1, int(options.get("max_points", READ_POINTS))))
-        return access.panel_table_xy(storage, **options).to_json()
+        result = access.panel_table_xy(storage, **options).to_json()
+        pairs = result.pop("values")
+        return {**result, "x": [row[0] for row in pairs], "y": [row[1] for row in pairs]}
     if op in ("array.plane", "array.tile"):
         _only(
             options,
@@ -60,7 +62,8 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         )
     if op == "text.chunk":
         _only(options, {"offset", "length"})
-        return asdict(access.text_chunk(storage, **options))
+        chunk = asdict(access.text_chunk(storage, **options))
+        return {**chunk, "text": chunk["content"], "sampled": False, "complete": not chunk["truncated"]}
     if op in ("artifact.info", "artifact.file"):
         _only(options, set())
         path = access.artifact_file(storage)

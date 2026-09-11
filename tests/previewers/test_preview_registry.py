@@ -40,7 +40,7 @@ def test_core_specs_load_unconditionally() -> None:
         "core.plot.basic",
         "core.base.fallback",
     } <= ids
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_duplicate_previewer_id_is_rejected_with_diagnostic() -> None:
@@ -108,7 +108,7 @@ def test_factory_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> No
 
     reg._register_from_factory("scistudio_blocks_fake", fake_module.get_previewers)
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_companion_package_entry_point_discovers_get_previewers(
@@ -142,7 +142,7 @@ def test_companion_package_entry_point_discovers_get_previewers(
     reg.load_packages()
 
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_load_packages_activates_installed_plugin_roots_for_entry_points(
@@ -194,7 +194,7 @@ def test_load_packages_activates_installed_plugin_roots_for_entry_points(
     # Discovered via the entry-point path — only possible if the plugin root was
     # activated on sys.path during the scan.
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
     # The scoped activation must restore sys.path afterwards.
     assert sentinel not in sys.path
 

@@ -40,6 +40,7 @@ from scistudio.engine.events import (
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import NodeDef, WorkflowDefinition
 from tests.fixtures.interactive_blocks import SelectOptionBlock
+from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
 TIMING_TIMEOUT = 20
 SETTLE = 0.25  # window to prove a block STAYS paused (no spurious resolution)

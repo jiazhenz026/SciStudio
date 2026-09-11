@@ -26,6 +26,8 @@ from __future__ import annotations
 import os
 from typing import Any, ClassVar
 
+import pytest
+
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.base.interactive import (
     INTERACTIVE_RESPONSE_KEY,
@@ -207,3 +209,28 @@ class NonJsonPanelBlock(InteractiveMixin, ProcessBlock):
     def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:  # type: ignore[override]
         # Never reached: the prompt phase fails before any compute phase.
         return {"selected": None}
+
+
+def get_test_panels():
+    """Real HTML descriptors exported by the test-only package entry point."""
+    from pathlib import Path
+
+    return sorted(path for path in (Path(__file__).parent / "panels").iterdir() if path.is_dir())
+
+
+@pytest.fixture(autouse=True)
+def registered_test_panels(monkeypatch):
+    """Discover real fixture descriptors through the same package path as plugins."""
+    import importlib.metadata
+
+    from scistudio.panels import registry
+
+    original = registry.enumerate_group
+    entry = importlib.metadata.EntryPoint(
+        name="interactive-fixtures", group="scistudio.panels", value="tests.fixtures.interactive_blocks:get_test_panels"
+    )
+
+    def enumerate_panels(group, **kwargs):
+        return (*original(group, **kwargs), entry) if group == "scistudio.panels" else original(group, **kwargs)
+
+    monkeypatch.setattr(registry, "enumerate_group", enumerate_panels)

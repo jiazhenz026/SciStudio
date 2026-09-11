@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal
@@ -83,8 +84,10 @@ class PanelFailureResponse(BaseModel):
     detail: PanelFailureDetail
 
 
-_ERRORS = {code: {"model": PanelFailureResponse} for code in (400, 403, 404, 409, 413, 422, 429)}
-_READ_RESPONSE = {
+_ERRORS: dict[int | str, dict[str, Any]] = {
+    code: {"model": PanelFailureResponse} for code in (400, 403, 404, 409, 413, 422, 429)
+}
+_READ_RESPONSE: dict[int | str, dict[str, Any]] = {
     200: {
         "content": {
             "application/json": {"schema": {"$ref": "#/components/schemas/ReadResult"}},
@@ -108,7 +111,7 @@ def _failure(exc: PanelError) -> HTTPException:
 
 
 def _base(request: Request) -> str:
-    return request.scope.get("root_path", "").rstrip("/")
+    return str(request.scope.get("root_path", "")).rstrip("/")
 
 
 def _context_response(request: Request, context: PanelContext) -> dict[str, Any]:
@@ -195,6 +198,9 @@ def panel_read(context_id: str, payload: ContextRead, request: Request) -> Respo
                     },
                 )
             result = result.to_json()
+            if payload.op == "series.points":
+                pairs = result.pop("values")
+                result.update(index=[row[0] for row in pairs], values=[row[1] for row in pairs])
         elif payload.params.get("format") == "binary":
             raise PanelError(400, "unsupported", "Binary is supported only for array and series reads")
         result = {"sampled": False, "truncated": False, "complete": True, **result}
@@ -284,6 +290,8 @@ def panel_artifact(token: str, grant_id: str, request: Request) -> Response:
         target = get_panel_contexts(request.app.state.runtime).artifact(token, grant_id)
         from scistudio.panels.contexts import read_access
 
+        if target.storage is None:
+            raise PanelError(403, "unauthorized_ref", "Artifact grant has no storage")
         path = read_access().artifact_file(target.storage)
         response = _static_response(request, path, token)
         # Artifacts are data, never executable application documents.
@@ -305,7 +313,7 @@ def install_panels(app: FastAPI) -> None:
 
 
 @asynccontextmanager
-async def panels_lifespan(app: FastAPI):
+async def panels_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Listen before workflows run; close runtime contexts at shutdown."""
     store = get_panel_contexts(app.state.runtime)
     try:

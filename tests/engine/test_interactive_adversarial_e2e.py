@@ -59,6 +59,7 @@ from tests.fixtures.interactive_blocks import (
     SelectFromInputBlock,
     SelectOptionBlock,
 )
+from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
 E2E_TIMEOUT = 90
 

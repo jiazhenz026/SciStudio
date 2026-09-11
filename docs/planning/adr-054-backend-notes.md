@@ -108,3 +108,14 @@ Dependency slice: 50 descriptor/confinement/routing/context and existing routing
 tests pass. Further route, read-extension, collection, WS, guard/prefix tests and
 local gate evidence are recorded in the final slice update. No browser or CI
 success is claimed here.
+
+Follow-up validation: 119 existing interactive engine/block/API/tutorial
+compatibility cases passed. The existing
+`test_the_loader_refuses_what_it_does_not_read` failed when installed tifffile
+requested missing `imagecodecs.DEFLATE.available`; no tutorial source changes
+were made. Genuine panel entry-point fixtures preserve registry validation.
+Own panel/route mypy checks pass (10 source files); the new import cycle was
+removed by sharing asset validation in panels/files.py. Route/collection/WS
+authority coverage now includes root prefixes, artifact grant separation,
+binary byte order, thread-pool reads, and >1,024 retained collection outputs.
+Integrated generated docs/OpenAPI, full gate and CI remain manager obligations.

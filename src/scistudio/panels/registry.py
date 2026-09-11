@@ -6,7 +6,12 @@ from collections.abc import Collection
 from pathlib import Path
 
 from scistudio.core.dropins import panel_scan_dirs, register_type_scan_dirs
-from scistudio.core.entry_points import enumerate_group, load_entry_point, prepared_plugin_import_roots
+from scistudio.core.entry_points import (
+    EntryPointDiagnostic,
+    enumerate_group,
+    load_entry_point,
+    prepared_plugin_import_roots,
+)
 from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
 from scistudio.previewers.models import OwnerKind
 
@@ -44,7 +49,7 @@ class PanelRegistry:
             panel, notes = parse_descriptor(
                 path, owner_kind=owner, owner_name=owner_name or owner.value, registered_types=types
             )
-            from scistudio.panels.validation import validate_external_references
+            from scistudio.panels.files import validate_external_references
 
             notes.extend(validate_external_references(panel.root))
             self.register(panel)
@@ -74,11 +79,11 @@ def discover_panels(
             for child in sorted(root.iterdir()):
                 if child.is_dir() and not child.name.startswith("."):
                     registry.load(child, owner, registered_types)
-    diagnostics = []
+    diagnostics: list[EntryPointDiagnostic] = []
     with prepared_plugin_import_roots():
         for ep in enumerate_group("scistudio.panels", diagnostics=diagnostics):
             factory = load_entry_point(ep, "scistudio.panels", diagnostics=diagnostics)
-            if factory is None:
+            if not callable(factory):
                 continue
             try:
                 paths = factory()

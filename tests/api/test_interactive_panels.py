@@ -133,7 +133,8 @@ def test_project_local_interactive_block_panel_registers_and_serves(tmp_path: Pa
 
     registry = BlockRegistry()
     registry.add_scan_dir(scan_dir)
-    registry._scan_tier1()
+    with pytest.warns(DeprecationWarning, match="module_url is deprecated"):
+        registry._scan_tier1()
 
     spec = registry.get_spec("ProjectLocalPanelBlock")
     assert spec is not None, "project-local interactive block did not register"

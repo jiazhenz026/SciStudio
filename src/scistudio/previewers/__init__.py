@@ -135,6 +135,7 @@ def build_preview_service(
     load_project_previewers(registry, project_dir)
     load_user_previewers(registry, project_dir)
     from scistudio.panels.registry import discover_panels
+
     registry.install_panels(discover_panels(project_dir, registered_types=registered_types))
     registry.set_previewer_choices(load_choices(project_dir))
 

@@ -84,7 +84,9 @@ class PanelContexts:
             self._synchronize()
             data = event.data if isinstance(event.data, dict) else {}
             workflow_id = data.get("workflow_id")
-            key = (workflow_id, event.block_id)
+            if not isinstance(workflow_id, str):
+                return
+            key = (workflow_id, str(event.block_id or ""))
             if event.event_type == "interactive_prompt":
                 self._close_waiting(key)
                 self.prompts[key] = deepcopy(data)
@@ -103,7 +105,9 @@ class PanelContexts:
             if (context.workflow_id, context.block_id) == key:
                 self.close(context.context_id)
 
-    def _waiting(self, workflow_id: str, block_id: str) -> dict[str, Any]:
+    def _waiting(self, workflow_id: str | None, block_id: str | None) -> dict[str, Any]:
+        if not workflow_id or not block_id:
+            raise PanelError(422, "invalid_request", "workflow_id and block_id are required")
         prompt = self.prompts.get((workflow_id, block_id))
         run = self.runtime.workflow_runs.get(workflow_id)
         scheduler = getattr(run, "scheduler", None)

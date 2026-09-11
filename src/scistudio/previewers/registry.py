@@ -165,10 +165,11 @@ class PreviewerRegistry:
 
         self.panels = panels
         self._diagnostics.extend(panels.diagnostics)
-        for panel in panels.panels.values():
+        for panel in list(panels.panels.values()):
             previous = self._by_id.get(panel.id)
             if previous is not None and TIER_ORDER[previous.owner_kind] < TIER_ORDER[panel.owner_kind]:
                 panels.shadowed.append(panel)
+                panels.panels.pop(panel.id)
                 self._diagnostics.append(f"panel {panel.id!r} shadowed by legacy {previous.owner_kind.value}")
                 continue
             if previous is not None:
