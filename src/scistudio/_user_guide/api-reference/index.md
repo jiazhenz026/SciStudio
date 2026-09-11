@@ -26,4 +26,3 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
 - [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols
-

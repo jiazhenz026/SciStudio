@@ -259,4 +259,3 @@ Example:
 - `load(self, config: 'BlockConfig', output_dir: 'str' = '') -> 'DataObject | Collection'` — _unmarked — no runtime stability marker_ — Always raises — a SimpleSaver cannot load.
 - `save(self, obj: 'DataObject | Collection', config: 'BlockConfig') -> 'None'` — _unmarked — no runtime stability marker_ — Validate the incoming object and write it to the configured path.
 - `save_file(self, obj: 'DataObject', path: 'Path', config: 'dict[str, Any]') -> 'None'` — `stable` · Since `0.3.1` — Write one object to *path*. Implement this in your saver.
-

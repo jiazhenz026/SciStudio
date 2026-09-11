@@ -214,4 +214,3 @@ Raises:
 Example:
     >>> validate_app_command("python --version")
     ['python', '--version']
-

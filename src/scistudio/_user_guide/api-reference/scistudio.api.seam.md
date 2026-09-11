@@ -197,4 +197,3 @@ Return whether any workflow run in this backend is still executing.
 A Hub activity reporter polls this so idle culling never stops a backend
 mid-analysis. Returns ``False`` before the lifespan has created the
 runtime and after every run's task has finished.
-

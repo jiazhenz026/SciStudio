@@ -51,4 +51,3 @@ Example:
 - `teardown(self, state: 'Any') -> 'None'` — `stable` · Since `0.3.1` — Run once at the end of `run`, even if an item raised.
 - `process_item(self, item: 'Any', config: 'BlockConfig', state: 'Any' = None) -> 'Any'` — `stable` · Since `0.3.1` — Transform a single item; override this for the common case.
 - `run(self, inputs: 'dict[str, Collection]', config: 'BlockConfig') -> 'dict[str, Collection]'` — `stable` · Since `0.3.1` — Stream the primary input Collection through `process_item`.
-

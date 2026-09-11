@@ -343,4 +343,3 @@ Example:
 
 - `matches(self, other: 'TypeSignature') -> 'bool'` — `stable` · Since `0.3.1` — Return whether this type can stand in for *other*.
 - `from_type(cls, data_type: 'type') -> 'TypeSignature'` — `stable` · Since `0.3.1` — Build a `TypeSignature` from a `DataObject` subclass.
-

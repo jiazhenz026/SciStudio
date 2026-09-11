@@ -444,9 +444,7 @@ def _write_page(path: Path, text: str) -> None:
     each page opens with "Do not hand-edit; regenerate".
     """
 
-    if not text.endswith("\n"):
-        text += "\n"
-    path.write_text(text, encoding="utf-8", newline="\n")
+    path.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
 
 
 def main(argv: list[str] | None = None) -> int:
