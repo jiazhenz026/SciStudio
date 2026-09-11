@@ -341,7 +341,7 @@ class PanelContexts:
             prompt = self.prompts.get((workflow_id, block_id))
             manifest = (prompt or {}).get("panel_manifest") or {}
             if not context_id:
-                if manifest and not manifest.get("module_url") and manifest.get("panel_id") not in LEGACY_CORE_PANELS:
+                if manifest and not manifest.get("module_url"):
                     raise PanelError(403, "missing_context", "Panel writeback requires its waiting context")
                 return
             context = self.get(context_id)
@@ -354,12 +354,6 @@ class PanelContexts:
             if len(encoded.encode()) > READ_BYTES:
                 raise PanelError(413, "read_budget", "Interactive response exceeds 20 MiB")
             self.close(context_id)
-
-
-# TODO(#2294): Remove compiled core exceptions when Phase B migrates these windows.
-#   Out of scope per ADR-054 Phase A/B split; generic missing ids still fail.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2294
-LEGACY_CORE_PANELS = frozenset({"core.interactive.data_router", "core.interactive.pair_editor"})
 
 
 def get_panel_contexts(runtime: Any) -> PanelContexts:

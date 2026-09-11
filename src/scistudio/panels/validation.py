@@ -18,7 +18,6 @@ def validate_interactive_panel(manifest: object, registry: PanelRegistry | None 
     """Apply block-to-panel context compatibility, including 0.5 legacy modules."""
     import warnings
 
-    from scistudio.panels.contexts import LEGACY_CORE_PANELS
     from scistudio.panels.registry import discover_panels
 
     panel_id = getattr(manifest, "panel_id", "")
@@ -29,8 +28,6 @@ def validate_interactive_panel(manifest: object, registry: PanelRegistry | None 
         return
     panels = registry or _SCAN_PANELS.get() or discover_panels()
     panel = panels.get(panel_id)
-    if panel is None and panel_id in LEGACY_CORE_PANELS:
-        return
     if panel is None or "interactive" not in panel.contexts:
         resolved = f"{panel.owner_kind.value} panel {panel.id!r}" if panel else "no registered panel"
         raise ValueError(f"FR-023: block panel {panel_id!r} resolves to {resolved}; interactive context required")

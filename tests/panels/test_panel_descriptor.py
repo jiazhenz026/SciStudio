@@ -114,10 +114,15 @@ def test_external_reference_allowlist_and_pin_diagnostic(tmp_path):
         validate_external_references(tmp_path)
 
 
-def test_interactive_validation_preserves_only_known_core_legacy(panel_runtime):
+def test_interactive_validation_requires_a_registered_interactive_panel(panel_runtime):
     runtime, _ = panel_runtime
     registry = runtime.get_preview_service().registry.panels
     validate_interactive_panel(PanelManifest(panel_id="lab.text"), registry)
-    validate_interactive_panel(PanelManifest(panel_id="core.interactive.data_router"), registry)
+    # ADR-054 Phase B removed the compiled-core allowlist: core.interactive.* is
+    # no longer specially tolerated when absent; it must be a registered
+    # interactive panel like any other (the live registration is covered in
+    # tests/panels/test_builtin_panels.py). An id not in this registry fails.
+    with pytest.raises(ValueError, match="interactive context required"):
+        validate_interactive_panel(PanelManifest(panel_id="core.interactive.data_router"), registry)
     with pytest.raises(ValueError, match="interactive context required"):
         validate_interactive_panel(PanelManifest(panel_id="pkg.missing"), registry)
