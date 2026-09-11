@@ -84,9 +84,30 @@ const POINTS = [
   { x: 2, y: 9 },
 ];
 
+/**
+ * A series.points answer in the shape the backend actually sends: the panel
+ * numeric transport, where `values` holds the x/y pairs row-wise and `columns`
+ * names them. Reading a `points` key instead produced an empty series for every
+ * input, and the first version of these tests shared that wrong assumption.
+ */
+function seriesRead(
+  points: Array<{ x: number; y: number }>,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    values: points.map((p) => [p.x, p.y]),
+    columns: ["x", "y"],
+    dtype: "<f8",
+    shape: [points.length, 2],
+    total: points.length,
+    nonnumeric: 0,
+    ...extra,
+  };
+}
+
 beforeAll(() => {
   stubPlotly();
-  stubHost({ points: [], total: 0, nonnumeric: 0 });
+  stubHost(seriesRead([]));
 });
 
 afterEach(() => {
@@ -131,6 +152,27 @@ describe("core.series.basic — reporting values that cannot be plotted (#1886 D
   });
 });
 
+describe("core.series.basic — the read contract", () => {
+  it("reads the points out of the numeric transport the backend sends", async () => {
+    const { readPoints } = await loadPanelModule();
+    // series.points answers with `values` (x/y pairs row-wise) and `columns`.
+    // The panel once looked for a `points` key that the backend never sends, so
+    // every series rendered as empty — pin the real shape here.
+    expect(readPoints(seriesRead(POINTS))).toEqual(POINTS);
+    // Column order is taken from `columns`, not assumed.
+    expect(
+      readPoints({ values: [[5, 1], [6, 2]], columns: ["y", "x"] }),
+    ).toEqual([{ x: 1, y: 5 }, { x: 2, y: 6 }]);
+    // A read with no values is empty rather than an error.
+    expect(readPoints({})).toEqual([]);
+    expect(readPoints(seriesRead([]))).toEqual([]);
+    // A non-finite pair that slipped through is skipped rather than plotted.
+    expect(readPoints({ values: [[0, 1], [1, "NaN"]], columns: ["x", "y"] })).toEqual([
+      { x: 0, y: 1 },
+    ]);
+  });
+});
+
 describe("core.series.basic — the plotted line", () => {
   it("breaks the line where samples are missing rather than drawing across", async () => {
     const { lineData } = await loadPanelModule();
@@ -159,7 +201,7 @@ describe("core.series.basic — the plotted line", () => {
 describe("core.series.basic — the rendered surface", () => {
   it("charts the points, with gaps left open", async () => {
     const calls = stubPlotly();
-    stubHost({ points: POINTS, total: 4, nonnumeric: 1, nonfinite_positions: [1] });
+    stubHost(seriesRead(POINTS, { total: 4, nonnumeric: 1, nonfinite_positions: [1] }));
     await loadPanelModule();
     await vi.waitFor(() => expect(calls.length).toBeGreaterThan(0));
 
@@ -173,7 +215,7 @@ describe("core.series.basic — the rendered surface", () => {
 
   it("shows the gap notice above the chart", async () => {
     stubPlotly();
-    stubHost({ points: POINTS, total: 5, nonnumeric: 2, nonfinite_positions: [1, 4] });
+    stubHost(seriesRead(POINTS, { total: 5, nonnumeric: 2, nonfinite_positions: [1, 4] }));
     await loadPanelModule();
     await vi.waitFor(() =>
       expect(root().querySelector("[data-testid=series-nonfinite-gaps]")).toBeTruthy(),
@@ -185,7 +227,7 @@ describe("core.series.basic — the rendered surface", () => {
 
   it("carries no notice for a complete series", async () => {
     stubPlotly();
-    stubHost({ points: POINTS, total: 3, nonnumeric: 0 });
+    stubHost(seriesRead(POINTS, { total: 3, nonnumeric: 0 }));
     await loadPanelModule();
     await vi.waitFor(() => expect(root().querySelector("[data-testid=series-chart]")).toBeTruthy());
     expect(root().querySelector("[data-testid=series-nonfinite-gaps]")).toBeNull();
@@ -193,7 +235,7 @@ describe("core.series.basic — the rendered surface", () => {
 
   it("switches between the chart and the table of the same values", async () => {
     stubPlotly();
-    stubHost({ points: POINTS, total: 3, nonnumeric: 0 });
+    stubHost(seriesRead(POINTS, { total: 3, nonnumeric: 0 }));
     await loadPanelModule();
     await vi.waitFor(() => expect(button("Table")).toBeTruthy());
 
@@ -213,7 +255,7 @@ describe("core.series.basic — the rendered surface", () => {
 
   it("remembers the chosen mode", async () => {
     stubPlotly();
-    const api = stubHost({ points: POINTS, total: 3, nonnumeric: 0 }, { mode: "table" });
+    const api = stubHost(seriesRead(POINTS, { total: 3, nonnumeric: 0 }), { mode: "table" });
     await loadPanelModule();
     await vi.waitFor(() => expect(root().querySelector("[data-testid=series-table]")).toBeTruthy());
     expect(api.setViewState).toHaveBeenCalledWith({ mode: "table" });
@@ -223,7 +265,7 @@ describe("core.series.basic — the rendered surface", () => {
 describe("core.series.basic — edge cases", () => {
   it("says so when the series has nothing to plot", async () => {
     stubPlotly();
-    stubHost({ points: [], total: 0, nonnumeric: 0 });
+    stubHost(seriesRead([]));
     await loadPanelModule();
     await vi.waitFor(() => expect(root().querySelector("[data-testid=series-empty]")).toBeTruthy());
   });

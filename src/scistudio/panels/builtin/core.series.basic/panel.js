@@ -55,6 +55,30 @@ export function gapNotice(data) {
 }
 
 /**
+ * Read the series read's points.
+ *
+ * ``series.points`` answers with the panel numeric transport: ``values`` holds
+ * the x/y pairs row-wise, with ``columns`` naming them. Reading a ``points``
+ * key instead silently produced an empty series for every input.
+ */
+export function readPoints(data) {
+  const values = data?.values;
+  if (!Array.isArray(values)) return [];
+  const columns = data?.columns ?? ["x", "y"];
+  const xIndex = Math.max(0, columns.indexOf("x"));
+  const yIndex = columns.indexOf("y") >= 0 ? columns.indexOf("y") : 1;
+  const points = [];
+  for (const row of values) {
+    if (!Array.isArray(row)) continue;
+    const x = row[xIndex];
+    const y = row[yIndex];
+    if (typeof x !== "number" || typeof y !== "number") continue;
+    points.push({ x, y });
+  }
+  return points;
+}
+
+/**
  * Build the plotted line, breaking it where samples are missing.
  *
  * Plotly renders null as a gap, so inserting one at each dropped position shows
@@ -168,7 +192,7 @@ function SeriesPanel({ initialView }) {
     return html`<${Panel}><${LoadingState}>Loading series…<//><//>`;
   }
 
-  const points = data.points ?? [];
+  const points = readPoints(data);
   const notice = gapNotice(data);
 
   return html`<${Panel}>
