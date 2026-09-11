@@ -65,6 +65,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:18:12.231839Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fb42d2b0706ac303452d9d9e01134214444322c80563d9f577d88e6965866c22",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T05:18:23.395457Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:50a057ee2df1b495dcfb02d9abc408e6be75ee385ca2f961d4e3c3a0e439c1d0",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -519,6 +551,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.429245Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.442230Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.455680Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.468895Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.481752Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.494212Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.506559Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.518486Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.531132Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.543538Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T05:18:23.559913Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -531,17 +651,18 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "ca54fe7752a762a4aa3af9a5d5ff36d41aee4e3f",
+    "base": "origin/main",
     "base_sha": "ca54fe775",
     "changed_files": [
       ".workflow/records/2285-adr-054-panel.json",
-      "docs/adr/ADR-054.md"
+      "docs/adr/ADR-054.md",
+      "docs/audit/2026-09-11-adr-054-panels-no-context.md"
     ],
-    "diff_fingerprint": "sha256:4aec1fd5c4fd572c8e27f8ceceb5308d4c139823a6a1d25891ddcd03f3c49d3c",
+    "diff_fingerprint": "sha256:01d3c8ca81b30b72ae28cfa288cbbb732344d430d62a6e547ac1885356155de5",
     "head": "HEAD",
-    "head_sha": "9d9146dac",
+    "head_sha": "0be320bec",
     "surfaces": {
-      "docs": 1,
+      "docs": 2,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -601,6 +722,14 @@
       "at": "2026-09-11T04:16:59.473390Z",
       "diff_fingerprint": "sha256:4aec1fd5c4fd572c8e27f8ceceb5308d4c139823a6a1d25891ddcd03f3c49d3c",
       "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T05:18:23.559944Z",
+      "diff_fingerprint": "sha256:01d3c8ca81b30b72ae28cfa288cbbb732344d430d62a6e547ac1885356155de5",
+      "mode": "local",
       "result": "pass",
       "tier": 3,
       "unsatisfied": []
