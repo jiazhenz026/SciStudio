@@ -40,6 +40,7 @@ governs:
     - scistudio.api.routes.webmcp
     - scistudio.api.routes.ai_pty
     - scistudio.cli.main
+    - scistudio.cli.webmcp_adapter
   contracts: []
   entry_points: []
   files:
@@ -50,21 +51,21 @@ governs:
     - src/scistudio/api/routes/ai_pty/_state.py
     - src/scistudio/api/routes/ai_pty/websocket.py
     - src/scistudio/cli/main.py
+    - src/scistudio/cli/webmcp_adapter.py
     - frontend/src/components/BottomPanel.tsx
     - frontend/src/lib/api/data.ts
     - README.md
   excludes: []
 planned_governs:
-  modules:
-    - scistudio.cli.webmcp_adapter
+  modules: []
   contracts: []
   entry_points: []
   files:
-    - src/scistudio/cli/webmcp_adapter.py
     - frontend/src/components/Enterprise/**
   excludes: []
 tests:
   - tests/cli/test_webmcp_adapter.py
+  - tests/api/test_webmcp.py
   - tests/api/test_enterprise_capabilities.py
   - tests/api/test_ai_pty_capability.py
   - frontend/src/components/Enterprise/EnterpriseChrome.test.tsx
@@ -440,12 +441,15 @@ prefixed, guarded backend, and are refused after the context closes.
 
   It is produced by `create_app` from the caller's arguments and read by the
   frontend; it has no persistence.
-- **AdapterConfig**: base URL, optional bearer credential, and log level. It is
-  supplied by the AI app's MCP server configuration and holds no project
-  identity: the project comes from the backend's catalogue snapshot.
-- **LoopbackTokenFile**: the per-launch token, the backend's PID, and its
-  port. It lives in the per-user state directory with owner-only permissions,
-  and its lifetime is that of the backend.
+- **AdapterConfig**: base URL, optional bearer credential, startup timeout,
+  and log level. It is supplied by the AI app's MCP server configuration and
+  holds no project identity: the project comes from the backend's catalogue
+  snapshot.
+- **LoopbackTokenFile**: the per-launch token, the backend's PID and process
+  create time, its port, its loopback base URL with any root path, and its
+  start time. There is one
+  file per port, `~/.scistudio/webmcp/loopback-<port>.json`, with owner-only
+  permissions, and its lifetime is that of the server run.
 
 ## 4. Implementation Plan
 
@@ -466,10 +470,117 @@ The work splits along the issues in the Change Summary.
 - **Adapter (#2308).** A new CLI subcommand speaks MCP over stdio. Its HTTP
   side is a thin client of the existing bridge routes, and it reuses the
   Spec 1 adapter contract. The loopback token file is written by the default
-  guard's setup in `create_app`.
+  guard that `create_app` installs, while the launching command arms it. The
+  adapter details below record the implemented behavior.
 - **Publishing (#2307).** A publish workflow is triggered from the OTA publish
   script; it is independent of the rest.
 - **Panels (#2288).** Panel registration waits for ADR-054 to resume.
+
+**Adapter details (#2308).** `scistudio webmcp-adapter` is the command an AI
+app launches. It takes `--base-url` (`SCISTUDIO_MCP_BASE_URL`), `--token`
+(`SCISTUDIO_MCP_TOKEN`), `--startup-timeout` (default 20 s), `--log-level`
+(`SCISTUDIO_MCP_LOG_LEVEL`), and `--print-config`. The environment variable is
+the preferred way to pass a token, because a command-line value is visible to
+other processes.
+
+- *Protocol.* The adapter speaks newline-delimited JSON-RPC 2.0 on stdin and
+  stdout. It supports MCP revisions 2025-06-18, 2025-03-26 and 2024-11-05, and
+  declares the `tools` capability with `listChanged`. It answers `initialize`,
+  `ping`, `tools/list` and `tools/call`. A request the client cancels gets no
+  response, and batches are refused. Stdout carries protocol messages only;
+  logs go to stderr.
+- *Catalogue.* Every `tools/list` is fetched from
+  `GET <base>/api/webmcp/tools` and mapped entry for entry: `name`,
+  `description`, `inputSchema`, and `_meta.category` and `_meta.mutation`.
+  The catalogue's `context.projectId` becomes the project snapshot. The adapter
+  keeps nothing else.
+- *Calls.* `tools/call` posts `{name, arguments, projectId}` to
+  `POST <base>/api/webmcp/call`, and returns a `200` body verbatim. The
+  `projectId` is the snapshot that was current when the adapter read the
+  request, so a call queued behind others keeps the project it was issued
+  for. Only a `tools/list` adopts a new snapshot. On
+  `409 stale_project_context` the adapter sends
+  `notifications/tools/list_changed`, so the client re-fetches the catalogue,
+  and returns an `isError` result; calls still bound to the old snapshot fail
+  the same way and are never redirected. That result's `structuredContent` carries `error`,
+  `presentedProjectId` and `activeProjectId`. The other failures are JSON-RPC
+  errors:
+  - an unknown tool is `-32602`;
+  - a rejected credential or a login redirect is `-32001`, naming the base URL;
+  - an unreachable backend is `-32002`, saying whether the call was delivered.
+
+  No call is ever retried.
+- *Credentials.* How the adapter authenticates depends on what is configured:
+  - A configured token goes to the base URL as a bearer credential. A token
+    without a base URL is refused.
+  - Without a token, a loopback base URL uses the token file for its port.
+  - Without a token or a base URL, the adapter uses the most recently started
+    backend that is still running. The URL its file records must be
+    loopback (127.0.0.0/8, `::1` or `localhost`), or the adapter refuses it.
+  - Without a token, any other URL is refused, so the token file never leaves
+    the computer.
+
+  Every token-file target and every loopback target ignores proxy settings
+  from the environment. A bearer token sent over plain `http` to another
+  computer draws a one-time warning on stderr. When a token-file target stops
+  answering, the adapter reads the token file again. If SciStudio restarted
+  with a new token or port, the adapter reconnects and sends `list_changed`.
+  It reports the call as not executed, or as of unknown outcome if the
+  connection broke mid-call.
+- *Startup.* The adapter waits up to the startup timeout while the token file
+  is missing or stale, the connection is refused, or the backend answers 502,
+  503 or 504. It then exits with status 2 and the reason. It exits at once on
+  an unsafe token file, a rejected credential, or any other HTTP status,
+  because waiting cannot fix those. Every attempt is capped at the time left,
+  so a backend that accepts connections and never answers cannot hold the
+  adapter past the bound.
+- *Shutdown.* When the client closes stdin, queued and in-flight calls get
+  two seconds to finish. After that, queued calls are dropped, the bridge
+  client is closed to abort the calls in flight, and the adapter exits within
+  another second whatever a call is doing.
+- *Token file (FR-010).* `~/.scistudio/webmcp/loopback-<port>.json` holds
+  `version`, `token`, `pid`, `createTime` (the process create time), `port`,
+  `baseUrl` (with any root path) and `startedAt`. Its permissions and
+  lifecycle are:
+  - On POSIX the directory is 0700 and the file 0600. On Windows the file sits
+    in the user profile, whose ACL admits only the user, SYSTEM and
+    Administrators; POSIX mode bits do not apply there.
+  - The default guard writes the file atomically, through a temporary file and
+    `os.replace`, when the application starts. It does so only while a launcher
+    arms it: `scistudio serve` and `scistudio gui` wrap their server run in
+    `loopback_token_file(port=..., base_url=...)` (keyword-only), and the
+    desktop app runs `gui`. An IPv6 host is written in brackets
+    (`http://[::1]:8000`).
+  - A file that another running process wrote for the same port is never
+    replaced. uvicorn starts the application before it binds, so a second
+    backend started on a busy port writes before it fails, and must not take
+    the running backend's file away.
+  - The file is removed when that run ends, and only if it still carries this
+    process's PID, create time and token.
+  - A replacement guard mints no token. A backend built without a launcher,
+    in tests or with `uvicorn` run directly, writes nothing.
+  - A killed backend cannot remove its file. Readers therefore treat a file
+    as stale unless its PID is running with the recorded create time (a
+    reused PID does not count), and the next writer prunes it.
+  - The reader refuses a symbolic link, a non-regular file, a malformed file,
+    and a stale file. On POSIX it also refuses a file that the current user
+    does not own or that other users can read. Discovery without a base URL
+    skips a malformed file, or one from a newer SciStudio, with a warning, so
+    it cannot hide the other backends.
+- *Logging.* The adapter logs operation identifiers, outcomes, tool counts and
+  the project identifier, never arguments or credentials. A base URL that
+  carries credentials, a query string or a fragment is refused without being
+  echoed.
+- *Setup.* `--print-config claude-desktop|claude-code|codex` prints a
+  ready-to-paste server entry. The entry runs
+  `<python> -m scistudio webmcp-adapter` with the interpreter SciStudio is
+  installed in. When a token is needed, the entry sets `SCISTUDIO_MCP_TOKEN`
+  to `PASTE_YOUR_TOKEN_HERE`; the token itself is never printed. The Claude
+  Code command never carries the token: the adapter reads
+  `SCISTUDIO_MCP_TOKEN` from the environment Claude Code runs in. A token
+  without a base URL is refused, and a rejected base URL is never echoed. The Codex
+  entry also raises `startup_timeout_sec` above the adapter's own wait. The
+  user-guide page for external-AI mode is tracked by #2290.
 
 Enterprise-only behavior — the Hub guard, cookie and XSRF rules, Hub token
 validation, transfer endpoints and tools, activity reporting, and restart
@@ -479,11 +590,11 @@ handling — stays in the private repository.
 
 | File or glob | Action | Rationale |
 |---|---|---|
-| `src/scistudio/api/app.py` | modify | Seam parameters (#2304); loopback token file on the default guard (FR-010) |
+| `src/scistudio/api/app.py` | modify | Seam parameters (#2304) |
 | `src/scistudio/api/spa.py` | modify | Capability delivery at boot, if the seam spec chooses bootstrap injection |
-| `src/scistudio/api/routes/webmcp.py` | modify | Guard generalization (#2304); the bridge routes the adapter calls |
+| `src/scistudio/api/routes/webmcp.py` | modify | Guard generalization (#2304); the bridge routes the adapter calls; the loopback token file written by the default guard (FR-010) |
 | `src/scistudio/api/routes/ai_pty/_state.py`, `websocket.py` | modify | `ai_chat_disabled` refusal of agent-kind providers only (FR-006) |
-| `src/scistudio/cli/main.py` | modify | Register the adapter subcommand |
+| `src/scistudio/cli/main.py` | modify | Register the adapter subcommand; `serve` and `gui` arm the loopback token file for their server run |
 | `src/scistudio/cli/webmcp_adapter.py` | create | Stdio MCP adapter (FR-008 to FR-011) |
 | `frontend/src/components/Enterprise/**` | create | Identity chrome, transfer controls, update notice |
 | `frontend/src/components/BottomPanel.tsx` | modify | Hide the AI chat tab when `ai_chat_disabled` is set |
@@ -570,4 +681,7 @@ handling — stays in the private repository.
 - The identity-seam spec from #2304 is the detailed contract, and this spec
   defers to it wherever they overlap. (source: spec)
 - A loopback backend's per-user state directory is writable only by its
-  owner on every supported OS. (source: inferred; verified by T-004)
+  owner on every supported OS. (source: inferred; T-004 enforces it on POSIX,
+  where the writer creates `~/.scistudio/webmcp` as 0700 and the reader
+  refuses a file that is not owner-only, and relies on the profile ACL on
+  Windows)
