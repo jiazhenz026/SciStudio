@@ -22,7 +22,7 @@ that did finish must be recorded as what it was. This module keeps it.
 * **Graceful shutdown.** :func:`shutdown_workflow_runs` cancels every live run
   and waits 10 s in total while each task's done-callback writes the terminal
   status. A run still pending after that is finalised as ``cancelled`` here,
-  and its own done-callback does not overwrite that later.
+  and its own done-callback does not overwrite that afterwards.
 * **The backend is killed or crashes.** Every run first registers itself as
   live in this process, then writes an owner marker,
   ``<project>/.scistudio/run-owners/<run_id>.json`` (pid, process creation
@@ -525,7 +525,7 @@ async def shutdown_workflow_runs(self: ApiRuntime, *, timeout_sec: float | None 
     ``cancelled``. The wait is *timeout_sec* in total, not per run. A task that
     has not finished by then (a block that ignores cancellation, say) is
     finalised as ``cancelled`` here, so its row does not outlive the process as
-    ``running``. If that task ends later, its done-callback leaves the row alone.
+    ``running``. If that task ends afterwards, its done-callback leaves the row alone.
 
     Returns:
         The run ids this function finalised itself because their task did not

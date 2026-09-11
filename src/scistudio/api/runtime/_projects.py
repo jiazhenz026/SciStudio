@@ -530,7 +530,7 @@ def _write_private_pointer(path: Path, text: str) -> bool:
     ``.scistudio/`` may be group-shared, so another user can plant a symlink, or
     a file of their own, at a pointer path; a plain write would follow the link
     and overwrite whatever it names (no-context audit of #2329). The text goes
-    to a fresh ``O_CREAT | O_EXCL`` temporary file (mode 0600) in the same
+    to a fresh ``O_CREAT | O_EXCL`` staging file (mode 0600) in the same
     directory, which then replaces the directory entry. An existing symlink, or
     a file another user owns, is refused with a warning instead.
 
