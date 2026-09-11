@@ -193,13 +193,13 @@ language_source: en
 
 ### 7.4 Audit
 
-- [ ] Audit agents assigned (AU1 with-context, AU2 no-context).
-- [ ] Audit report file paths assigned.
-- [ ] Audit reports committed.
-- [ ] Audit reports merged into the final PR evidence path.
-- [ ] Findings recorded.
-- [ ] P1 findings fixed before integration.
-- [ ] P2/P3 findings fixed or tracked with owner-approved rationale.
+- [x] Audit agents assigned -> AU1 (with-context), AU2 (no-context).
+- [x] Audit report file paths assigned -> `docs/audit/2026-09-11-adr-055-spec4-o1-{with,no}-context.md`
+- [x] Audit reports committed -> AU1 aef739e2e plus re-verification 6f3b9db1e; AU2 4688128ac.
+- [x] Audit reports merged into the final PR evidence path -> A1 merged both audit branches (f12f21e57, da3e2fae1). The AU1 re-verification commit is still to be merged.
+- [x] Findings recorded -> drift log. Both audits blocked on the terminal-bypass P1.
+- [x] P1 findings fixed before integration -> 7e116e7df: the seam exempts only paths strictly below a prefix, and the terminal refuses the reserved tab id. AU1 re-verification at 07c474836 **passes**, and CI is 17/17 green at 07c474836. The AU2 re-audit is in progress.
+- [ ] P2/P3 findings fixed or tracked with owner-approved rationale. Fixed: the ratchet, the restart race, upload semantics, URL and path hardening. Deferred to #2337: P2-3 (tutorial replay hidden) and P2-4 ("Bring in my work" returns 500), plus N-1 (availability grading). **These deferrals need owner approval**, batched with the merge request.
 
 ### 7.5 Integration
 
