@@ -1,0 +1,109 @@
+{
+  "base_ref": null,
+  "branch": "feat/2308-webmcp-adapter",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/cli/webmcp_adapter.py",
+      "src/scistudio/cli/main.py",
+      "src/scistudio/api/routes/webmcp.py",
+      "tests/cli/test_webmcp_adapter.py",
+      "tests/api/test_webmcp.py",
+      "docs/specs/adr-055-enterprise-support.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T10:54:29.056264Z",
+      "owner_directive": "Plan: token-file helpers + lifespan-free arming context manager in api/routes/webmcp.py (written by the default guard's build only while the launching CLI arms it; removed when uvicorn.run returns; never written under a replacement guard); serve/gui wrap uvicorn.run with it (uvicorn.run arguments unchanged); new cli/webmcp_adapter.py (hand-rolled newline-delimited JSON-RPC over stdio, httpx client to /api/webmcp/tools and /call, project snapshot, stale-context list_changed, bearer or token-file credential, bounded startup wait, bounded logging, --print-config). Spec 4 adapter section + CHANGELOG.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T10:54:29.056286Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-enterprise-support.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:54:29.056292Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:54:29.056299Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "The ADR-055 section 4 amendment named in #2308 is outside this dispatch's write set (docs/adr is not assigned); the adapter adds no registry and no server transport, so ADR-055 section 4's rule holds unchanged. Reported to the manager.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:54:29.056304Z",
+      "class": "speckit",
+      "kind": "na",
+      "path": null,
+      "rationale": "Spec 4 (adr-055-enterprise-support) already specifies FR-008 to FR-011; this change fills in its adapter section.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2308,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch (umbrella #2321, O2): implement ADR-055 Spec 4 open-source FR-008 to FR-011 - a stdio MCP adapter over the WebMCP HTTP bridge (scistudio webmcp-adapter) plus the per-user loopback token file written with the default guard only (owner option B, 2026-09-11).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2308-feat-2308-webmcp-adapter",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "fc606d96-ad95-4a4a-99d4-27dba383fad2",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T10:54:29.056307Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/cli/test_webmcp_adapter.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:54:29.056311Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_webmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

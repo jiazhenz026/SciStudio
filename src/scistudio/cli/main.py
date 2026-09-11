@@ -18,10 +18,13 @@ app = typer.Typer(name="scistudio", help="SciStudio -- AI-native scientific work
 from scistudio.cli import install as _install_cli  # noqa: E402
 from scistudio.cli import mcp_bridge as _mcp_bridge_cli  # noqa: E402
 from scistudio.cli import storage as _storage_cli  # noqa: E402
+from scistudio.cli import webmcp_adapter as _webmcp_adapter_cli  # noqa: E402
 
 _install_cli.register(app)
 _mcp_bridge_cli.register(app)
 _storage_cli.register(app)
+# ADR-055 Spec 4 (#2308): stdio MCP adapter over the WebMCP HTTP bridge.
+_webmcp_adapter_cli.register(app)
 
 
 def _version_callback(value: bool) -> None:
@@ -416,13 +419,20 @@ def serve(
     # prefix rides along so worker callbacks resolve under it (FR-006), and
     # the callback host follows the bind host (a specific non-loopback bind
     # does not listen on 127.0.0.1 — Codex review on PR #2274).
-    os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", f"http://{_worker_callback_host(host)}:{port}{root_path}")
+    local_url = f"http://{_worker_callback_host(host)}:{port}{root_path}"
+    os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", local_url)
+    # ADR-055 Spec 4 FR-010 (#2308): publish the default guard's loopback
+    # token in an owner-only file for the stdio MCP adapter while the server
+    # runs; a replacement guard never writes it.
+    from scistudio.api.routes.webmcp import loopback_token_file
+
     # The prefix is deliberately NOT passed as uvicorn's own root_path: modern
     # uvicorn *prepends* its root_path onto every incoming path (built for
     # proxies that strip the prefix), while ADR-055's proxy contract forwards
     # the prefix verbatim. FastAPI's app-level root_path (set from the env var
     # in create_app) is the verbatim-proxy-correct mechanism (FR-001).
-    uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True, log_config=None)
+    with loopback_token_file(port=port, base_url=local_url):
+        uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True, log_config=None)
 
 
 def _worker_callback_host(bind_host: str) -> str:
@@ -525,10 +535,8 @@ def gui(
     # the mount prefix rides along so callbacks resolve under it (FR-006), and
     # the callback host follows the bind host (a specific non-loopback bind
     # does not listen on 127.0.0.1 — Codex review on PR #2274).
-    os.environ.setdefault(
-        "SCISTUDIO_ENGINE_API_URL",
-        f"http://{_worker_callback_host(server_host)}:{bound_port}{root_path}",
-    )
+    local_url = f"http://{_worker_callback_host(server_host)}:{bound_port}{root_path}"
+    os.environ.setdefault("SCISTUDIO_ENGINE_API_URL", local_url)
     if not no_browser and not bundled:
         threading.Timer(1.5, webbrowser.open, args=[url]).start()
     # #1865: in bundled desktop mode, self-reap if the Electron parent dies
@@ -544,13 +552,19 @@ def gui(
     # proxies that strip the prefix), while ADR-055's proxy contract forwards
     # the prefix verbatim. FastAPI's app-level root_path (set from the env var
     # in create_app) is the verbatim-proxy-correct mechanism (FR-001).
-    uvicorn.run(
-        "scistudio.api.app:create_app",
-        host=server_host,
-        port=bound_port,
-        factory=True,
-        log_config=None,
-    )
+    # ADR-055 Spec 4 FR-010 (#2308): as in `serve`, the default guard's
+    # loopback token is published for the stdio MCP adapter while this
+    # server runs (the desktop app runs `gui --bundled`).
+    from scistudio.api.routes.webmcp import loopback_token_file
+
+    with loopback_token_file(port=bound_port, base_url=local_url):
+        uvicorn.run(
+            "scistudio.api.app:create_app",
+            host=server_host,
+            port=bound_port,
+            factory=True,
+            log_config=None,
+        )
 
 
 if __name__ == "__main__":

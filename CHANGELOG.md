@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2308] **AI apps without WebMCP can use SciStudio through a local MCP
+  server.** Claude Desktop, Claude Code, Codex and Cursor can launch local MCP
+  servers but do not expose WebMCP. The new `scistudio webmcp-adapter` command
+  is such a server: it speaks MCP over stdio and forwards `tools/list` and
+  `tools/call` to the WebMCP bridge (`/api/webmcp/tools` and
+  `/api/webmcp/call`). The app therefore sees exactly the tools a WebMCP host
+  sees, the external-audience workspace and execution tools included, and gets
+  their results unchanged. The adapter carries the catalogue's project
+  snapshot. When the open project changes, it refreshes the tool list, tells
+  the app, and reports the call as not executed instead of retrying it.
+  `--base-url` honors a service prefix, and `--token` (or
+  `SCISTUDIO_MCP_TOKEN`) is sent as a bearer credential to a guarded lab
+  server. A backend on the same computer needs no token: `scistudio serve` and
+  `scistudio gui`, which the desktop app runs, now publish the per-launch
+  bridge token in `~/.scistudio/webmcp/loopback-<port>.json`. The file is
+  readable only by the user and is removed when the server stops. It is never
+  written when an edition installs its own guard.
+  `--print-config claude-desktop|claude-code|codex` prints a ready-to-paste
+  configuration. Logs never carry arguments or credentials.
 - [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
   published as the open-source `scistudio` wheel, with the web frontend
   bundled, to PyPI and to the matching GitHub Release, so a server installs
