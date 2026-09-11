@@ -95,7 +95,7 @@ async function mountPanel(ref: string) {
   const frame = (await screen.findByTitle(ref)) as HTMLIFrameElement;
   bootstrapFrame(frame);
   fireEvent.load(frame);
-  const port = channels.at(-1)!;
+  const port = channels[channels.length - 1];
   await message(port, "ready", null);
   return { frame, port };
 }
@@ -122,7 +122,8 @@ it("opens panel and legacy children through authorized sessions and restores eac
   expect(backend.callsTo("POST /api/panels/contexts")).toHaveLength(2);
   expect(root.port.close).not.toHaveBeenCalled();
   expect(child.port.close).not.toHaveBeenCalled();
-  fireEvent.click(screen.getAllByText("← Back").at(-1)!);
+  const backButtons = screen.getAllByText("← Back");
+  fireEvent.click(backButtons[backButtons.length - 1]);
   expect(screen.queryByText("Text leaf")).not.toBeInTheDocument();
   expect(snapshot).toHaveBeenLastCalledWith({
     target: { kind: "data_ref", ref: "child" },

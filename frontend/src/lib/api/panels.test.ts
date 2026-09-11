@@ -20,6 +20,10 @@ describe("guarded panel client", () => {
       await panelsApi.create({ kind: "preview", target: { kind: "data_ref", ref: "data-1" } });
       expect(fetch.mock.calls[0][0]).toBe(`${prefix}/api/panels/contexts`);
       expect(fetch.mock.calls[0][1].headers.get("X-Request-ID")).toBeTruthy();
+      await panelsApi.open("pc-1", "composite#slot");
+      expect(fetch.mock.lastCall![0]).toBe(`${prefix}/api/panels/contexts/pc-1/open`);
+      expect(fetch.mock.lastCall![1].headers.get("X-Request-ID")).toBeTruthy();
+      expect(JSON.parse(fetch.mock.lastCall![1].body)).toEqual({ ref: "composite#slot" });
       fetch.mockResolvedValue({
         ok: true,
         status: 200,

@@ -529,34 +529,8 @@ export function PreviewHost({
   }, [activeEnvelope]);
 
   // -- render --------------------------------------------------------------
-  if (!target || status === "idle") {
-    return (
-      <div className="rounded-[1.6rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-        Nothing to preview yet
-      </div>
-    );
-  }
-  if (status === "loading") {
-    return (
-      <div
-        className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500"
-        data-testid="preview-host-loading"
-      >
-        Loading preview…
-      </div>
-    );
-  }
-  if (status === "error") {
-    return (
-      <div
-        className="rounded-[1.6rem] border border-red-300 bg-red-50 p-4 text-sm text-red-800"
-        data-testid="preview-host-request-error"
-        role="alert"
-      >
-        Could not create a preview session: {requestError}
-      </div>
-    );
-  }
+  if (!target || status !== "ready")
+    return <PreviewStatus status={target ? status : "idle"} requestError={requestError} />;
   if (!activeEnvelope) return null;
 
   if (activeEnvelope.panel) {
@@ -735,4 +709,36 @@ function downloadDataUri(data: Record<string, unknown>, filename: string): void 
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+function PreviewStatus({ status, requestError }: { status: Status; requestError: string | null }) {
+  if (status === "idle") {
+    return (
+      <div className="rounded-[1.6rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+        Nothing to preview yet
+      </div>
+    );
+  }
+  if (status === "loading") {
+    return (
+      <div
+        className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500"
+        data-testid="preview-host-loading"
+      >
+        Loading preview…
+      </div>
+    );
+  }
+  if (status === "error") {
+    return (
+      <div
+        className="rounded-[1.6rem] border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+        data-testid="preview-host-request-error"
+        role="alert"
+      >
+        Could not create a preview session: {requestError}
+      </div>
+    );
+  }
+  return null;
 }
