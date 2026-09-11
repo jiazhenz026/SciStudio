@@ -77,10 +77,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.registry = ProcessRegistry()
 
     # #2327: on Windows the desktop shell asks for a graceful stop by closing
-    # stdin. A no-op unless the shell set SCISTUDIO_STOP_ON_STDIN_EOF.
-    from scistudio.api.runtime._stop_request import start_stop_request_watcher
+    # stdin; a no-op unless it set SCISTUDIO_STOP_ON_STDIN_EOF. A stop signal
+    # (SIGTERM, SIGINT, or that request) first ends the log stream and the AI
+    # terminal sessions, so the server's connection drain finishes and the
+    # shutdown below runs.
+    from scistudio.api.runtime import _stop_request
 
-    start_stop_request_watcher()
+    _stop_request.start_stop_request_watcher()
+    disarm_stop_notice = _stop_request.arm_stop_notice(runtime.begin_shutdown, loop=asyncio.get_running_loop())
 
     # ---- ADR-035 §3.10 IPC token ----
     # Audit P1-B (Codex #861-1): the engine must export
@@ -241,8 +245,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # observer above. No separate teardown required.
         # #2327: browser disconnects no longer end runs, so shutdown does.
         # Cancel every live run and wait, bounded, until its lineage row is
-        # terminal. The policy lives in ``api/runtime/_run_lifetime.py``.
+        # terminal. The policy lives in ``api/runtime/_run_lifetime.py``. AI
+        # terminal sessions with no socket attached have no other shutdown path.
+        disarm_stop_notice()
+        runtime.begin_shutdown()
         await runtime.shutdown_workflow_runs()
+        _stop_request.terminate_ai_terminal_sessions(timeout_sec=3.0)
         app.state.registry.terminate_all(grace_period_sec=5.0)
         await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.

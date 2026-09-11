@@ -248,9 +248,14 @@ def _unlink_quietly(path: Path) -> None:
         logger.debug("#2327: could not remove run owner marker %s", path, exc_info=True)
 
 
-def _write_marker(path: Path, payload: dict[str, Any]) -> None:
-    """Write *payload* to *path* atomically; raises ``OSError`` on failure."""
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _write_marker(path: Path, payload: dict[str, Any], *, create_parent: bool = True) -> None:
+    """Write *payload* to *path* atomically; raises ``OSError`` on failure.
+
+    With ``create_parent=False`` a missing directory is an error rather than
+    something to create, so a deleted project is never recreated.
+    """
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
     staging = path.with_suffix(".json.tmp")
     try:
         staging.write_text(json.dumps(payload), encoding="utf-8")
@@ -367,6 +372,15 @@ def _ensure_terminal_row(entry: _LiveRun, status: str | None) -> bool:
         return True
     if status not in _TERMINAL_STATUSES or entry.project_dir is None:
         return False
+    if not lineage_db_path(entry.project_dir).is_file():
+        # #2327 re-audit N3: the project was deleted mid-run. Opening a store
+        # by path would recreate the folder and a fresh database inside it.
+        logger.warning(
+            "#2327: run %s ended %r, but its project's lineage database is gone; nothing is recorded.",
+            entry.run_id,
+            status,
+        )
+        return True
     try:
         fallback = _open_store_by_path(entry.project_dir)
     except Exception:
@@ -413,7 +427,7 @@ def _annotate_unrecorded(entry: _LiveRun, status: str | None) -> None:
         data = {"schema": _MARKER_SCHEMA, "run_id": entry.run_id, **_this_process()}
     data.update({"unrecorded_status": status, "unrecorded_at": _now_iso()})
     try:
-        _write_marker(entry.marker_path, data)
+        _write_marker(entry.marker_path, data, create_parent=False)
     except OSError:
         logger.warning("#2327: could not annotate the owner marker of run %s", entry.run_id, exc_info=True)
         return

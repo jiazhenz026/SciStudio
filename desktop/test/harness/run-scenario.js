@@ -490,8 +490,8 @@ const SCENARIOS = {
       const pid = h.pids()[0];
       await h.act("stop");
       assert.equal(await h.status(), "stopping");
-      // #2327: the force-kill waits STOP_ESCALATION_MS (15 s) for a graceful stop.
-      await h.until(async () => (await h.status()) === "stopped", 25000, "stopped after SIGKILL");
+      // #2327: the force-kill waits STOP_ESCALATION_MS (25 s) for a graceful stop.
+      await h.until(async () => (await h.status()) === "stopped", 35000, "stopped after SIGKILL");
       assert.equal(h.alive(pid), false);
     }
   },
@@ -625,7 +625,7 @@ const SCENARIOS = {
       await h.act("stop");
       h.connWin().close();
       assert.equal(stub.app.quitCalled, 0, "still stopping, so window-all-closed stays");
-      await h.until(() => stub.app.quitCalled >= 1, 25000, "quit once the stop completed");
+      await h.until(() => stub.app.quitCalled >= 1, 35000, "quit once the stop completed");
     }
   },
 
@@ -666,7 +666,7 @@ const SCENARIOS = {
       assert.equal(await h.status(), "stopping");
       await h.sleep(3000);
       assert.ok(h.alive(pid), "not force-killed before the bound");
-      await h.until(async () => (await h.status()) === "stopped", 25000, "stopped after taskkill");
+      await h.until(async () => (await h.status()) === "stopped", 35000, "stopped after taskkill");
       assert.equal(h.alive(pid), false);
     }
   }

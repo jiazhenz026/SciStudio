@@ -66,15 +66,17 @@ const OTA_MAX_REDIRECTS = 5;
 // POSIX; on Windows, which cannot deliver a SIGTERM, it closes the backend's
 // stdin (SCISTUDIO_STOP_ON_STDIN_EOF) -- and force-kills it (SIGKILL, or
 // `taskkill /T /F`) only if it is still running this long after. The backend's
-// lifespan shutdown gives live workflow runs 10 s to record their outcome
-// (ApiRuntime.shutdown_workflow_runs) before it stops their workers, so the
-// bound leaves room for both. #2280: liveness is judged by exit status.
-const STOP_ESCALATION_MS = 15000;
+// shutdown budget: its long-lived streams end on the stop request (well under
+// 2 s), live workflow runs get 10 s to record their outcome
+// (ApiRuntime.shutdown_workflow_runs), AI terminal sessions 3 s, and command
+// processes a 5 s grace -- 20 s at most, so the force-kill waits 25 s.
+// #2280: liveness is judged by exit status.
+const STOP_ESCALATION_MS = 25000;
 // #2280: how long a relaunch -- and, #2327, a quit -- waits for the backend to
 // exit. It must outlast STOP_ESCALATION_MS so the force-kill lands inside it;
 // the bound exists only so a process the kernel cannot reap (stuck in
 // uninterruptible I/O) can never hang an update or a quit forever.
-const RELAUNCH_STOP_TIMEOUT_MS = 20000;
+const RELAUNCH_STOP_TIMEOUT_MS = 30000;
 // #2280: how long the splash may take to load before the launch-mode picker is
 // abandoned and the desktop flow starts instead.
 const SPLASH_PICKER_LOAD_TIMEOUT_MS = 15000;
@@ -1129,8 +1131,9 @@ function spawnRuntimeCandidate(candidate, port) {
     cwd: repoRoot(),
     env: runtimeEnv(),
     windowsHide: true,
-    // #2327: stdin is the Windows stop-request channel (requestGracefulStop).
-    stdio: ["pipe", "pipe", "pipe"]
+    // #2327: on Windows stdin is the stop-request channel (requestGracefulStop);
+    // POSIX stops the backend with SIGTERM and keeps stdin closed.
+    stdio: [process.platform === "win32" ? "pipe" : "ignore", "pipe", "pipe"]
   });
   if (child.stdin) {
     // Ending the stdin of a backend that already exited must not become an

@@ -287,11 +287,20 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         except (WebSocketDisconnect, asyncio.CancelledError):
             pass
 
+    inbound = asyncio.ensure_future(_inbound_loop())
+    outbound = asyncio.ensure_future(_outbound_loop())
     try:
-        await asyncio.gather(_inbound_loop(), _outbound_loop())
+        # #2327: the socket is finished when either side ends. A client that
+        # left, or a server that is stopping (it closes every socket first),
+        # ends the inbound loop; the outbound loop would otherwise wait on its
+        # queue forever and hold the server's connection drain open.
+        await asyncio.wait({inbound, outbound}, return_when=asyncio.FIRST_COMPLETED)
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     finally:
+        for task in (inbound, outbound):
+            task.cancel()
+        await asyncio.gather(inbound, outbound, return_exceptions=True)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)

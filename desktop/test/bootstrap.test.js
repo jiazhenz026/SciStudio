@@ -242,14 +242,17 @@ test("the shell clears the boot marker only from known-good, or from a user's qu
 });
 
 test("stopping leaves the backend time to end workflow runs before any force-kill (#2327)", () => {
-  // The backend's lifespan shutdown gives live runs 10 s to record their
-  // outcome (ApiRuntime.shutdown_workflow_runs) and then stops their workers.
-  // A force-kill inside that window records the run as interrupted instead.
+  // The backend's shutdown budget is at most 20 s: streams end on the stop
+  // request, live runs get 10 s to record their outcome
+  // (ApiRuntime.shutdown_workflow_runs), AI terminal sessions 3 s, command
+  // processes a 5 s grace. A force-kill inside it records runs as interrupted.
   const main = read("main.js");
   const constant = (name) => Number(main.match(new RegExp(`const ${name} = (\\d+);`))[1]);
   const escalation = constant("STOP_ESCALATION_MS");
   const bound = constant("RELAUNCH_STOP_TIMEOUT_MS");
-  assert.ok(escalation >= 12000, `STOP_ESCALATION_MS is ${escalation}; it must cover the backend's shutdown`);
+  assert.ok(escalation >= 22000, `STOP_ESCALATION_MS is ${escalation}; it must cover the backend's shutdown`);
+  // Only Windows needs the stdin pipe; POSIX keeps it closed and uses SIGTERM.
+  assert.match(main, /stdio: \[process\.platform === "win32" \? "pipe" : "ignore", "pipe", "pipe"\]/);
   assert.ok(bound > escalation, "the relaunch and quit wait must outlast the force-kill escalation");
 
   const requestAt = main.indexOf("function requestGracefulStop(");

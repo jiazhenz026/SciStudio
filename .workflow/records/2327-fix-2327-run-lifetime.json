@@ -518,6 +518,11 @@
       "at": "2026-09-11T12:47:10.413405Z",
       "owner_directive": "Manager relay 2026-09-11 (with-context audit + follow-up): switching projects does not cancel previous project's runs and their store stays open until they finish; machine-id ownership plus 24 h stale-foreign warning; unreadable marker = unknown; guard sweep against concurrent claim; fix straggler double finalize; symlink-safe atomic MCP pointer writes (POSIX test, skip on Windows); document run-owners/ and mcp.sock.path in ARCHITECTURE.md 11.2 only if no admin label is needed.",
       "reason": "Manager relay: add with-context audit items (switch keeps runs and store, machine-id ownership, unreadable marker = unknown, sweep/claim ordering, straggler double finalize), and harden _publish_mcp_port pointer writes against planted symlinks (#2329 no-context audit). ARCHITECTURE.md is owner-controlled: text proposed in the report, not edited."
+    },
+    {
+      "at": "2026-09-11T13:33:28.556625Z",
+      "owner_directive": "Manager relay 2026-09-11 (re-audits): fix N1 (stdin watcher must not freeze inherited-stdin children), N2 (graceful stop must reach the lifespan with /ws and the log SSE stream open), N3 (no resurrecting a deleted project), N5 (stdin pipe on Windows only), R1 (terminate PTY sessions on graceful shutdown), a real-backend stop test, and R2/N4 attribution of the MCP pointer hardening to #2333 / PR #2329.",
+      "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
     }
   ],
   "docs_events": [
@@ -539,6 +544,22 @@
     },
     {
       "at": "2026-09-11T12:47:10.413429Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-local-background-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756901Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756917Z",
       "class": null,
       "kind": "path",
       "path": "docs/specs/adr-055-local-background-runtime.md",
@@ -1747,6 +1768,24 @@
       "at": "2026-09-11T12:17:33.241118Z",
       "pattern": ".workflow/records/2327-audit-2327-o3-no-context.json",
       "reason": "No-context audit of PR #2334 (block): P1 store lifecycle; P2 desktop stop sequence (manager-authorized scope amendment for desktop/main.js and desktop/test/** stop sequence only); P2 governing spec for run lifetime; P3 fixes. Audit report merged from origin/audit/2327-no-context."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:33:28.556640Z",
+      "pattern": "src/scistudio/api/sse.py",
+      "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:33:28.556646Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec4-o3-with-context.md",
+      "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:33:28.556648Z",
+      "pattern": ".workflow/records/2327-audit-2327-o3-with-context.json",
+      "reason": "Re-audit N2: the log SSE stream must end on a graceful stop so uvicorn's connection drain reaches the lifespan; sse.py is the stream's handler. Re-audit branches merged."
     }
   ],
   "session_id": "20b0cc57-8266-46e0-a867-95aa4c7de0c5",
@@ -1827,6 +1866,38 @@
     },
     {
       "at": "2026-09-11T12:47:10.413443Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/bootstrap.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756921Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_stop_request.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756923Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_backend_streams.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756925Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_backend_stop.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:52:14.756926Z",
       "class": null,
       "kind": "path",
       "path": "desktop/test/bootstrap.test.js",

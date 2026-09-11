@@ -4,7 +4,7 @@ title: "ADR-055 Spec 3 — Local Startup Modes And The Background Runtime"
 status: Draft
 feature_branch: feat/2280-local-background-runtime
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode. Amended 2026-09-11 by the audit fixes on PR #2284 and the owner decision that external-AI mode quits when its service stops, crashes, or fails while no window is open. Amended 2026-09-11 by #2327 after the PR #2334 audits: stopRuntime requests a graceful backend stop (SIGTERM on macOS and Linux, a closed stdin on Windows) and force-kills only 15 s later; quitting waits for the backend; section 4.6 records how workflow runs end when the backend stops."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 3 covers ADR-055 section 7. Owner decisions recorded: the installed launcher offers desktop use and external AI use at startup; the external AI mode runs the bundled backend without requiring a full desktop window, with the Electron main process staying resident as the process owner (the piggyback route — spawn, readiness, port memory, stop, and OTA chains already live there); all three platforms (Windows, macOS, Linux) ship. Amended 2026-09-10 by the owner decisions recorded in issue #2280: the mode choice is offered at every launch with a don't-ask-again option; the tray icon exists in external-AI mode only; the backend stops with Electron (no watchdog opt-out, no instance adoption, no runtime-port.js discovery changes); one backend per machine through second-instance routing; OTA stop-then-relaunch includes the background instance and honours the mode. Amended 2026-09-11 by the audit fixes on PR #2284 and the owner decision that external-AI mode quits when its service stops, crashes, or fails while no window is open. Amended 2026-09-11 by #2327 after the PR #2334 audits: stopRuntime requests a graceful backend stop (SIGTERM on macOS and Linux, a closed stdin on Windows) and force-kills only 25 s later; quitting waits for the backend; a stop signal first ends the backend's long-lived streams; section 4.6 records how workflow runs end when the backend stops."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -309,11 +309,13 @@ line.
   and MUST relaunch in the running mode. Stopping MUST first request a graceful
   stop: SIGTERM on macOS and Linux, and on Windows, where no graceful signal can
   be delivered, closing the backend's stdin (FR-015). A backend still running
-  15 s later MUST be force-killed, with SIGKILL or `taskkill /T /F`. The 15 s
-  covers the backend's shutdown, which gives live workflow runs 10 s to record
-  their outcome (section 4.6). Liveness is judged by the process's exit status,
-  never by Node's `killed` flag, which only records that a signal was sent. The
-  wait is bounded at 20 s as a last resort.
+  25 s later MUST be force-killed, with SIGKILL or `taskkill /T /F`. The 25 s
+  covers the backend's shutdown budget (section 4.6): its long-lived streams end
+  on the stop request, live workflow runs get 10 s to record their outcome, AI
+  terminal sessions 3 s, and command processes a 5 s grace, at most 20 s in
+  all. Liveness is judged by the process's exit status, never by Node's
+  `killed` flag, which only records that a signal was sent. The wait is bounded
+  at 30 s as a last resort.
 - **FR-008**: Backend crash or death in external AI mode MUST surface, while a
   window is open, in the connection window as a crashed status with a restart
   action, and in the tray as the crashed status; restart MUST reuse the
@@ -351,9 +353,16 @@ line.
   to exit, within the FR-007 bounds, before the app quits. The windows MUST hide
   at once so the quit stays responsive. On Windows the request is closing the
   backend's stdin: the shell spawns the backend with a stdin pipe and
-  `SCISTUDIO_STOP_ON_STDIN_EOF=1`, and the backend treats end-of-file as a stop
-  request and raises SIGTERM in itself, so uvicorn runs the lifespan shutdown
-  (#2327). FR-005 still covers a force-killed Electron process.
+  `SCISTUDIO_STOP_ON_STDIN_EOF=1`. On macOS and Linux it keeps stdin closed and
+  sends SIGTERM. On startup the backend moves the pipe to a private descriptor
+  that its child processes cannot inherit, and gives them the null device.
+  Otherwise, on Windows, git and every other child that inherited the pipe
+  would hang while the backend waits on it. At end-of-file the backend raises
+  SIGTERM in itself. Every stop signal first ends the backend's long-lived
+  streams (the event socket, the log event stream and the AI terminal
+  sessions), so uvicorn's wait for open connections finishes and the lifespan
+  shutdown runs while pages are still connected (#2327). FR-005 still covers a
+  force-killed Electron process.
 - **FR-016**: Every workflow run MUST reach a terminal lineage status across a
   backend stop, a project reopen, and a project switch, as section 4.6
   specifies (#2327).
@@ -430,9 +439,9 @@ is still exiting to exit, then `app.relaunch({ args })` with the running mode.
 `stopRuntime` records each backend it signals until that backend exits, so a
 Stop already in flight is waited for too. It asks for a graceful stop first
 (SIGTERM, or on Windows a closed stdin) and force-kills a backend still running
-15 s later, judged by its exit status. The escalation used to test Node's
+25 s later, judged by its exit status. The escalation used to test Node's
 `killed` flag, which turns true as soon as SIGTERM is sent, so it never fired.
-The wait is bounded at 20 s as a last resort. A quit waits the same way, with
+The wait is bounded at 30 s as a last resort. A quit waits the same way, with
 its windows hidden (FR-015). Waiting lets the relaunched backend take the remembered port back, so
 the address an AI tool holds stays valid.
 
@@ -565,12 +574,17 @@ reach a terminal status in every case (the #1500 guarantee), and a run that
 finished must be recorded as what it was. `src/scistudio/api/runtime/_run_lifetime.py`
 implements this contract.
 
-- **Graceful stop.** The backend's lifespan shutdown calls
-  `ApiRuntime.shutdown_workflow_runs()`. It cancels every live run and waits
-  10 s in total while each run records `cancelled`. For any run still going
-  after that, it records `cancelled` itself, and that run's own later
-  completion does not overwrite it. The desktop stop sequence (FR-007, FR-015)
-  leaves room for this before it force-kills.
+- **Graceful stop.** uvicorn finishes open connections before it runs the
+  lifespan shutdown. So every stop signal first calls
+  `ApiRuntime.begin_shutdown()`: it closes the log event stream and kills the
+  AI terminal sessions, and the event socket returns once the server closes
+  it. The lifespan shutdown then calls `ApiRuntime.shutdown_workflow_runs()`.
+  That cancels every live run and waits 10 s in total while each run records
+  `cancelled`. For any run still going after that, it records `cancelled`
+  itself, and that run's own later completion does not overwrite it. It then
+  gives the AI terminal kills 3 s and command processes a 5 s grace. The
+  budget is at most 20 s, and the desktop force-kills at 25 s (FR-007,
+  FR-015).
 - **Store lifetime.** Reopening the active project, as a page reload does, keeps
   its lineage store. Switching projects retires the previous store, which is
   closed only after the last live run writing through it ends. A run of the

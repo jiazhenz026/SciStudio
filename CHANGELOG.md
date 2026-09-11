@@ -639,10 +639,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   run ends, even across a project switch, and its final status is checked.
   When the backend shuts down, it cancels live runs and waits up to 10 seconds
   in total for their history to record `cancelled`. It writes `cancelled`
-  itself for any run still going after that. The desktop app now asks the
-  backend to shut down this way when it quits, and force-stops it only 15
+  itself for any run still going after that. Open pages and AI terminal
+  sessions no longer hold the shutdown up: the backend ends its log stream,
+  its event socket and its terminal sessions first. The desktop app now asks
+  the backend to shut down this way when it quits, and force-stops it only 25
   seconds later. On Windows it asks by closing the backend's input, since
-  Windows has no graceful stop signal. Its windows close at once. If the
+  Windows has no graceful stop signal. The backend keeps that input to itself,
+  so git and the other programs it starts are not held up by it. The app's
+  windows close at once. If the
   backend was killed or crashed, the next time the project is opened, any run
   a dead process left `running` is recorded as `failed` and the reason is
   logged. A run whose owner may still be alive (another backend with the same
@@ -652,13 +656,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   artifact cleanup from running. Each run keeps a small owner file under
   `.scistudio/run-owners/` while it is in flight.
 
-- [#2327] **The MCP connection pointers can no longer be used to overwrite
+- [#2333] **The MCP connection pointers can no longer be used to overwrite
   another file.** `.scistudio/` may be shared by a group. The backend wrote
   `mcp.sock.path` and `mcp.sock.port` there with a plain write, which followed a
   symbolic link another user had planted and overwrote the file it pointed to.
   Both are now written through a fresh private temporary file that replaces the
   entry. A symlink, or a file another user owns, at either path is refused and
-  logged. Found by the no-context audit of #2329.
+  logged. Found by the no-context audit of PR #2329. It ships with the #2327
+  change because both touch the same file.
 
 - [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
   Browse anywhere — a block's path field, Open Project, Bring In My Work, the
