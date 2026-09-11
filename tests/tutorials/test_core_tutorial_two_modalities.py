@@ -112,7 +112,7 @@ def code(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
 
 
 def _file(subtype: str, sample: str, kind: str) -> Path:
-    suffix = {"he": "_he.jpg", "mask": "_mask.png", "counts": "_counts.csv"}[kind]
+    suffix = {"he": "_he.png", "mask": "_mask.png", "counts": "_counts.csv"}[kind]
     return DATA / subtype / f"{sample}{suffix}"
 
 
@@ -298,7 +298,7 @@ def test_the_level_never_places_a_block_the_design_excludes(manifest: TutorialMa
 @pytest.mark.parametrize("subtype", sorted(SAMPLES))
 def test_each_sample_ships_a_slide_a_mask_and_a_table(subtype: str) -> None:
     expected = {"SOURCE.md"} | {
-        f"{sample}{suffix}" for sample in SAMPLES[subtype] for suffix in ("_he.jpg", "_mask.png", "_counts.csv")
+        f"{sample}{suffix}" for sample in SAMPLES[subtype] for suffix in ("_he.png", "_mask.png", "_counts.csv")
     }
     assert {path.name for path in (DATA / subtype).iterdir()} == expected
 
@@ -409,12 +409,10 @@ def test_the_tnbc_recipe_differs_only_in_its_loads_and_one_setting() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_loader_claims_jpeg_and_png_for_both_picture_types(code: dict[str, ModuleType]) -> None:
+def test_the_loader_claims_png_for_both_picture_types(code: dict[str, ModuleType]) -> None:
     capabilities = code["loader"].LoadSlideImage.format_capabilities
     assert {(capability.data_type.__name__, capability.format_id) for capability in capabilities} == {
-        ("HEImage", "jpeg"),
         ("HEImage", "png"),
-        ("HEMask", "jpeg"),
         ("HEMask", "png"),
     }
 
@@ -422,7 +420,7 @@ def test_the_loader_claims_jpeg_and_png_for_both_picture_types(code: dict[str, M
 @pytest.mark.parametrize(
     ("kind", "capability_id", "type_name"),
     [
-        ("he", "tutorial.he_image.jpeg.load", "HEImage"),
+        ("he", "tutorial.he_image.png.load", "HEImage"),
         ("mask", "tutorial.he_mask.png.load", "HEMask"),
     ],
 )
@@ -434,6 +432,35 @@ def test_the_loader_builds_the_type_its_capability_names(
     loaded = code["loader"].LoadSlideImage().load_file(path, {"capability_id": capability_id})
     assert type(loaded).__name__ == type_name
     assert np.asarray(loaded.to_memory()).shape == (height, width, 3)
+
+
+@pytest.mark.parametrize("mode", ["RGB", "RGBA", "L", "LA"])
+def test_the_hand_written_reader_decodes_what_pillow_writes(
+    code: dict[str, ModuleType], tmp_path: Path, mode: str
+) -> None:
+    """Every row filter, and the four 8-bit color types, read back pixel for pixel.
+
+    The shipped pictures use no filter. A PNG from anywhere else usually uses
+    all five, which is the case this pins: Pillow chooses them per row.
+    """
+    rng = np.random.default_rng(2082)
+    ramp = np.add.outer(np.arange(48), np.arange(64)).astype(np.uint8)
+    channels = {"RGB": 3, "RGBA": 4, "L": 1, "LA": 2}[mode]
+    pixels = np.stack([ramp + rng.integers(0, 4, ramp.shape, dtype=np.uint8) for _ in range(channels)], axis=-1)
+    picture = Image.fromarray(pixels[..., 0] if channels == 1 else pixels, mode)
+    path = tmp_path / f"{mode}.png"
+    picture.save(path, optimize=True)
+    expected = np.asarray(picture.convert("RGB"))
+    np.testing.assert_array_equal(code["loader"].read_png(path), expected)
+
+
+@pytest.mark.parametrize(("subtype", "sample"), ALL_SAMPLES)
+def test_the_shipped_pictures_read_back_as_pillow_reads_them(
+    code: dict[str, ModuleType], subtype: str, sample: str
+) -> None:
+    for kind in ("he", "mask"):
+        path = _file(subtype, sample, kind)
+        np.testing.assert_array_equal(code["loader"].read_png(path), np.asarray(Image.open(path).convert("RGB")))
 
 
 def _preview_request(*, truncated: bool) -> SimpleNamespace:
@@ -812,7 +839,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
 
     raw = project / "data" / "raw"
     for sample in SAMPLES["er"]:
-        for suffix in ("_he.jpg", "_mask.png", "_counts.csv"):
+        for suffix in ("_he.png", "_mask.png", "_counts.csv"):
             assert (raw / f"{sample}{suffix}").is_file(), f"the bootstrap did not land {sample}{suffix}"
     for sample in SAMPLES["tnbc"]:
         assert not any(raw.glob(f"{sample}_*")), f"{sample} arrived before the branch that introduces it"

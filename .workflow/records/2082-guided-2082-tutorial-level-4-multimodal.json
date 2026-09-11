@@ -1,7 +1,172 @@
 {
   "base_ref": null,
   "branch": "guided/2082-tutorial-level-4-multimodal",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-11T21:01:02.672930Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad799021bffb6030d79d0942a3246f53f57e81f6303e71c3d97820fcfa500553",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:03.929855Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8ee4aa78d4cd0471920a9dacf13a3583795af58654f372c3a6f95f453d9beaf9",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:05.152195Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3e567a35158b6beebc01a52520a5a8f6bcad4538daec57d216036aae962b88ac",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:05.469932Z",
+      "command": "ruff format src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:716855cfa0a29b5fa04d0b73fe7efcb6c93b69dcd199aa86f067227a60a651a8",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:01:13.095627Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8192f28384061847ad70a8b6cf7890b81565743c95e7a88b64a42ce98b510ccd",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:17.956102Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1a3215ae4566c222d4a6704b73f927417f383702f08d36ef3302d295beca79d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:18.484010Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13890fa114c5b2ebdd0840761da08601d1ba093a2858338ee1acd0ccf3615db9",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:18.492486Z",
+      "command": "ruff check src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:119df07ce49326bd0f11adaeaa79c9845c48b975e1004c226e21ef57a1e728ab",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:04:53.201086Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:97a3a88c4e15aac59bef1b169b01412d9e01cf76b21195faf0050a5db863f1f6",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:04:57.328082Z",
+      "command": "mypy src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:afc61e865676e7b93f34aee99b614f43c502d10ac09691f9eb6f479aef744442",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -261,6 +426,11 @@
       "at": "2026-09-11T20:46:01.286810Z",
       "owner_directive": "\u6ca1\u7ed9\u7528\u6237\u8bf4\u6e05\u695a ER \u548c TNBC \u662f\u4ec0\u4e48\u3002\u5728\u8bfb\u6570\u636e\u4e4b\u524d\u6700\u5f00\u59cb\u52a0\u4e24\u53e5\u8bdd\uff1a\u4eca\u5929\u5206\u6790\u4ec0\u4e48\u6570\u636e\uff0cER \u548c TNBC \u90fd\u662f\u4ec0\u4e48\u3002",
       "reason": "Owner reviewed the full level: the subtypes the story turns on were never defined for the reader"
+    },
+    {
+      "at": "2026-09-11T21:16:29.468033Z",
+      "owner_directive": "\u56fe\u7247\u89e3\u7801\u9009 A\uff1aslides \u6539 PNG\uff0cloader \u624b\u5199 PNG \u89e3\u7801\uff0c\u4e0d\u7528 Pillow\uff08core \u6e90\u7801\u4e0d\u8bb8\u5bfc\u5165\u56fe\u50cf\u89e3\u7801\u5e93\uff0c\u7167\u5173\u5361 2 \u624b\u5199 TIFF \u7684\u5148\u4f8b\uff09\u3002",
+      "reason": "Gate pre-PR failed test_core_source_does_not_import_package_owned_image_decoders on the level's Pillow import; owner chose a hand-written PNG reader over exempting tutorial assets"
     }
   ],
   "docs_events": [
@@ -322,7 +492,96 @@
     }
   ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-11T21:04:57.398527Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.411015Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.424329Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.437648Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.450820Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.462505Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.474164Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.485525Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.499866Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.511225Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.524798Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -332,19 +591,125 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "e9dcd01aa2ef8dbdddfdadc0d5839a53a664a13d",
+    "base_sha": "e9dcd01a",
+    "changed_files": [
+      ".pre-commit-config.yaml",
+      ".workflow/records/2082-guided-2082-tutorial-level-4-multimodal.json",
+      "CHANGELOG.md",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
+      "frontend/src/components/Git/BranchPicker.tsx",
+      "frontend/src/components/Git/CommitDialog.tsx",
+      "frontend/src/components/Git/GitTab.tsx",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_plot.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_plot.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/SOURCE.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_he.jpg",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/SOURCE.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/notes/conclusion.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/notes/conclusion_tnbc.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/analysis.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/analysis_tnbc.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/main.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "src/scistudio/tutorials/manifest.py",
+      "tests/tutorials/test_conditions.py",
+      "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "tests/tutorials/test_manifest_schema.py"
+    ],
+    "diff_fingerprint": "sha256:35c89f8293f4322883def87b9d38d94cd66cf69800d5035accab2bbda45ac900",
+    "head": "HEAD",
+    "head_sha": "f473f2ae",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 6,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 40,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 44,
+      "test": 4,
+      "workflow_ci": 1
+    }
+  },
   "owner_directive": "Guided session: author core tutorial level 4 (multimodal joint analysis + git branches) as galgame-style dialogue beats, owner-directed live. Confirmed level 4 = the multimodal level (scenarios doc \u5173\u5361 3, issue #2082); the AI level shipped today as order 3.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T21:04:57.524838Z",
+      "diff_fingerprint": "sha256:35c89f8293f4322883def87b9d38d94cd66cf69800d5035accab2bbda45ac900",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.python_tests"
+      ]
+    }
+  ],
   "record_id": "2082-guided-2082-tutorial-level-4-multimodal",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -471,7 +836,7 @@
     }
   ],
   "session_id": "d6328ecd-e6f7-47cb-9c27-1b1ba30f38df",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

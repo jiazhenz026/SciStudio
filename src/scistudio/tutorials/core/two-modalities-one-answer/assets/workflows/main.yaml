@@ -35,12 +35,12 @@ workflow:
           # No capability_id: the picture reader is a drop-in block whose id
           # carries its file's mtime, so a value written here would name a
           # capability that does not exist on the reader's machine. Dispatch
-          # resolves (HEImage, .jpg) to the one loader that claims it, then fans
+          # resolves (HEImage, .png) to the one loader that claims it, then fans
           # that single-file loader out across the list.
           core_type: HEImage
           path:
-            - data/raw/CID4535_he.jpg
-            - data/raw/CID4290_he.jpg
+            - data/raw/CID4535_he.png
+            - data/raw/CID4290_he.png
       layout:
         x: 140
         y: 140

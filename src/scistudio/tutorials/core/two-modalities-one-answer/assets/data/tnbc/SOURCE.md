@@ -25,11 +25,13 @@ their per-sample metadata.
 
 ## What was changed
 
-### Images — `<sample>_he.jpg`
+### Images — `<sample>_he.png`
 
 The Space Ranger `tissue_hires_image.png` (2000 px on the long edge) was
-resized to 1000 px on the long edge and saved as JPEG (quality 85). No full
-resolution H&E is distributed by the authors.
+resized to 1000 px on the long edge and saved as a PNG whose rows carry no
+filter, so the project's own reader decodes it with `zlib` and nothing else.
+The masks below are stored the same way. No full resolution H&E is distributed
+by the authors.
 
 ### Masks — `<sample>_mask.png`
 

@@ -131,7 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   2021 Visium atlas (CC BY 4.0), two ER-positive and two triple-negative, each
   shipped as an H&E slide, a pathologist's region mask drawn over it, and a
   2000-gene spot-by-count table. The level lands everything it does not teach —
-  the `HEImage` and `HEMask` types, a JPEG/PNG slide reader, a color previewer
+  the `HEImage` and `HEMask` types, a slide reader that decodes PNG by hand, a color previewer
   that says when it shows a sampled overview, and three analysis blocks — so it
   owes nothing to any other level. The reader receives the workflow built
   rather than wiring it: they look at the masks, pair the ER masks with count
