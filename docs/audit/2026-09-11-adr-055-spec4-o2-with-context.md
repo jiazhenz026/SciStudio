@@ -369,3 +369,118 @@ Before merge, also do the following:
 - Reply to or resolve the four Codex threads.
 
 The P3 items can be follow-ups.
+
+## 6. Re-verification (head 26af14cf8)
+
+The implementer pushed a fix round, and this section re-checks every finding
+against the new head.
+
+- **Head.** PR #2329 at `26af14cf8`. The fix commits are `2dcf3b650` (audits
+  and Codex review), `9cd55a627` (a comment reworded), and `24b20e4bb` (SHA-256
+  for relocated socket names).
+- **Merges.** `origin/main` (#2343, blocking docstring check) and both audit
+  branches are merged in.
+- **Scope of review.** This section reviews the fix delta
+  `git diff f130ee558 26af14cf8` on the PR's own files only.
+- **Probes.** Throwaway and uncommitted, as before. All of them were re-run
+  against the new head.
+
+### 6.1 Per-finding verdict
+
+| Finding | Verdict | Evidence |
+|---|---|---|
+| **P1-1** Queued mutation runs on the new project | **Fixed** | `serve_stdio` binds each request on receipt (`adapter.bind()` before `work.put`), and `_tools_call` posts the bound `project_id`. The 409 and restart paths only send `list_changed`; only a client `tools/list` adopts a new snapshot. Probe, 1 worker with 3 queued writes, and 8 workers with 10 parallel writes: **all stale, none executed**. After the client re-lists, a re-issued call runs on B. Test: `test_queued_parallel_mutations_across_a_project_switch_never_run_on_the_new_project` (real backend, 3 queued writes, zero executed). |
+| **P2-1** Token-file target with a LAN URL; proxy leak | **Fixed** | `resolve_target(None, None)` refuses a recorded URL that is not loopback, naming the file. `trust_env` is on only for a bearer token to a non-loopback host. Probe: a LAN record is refused. A capture proxy received **0** requests for a token-file loopback target and 0 for a bearer loopback target, and 1 for the remote-bearer control; no loopback token reached it. Tests: `test_token_file_naming_a_non_loopback_url_is_refused`, `test_loopback_targets_never_use_environment_proxies`, plus the control. |
+| **P2-2** ADR-055 §4 amendment missing | **Fixed** | A new §4 paragraph records the stdio adapter as the bridge's second consumer. It says the adapter uses the same catalogue and adapter contract, adds no registry and no transport, and is the CLI agents' path to the external tools; authentication is deferred to `adr-055-enterprise-support`. The ADR is `Proposed` and has no amendment log, so the paragraph is enough. The §4 diagram is unchanged, which is acceptable. |
+| **P2-3** `mcp-bridge` trusts `mcp.sock.path` | **Fixed (bridge side)** | `_posix_socket_connect_path` (`mcp_bridge.py:334-369`) requires the pointer to be a regular file, not a symlink, owned by the user. It requires the target to be a Unix socket owned by the user, in a directory without group or other write bits; anything else raises `PermissionError`, and `_try_connect_attached` falls back to standalone mode. The server writes the pointer 0600 with `O_EXCL | O_NOFOLLOW`. The pointer that `_projects._publish_mcp_port` writes is left to #2334, as the coordinator directed. The target-ownership check alone defeats the spoof even when that pointer can be edited: a planted socket belongs to another uid, so the worst outcome is a fallback to standalone mode. Tests: `test_try_connect_attached_refuses_a_pointer_another_user_could_control` (symlinked pointer; group-writable socket directory) and `test_pointer_and_socket_ownership_rules`. These are POSIX tests; the new-head Linux CI log lists none of them as skipped. |
+| **P3-1** stdin close waits forever | **Fixed** | Daemon worker threads read from a queue. On EOF there is a 2 s drain, then queued calls are dropped, the client is closed, and a 1 s grace follows. Probe with three hung calls: `serve_stdio` returned in **3.0 s**. Test: `test_stdin_close_abandons_hung_calls_within_a_bound`. |
+| **P3-2** IPv6 publish | **Fixed** | `_url_host` brackets IPv6 literals in `serve` and `gui`, for the token file, `SCISTUDIO_ENGINE_API_URL`, and the ready URL. Probe: `serve` publishes `http://[::1]:8001`, and the adapter resolves it as a loopback token-file target. Test: `test_serve_brackets_an_ipv6_host_in_the_published_url`. |
+| **P3-3** Startup wait not bounded | **Fixed** | Each attempt is capped at the time left (minimum 0.5 s). Probe: `--startup-timeout 1` against a silent server exited 2 after **1.0 s**; before the fix it took 30.1 s. Test: `test_startup_timeout_bounds_a_backend_that_never_answers`. |
+| **P3-4** File left after a forced kill; PID reuse | **Mitigated** | A forced kill still skips removal, which is inherent. The file now records `createTime`, and a PID running with a different create time counts as stale; the tolerance is 1 s, the same rule as `engine.runners.process_handle`. Probe: a live PID whose create time does not match is refused, `kind=stale`. Test: `test_a_reused_pid_does_not_make_a_leftover_file_look_live`. |
+| **P3-5** Same-port collision | **Fixed** | The writer refuses to replace a file owned by another live process (`kind="busy"`). Removal needs this PID, its create time, and its token. Probe: a second backend on a busy port logged "not replacing it", and the live file survived with its token. Tests: `test_a_second_backend_on_a_busy_port_leaves_the_running_backends_file_alone`, `test_removal_needs_this_process_and_its_token`. |
+| **P3-6** `make dev` writes no file | Unchanged, documented | This is intended behavior per the spec. |
+| **P3-7** Bearer over plain http | **Addressed** | The adapter prints one warning on stderr. Test: `test_bearer_over_plain_http_to_another_computer_warns_once`. |
+| **P3-8** Spec hunks beyond the adapter section | Unchanged | The risk of a frontmatter conflict with `feat/2322-enterprise-ui` remains, at merge time. |
+| **P3-9** Checklist §8 rows | Not re-checked | These rows are manager-owned. |
+
+Other fixes in the round:
+- **`--print-config`.** Probe results:
+  - a token without `--base-url` exits 2;
+  - the Claude Code snippet carries no `--env` and no token;
+  - a rejected base URL is no longer echoed (exit 2, `echoed=False`).
+- **Fallback directory.**
+  - A `/tmp/scistudio-<uid>` that another user has taken now falls back to a
+    unique, verified 0700 `mkdtemp` directory.
+  - An `XDG_RUNTIME_DIR` that is not private is not used.
+  - Tests: `test_taken_over_temp_fallback_moves_to_a_unique_private_directory`,
+    `test_xdg_runtime_dir_open_to_others_is_not_used`.
+- **Umask at bind.** `_bind_owner_only` binds under umask 0077, then the
+  socket is set to 0600. Test:
+  `test_socket_is_created_owner_only_before_any_chmod`.
+- **Leak scan.** Re-run across 7 error paths: no bearer token and no argument
+  in stderr or stdout.
+- **Docs.**
+  - Spec 1 FR-012 now states the socket rules.
+  - The Spec 4 adapter details and the CHANGELOG describe the new behavior;
+    I checked them against the code.
+
+### 6.2 New findings
+
+- **P3-10. The stale-context and restart texts still say "the tool list has
+  been refreshed".**
+  - Where: `webmcp_adapter.py:116` (`_INSTRUCTIONS`), `:376`
+    (`_stale_result`), `:393` and `:398` (`_restarted_result`).
+  - The adapter no longer refreshes. It sends `list_changed` and keeps the old
+    snapshot until the client calls `tools/list`.
+  - With a host that honors `list_changed`, only the wording is wrong.
+  - A host that ignores `list_changed` would be worse. The model re-issues
+    after the "refreshed" message, and every mutation keeps failing stale
+    until the host re-lists. That is a liveness gap, not a safety gap: nothing
+    runs on the wrong project.
+  - Suggested: correct the texts. Also confirm in a live session that each
+    host named in the spec (Claude Desktop, Claude Code, Codex, Cursor)
+    re-lists on `list_changed`. If any does not, this becomes P2.
+- **P3-11. `_bind_owner_only` sets the process-wide umask to 0077 around
+  `bind`** (`server.py:576-589`).
+  - In the multithreaded backend, a file another thread creates during that
+    instant gets owner-only permissions.
+  - The failure is fail-safe and very short. Recorded for completeness only.
+- **Out of scope (from main, #2343).** The automated docstring cleanup left an
+  empty ```` ```` ```` literal in `LoopbackTokenBackend`'s docstring:
+  `webmcp.py:127`, "served page bootstrap (the ```` SPA injection)". It came
+  in with commit `96cde4baf` and is present on `origin/main`. It belongs to
+  #2343's owner, not to this PR.
+
+### 6.3 Evidence
+
+- **CI.** All 17 checks pass at `26af14cf8`, and GitHub reports the PR
+  mergeable. `Test (Python 3.11)` on ubuntu-24.04 reports 7863 passed, 94
+  skipped, 8 xfailed. Its 52 `SKIPPED` lines name none of
+  `test_mcp_socket_permissions`, `test_webmcp*`, or `test_mcp_bridge`, so the
+  POSIX tests ran.
+- **Local run** (Windows). The command was:
+
+  ```
+  pytest tests/cli/test_webmcp_adapter.py tests/api/test_webmcp.py tests/ai/test_mcp_socket_permissions.py tests/cli/test_mcp_bridge.py --no-cov
+  ```
+
+  Result: 118 collected, 101 passed, 17 skipped (POSIX-only), 0 failed.
+- **Review threads.** All four Codex threads have a reply that cites
+  `2dcf3b650` and a regression test. They are marked outdated but not
+  resolved. The CodeQL SHA-1 thread is resolved, by `24b20e4bb`.
+- **Ledger.** The read-only
+  `gate_record check --mode pre-pr --record .workflow/records/2308-feat-2308-webmcp-adapter.json --base origin/main --head origin/feat/2308-webmcp-adapter`
+  reported tier 1, `reconciliation passed`. Its changes were discarded.
+
+### 6.4 Updated recommendation
+
+**Pass.** P1-1, P2-1, P2-2 and P2-3 (bridge side) are fixed. Each has a probe
+that now behaves correctly and a regression test that ran on Linux CI.
+P3-1, P3-2, P3-3 and P3-5 are fixed; P3-4 is mitigated; P3-7 is addressed.
+
+Before or soon after merge:
+- correct the "refreshed" texts (P3-10);
+- confirm `list_changed` handling per host in a live session;
+- mark the four Codex threads resolved.
+
+These do not block. The `_projects` pointer write remains with #2334.
