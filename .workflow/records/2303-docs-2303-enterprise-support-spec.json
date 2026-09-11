@@ -36,7 +36,11 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -134,6 +138,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.478230Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.493120Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.506592Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.520599Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.534109Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.547231Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.560965Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.576458Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.589624Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.604077Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:43:52.619301Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -152,9 +244,9 @@
       ".workflow/records/2303-docs-2303-enterprise-support-spec.json",
       "docs/specs/adr-055-enterprise-support.md"
     ],
-    "diff_fingerprint": "sha256:3c22390d469b63466de8f3054613f6d25acf45024057bdd8b92799be9a6ee05a",
+    "diff_fingerprint": "sha256:26db965569f17b285cb72c35af093874fe67b28a3bbe6a42da1ce11a3b9d7d3a",
     "head": "HEAD",
-    "head_sha": "8fc5a674e",
+    "head_sha": "f3f95e9b9",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -171,11 +263,26 @@
   },
   "owner_directive": "Owner 2026-09-11: write the open-source-side ADR-055 Spec 4 listing every change the public repository makes for the private enterprise lab deployment (identity seam summary, capability-gated enterprise UI in the OSS frontend, stdio MCP adapter over the WebMCP bridge, PyPI publishing, panel token registration, server-mode AI chat hiding); remove the old lab-deployment spec once PR #2292 merges.",
   "persona": "adr_author",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2303
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-11T08:43:21.891809Z",
       "diff_fingerprint": "sha256:3c22390d469b63466de8f3054613f6d25acf45024057bdd8b92799be9a6ee05a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T08:43:52.619333Z",
+      "diff_fingerprint": "sha256:26db965569f17b285cb72c35af093874fe67b28a3bbe6a42da1ce11a3b9d7d3a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
