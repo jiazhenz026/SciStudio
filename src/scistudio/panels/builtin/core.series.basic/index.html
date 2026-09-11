@@ -4,29 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Series preview</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
-      }
-      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-      .toggle button { border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.15); background: rgb(var(--ss-surface, 255 255 255)); border-radius: 999px; padding: 2px 10px; }
-      .toggle button[aria-pressed="true"] { background: rgb(var(--ss-ink, 40 33 24)); color: rgb(var(--ss-surface, 255 255 255)); }
-      canvas { width: 100%; height: 240px; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; background: rgb(var(--ss-surface, 255 255 255)); }
-      table { min-width: 100%; text-align: left; font-size: 11px; border-collapse: collapse; }
-      th, td { padding: 3px 10px; border-bottom: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.08); }
-      .scroll { max-height: 280px; overflow: auto; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; }
-      .gaps { border: 1px solid #e6a23c; background: rgba(230,162,60,0.12); border-radius: 8px; padding: 6px 10px; font-size: 11px; }
-      .note { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.55); }
-      .err { color: #b3261e; padding: 8px; }
+      .series-modes { gap: 4px; }
+      .series-chart { width: 100%; height: 260px; }
+      .series-values { min-width: 100%; font-size: 11px; text-align: left; }
+      .series-values th, .series-values td { text-align: left; padding: 3px 10px; }
     </style>
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
+    <!-- Charting uses the vendored, pinned Plotly build; no network fetch. -->
+    <script src="../../lib/plotly@2.35.3/dist/plotly.min.js"></script>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>

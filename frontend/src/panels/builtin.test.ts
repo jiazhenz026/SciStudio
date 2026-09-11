@@ -54,34 +54,8 @@ afterEach(() => {
 // component set; they are covered by arrayPanel.test.ts and collectionPanel.test.ts,
 // which load them the way the frame does instead of eval'ing a classic script.
 
-describe("core.series.basic — surfaces dropped NaN/inf points (#1886 D)", () => {
-  it("names how many points were skipped and where", async () => {
-    const { root } = mount("core.series.basic", {
-      input: { ref: "s" },
-      reads: {
-        "series.points": {
-          index: [0, 1, 3],
-          values: [0, 1, 2],
-          total: 4,
-          nonnumeric: 1,
-          sampled: false,
-          decimation: "none",
-          nonfinite_positions: [2],
-          nonfinite_positions_complete: true,
-        },
-      },
-    });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=series-nonfinite-gaps]")).toBeTruthy(),
-    );
-    const gaps = root().querySelector("[data-testid=series-nonfinite-gaps]")?.textContent ?? "";
-    expect(gaps).toContain("1 of 4");
-    expect(gaps).toContain("2");
-  });
-});
-
-// core.dataframe.basic is an ES module on the shared component set; it is
-// covered by dataframePanel.test.ts.
+// core.series.basic is an ES module on the shared component set; it is
+// covered by seriesPanel.test.ts.
 
 describe("core.text.basic", () => {
   it("renders content and a truncation notice with the total size", async () => {
