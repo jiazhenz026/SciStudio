@@ -240,6 +240,30 @@
       "at": "2026-09-11T15:52:00.727924Z",
       "pattern": "docs/specs/adr-054-miniapp.md",
       "reason": "Owner explicitly approved the concrete Phase A protected-document proposal including surface ownership, identity seam, bootstrap, artifact transfer and ADR049 contract index; retain Proposed/Draft and do not start B-D."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:57:05.938961Z",
+      "pattern": "docs/audit/2026-09-11-adr-054-phase-a-*.md",
+      "reason": "Independent Phase A audits and actual-browser integration tests complete required verification of opaque frame navigation, reads and cleanup; no Phase B-D implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:57:05.939096Z",
+      "pattern": "frontend/e2e/panel-runtime.spec.ts",
+      "reason": "Independent Phase A audits and actual-browser integration tests complete required verification of opaque frame navigation, reads and cleanup; no Phase B-D implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:57:05.939098Z",
+      "pattern": "frontend/e2e/helpers/panel-backend.py",
+      "reason": "Independent Phase A audits and actual-browser integration tests complete required verification of opaque frame navigation, reads and cleanup; no Phase B-D implementation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:57:05.939100Z",
+      "pattern": "frontend/e2e/helpers/panel-fixtures/**",
+      "reason": "Independent Phase A audits and actual-browser integration tests complete required verification of opaque frame navigation, reads and cleanup; no Phase B-D implementation."
     }
   ],
   "session_id": "b7020383-3e6d-40b9-a422-dd3acb4c8aa1",
