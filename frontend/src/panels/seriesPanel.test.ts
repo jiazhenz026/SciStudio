@@ -85,17 +85,20 @@ const POINTS = [
 ];
 
 /**
- * A series.points answer in the shape the backend actually sends: the panel
- * numeric transport, where `values` holds the x/y pairs row-wise and `columns`
- * names them. Reading a `points` key instead produced an empty series for every
- * input, and the first version of these tests shared that wrong assumption.
+ * A series.points answer in the shape the route actually sends for JSON
+ * callers: two parallel arrays, `index` carrying the x values and `values` the
+ * y values. (The reader produces x/y pairs; the route splits them.) Two earlier
+ * versions of this panel each assumed a different shape — first a `points` key,
+ * then row-wise pairs — and rendered every series as empty, so this fixture is
+ * built from what the route was observed to emit.
  */
 function seriesRead(
   points: Array<{ x: number; y: number }>,
   extra: Record<string, unknown> = {},
 ) {
   return {
-    values: points.map((p) => [p.x, p.y]),
+    index: points.map((p) => p.x),
+    values: points.map((p) => p.y),
     columns: ["x", "y"],
     dtype: "<f8",
     shape: [points.length, 2],
@@ -159,17 +162,31 @@ describe("core.series.basic — the read contract", () => {
     // The panel once looked for a `points` key that the backend never sends, so
     // every series rendered as empty — pin the real shape here.
     expect(readPoints(seriesRead(POINTS))).toEqual(POINTS);
-    // Column order is taken from `columns`, not assumed.
+    // The exact payload the route was observed to emit for a series whose
+    // second sample is NaN: the dropped sample is absent from both arrays.
     expect(
-      readPoints({ values: [[5, 1], [6, 2]], columns: ["y", "x"] }),
-    ).toEqual([{ x: 1, y: 5 }, { x: 2, y: 6 }]);
+      readPoints({
+        index: [0, 2, 3],
+        values: [1, 9, 16],
+        columns: ["x", "y"],
+        nonnumeric: 1,
+        nonfinite_positions: [1],
+      }),
+    ).toEqual([
+      { x: 0, y: 1 },
+      { x: 2, y: 9 },
+      { x: 3, y: 16 },
+    ]);
     // A read with no values is empty rather than an error.
     expect(readPoints({})).toEqual([]);
     expect(readPoints(seriesRead([]))).toEqual([]);
-    // A non-finite pair that slipped through is skipped rather than plotted.
-    expect(readPoints({ values: [[0, 1], [1, "NaN"]], columns: ["x", "y"] })).toEqual([
+    // The binary transport's row-wise JSON form is still understood.
+    expect(readPoints({ values: [[0, 1], [1, 4]] })).toEqual([
       { x: 0, y: 1 },
+      { x: 1, y: 4 },
     ]);
+    // A value that is not a number is skipped rather than plotted.
+    expect(readPoints({ index: [0, 1], values: [1, "NaN"] })).toEqual([{ x: 0, y: 1 }]);
   });
 });
 

@@ -57,23 +57,28 @@ export function gapNotice(data) {
 /**
  * Read the series read's points.
  *
- * ``series.points`` answers with the panel numeric transport: ``values`` holds
- * the x/y pairs row-wise, with ``columns`` naming them. Reading a ``points``
- * key instead silently produced an empty series for every input.
+ * ``series.points`` answers as two parallel arrays: ``index`` carries the x
+ * values and ``values`` the y values, one entry each per plotted point. (The
+ * route splits the reader's x/y pairs into that shape for JSON callers.) An
+ * older numeric transport sent the pairs row-wise, so a pair of numbers is
+ * still accepted per entry.
  */
 export function readPoints(data) {
-  const values = data?.values;
-  if (!Array.isArray(values)) return [];
-  const columns = data?.columns ?? ["x", "y"];
-  const xIndex = Math.max(0, columns.indexOf("x"));
-  const yIndex = columns.indexOf("y") >= 0 ? columns.indexOf("y") : 1;
+  const ys = data?.values;
+  if (!Array.isArray(ys)) return [];
+  const xs = Array.isArray(data?.index) ? data.index : null;
   const points = [];
-  for (const row of values) {
-    if (!Array.isArray(row)) continue;
-    const x = row[xIndex];
-    const y = row[yIndex];
-    if (typeof x !== "number" || typeof y !== "number") continue;
-    points.push({ x, y });
+  for (let i = 0; i < ys.length; i += 1) {
+    const entry = ys[i];
+    // Row-wise pairs (the binary transport's JSON form).
+    if (Array.isArray(entry)) {
+      const [x, y] = entry;
+      if (typeof x === "number" && typeof y === "number") points.push({ x, y });
+      continue;
+    }
+    const x = xs ? xs[i] : i;
+    if (typeof entry !== "number" || typeof x !== "number") continue;
+    points.push({ x, y: entry });
   }
   return points;
 }
