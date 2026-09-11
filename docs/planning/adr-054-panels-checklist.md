@@ -23,7 +23,7 @@ language_source: en
 - Branch/worktree plan: `codex/2296-adr054-coordination`, `.worktrees/adr054-manager`; each implementation agent has its own branch and worktree.
 - Protected branch: `main`.
 - Umbrella branch: `codex/2296-adr054-coordination`.
-- Umbrella PR: pending; must exist before dispatch.
+- Umbrella PR: #2353 (draft, open before dispatch).
 - Umbrella PR title: `[DO NOT MERGE] ADR-054 Panels and MiniApps coordination`.
 - Final PR target: `main`, one implementation PR per phase. No merge authorization.
 - Dispatch prompt templates: `docs/ai-developer/templates/agent-dispatch-prompt-template.md`, `agent-dispatch-audit-with-context-prompt-template.md`, `agent-dispatch-audit-no-context-prompt-template.md` in that same directory.
@@ -51,10 +51,10 @@ language_source: en
 - [x] Manager gate initialized and plan recorded through the ledger CLI.
 - [x] Scope declared: `docs/planning/adr-054-*` and manager ledger.
 - [x] Umbrella branch created.
-- [ ] Umbrella PR opened, number recorded, checklist committed before dispatch.
-- [ ] Filled prompts committed before dispatch.
+- [x] Umbrella PR opened and number recorded: #2353; initial checklist committed at `831b37b6`.
+- [x] Filled prompts prepared in `docs/planning/adr-054-phase-a-dispatch.md`; committed before dispatch.
 - [x] Runtime choice avoids editable install: `PYTHONPATH=src python`.
-- [ ] Applicable Sentrux evidence recorded by the gate check (MCP availability to be inspected).
+- [x] Manager gate passed commit hygiene and full audit; Sentrux MCP unavailable, CLI fallback is gate-selected where applicable.
 
 ## 5. Local Gate Hook Bypass Evidence
 
@@ -123,8 +123,8 @@ Audits get dedicated worktrees and a selected context mode after integration.
 
 | Check | Command or tool | Status | Evidence |
 |---|---|---|---|
-| Manager local/pre-PR gate | `PYTHONPATH=src python -m scistudio.qa.governance.gate_record check` | [ ] | Pending |
-| Manager finalize/wrapper | `gate_record finalize`; `scripts/scistudio_pr_create.py` | [ ] | Pending |
+| Manager local/pre-PR gate | `PYTHONPATH=src python -m scistudio.qa.governance.gate_record check` | [x] | Ledger events and `2966a1a9` |
+| Manager finalize/wrapper | `gate_record finalize`; `scripts/scistudio_pr_create.py` | [x] | Draft #2353 |
 | A targeted tests and pre-PR gate | Gate-selected checks from integration worktree | [ ] | Pending |
 | CI | GitHub checks on each PR | [ ] | Pending |
 

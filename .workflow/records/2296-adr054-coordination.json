@@ -101,6 +101,14 @@
       "path": "docs/planning/adr-054-enterprise-contracts.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:11:38.726162Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-a-dispatch.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -368,6 +376,72 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.765722Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.776348Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.786597Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.796894Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.806997Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.817613Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.828157Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.838386Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.848632Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.903886Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T15:09:35.920739Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -380,16 +454,16 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "7b1321758ba81926a0d7065ee94e3b9655a1e4c3",
+    "base": "origin/main",
     "base_sha": "7b132175",
     "changed_files": [
       ".workflow/records/2296-adr054-coordination.json",
       "docs/planning/adr-054-enterprise-contracts.md",
       "docs/planning/adr-054-panels-checklist.md"
     ],
-    "diff_fingerprint": "sha256:2a2f458ffde824e65ae5cd4c4f6779b675986b7684bc395994c548557c87f661",
+    "diff_fingerprint": "sha256:1bd9d7b7552334b89ac9d420619554389f88db2c1e503823a8806b033c49add8",
     "head": "HEAD",
-    "head_sha": "831b37b6",
+    "head_sha": "2966a1a9",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -445,6 +519,14 @@
     {
       "at": "2026-09-11T15:09:33.777826Z",
       "diff_fingerprint": "sha256:2a2f458ffde824e65ae5cd4c4f6779b675986b7684bc395994c548557c87f661",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T15:09:35.920780Z",
+      "diff_fingerprint": "sha256:1bd9d7b7552334b89ac9d420619554389f88db2c1e503823a8806b033c49add8",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
