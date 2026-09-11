@@ -21,6 +21,7 @@ import hashlib
 import importlib
 import importlib.util
 import os
+import subprocess
 import sys
 import time
 import uuid
@@ -364,19 +365,31 @@ def _probe_wheel(directory: Path, name: str) -> Path:
     return wheel
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("pip") is None,
-    reason=(
-        "pip is not installed in this interpreter (uv-managed venvs omit it), so an offline wheel install "
-        "cannot run here; the stdlib parity test above covers the environment contract and CI's "
-        "setup-python interpreter ships pip"
-    ),
-)
+def _interpreter_has_pip() -> bool:
+    """Whether this interpreter can run pip, asked in a child process.
+
+    Never ``importlib.util.find_spec("pip")`` in the test process: on Python
+    3.11 asking the import system about ``pip`` runs setuptools' distutils
+    shim hook for pip (``spec_for_pip``), which switches the whole process to
+    the stdlib ``distutils`` for good, and every later ``import setuptools``
+    then fails its own self-check. Evaluated at collection, that broke
+    collection of the packaging tests on 3.11 (#2292 CI).
+    """
+    probe = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True, timeout=120, check=False)
+    return probe.returncode == 0
+
+
 @pytest.mark.timeout(300)  # an offline pip install can exceed the suite's 60 s default on a cold runner
 def test_pip_install_through_run_command_is_importable_by_scistudio(
     ctx: _ExecContext, user_python: Path, tmp_path: Path
 ) -> None:
     """AS4 / SC-005: ``pip install`` via run_command, then a SciStudio-side import."""
+    if not _interpreter_has_pip():
+        pytest.skip(
+            "pip is not installed in this interpreter (uv-managed venvs omit it), so an offline wheel install "
+            "cannot run here; the stdlib parity test above covers the environment contract and CI's "
+            "setup-python interpreter ships pip"
+        )
     from scistudio.desktop.paths import prepended_sys_paths, user_python_import_roots
 
     name = f"scistudio_wheel_probe_{uuid.uuid4().hex[:8]}"
@@ -776,3 +789,80 @@ def test_command_failures_reach_the_host_as_is_error(
 
         is_error, stopped = call("cancel_command", job_id=running["job_id"], grace_seconds=1)
         assert is_error is False and stopped["state"] == "cancelled"
+
+
+@pytest.mark.skipif(
+    sys.platform != "win32", reason="Job Objects exist only on Windows; POSIX commands own a process group"
+)
+@pytest.mark.parametrize("failure", ["create", "assign", "resume"])
+def test_a_command_that_cannot_join_its_job_object_is_refused_and_never_runs(
+    ctx: _ExecContext, project: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    """Codex review on #2292: no Job Object, no command, and nothing left running."""
+    from fastmcp.tools.base import ToolResult
+
+    from scistudio.ai.agent.mcp import tools_workspace
+    from scistudio.engine.runners.platform import get_platform_ops
+
+    ops_class = type(get_platform_ops())
+    if failure == "create":
+        monkeypatch.setattr(ops_class, "create_job_object", lambda self: None)
+    elif failure == "assign":
+        monkeypatch.setattr(ops_class, "assign_to_job", lambda self, job_handle, pid: False)
+    else:
+        monkeypatch.setattr(ops_class, "resume_process", lambda self, pid: False)
+    spawned: list[int] = []
+    original_spawn = tools_execution._spawn
+
+    async def recording_spawn(*args: Any, **kwargs: Any) -> Any:
+        process = await original_spawn(*args, **kwargs)
+        spawned.append(process.pid)
+        return process
+
+    monkeypatch.setattr(tools_execution, "_spawn", recording_spawn)
+    command = "python -c \"open('ran.txt', 'w').write('x')\""
+    result = _run(tools_execution.run_command(command=command, wait_seconds=5))
+
+    assert result.status == "refused"
+    assert result.refusal is not None and result.refusal.code == "job_object_unavailable"
+    flagged = tools_workspace.flag_failure(ToolResult(structured_content=result.model_dump(mode="json")), "run_command")
+    assert getattr(flagged, "is_error", False) is True
+    assert (spawned == []) is (failure == "create")
+    assert _wait_gone(spawned) == []
+    time.sleep(1.0)
+    assert not (project / "ran.txt").exists()
+    assert ctx.process_registry.active_handles() == []
+    assert tools_execution._JOBS == {}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process groups; Windows commands run in a Job Object")
+def test_cancel_never_waits_on_the_shell_that_asyncio_owns(ctx: _ExecContext, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codex review on #2292: a ``waitpid`` from the cancel path could reap the shell before
+    asyncio's child watcher sees it exit, leaving the job ``running`` for good (uvloop never
+    reports a child someone else reaped). Cancel must only poll the process group."""
+    waited: list[int] = []
+    real_wait = psutil.Process.wait
+    real_wait_procs = psutil.wait_procs
+
+    def recording_wait(self: psutil.Process, *args: Any, **kwargs: Any) -> Any:
+        waited.append(self.pid)
+        return real_wait(self, *args, **kwargs)
+
+    def recording_wait_procs(procs: Any, *args: Any, **kwargs: Any) -> Any:
+        waited.extend(proc.pid for proc in procs)
+        return real_wait_procs(procs, *args, **kwargs)
+
+    monkeypatch.setattr(psutil.Process, "wait", recording_wait)
+    monkeypatch.setattr(psutil, "wait_procs", recording_wait_procs)
+
+    async def scenario() -> tuple[Any, Any]:
+        started = await tools_execution.run_command(command=_sleep_command(120), wait_seconds=0.5)
+        cancelled = await tools_execution.cancel_command(job_id=started.job_id, grace_seconds=1)
+        return started, cancelled
+
+    started, cancelled = _run(scenario())
+    assert started.state == "running"
+    assert cancelled.state == "cancelled"
+    assert started.pid not in waited
+    assert _wait_gone([started.pid]) == []
+    assert ctx.process_registry.active_handles() == []

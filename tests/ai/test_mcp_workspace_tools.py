@@ -980,8 +980,13 @@ def test_is_error_survives_the_spec1_adapter_with_structured_content_intact() ->
     assert adapted["isError"] is True
     assert adapted["structuredContent"] == structured
     assert "protected_data_dir" in adapted["content"][0]["text"]
-    native = flagged.to_mcp_result()
-    assert native.isError is True and native.structuredContent == structured
+    # The wire keys: the same on mcp 1.x (fastmcp 3) and mcp 2.x (fastmcp 4), whose fields are snake_case.
+    wire = flagged.to_mcp_result().model_dump(by_alias=True, exclude_none=True)
+    assert wire["isError"] is True and wire["structuredContent"] == structured
+    with_meta = tools_workspace.flag_failure(
+        ToolResult(structured_content=structured, meta={"trace": "t1"}), "write_file"
+    )
+    assert with_meta.to_mcp_result().model_dump(by_alias=True)["_meta"] == {"trace": "t1"}
 
     fine = tools_workspace.flag_failure(ToolResult(structured_content={"status": "ok"}), "write_file")
     assert adapt_tool_result(fine)["isError"] is False
@@ -1007,3 +1012,199 @@ def test_get_agent_context_without_a_project_is_an_error_result(
     body = response.json()
     assert body["isError"] is True
     assert body["structuredContent"]["refusal"]["code"] == "no_active_project"
+
+
+# ---------------------------------------------------------------------------
+# A1-fix2 (#2292 review and CI).
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_writes_on_the_same_version_cannot_both_succeed(
+    bridge: _Bridge, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review on #2292: the version check and the replace are one critical section."""
+    import time
+
+    from scistudio.api.runtime import _file_writes
+
+    base = bridge.call("write_file", path="notes/contended.md", content="base\n", create_parents=True)
+    version = base["state_version"]
+    target = bridge.root / "notes" / "contended.md"
+    original = _file_writes.atomic_write_bytes
+
+    def slow_write(*args: Any, **kwargs: Any) -> None:
+        time.sleep(0.5)  # without the lock, both writers pass the check before either replace lands
+        original(*args, **kwargs)
+
+    monkeypatch.setattr(_file_writes, "atomic_write_bytes", slow_write)
+    service = bridge.client.app.state.runtime.project_files  # type: ignore[attr-defined]
+
+    async def race() -> list[dict[str, Any]]:
+        return list(
+            await asyncio.gather(
+                service.write_text(target, "first\n", expected_state_version=version),
+                service.write_text(target, "second\n", expected_state_version=version),
+            )
+        )
+
+    portal = bridge.client.portal
+    assert portal is not None
+    outcomes = portal.call(race)
+    assert sorted(outcome["status"] for outcome in outcomes) == ["conflict", "ok"]
+    loser = next(outcome for outcome in outcomes if outcome["status"] == "conflict")
+    assert loser["condition"] == "stale_version"
+    winner = "first" if outcomes[0]["status"] == "ok" else "second"
+    assert target.read_bytes() == f"{winner}\n".encode()
+
+
+def test_search_content_scan_honours_the_time_budget_inside_a_slow_file(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review on #2292: the budget holds inside one file, not only between directory entries."""
+    import time
+
+    (project / "slow.txt").write_bytes(b"placeholder\n")
+
+    def slow_lines(path: Path) -> Iterator[tuple[int, str]]:
+        for line_no in range(1, 100_000):
+            time.sleep(0.01)  # a stalled network share, or a costly match
+            yield line_no, "no match on this line\n"
+
+    monkeypatch.setattr(tools_workspace, "_iter_lines", slow_lines)
+    monkeypatch.setattr(tools_workspace, "_SEARCH_TIME_BUDGET_SECONDS", 0.5)
+    started = time.monotonic()
+    result = tools_workspace._search_sync(project, project, "slow.txt", "needle", False, False, 50)
+    assert time.monotonic() - started < 10
+    assert result.truncated is True
+    assert any("time budget" in note for note in result.notes)
+
+
+def test_search_content_scan_stops_when_its_request_ends(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+    import time
+
+    (project / "slow.txt").write_bytes(b"placeholder\n")
+    stop = threading.Event()
+
+    def lines_until_stopped(path: Path) -> Iterator[tuple[int, str]]:
+        for line_no in range(1, 100_000):
+            if line_no == 5:
+                stop.set()  # the request went away in the middle of the file
+            time.sleep(0.01)
+            yield line_no, "no match on this line\n"
+
+    monkeypatch.setattr(tools_workspace, "_iter_lines", lines_until_stopped)
+    started = time.monotonic()
+    result = tools_workspace._search_sync(project, project, "slow.txt", "needle", False, False, 50, stop)
+    assert time.monotonic() - started < 10
+    assert result.truncated is True
+    assert any("request ended" in note for note in result.notes)
+
+
+@pytest.mark.timeout(60)
+@pytest.mark.parametrize("pattern", ["(a+)+$", ".*.*.*x"])
+def test_a_backtracking_regex_is_stopped_at_the_time_budget(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch, pattern: str
+) -> None:
+    """Codex review on #2292: a match cannot be interrupted in-process, so it runs in a process the search kills.
+
+    In-process, either pattern runs for minutes or more on this one line, and ``.*.*.*x``
+    nests nothing, so no pattern heuristic would catch it.
+    """
+    import subprocess
+    import time
+
+    (project / "long.txt").write_bytes(b"a" * 4000 + b"!\n")
+    spawned: list[subprocess.Popen[bytes]] = []
+    real_popen = subprocess.Popen
+
+    def recording_popen(*args: Any, **kwargs: Any) -> Any:
+        process = real_popen(*args, **kwargs)
+        spawned.append(process)
+        return process
+
+    monkeypatch.setattr(tools_workspace.subprocess, "Popen", recording_popen)
+    monkeypatch.setattr(tools_workspace, "_SEARCH_TIME_BUDGET_SECONDS", 1.0)
+    started = time.monotonic()
+    result = _run(tools_workspace.search_files(path=".", name_pattern="long.txt", content=pattern, regex=True))
+    assert time.monotonic() - started < 15
+    assert result.status == "ok"
+    assert result.truncated is True
+    assert any("time budget" in note for note in result.notes)
+    assert len(spawned) == 1
+    assert spawned[0].poll() is not None  # killed mid-match, not left running
+
+
+@pytest.mark.timeout(60)
+def test_a_backtracking_regex_is_stopped_when_its_request_ends(stub_ctx: _StubContext, project: Path) -> None:
+    import threading
+    import time
+
+    (project / "long.txt").write_bytes(b"a" * 4000 + b"!\n")
+    stop = threading.Event()
+    timer = threading.Timer(0.5, stop.set)
+    timer.start()
+    started = time.monotonic()
+    try:
+        result = tools_workspace._search_sync(project, project, "long.txt", "(a+)+$", True, False, 50, stop)
+    finally:
+        timer.cancel()
+    assert time.monotonic() - started < 10
+    assert result.truncated is True
+    assert any("request ended" in note for note in result.notes)
+
+
+def test_regex_search_is_refused_when_its_process_cannot_start(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing_popen(*args: Any, **kwargs: Any) -> Any:
+        raise OSError("no interpreter")
+
+    monkeypatch.setattr(tools_workspace.subprocess, "Popen", failing_popen)
+    result = _run(tools_workspace.search_files(path=".", content="hel+o", regex=True))
+    assert result.status == "refused"
+    assert result.refusal is not None and result.refusal.code == "regex_unavailable"
+
+
+@pytest.mark.parametrize("pattern", [r"al+pha\s+be.a", "(ab)+c", "x{2,5}", "(?:foo|bar)+", "(a+)+b", r"na\wve"])
+def test_search_accepts_ordinary_regexes(stub_ctx: _StubContext, project: Path, pattern: str) -> None:
+    (project / "a.txt").write_bytes("alpha  beta ababc xxx foobar aab naïve\n".encode())
+    result = _run(tools_workspace.search_files(path=".", name_pattern="a.txt", content=pattern, regex=True))
+    assert result.status == "ok"
+    assert [hit.line for hit in result.hits] == [1]
+
+
+def test_regex_hits_keep_their_line_numbers_and_snippets(stub_ctx: _StubContext, project: Path) -> None:
+    (project / "b.txt").write_bytes("first alpha\nnothing here\nthird alpha naïve\n".encode())
+    result = _run(tools_workspace.search_files(path=".", name_pattern="b.txt", content=r"alpha( na\wve)?$", regex=True))
+    assert result.status == "ok"
+    assert [(hit.line, hit.snippet) for hit in result.hits] == [(1, "first alpha"), (3, "third alpha naïve")]
+
+
+def test_confinement_refuses_a_sibling_that_shares_the_root_prefix(tmp_path: Path) -> None:
+    """The CodeQL-visible guard (#2292): root plus a separator, so ``<root>-other`` is outside."""
+    from scistudio.api.runtime._file_writes import confine_to_project
+
+    root = tmp_path / "proj"
+    root.mkdir()
+    (tmp_path / "proj-other").mkdir()
+    for follow_final in (True, False):
+        with pytest.raises(PermissionError):
+            confine_to_project(root, tmp_path / "proj-other" / "x.txt", follow_final=follow_final)
+    real_root = Path(os.path.realpath(root))
+    assert confine_to_project(root, Path("notes") / "x.txt") == real_root / "notes" / "x.txt"
+    assert confine_to_project(root, root, follow_final=False) == real_root
+
+
+def test_editor_route_refuses_a_sibling_that_shares_the_root_prefix(bridge: _Bridge) -> None:
+    sibling = bridge.root.parent / f"{bridge.root.name}-other"
+    sibling.mkdir()
+    response = bridge.client.put(
+        f"/api/projects/{bridge.project_id}/file",
+        params={"path": str(sibling / "x.md")},
+        json={"content": "x"},
+    )
+    assert response.status_code == 403
+    assert not (sibling / "x.md").exists()

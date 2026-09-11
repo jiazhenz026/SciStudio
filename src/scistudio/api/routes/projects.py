@@ -214,14 +214,16 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
         raise HTTPException(status_code=403, detail="Path traversal is not allowed")
 
     project_root = Path(os.path.realpath(project.path))
-    candidate = os.path.realpath(os.path.join(str(project_root), path))
-    # CodeQL py/path-injection canonical sanitiser: realpath + commonpath.
-    try:
-        if os.path.commonpath([str(project_root), candidate]) != str(project_root):
-            raise HTTPException(status_code=403, detail="Path escapes project root")
-    except ValueError as exc:
-        # commonpath raises on different drives (Windows) 鈥?treat as escape.
-        raise HTTPException(status_code=403, detail="Path escapes project root") from exc
+    root_str = str(project_root)
+    candidate = os.path.realpath(os.path.join(root_str, path))
+    # CodeQL py/path-injection sanitiser: the realpath-normalised candidate must
+    # start with the root plus a separator -- the guard CodeQL models (it does
+    # not model ``commonpath``). The separator keeps a sibling such as
+    # ``<root>-other`` out; a different drive on Windows fails the prefix too.
+    # The root itself is never a file, so it is refused with the escapes.
+    prefix = root_str if root_str.endswith(os.sep) else root_str + os.sep
+    if not candidate.startswith(prefix):
+        raise HTTPException(status_code=403, detail="Path escapes project root")
 
     target = Path(candidate)
     if target.suffix.lower() not in ADR036_FILE_ALLOWLIST:

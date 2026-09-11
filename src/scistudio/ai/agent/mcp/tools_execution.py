@@ -251,11 +251,10 @@ class _BoundedTail:
 def _process_group_members(pgid: int, started_at: float) -> list[psutil.Process]:
     """Live processes in *pgid* that started no earlier than the command (POSIX).
 
-    The start-time filter keeps a recycled group id from ever matching someone
-    else's processes: a group can only be reused after every original member is
-    gone, and its new members start later than this command did only by chance —
-    they would also have to be in our session's group id, which cannot happen
-    while any member of ours is alive.
+    The kernel never hands out a process-group id that still has members, so
+    while any process of this command is alive the id names only ours. The
+    start-time filter additionally drops processes that predate the command, so
+    an id recycled after the command ended cannot pull in older processes.
     """
     import psutil
 
@@ -273,6 +272,32 @@ def _process_group_members(pgid: int, started_at: float) -> list[psutil.Process]
             continue
         members.append(proc)
     return members
+
+
+def _member_running(proc: psutil.Process) -> bool:
+    """True while *proc* runs, judged without waiting on it.
+
+    Never ``wait()``: the shell is asyncio's own child, and a ``waitpid`` here
+    could reap it before asyncio's child watcher records its exit, leaving the
+    supervisor waiting forever with the job stuck in ``running`` (Codex review
+    on #2292). A zombie has exited; its parent reaps it.
+    """
+    import psutil
+
+    try:
+        return bool(proc.is_running() and proc.status() != psutil.STATUS_ZOMBIE)
+    except psutil.Error:
+        return False
+
+
+def _wait_members_gone(members: list[psutil.Process], timeout: float) -> list[psutil.Process]:
+    """Poll until every member has exited or *timeout* passes; return those still running."""
+    deadline = time.monotonic() + timeout
+    alive = [proc for proc in members if _member_running(proc)]
+    while alive and time.monotonic() < deadline:
+        time.sleep(_EXIT_POLL_SECONDS / 2)
+        alive = [proc for proc in alive if _member_running(proc)]
+    return alive
 
 
 class _CommandHandle(ProcessHandle):
@@ -307,7 +332,7 @@ class _CommandHandle(ProcessHandle):
                 return count
         if self.pgid is not None:
             return len(_process_group_members(self.pgid, self.started_at))
-        # No Job Object (creation or assignment failed): only the shell is known.
+        # Neither a Job Object nor a process group: only the shell itself is known.
         return 1 if ProcessHandle.owns_live_process(self) else 0
 
     def owns_live_process(self) -> bool:
@@ -341,8 +366,6 @@ class _CommandHandle(ProcessHandle):
         )
 
     def _stop_process_group(self, pgid: int, grace: float) -> str:
-        import psutil
-
         killpg = cast(Callable[[int, int], None], os.killpg)  # type: ignore[attr-defined]
         sigkill = cast(int, signal.SIGKILL)  # type: ignore[attr-defined]
         members = _process_group_members(pgid, self.started_at)
@@ -350,12 +373,12 @@ class _CommandHandle(ProcessHandle):
             return "process group already empty"
         with contextlib.suppress(ProcessLookupError, PermissionError):
             killpg(pgid, signal.SIGTERM)
-        _gone, alive = psutil.wait_procs(members, timeout=grace)
+        alive = _wait_members_gone(members, grace)
         if not alive:
             return "process group terminated"
         with contextlib.suppress(ProcessLookupError, PermissionError):
             killpg(pgid, sigkill)
-        psutil.wait_procs(alive, timeout=2.0)
+        _wait_members_gone(alive, 2.0)
         return "process group killed after grace"
 
     def close(self) -> None:
@@ -523,7 +546,13 @@ def describe_command_environment(project_dir: Path | None) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-async def _spawn(command: str, cwd: Path, env: dict[str, str]) -> asyncio.subprocess.Process:
+_CREATE_SUSPENDED = 0x00000004
+"""Win32 ``CREATE_SUSPENDED``: the process runs nothing until it is resumed."""
+
+
+async def _spawn(
+    command: str, cwd: Path, env: dict[str, str], *, suspended: bool = False
+) -> asyncio.subprocess.Process:
     """Start *command* in the platform shell, in its own process group.
 
     POSIX: ``/bin/sh -c`` through ``create_subprocess_exec`` with a new
@@ -531,7 +560,9 @@ async def _spawn(command: str, cwd: Path, env: dict[str, str]) -> asyncio.subpro
     processor through ``create_subprocess_shell`` — CreateProcess
     command-line quoting would corrupt a command string passed to
     ``create_subprocess_exec("cmd.exe", "/c", ...)`` — with a new process
-    group and no console window.
+    group and no console window. With *suspended* (Windows) the command
+    processor is created suspended, so it runs nothing until it has been
+    placed in its Job Object and resumed.
     """
     group_kwargs: dict[str, Any] = get_platform_ops().create_process_group({})
     common: dict[str, Any] = {
@@ -543,7 +574,10 @@ async def _spawn(command: str, cwd: Path, env: dict[str, str]) -> asyncio.subpro
         **group_kwargs,
     }
     if sys.platform == "win32":
-        common["creationflags"] = common.get("creationflags", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        flags = common.get("creationflags", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if suspended:
+            flags |= _CREATE_SUSPENDED
+        common["creationflags"] = flags
         return await asyncio.create_subprocess_shell(command, **common)
     return await asyncio.create_subprocess_exec("/bin/sh", "-c", command, **common)
 
@@ -559,13 +593,27 @@ async def _pump(stream: asyncio.StreamReader | None, tail: _BoundedTail) -> None
 
 
 def _close_transport(job: _Job) -> None:
-    """Close the pipes of an exited command (prevents unclosed-transport warnings)."""
-    if job.process.returncode is None:
-        return  # closing a live process's transport would kill it
+    """Close an exited command's transport; for a live one, close only its output pipes.
+
+    Closing the transport of a live process would kill it, so a job released
+    while its shell still runs -- its supervisor torn down with the event loop
+    at backend shutdown, after ``terminate_all`` -- keeps the process and loses
+    only the pipes nobody reads any more. Left open, those pipes would be
+    closed again by the transport's finalizer on the closed loop, which raises
+    "Event loop is closed" on Python 3.11 (#2292 CI).
+    """
     transport = getattr(job.process, "_transport", None)
-    if transport is not None:
-        with contextlib.suppress(Exception):
-            transport.close()
+    if transport is None:
+        return
+    if job.process.returncode is None:
+        for fd in (1, 2):
+            pipe = transport.get_pipe_transport(fd)
+            if pipe is not None:
+                with contextlib.suppress(Exception):
+                    pipe.close()
+        return
+    with contextlib.suppress(Exception):
+        transport.close()
 
 
 def _release(job: _Job) -> None:
@@ -713,6 +761,31 @@ def _preview(command: str) -> str:
     return flat if len(flat) <= _PREVIEW_MAX_CHARS else flat[: _PREVIEW_MAX_CHARS - 1] + "…"
 
 
+_JOB_OBJECT_UNAVAILABLE_MESSAGE = (
+    "run_command runs every command inside a Windows Job Object, so that cancel_command and backend "
+    "shutdown can stop every process it starts, and the Job Object could not be created or the command "
+    "could not be placed in it. The command was not run."
+)
+
+
+def _contain(ops: Any, job_object: Any, pid: int) -> bool:
+    """Place the suspended command in its Job Object, then let it run. False if either step fails."""
+    return bool(ops.assign_to_job(job_object, pid)) and bool(ops.resume_process(pid))
+
+
+async def _discard_uncontained(process: asyncio.subprocess.Process, ops: Any, job_object: Any) -> None:
+    """Stop a command that never ran (suspended, or outside its job) and release what it holds."""
+    with contextlib.suppress(ProcessLookupError, OSError):
+        process.kill()
+    ops.close_job_object(job_object)  # kill-on-close covers a process that did join the job
+    with contextlib.suppress(Exception):
+        await asyncio.wait_for(process.wait(), timeout=10.0)
+    transport = getattr(process, "_transport", None)
+    if transport is not None:
+        with contextlib.suppress(Exception):
+            transport.close()
+
+
 # ---------------------------------------------------------------------------
 # Tools.
 # ---------------------------------------------------------------------------
@@ -772,18 +845,24 @@ async def run_command(
     cwd = Path(project_dir)
     env = await asyncio.to_thread(build_command_environment, cwd)
     ops = get_platform_ops()
+    # Windows: the command belongs to its Job Object before it runs anything, so cancel and
+    # shutdown reach every process it starts, orphans included. It is created suspended,
+    # placed in the job, then resumed; if any step fails, nothing runs and the call is refused.
+    job_object: Any = None
+    if sys.platform == "win32":
+        job_object = ops.create_job_object()
+        if job_object is None:
+            return _refused("job_object_unavailable", _JOB_OBJECT_UNAVAILABLE_MESSAGE)
     started_at = time.time()
     try:
-        process = await _spawn(command, cwd, env)
+        process = await _spawn(command, cwd, env, suspended=job_object is not None)
     except OSError as exc:
+        if job_object is not None:
+            ops.close_job_object(job_object)
         return _refused("spawn_failed", f"The command could not be started: {exc.strerror or type(exc).__name__}.")
-    # Windows: put the command in a Job Object at once, so every process it starts from
-    # here on belongs to the job. (A process the shell starts in the instant before this
-    # call is still reached by the tree walk while its parent lives.)
-    job_object = ops.create_job_object()
-    if job_object is not None and not ops.assign_to_job(job_object, process.pid):
-        ops.close_job_object(job_object)
-        job_object = None
+    if job_object is not None and not await asyncio.to_thread(_contain, ops, job_object, process.pid):
+        await _discard_uncontained(process, ops, job_object)
+        return _refused("job_object_unavailable", _JOB_OBJECT_UNAVAILABLE_MESSAGE)
     job_id = uuid.uuid4().hex[:12]
     handle = _CommandHandle(block_id=f"command-{job_id}", pid=process.pid, started_at=started_at, job_object=job_object)
     registry.register(handle)

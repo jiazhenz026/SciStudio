@@ -38,17 +38,22 @@ from __future__ import annotations
 import asyncio
 import base64
 import codecs
+import contextlib
 import fnmatch
 import functools
+import json
 import logging
 import os
+import queue
 import re
 import stat as stat_module
+import subprocess
+import sys
 import threading
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import IO, Annotated, Any, Literal
 
 from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.server.middleware.middleware import CallNext
@@ -87,6 +92,8 @@ _SEARCH_TIME_BUDGET_SECONDS = 20.0
 """Wall-clock budget for one search walk (a slow or huge root such as ``/`` or a network share)."""
 _SEARCH_FILE_BYTES_CAP = 2 * 1024 * 1024
 _SEARCH_MAX_LINE_BYTES = 64 * 1024
+_REGEX_REPLY_POLL_SECONDS = 0.05
+"""How often a search waiting on its regular-expression process checks the deadline and stop flag."""
 _SEARCH_SNIPPET_CHARS = 200
 _SEARCH_HITS_PER_FILE = 20
 _SEARCH_SKIP_DIRS = frozenset({".git", "node_modules", "__pycache__"})
@@ -267,15 +274,21 @@ class FlaggedToolResult(ToolResult):
     is_error: bool = False
 
     def to_mcp_result(self) -> CallToolResult:  # type: ignore[override]
-        """Native MCP transports receive ``isError`` alongside the structured content."""
+        """Native MCP transports receive ``isError`` alongside the structured content.
+
+        Built from the wire (alias) keys, which validate on every supported mcp
+        release: mcp 1.x names the fields ``structuredContent`` / ``isError``,
+        mcp 2.x names them ``structured_content`` / ``is_error`` with those
+        camelCase aliases (fastmcp 3.x and 4.x respectively).
+        """
+        data: dict[str, Any] = {
+            "content": self.content,
+            "structuredContent": self.structured_content,
+            "isError": self.is_error,
+        }
         if self.meta is not None:
-            return CallToolResult(
-                content=self.content,
-                structuredContent=self.structured_content,
-                isError=self.is_error,
-                _meta=self.meta,  # type: ignore[call-arg]
-            )
-        return CallToolResult(content=self.content, structuredContent=self.structured_content, isError=self.is_error)
+            data["_meta"] = self.meta
+        return CallToolResult.model_validate(data)
 
 
 def status_is_failure(structured: dict[str, Any]) -> bool:
@@ -814,8 +827,229 @@ def _walk_stop_reason(result: SearchFilesResult, stop: threading.Event | None, d
     return None
 
 
+def _scan_stop_reason(stop: threading.Event | None, deadline: float) -> str | None:
+    """Why scanning a file's content must stop now (request ended, budget spent), or ``None``."""
+    if stop is not None and stop.is_set():
+        return "The search was stopped because its request ended."
+    if time.monotonic() > deadline:
+        return f"Stopped after the {_SEARCH_TIME_BUDGET_SECONDS:g} s search time budget; narrow the path."
+    return None
+
+
+_REGEX_UNAVAILABLE_MESSAGE = (
+    "A regular-expression search runs in a separate Python process, so that it can be stopped when the time "
+    "budget runs out or the request ends, and that process could not be started. Search for plain text "
+    "instead (regex=false)."
+)
+_REGEX_FAILED_MESSAGE = (
+    "The process evaluating the regular expression ended unexpectedly. Simplify the pattern or search for "
+    "plain text instead (regex=false)."
+)
+
+# The child program: stdlib only, run with ``-I -S`` so nothing from the user's
+# environment or site-packages loads. It reads one JSON header (pattern, flags,
+# lifetime), then answers each request -- one file's lines and a hit limit --
+# with the index and column of every matching line, up to the limit.
+_REGEX_WORKER_SOURCE = r"""
+import json
+import re
+import signal
+import sys
+
+stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
+header = json.loads(stdin.readline())
+if hasattr(signal, "alarm"):
+    signal.alarm(header["lifetime"])  # POSIX backstop: SIGALRM ends this process even mid-match
+pattern = re.compile(header["pattern"], header["flags"])
+for raw in iter(stdin.readline, b""):
+    request = json.loads(raw)
+    hits = []
+    for index, text in enumerate(request["lines"]):
+        found = pattern.search(text)
+        if found is not None:
+            hits.append([index, found.start()])
+            if len(hits) >= request["limit"]:
+                break
+    stdout.write(json.dumps({"hits": hits}).encode("ascii") + b"\n")
+    stdout.flush()
+"""
+
+
+class _RegexWorker:
+    """Matches one search's regular expression in a child process the search can kill.
+
+    Python cannot interrupt a regular-expression match once it has started, and
+    a backtracking pattern such as ``(a+)+$`` or ``.*.*.*x`` can run for hours
+    on one line, so no in-process bound on the pattern or the line holds
+    (Codex review on #2292). The search thread therefore hands each file's
+    lines to this stdlib-only child interpreter and, while it waits for the
+    answer, keeps checking its deadline and stop flag; when either fires, it
+    kills the child mid-match. If the backend dies first, the child dies with
+    it: a kill-on-close Job Object on Windows, ``SIGALRM`` on POSIX.
+    """
+
+    def __init__(self, pattern: re.Pattern[str]) -> None:
+        self._header = {
+            "pattern": pattern.pattern,
+            "flags": pattern.flags,
+            "lifetime": int(_SEARCH_TIME_BUDGET_SECONDS) + 10,
+        }
+        self._process: subprocess.Popen[bytes] | None = None
+        self._job: Any = None
+        self._replies: queue.Queue[bytes] = queue.Queue()
+
+    def _start(self) -> None:
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0
+        try:
+            process = subprocess.Popen(
+                [sys.executable, "-I", "-S", "-c", _REGEX_WORKER_SOURCE],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                creationflags=creationflags,
+            )
+        except OSError as exc:
+            raise _RefusedError("regex_unavailable", _REGEX_UNAVAILABLE_MESSAGE) from exc
+        self._process = process
+        if sys.platform == "win32":
+            from scistudio.engine.runners.platform import get_platform_ops
+
+            ops = get_platform_ops()
+            job = ops.create_job_object()
+            if job is not None and ops.assign_to_job(job, process.pid):
+                self._job = job
+            elif job is not None:
+                ops.close_job_object(job)
+        threading.Thread(
+            target=self._pump_replies, args=(process.stdout,), name="search-regex-replies", daemon=True
+        ).start()
+        self._send(self._header)
+
+    def _pump_replies(self, stdout: IO[bytes] | None) -> None:
+        """Queue each reply line; an empty item means the child's output ended."""
+        try:
+            if stdout is not None:
+                for raw in iter(stdout.readline, b""):
+                    self._replies.put(raw)
+        except (OSError, ValueError):
+            pass
+        finally:
+            self._replies.put(b"")
+            if stdout is not None:
+                with contextlib.suppress(OSError):
+                    stdout.close()
+
+    def _send(self, message: dict[str, Any]) -> None:
+        stdin = self._process.stdin if self._process is not None else None
+        if stdin is None:
+            raise _RefusedError("regex_failed", _REGEX_FAILED_MESSAGE)
+        try:
+            stdin.write(json.dumps(message).encode("ascii") + b"\n")
+            stdin.flush()
+        except OSError as exc:  # the child is gone
+            self.close()
+            raise _RefusedError("regex_failed", _REGEX_FAILED_MESSAGE) from exc
+
+    def search(
+        self, lines: list[str], limit: int, stop: threading.Event | None, deadline: float
+    ) -> tuple[list[tuple[int, int]], str | None]:
+        """Index and column of the first *limit* matching *lines*, plus why matching stopped early (or ``None``)."""
+        if self._process is None:
+            self._start()
+        self._send({"lines": lines, "limit": limit})
+        while True:
+            try:
+                raw = self._replies.get(timeout=_REGEX_REPLY_POLL_SECONDS)
+            except queue.Empty:
+                reason = _scan_stop_reason(stop, deadline)
+                if reason is not None:
+                    self.close()  # the only way to stop a match that has started
+                    return [], reason
+                continue
+            if not raw:
+                self.close()
+                raise _RefusedError("regex_failed", _REGEX_FAILED_MESSAGE)
+            return [(int(index), int(column)) for index, column in json.loads(raw)["hits"]], None
+
+    def close(self) -> None:
+        """Kill the child (idle or mid-match) and release its Job Object."""
+        process, self._process = self._process, None
+        if process is not None:
+            with contextlib.suppress(OSError):
+                process.kill()
+            with contextlib.suppress(Exception):
+                process.wait(timeout=5)
+            if process.stdin is not None:
+                with contextlib.suppress(OSError):
+                    process.stdin.close()
+        if self._job is not None:
+            from scistudio.engine.runners.platform import get_platform_ops
+
+            get_platform_ops().close_job_object(self._job)
+            self._job = None
+
+
+_FileScan = tuple[list[tuple[int, str, int]], int, "str | None"]
+"""``(hits as (line_no, text, column), lines read, why the scan stopped early or None)``."""
+
+
+def _scan_here(
+    lines: Iterator[tuple[int, str]],
+    matcher: Callable[[str], int],
+    limit: int,
+    stop: threading.Event | None,
+    deadline: float,
+) -> _FileScan:
+    """Match plain text line by line in this thread, checking the deadline and stop flag per line."""
+    hits: list[tuple[int, str, int]] = []
+    lines_read = 0
+    for line_no, text in lines:
+        # Checked per line, not only between directory entries: one slow file
+        # (a stalled network share) must not outlive the budget.
+        reason = _scan_stop_reason(stop, deadline)
+        if reason is not None:
+            return hits, lines_read, reason
+        lines_read = line_no
+        column = matcher(text)
+        if column >= 0:
+            hits.append((line_no, text, column))
+            if len(hits) >= limit:
+                break
+    return hits, lines_read, None
+
+
+def _scan_in_worker(
+    lines: Iterator[tuple[int, str]],
+    worker: _RegexWorker,
+    limit: int,
+    stop: threading.Event | None,
+    deadline: float,
+) -> _FileScan:
+    """Read one file's lines here (deadline and stop flag checked per line), match them in *worker*."""
+    texts: list[str] = []
+    for _line_no, text in lines:
+        reason = _scan_stop_reason(stop, deadline)
+        if reason is not None:
+            return [], len(texts), reason
+        texts.append(text)
+    if not texts:
+        return [], 0, None
+    found, reason = worker.search(texts, limit, stop, deadline)
+    # _iter_lines numbers lines from 1 without gaps, so a line's index is its number minus one.
+    return [(index + 1, texts[index], column) for index, column in found], len(texts), reason
+
+
+def _snippet(text: str, column: int) -> str:
+    start = max(0, column - 60)
+    return text[start : start + _SEARCH_SNIPPET_CHARS].rstrip("\r\n").replace("\n", " ")
+
+
 def _walk_regular_files(
-    root_dir: Path, result: SearchFilesResult, stop: threading.Event | None, stopped_by: list[str]
+    root_dir: Path,
+    result: SearchFilesResult,
+    stop: threading.Event | None,
+    stopped_by: list[str],
+    deadline: float,
 ) -> Iterator[Path]:
     """Regular files below *root_dir*, within the entry and time budgets; never follows links.
 
@@ -828,7 +1062,6 @@ def _walk_regular_files(
         result.entries_visited = 1
         yield root_dir
         return
-    deadline = time.monotonic() + _SEARCH_TIME_BUDGET_SECONDS
     pending = [root_dir]
     while pending:
         try:
@@ -872,6 +1105,7 @@ def _search_sync(
     if not root_dir.exists():
         raise _RefusedError("not_found", "The search root does not exist.")
     matcher: Callable[[str], int]
+    worker: _RegexWorker | None = None
     if content is not None and use_regex:
         try:
             pattern = re.compile(content, 0 if case_sensitive else re.IGNORECASE)
@@ -879,10 +1113,8 @@ def _search_sync(
             raise _RefusedError(
                 "invalid_regex", f"The content pattern is not a valid regular expression: {exc}"
             ) from exc
-
-        def matcher(line: str) -> int:
-            found = pattern.search(line)
-            return found.start() if found else -1
+        # Started on the first file that has lines to match; see _RegexWorker for why.
+        worker = _RegexWorker(pattern)
 
     elif content is not None:
         needle = content if case_sensitive else content.casefold()
@@ -896,41 +1128,46 @@ def _search_sync(
     capped_files = 0
 
     stopped_by: list[str] = []
-    for path in _walk_regular_files(root_dir, result, stop, stopped_by):
-        name = path.name if case_sensitive else path.name.casefold()
-        if not fnmatch.fnmatchcase(name, name_glob):
-            continue
-        result.files_scanned += 1
-        display = _display_path(path, project_root)
-        if content is None:
-            result.hits.append(SearchHit(path=display))
-        else:
-            try:
-                lines = _iter_lines(path)
-            except OSError:
+    # One budget for the walk and the content scan together.
+    deadline = time.monotonic() + _SEARCH_TIME_BUDGET_SECONDS
+    try:
+        for path in _walk_regular_files(root_dir, result, stop, stopped_by, deadline):
+            name = path.name if case_sensitive else path.name.casefold()
+            if not fnmatch.fnmatchcase(name, name_glob):
                 continue
-            if lines is None:
-                skipped_binary += 1
-                continue
-            per_file = 0
-            last_line = 0
-            for line_no, text in lines:
-                last_line = line_no
-                column = matcher(text)
-                if column < 0:
+            result.files_scanned += 1
+            display = _display_path(path, project_root)
+            if content is None:
+                result.hits.append(SearchHit(path=display))
+            else:
+                try:
+                    lines = _iter_lines(path)
+                except OSError:
                     continue
-                start = max(0, column - 60)
-                snippet = text[start : start + _SEARCH_SNIPPET_CHARS].rstrip("\r\n").replace("\n", " ")
-                result.hits.append(SearchHit(path=display, line=line_no, snippet=snippet))
-                per_file += 1
-                if per_file >= _SEARCH_HITS_PER_FILE or len(result.hits) >= max_results:
+                if lines is None:
+                    skipped_binary += 1
+                    continue
+                limit = min(_SEARCH_HITS_PER_FILE, max_results - len(result.hits))
+                if worker is not None:
+                    found, lines_read, reason = _scan_in_worker(lines, worker, limit, stop, deadline)
+                else:
+                    found, lines_read, reason = _scan_here(lines, matcher, limit, stop, deadline)
+                result.hits.extend(
+                    SearchHit(path=display, line=line_no, snippet=_snippet(text, column))
+                    for line_no, text, column in found
+                )
+                if reason is not None:
+                    stopped_by.append(reason)
                     break
-            if last_line and path.stat().st_size > _SEARCH_FILE_BYTES_CAP:
-                capped_files += 1
-        if len(result.hits) >= max_results:
-            result.truncated = True
-            result.notes.append(f"Stopped at {max_results} results.")
-            break
+                if lines_read and path.stat().st_size > _SEARCH_FILE_BYTES_CAP:
+                    capped_files += 1
+            if len(result.hits) >= max_results:
+                result.truncated = True
+                result.notes.append(f"Stopped at {max_results} results.")
+                break
+    finally:
+        if worker is not None:
+            worker.close()
     if stopped_by:
         result.truncated = True
         result.notes.extend(stopped_by)
@@ -965,8 +1202,11 @@ async def search_files(
     entries (matching or not), or after 20 s, and reads at most the first 2 MiB
     of each file; binary and special files are skipped, links are not followed,
     and ``.git``, ``node_modules``, and ``__pycache__`` are not descended.
-    ``truncated`` and ``notes`` say which bound applied. Ending the request
-    stops the walk.
+    The deadline and the request's end are checked between the lines of a
+    file as well as between entries, and a regular expression is matched in a
+    separate process that is stopped when either fires, so a pattern that
+    backtracks badly cannot outlive the budget. ``truncated`` and ``notes``
+    say which bound applied. Ending the request stops the search.
     """
     stop = threading.Event()
     try:

@@ -74,6 +74,10 @@ class PlatformOps(Protocol):
         """Release a job object handle (kill-on-close stops anything still in it)."""
         ...
 
+    def resume_process(self, pid: int) -> bool:
+        """Let a process created suspended run (after it joined its job). Returns True on success."""
+        ...
+
 
 class PosixOps:
     """Linux/macOS implementation using OS-level process group APIs.
@@ -260,6 +264,10 @@ class PosixOps:
     def close_job_object(self, job_handle: Any) -> None:
         """No-op on POSIX."""
         return None
+
+    def resume_process(self, pid: int) -> bool:
+        """No-op on POSIX: nothing is created suspended."""
+        return True
 
 
 class WindowsOps:
@@ -527,6 +535,36 @@ class WindowsOps:
             return int(info.ActiveProcesses)
         except Exception:
             return None
+
+    def resume_process(self, pid: int) -> bool:  # pragma: no cover — Windows-only ctypes
+        """Resume every thread of a process created with ``CREATE_SUSPENDED``.
+
+        ``NtResumeProcess`` takes a process handle, so a caller that has only
+        the pid (asyncio's subprocess API does not expose the primary thread
+        handle) can let the process run once it is in its Job Object.
+        """
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+            ntdll = ctypes.WinDLL("ntdll")  # type: ignore[attr-defined]
+            open_process = kernel32.OpenProcess
+            open_process.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            open_process.restype = wintypes.HANDLE
+            resume = ntdll.NtResumeProcess
+            resume.argtypes = [wintypes.HANDLE]
+            resume.restype = ctypes.c_long
+            PROCESS_SUSPEND_RESUME = 0x0800  # noqa: N806
+            handle = open_process(PROCESS_SUSPEND_RESUME, False, pid)
+            if not handle:
+                return False
+            try:
+                return int(resume(handle)) == 0
+            finally:
+                kernel32.CloseHandle(handle)
+        except Exception:
+            return False
 
     def close_job_object(self, job_handle: Any) -> None:  # pragma: no cover — Windows-only ctypes
         """Close a Job Object handle; with kill-on-close, anything still in it is stopped."""

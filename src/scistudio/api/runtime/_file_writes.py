@@ -29,12 +29,14 @@ so its observable behavior is unchanged.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import errno
 import logging
 import os
 import shutil
 import stat
 import tempfile
+import weakref
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -44,6 +46,8 @@ from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
 from scistudio.engine.events import EngineEvent
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from scistudio.api.runtime import ApiRuntime
 
 logger = logging.getLogger(__name__)
@@ -157,8 +161,10 @@ def is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool
 def confine_to_project(project_root: Path, target: Path, *, follow_final: bool = True) -> Path:
     """Resolve *target* and reject it when it escapes *project_root*.
 
-    The same realpath + commonpath sanitiser the editor route uses (CodeQL
-    ``py/path-injection``). A different drive on Windows is an escape.
+    The same sanitiser as the editor route (CodeQL ``py/path-injection``): the
+    resolved candidate is the root itself or starts with the root plus a
+    separator, so a sibling such as ``<root>-other`` is an escape, and so is a
+    different drive on Windows.
 
     With ``follow_final=False`` only the parent directories are resolved, so a
     *target* that is itself a symlink or junction names the link, not what it
@@ -171,12 +177,15 @@ def confine_to_project(project_root: Path, target: Path, *, follow_final: bool =
         candidate = os.path.realpath(joined)
     else:
         head, tail = os.path.split(joined)
-        candidate = os.path.join(os.path.realpath(head), tail) if tail else os.path.realpath(joined)
-    try:
-        if os.path.commonpath([root, candidate]) != root:
-            raise PermissionError("Path escapes project root")
-    except ValueError as exc:
-        raise PermissionError("Path escapes project root") from exc
+        # normpath is a no-op here; it keeps the value a normalization result for the guard below.
+        candidate = os.path.normpath(os.path.join(os.path.realpath(head), tail)) if tail else os.path.realpath(joined)
+    if candidate == root:
+        return Path(root)
+    # A single startswith guard on the normalized path, the form CodeQL's
+    # py/path-injection query recognizes; nothing below touches an unchecked value.
+    prefix = root if root.endswith(os.sep) else root + os.sep
+    if not candidate.startswith(prefix):
+        raise PermissionError("Path escapes project root")
     return Path(candidate)
 
 
@@ -272,6 +281,35 @@ def check_write_preconditions(
                 current_version=current,
             )
     return existed, ("modified" if existed else "created")
+
+
+# ---------------------------------------------------------------------------
+# Serialization.
+# ---------------------------------------------------------------------------
+
+_PROJECT_LOCKS: weakref.WeakValueDictionary[tuple[int, str], asyncio.Lock] = weakref.WeakValueDictionary()
+
+
+@contextlib.asynccontextmanager
+async def project_mutation_lock(project_root: Path) -> AsyncIterator[None]:
+    """Serialize the mutations of one project that go through the shared write path.
+
+    The precondition check (expected ``state_version``, create-only, missing
+    file), the disk change, and the version advance must form one critical
+    section. Otherwise two writes based on the same version can both pass the
+    check before either lands, and one silently overwrites the other (Codex
+    review on #2292). One lock per project, per event loop, also orders a file
+    write against a delete or move of a directory that holds the file. The
+    lint-gated registry rebuild after a drop-in save runs inside it, because it
+    must see the file that was written.
+    """
+    key = (id(asyncio.get_running_loop()), os.path.normcase(str(project_root)))
+    lock = _PROJECT_LOCKS.get(key)
+    if lock is None:
+        lock = asyncio.Lock()
+        _PROJECT_LOCKS[key] = lock
+    async with lock:
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -446,39 +484,42 @@ async def write_project_file(
     """Write *content* to the already-sandboxed *target* through the full path.
 
     Order matches the pre-extraction route exactly: preconditions, atomic
-    write, lint-gated registry reload, stat, then the ``file.changed`` event.
+    write, lint-gated registry reload, stat, then the ``file.changed`` event,
+    all under :func:`project_mutation_lock`, so two writes based on the same
+    state version cannot both succeed.
     Raises :class:`FileWriteConflictError` for a refused precondition and
     :class:`ProjectFileWriteError` when the disk operation fails.
     """
     entity_id = project_relative_entity_id(project_root, target)
-    _, kind = check_write_preconditions(
-        runtime,
-        entity_id=entity_id,
-        target=target,
-        expected_state_version=expected_state_version,
-        create_only=create_only,
-        require_existing=require_existing,
-    )
-    absorb_unobserved_disk_edit(runtime, entity_id, target)
-    # Disk work (write, fsync, replace) runs in a worker thread so the event loop stays free.
-    await asyncio.to_thread(
-        atomic_write_bytes, runtime, target=target, entity_id=entity_id, kind=kind, encoded=content.encode("utf-8")
-    )
-    refreshed = await maybe_reload_blocks_after_save(runtime, target, content)
-    try:
-        stat = target.stat()
-    except OSError as exc:
-        raise ProjectFileWriteError(f"post-write stat failed: {exc}") from exc
-    payload = await emit_file_changed(
-        runtime,
-        entity_id=entity_id,
-        target=target,
-        project_id=project_id,
-        source=source,
-        source_id=source_id,
-        kind=kind,
-        changed_by=changed_by,
-    )
+    async with project_mutation_lock(project_root):
+        _, kind = check_write_preconditions(
+            runtime,
+            entity_id=entity_id,
+            target=target,
+            expected_state_version=expected_state_version,
+            create_only=create_only,
+            require_existing=require_existing,
+        )
+        absorb_unobserved_disk_edit(runtime, entity_id, target)
+        # Disk work (write, fsync, replace) runs in a worker thread so the event loop stays free.
+        await asyncio.to_thread(
+            atomic_write_bytes, runtime, target=target, entity_id=entity_id, kind=kind, encoded=content.encode("utf-8")
+        )
+        refreshed = await maybe_reload_blocks_after_save(runtime, target, content)
+        try:
+            stat = target.stat()
+        except OSError as exc:
+            raise ProjectFileWriteError(f"post-write stat failed: {exc}") from exc
+        payload = await emit_file_changed(
+            runtime,
+            entity_id=entity_id,
+            target=target,
+            project_id=project_id,
+            source=source,
+            source_id=source_id,
+            kind=kind,
+            changed_by=changed_by,
+        )
     return FileChange(
         entity_id=entity_id,
         kind=str(payload["kind"]),
@@ -620,49 +661,52 @@ async def delete_project_path(
     poison them. The walk and the removal run in a worker thread.
     """
     entity_id = project_relative_entity_id(project_root, target)
-    if not os.path.lexists(target):
-        raise FileWriteConflictError("missing_file", f"{entity_id} does not exist.", entity_id=entity_id)
-    link = is_link(target)
-    if not link and target.is_dir():
-        files = await asyncio.to_thread(files_under, target)
-        if not recursive and await asyncio.to_thread(_has_entries, target):
-            raise FileWriteConflictError(
-                "directory_not_empty",
-                f"{entity_id}/ is not empty; pass recursive=true to delete it with its contents.",
-                entity_id=entity_id,
-            )
-    else:
-        files = [target]
-        if expected_state_version is not None and not link:
-            check_write_preconditions(
-                runtime, entity_id=entity_id, target=target, expected_state_version=expected_state_version
-            )
-    # Seed each version while the entry still exists so the ``deleted`` event
-    # advances it rather than starting from the "absent" baseline.
-    file_ids = [(path, project_relative_entity_id(project_root, path)) for path in files]
-    for path, file_id in file_ids:
-        absorb_unobserved_disk_edit(runtime, file_id, path)
-    try:
-        await asyncio.to_thread(_delete_on_disk, target, link=link)
-    except Exception as exc:
-        raise ProjectFileWriteError(f"delete failed: {exc}") from exc
+    async with project_mutation_lock(project_root):
+        if not os.path.lexists(target):
+            raise FileWriteConflictError("missing_file", f"{entity_id} does not exist.", entity_id=entity_id)
+        link = is_link(target)
+        if not link and target.is_dir():
+            files = await asyncio.to_thread(files_under, target)
+            if not recursive and await asyncio.to_thread(_has_entries, target):
+                raise FileWriteConflictError(
+                    "directory_not_empty",
+                    f"{entity_id}/ is not empty; pass recursive=true to delete it with its contents.",
+                    entity_id=entity_id,
+                )
+        else:
+            files = [target]
+            if expected_state_version is not None and not link:
+                check_write_preconditions(
+                    runtime, entity_id=entity_id, target=target, expected_state_version=expected_state_version
+                )
+        # Seed each version while the entry still exists so the ``deleted`` event
+        # advances it rather than starting from the "absent" baseline.
+        file_ids = [(path, project_relative_entity_id(project_root, path)) for path in files]
+        for path, file_id in file_ids:
+            absorb_unobserved_disk_edit(runtime, file_id, path)
+        try:
+            await asyncio.to_thread(_delete_on_disk, target, link=link)
+        except Exception as exc:
+            raise ProjectFileWriteError(f"delete failed: {exc}") from exc
 
-    changes: list[FileChange] = []
-    for path, file_id in file_ids:
-        payload = await emit_file_changed(
-            runtime,
-            entity_id=file_id,
-            target=path,
-            project_id=project_id,
-            source=source,
-            source_id=source_id,
-            kind="deleted",
-            changed_by=changed_by,
-        )
-        changes.append(FileChange(entity_id=file_id, kind="deleted", version=int(payload["version"]), payload=payload))
-    refreshed = False
-    if any(project_dropin_dir(project_root, path) is not None for path in files):
-        refreshed = await refresh_registries_and_broadcast(runtime, reloaded=[target.name], path=target)
+        changes: list[FileChange] = []
+        for path, file_id in file_ids:
+            payload = await emit_file_changed(
+                runtime,
+                entity_id=file_id,
+                target=path,
+                project_id=project_id,
+                source=source,
+                source_id=source_id,
+                kind="deleted",
+                changed_by=changed_by,
+            )
+            changes.append(
+                FileChange(entity_id=file_id, kind="deleted", version=int(payload["version"]), payload=payload)
+            )
+        refreshed = False
+        if any(project_dropin_dir(project_root, path) is not None for path in files):
+            refreshed = await refresh_registries_and_broadcast(runtime, reloaded=[target.name], path=target)
     return changes, refreshed
 
 
@@ -689,64 +733,71 @@ async def move_project_path(
     """
     source_id_rel = project_relative_entity_id(project_root, source_path)
     dest_id_rel = project_relative_entity_id(project_root, destination)
-    if not os.path.lexists(source_path):
-        raise FileWriteConflictError("missing_file", f"{source_id_rel} does not exist.", entity_id=source_id_rel)
-    if os.path.lexists(destination):
-        raise FileWriteConflictError(
-            "already_exists",
-            f"{dest_id_rel} already exists; moves never overwrite. Delete it first or pick another name.",
-            entity_id=dest_id_rel,
-        )
-    if not destination.parent.is_dir():
-        raise FileWriteConflictError(
-            "missing_parent",
-            f"The parent directory of {dest_id_rel} does not exist.",
-            entity_id=dest_id_rel,
-        )
-    link = is_link(source_path)
-    if not link and source_path.is_dir():
-        pairs = [
-            (path, destination / path.relative_to(source_path))
-            for path in await asyncio.to_thread(files_under, source_path)
-        ]
-    else:
-        if expected_state_version is not None and not link:
-            check_write_preconditions(
-                runtime, entity_id=source_id_rel, target=source_path, expected_state_version=expected_state_version
+    async with project_mutation_lock(project_root):
+        if not os.path.lexists(source_path):
+            raise FileWriteConflictError("missing_file", f"{source_id_rel} does not exist.", entity_id=source_id_rel)
+        if os.path.lexists(destination):
+            raise FileWriteConflictError(
+                "already_exists",
+                f"{dest_id_rel} already exists; moves never overwrite. Delete it first or pick another name.",
+                entity_id=dest_id_rel,
             )
-        pairs = [(source_path, destination)]
-    for old, _new in pairs:
-        absorb_unobserved_disk_edit(runtime, project_relative_entity_id(project_root, old), old)
-    try:
-        await asyncio.to_thread(_move_on_disk, source_path, destination)
-    except Exception as exc:
-        raise ProjectFileWriteError(f"move failed: {exc}") from exc
-
-    changes: list[FileChange] = []
-    for old, new in pairs:
-        _mark_watcher_self_write(new)
-        for path, kind in ((old, "deleted"), (new, "created")):
-            file_id = project_relative_entity_id(project_root, path)
-            payload = await emit_file_changed(
-                runtime,
-                entity_id=file_id,
-                target=path,
-                project_id=project_id,
-                source=source,
-                source_id=source_id,
-                kind=kind,
-                changed_by=changed_by,
+        if not destination.parent.is_dir():
+            raise FileWriteConflictError(
+                "missing_parent",
+                f"The parent directory of {dest_id_rel} does not exist.",
+                entity_id=dest_id_rel,
             )
-            changes.append(FileChange(entity_id=file_id, kind=kind, version=int(payload["version"]), payload=payload))
+        link = is_link(source_path)
+        if not link and source_path.is_dir():
+            pairs = [
+                (path, destination / path.relative_to(source_path))
+                for path in await asyncio.to_thread(files_under, source_path)
+            ]
+        else:
+            if expected_state_version is not None and not link:
+                check_write_preconditions(
+                    runtime, entity_id=source_id_rel, target=source_path, expected_state_version=expected_state_version
+                )
+            pairs = [(source_path, destination)]
+        for old, _new in pairs:
+            absorb_unobserved_disk_edit(runtime, project_relative_entity_id(project_root, old), old)
+        try:
+            await asyncio.to_thread(_move_on_disk, source_path, destination)
+        except Exception as exc:
+            raise ProjectFileWriteError(f"move failed: {exc}") from exc
 
-    refreshed = False
-    touched = [path for old, new in pairs for path in (old, new) if project_dropin_dir(project_root, path) is not None]
-    if touched:
-        moved_in = [
-            new for _old, new in pairs if project_dropin_dir(project_root, new) is not None and not is_link(new)
+        changes: list[FileChange] = []
+        for old, new in pairs:
+            _mark_watcher_self_write(new)
+            for path, kind in ((old, "deleted"), (new, "created")):
+                file_id = project_relative_entity_id(project_root, path)
+                payload = await emit_file_changed(
+                    runtime,
+                    entity_id=file_id,
+                    target=path,
+                    project_id=project_id,
+                    source=source,
+                    source_id=source_id,
+                    kind=kind,
+                    changed_by=changed_by,
+                )
+                changes.append(
+                    FileChange(entity_id=file_id, kind=kind, version=int(payload["version"]), payload=payload)
+                )
+
+        refreshed = False
+        touched = [
+            path for old, new in pairs for path in (old, new) if project_dropin_dir(project_root, path) is not None
         ]
-        if await asyncio.to_thread(_all_lint_clean, moved_in):
-            refreshed = await refresh_registries_and_broadcast(runtime, reloaded=[destination.name], path=destination)
+        if touched:
+            moved_in = [
+                new for _old, new in pairs if project_dropin_dir(project_root, new) is not None and not is_link(new)
+            ]
+            if await asyncio.to_thread(_all_lint_clean, moved_in):
+                refreshed = await refresh_registries_and_broadcast(
+                    runtime, reloaded=[destination.name], path=destination
+                )
     return changes, refreshed
 
 
@@ -992,6 +1043,7 @@ __all__ = [
     "move_project_path",
     "observed_entity_version",
     "project_dropin_dir",
+    "project_mutation_lock",
     "project_relative_entity_id",
     "refresh_registries_and_broadcast",
     "remove_link",

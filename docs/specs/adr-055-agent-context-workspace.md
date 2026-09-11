@@ -352,7 +352,15 @@ then cancel the job and assert terminal state and process-tree cleanup.
 - A search rooted at a huge tree (`/`, a network share): the walk stops after
   a fixed number of directory entries visited — matching or not — or a time
   budget, reports which bound applied, never follows links, and stops when its
-  request ends.
+  request ends. The budget and the request's end are checked between the lines
+  of a file as well as between entries, so one slow file cannot outlive them.
+- A content regular expression is matched in a separate, stdlib-only Python
+  process: a backtracking match (`(a+)+$`, or `.*.*.*x`, which nests nothing)
+  can run for hours on one line and cannot be interrupted in-process, so no
+  bound on the pattern or the line holds. The search kills that process when
+  the time budget runs out or the request ends and reports the time budget
+  (or the request's end) as the bound that applied. If the process cannot
+  start, the search is refused (`regex_unavailable`).
 - The version a read reports is taken before its content, so a write based on
   it conflicts rather than overwriting content the reader never saw.
 - Writes to `blocks/`, `types/` follow the existing drop-in semantics (a
@@ -367,6 +375,9 @@ then cancel the job and assert terminal state and process-tree cleanup.
   reorganization belongs to `run_command`.
 - A refused write or move leaves nothing behind: preconditions are checked
   before any parent directory is created.
+- Two writes based on the same state version: exactly one succeeds; the other
+  is a `stale_version` conflict. The check, the disk change, and the version
+  advance run under one per-project lock.
 - Output exactly at the cap: the marker is unambiguous about whether
   truncation occurred (a one-byte probe for reads; total byte counts for
   command output).
@@ -378,9 +389,10 @@ then cancel the job and assert terminal state and process-tree cleanup.
   until it ends, `cancel_command` stops it, or the backend shuts down.
 - Windows: the command string runs in the command processor, Python children
   write UTF-8 to their pipes (`PYTHONIOENCODING`), and every command runs in a
-  Job Object. A process the shell starts in the instant before the command is
-  assigned to its Job Object is still reached by the tree walk while its parent
-  lives.
+  Job Object. The command processor is created suspended, placed in the Job
+  Object, then resumed, so no process escapes the job. If the Job Object cannot
+  be created or the command cannot be placed in it or resumed, the command is
+  refused (`job_object_unavailable`, flagged as an error) and nothing runs.
 - POSIX: a descendant that leaves the command's process group (`setsid`,
   daemonizing) is outside the job, as with any process group.
 - `get_agent_context` on an instance with no active project: explicit
@@ -422,7 +434,10 @@ then cancel the job and assert terminal state and process-tree cleanup.
   accurate truncation marker carrying total size. Searches MUST be bounded by
   the number of directory entries visited (matching or not), a time budget,
   and bytes per file, MUST NOT follow links, MUST stop when their request ends,
-  and MUST report which bound applied. Special files MUST NOT be opened.
+  and MUST report which bound applied. The time budget and the request's end
+  MUST be enforced while a file's content is scanned, including while a content
+  regular expression is being matched: a match still running when either fires
+  MUST be stopped. Special files MUST NOT be opened.
 - **FR-005**: Author tools (create/write/patch/rename-move/delete) MUST be
   confined to the active project and MUST reuse the editor's write path —
   atomic write, `FILE_CHANGED` event emission, and post-save block reload —
@@ -434,7 +449,9 @@ then cancel the job and assert terminal state and process-tree cleanup.
   real write MAY advance a state version: a read or a conflict check MUST NOT,
   because advancing records the new disk state as seen and the watcher would
   then drop the external edit's `file.changed` (ADR-045 §3.3). Preconditions
-  MUST be checked before any parent directory is created.
+  MUST be checked before any parent directory is created. The expected-version
+  check, the disk change, and the version advance MUST form one critical
+  section, so two writes based on the same state version cannot both succeed.
 - **FR-006**: Author tools MUST refuse any mutation whose path — or, for a
   directory operation, any file it touches — is `workflows/*.yaml|*.yml`
   (pointing to `write_workflow` / `update_block_config`) or under `data/`
@@ -463,9 +480,11 @@ then cancel the job and assert terminal state and process-tree cleanup.
   filesystem permissions; tools MUST NOT copy them into the project.
 - **FR-009**: `run_command` MUST spawn through asyncio subprocesses (never
   synchronous `subprocess.run` in the request path) in a new process group,
-  own every process the command starts — a Windows Job Object; on POSIX the
-  command's process group, which still names every descendant after the shell
-  is reaped — register the command in the backend ProcessRegistry that the
+  own every process the command starts — a Windows Job Object the command
+  joins before it runs anything (a command that cannot join one is refused and
+  never runs); on POSIX the command's process group, which still names every
+  descendant after the shell is reaped, stopped without reaping the shell that
+  asyncio owns — register the command in the backend ProcessRegistry that the
   lifespan's shutdown `terminate_all` runs on for as long as any of its
   processes lives, support whole-job cancellation (including descendants whose
   parent already exited), and fail with an explicit absent-context result when
@@ -532,7 +551,12 @@ the watcher will assign — so a conflict check still sees it while the watcher
 still delivers it. A real write first absorbs such a pending edit, then emits
 its own event. Disk work — the atomic write, tree walks and removal, and the
 ruff lint subprocess — runs in worker threads; registry rebuilds stay on the
-event loop, as in the editor route.
+event loop, as in the editor route. Each write, delete, and move holds a
+per-project `asyncio.Lock` (`project_mutation_lock`) from its precondition
+check through its version advance. Confinement — the editor route's
+`_resolve_project_file` and `confine_to_project` alike — resolves the path and
+requires it to start with the project root plus a separator before any
+filesystem call uses it, the guard CodeQL's `py/path-injection` query models.
 
 **Links.** Author tools and the service resolve only the parent directories of
 a delete or move target, so the path they confine, check, and change is the
@@ -552,7 +576,12 @@ retrieval tool.
 the window, filled in chunks, plus a one-byte probe, and take the state version
 before the content; searches walk with their own scanner bounded by entries
 visited and a time budget and honor a stop flag the tool sets when its request
-ends; filesystem work runs in threads so the event loop stays free.
+ends, checking both between entries and between the lines of a file; a regular
+expression is matched in one stdlib-only child interpreter per search
+(`python -I -S -c`), fed one file's lines per request, which the search thread
+kills when the deadline passes or the stop flag is set (a kill-on-close Job
+Object on Windows and `SIGALRM` on POSIX end it if the backend dies first);
+filesystem work runs in threads so the event loop stays free.
 
 **Failure flag.** A FastMCP call-tool middleware registered with the shared
 registry sets the MCP error flag on the results of tools that registered a
@@ -578,10 +607,13 @@ subclass of its result model adding `poll_hint`.
 `asyncio.create_subprocess_exec` with a new session; Windows runs the command
 processor through `asyncio.create_subprocess_shell` with a new process group
 and no console window (CreateProcess quoting would corrupt a command string
-passed to `create_subprocess_exec("cmd.exe", "/c", ...)`) and assigns it to a
-Job Object with kill-on-close at once (`PlatformOps.create_job_object` /
-`assign_to_job`, plus the new `terminate_job_object`,
-`job_active_process_count`, and `close_job_object`). The command registers a
+passed to `create_subprocess_exec("cmd.exe", "/c", ...)`), created suspended,
+assigned to a Job Object with kill-on-close, then resumed
+(`PlatformOps.create_job_object` / `assign_to_job`, plus the new
+`resume_process`, `terminate_job_object`, `job_active_process_count`, and
+`close_job_object`); a failed step kills the suspended process and refuses the
+call. The POSIX process group is stopped by polling its members without
+waiting on them, so the shell stays asyncio's to reap. The command registers a
 `ProcessHandle` subclass in the ProcessRegistry the context exposes as
 `MCPContext.process_registry` (the lifespan's `app.state.registry`): its
 `terminate` stops the whole job (Job Object, or the POSIX process group with
@@ -681,10 +713,9 @@ alive. Cancellation runs in a thread. The environment is `desktop/paths.py`'s
 - Risk: the OS-user read scope exposes files outside the project to the host.
   Mitigation: owner decision 2 accepts it (reads are what the user's own shell
   could do); the bridge session substrate authenticates every call.
-- Risk: a process escapes its job (POSIX `setsid`; a Windows process started in
-  the instant before Job Object assignment whose parent then exits). Mitigation:
-  documented edge cases; the tree walk covers the Windows window while the
-  parent lives; workflow-worker orphan cleanup is tracked in #2281.
+- Risk: a process escapes its job (POSIX `setsid`). Mitigation: documented
+  edge case; on Windows the suspended start leaves no window before Job Object
+  assignment; workflow-worker orphan cleanup is tracked in #2281.
 - Rollback: new modules are additive; the extracted helper is
   behavior-preserving; the platform and registry additions are opt-in hooks
   whose defaults keep existing behavior; revert restores current behavior with
