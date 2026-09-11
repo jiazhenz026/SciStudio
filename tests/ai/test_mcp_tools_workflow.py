@@ -236,6 +236,44 @@ def test_get_block_schema_unknown_raises(ctx: _StubRuntime) -> None:
         _run(tools_workflow.get_block_schema("DoesNotExist_X"))
 
 
+def test_get_block_schema_reports_declared_port_types(ctx: _StubRuntime) -> None:
+    """#2315: port types come from ``accepted_types``, never an empty string.
+
+    ``_port_to_dict`` used to read a ``.type`` attribute that ports do not
+    have, so every type serialized as ``""``. Each port must carry the same
+    type string the ``list_blocks`` signature renders for it.
+    """
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _render_port_type
+
+    specs = ctx.block_registry.all_specs()
+    assert specs, "ctx fixture scanned the registry but no blocks were registered"
+    for name, spec in specs.items():
+        schema = _run(tools_workflow.get_block_schema(name))
+        declared = [*(spec.input_ports or []), *(spec.output_ports or [])]
+        served = [*schema.ports["input"], *schema.ports["output"]]
+        assert [port["type"] for port in served] == [_render_port_type(port) for port in declared]
+        assert all(port["type"] for port in served), f"{name}: empty port type in {served}"
+    load_data = _run(tools_workflow.get_block_schema("load_data"))
+    assert load_data.ports["output"][0]["type"] == "DataObject"
+
+
+def test_port_to_dict_renders_accepted_types() -> None:
+    """#2315: single, multiple, and unconstrained accepted types all render."""
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _port_to_dict
+    from scistudio.blocks.base.ports import InputPort
+    from scistudio.core.types import Array, DataFrame
+
+    assert _port_to_dict(InputPort(name="data", accepted_types=[DataFrame], required=True)) == {
+        "name": "data",
+        "type": "DataFrame",
+        "required": True,
+    }
+    assert _port_to_dict(InputPort(name="either", accepted_types=[Array, DataFrame], required=False))["type"] == (
+        "Array|DataFrame"
+    )
+    assert _port_to_dict(InputPort(name="anything", accepted_types=[], required=True))["type"] == "Any"
+
+
 # --- list_types ------------------------------------------------------------
 
 
