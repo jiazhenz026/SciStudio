@@ -161,6 +161,8 @@ class PreviewSessionManager:
         self._registry = registry
         self._router = PreviewRouter(registry)
         self._sessions: OrderedDict[str, PreviewSession] = OrderedDict()
+        self._session_guards: dict[str, Callable[[], None]] = {}
+        self._session_authorities: dict[str, Any] = {}
         self._lock = threading.RLock()
         self._max_sessions = max(1, int(max_sessions))
         self._data_access_factory = data_access_factory or self._default_data_access
@@ -186,12 +188,21 @@ class PreviewSessionManager:
 
     # -- session lifecycle --------------------------------------------------
 
-    def create_session(self, target: PreviewTarget, query: dict[str, Any] | None = None) -> PreviewEnvelope:
+    def create_session(
+        self,
+        target: PreviewTarget,
+        query: dict[str, Any] | None = None,
+        *,
+        guard: Callable[[], None] | None = None,
+        authority: Any = None,
+    ) -> PreviewEnvelope:
         """Route *target*, create a session, and return the first envelope.
 
         A routing failure returns an error envelope (no session is created).
         """
         query = dict(query or {})
+        if guard is not None:
+            guard()
         try:
             spec = self._select_spec(target, query)
         except PreviewError as exc:
@@ -209,6 +220,9 @@ class PreviewSessionManager:
         )
         with self._lock:
             self._sessions[session.session_id] = session
+            if guard is not None:
+                self._session_guards[session_id] = guard
+                self._session_authorities[session_id] = authority
             self._trim_locked()
 
         envelope = self._render(spec, session.target, session.query, session.limits, session.session_id)
@@ -247,12 +261,9 @@ class PreviewSessionManager:
     def patch_session(self, session_id: str, query_patch: dict[str, Any]) -> PreviewEnvelope:
         """Merge *query_patch* into the session query state and re-render."""
         with self._lock:
-            session = self._sessions.get(session_id)
-            if session is None:
-                raise UnknownPreviewerError(
-                    f"Unknown preview session: {session_id}",
-                    detail={"session_id": session_id},
-                )
+            session = self._get_session(session_id)
+            if session_id in self._session_guards and any(key.startswith("_") for key in query_patch):
+                raise ValueError("Private preview query fields are backend-owned")
             session.query.update(query_patch)
             session.cache_key = self._cache_key(
                 self._registry.get(session.previewer_id) or _missing_spec(session.previewer_id),
@@ -532,6 +543,12 @@ class PreviewSessionManager:
         with self._lock:
             return deepcopy(self._get_session(session_id))
 
+    def session_authority(self, session_id: str) -> Any:
+        """Return validated internal authority for an independently opened child."""
+        with self._lock:
+            self._get_session(session_id)
+            return self._session_authorities.get(session_id)
+
     def _get_session(self, session_id: str) -> PreviewSession:
         with self._lock:
             session = self._sessions.get(session_id)
@@ -540,6 +557,15 @@ class PreviewSessionManager:
                     f"Unknown preview session: {session_id}",
                     detail={"session_id": session_id},
                 )
+            guard = self._session_guards.get(session_id)
+            if guard is not None:
+                try:
+                    guard()
+                except Exception as exc:
+                    self._sessions.pop(session_id, None)
+                    self._session_guards.pop(session_id, None)
+                    self._session_authorities.pop(session_id, None)
+                    raise UnknownPreviewerError("Preview source is no longer available") from exc
             self._sessions.move_to_end(session_id)
             return session
 
@@ -554,7 +580,9 @@ class PreviewSessionManager:
 
     def _trim_locked(self) -> None:
         while len(self._sessions) > self._max_sessions:
-            self._sessions.popitem(last=False)
+            session_id, _ = self._sessions.popitem(last=False)
+            self._session_guards.pop(session_id, None)
+            self._session_authorities.pop(session_id, None)
 
     @staticmethod
     def _cache_key(

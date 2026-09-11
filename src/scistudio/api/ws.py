@@ -316,6 +316,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                             outbound_queue.put_nowait(
                                 {
                                     "type": "panel_error",
+                                    "workflow_id": data.get("workflow_id"),
                                     "block_id": data.get("block_id"),
                                     "context_id": data.get("context_id"),
                                     "error": {"code": exc.code, "message": exc.message},
@@ -326,16 +327,38 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                     # scheduler can run-scope the response (the decision is
                     # nested under ``response`` and the scoping id is stripped
                     # before it reaches ``interactive_response`` / lineage).
-                    await event_bus.emit(
-                        EngineEvent(
-                            event_type=INTERACTIVE_COMPLETE,
-                            block_id=data.get("block_id"),
-                            data={
-                                "workflow_id": data.get("workflow_id"),
-                                "response": data.get("data", {}),
-                            },
+                    scope = {
+                        "context_id": data.get("context_id"),
+                        "workflow_id": data.get("workflow_id"),
+                        "block_id": data.get("block_id"),
+                    }
+                    try:
+                        await event_bus.emit(
+                            EngineEvent(
+                                event_type=INTERACTIVE_COMPLETE,
+                                block_id=data.get("block_id"),
+                                data={
+                                    "workflow_id": data.get("workflow_id"),
+                                    "response": data.get("data", {}),
+                                },
+                            )
                         )
-                    )
+                    except Exception:
+                        if runtime is None or not scope["context_id"]:
+                            raise
+                        outbound_queue.put_nowait(
+                            {
+                                "type": "panel_error",
+                                **scope,
+                                "error": {
+                                    "code": "completion_failed",
+                                    "message": "Decision dispatch failed; reopen the panel",
+                                },
+                            }
+                        )
+                    else:
+                        if runtime is not None and scope["context_id"]:
+                            outbound_queue.put_nowait({"type": "panel_accepted", **scope})
                 elif msg_type == "ping":
                     outbound_queue.put_nowait({"type": "pong"})
                 elif msg_type == "block_user_marked_done":

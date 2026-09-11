@@ -242,6 +242,88 @@ def test_entry_modified_after_discovery_has_bounded_source_read(panel_client, mo
     assert read_sizes == [MAX_SOURCE_BYTES + 1]  # Concurrent growth is still capped.
 
 
+def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tampering(panel_client):
+    from dataclasses import replace
+
+    from scistudio.panels.registry import PanelRegistry
+    from scistudio.panels.targets import register_collection
+
+    client, prefix, runtime, store, _ = panel_client
+    service = runtime.get_preview_service()
+    panels = PanelRegistry()
+    panels.register(replace(service.registry.panels.get("lab.text"), types=("Collection[Text]",)))
+    service.registry.install_panels(panels)
+    group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
+    parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
+    url = prefix + "/api/panels/contexts/" + parent.context_id + "/open"
+    assert client.post(url, json={"ref": "unrelated"}).status_code == 403
+    assert client.post(url, json={"ref": "data-a", "_storage": {"path": "/etc/passwd"}}).status_code == 422
+    opened = client.post(url, json={"ref": "data-a"})
+    assert opened.status_code == 200, opened.text
+    envelope = opened.json()
+    assert envelope["previewer_id"] == "core.text.basic"
+    assert "hello panel" in opened.text
+    assert "_storage" not in opened.text and str(runtime.active_project.path) not in opened.text
+    session_url = prefix + "/api/previews/sessions/" + envelope["session_id"]
+    client.delete(prefix + "/api/panels/contexts/" + parent.context_id)
+    assert client.get(session_url).status_code == 200
+    tampered = client.patch(session_url, json={"query": {"_storage": {"path": "/etc/passwd"}}})
+    assert tampered.status_code == 422
+    assert "hello panel" in client.get(session_url).text
+    runtime.data_catalog["data-a"].metadata["changed"] = True
+    assert client.get(session_url).status_code == 404
+    assert envelope["session_id"] not in service.sessions._session_guards
+
+
+def test_composite_child_panel_maximizes_independently_after_parent_close(panel_client, tmp_path):
+    from dataclasses import replace
+
+    import pyarrow as pa
+
+    from scistudio.api.runtime.models import DataRecord
+    from scistudio.core.storage.composite_store import CompositeStore
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels.registry import PanelRegistry
+
+    client, prefix, runtime, store, _ = panel_client
+    storage = CompositeStore().write(
+        {"index": ("arrow", pa.table({"a": [1, 2]}))},
+        StorageReference(backend="composite", path=str(tmp_path / "composite")),
+    )
+    runtime.data_catalog["comp"] = DataRecord(
+        "comp", storage, "Composite", {"slots": {"index": "DataFrame"}}, ["DataObject", "Composite"]
+    )
+    panels = PanelRegistry()
+    panels.register(
+        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Composite", "DataFrame"))
+    )
+    runtime.get_preview_service().registry.install_panels(panels)
+    parent = store.create({"kind": "preview", "target": {"ref": "comp"}})
+    opened = client.post(prefix + "/api/panels/contexts/" + parent.context_id + "/open", json={"ref": "comp#index"})
+    assert opened.status_code == 200, opened.text
+    envelope = opened.json()
+    assert envelope["kind"] == "panel"
+    client.delete(prefix + "/api/panels/contexts/" + parent.context_id)
+    independent = client.post(
+        prefix + "/api/panels/contexts",
+        json={"kind": "preview", "target": {"ref": "comp#index"}, "preview_session_id": envelope["session_id"]},
+    )
+    assert independent.status_code == 200, independent.text
+    child_id = independent.json()["context_id"]
+    read = client.post(
+        prefix + "/api/panels/contexts/" + child_id + "/read", json={"ref": "comp#index", "op": "table.page"}
+    )
+    assert read.status_code == 200 and read.json()["total_rows"] == 2
+    # The independent mount still tracks its catalog ancestor, not just slot bytes.
+    runtime.data_catalog["comp"].metadata["changed"] = True
+    assert (
+        client.post(
+            prefix + "/api/panels/contexts/" + child_id + "/read", json={"ref": "comp#index", "op": "metadata"}
+        ).status_code
+        == 409
+    )
+
+
 def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
     import json
     from dataclasses import replace
@@ -308,3 +390,22 @@ def test_reads_execute_off_event_loop(panel_client, monkeypatch):
         prefix + "/api/panels/contexts/" + context["context_id"] + "/read", json={"ref": "data-a", "op": "metadata"}
     )
     assert response.status_code == 200 and called
+
+
+def test_lifespan_unsubscribes_original_bus_after_runtime_replacement(tmp_path):
+    import asyncio
+    from types import SimpleNamespace
+
+    from scistudio.api.routes.panels import panels_lifespan
+    from scistudio.panels.contexts import PANEL_EVENTS
+
+    runtime, store = make_runtime(tmp_path)
+    original_bus = runtime.event_bus
+    app = SimpleNamespace(state=SimpleNamespace(runtime=runtime))
+    async def replace_bus():
+        async with panels_lifespan(app):
+            assert all(store.on_event in original_bus._subscribers[event] for event in PANEL_EVENTS)
+            runtime.event_bus = SimpleNamespace()  # A runtime recorder need not implement unsubscribe.
+
+    asyncio.run(replace_bus())
+    assert all(store.on_event not in original_bus._subscribers[event] for event in PANEL_EVENTS)

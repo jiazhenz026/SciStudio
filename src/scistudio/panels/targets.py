@@ -62,8 +62,11 @@ class FrozenTarget:
     stamp: tuple[Any, ...] | None = None
     catalog_ref: str | None = None
     children: dict[str, FrozenTarget] = field(default_factory=dict)
+    parent: FrozenTarget | None = None
 
     def validate(self, runtime: Any) -> None:
+        if self.parent is not None:
+            self.parent.validate(runtime)
         if self.catalog_ref:
             try:
                 record = runtime.get_data_record(self.catalog_ref)
@@ -141,6 +144,7 @@ def child_targets(
             child = parent.children.get(ref)
             if child is None:
                 child = freeze_target(runtime, ref)
+                child.parent = parent
                 parent.children[ref] = child
             items.append({"ref": ref, "type_name": child.target.recorded_type, "kind": child.target.kind.value})
         return {**page, "items": items, "truncated": page["sampled"], "complete": not page["sampled"]}
@@ -170,6 +174,7 @@ def child_targets(
                 storage=storage,
                 metadata=md,
                 stamp=file_stamp(storage.path),
+                parent=parent,
             )
         result.append({"name": name, "type_name": type_name, "ref": ref})
     return {"slots": result, "sampled": False, "truncated": False, "complete": True}

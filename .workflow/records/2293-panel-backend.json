@@ -762,6 +762,46 @@
       "path": "tests/panels/test_panel_descriptor.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:59:33.364265Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:59:33.364430Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_contexts.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:03:14.465054Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_interactive_ws.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:05:24.006092Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_registry.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:05:24.006219Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

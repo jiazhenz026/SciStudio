@@ -94,6 +94,11 @@ class PreviewerRegistry:
         if not spec.previewer_id:
             self._diagnostics.append("previewer spec rejected: empty previewer_id")
             return False
+        if spec.previewer_id.startswith("core.") and spec.owner_kind is not OwnerKind.CORE:
+            self._diagnostics.append(
+                f"previewer {spec.previewer_id!r} rejected: core. ids are reserved for core previewers"
+            )
+            return False
         from scistudio.panels.registry import TIER_ORDER
 
         previous = self._by_id.get(spec.previewer_id)

@@ -9,11 +9,12 @@ import time
 from collections import OrderedDict
 from copy import deepcopy
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from scistudio.panels.descriptor import PanelDescriptor
 from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target, project_identity
 from scistudio.previewers.data_access import PreviewDataAccess
+from scistudio.previewers.models import PreviewEnvelope
 
 TOKEN_TTL = 600
 MAX_CONTEXTS = 128
@@ -60,6 +61,7 @@ class PanelContexts:
 
     def __init__(self, runtime: Any, *, clock: Any = time.time) -> None:
         self.runtime = runtime
+        self.event_bus = runtime.event_bus
         self.clock = clock
         self.contexts: OrderedDict[str, PanelContext] = OrderedDict()
         self.prompts: dict[tuple[str, str], dict[str, Any]] = {}
@@ -134,18 +136,12 @@ class PanelContexts:
             if kind == "preview":
                 target = payload.get("target") or {}
                 ref = target.get("ref", "")
-                parent = self.get(parent_id) if parent_id else None
-                if parent is not None:
-                    root = self.authorize(parent, ref)
-                    if root is parent.root:
-                        raise PanelError(403, "unauthorized_ref", "open requires a child of the preview target")
-                else:
-                    root = freeze_target(self.runtime, ref)
                 session_id = payload.get("preview_session_id")
-                query = {}
+                authority = None
                 if session_id:
                     try:
                         session = service.sessions.frozen_session(session_id)
+                        authority = service.sessions.session_authority(session_id)
                     except Exception as exc:
                         raise PanelError(409, "stale_context", "The frozen preview session no longer exists") from exc
                     if session.target.ref != ref:
@@ -153,6 +149,17 @@ class PanelContexts:
                     if panel_id and session.previewer_id != panel_id:
                         raise PanelError(409, "stale_context", "Panel does not match the frozen preview session")
                     panel_id = session.previewer_id
+                parent = self.get(parent_id) if parent_id else None
+                if parent is not None:
+                    root = self.authorize(parent, ref)
+                    if root is parent.root:
+                        raise PanelError(403, "unauthorized_ref", "open requires a child of the preview target")
+                elif isinstance(authority, FrozenTarget):
+                    root = authority
+                    root.validate(self.runtime)
+                else:
+                    root = freeze_target(self.runtime, ref)
+                query = {}
                 if panel_id:
                     query["panel_id"] = panel_id
                 spec = service.sessions._select_spec(root.target, query)
@@ -261,6 +268,7 @@ class PanelContexts:
             for raw in root.collection["items"]:
                 if (raw.get("data_ref") or raw.get("collection_ref")) == ref and ref not in root.children:
                     root.children[ref] = freeze_target(self.runtime, ref)
+                    root.children[ref].parent = root
                     break
         elif ref.startswith(root.target.ref + "#"):
             child_targets(self.runtime, root, read_access())
@@ -272,6 +280,38 @@ class PanelContexts:
                 return child
             stack.extend(child.children.values())
         raise PanelError(403, "unauthorized_ref", "The context does not authorize this reference")
+
+    def open_child(self, context_id: str, ref: str) -> PreviewEnvelope:
+        """Route an authorized child through either existing preview renderer."""
+        with self.lock:
+            context = self.get(context_id)
+            root = self.authorize(context, ref)
+            if root is context.root:
+                raise PanelError(403, "unauthorized_ref", "open requires a child of the preview target")
+            service, project = context.preview_service, context.project
+            query: dict[str, Any] = {"_record_metadata": deepcopy(root.metadata)}
+            if root.storage is not None:
+                query["_storage"] = {
+                    "backend": root.storage.backend,
+                    "path": root.storage.path,
+                    "format": root.storage.format,
+                    "metadata": deepcopy(root.storage.metadata),
+                }
+            if root.collection is not None:
+                query.update(
+                    _collection_items=deepcopy(root.collection["items"]),
+                    _collection_count=root.collection["count"],
+                    _collection_item_type=root.collection.get("item_type"),
+                )
+
+            def validate() -> None:
+                if project_identity(self.runtime) != project or self.runtime.get_preview_service() is not service:
+                    raise PanelError(409, "stale_context", "The child preview's project or registry changed")
+                root.validate(self.runtime)
+
+            return cast(
+                PreviewEnvelope, service.sessions.create_session(root.target, query, guard=validate, authority=root)
+            )
 
     def grant_artifact(self, context: PanelContext, target: FrozenTarget) -> tuple[str, str]:
         with self.lock:
@@ -329,7 +369,7 @@ def get_panel_contexts(runtime: Any) -> PanelContexts:
         store = PanelContexts(runtime)
         runtime._panel_contexts = store
         for event in PANEL_EVENTS:
-            runtime.event_bus.subscribe(event, store.on_event)
+            store.event_bus.subscribe(event, store.on_event)
     return store
 
 

@@ -14,6 +14,7 @@ from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from scistudio.api.schemas import PreviewEnvelopeModel
 from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.reads import read_context
@@ -44,6 +45,11 @@ class ContextRead(BaseModel):
     ref: str
     op: str
     params: dict[str, Any] = Field(default_factory=dict)
+
+
+class ContextOpen(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ref: str
 
 
 class PanelIdentity(BaseModel):
@@ -164,6 +170,15 @@ def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
 def close_context(context_id: str, request: Request) -> Response:
     get_panel_contexts(request.app.state.runtime).close(context_id)
     return Response(status_code=204)
+
+
+@router.post("/contexts/{context_id}/open", response_model=PreviewEnvelopeModel, responses=_ERRORS)
+def open_child(context_id: str, payload: ContextOpen, request: Request) -> PreviewEnvelopeModel:
+    try:
+        envelope = get_panel_contexts(request.app.state.runtime).open_child(context_id, payload.ref)
+        return PreviewEnvelopeModel(**envelope.to_dict())
+    except PanelError as exc:
+        raise _failure(exc) from exc
 
 
 @router.post("/contexts/{context_id}/renew", response_model=ContextResponse, responses=_ERRORS)
@@ -329,9 +344,10 @@ def install_panels(app: FastAPI) -> None:
 async def panels_lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Listen before workflows run; close runtime contexts at shutdown."""
     store = get_panel_contexts(app.state.runtime)
+    event_bus = store.event_bus
     try:
         yield
     finally:
         store.close_all()
         for event in PANEL_EVENTS:
-            app.state.runtime.event_bus.unsubscribe(event, store.on_event)
+            event_bus.unsubscribe(event, store.on_event)

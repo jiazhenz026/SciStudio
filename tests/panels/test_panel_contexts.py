@@ -104,3 +104,51 @@ def test_cancel_event_revokes_interactive_context(panel_runtime):
     )
     with pytest.raises(PanelError):
         store.by_token(ctx.token)
+
+
+@pytest.mark.parametrize("change", ["project", "service", "data"])
+@pytest.mark.parametrize("operation", ["read", "patch", "resource"])
+def test_independent_child_session_validates_every_followup(panel_runtime, change, operation):
+    from dataclasses import replace
+
+    from scistudio.panels.registry import PanelRegistry
+    from scistudio.panels.targets import register_collection
+    from scistudio.previewers.models import UnknownPreviewerError
+
+    runtime, store = panel_runtime
+    service = runtime.get_preview_service()
+    panels = PanelRegistry()
+    panels.register(replace(service.registry.panels.get("lab.text"), types=("Collection[Text]",)))
+    service.registry.install_panels(panels)
+    group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
+    parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
+    envelope = store.open_child(parent.context_id, "data-a")
+    store.close(parent.context_id)
+    if change == "project":
+        runtime.active_project = SimpleNamespace(id="other", path="other")
+    elif change == "service":
+        runtime.get_preview_service = lambda: object()
+    else:
+        runtime.data_catalog["data-a"].metadata["changed"] = True
+    with pytest.raises(UnknownPreviewerError):
+        if operation == "read":
+            service.sessions.read_session(envelope.session_id)
+        elif operation == "patch":
+            service.sessions.patch_session(envelope.session_id, {"page": 2})
+        else:
+            service.sessions.read_resource(envelope.session_id, "tile")
+    assert envelope.session_id not in service.sessions._session_guards
+    assert envelope.session_id not in service.sessions._session_authorities
+
+
+def test_child_session_eviction_cleans_authority(panel_runtime):
+    from scistudio.panels.targets import freeze_target
+
+    runtime, _ = panel_runtime
+    sessions = runtime.get_preview_service().sessions
+    sessions._max_sessions = 1
+    root = freeze_target(runtime, "data-a")
+    first = sessions.create_session(root.target, guard=lambda: None, authority=root)
+    sessions.create_session(root.target)
+    assert first.session_id not in sessions._session_guards
+    assert first.session_id not in sessions._session_authorities

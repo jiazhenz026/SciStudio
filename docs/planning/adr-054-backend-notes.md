@@ -84,9 +84,10 @@ interactive imports or starts `panel.py`.
 
 ## Phased Migration And Documentation Landing
 
-The core id reservation follows descriptor FR-002 pending owner reconciliation of
-its wording with the same-id customization story. A custom panel can use a new id
-and its same type to win the existing routing ladder.
+The owner confirmed strict core id reservation under descriptor FR-002. Both
+panel descriptors and the shared legacy registry reject non-core `core.*` ids.
+A custom panel can use a new id and its same type to win the existing routing
+ladder or user choice.
 
 TODO(#2294): Remove the explicit compiled-window exceptions for
 `core.interactive.data_router` and `core.interactive.pair_editor` when Phase B
@@ -144,3 +145,30 @@ serving checks the opened file size against the shared 16 MiB source-validation
 limit before reading and still caps the subsequent read at limit + 1 byte to
 handle concurrent growth. Oversized sources return 413/read_budget. The targeted
 route/descriptor suite passes 38 cases; Ruff and mypy (10 sources) pass.
+
+Independent audit follow-up: guarded `POST /api/panels/contexts/{id}/open` accepts
+only `{ref}` and returns the existing `PreviewEnvelopeModel`. The parent authorizes
+the child; the backend supplies frozen type/storage/collection query values to
+the real preview session pipeline, supporting both legacy/core and HTML panels.
+The child session retains its own frozen authority after parent close; maximize
+reads that session, then creates a fresh panel context with its session id.
+Composite slot authority retains its catalog ancestor. Session get, patch and
+resource reads validate project, registry and source, and session eviction
+removes validation/authority state. Private query patch fields are rejected.
+No internal storage query is included in the returned envelope.
+
+New-panel WS decisions now receive connection-local acknowledgement after the
+existing interactive_complete event is emitted: `{type:"panel_accepted",
+context_id,workflow_id,block_id}`. Rejections carry the same identity and
+`{type:"panel_error",error:{code,message}}`. Hosts must wait for matching accepted
+before remembering the decision or closing/deleting the context. Dispatch failure
+after claim returns completion_failed and requires remount; duplicates never
+emit a second completion. No runtime event or lineage payload changed.
+
+Lifecycle cleanup retains the originally subscribed EventBus even if a recorder
+replaces runtime.event_bus. The shared legacy registry now rejects non-core
+core.* registrations before tier precedence. Targeted audit-follow-up suites
+cover real legacy child content, composite independent mounts, private-query
+tampering, project/service/data invalidation for every session operation,
+eviction, delayed WS acknowledgements, duplicate/error scoping, original-bus
+cleanup and direct/entry-point core reservation. Ruff and mypy (12 sources) pass.

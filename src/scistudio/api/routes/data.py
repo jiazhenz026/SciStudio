@@ -753,6 +753,8 @@ async def patch_preview_session(
         envelope = service.sessions.patch_session(session_id, payload.query)
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PreviewEnvelopeModel(**envelope.to_dict())
 
 
