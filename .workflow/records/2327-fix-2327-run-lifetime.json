@@ -133,6 +133,122 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:49:44.562787Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7cf7c5aeb4bdbb2b9650de9ba408ffc11174aff72f1ad6ea0f170a2c3b2d8ff6",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:49:44.589585Z",
+      "command": "ruff format src/scistudio/api/app.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/ws.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ccbc95f4d688039e67763195069ee2070d0c9e416d478a408be165a101f43e10",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T12:49:56.734700Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4b9e40286184a096a1bdf9f089c4d7bf2bc232d299352bec7f0b1de563de37fb",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:49:56.989322Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:17e3fb88fcd259837b35e2bbe9c35284df32382ba934401f8705e7c109d603e4",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:49:57.010708Z",
+      "command": "ruff check src/scistudio/api/app.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/ws.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:652335a8a3517766a451102a8c1dee1a0aaa91539ea163b433fc01e8bc546b51",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T12:53:45.579662Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_ws.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:20e0c5c287df336c60dd5c87b9305e560f7429c2b8df6cc78c5c9f282741b5c0",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T12:53:58.584830Z",
+      "command": "mypy src/scistudio/api/app.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/ws.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:990fa65d1abb432c7cf75586728f18e84a58a22fd9e152da0c50d536e2c0c348",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -639,6 +755,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.671586Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.687427Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.704179Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.719814Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.734684Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.749348Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.764156Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.778762Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.793403Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.808066Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T12:53:58.833755Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -651,35 +855,50 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "e9dcd01aa2ef8dbdddfdadc0d5839a53a664a13d",
+    "base": "origin/main",
     "base_sha": "e9dcd01aa",
     "changed_files": [
+      ".workflow/records/2327-audit-2327-o3-no-context.json",
+      ".workflow/records/2327-audit-2327-o3-with-context.json",
       ".workflow/records/2327-fix-2327-run-lifetime.json",
       "CHANGELOG.md",
+      "desktop/main.js",
+      "desktop/test/bootstrap.test.js",
+      "desktop/test/harness/electron-stub.js",
+      "desktop/test/harness/fake-backend.js",
+      "desktop/test/harness/run-scenario.js",
+      "desktop/test/main-orchestration.test.js",
+      "docs/audit/2026-09-11-adr-055-spec4-o3-no-context.md",
+      "docs/audit/2026-09-11-adr-055-spec4-o3-with-context.md",
+      "docs/specs/adr-055-local-background-runtime.md",
       "src/scistudio/api/app.py",
       "src/scistudio/api/runtime/__init__.py",
       "src/scistudio/api/runtime/_projects.py",
       "src/scistudio/api/runtime/_run_lifetime.py",
       "src/scistudio/api/runtime/_runs.py",
+      "src/scistudio/api/runtime/_stop_request.py",
       "src/scistudio/api/ws.py",
       "tests/api/test_runtime_import_surface.py",
+      "tests/api/test_runtime_lineage_finalize_status.py",
+      "tests/api/test_runtime_mcp_pointer.py",
       "tests/api/test_runtime_run_lifetime.py",
+      "tests/api/test_runtime_stop_request.py",
       "tests/api/test_ws.py"
     ],
-    "diff_fingerprint": "sha256:8b5bb3c3a8953fbb7520acd342ffd6ec9b67a512afc66036d52ba5bb36ca5366",
+    "diff_fingerprint": "sha256:62bb7837211819ddd8f1325d80f91bdcaad8fae8eab8d98eef9968181080368b",
     "head": "HEAD",
-    "head_sha": "d603c5d3e",
+    "head_sha": "0ac9045cb",
     "surfaces": {
-      "docs": 0,
+      "docs": 3,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 7,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 9,
-      "test": 3,
+      "sentrux": 14,
+      "test": 8,
       "workflow_ci": 0
     }
   },
@@ -731,6 +950,14 @@
     {
       "at": "2026-09-11T11:50:09.213552Z",
       "diff_fingerprint": "sha256:8b5bb3c3a8953fbb7520acd342ffd6ec9b67a512afc66036d52ba5bb36ca5366",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T12:53:58.833789Z",
+      "diff_fingerprint": "sha256:62bb7837211819ddd8f1325d80f91bdcaad8fae8eab8d98eef9968181080368b",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
