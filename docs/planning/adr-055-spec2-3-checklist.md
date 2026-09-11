@@ -144,7 +144,9 @@ language_source: en
 | Agent | Persona | Audit mode | Prompt | Task | Branch | Worktree | Write set | Out of scope | Issue/PR | Status |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `A1` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A1) | Spec 2 agent context, workspace, execution tools | `feat/2279-agent-context-workspace` | `.worktrees/feat-2279-agent-context-workspace` | prompt A1 "Scope" | `frontend/**`, `desktop/**`, `docs/ai-developer/**`, transfer, #2281 | `#2279` | `[~]` |
-| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A2) | Spec 3 local startup modes and background runtime | `feat/2280-local-background-runtime` | `.worktrees/feat-2280-local-background-runtime` | prompt A2 "Scope" | `frontend/**`, `src/scistudio/**` (except conditional Windows backstop), `docs/ai-developer/**`, #2281 | `#2280` | `[~]` |
+| `A2` | `implementer` | `N/A` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (A2) | Spec 3 local startup modes and background runtime | `feat/2280-local-background-runtime` | `.worktrees/feat-2280-local-background-runtime` | prompt A2 "Scope" | `frontend/**`, `src/scistudio/**` (except conditional Windows backstop), `docs/ai-developer/**`, #2281 | `#2280` / PR #2284 | `[x]` |
+| `AU1` | `audit_reviewer` | `with-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU1) | Audit PR #2284 (Spec 3) | `audit/2280-spec3-with-context` | `.worktrees/audit-2280-spec3-wc` | `docs/audit/2026-09-10-adr-055-spec3-with-context.md` | implementation code, checklist | `#2280` / PR #2284 | `[~]` |
+| `AU2` | `audit_reviewer` | `no-context` | `docs/planning/adr-055-spec2-3-dispatch-prompts.md` (AU2) | Independent audit of the Spec 3 surfaces | `audit/2280-spec3-no-context` | `.worktrees/audit-2280-spec3-nc` | `docs/audit/2026-09-10-adr-055-spec3-no-context.md` | implementation code, checklist, issue/PR/commit context | N/A (no-context) | `[~]` |
 
 ## 7. Track: Spec 2 — Agent Context, Workspace, Execution
 
@@ -224,19 +226,20 @@ language_source: en
 
 ### 8.3 Implementation
 
-- [ ] Mode picker (every launch, "don't ask again", changeable later) -> `<artifact>`
-- [ ] Headless mode, tray, connection window, stop/restart -> `<artifact>`
-- [ ] Mode-aware `second-instance` and `window-all-closed` -> `<artifact>`
-- [ ] OTA inclusion and mode-honoring relaunch -> `<artifact>`
-- [ ] Windows backend-lifetime verification (backstop only if needed) -> `<artifact>`
-- [ ] Shell file lists (`build.files`, `SHELL_FILES`) in parity -> `<artifact>`
-- [ ] Spec 3 spec text updated -> `<artifact>`
-- [ ] Tests -> `<artifact>`
+- [x] Mode picker (every launch, "don't ask again", changeable later) -> PR #2284 `desktop/splash.html`, `desktop/menu.js` (File › Startup Mode)
+- [x] Headless mode, tray, connection window, stop/restart -> PR #2284 `desktop/main.js`, `desktop/connection.html`, `desktop/connection-preload.js`, `desktop/assets/tray*`
+- [x] Mode-aware `second-instance` and `window-all-closed` -> PR #2284 `desktop/background-mode.js` (pure logic)
+- [x] OTA inclusion and mode-honoring relaunch -> PR #2284 shared stop-then-relaunch helper, `--scistudio-launch-mode`
+- [x] Windows backend-lifetime verification (backstop only if needed) -> A2 Node-level repro: Node 24.14.0 x3 and Electron 42.2.0-as-node x2, `taskkill /F` on the parent kills the non-detached backend child every run; no backstop; grandchild survives every run (#2281)
+- [x] Shell file lists (`build.files`, `SHELL_FILES`) in parity -> PR #2284 `tests/scripts/test_ota_publish.py` parity + shipped-require/asset check (43/43)
+- [x] Spec 3 spec text updated -> PR #2284 `docs/specs/adr-055-local-background-runtime.md` (FR-009 withdrawn, FR-012 tray, FR-013 known-good vouching)
+- [x] Tests -> desktop `npm test` 193/193; CI 16/16 green at `5c0ddefac`
+- [x] Manager review: known-good vouching in external-AI mode requires connection-window bridge ready AND service running (`maybeVouchForShellInBackground`, `main.js:1792`); readiness alone never records — rule of `shell-known-good.test.js` holds semantically, not only textually
 
 ### 8.4 Audit
 
-- [ ] Audit agent assigned, or manager audit completed.
-- [ ] Audit report file path assigned.
+- [x] Audit agent assigned, or manager audit completed. -> AU1 (with-context), AU2 (no-context)
+- [x] Audit report file path assigned. -> `docs/audit/2026-09-10-adr-055-spec3-with-context.md`, `docs/audit/2026-09-10-adr-055-spec3-no-context.md`
 - [ ] Audit report committed.
 - [ ] Audit report merged into final PR evidence path.
 - [ ] Findings recorded.
@@ -272,6 +275,7 @@ Append only.
 | 2026-09-10 | manager | Owner decisions amend both specs (Spec 2: transfer moved to Spec 4, OS-user read scope, hook blacklist + parity via results, backend-lifetime list_blocks tracking; Spec 3: mode picker every launch, tray, backend stops with Electron) | Recorded in #2279/#2280; each PR updates its own spec text | N/A |
 | 2026-09-10 | A1 | Needs `src/scistudio/api/app.py` (outside write set): the production `MCPContext` is `_RuntimeAdapter` inside the lifespan, and `app.state.registry` (the registry `terminate_all` runs on at shutdown) is created there, distinct from `ApiRuntime.process_registry` (LocalRunner's). Verified by manager at `e817f9b82` (`app.py:63/121/207`, `api/runtime/__init__.py:365`) | Manager approved: add `process_registry` and `project_files` members to `_RuntimeAdapter` only, gate-amended first, matching optional `MCPContext` members, no other app.py edits; `run_command` registers in `app.state.registry` | #2281 corrected (comment): workers live in `ApiRuntime.process_registry`, which `terminate_all` does not cover |
 | 2026-09-10 | A1 | Needs `tests/ai/test_mcp_fastmcp.py` (outside write set): `test_fastmcp_lists_36_tools` pins the exact `mcp.list_tools()` name set, which includes external-tagged tools, so every new Spec 2 tool breaks it; the socket-transport count in `tests/integration/test_phase2_mcp_end_to_end.py` stays 36 (external tools filtered) | Manager approved: update the expected set only, gate-amended first | N/A |
+| 2026-09-10 | A2 | Resolved spec-silent points in PR #2284 and wrote them into the spec: second launch passes only an explicit mode flag or remembered choice; desktop→external-AI switches in place on the same backend; last window closed in external-AI mode quits only once the service is stopped/crashed/failed; relaunch stops and waits up to 8 s then restarts in the running mode without the picker; external-AI known-good vouching; picker runs before the mandatory-update check; address is the bound `127.0.0.1:<port>`; stop with a desktop window attached asks for confirmation; CHANGELOG recorded N/A (outside write set). Five-scenario fake-Electron harness left uncommitted | Recorded for owner review; audits AU1/AU2 assess the choices and whether the harness scenarios need committed tests | Owner decision on CHANGELOG entry pending |
 
 ## 11. Final Readiness
 

@@ -277,3 +277,145 @@ Deferred work must be tracked in the repo: `TODO(#NNN): <reason>` citing an issu
 
 Stop and report back if: you need an out-of-scope file; a live GUI launch is needed; the task conflicts with AGENTS.md/ADR/spec/issue decisions/gate record; local checks fail for unclear reasons; you cannot add required tests.
 ```
+
+---
+
+## AU1 — Audit PR #2284 (Spec 3), with-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-with-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: with-context
+- Task kind: maintenance (your own gate ledger)
+- Issue: #2280 (https://github.com/jiazhenz026/SciStudio/issues/2280)
+- Owner request: Verify the ADR-055 Spec 3 implementation PR before merge.
+- Umbrella PR: #2283 `[DO NOT MERGE]`
+- Protected branch: main
+- Umbrella branch: track/adr-055-spec2-3
+- Audit branch: audit/2280-spec3-with-context (base: origin/feat/2280-local-background-runtime) — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2280-spec3-wc — ALREADY CREATED at 5c0ddefac
+- Gate record: init your own (task_kind=maintenance, persona=audit_reviewer, runtime `claude-code:claude-opus-5`, branch audit/2280-spec3-with-context, --base-ref feat/2280-local-background-runtime, --issue 2280, --include docs/audit/2026-09-10-adr-055-spec3-with-context.md)
+- Checklist: docs/planning/adr-055-spec2-3-checklist.md on origin/track/adr-055-spec2-3 (read it with `git show origin/track/adr-055-spec2-3:docs/planning/adr-055-spec2-3-checklist.md`; do NOT edit it)
+- PR to audit: #2284 (feat/2280-local-background-runtime @ 5c0ddefac)
+- Audit report path: docs/audit/2026-09-10-adr-055-spec3-with-context.md
+
+## Required Reading
+
+- Issue #2280 (its "Owner decisions" override the spec), spec `docs/specs/adr-055-local-background-runtime.md` (as rewritten by the PR), ADR-055 §7 and §11 (Local launch row), PR #2284 description + diff + CI (`gh pr view 2284`, `gh pr diff 2284`, `gh pr checks 2284`), the checklist (sections 8 and 10).
+- docs/ai-developer/release-runbook.md (shell OTA rules).
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/specific_rules/agent-dispatch.md, docs/ai-developer/personas/audit-reviewer.md
+
+## Audit Goal
+
+Verify the claimed work against the issue decisions, spec, code, tests, gate evidence, and CI. Report findings first. Severity: P1 blocks merge or breaks contract; P2 should fix before completion; P3 improvement/follow-up.
+
+Claims to verify (from the implementer's report):
+- Owner decisions 1-5 of #2280 are all implemented: picker on every launch with "don't ask again" and a way to change it later; tray only in external-AI mode with the five menu items; backend stops with Electron (POSIX watchdog untouched, no opt-out flag, no adoption, runtime-port.js untouched); one backend per machine via second-instance; OTA relaunch includes the background instance and honors the mode.
+- Windows lifetime claim: a non-detached child dies when its Node/Electron parent is `taskkill /F`-ed. Reproduce it yourself with your own small Node script (no Electron GUI).
+- Shell OTA safety: every file main.js requires and every asset an HTML file references is in both `build.files` and `SHELL_FILES`; the parity test really enforces this.
+- External-AI known-good vouching (`maybeVouchForShellInBackground`): cannot fire on readiness alone; cannot fire before the connection window's preload bridge is ready; a shell fault still blocks it.
+- The implementer's spec-silent choices (checklist drift log row for A2): assess each for correctness and consistency with ADR-055 §7 and the owner decisions.
+- Decision logic placement: is the mode/lifetime/routing logic in `background-mode.js` (unit-tested) rather than untested branches in `main.js` (+760 lines)? The implementer drove five launch scenarios through an UNCOMMITTED fake-Electron harness — determine which of those behaviors have no committed test coverage.
+- Connection window security: sandbox, contextIsolation, the preload/IPC surface, what the renderer can make the main process do.
+- CHANGELOG: the implementer recorded N/A; state whether repository practice for user-visible features calls for an entry (evidence from `git log -- CHANGELOG.md`).
+
+Audit surfaces: the PR #2284 diff, ledger .workflow/records/2280-feat-2280-local-background-runtime.json.
+
+Do not write feature code. Do NOT launch the SciStudio Electron app (the owner may be using one; it also holds a single-instance lock). Never kill a process you did not start. MUST write the audit report to the path above, commit it on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Issue: #2280, Assisted-by: claude-code:claude-opus-5, plus `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`), and push (`git push -u origin audit/2280-spec3-with-context`). Do NOT open a PR. The manager integrates the report into the PR evidence path.
+
+## Checks
+
+Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python for Python; from your worktree; `cd desktop && npm ci` before desktop tests):
+- desktop `npm test`; `pytest tests/scripts/test_ota_publish.py`
+- `gate_record check --mode local --base origin/feat/2280-local-background-runtime --head HEAD` after committing your report
+- Sentrux: unavailable in this runtime — record N/A.
+- Frontend/browser smoke: N/A (no frontend change); live Electron launch: reserved for the manager/owner.
+
+## Output Required
+
+Report path; commit sha containing the report; findings by severity; checklist/scope drift if any; missing tests/docs/gate evidence if any; CI status; recommendation: pass / pass-with-fixes / block.
+
+## Stop Conditions
+
+Stop and report if: you need to change implementation code; required evidence is unavailable; the audit scope conflicts with AGENTS.md/ADR/spec/gate record.
+```
+
+---
+
+## AU2 — Independent audit of the Spec 3 surfaces, no-context
+
+```markdown
+[DISPATCH-TEMPLATE-V1: audit-no-context]
+
+## Task Identity
+
+- Repository: SciStudio (C:/Users/jiazh/workspace/SciStudio)
+- Persona: audit_reviewer
+- Audit mode: no-context
+- Audit branch: audit/2280-spec3-no-context — ALREADY CREATED
+- Audit worktree: C:/Users/jiazh/workspace/SciStudio/.worktrees/audit-2280-spec3-nc — ALREADY CREATED
+- Allowed audit surfaces:
+  - desktop/** (main.js, background-mode.js, menu.js, splash.html, connection.html, connection-preload.js, preload.js, bootstrap.js, ota.js, runtime-port.js, package.json, assets/, test/**)
+  - scripts/ota_publish.py, tests/scripts/test_ota_publish.py
+  - src/scistudio/desktop/parent_watchdog.py, src/scistudio/cli/main.py (the `gui` command)
+  - docs/specs/adr-055-local-background-runtime.md, docs/adr/ADR-055.md, docs/ai-developer/release-runbook.md
+- Audit report path: docs/audit/2026-09-10-adr-055-spec3-no-context.md
+
+## Context Limits
+
+You must not read or use:
+
+- Any GitHub issue or PR (no `gh issue`, no `gh pr`).
+- Anything under docs/planning/** (manager checklists, dispatch prompts).
+- Commit messages: do not run `git log`, `git show <commit>` with messages, or `git blame`. Read changes with `git diff origin/main...HEAD` and by reading files.
+- Gate ledgers under .workflow/records/ other than the one you create.
+- Chat summaries or manager summaries of what changed.
+
+You may read only repository docs, code, tests, committed generated facts or audit outputs, and output from commands you run yourself.
+
+## Required Reading
+
+- AGENTS.md, docs/ai-developer/rules.md, docs/ai-developer/personas/audit-reviewer.md
+- Governing ADRs, specs, and docs discovered from the allowed surfaces.
+
+## Audit Goal
+
+Independently check whether docs, code, tests, and declared contracts agree. Do not assume what anyone intended to change.
+
+Look for:
+
+- Spec/ADR statements about launch modes, the tray, the connection window, stop/restart, second launch, window-close behavior per platform, OTA relaunch, and backend lifetime that the code does not implement, or code behavior the spec does not describe.
+- Tests whose assertions are weaker than the behavior they claim to cover: source-text/regex assertions standing in for behavior, fakes that never reach a failure path, scenarios that are described but never exercised.
+- Lifecycle defects: a second backend process, a backend that outlives the app, an app that stays invisibly resident, stop that leaves the UI lying about state, crash handling, relaunch races.
+- Shell hot-update packaging: every module required by the shell and every asset referenced by its HTML is shipped by both the installer file list and the OTA shell file list.
+- Connection window / preload security: sandbox, contextIsolation, the exposed IPC surface.
+- For any suspected failure, reproduce it on origin/main (e.g. in a detached checkout under your scratch space) to decide whether it is new or pre-existing.
+
+## Coordination
+
+- Work only on your audit branch and worktree. MUST NOT use `pip install -e .`. MUST NOT merge any PR. MUST NOT edit implementation files or any checklist.
+- Do NOT launch the SciStudio Electron app (someone may be using one on this machine; it holds a single-instance lock). Never kill a process you did not start. Node-level repro scripts are fine.
+- MUST write the audit report to the path above, commit it on your audit branch (trailers: Gate-Record, Task-Kind: maintenance, Assisted-by: claude-code:claude-opus-5, plus `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`), and push (`git push -u origin audit/2280-spec3-no-context`). Do NOT open a PR.
+
+## Checks
+
+Run or verify (PYTHONPATH=src /c/Users/jiazh/workspace/SciStudio/.venv/Scripts/python for Python; `cd desktop && npm ci` before desktop tests):
+- desktop `npm test`; `pytest tests/scripts/test_ota_publish.py`
+- `gate_record init --task-kind maintenance --persona audit_reviewer --runtime claude-code:claude-opus-5 --branch audit/2280-spec3-no-context --base-ref feat/2280-local-background-runtime --include docs/audit/2026-09-10-adr-055-spec3-no-context.md --owner-directive "independent no-context audit of the desktop launch-mode surfaces"`, then after committing the report: `gate_record check --mode local --base origin/feat/2280-local-background-runtime --head HEAD` (record any issue-linkage gap as a known gap; do not look up issues)
+- Sentrux: unavailable in this runtime — record N/A.
+
+## Output Required
+
+- Audit report path and the commit sha containing it.
+- Findings ordered by severity (P1 blocks merge or breaks contract; P2 should fix; P3 follow-up), each with evidence from docs, code, tests, or tool output.
+- No statement about anyone's intent unless it is visible in repository docs.
+- Recommendation: pass, pass-with-fixes, or block.
+
+## Stop Conditions
+
+Stop and report back if: you are asked to read issue/checklist/PR context; the audit requires hidden context; you need to edit implementation code.
+```
