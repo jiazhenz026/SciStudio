@@ -133,6 +133,84 @@
       "at": "2026-09-11T15:37:18.515745Z",
       "pattern": ".pre-commit-config.yaml",
       "reason": "Owner chose a repository-wide 30 MB added-file threshold instead of the proposed two-file exception."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448097Z",
+      "pattern": "tests/engine/test_interactive_*.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448250Z",
+      "pattern": "tests/fixtures/interactive_blocks.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448253Z",
+      "pattern": "tests/fixtures/interactive_adversarial_blocks.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448255Z",
+      "pattern": "tests/fixtures/panels/**",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448257Z",
+      "pattern": "tests/api/test_previewers.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448258Z",
+      "pattern": "tests/api/test_interactive_panels.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:39:47.448259Z",
+      "pattern": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "reason": "New panel-id registration validation requires real declared panel fixtures in existing interactive engine tests; legacy compatibility tests must explicitly assert required deprecation warnings without changing tutorial source or weakening validation."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895388Z",
+      "pattern": "docs/planning/adr-049-package-validator/contracts/*.json",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895524Z",
+      "pattern": "docs/planning/adr-054-owner-doc-proposal.md",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895526Z",
+      "pattern": "docs/user/reference/**",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895527Z",
+      "pattern": "docs/user/llms.txt",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895528Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:45:09.895529Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "reason": "Land reviewed Phase A contract tables and canonical generated author-reference mirrors; protected ADR patches remain proposal-only until owner review."
     }
   ],
   "session_id": "b7020383-3e6d-40b9-a422-dd3acb4c8aa1",
