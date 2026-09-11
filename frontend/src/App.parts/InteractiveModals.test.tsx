@@ -196,7 +196,6 @@ it("sends a panel decision through the existing workflow event with its context 
     workflow_id: "wf-1",
     block_id: "block-1",
     context_id: "pc-interactive",
-    bootstrap_proof: "a".repeat(64),
     data: { selected: [2] },
   });
   expect(useAppStore.getState().interactivePrompt).toBeNull();

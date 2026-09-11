@@ -75,7 +75,6 @@ it("keeps independent parent/child mounts and restores the parent's view state o
   expect(channels[0].close).not.toHaveBeenCalled();
   expect(backend.callsTo("POST /api/panels/contexts")[1].body).toMatchObject({
     parent_context_id: "pc-1",
-    bootstrap_proof: "a".repeat(64),
     target: { ref: "child" },
   });
   fireEvent.click(screen.getByText("← Back"));

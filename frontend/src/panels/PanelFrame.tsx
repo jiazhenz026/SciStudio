@@ -50,19 +50,24 @@ export function PanelFrame(props: PanelFrameProps) {
     const receiveBootstrap = (event: MessageEvent<unknown>) => {
       const message = event.data;
       if (
+        event.source !== frame.current?.contentWindow ||
+        !isRecord(message) ||
+        message.type !== "bootstrap"
+      )
+        return;
+      if (
         disposed ||
         bootstrapPort.current ||
         !active ||
-        event.source !== frame.current?.contentWindow ||
-        !isRecord(message) ||
         message.v !== 1 ||
-        message.type !== "bootstrap" ||
         typeof active.bootstrap_proof !== "string" ||
         active.bootstrap_proof.length < 32 ||
         message.proof !== active.bootstrap_proof ||
         event.ports.length !== 1
-      )
+      ) {
+        event.ports.forEach((port) => port.close());
         return;
+      }
       bootstrapPort.current = event.ports[0];
       if (loaded.current) initialize.current();
     };

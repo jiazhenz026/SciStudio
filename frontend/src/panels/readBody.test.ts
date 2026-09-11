@@ -14,7 +14,7 @@ describe("panel body consumption", () => {
   });
   it("unmount cancellation interrupts a pending reader.read after headers", async () => {
     const controller = new AbortController();
-    const cancel = vi.fn();
+    const cancel = vi.fn(() => new Promise<void>(() => {}));
     const response = new Response(new ReadableStream({ cancel }));
     const body = readPanelBody(response, { signal: controller.signal, limit: 1024 });
     const rejected = expect(body).rejects.toMatchObject({ name: "AbortError" });

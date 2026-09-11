@@ -7,7 +7,7 @@ export async function readPanelBody(
 ): Promise<ArrayBuffer> {
   signal?.throwIfAborted();
   if (Number(response.headers.get("Content-Length")) > limit) {
-    await response.body?.cancel();
+    void response.body?.cancel().catch(() => {});
     throw new PanelError("size_limit", `Panel response exceeds the ${limit} byte limit`);
   }
   if (!response.body) throw new PanelError("invalid_response", "Panel response has no body");
@@ -37,7 +37,7 @@ export async function readPanelBody(
       chunks.push(value);
     }
   } catch (error) {
-    await reader.cancel().catch(() => {});
+    void reader.cancel().catch(() => {});
     throw error;
   } finally {
     clearTimeout(timer);
