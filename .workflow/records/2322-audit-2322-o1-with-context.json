@@ -1,0 +1,66 @@
+{
+  "base_ref": "origin/feat/2322-enterprise-ui",
+  "branch": "audit/2322-with-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md",
+      ".workflow/records/2322-audit-2322-o1-with-context.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T12:16:31.919058Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2322,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Manager dispatch AU1 (2026-09-11): with-context audit of PR #2336 (#2322, #2328) against ADR-055 Spec 4 contract #2321; write the audit report only, no product code.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2322-audit-2322-o1-with-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "cab94576-acf4-451d-b09d-97fbb207a1c8",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-11T12:16:31.919108Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only",
+      "verified_in_diff": null
+    }
+  ]
+}
