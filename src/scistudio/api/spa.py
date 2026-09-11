@@ -10,7 +10,14 @@ only that document — is templated with a bootstrap assignment
 (``window.__SCISTUDIO_BASE_PATH__``) so the already-built SPA learns the
 prefix at runtime. Hashed asset files are served byte-identical, so caching
 and OTA packaging are unaffected, and no per-deployment rebuild is needed.
-With the default empty prefix the handler is a strict no-op (FR-002).
+With the default empty prefix the base-path assignment is not emitted
+(Spec 0 FR-002).
+
+ADR-055 Spec 1 (FR-006) extends the same bootstrap with the per-launch
+WebMCP bridge session token (``window.__SCISTUDIO_WEBMCP_TOKEN__``). Unlike
+the base path, the token applies to every mount including the default root
+mount — desktop and ordinary local-browser pages acquire it transparently
+and present it as a header on every bridge call.
 """
 
 from __future__ import annotations
@@ -39,16 +46,19 @@ class SPAStaticFiles(StaticFiles):
     remain 404s instead of becoming ``index.html``.
     """
 
-    def __init__(self, *, base_path: str = "", **kwargs: object) -> None:
+    def __init__(self, *, base_path: str = "", webmcp_session_token: str = "", **kwargs: object) -> None:
         super().__init__(**kwargs)  # type: ignore[arg-type]
         # Normalized mount prefix ("" or "/prefix") from app.state.root_path.
         self._base_path = base_path
+        # Per-launch WebMCP bridge session token (ADR-055 Spec 1 FR-006);
+        # "" disables the token bootstrap assignment.
+        self._webmcp_session_token = webmcp_session_token
 
     async def get_response(self, path: str, scope: Scope) -> Response:
         """Serve SPA routes, but never rewrite unknown API/WebSocket paths."""
         if _is_api_or_ws_path(path):
             raise HTTPException(status_code=404)
-        if self._base_path and scope.get("method", "GET") == "GET":
+        if (self._base_path or self._webmcp_session_token) and scope.get("method", "GET") == "GET":
             full_path, stat_result = self.lookup_path(path)
             if stat_result is not None:
                 if os.path.isdir(full_path):
@@ -58,11 +68,13 @@ class SPAStaticFiles(StaticFiles):
                     if scope.get("path", "").endswith("/"):
                         index_candidate = os.path.join(full_path, "index.html")
                         if os.path.isfile(index_candidate):
-                            return _templated_index_response(index_candidate, self._base_path)
+                            return _templated_index_response(
+                                index_candidate, self._base_path, self._webmcp_session_token
+                            )
                 elif os.path.basename(full_path) == "index.html":
                     # Direct index.html request or SPA fallback (lookup_path
                     # already resolved a missing path to index.html).
-                    return _templated_index_response(full_path, self._base_path)
+                    return _templated_index_response(full_path, self._base_path, self._webmcp_session_token)
         return await super().get_response(path, scope)
 
     def lookup_path(self, path: str) -> tuple[str, os.stat_result | None]:
@@ -75,32 +87,45 @@ class SPAStaticFiles(StaticFiles):
         return full_path, stat_result
 
 
-def _templated_index_response(index_path: str, base_path: str) -> Response:
-    """Serve ``index.html`` with the mount prefix injected as a bootstrap global.
+def _templated_index_response(index_path: str, base_path: str, webmcp_session_token: str = "") -> Response:
+    """Serve ``index.html`` with the runtime bootstrap injected.
 
-    Two injections, placed immediately after ``<head>`` (falling back to
+    Three injections, placed immediately after ``<head>`` (falling back to
     ``<html>``, then the top of the document) so they take effect before any
     module script or asset reference:
 
-    * ``<base href="<prefix>/">`` — the Vite build uses ``base: "./"``, so
-      asset references are document-relative; on a deep SPA route
-      (``/p/projects/foo``) they would otherwise resolve to
-      ``/p/projects/assets/...`` and hit the SPA fallback instead of the
-      static file. The base element pins resolution to the prefix root.
-      Root-absolute URLs (``/api/...``) and full WebSocket URLs are
-      unaffected by ``<base>``, so the API/WS contract is unchanged.
-    * ``window.__SCISTUDIO_BASE_PATH__`` — the runtime prefix the frontend
-      base-path module reads (FR-003).
+    * ``<base href="<prefix>/">`` (only when a prefix is configured) — the
+      Vite build uses ``base: "./"``, so asset references are
+      document-relative; on a deep SPA route (``/p/projects/foo``) they would
+      otherwise resolve to ``/p/projects/assets/...`` and hit the SPA
+      fallback instead of the static file. The base element pins resolution
+      to the prefix root. Root-absolute URLs (``/api/...``) and full
+      WebSocket URLs are unaffected by ``<base>``, so the API/WS contract is
+      unchanged. The empty prefix emits no ``<base>`` (Spec 0 FR-002).
+    * ``window.__SCISTUDIO_BASE_PATH__`` (only when a prefix is configured) —
+      the runtime prefix the frontend base-path module reads (Spec 0 FR-003).
+    * ``window.__SCISTUDIO_WEBMCP_TOKEN__`` (when a bridge session token is
+      configured) — the per-launch WebMCP bridge session token, injected on
+      every mount including the default root mount (Spec 1 FR-006).
 
-    ``json.dumps`` keeps the JS value a safely quoted string literal;
+    ``json.dumps`` keeps each JS value a safely quoted string literal;
     ``html.escape`` does the same for the attribute context.
     ``Cache-Control: no-cache`` because the body no longer matches the file
     on disk — a cached unprefixed shell must never be reused under a
-    prefixed deployment.
+    prefixed deployment, and a cached page must never carry a stale session
+    token.
     """
     html = Path(index_path).read_text(encoding="utf-8")
-    base_href = escape(f"{base_path}/", quote=True)
-    injection = f'<base href="{base_href}"><script>window.__SCISTUDIO_BASE_PATH__ = {json.dumps(base_path)};</script>'
+    injection = ""
+    if base_path:
+        base_href = escape(f"{base_path}/", quote=True)
+        injection += f'<base href="{base_href}">'
+    assignments = ""
+    if base_path:
+        assignments += f"window.__SCISTUDIO_BASE_PATH__ = {json.dumps(base_path)};"
+    if webmcp_session_token:
+        assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(webmcp_session_token)};"
+    injection += f"<script>{assignments}</script>"
     for pattern in (_HEAD_OPEN, _HTML_OPEN):
         match = pattern.search(html)
         if match is not None:

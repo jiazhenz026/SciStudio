@@ -34,6 +34,7 @@ governs:
     - scistudio.ai.agent.mcp.server
     - scistudio.api.app
     - scistudio.api.spa
+    - scistudio.api.routes.webmcp
   contracts:
     - scistudio.ai.agent.mcp.server.mcp
   entry_points: []
@@ -43,17 +44,16 @@ governs:
     - src/scistudio/ai/agent/mcp/__init__.py
     - src/scistudio/api/app.py
     - src/scistudio/api/spa.py
+    - src/scistudio/api/routes/webmcp.py
     - frontend/src/main.tsx
     - frontend/src/lib/api/core.ts
+    - frontend/src/webmcp/**
   excludes: []
 planned_governs:
-  modules:
-    - scistudio.api.routes.webmcp
+  modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/api/routes/webmcp.py
-    - frontend/src/webmcp/**
+  files: []
   excludes: []
 tests:
   - tests/api/test_webmcp.py
@@ -240,7 +240,10 @@ injected value calls successfully; CORS policy stays unchanged and restrictive.
 
 A tool tagged for external audiences appears in the webmcp catalogue and is
 absent from the local socket transport's `tools/list`; untagged tools keep
-appearing in both.
+appearing in both. The local transport also refuses to execute an
+external-tagged tool: a socket `tools/call` naming it is rejected, so hiding
+it from the catalogue is not the only barrier (owner decision 2026-09-11,
+raised by the ADR-055 Spec 2 no-context audit finding P3-2).
 
 **Why this priority**: It resolves the owner decision that local agents (with
 native file/shell capability) must not pay for external-only tools, while
@@ -249,6 +252,9 @@ keeping one registry as ADR-055 section 4 requires.
 **Independent Test**: Register a fixture tool with the external audience tag;
 assert presence in `GET /api/webmcp/tools` and absence from the socket
 transport's `tools/list` response; assert an untagged fixture appears in both.
+Call the external-tagged fixture by name over the socket transport and assert
+the rejection; call it through `mcp.call_tool` (the bridge path) and assert it
+dispatches.
 
 **Acceptance Scenarios**:
 
@@ -256,6 +262,12 @@ transport's `tools/list` response; assert an untagged fixture appears in both.
    listed, **Then** webmcp includes it and the local transport excludes it.
 2. **Given** an untagged existing tool, **When** both catalogues are listed,
    **Then** both include it.
+3. **Given** an external-tagged fixture tool, **When** a local socket client
+   sends `tools/call` for it by name, **Then** the transport returns the same
+   JSON-RPC METHOD_NOT_FOUND (-32601) error shape it returns for an unknown
+   tool, with a message saying the tool is available only through the WebMCP
+   bridge, and the tool does not run; the same tool still dispatches through
+   the bridge path, and untagged tools still execute over the socket.
 
 ### Edge Cases
 
@@ -295,8 +307,13 @@ transport's `tools/list` response; assert an untagged fixture appears in both.
   error flag propagation, and thrown-exception mapping to `isError` content.
 - **FR-004**: Tool visibility MUST be tag-driven: the audience tag (for
   example `audience:external`) is defined once in the MCP package; the webmcp
-  catalogue includes such tools and the local socket transport's `tools/list`
-  excludes them. No router-internal tool synthesis or if-chain dispatch.
+  catalogue includes such tools, and the local socket transport neither lists
+  nor executes them: its `tools/list` excludes them, and its `tools/call`
+  rejects them by name with the unknown-tool METHOD_NOT_FOUND (-32601) error
+  shape and a message pointing to the WebMCP bridge. The bridge dispatch path
+  (`mcp.call_tool`) is unaffected. The execution half is an owner decision of
+  2026-09-11 (ADR-055 Spec 2 no-context audit finding P3-2). No
+  router-internal tool synthesis or if-chain dispatch.
 - **FR-005**: Bridge calls MUST carry the caller's believed-active project
   identifier (acquired from the catalogue snapshot); the router MUST reject
   mutation-tagged calls whose identifier is stale with a defined error, and

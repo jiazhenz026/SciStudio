@@ -12,6 +12,34 @@
 import { logger } from "../logger";
 import { apiUrl } from "./base-path";
 
+declare global {
+  interface Window {
+    /**
+     * Per-launch WebMCP bridge session token, injected into the served
+     * `index.html` bootstrap by the backend (`src/scistudio/api/spa.py`,
+     * ADR-055 Spec 1 FR-006). Absent when the page was not served by the
+     * backend (e.g. the vite dev server) — bridge calls then fail closed.
+     */
+    __SCISTUDIO_WEBMCP_TOKEN__?: string;
+  }
+}
+
+/** Header carrying the loopback session token on every WebMCP bridge call (FR-006). */
+export const WEBMCP_SESSION_HEADER = "X-SciStudio-WebMCP-Token";
+
+/**
+ * Auth headers for WebMCP bridge fetches: the per-launch session token the
+ * backend injected into the served page bootstrap. Returns an empty object
+ * when no token was injected, so callers can spread it unconditionally.
+ */
+export function webmcpSessionHeaders(): Record<string, string> {
+  const token =
+    typeof window !== "undefined" && typeof window.__SCISTUDIO_WEBMCP_TOKEN__ === "string"
+      ? window.__SCISTUDIO_WEBMCP_TOKEN__
+      : "";
+  return token ? { [WEBMCP_SESSION_HEADER]: token } : {};
+}
+
 export const JSON_HEADERS = {
   "Content-Type": "application/json",
 };
