@@ -1,0 +1,165 @@
+{
+  "base_ref": "origin/main",
+  "branch": "codex/2293-panel-backend",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/panels/sdk/**",
+      "src/scistudio/panels/lib/**",
+      "src/scistudio/panels/security.py",
+      "src/scistudio/previewers/data_access.py",
+      "tests/previewers/test_preview_data_access.py"
+    ],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/previewers/**",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/data.py",
+      "src/scistudio/api/routes/blocks.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/blocks/registry/**",
+      "scripts/audit/check_package_contract_tables.py",
+      "pyproject.toml",
+      "tests/panels/**",
+      "tests/api/test_panel*.py",
+      "tests/previewers/**",
+      "tests/blocks/**",
+      "docs/planning/adr-054-backend-notes.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T15:13:15.988303Z",
+      "owner_directive": "Implement T-001/002/003/005/006/008/009 under existing ADR-054 specs with enterprise contract matrix; protected dropins changes declared for tier-root helper only, admin label remains owner obligation. Manager owns combined changelog, generated docs, final gate and CI.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T15:13:15.988431Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-backend-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:15.988440Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Existing adr-054-panels and adr-054-miniapp govern approved A1 implementation; owner controls ADR text.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2293,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-054 Phase A A1 backend with ADR-055 guard and prefix compatibility; preserve A sidebar entry; manager integrates commits and owns PR/CI.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2293-panel-backend",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:16:29.525232Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Manager authorized narrow WS hook for backend-validated panel writeback through unchanged interactive_complete event"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:16:29.525372Z",
+      "pattern": "tests/api/test_panel_interactive_ws.py",
+      "reason": "Manager authorized narrow WS hook for backend-validated panel writeback through unchanged interactive_complete event"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:19:24.368077Z",
+      "pattern": "src/scistudio/api/runtime/_data.py",
+      "reason": "Manager approved backend-owned collection output snapshots and reuse existing TypeRegistry in preview construction"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:19:24.368219Z",
+      "pattern": "tests/api/test_panel_collection_authority.py",
+      "reason": "Manager approved backend-owned collection output snapshots and reuse existing TypeRegistry in preview construction"
+    }
+  ],
+  "session_id": "910783fb-fc3d-4dc0-a526-b5be13341270",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T15:13:15.988444Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:15.988447Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:15.988448Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_context_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:13:15.988450Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_guard_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:16:29.525379Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_interactive_ws.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:19:24.368224Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_collection_authority.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

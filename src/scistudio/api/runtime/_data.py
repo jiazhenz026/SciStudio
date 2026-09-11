@@ -229,12 +229,17 @@ def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
         if isinstance(raw_items, list) and len(raw_items) == 1:
             return self.register_output_payload(raw_items[0])
         items = [self.register_output_payload(item) for item in raw_items]
-        return {
-            "kind": "collection",
-            "count": len(items),
-            "item_type": payload.get("item_type"),
-            "items": items,
-        }
+        from scistudio.panels.targets import register_collection
+
+        return register_collection(
+            self,
+            {
+                "kind": "collection",
+                "count": len(items),
+                "item_type": payload.get("item_type"),
+                "items": items,
+            },
+        )
     if isinstance(payload, dict):
         return {key: self.register_output_payload(value) for key, value in payload.items()}
     if isinstance(payload, list):
@@ -294,6 +299,7 @@ def get_preview_service(self: ApiRuntime) -> PreviewService:
         service = build_preview_service(
             project_dir=project_dir,
             child_context_resolver=self.resolve_child_preview_context,
+            registered_types=self.type_registry.all_types().keys(),
         )
         self._preview_service = service  # type: ignore[attr-defined]
     return service
@@ -306,6 +312,7 @@ def refresh_preview_service(self: ApiRuntime) -> PreviewService:
     service = build_preview_service(
         project_dir=project_dir,
         child_context_resolver=self.resolve_child_preview_context,
+        registered_types=self.type_registry.all_types().keys(),
     )
     self._preview_service = service  # type: ignore[attr-defined]
     return service

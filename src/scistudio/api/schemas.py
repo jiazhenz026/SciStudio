@@ -544,6 +544,7 @@ class PreviewFrontendManifestModel(BaseModel):
 class PreviewEnvelopeModel(BaseModel):
     """Wire shape of a canonical :class:`PreviewEnvelope`."""
 
+    panel: dict[str, Any] | None = None
     session_id: str | None = None
     previewer_id: str
     target: dict[str, Any] = Field(default_factory=dict)
@@ -597,6 +598,9 @@ class PreviewerChoiceRequest(BaseModel):
 class PreviewerSpecModel(BaseModel):
     """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
 
+    renderer: str = "legacy"
+    panel: dict[str, Any] | None = None
+    shadowed: bool = False
     previewer_id: str
     owner_kind: str
     owner_name: str

@@ -193,7 +193,7 @@ class PreviewSessionManager:
         """
         query = dict(query or {})
         try:
-            spec = self._router.resolve(target)
+            spec = self._select_spec(target, query)
         except PreviewError as exc:
             return self._error_envelope(target, exc.code, exc.message, previewer_id="", detail=exc.detail)
 
@@ -213,6 +213,26 @@ class PreviewSessionManager:
 
         envelope = self._render(spec, session.target, session.query, session.limits, session.session_id)
         return envelope
+
+    def _select_spec(self, target: PreviewTarget, query: dict[str, Any]) -> PreviewerSpec:
+        if query.get("core_only") is True:
+            core = PreviewerRegistry()
+            for spec in self._registry.all_specs():
+                if spec.owner_kind is OwnerKind.CORE:
+                    core.register(spec)
+            return PreviewRouter(core).resolve(target)
+        requested = query.get("panel_id")
+        if requested:
+            chain = self._router._specificity_chain(target)
+            for spec in self._registry.all_specs():
+                if (
+                    spec.previewer_id == requested
+                    and spec.target_type in chain
+                    and bool(spec.supports_collection) == target.is_collection
+                ):
+                    return spec
+            raise UnknownPreviewerError(f"Previewer {requested!r} does not serve this target")
+        return self._router.resolve(target)
 
     def read_session(self, session_id: str) -> PreviewEnvelope:
         """Re-render the current envelope for *session_id*.
@@ -385,6 +405,14 @@ class PreviewSessionManager:
         limits: PreviewLimits,
         session_id: str | None,
     ) -> PreviewEnvelope:
+        if spec.panel is not None:
+            return PreviewEnvelope(
+                previewer_id=spec.previewer_id,
+                target=target,
+                kind=EnvelopeKind.PANEL,
+                panel={"id": spec.previewer_id, "api_version": spec.api_version},
+                session_id=session_id,
+            )
         provider = self._resolve_provider(spec)
         if provider is None:
             return self._error_envelope(
@@ -496,6 +524,13 @@ class PreviewSessionManager:
             metadata=PreviewMetadata(complete=False, failed=True),
             error=PreviewErrorInfo(code=code, message=message, detail=detail or {}),
         )
+
+    def frozen_session(self, session_id: str) -> PreviewSession:
+        """Snapshot server-owned target/query state for a panel context."""
+        from copy import deepcopy
+
+        with self._lock:
+            return deepcopy(self._get_session(session_id))
 
     def _get_session(self, session_id: str) -> PreviewSession:
         with self._lock:

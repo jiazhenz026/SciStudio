@@ -105,6 +105,7 @@ class PreviewService:
 def build_preview_service(
     *,
     project_dir: Path | None = None,
+    registered_types: Any = None,
     child_context_resolver: Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
     | None = None,
 ) -> PreviewService:
@@ -133,6 +134,8 @@ def build_preview_service(
     registry.load_packages()
     load_project_previewers(registry, project_dir)
     load_user_previewers(registry, project_dir)
+    from scistudio.panels.registry import discover_panels
+    registry.install_panels(discover_panels(project_dir, registered_types=registered_types))
     registry.set_previewer_choices(load_choices(project_dir))
 
     router = PreviewRouter(registry)

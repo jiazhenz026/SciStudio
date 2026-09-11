@@ -69,6 +69,9 @@ class PreviewerRegistry:
 
     def __init__(self) -> None:
         self._by_id: dict[str, PreviewerSpec] = {}
+        self._panel_candidates: dict[str, list[PreviewerSpec]] = {}
+        self._shadowed: list[PreviewerSpec] = []
+        self.panels = None
         self._diagnostics: list[str] = []
         self._project_default_previewers: dict[str, str] = {}
         # #2049: the person's own per-type choice, loaded from
@@ -91,13 +94,27 @@ class PreviewerRegistry:
         if not spec.previewer_id:
             self._diagnostics.append("previewer spec rejected: empty previewer_id")
             return False
-        if spec.previewer_id in self._by_id:
+        from scistudio.panels.registry import TIER_ORDER
+
+        previous = self._by_id.get(spec.previewer_id)
+        if previous is not None:
+            if TIER_ORDER[spec.owner_kind] >= TIER_ORDER[previous.owner_kind]:
+                self._shadowed.append(spec)
+                self._diagnostics.append(
+                    f"duplicate previewer_id '{spec.previewer_id}' shadowed; keeping first {previous.owner_kind.value}"
+                )
+                return False
+            self._shadowed.append(previous)
             self._diagnostics.append(
-                f"duplicate previewer_id '{spec.previewer_id}' "
-                f"(owner={spec.owner_kind.value}/{spec.owner_name}); keeping first"
+                f"previewer {spec.previewer_id!r} ({previous.owner_kind.value}) shadowed by {spec.owner_kind.value}"
             )
-            logger.warning("Duplicate previewer_id '%s' ignored", spec.previewer_id)
-            return False
+        if spec.backend_provider is not None or spec.frontend_manifest is not None:
+            import warnings
+
+            message = f"previewer {spec.previewer_id!r} is deprecated through 0.5.x; replace it with panel.json and an HTML panel (ADR-054)"
+            self._diagnostics.append(message)
+            if spec.frontend_manifest is not None:
+                warnings.warn(message, DeprecationWarning, stacklevel=2)
         self._by_id[spec.previewer_id] = spec
         return True
 
@@ -132,7 +149,44 @@ class PreviewerRegistry:
         return self._by_id.get(previewer_id)
 
     def all_specs(self) -> list[PreviewerSpec]:
-        return list(self._by_id.values())
+        return [
+            candidate
+            for spec in self._by_id.values()
+            for candidate in self._panel_candidates.get(spec.previewer_id, [spec])
+        ]
+
+    def catalog_specs(self) -> list[tuple[PreviewerSpec, bool]]:
+        """Include shadowed candidates in discovery while routing uses winners only."""
+        return [(s, False) for s in self._by_id.values()] + [(s, True) for s in self._shadowed]
+
+    def install_panels(self, panels: Any) -> None:
+        """Merge descriptors into the legacy namespace, panel wins same-tier ids."""
+        from scistudio.panels.registry import TIER_ORDER
+
+        self.panels = panels
+        self._diagnostics.extend(panels.diagnostics)
+        for panel in panels.panels.values():
+            previous = self._by_id.get(panel.id)
+            if previous is not None and TIER_ORDER[previous.owner_kind] < TIER_ORDER[panel.owner_kind]:
+                panels.shadowed.append(panel)
+                self._diagnostics.append(f"panel {panel.id!r} shadowed by legacy {previous.owner_kind.value}")
+                continue
+            if previous is not None:
+                self._shadowed.append(previous)
+                self._diagnostics.append(f"legacy previewer {panel.id!r} shadowed by panel {panel.owner_kind.value}")
+            candidates = panel.candidates()
+            # Interactive/MiniApp-only ids still occupy the shared namespace.
+            catalog = PreviewerSpec(
+                previewer_id=panel.id,
+                owner_kind=panel.owner_kind,
+                owner_name=panel.owner_name,
+                target_type="",
+                priority=panel.priority,
+                api_version=panel.api_version,
+                panel=panel.to_dict(),
+            )
+            self._by_id[panel.id] = candidates[0] if candidates else catalog
+            self._panel_candidates[panel.id] = candidates
 
     def specs_for_owner(self, owner_kind: OwnerKind) -> list[PreviewerSpec]:
         return [s for s in self._by_id.values() if s.owner_kind is owner_kind]
@@ -156,6 +210,9 @@ class PreviewerRegistry:
 
     def clear(self) -> None:
         self._by_id.clear()
+        self._panel_candidates.clear()
+        self._shadowed.clear()
+        self.panels = None
         self._diagnostics.clear()
         self._project_default_previewers.clear()
         self._previewer_choices.clear()

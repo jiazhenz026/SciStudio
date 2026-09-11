@@ -106,6 +106,8 @@ class EnvelopeKind(StrEnum):
     two so existing callers and tests keep working.
     """
 
+    PANEL = "panel"
+    """A sandboxed HTML panel selected by the shared routing ladder."""
     DATAFRAME = "dataframe"
     """A tabular payload (rows and columns)."""
     ARRAY = "array"
@@ -371,6 +373,8 @@ class PreviewerSpec:
     """Optional same-origin UI bundle descriptor."""
     api_version: str = PREVIEWER_API_VERSION
     """Previewer API version this spec targets."""
+    panel: dict[str, Any] | None = None
+    """Panel descriptor for a unified routing candidate; absent for legacy providers."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dict of the spec (providers shown by name)."""
@@ -387,6 +391,8 @@ class PreviewerSpec:
             "backend_provider": provider_repr,
             "resource_provider": resource_provider_repr,
             "frontend_manifest": (self.frontend_manifest.to_dict() if self.frontend_manifest is not None else None),
+            "panel": self.panel,
+            "renderer": "panel" if self.panel is not None else "legacy",
             "api_version": self.api_version,
         }
 
@@ -553,9 +559,13 @@ class PreviewEnvelope:
     set one, the session manager stamps the resolved spec's manifest; ``None``
     for core fallbacks. The wire shape omits the backend-only ``asset_root``."""
 
+    panel: dict[str, Any] | None = None
+    """Resolved panel identity for the sandbox host (ADR-054)."""
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe dict of the whole envelope for the API/wire."""
         return {
+            "panel": self.panel,
             "session_id": self.session_id,
             "previewer_id": self.previewer_id,
             "target": self.target.to_dict(),
