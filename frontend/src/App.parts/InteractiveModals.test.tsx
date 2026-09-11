@@ -3,13 +3,14 @@ import { bootstrapFrame } from "../panels/testUtils";
 /**
  * #2195 — the host must always offer a way out of an interactive block.
  *
- * These cover the manifest-resolution fork in `<InteractiveModals>`: a core
- * panel still resolves from `PANEL_REGISTRY`, a package panel still goes to
- * `<DynamicPanel>`, and — the bug — a manifest that carries a `panel_id` but no
- * `module_url` no longer resolves to a silent `null`. `PanelManifest.module_url`
- * defaults to `""` and the registry only requires a non-empty `panel_id`, so
- * that block registers, runs, and pauses; before this fix the run sat in PAUSED
- * with no window at all and only a `console.warn` to show for it.
+ * These cover the manifest-resolution fork in `<InteractiveModals>`. Since
+ * ADR-054 Phase B (#2294) there is no compiled `PANEL_REGISTRY`: a core panel
+ * (empty `module_url`) and any package block that forgot `module_url` both route
+ * through the sandboxed `<InteractivePanel>` host, while a package panel with a
+ * `module_url` goes to `<DynamicPanel>`. The #2195 bug — a manifest carrying a
+ * `panel_id` but no `module_url` resolving to a silent `null` — stays fixed:
+ * that block registers, runs, and pauses, and must always get a visible window
+ * with Cancel rather than a PAUSED run with only a `console.warn`.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -107,7 +108,11 @@ describe("<InteractiveModals> panel resolution", () => {
     warn.mockRestore();
   });
 
-  it("still resolves a core panel from the registry, untouched by the host chrome", () => {
+  it("routes a core panel (empty module_url) through the sandboxed panel host", () => {
+    // ADR-054 Phase B (#2294): a core interactive window is a core-tier HTML
+    // panel with an empty module_url, so it opens through <InteractivePanel> /
+    // <PanelFrame> like every other core panel — not a compiled modal and not
+    // the package dynamic-panel host.
     seedPrompt(
       { panel_id: "core.interactive.data_router" },
       {
@@ -118,7 +123,9 @@ describe("<InteractiveModals> panel resolution", () => {
 
     render(<InteractiveModals />);
 
-    // The core modal renders itself; no dynamic-panel host chrome is involved.
+    // The sandboxed panel host mounts; the package dynamic-panel host does not.
+    expect(screen.getByTestId("panel-host")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("data_router");
     expect(screen.queryByTestId("dynamic-panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("dynamic-panel-titlebar")).not.toBeInTheDocument();
   });

@@ -850,14 +850,24 @@ export interface CoreFallbackRendererProps {
   onExport?: (resource: PreviewResource) => void;
 }
 
-/** Routes an envelope to the core fallback viewer for its {@link EnvelopeKind}. */
+/**
+ * Routes an envelope to the core fallback viewer for its {@link EnvelopeKind}.
+ *
+ * ADR-054 Phase B (FR-043): these compiled viewers are retained ONLY for legacy
+ * previewer envelopes — envelopes carrying no `.panel`. Anything with a `.panel`
+ * is a panel and must render through `PanelPreview` / `InteractivePanel`; the
+ * {@link PreviewHost} routes those away before this renderer is reached, and the
+ * guard below is the belt-and-braces refusal so a panel envelope can never fall
+ * through to a compiled viewer.
+ */
 export function CoreFallbackRenderer({
   envelope,
   onPatchQuery,
   onOpenResource,
   onExport,
 }: CoreFallbackRendererProps) {
-  const kind: EnvelopeKind = envelope.kind === "panel" ? "error" : envelope.kind;
+  // A panel envelope never renders through the compiled viewers (FR-043).
+  const kind: EnvelopeKind = envelope.panel || envelope.kind === "panel" ? "error" : envelope.kind;
   switch (kind) {
     case "dataframe":
       return <DataFrameViewer envelope={envelope} onPatchQuery={onPatchQuery} />;
