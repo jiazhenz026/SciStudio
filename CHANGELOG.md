@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2307] **SciStudio publishes to PyPI.** Every desktop OTA build is now also
+  published as the open-source `scistudio` wheel, with the web frontend
+  bundled, to PyPI and to the matching GitHub Release, so a server installs
+  with `pip install scistudio`. OTA build `0.3.4-alpha-build0029` is
+  `scistudio==0.3.4a29`. `scripts/ota_publish.py` dispatches the new
+  `pypi-publish.yml` workflow once its upload succeeds. It skips dry runs,
+  reinstall notices, backfilled builds and versions PyPI already has, refuses
+  a commit that is not on `origin/main`, and takes `--no-pypi` to opt out. The
+  workflow publishes through PyPI trusted publishing, so no PyPI token is
+  stored.
+
 - [#2280] **SciStudio can run in the background for an external AI tool.** The
   desktop app now asks at launch whether to open the desktop window or run for
   an external AI tool, with a "Don't ask again" box; File › Startup Mode, the

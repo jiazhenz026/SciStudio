@@ -177,6 +177,9 @@ The snapshot carries `src/` **and** `shell/`, sharing one build number.
 `bootstrap.js` and `package.json` are never published — the loader must not be
 replaceable by the thing it decides whether to trust.
 
+Once the upload succeeds, the same build also goes to PyPI and to the GitHub
+Release (section 5.3).
+
 `--dry-run` always reports build 1; its `build` and `url` are meaningless, while
 `sha256`, `size`, `notes` and `requires` are real.
 
@@ -266,6 +269,65 @@ consequences out loud before publishing, because each one is "the user cannot
 open the app": declining quits, a failed download or sha mismatch quits, and a
 client below `requires.min_base` gets the reinstall path. Offline is
 **fail-open** — an unreachable manifest lets the app start.
+
+### 5.3 The Python package on PyPI
+
+Every OTA build is also published as the open-source `scistudio` wheel, with
+the web frontend bundled, to PyPI and to the GitHub Release for its base
+(#2307). OTA build `N` of base `0.3.4` on alpha, `0.3.4-alpha-build00NN`, is
+`scistudio==0.3.4aN`.
+
+`ota_publish.py` does this itself after the upload succeeds: it dispatches
+`.github/workflows/pypi-publish.yml` for the checkout's `HEAD` commit, then
+prints the version, the command it ran, and how to watch the run:
+
+```bash
+gh run list --workflow pypi-publish.yml --limit 1
+gh run watch <run-id>
+```
+
+If the `pypi` environment has required reviewers, the publish job waits in that
+run for an approval.
+
+**A PyPI version is permanent.** It can be yanked but never uploaded again, so
+the script *skips* PyPI for `--dry-run`, `--no-pypi`, `--reinstall-notice` (that
+snapshot's SPA is a notice, not the product), a `--build` at or below the
+channel's latest build (a backfill), and a version PyPI already has. It
+*refuses* when `HEAD` is not on `origin/main`: it prints why and the manual
+command, and the OTA publish still counts as done. The workflow builds the
+commit from GitHub, not your staged tree, which is one more reason to publish
+from a clean checkout at `origin/main`. It repeats the main and "already on
+PyPI" checks before it builds anything.
+
+To run it by hand, after a refused or failed trigger:
+
+```bash
+gh workflow run pypi-publish.yml --ref main \
+  -f ref=<full commit sha> -f build_number=<N> -f channel=alpha
+```
+
+`ref` must be the full SHA the OTA snapshot was taken from. `--ref main` only
+selects main's copy of the workflow. If just the GitHub Release job failed,
+re-run that job from the original run: a fresh dispatch stops at "already on
+PyPI".
+
+Verify both destinations:
+
+```bash
+python -m pip index versions scistudio --pre     # lists 0.3.4aN
+gh release view v0.3.4-alpha --json assets --jq '.assets[].name' | grep '^scistudio-'
+```
+
+When the release `v<base>-<channel>` does not exist yet, the workflow creates it
+as a pre-release with the usual title, and the run summary carries a warning.
+Attach the installers to it when they are built.
+
+**First publish.** The trusted publisher on PyPI is a *pending* one, and a
+pending publisher does not reserve the name: the first successful upload does,
+and until then anyone can register `scistudio`. The next OTA publish takes it.
+To take it sooner, dispatch by hand with the build number the next OTA build
+will carry and the commit it will be published from; that OTA publish then skips
+PyPI as "already on PyPI".
 
 ## 6. Verify the published patch
 

@@ -1,0 +1,92 @@
+{
+  "base_ref": null,
+  "branch": "chore/2307-pypi-publish",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/pypi-publish.yml",
+      "scripts/ota_publish.py",
+      "tests/scripts/test_ota_publish.py",
+      "docs/ai-developer/release-runbook.md",
+      "README.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T08:00:39.269311Z",
+      "owner_directive": "Plan: new workflow .github/workflows/pypi-publish.yml (build -> publish-pypi via trusted publishing, environment pypi -> github-release v<base>-<channel>); scripts/ota_publish.py triggers it after a successful OTA upload with skip rules (dry-run, --no-pypi, reinstall notice, backfill build, version already on PyPI) and a refusal when HEAD is not on origin/main; tests in tests/scripts/test_ota_publish.py; runbook section 5.3, README server install, CHANGELOG entry.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T08:00:39.269338Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/release-runbook.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:00:39.269345Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T08:00:39.269347Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2307,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Publish the open-source scistudio wheel (with built frontend) and sdist to PyPI via trusted publishing and to the matching GitHub Release for every OTA build; ota_publish.py triggers pypi-publish.yml after a successful OTA upload. Owner created the PyPI pending trusted publisher (workflow pypi-publish.yml, environment pypi) and the GitHub environment pypi on 2026-09-11.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2307-chore-2307-pypi-publish",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "6c5e39dd-d886-4747-9d23-c27dc1e49fe7",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-11T08:00:39.269351Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -2,7 +2,8 @@
 
 Covers the pure pieces: version parsing, monotonic build numbering, manifest
 assembly, asset naming/URLs, sha256, and snapshot packing (including the
-__pycache__ / egg-info exclusions). The gh/IO side is not exercised here.
+__pycache__ / egg-info exclusions). #2307 adds the PyPI trigger; there the gh,
+git and network side is exercised through fakes, never for real.
 """
 
 from __future__ import annotations
@@ -10,11 +11,17 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
+import shlex
+import subprocess
 import tarfile
+import urllib.error
+from email.message import Message
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
+import yaml
 
 _SCRIPT_PATH = Path(__file__).resolve().parents[2] / "scripts" / "ota_publish.py"
 
@@ -556,3 +563,394 @@ def test_the_migration_manifest_is_both_mandatory_and_a_patch(mod: ModuleType) -
     assert m["requires"] == {"min_base": "0.3.3", "min_build": 26}
     # mandatory needs manifest.build >= min_build, or isMandatoryUpdate returns False
     assert m["build"] >= m["requires"]["min_build"]
+
+
+# --------------------------------------------------------------------------- #
+# #2307: every OTA build also publishes the open-source wheel to PyPI.
+# --------------------------------------------------------------------------- #
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+_SHA = "0123456789abcdef0123456789abcdef01234567"
+
+
+class _Probe:
+    """Stands in for the PyPI and git lookups, recording whether they were asked."""
+
+    def __init__(self, *, on_pypi: bool | None = False, on_main: bool = True) -> None:
+        self._on_pypi = on_pypi
+        self._on_main = on_main
+        self.calls: list[str] = []
+
+    def on_pypi(self) -> bool | None:
+        self.calls.append("pypi")
+        return self._on_pypi
+
+    def head_on_main(self) -> bool:
+        self.calls.append("git")
+        return self._on_main
+
+
+def _decide(mod: ModuleType, probe: _Probe | None = None, **overrides: Any) -> tuple[Any, _Probe]:
+    probe = probe or _Probe()
+    args: dict[str, Any] = {
+        "dry_run": False,
+        "no_pypi": False,
+        "reinstall_notice": False,
+        "build": 29,
+        "latest_published_build": 28,
+        "baseline_build": 0,
+        "version": "0.3.4a29",
+        "on_pypi": probe.on_pypi,
+        "head_on_main": probe.head_on_main,
+    }
+    args.update(overrides)
+    return mod.decide_pypi_publish(**args), probe
+
+
+def test_an_ordinary_publish_goes_to_pypi(mod: ModuleType) -> None:
+    decision, probe = _decide(mod)
+    assert decision.action == mod.PYPI_TRIGGER
+    assert probe.calls == ["pypi", "git"]
+
+
+def test_a_dry_run_never_reaches_pypi(mod: ModuleType) -> None:
+    decision, probe = _decide(mod, dry_run=True)
+    assert decision.action == mod.PYPI_SKIP
+    assert "--dry-run" in decision.reason
+    assert probe.calls == []
+
+
+def test_no_pypi_opts_out(mod: ModuleType) -> None:
+    decision, probe = _decide(mod, no_pypi=True)
+    assert decision.action == mod.PYPI_SKIP
+    assert "--no-pypi" in decision.reason
+    assert probe.calls == []
+
+
+def test_a_reinstall_notice_is_not_published(mod: ModuleType) -> None:
+    # That snapshot's SPA is a page telling old clients to reinstall, so its
+    # build number does not stand for a release of the product.
+    decision, probe = _decide(mod, reinstall_notice=True)
+    assert decision.action == mod.PYPI_SKIP
+    assert "reinstall notice" in decision.reason
+    assert probe.calls == []
+
+
+@pytest.mark.parametrize("build", [28, 20])
+def test_a_backfill_is_not_published(mod: ModuleType, build: int) -> None:
+    # --build at or below the latest published build: PyPI may already hold the
+    # version, and otherwise would list it out of order. Nothing is looked up.
+    decision, probe = _decide(mod, build=build, version=f"0.3.4a{build}")
+    assert decision.action == mod.PYPI_SKIP
+    assert "backfill" in decision.reason
+    assert probe.calls == []
+
+
+def test_a_backfill_counts_the_installer_baseline_too(mod: ModuleType) -> None:
+    # The same sequence resolve_build_number guards: a shipped installer
+    # already reports build 30 even before any patch is published.
+    decision, _ = _decide(mod, build=30, latest_published_build=None, baseline_build=30, version="0.3.4a30")
+    assert decision.action == mod.PYPI_SKIP
+
+
+def test_a_named_build_above_the_sequence_is_published(mod: ModuleType) -> None:
+    decision, _ = _decide(mod, build=40, version="0.3.4a40")
+    assert decision.action == mod.PYPI_TRIGGER
+
+
+def test_a_version_pypi_already_has_is_skipped(mod: ModuleType) -> None:
+    # PyPI versions are immutable; a second upload is rejected, so do not try.
+    decision, probe = _decide(mod, _Probe(on_pypi=True))
+    assert decision.action == mod.PYPI_SKIP
+    assert "already on PyPI" in decision.reason
+    assert probe.calls == ["pypi"]
+
+
+def test_a_head_that_is_not_on_main_is_refused(mod: ModuleType) -> None:
+    # The workflow builds the commit from GitHub: an unpushed commit cannot be
+    # built there, and an unmerged one must never become a permanent version.
+    decision, _ = _decide(mod, _Probe(on_main=False))
+    assert decision.action == mod.PYPI_REFUSE
+    assert "origin/main" in decision.reason
+
+
+def test_an_unreachable_pypi_still_triggers(mod: ModuleType) -> None:
+    # The workflow repeats the existence check before it builds, so an offline
+    # lookup here must not cost the release.
+    decision, _ = _decide(mod, _Probe(on_pypi=None))
+    assert decision.action == mod.PYPI_TRIGGER
+    assert "checks again" in decision.reason
+
+
+def test_the_pypi_version_is_the_wheel_version(mod: ModuleType) -> None:
+    # 0.3.4-alpha-build0012 is 0.3.4a12: the number format_pep440 stamps.
+    assert mod.pypi_version("0.3.4", "alpha", 12) == "0.3.4a12"
+    assert mod.pypi_version("0.3.4", "beta", 3) == "0.3.4b3"
+    assert mod.pypi_json_url("0.3.4a12") == "https://pypi.org/pypi/scistudio/0.3.4a12/json"
+
+
+def test_the_dispatch_command(mod: ModuleType) -> None:
+    assert mod.pypi_workflow_command("o/r", _SHA, 29, "alpha") == [
+        "gh",
+        "workflow",
+        "run",
+        "pypi-publish.yml",
+        "--repo",
+        "o/r",
+        "--ref",
+        "main",
+        "-f",
+        f"ref={_SHA}",
+        "-f",
+        "build_number=29",
+        "-f",
+        "channel=alpha",
+    ]
+
+
+# The workflow file and the script meet across a YAML boundary. These keep the
+# two from drifting, the way the shell tests keep SHELL_FILES and the asar list
+# in step.
+def _pypi_workflow(mod: ModuleType) -> dict[Any, Any]:
+    path = _REPO_ROOT / ".github" / "workflows" / mod.PYPI_WORKFLOW
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def test_the_dispatch_sends_exactly_the_workflows_inputs(mod: ModuleType) -> None:
+    workflow = _pypi_workflow(mod)
+    triggers = workflow.get("on", workflow.get(True))  # PyYAML reads a bare `on:` key as True
+    declared = set(triggers["workflow_dispatch"]["inputs"])
+    command = mod.pypi_workflow_command("o/r", _SHA, 29, "alpha")
+    sent = {command[i + 1].split("=", 1)[0] for i, part in enumerate(command) if part == "-f"}
+    assert sent == declared
+
+
+def test_the_publish_job_matches_the_trusted_publisher(mod: ModuleType) -> None:
+    # PyPI's trusted publisher for `scistudio` names workflow pypi-publish.yml
+    # and environment `pypi`. Renaming either fails the upload with an OIDC
+    # error, and a stored token would defeat the point.
+    job = _pypi_workflow(mod)["jobs"]["publish-pypi"]
+    assert job["environment"] == "pypi"
+    assert job["permissions"] == {"id-token": "write"}
+    publish = [step for step in job["steps"] if str(step.get("uses", "")).startswith("pypa/gh-action-pypi-publish@")]
+    assert len(publish) == 1
+    assert "password" not in (publish[0].get("with") or {})
+
+
+class _Response:
+    status = 200
+
+    def __enter__(self) -> _Response:
+        return self
+
+    def __exit__(self, *exc: object) -> bool:
+        return False
+
+
+def test_version_on_pypi_reads_the_json_api(mod: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def fake_urlopen(url: str, timeout: float) -> _Response:
+        seen.append(url)
+        return _Response()
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    assert mod.version_on_pypi("0.3.4a29") is True
+    assert seen == ["https://pypi.org/pypi/scistudio/0.3.4a29/json"]
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (urllib.error.HTTPError("u", 404, "Not Found", Message(), None), False),
+        (urllib.error.HTTPError("u", 503, "Unavailable", Message(), None), None),
+        (urllib.error.URLError("offline"), None),
+        (TimeoutError("slow"), None),
+    ],
+)
+def test_version_on_pypi_tells_absent_from_unknown(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, error: Exception, expected: bool | None
+) -> None:
+    def fake_urlopen(url: str, timeout: float) -> _Response:
+        raise error
+
+    monkeypatch.setattr(mod.urllib.request, "urlopen", fake_urlopen)
+    assert mod.version_on_pypi("0.3.4a29") is expected
+
+
+class _FakeRun:
+    """Answers the git and gh commands the PyPI trigger runs; runs nothing."""
+
+    def __init__(self, *, on_main: bool = True, dispatch_rc: int = 0) -> None:
+        self.on_main = on_main
+        self.dispatch_rc = dispatch_rc
+        self.commands: list[list[str]] = []
+
+    def __call__(self, cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
+        self.commands.append(cmd)
+        if "rev-parse" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"{_SHA}\n", stderr="")
+        if "merge-base" in cmd:
+            return subprocess.CompletedProcess(cmd, 0 if self.on_main else 1, stdout="", stderr="")
+        if cmd[:3] == ["gh", "workflow", "run"]:
+            stderr = "HTTP 404: workflow pypi-publish.yml not found" if self.dispatch_rc else ""
+            return subprocess.CompletedProcess(cmd, self.dispatch_rc, stdout="", stderr=stderr)
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    def dispatched(self) -> list[list[str]]:
+        return [cmd for cmd in self.commands if cmd[:3] == ["gh", "workflow", "run"]]
+
+
+def _trigger(mod: ModuleType, **overrides: Any) -> Any:
+    args: dict[str, Any] = {
+        "repo": "o/r",
+        "channel": "alpha",
+        "base": "0.3.4",
+        "build": 29,
+        "latest_published_build": 28,
+        "baseline_build": 0,
+    }
+    args.update(overrides)
+    return mod.trigger_pypi_publish(**args)
+
+
+def test_the_trigger_dispatches_the_head_commit(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+    monkeypatch.setattr(mod, "version_on_pypi", lambda version: False)
+
+    decision = _trigger(mod)
+
+    expected = mod.pypi_workflow_command("o/r", _SHA, 29, "alpha")
+    assert decision.action == mod.PYPI_TRIGGER
+    assert run.dispatched() == [expected]
+    out = capsys.readouterr().out
+    # The exact version, the exact command, and where to watch it.
+    assert "scistudio 0.3.4a29" in out
+    assert shlex.join(expected) in out
+    assert "gh run watch" in out
+
+
+def test_a_refused_trigger_prints_the_command_to_run_later(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run = _FakeRun(on_main=False)
+    monkeypatch.setattr(mod, "_run", run)
+    monkeypatch.setattr(mod, "version_on_pypi", lambda version: False)
+
+    decision = _trigger(mod)
+
+    assert decision.action == mod.PYPI_REFUSE
+    assert run.dispatched() == []
+    out = capsys.readouterr().out
+    assert "NOT triggered" in out
+    assert shlex.join(mod.pypi_workflow_command("o/r", _SHA, 29, "alpha")) in out
+
+
+def test_a_failed_dispatch_does_not_fail_the_publish(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The OTA build is already live; raising here would read as if it were not.
+    monkeypatch.setattr(mod, "_run", _FakeRun(dispatch_rc=1))
+    monkeypatch.setattr(mod, "version_on_pypi", lambda version: False)
+
+    decision = _trigger(mod)
+
+    assert decision.action == mod.PYPI_REFUSE
+    assert "workflow pypi-publish.yml not found" in decision.reason
+    assert "NOT dispatched" in capsys.readouterr().out
+
+
+def test_a_skip_touches_neither_git_nor_pypi(mod: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+
+    def no_network(version: str) -> bool | None:
+        raise AssertionError("PyPI must not be asked for a skipped build")
+
+    monkeypatch.setattr(mod, "version_on_pypi", no_network)
+
+    assert _trigger(mod, no_pypi=True).action == mod.PYPI_SKIP
+    assert run.commands == []
+
+
+def _publish_side(mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, events: list[str]) -> Path:
+    """Fake every release-side effect of main() and return a staged src dir."""
+    src = tmp_path / "staged" / "src"
+    (src / "scistudio").mkdir(parents=True)
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.setattr(mod.tempfile, "mkdtemp", lambda prefix="": str(work))
+    monkeypatch.setattr(mod, "make_snapshot", lambda src_dir, out, **kwargs: out.write_bytes(b"snapshot"))
+    monkeypatch.setattr(mod, "fetch_latest_build", lambda repo, tag: 28)
+    monkeypatch.setattr(mod, "ensure_release", lambda repo, tag, channel: events.append("ensure"))
+    monkeypatch.setattr(mod, "upload_assets", lambda repo, tag, files: events.append("upload"))
+    monkeypatch.setattr(mod, "version_on_pypi", lambda version: False)
+    return src
+
+
+def test_main_publishes_to_pypi_after_the_upload(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+    src = _publish_side(mod, monkeypatch, tmp_path, events)
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+    trigger = mod.trigger_pypi_publish
+
+    def spy(**kwargs: Any) -> Any:
+        events.append("pypi")
+        return trigger(**kwargs)
+
+    monkeypatch.setattr(mod, "trigger_pypi_publish", spy)
+
+    assert mod.main(["--channel", "alpha", "--src", str(src), "--yes"]) == 0
+
+    assert events == ["ensure", "upload", "pypi"]
+    # Latest published is 28, so this is build 29 on whatever base the checkout carries.
+    assert run.dispatched() == [mod.pypi_workflow_command(mod.DEFAULT_REPO, _SHA, 29, "alpha")]
+
+
+def test_main_never_reaches_pypi_when_the_upload_fails(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    src = _publish_side(mod, monkeypatch, tmp_path, [])
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+
+    def failed_upload(repo: str, tag: str, files: list[Path]) -> None:
+        raise RuntimeError("Asset upload failed: HTTP 502")
+
+    monkeypatch.setattr(mod, "upload_assets", failed_upload)
+
+    with pytest.raises(RuntimeError, match="Asset upload failed"):
+        mod.main(["--channel", "alpha", "--src", str(src), "--yes"])
+    assert run.dispatched() == []
+
+
+def test_main_dry_run_never_reaches_pypi(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src = _publish_side(mod, monkeypatch, tmp_path, [])
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+
+    assert mod.main(["--channel", "alpha", "--src", str(src), "--dry-run"]) == 0
+
+    assert run.commands == []
+    assert "PyPI: skipped -- --dry-run" in capsys.readouterr().out
+
+
+def test_main_no_pypi_uploads_without_dispatching(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+    src = _publish_side(mod, monkeypatch, tmp_path, events)
+    run = _FakeRun()
+    monkeypatch.setattr(mod, "_run", run)
+
+    assert mod.main(["--channel", "alpha", "--src", str(src), "--yes", "--no-pypi"]) == 0
+
+    assert events == ["ensure", "upload"]
+    assert run.dispatched() == []
