@@ -33,6 +33,38 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:52:07.215631Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3af541b9e6dd48de3cf69ed49a24040b52f867e4eda059dbb5661d82a3bf2470",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T08:52:18.334485Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6da6e19882f76f35feedc9658212dc687cdd8dfbe9126963550cb4b247339d85",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -402,6 +434,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.392018Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.403666Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.415103Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.429721Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.441238Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.452427Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.463866Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.475364Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.487089Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.498204Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T08:52:18.513555Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -415,16 +535,23 @@
   "observed_admin_labels": [],
   "observed_diff": {
     "base": "origin/main",
-    "base_sha": "fc5f465dc",
+    "base_sha": "c3dc51cb6",
     "changed_files": [
       ".workflow/records/2303-docs-2303-enterprise-support-spec.json",
-      "docs/specs/adr-055-enterprise-support.md"
+      "docs/adr/ADR-054.md",
+      "docs/specs/adr-054-panels.md",
+      "docs/specs/adr-055-agent-context-workspace.md",
+      "docs/specs/adr-055-enterprise-support.md",
+      "docs/specs/adr-055-lab-deployment.md",
+      "docs/specs/adr-055-local-background-runtime.md",
+      "docs/specs/adr-055-prefix-independence.md",
+      "docs/specs/adr-055-webmcp-bridge.md"
     ],
-    "diff_fingerprint": "sha256:d3b5e6b04c7fdef8a0bf7392415dd4fbb478ae49cc0106b9322e9c5e566dc7eb",
+    "diff_fingerprint": "sha256:be9ba347f2cdbc3ce8c3ff8e65120c1e6a14407daf97745b5e0036ae4209bcaa",
     "head": "HEAD",
-    "head_sha": "9caac2a4c",
+    "head_sha": "c0bf20ac6",
     "surfaces": {
-      "docs": 1,
+      "docs": 8,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -432,7 +559,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 1,
+      "sentrux": 8,
       "test": 0,
       "workflow_ci": 0
     }
@@ -475,6 +602,14 @@
     {
       "at": "2026-09-11T08:46:56.573663Z",
       "diff_fingerprint": "sha256:d3b5e6b04c7fdef8a0bf7392415dd4fbb478ae49cc0106b9322e9c5e566dc7eb",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T08:52:18.513577Z",
+      "diff_fingerprint": "sha256:be9ba347f2cdbc3ce8c3ff8e65120c1e6a14407daf97745b5e0036ae4209bcaa",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 3,
