@@ -1,4 +1,16 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, nativeTheme, session } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  Menu,
+  Tray,
+  clipboard,
+  dialog,
+  ipcMain,
+  nativeImage,
+  nativeTheme,
+  session,
+  shell
+} = require("electron");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
@@ -10,24 +22,30 @@ const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
-const { MENU_ACTION_CHANNEL, buildMenuTemplate } = require("./menu");
+const { MENU_ACTION_CHANNEL, buildMenuTemplate, buildTrayMenuTemplate } = require("./menu");
 const runtimePortModule = require("./runtime-port");
+const backgroundMode = require("./background-mode");
 
 // #1784: the in-app Package Manager stages a package update on disk (into the
 // scanned installed-packages dir) and then asks the main process to relaunch so
 // a fresh interpreter imports the new code. Registered once at module load;
 // safeLog is hoisted and only called when the handler fires.
-ipcMain.handle("scistudio:relaunch", () => {
+ipcMain.handle("scistudio:relaunch", async () => {
   safeLog("[scistudio] relaunch requested by renderer (package update)");
   // #1867: stop the backend before exiting. app.exit() does NOT emit
   // `before-quit`, so without this the child backend is never signalled and is
   // reparented to init as an orphan on every package-update relaunch. Mirrors
-  // the OTA relaunch path.
-  isQuitting = true;
-  stopRuntime();
-  app.relaunch();
-  app.exit(0);
+  // the OTA relaunch path. #2280: both now share stopRuntimeAndRelaunch, which
+  // also brings the process back in the mode it was running in.
+  await stopRuntimeAndRelaunch();
 });
+
+// #2280: the external-AI connection window's actions. Registered once at module
+// load like the relaunch handler; handleConnectionAction only answers the
+// connection window's own webContents.
+ipcMain.handle(backgroundMode.CONNECTION_ACTION_CHANNEL, (event, action, payload) =>
+  handleConnectionAction(event, action, payload)
+);
 
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
@@ -44,11 +62,39 @@ const OTA_MANIFEST_TIMEOUT_MS = 8000;
 const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
 const OTA_MAX_REDIRECTS = 5;
 
+// #2280: how long a relaunch waits for the backend to exit before it goes
+// ahead anyway. stopRuntime's own SIGKILL escalation fires at 5 s.
+const RELAUNCH_STOP_TIMEOUT_MS = 8000;
+
 let mainWindow = null;
 let splashWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
 let cachedMacLoginShellEnv = null;
+
+// #2280: launch mode and the external-AI surfaces. `launchMode` stays null
+// while the splash is still asking.
+let launchMode = null;
+let connectionWindow = null;
+// Held at module level on purpose: a Tray that gets garbage-collected vanishes
+// from the menu bar / notification area (owner decision 2 calls this out for
+// macOS).
+let tray = null;
+// The backend this process owns, in either mode. Tracked in desktop mode too,
+// so switching a running desktop session to external-AI mode starts from the
+// real service state.
+let serviceState = {
+  status: backgroundMode.SERVICE_STATUS.STARTING,
+  readyUrl: null,
+  address: null,
+  detail: null
+};
+let serviceChild = null;
+let serviceStartInFlight = false;
+let stopRequested = false;
+let connectionBridgeReady = false;
+let backgroundShellVouched = false;
+let backgroundUpdateChecked = false;
 
 // #2097: facts injected by the frozen bootstrap loader (desktop/bootstrap.js).
 // Once this file runs from an OTA patch directory, `__dirname` no longer points
@@ -65,21 +111,24 @@ function host() {
   return hostFacts;
 }
 
-// #1867: single-instance lock. A second launch must focus the existing window
-// instead of spawning a second backend (which would then orphan on quit). The
-// whenReady handler bails early when the lock was not acquired.
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+// #1867: single-instance lock. A second launch must never spawn a second
+// backend (which would then orphan on quit). The whenReady handler bails early
+// when the lock was not acquired.
+//
+// #2280: one backend per machine, in either mode (owner decision 4). The second
+// process quits before it could show a picker, so it passes the mode it would
+// have started in -- an explicit flag or a remembered "don't ask again" choice
+// -- and the running instance routes it (backgroundMode.routeSecondInstance):
+// focus the desktop window, reveal the connection window, or attach a desktop
+// window to the running backend.
+const gotSingleInstanceLock = app.requestSingleInstanceLock({
+  requestedMode: secondLaunchRequestedMode()
+});
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.show();
-      mainWindow.focus();
-    }
+  app.on("second-instance", (_event, argv, _workingDirectory, additionalData) => {
+    handleSecondInstance(argv, additionalData);
   });
 }
 
@@ -206,6 +255,11 @@ function installApplicationMenu() {
     sendMenuAction,
     checkForUpdates: maybeCheckForUpdate,
     showAbout,
+    // #2280: switch a desktop session to external-AI mode, or reopen the
+    // connection window; and the remembered launch choice.
+    showConnectionWindow: openExternalAiConnection,
+    startupSetting: currentStartupSetting(),
+    setStartupSetting,
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
@@ -591,10 +645,8 @@ async function maybeEnforceMandatoryUpdate() {
   }
 
   safeLog(`[scistudio] applied mandatory OTA build ${manifest.build}; relaunching`);
-  isQuitting = true;
-  stopRuntime();
-  app.relaunch();
-  app.exit(0);
+  // #2280: stop-then-relaunch, carrying the chosen launch mode across it.
+  await stopRuntimeAndRelaunch();
   return false;
 }
 
@@ -670,10 +722,10 @@ async function maybeCheckForUpdate() {
   }
 
   safeLog(`[scistudio] applied OTA build ${manifest.build}; relaunching`);
-  isQuitting = true;
-  stopRuntime();
-  app.relaunch();
-  app.exit(0);
+  // #2280 (owner decision 5): in external-AI mode this is the background
+  // instance; it is stopped before the relaunch, which comes back in the same
+  // mode.
+  await stopRuntimeAndRelaunch();
 }
 
 // Start the runtime; if an applied OTA patch fails to boot, roll back and retry
@@ -1496,6 +1548,617 @@ function stopRuntime() {
   }, 5000).unref();
 }
 
+// #2280: stopRuntime, then wait (bounded) for the backend to actually exit. A
+// relaunch that raced the old backend would find the remembered port still
+// taken, come back on a new one, and invalidate the address an external AI
+// tool is holding.
+function stopRuntimeAndWait(timeoutMs) {
+  const child = runtimeProcess;
+  if (!child || child.exitCode !== null || child.signalCode !== null) {
+    stopRuntime();
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs);
+    child.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    stopRuntime();
+  });
+}
+
+// #2280 (owner decision 5): every relaunch -- mandatory and optional OTA, and
+// the #1784 package-update relaunch -- stops the backend (the background
+// instance included) before exiting, and brings the process back in the mode it
+// was running in rather than at the picker.
+async function stopRuntimeAndRelaunch() {
+  isQuitting = true;
+  await stopRuntimeAndWait(RELAUNCH_STOP_TIMEOUT_MS);
+  const args = backgroundMode.relaunchArgs(process.argv, launchMode);
+  if (args) {
+    app.relaunch({ args });
+  } else {
+    app.relaunch();
+  }
+  app.exit(0);
+}
+
+// --------------------------------------------------------------------------- //
+// #2280 (ADR-055 section 7, spec adr-055-local-background-runtime): launch
+// modes and the external-AI background runtime.
+//
+// Desktop mode is today's flow. External-AI mode runs the same runtime chain
+// with no main window, keeps this process resident as the backend's owner, and
+// shows a tray icon and a small connection window with the address. The
+// backend stops with this process in both modes (owner decision 3): quitting
+// runs stopRuntime, a force-killed Electron is covered by the POSIX parent
+// watchdog and, on Windows, by the kill-on-close job object libuv puts every
+// non-detached child in. The decisions are pure in desktop/background-mode.js.
+// --------------------------------------------------------------------------- //
+function launchModePath() {
+  return path.join(app.getPath("userData"), backgroundMode.PREFERENCE_FILE);
+}
+
+function readModePreference() {
+  return backgroundMode.parseModePreference(readJsonSafe(launchModePath()));
+}
+
+function writeModePreference(preference) {
+  try {
+    writeJsonAtomic(launchModePath(), backgroundMode.serializeModePreference(preference));
+  } catch (error) {
+    // Best-effort: failing to remember the choice only means being asked again.
+    safeError(`[scistudio] failed to remember the launch mode: ${error.message}`);
+  }
+}
+
+function currentStartupSetting() {
+  return backgroundMode.startupSettingOf(readModePreference());
+}
+
+// Owner decision 1: the remembered choice stays changeable -- from the
+// application menu, the tray, and the connection window.
+function setStartupSetting(setting) {
+  const next = backgroundMode.applyStartupSetting(readModePreference(), setting);
+  writeModePreference(next);
+  safeLog(`[scistudio] startup mode set to ${backgroundMode.startupSettingOf(next)}`);
+  installApplicationMenu();
+  updateTray();
+  pushConnectionState();
+}
+
+// Runs at module load, in every process, before the single-instance lock.
+function secondLaunchRequestedMode() {
+  try {
+    return backgroundMode.requestedModeForSecondLaunch({
+      argvMode: backgroundMode.parseLaunchModeArg(process.argv),
+      preference: readModePreference()
+    });
+  } catch {
+    return null;
+  }
+}
+
+// Returns the launch mode, or null when the splash was closed while asking.
+async function chooseLaunchMode() {
+  const decision = backgroundMode.resolveStartupMode({
+    argvMode: backgroundMode.parseLaunchModeArg(process.argv),
+    preference: readModePreference()
+  });
+  if (decision.kind === "mode") {
+    safeLog(`[scistudio] launch mode ${decision.mode} (${decision.source})`);
+    return decision.mode;
+  }
+  const pick = await pickModeOnSplash(decision.suggested);
+  if (pick === null) {
+    return null;
+  }
+  writeModePreference(backgroundMode.preferenceAfterPick(pick));
+  // The Startup Mode radio must reflect a fresh "don't ask again".
+  installApplicationMenu();
+  safeLog(`[scistudio] launch mode ${pick.mode} (picked${pick.remember ? ", remembered" : ""})`);
+  return pick.mode;
+}
+
+// Asks on the splash itself. splash.html's picker returns a promise that
+// executeJavaScript waits on, so the splash still needs no preload (#2068).
+// Resolves { mode, remember }; null when the splash was closed (a quit); and
+// the desktop flow when the answer is unusable, so a broken picker can never
+// keep the app from starting.
+function pickModeOnSplash(suggested) {
+  const splash = splashWindow;
+  const fallback = { mode: backgroundMode.MODES.DESKTOP, remember: false };
+  if (!splash || splash.isDestroyed()) {
+    return Promise.resolve(fallback);
+  }
+  safeLog("[scistudio] splash: asking for the launch mode");
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      splash.removeListener("closed", onClosed);
+      resolve(value);
+    };
+    const onClosed = () => finish(null);
+    splash.once("closed", onClosed);
+
+    const ask = () => {
+      if (splash.isDestroyed()) {
+        finish(null);
+        return;
+      }
+      splash.webContents
+        .executeJavaScript(`window.__scistudioSplashPickMode(${JSON.stringify(suggested)})`, true)
+        .then((raw) => {
+          const pick = backgroundMode.parseModePick(raw);
+          if (!pick) {
+            safeError("[scistudio] the splash returned no usable launch mode; starting the desktop app");
+          }
+          finish(pick || fallback);
+        })
+        .catch((error) => {
+          if (splash.isDestroyed()) {
+            finish(null);
+            return;
+          }
+          safeError(`[scistudio] launch-mode picker failed; starting the desktop app: ${error.message}`);
+          finish(fallback);
+        });
+    };
+    if (splash.webContents.isLoading()) {
+      splash.webContents.once("did-finish-load", ask);
+    } else {
+      ask();
+    }
+  });
+}
+
+function isOpen(window) {
+  return Boolean(window) && !window.isDestroyed();
+}
+
+function revealWindow(window) {
+  if (!isOpen(window)) {
+    return;
+  }
+  if (window.isMinimized()) {
+    window.restore();
+  }
+  window.show();
+  window.focus();
+}
+
+function handleSecondInstance(argv, additionalData) {
+  const requestedMode = backgroundMode.requestedModeFromSecondInstance({ argv, additionalData });
+  const route = backgroundMode.routeSecondInstance({
+    runningMode: launchMode,
+    requestedMode,
+    mainWindowOpen: isOpen(mainWindow)
+  });
+  safeLog(`[scistudio] second launch (requested ${requestedMode || "no mode"}): ${route}`);
+  if (route === "focus-main-window") {
+    revealWindow(mainWindow);
+  } else if (route === "show-connection-window") {
+    showConnectionWindow();
+  } else if (route === "attach-desktop-window") {
+    openDesktopWindow();
+  } else if (route === "promote-to-external-ai") {
+    promoteToExternalAi();
+  } else {
+    revealWindow(splashWindow);
+  }
+}
+
+function currentConnectionView() {
+  return backgroundMode.connectionView({ ...serviceState, startupSetting: currentStartupSetting() });
+}
+
+function pushConnectionState() {
+  if (isOpen(connectionWindow)) {
+    connectionWindow.webContents.send(
+      backgroundMode.CONNECTION_STATE_CHANNEL,
+      currentConnectionView()
+    );
+  }
+}
+
+function setServiceState(patch) {
+  serviceState = { ...serviceState, ...patch };
+  pushConnectionState();
+  updateTray();
+  maybeVouchForShellInBackground();
+}
+
+function markServiceRunning(ready) {
+  setServiceState({
+    status: backgroundMode.SERVICE_STATUS.RUNNING,
+    readyUrl: ready.url,
+    address: backgroundMode.connectionAddress(ready.url),
+    detail: null
+  });
+}
+
+// #2179/#2280: in desktop mode the shell vouches for itself once the main
+// window paints (createWindow). External-AI mode has no main window, so it
+// vouches once its own window is proven -- the connection window loaded and its
+// sandboxed preload exposed the bridge -- AND the backend is running. Readiness
+// alone never records it (desktop/test/shell-known-good.test.js). Without this
+// a patched shell would never be recorded as known-good in this mode, and the
+// loader would quarantine a working patch on the next launch.
+function maybeVouchForShellInBackground() {
+  if (backgroundShellVouched || launchMode !== backgroundMode.MODES.EXTERNAL_AI) {
+    return;
+  }
+  if (!connectionBridgeReady || serviceState.status !== backgroundMode.SERVICE_STATUS.RUNNING) {
+    return;
+  }
+  backgroundShellVouched = true;
+  recordKnownGood(effectiveBuild());
+}
+
+// Follow the backend once it has printed its ready line. A crash while this
+// process stays resident surfaces as a crashed status with a restart action
+// (FR-008) instead of a silently dead address.
+function trackRuntime(child) {
+  serviceChild = child;
+  child.once("exit", (code, signal) => {
+    if (serviceChild !== child) {
+      return;
+    }
+    serviceChild = null;
+    if (runtimeProcess === child) {
+      // Nothing left to stop, and a later stopRuntime must not taskkill a PID
+      // the OS may already have handed to another process.
+      runtimeProcess = null;
+    }
+    if (isQuitting) {
+      return;
+    }
+    const status = backgroundMode.statusAfterExit({ status: serviceState.status, stopRequested });
+    safeLog(`[scistudio] runtime exited code=${code} signal=${signal}; service ${status}`);
+    setServiceState({
+      status,
+      detail:
+        status === backgroundMode.SERVICE_STATUS.STOPPED
+          ? null
+          : `The SciStudio service exited (code ${code}, signal ${signal}). The desktop log has the details.`
+    });
+  });
+}
+
+// External-AI mode's start and restart: the same chain the desktop flow uses --
+// python candidates, runtime env, OTA rollback, ready line, HTTP readiness, port
+// memory -- with no main window at the end. The address is published only once
+// both readiness layers passed.
+async function startBackgroundService() {
+  if (serviceStartInFlight || serviceChild) {
+    return;
+  }
+  const { STARTING, STOPPED, FAILED } = backgroundMode.SERVICE_STATUS;
+  serviceStartInFlight = true;
+  stopRequested = false;
+  setServiceState({ status: STARTING, readyUrl: null, address: null, detail: null });
+  try {
+    const { ready, child } = await startRuntimeWithRollback();
+    trackRuntime(child);
+    safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
+    await waitForHttpReady(ready.url);
+    if (serviceChild !== child) {
+      // Stopped or died while waiting; the exit handler already said which.
+      return;
+    }
+    // #1986: keep the origin stable across launches, and so the address.
+    rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
+    // A desktop window may attach later; it must not load a cached old bundle.
+    await clearCacheOnBuildChange();
+    markServiceRunning(ready);
+    if (isOpen(mainWindow)) {
+      // A restart can come back on another port; keep an attached desktop
+      // window on the live backend.
+      mainWindow.loadURL(launchUrl(ready.url));
+    }
+    if (!backgroundUpdateChecked) {
+      backgroundUpdateChecked = true;
+      maybeCheckForUpdate().catch((error) => {
+        safeError(`[scistudio] update check error: ${error.message}`);
+      });
+    }
+  } catch (error) {
+    safeError(
+      `[scistudio] background service failed to start: ${error instanceof Error ? error.stack : String(error)}`
+    );
+    // Never leave a half-started backend behind; detach tracking first so its
+    // exit does not overwrite the failure shown below.
+    serviceChild = null;
+    stopRuntime();
+    if (!isQuitting) {
+      setServiceState(
+        stopRequested
+          ? { status: STOPPED, detail: null }
+          : { status: FAILED, detail: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  } finally {
+    serviceStartInFlight = false;
+  }
+}
+
+// FR-004: explicit stop goes through the existing stopRuntime tree-kill, and
+// the exit it causes turns the status into a visible "Stopped".
+async function stopBackgroundService() {
+  const { RUNNING, UNRESPONSIVE, STOPPING, STOPPED } = backgroundMode.SERVICE_STATUS;
+  if (![RUNNING, UNRESPONSIVE].includes(serviceState.status)) {
+    return;
+  }
+  if (isOpen(mainWindow)) {
+    const choice = await dialog.showMessageBox(isOpen(connectionWindow) ? connectionWindow : undefined, {
+      type: "warning",
+      title: "Stop the SciStudio service?",
+      message: "Stop the SciStudio service?",
+      detail: "The open desktop window uses this service and will stop working. Save your work first.",
+      buttons: ["Stop Service", "Cancel"],
+      defaultId: 1,
+      cancelId: 1
+    });
+    if (choice.response !== 0) {
+      return;
+    }
+  }
+  stopRequested = true;
+  if (!serviceChild) {
+    setServiceState({ status: STOPPED, detail: null });
+    return;
+  }
+  setServiceState({ status: STOPPING, detail: null });
+  safeLog("[scistudio] stopping the background service");
+  stopRuntime();
+}
+
+function restartBackgroundService() {
+  if (!currentConnectionView().canRestart) {
+    return;
+  }
+  safeLog("[scistudio] restarting the background service");
+  startBackgroundService();
+}
+
+// The connection window re-validates on focus (sleep/wake, a backend that
+// stopped answering); only a service believed to be up is probed.
+async function revalidateServiceStatus() {
+  const { RUNNING, UNRESPONSIVE } = backgroundMode.SERVICE_STATUS;
+  const isUp = () => [RUNNING, UNRESPONSIVE].includes(serviceState.status);
+  if (!isUp() || !serviceState.readyUrl) {
+    pushConnectionState();
+    return;
+  }
+  const probeOk = await probeHttp(serviceState.readyUrl);
+  if (!isUp()) {
+    return;
+  }
+  const status = backgroundMode.statusAfterProbe({ status: serviceState.status, probeOk });
+  if (status === serviceState.status) {
+    pushConnectionState();
+    return;
+  }
+  setServiceState({
+    status,
+    detail: probeOk
+      ? null
+      : "The service is running but did not answer. It may be busy; stop and restart it if this persists."
+  });
+}
+
+function copyServiceAddress() {
+  const view = currentConnectionView();
+  if (!view.canCopy) {
+    return false;
+  }
+  clipboard.writeText(view.address);
+  return true;
+}
+
+// "Open in desktop mode": a desktop window on the running backend. With nothing
+// to attach to yet, the connection window shows why instead.
+function openDesktopWindow() {
+  if (isOpen(mainWindow)) {
+    revealWindow(mainWindow);
+    return;
+  }
+  if (serviceState.status !== backgroundMode.SERVICE_STATUS.RUNNING || !serviceState.readyUrl) {
+    showConnectionWindow();
+    return;
+  }
+  const url = launchUrl(serviceState.readyUrl);
+  safeLog(`[scistudio] attaching a desktop window to ${url}`);
+  createWindow(url);
+}
+
+// Quitting runs before-quit, and so the existing stopRuntime.
+function stopAndQuit() {
+  safeLog("[scistudio] stop and quit requested");
+  app.quit();
+}
+
+async function handleConnectionAction(event, action, payload) {
+  if (!isOpen(connectionWindow) || event.sender !== connectionWindow.webContents) {
+    return null;
+  }
+  if (!backgroundMode.CONNECTION_ACTIONS.includes(action)) {
+    safeError(`[scistudio] ignoring unknown connection action ${String(action)}`);
+    return currentConnectionView();
+  }
+  if (action === "copy-address") {
+    copyServiceAddress();
+  } else if (action === "open-desktop") {
+    openDesktopWindow();
+  } else if (action === "stop") {
+    await stopBackgroundService();
+  } else if (action === "restart") {
+    restartBackgroundService();
+  } else if (action === "show-logs") {
+    const failure = await shell.openPath(desktopLogDir());
+    if (failure) {
+      safeError(`[scistudio] could not open the log directory: ${failure}`);
+    }
+  } else if (action === "set-startup") {
+    setStartupSetting(payload);
+  } else if (action === "stop-and-quit") {
+    stopAndQuit();
+  }
+  return currentConnectionView();
+}
+
+function showConnectionWindow() {
+  if (isOpen(connectionWindow)) {
+    revealWindow(connectionWindow);
+    return;
+  }
+  const window = new BrowserWindow({
+    width: 480,
+    height: 400,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    title: "SciStudio — External AI",
+    icon: appIconPath(),
+    backgroundColor: nativeTheme.shouldUseDarkColors ? "#171a21" : "#f7f8fb",
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, "connection-preload.js")
+    }
+  });
+  connectionWindow = window;
+  // Windows and Linux attach the application menu to every window; its project
+  // entries mean nothing here, and Startup Mode is on the page itself.
+  window.removeMenu();
+  // A local status page: it never opens or navigates anywhere.
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (navigation) => navigation.preventDefault());
+  window.webContents.on("preload-error", (_event, preloadPath, error) => {
+    noteShellFault(`preload ${path.basename(preloadPath)} failed: ${error.message}`);
+  });
+  window.webContents.on("did-finish-load", async () => {
+    const bridged = await window.webContents
+      .executeJavaScript("Boolean(window.scistudioConnection)", true)
+      .catch(() => false);
+    if (bridged) {
+      connectionBridgeReady = true;
+      maybeVouchForShellInBackground();
+    } else {
+      safeError("[scistudio] the connection window loaded without its bridge");
+    }
+    pushConnectionState();
+  });
+  window.on("focus", () => {
+    revalidateServiceStatus().catch((error) => {
+      safeError(`[scistudio] status re-validation failed: ${error.message}`);
+    });
+  });
+  window.once("ready-to-show", () => {
+    if (!window.isDestroyed()) {
+      window.show();
+    }
+  });
+  window.on("closed", () => {
+    if (connectionWindow === window) {
+      connectionWindow = null;
+    }
+  });
+  window.loadFile(path.join(__dirname, "connection.html"));
+}
+
+function trayImage() {
+  // Resolved next to this file: the tray images travel with the shell
+  // (SHELL_FILES), so a patched shell never depends on an older installed
+  // bundle having them.
+  if (process.platform === "darwin") {
+    // macOS menu-bar convention: a monochrome template image the system tints
+    // for light and dark menu bars; the @2x sibling is picked up automatically.
+    const image = nativeImage.createFromPath(path.join(__dirname, "assets", "trayTemplate.png"));
+    image.setTemplateImage(true);
+    return image;
+  }
+  return nativeImage.createFromPath(path.join(__dirname, "assets", "tray.png"));
+}
+
+// Owner decision 2: the tray exists in external-AI mode only.
+function ensureTray() {
+  if (tray && !tray.isDestroyed()) {
+    return;
+  }
+  try {
+    tray = new Tray(trayImage());
+  } catch (error) {
+    // A desktop without a tray host (e.g. GNOME without the AppIndicator
+    // extension) still reaches the instance: launching SciStudio again reopens
+    // the connection window through second-instance.
+    safeError(`[scistudio] tray unavailable: ${error.message}`);
+    tray = null;
+    return;
+  }
+  tray.on("click", () => {
+    // Windows opens the context menu on right-click only; a left-click should
+    // still get the user somewhere useful.
+    if (process.platform === "win32") {
+      showConnectionWindow();
+    }
+  });
+  updateTray();
+}
+
+function updateTray() {
+  if (!tray || tray.isDestroyed()) {
+    return;
+  }
+  const view = currentConnectionView();
+  tray.setToolTip(`SciStudio — External AI (${view.label})`);
+  tray.setContextMenu(
+    Menu.buildFromTemplate(
+      buildTrayMenuTemplate({
+        view,
+        showConnectionWindow,
+        copyAddress: copyServiceAddress,
+        openDesktopWindow,
+        setStartupSetting,
+        stopAndQuit
+      })
+    )
+  );
+}
+
+function enterExternalAiMode() {
+  launchMode = backgroundMode.MODES.EXTERNAL_AI;
+  ensureTray();
+  showConnectionWindow();
+}
+
+// Desktop -> external AI on the running backend (File > External AI
+// Connection, or a second launch asking for external AI). The backend is reused
+// as-is; from here on closing windows leaves it running.
+function promoteToExternalAi() {
+  if (launchMode === backgroundMode.MODES.EXTERNAL_AI) {
+    showConnectionWindow();
+    return;
+  }
+  safeLog("[scistudio] switching the running app to external-AI mode");
+  enterExternalAiMode();
+}
+
+function openExternalAiConnection() {
+  if (launchMode === null) {
+    // Still at the splash; there is no service to connect to yet.
+    return;
+  }
+  promoteToExternalAi();
+}
+
 // #2097: entry point called by the frozen bootstrap loader once it has chosen a
 // shell. Everything above runs at require time and needs no host facts; every
 // lifecycle registration below does, so it waits for this call. The
@@ -1514,6 +2177,16 @@ function start(injectedHost) {
       safeLog("[scistudio] electron ready");
       installApplicationMenu();
       splashWindow = createSplashWindow();
+      // #2280: the launch mode is settled first, so an update applied below
+      // relaunches straight into it (backgroundMode.relaunchArgs).
+      const mode = await chooseLaunchMode();
+      if (mode === null) {
+        // The splash was closed while it was asking: that is a quit.
+        closeSplash();
+        app.quit();
+        return;
+      }
+      launchMode = mode;
       // #1868: enforce a mandatory OTA update before starting the runtime/window.
       // Fail-open: returns true (continue) unless a fetched manifest marks the
       // update mandatory and the user declines or it cannot be applied.
@@ -1523,14 +2196,27 @@ function start(injectedHost) {
         closeSplash();
         return;
       }
+      if (launchMode === backgroundMode.MODES.EXTERNAL_AI) {
+        // #2280: no main window. The connection window opens before the splash
+        // closes, so the splash is never the last window standing, and it
+        // reports progress until the address can be shown.
+        enterExternalAiMode();
+        closeSplash();
+        await startBackgroundService();
+        return;
+      }
       splashStatus("Starting the SciStudio runtime…");
-      const { ready } = await startRuntimeWithRollback();
+      const { ready, child } = await startRuntimeWithRollback();
+      // #2280: tracked in desktop mode too, so switching this session to
+      // external-AI mode later starts from the real service state.
+      trackRuntime(child);
       safeLog(`[scistudio] waiting for HTTP readiness at ${ready.url}`);
       splashStatus("Loading blocks and data types…");
       await waitForHttpReady(ready.url);
       // #1986: the runtime answered on this port, so it is worth reusing next
       // launch to keep the renderer origin (and its persisted UI state) stable.
       rememberRuntimePort(runtimePortModule.boundPortFromReady(ready));
+      markServiceRunning(ready);
       // #1775/#2179: the runtime reaching ready says the *backend* half of the
       // patch works. The shell half is vouched for from createWindow, once the
       // renderer has actually painted.
@@ -1563,12 +2249,26 @@ function start(injectedHost) {
   });
 
   app.on("window-all-closed", () => {
-    app.quit();
+    // #2280: desktop mode quits as it always has, on every platform; external-AI
+    // mode stays resident while it owns a live backend.
+    const action = backgroundMode.windowAllClosedAction({
+      mode: launchMode,
+      platform: process.platform,
+      status: serviceState.status
+    });
+    if (action === "quit") {
+      app.quit();
+    }
   });
 
   app.on("activate", () => {
     if (mainWindow) {
       mainWindow.show();
+      return;
+    }
+    // #2280: a dock click in external-AI mode reopens the connection window.
+    if (launchMode === backgroundMode.MODES.EXTERNAL_AI) {
+      showConnectionWindow();
     }
   });
 

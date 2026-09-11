@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import tarfile
 from pathlib import Path
 from types import ModuleType
@@ -218,14 +219,37 @@ def test_make_snapshot_roots_at_src_and_excludes_caches(mod: ModuleType, tmp_pat
 # --------------------------------------------------------------------------- #
 # #2097: the Electron shell rides inside the same snapshot, under shell/.
 # --------------------------------------------------------------------------- #
+# Every file ota_publish.SHELL_FILES names, split by how the fake writes it.
+# test_fake_desktop_covers_every_published_file keeps the two in step.
+_SHELL_TEXT_FILES = (
+    "main.js",
+    "menu.js",
+    "ota.js",
+    "runtime-port.js",
+    "background-mode.js",
+    "preload.js",
+    "connection-preload.js",
+    "splash.html",
+    "connection.html",
+)
+_SHELL_ASSETS = (
+    "assets/icon.png",
+    "assets/tray.png",
+    "assets/tray@2x.png",
+    "assets/trayTemplate.png",
+    "assets/trayTemplate@2x.png",
+)
+
+
 def _fake_desktop(tmp_path: Path) -> Path:
     """A desktop/ directory holding just the files a snapshot deals with."""
     desktop = tmp_path / "desktop"
     desktop.mkdir(exist_ok=True)
-    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in _SHELL_TEXT_FILES:
         (desktop / name).write_text("// " + name, encoding="utf-8")
     (desktop / "assets").mkdir(exist_ok=True)
-    (desktop / "assets" / "icon.png").write_bytes(b"PNG-stub")
+    for name in _SHELL_ASSETS:
+        (desktop / name).write_bytes(b"PNG-stub")
     # Present in the real desktop/ but deliberately never packed.
     (desktop / "bootstrap.js").write_text("// loader", encoding="utf-8")
     (desktop / "package.json").write_text('{"version": "0.3.3-alpha-build0000"}', encoding="utf-8")
@@ -246,7 +270,39 @@ def _snapshot_names(mod: ModuleType, tmp_path: Path) -> set[str]:
 def test_make_snapshot_carries_the_shell_beside_src(mod: ModuleType, tmp_path: Path) -> None:
     names = _snapshot_names(mod, tmp_path)
     assert "src/scistudio/__init__.py" in names
-    for name in ("main.js", "menu.js", "ota.js", "runtime-port.js", "preload.js", "splash.html"):
+    for name in _SHELL_TEXT_FILES:
+        assert f"shell/{name}" in names
+
+
+def test_fake_desktop_covers_every_published_file(mod: ModuleType) -> None:
+    # The fixture must stay a complete shell, or snapshot tests would pass
+    # against a list that no longer matches what is actually published.
+    assert set(_SHELL_TEXT_FILES + _SHELL_ASSETS) == set(mod.SHELL_FILES)
+
+
+def test_every_relative_require_of_the_shell_is_published(mod: ModuleType) -> None:
+    # #2280: a module main.js or menu.js requires that a patch does not carry
+    # crashes every patched launch before any window appears -- the failure the
+    # #2159 menu.js drift nearly shipped.
+    repo_root = Path(__file__).resolve().parents[2]
+    for name in ("main.js", "menu.js"):
+        source = (repo_root / "desktop" / name).read_text(encoding="utf-8")
+        for required in re.findall(r"""require\(["']\./([^"']+)["']\)""", source):
+            file = required if required.endswith((".js", ".json")) else f"{required}.js"
+            assert file in mod.SHELL_FILES, f"{name} requires ./{required}, which SHELL_FILES lacks"
+
+
+def test_snapshot_carries_the_tray_images(mod: ModuleType, tmp_path: Path) -> None:
+    # #2280: main.js loads the tray images next to itself, and Electron picks
+    # the @2x siblings up on its own on HiDPI displays. A patch without them
+    # shows an empty tray icon in external-AI mode.
+    names = _snapshot_names(mod, tmp_path)
+    for name in (
+        "assets/tray.png",
+        "assets/tray@2x.png",
+        "assets/trayTemplate.png",
+        "assets/trayTemplate@2x.png",
+    ):
         assert f"shell/{name}" in names
 
 

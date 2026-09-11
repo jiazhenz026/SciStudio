@@ -93,6 +93,86 @@
           opacity: 0.55;
         }
       }
+
+      /* Issue #2280: the launch-mode picker. It replaces the status line and
+         progress bar while it is up; everything interactive opts out of the
+         window drag region, or clicks would move the window instead. */
+      #picker {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 11px;
+        -webkit-app-region: no-drag;
+      }
+
+      body.picking {
+        gap: 10px;
+      }
+
+      body.picking img {
+        width: 40px;
+        height: 40px;
+        border-radius: 9px;
+      }
+
+      body.picking #status,
+      body.picking #track {
+        display: none;
+      }
+
+      body.picking #picker {
+        display: flex;
+      }
+
+      #picker-question {
+        font-size: 12.5px;
+        color: var(--splash-muted);
+      }
+
+      #choices {
+        display: flex;
+        gap: 10px;
+      }
+
+      #choices button {
+        width: 152px;
+        padding: 9px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        border: 1px solid var(--splash-track);
+        border-radius: 10px;
+        background: transparent;
+        color: var(--splash-fg);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      #choices button:hover,
+      #choices button:focus-visible {
+        border-color: var(--splash-accent);
+        outline: none;
+      }
+
+      #choices strong {
+        font-size: 13.5px;
+        font-weight: 600;
+      }
+
+      #choices span {
+        font-size: 11px;
+        color: var(--splash-muted);
+      }
+
+      #remember-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--splash-muted);
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -100,13 +180,49 @@
     <h1>SciStudio</h1>
     <div id="status">Starting&#8230;</div>
     <div id="track"><div id="bar"></div></div>
+    <div id="picker">
+      <p id="picker-question">How do you want to use SciStudio?</p>
+      <div id="choices">
+        <button type="button" data-mode="desktop">
+          <strong>Desktop</strong>
+          <span>Open the full app window</span>
+        </button>
+        <button type="button" data-mode="external-ai">
+          <strong>External AI</strong>
+          <span>Run in the background</span>
+        </button>
+      </div>
+      <label id="remember-row" title="You can change this later under File &#8250; Startup Mode">
+        <input type="checkbox" id="remember" /> Don't ask again
+      </label>
+    </div>
     <script>
       // Issue #2068: the main process drives this via executeJavaScript rather
       // than IPC, so the splash needs no preload script and can stay sandboxed
-      // with scripting limited to this one function.
+      // with scripting limited to these functions.
       window.__scistudioSplashStatus = (text) => {
         document.getElementById("status").textContent = text;
       };
+
+      // Issue #2280: ask for the launch mode. executeJavaScript waits for the
+      // returned promise, so the answer travels back to the main process without
+      // a preload either. `suggested` is the last pick, preselected for Enter.
+      window.__scistudioSplashPickMode = (suggested) =>
+        new Promise((resolve) => {
+          document.body.classList.add("picking");
+          const remember = document.getElementById("remember");
+          const choices = Array.from(document.querySelectorAll("#choices button[data-mode]"));
+          for (const button of choices) {
+            button.onclick = () => {
+              document.body.classList.remove("picking");
+              resolve({ mode: button.dataset.mode, remember: remember.checked });
+            };
+          }
+          const preferred = choices.find((button) => button.dataset.mode === suggested) || choices[0];
+          if (preferred) {
+            preferred.focus();
+          }
+        });
     </script>
   </body>
 </html>

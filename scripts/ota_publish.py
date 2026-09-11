@@ -66,13 +66,25 @@ SHELL_FILES = (
     "menu.js",
     "ota.js",
     "runtime-port.js",
+    # #2280: required by main.js and menu.js; a patch without it cannot load.
+    "background-mode.js",
     "preload.js",
+    # #2280: the external-AI connection window and its sandboxed preload.
+    "connection-preload.js",
     "splash.html",
+    "connection.html",
     # splash.html references this with a RELATIVE src, so it has to travel with
     # the shell. Without it a patched splash resolves the logo against the patch
     # directory, finds nothing, and renders the loading screen with a broken
-    # image -- observed on the first real patched launch.
+    # image -- observed on the first real patched launch. connection.html uses
+    # it the same way.
     "assets/icon.png",
+    # #2280: tray images, resolved next to main.js. Electron loads the @2x
+    # siblings by itself on HiDPI displays, so they have to travel too.
+    "assets/tray.png",
+    "assets/tray@2x.png",
+    "assets/trayTemplate.png",
+    "assets/trayTemplate@2x.png",
 )
 DESKTOP_PACKAGE_JSON = REPO_ROOT / "desktop" / "package.json"
 

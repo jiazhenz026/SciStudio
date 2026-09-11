@@ -35,12 +35,112 @@ test("the asar carries the loader and a complete baseline shell", () => {
     "main.js",
     "ota.js",
     "runtime-port.js",
+    "background-mode.js",
     "preload.js",
+    "connection-preload.js",
     "splash.html",
-    "package.json"
+    "connection.html",
+    "package.json",
+    "assets/tray.png",
+    "assets/tray@2x.png",
+    "assets/trayTemplate.png",
+    "assets/trayTemplate@2x.png"
   ]) {
     assert.ok(pkg.build.files.includes(file), `build.files must include ${file}`);
   }
+});
+
+test("every file the shell loads from next to itself ships in the asar (#2280)", () => {
+  // A relative require, or a path.join(__dirname, ...) file, that is missing
+  // from build.files crashes the installed app on launch; the same file missing
+  // from SHELL_FILES crashes every patched launch (tests/scripts/
+  // test_ota_publish.py pins the two lists together).
+  for (const name of ["main.js", "menu.js"]) {
+    const source = read(name);
+    for (const match of source.matchAll(/require\(["']\.\/([^"']+)["']\)/g)) {
+      const file = match[1].endsWith(".js") || match[1].endsWith(".json") ? match[1] : `${match[1]}.js`;
+      assert.ok(pkg.build.files.includes(file), `${name} requires ./${match[1]}, which build.files lacks`);
+    }
+  }
+  const main = read("main.js");
+  const dirnameFiles = [...main.matchAll(/path\.join\(__dirname,((?:\s*"[^"]+",?)+)\)/g)].map((m) =>
+    [...m[1].matchAll(/"([^"]+)"/g)].map((part) => part[1]).join("/")
+  );
+  assert.ok(dirnameFiles.length >= 6, `expected the shell-relative files, found ${dirnameFiles}`);
+  for (const file of dirnameFiles) {
+    assert.ok(pkg.build.files.includes(file), `main.js loads ${file} next to itself, which build.files lacks`);
+  }
+  // Electron picks the @2x tray images up by itself, so no code names them.
+  for (const file of ["assets/tray@2x.png", "assets/trayTemplate@2x.png"]) {
+    assert.ok(pkg.build.files.includes(file), `build.files must include ${file}`);
+    assert.ok(fs.existsSync(path.join(desktopRoot, file)), `${file} must exist`);
+  }
+});
+
+test("the connection window, its preload, and the tray images stay __dirname-relative (#2280)", () => {
+  // Like splash.html, these travel with the shell: a patched shell must load
+  // its own copies, never depend on an older installed bundle having them.
+  const main = read("main.js");
+  assert.match(main, /path\.join\(__dirname, "connection\.html"\)/);
+  assert.match(main, /path\.join\(__dirname, "connection-preload\.js"\)/);
+  assert.match(main, /path\.join\(__dirname, "assets", "trayTemplate\.png"\)/);
+  assert.match(main, /path\.join\(__dirname, "assets", "tray\.png"\)/);
+});
+
+test("every relaunch stops the backend and carries the launch mode (#2280)", () => {
+  // Owner decision 5: OTA stop-then-relaunch includes the background instance,
+  // and the relaunch honours the mode. All three relaunch sites (package update,
+  // mandatory OTA, optional OTA) must go through the one helper that does both.
+  const main = read("main.js");
+  const helperAt = main.indexOf("async function stopRuntimeAndRelaunch()");
+  assert.ok(helperAt > 0, "main.js must define stopRuntimeAndRelaunch");
+  const helper = main.slice(helperAt, main.indexOf("\n}\n", helperAt));
+  assert.match(helper, /isQuitting = true/);
+  assert.match(helper, /stopRuntimeAndWait\(/);
+  assert.match(helper, /backgroundMode\.relaunchArgs\(process\.argv, launchMode\)/);
+
+  const relaunchCalls = [...main.matchAll(/app\.relaunch\(/g)].map((m) => m.index);
+  assert.ok(relaunchCalls.length > 0);
+  for (const at of relaunchCalls) {
+    assert.ok(
+      at > helperAt && at < helperAt + helper.length,
+      "app.relaunch() may only be called from stopRuntimeAndRelaunch"
+    );
+  }
+  assert.ok(
+    (main.match(/await stopRuntimeAndRelaunch\(\)/g) || []).length >= 3,
+    "the package-update and both OTA paths must use stopRuntimeAndRelaunch"
+  );
+});
+
+test("the tray is held by a module-level reference (#2280)", () => {
+  // A Tray that is garbage-collected disappears from the menu bar (owner
+  // decision 2 calls this out for macOS).
+  const main = read("main.js");
+  assert.match(main, /^let tray = null;$/m);
+  assert.match(main, /\n {4}tray = new Tray\(trayImage\(\)\);/);
+  assert.match(main, /image\.setTemplateImage\(true\)/);
+});
+
+test("external-AI mode vouches for the shell without a main window (#2280)", () => {
+  // Desktop mode records known-good once the main window paints (#2179).
+  // External-AI mode has no main window; without its own vouching path a
+  // working patched shell would be quarantined on the next launch.
+  const main = read("main.js");
+  const start = main.indexOf("function maybeVouchForShellInBackground()");
+  assert.ok(start > 0, "main.js must define maybeVouchForShellInBackground");
+  const fn = main.slice(start, main.indexOf("\n}\n", start));
+  assert.match(fn, /launchMode !== backgroundMode\.MODES\.EXTERNAL_AI/);
+  assert.match(fn, /connectionBridgeReady/);
+  assert.match(fn, /SERVICE_STATUS\.RUNNING/);
+  assert.match(fn, /recordKnownGood\(effectiveBuild\(\)\)/);
+});
+
+test("window-all-closed follows the launch mode instead of always quitting (#2280)", () => {
+  const main = read("main.js");
+  const handler = main.slice(main.indexOf('app.on("window-all-closed"'), main.indexOf('app.on("activate"'));
+  assert.match(handler, /backgroundMode\.windowAllClosedAction\(/);
+  assert.match(handler, /if \(action === "quit"\)/);
 });
 
 test("the shell exposes start() for the loader to call", () => {

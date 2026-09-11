@@ -1,0 +1,134 @@
+{
+  "base_ref": null,
+  "branch": "feat/2280-local-background-runtime",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/main.js",
+      "desktop/background-mode.js",
+      "desktop/menu.js",
+      "desktop/splash.html",
+      "desktop/preload.js",
+      "desktop/connection.html",
+      "desktop/connection-preload.js",
+      "desktop/assets/tray*",
+      "desktop/package.json",
+      "scripts/ota_publish.py",
+      "desktop/test/background-mode.test.js",
+      "desktop/test/bootstrap.test.js",
+      "desktop/test/menu.test.js",
+      "tests/scripts/test_ota_publish.py",
+      "docs/specs/adr-055-local-background-runtime.md",
+      ".workflow/records/2280-feat-2280-local-background-runtime.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T03:04:22.198934Z",
+      "owner_directive": "Plan: T-001 desktop/background-mode.js pure logic (mode preference shape, startup-mode resolution, window-all-closed policy, second-instance routing, relaunch args, service status/view state) + unit tests; T-002 Windows lifetime verification via a Node-level repro (backstop only if the child survives); T-003 splash mode picker driven by executeJavaScript (no splash preload) + menu Startup Mode submenu and External AI connection entry; T-004 external-AI mode in main.js (existing startRuntimeWithRollback + readiness chain, no main window, tray + connection window, stop via stopRuntime, restart via readiness chain, crash surfaced); T-005 relaunch paths carry the running mode; T-006 shell file list parity (build.files and SHELL_FILES) and spec update. SpecKit N/A (spec already authored under #2263); ADR N/A (ADR-055 section 7 already governs; owner decisions recorded in #2280).",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T03:04:22.198958Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-local-background-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198969Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "CHANGELOG.md is outside the A2 dispatch write set; the manager owns changelog landing for the ADR-055 spec 2-3 track",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198974Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-055 section 7 already governs this behavior; the #2280 owner decisions amend the spec, not the ADR",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198977Z",
+      "class": "user-guide",
+      "kind": "na",
+      "path": null,
+      "rationale": "no user guide page covers desktop launch modes today; the governing spec carries the behavior description",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2280,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement ADR-055 Spec 3 (local startup modes and background runtime) per issue #2280 owner decisions, which override the spec: (1) splash offers Desktop / External AI at every launch with a don't-ask-again option, remembered choice changeable later from the menu and tray, desktop gives today's flow; (2) tray icon only in external-AI mode (open connection window, copy address, service status, open in desktop mode, stop and quit; macOS template image; Linux without tray host reaches the running instance via second-instance); (3) backend stops with Electron: POSIX watchdog unchanged, drop --no-parent-watchdog, instance adoption and runtime-port.js discovery changes; verify on Windows that the non-detached backend dies when Electron is force-killed and add a Windows backstop only if it does not; explicit stop via existing stopRuntime; (4) one backend per machine, second-instance reveals the connection window or attaches a desktop window; (5) OTA stop-then-relaunch includes the background instance and the relaunch honors the mode. Out of scope: worker/grandchild cleanup (#2281), OS autostart, lab deployment, AI-host presentation.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2280-feat-2280-local-background-runtime",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e3b2e06f-d844-43d3-8f83-5c7fe0845501",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T03:04:22.198980Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/background-mode.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198984Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/menu.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198985Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/bootstrap.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T03:04:22.198988Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
