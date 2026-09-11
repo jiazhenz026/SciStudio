@@ -576,6 +576,24 @@
       "at": "2026-09-11T04:01:18.230021Z",
       "pattern": "tests/contracts/test_runtime_import_contract.py",
       "reason": "Manager-approved: two more exact tool-count assertions (test_registry_now_has_36_tools, test_mcp_server_exposes_36_tools) updated to the 50-tool registry; count/name set and test name/docstring only"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:51:03.986165Z",
+      "pattern": "src/scistudio/engine/runners/platform.py",
+      "reason": "AU3 P1-2 fix (manager dispatch A1-fix1): run_command puts each Windows command in a Job Object; platform.py gains terminate/close operations beside the existing create_job_object/assign_to_job (POSIX no-ops)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:51:03.986185Z",
+      "pattern": "docs/audit/2026-09-11-adr-055-spec2-with-context.md",
+      "reason": "AU3 P1-2 fix (manager dispatch A1-fix1): run_command puts each Windows command in a Job Object; platform.py gains terminate/close operations beside the existing create_job_object/assign_to_job (POSIX no-ops)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T04:51:03.986187Z",
+      "pattern": ".workflow/records/2279-audit-2279-spec2-with-context.json",
+      "reason": "AU3 P1-2 fix (manager dispatch A1-fix1): run_command puts each Windows command in a Job Object; platform.py gains terminate/close operations beside the existing create_job_object/assign_to_job (POSIX no-ops)"
     }
   ],
   "session_id": "533bd70c-de14-4a43-b5c4-a6677cb89f51",

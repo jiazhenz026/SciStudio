@@ -188,7 +188,9 @@ def test_absent_project_gets_an_explicit_response(tmp_path: Path) -> None:
         result = _run(tools_qa.get_agent_context())
     finally:
         _context.set_context(None)
-    assert result.status == "no_active_project"
+    # AU3 P3-10: the same refusal vocabulary as the other external tools.
+    assert result.status == "refused"
+    assert result.refusal is not None and result.refusal.code == "no_active_project"
     assert result.message and "open or create a project" in result.message
     assert result.project is None
     assert result.index == []

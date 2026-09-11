@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
+from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal
 from scistudio.core.lineage.store import artifact_size_bytes
 
 logger = logging.getLogger(__name__)
@@ -482,8 +483,11 @@ _HOOK_EXECUTION_LOCATION = (
     "The provisioned hook scripts run only inside a local Claude Code or Codex CLI session that loads this "
     "project's .claude/settings.json or .codex/config.toml, on the machine where that CLI runs. A WebMCP "
     "host does not execute them, and SciStudio cannot observe whether any host did — reading a hook file "
-    "is not evidence that it ran. The server_side_equivalent of each hook is enforced by SciStudio on "
-    "every call, whichever host is connected."
+    "is not evidence that it ran. Each entry's server_side_equivalent says exactly where SciStudio enforces "
+    "the rule itself and where it does not: the workspace author tools apply their rules on every call from "
+    "any transport; scaffold_block's list_blocks rule applies to WebMCP bridge calls only; and run_command "
+    "does not check command text against the file-protection rules — a command runs with the user's "
+    "ordinary permissions and can change any file the user can (ADR-055 section 5.3)."
 )
 
 #: (hook, host trigger, purpose, server-side equivalent) for the seven provisioned hooks.
@@ -492,7 +496,8 @@ _HOOK_GUIDANCE: tuple[tuple[str, str, str, str], ...] = (
         "deny_scistudio_cli",
         "PreToolUse: Bash",
         "Blocks shell calls to the scistudio CLI.",
-        "run_command refuses commands that invoke the scistudio CLI and names the MCP tools to use.",
+        "run_command refuses commands that invoke the scistudio CLI (the hook's pattern plus common launchers "
+        "and shell wrappers) and names the MCP tools to use. This is parity with the hook, not containment.",
     ),
     (
         "protect_workflow_yaml",
@@ -506,14 +511,17 @@ _HOOK_GUIDANCE: tuple[tuple[str, str, str, str], ...] = (
         "PreToolUse: Edit|Write|MultiEdit|Bash",
         "Blocks direct edits and deletes under data/.",
         "Author tools refuse any mutation under data/; produce data with run_workflow. Backend runtime "
-        "writes into data/ are unaffected.",
+        "writes into data/ are unaffected. Not applied to run_command: unlike the local hook's Bash matcher, "
+        "a command can change files under data/.",
     ),
     (
         "enforce_list_blocks_before_block_write",
         "PreToolUse: Edit|Write|MultiEdit|Bash|scaffold_block",
         "Requires list_blocks before authoring a blocks/*.py file.",
-        "Author-tool writes to blocks/*.py, and scaffold_block through the bridge, are refused until "
-        "list_blocks has run once in this backend lifetime (a backend restart resets it).",
+        "Author-tool writes to blocks/*.py (from any transport) and scaffold_block through the WebMCP bridge "
+        "are refused until list_blocks has run once in this backend lifetime (a backend restart resets it). "
+        "Not applied to run_command, or to scaffold_block over the local transport, where the host's own hook "
+        "applies.",
     ),
     (
         "mark_list_blocks_called",
@@ -589,7 +597,10 @@ class HookGuidance(BaseModel):
 class AgentContextResult(BaseModel):
     """Result envelope for ``get_agent_context``."""
 
-    status: str = Field(description="'ok', or 'no_active_project' (no project index without a project).")
+    status: str = Field(
+        description="'ok', or 'refused' with refusal.code 'no_active_project' (no project index without a project)."
+    )
+    refusal: ToolRefusal | None = Field(default=None, description="Why no project context is available.")
     message: str | None = None
     project: dict[str, Any] | None = Field(default=None, description="Project identity and active context.")
     guidance_summary: str | None = Field(default=None, description="Bounded excerpt of the effective guidance file.")
@@ -834,12 +845,14 @@ async def get_agent_context() -> AgentContextResult:
     if project_dir is None:
         from scistudio.ai.agent.mcp.tools_execution import describe_command_environment
 
+        message = (
+            "No project is open in this SciStudio instance, so there is no project guidance or asset index. "
+            "Ask the user to open or create a project, then call get_agent_context again."
+        )
         return AgentContextResult(
-            status="no_active_project",
-            message=(
-                "No project is open in this SciStudio instance, so there is no project guidance or asset index. "
-                "Ask the user to open or create a project, then call get_agent_context again."
-            ),
+            status="refused",
+            refusal=ToolRefusal(code="no_active_project", message=message),
+            message=message,
             execution_environment=describe_command_environment(None),
             capabilities=_capabilities(),
         )

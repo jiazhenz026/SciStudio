@@ -439,3 +439,340 @@ def test_run_command_lands_in_the_registry_the_lifespan_terminates(
 
     # Leaving the client ran the lifespan shutdown: terminate_all stopped the tree.
     assert _wait_gone([pid]) == []
+
+
+# ---------------------------------------------------------------------------
+# A1-fix1 (#2279 audits AU3 P1-2 / P2-2 / P2-5, AU4 P1-1): the whole job.
+# ---------------------------------------------------------------------------
+
+# Starts a long-lived child that inherits (and so holds) stdout/stderr, records its
+# PID, and exits at once: `cmd &`, `start /b`, or a launcher that detaches.
+_LAUNCHER_SCRIPT = """\
+import subprocess, sys
+child = subprocess.Popen(
+    [sys.executable, "-c", "import time; time.sleep(120)"],
+    stdout=sys.stdout, stderr=sys.stderr, close_fds=False,
+)
+with open("bg.pid", "w", encoding="utf-8") as fh:
+    fh.write(str(child.pid))
+print("launcher done", flush=True)
+"""
+
+# Starts a long-lived grandchild that holds no pipes, records its PID, and exits.
+_SPAWNER_SCRIPT = """\
+import subprocess, sys
+child = subprocess.Popen(
+    [sys.executable, "-c", "import time; time.sleep(120)"],
+    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+)
+with open("orphan.pid", "w", encoding="utf-8") as fh:
+    fh.write(str(child.pid))
+"""
+
+
+async def _pid_from(path: Path, timeout: float = 30.0) -> int:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if path.exists() and path.read_text(encoding="utf-8").strip():
+            return int(path.read_text(encoding="utf-8"))
+        await asyncio.sleep(0.1)
+    raise AssertionError(f"{path.name} was never written")
+
+
+def test_background_child_holding_the_pipes_does_not_keep_the_job_running(ctx: _ExecContext, project: Path) -> None:
+    """AU4 P1-1 / AU3 P2-2: exit is detected apart from pipe EOF; drain is bounded; cancel stops the child."""
+    (project / "launcher.py").write_text(_LAUNCHER_SCRIPT, encoding="utf-8")
+
+    async def scenario() -> tuple[Any, float, int, list[str], Any]:
+        started = time.monotonic()
+        result = await tools_execution.run_command(command="python launcher.py", wait_seconds=30)
+        elapsed = time.monotonic() - started
+        background_pid = await _pid_from(project / "bg.pid")
+        registered = [handle.block_id for handle in ctx.process_registry.active_handles()]
+        cancelled = await tools_execution.cancel_command(job_id=result.job_id, grace_seconds=1)
+        return result, elapsed, background_pid, registered, cancelled
+
+    result, elapsed, background_pid, registered, cancelled = _run(scenario())
+    assert result.state == "exited" and result.exit_code == 0, result
+    assert elapsed < 15, elapsed
+    assert "launcher done" in result.stdout_tail
+    assert result.output_incomplete is True
+    assert result.background_processes_running is True
+    assert result.note is not None and "may be incomplete" in result.note
+    # Still owned while the background child lives, so cancel and shutdown can reach it.
+    assert registered == [f"command-{result.job_id}"]
+    assert cancelled.background_processes_running is False
+    assert _wait_gone([background_pid]) == []
+    assert ctx.process_registry.active_handles() == []
+
+
+def test_cancel_reaches_a_grandchild_whose_parent_already_exited(ctx: _ExecContext, project: Path) -> None:
+    """AU3 P1-2: Windows does not reparent orphans; the Job Object (POSIX: process group) still covers them."""
+    (project / "spawner.py").write_text(_SPAWNER_SCRIPT, encoding="utf-8")
+
+    async def scenario() -> tuple[Any, Any, int]:
+        started = await tools_execution.run_command(
+            command='python spawner.py && python -c "import time; time.sleep(90)"', wait_seconds=0
+        )
+        orphan = await _pid_from(project / "orphan.pid")
+        await asyncio.sleep(0.5)  # the spawner has exited; its child is now an orphan
+        cancelled = await tools_execution.cancel_command(job_id=started.job_id, grace_seconds=1)
+        return started, cancelled, orphan
+
+    started, cancelled, orphan = _run(scenario())
+    assert cancelled.state == "cancelled", cancelled
+    assert _wait_gone([orphan, started.pid]) == []
+    assert ctx.process_registry.active_handles() == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell background syntax; Windows runs `start /b` below")
+def test_posix_background_job_is_reported_exited_and_cancellable(ctx: _ExecContext, project: Path) -> None:
+    async def scenario() -> tuple[Any, Any]:
+        result = await tools_execution.run_command(
+            command='python -c "import time; time.sleep(120)" & echo started', wait_seconds=30
+        )
+        cancelled = await tools_execution.cancel_command(job_id=result.job_id, grace_seconds=1)
+        return result, cancelled
+
+    result, cancelled = _run(scenario())
+    assert result.state == "exited" and result.background_processes_running is True
+    assert cancelled.background_processes_running is False
+    assert ctx.process_registry.active_handles() == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="`start /b` is the Windows command processor's background form")
+def test_windows_start_b_job_is_reported_exited_and_cancellable(ctx: _ExecContext, project: Path) -> None:
+    async def scenario() -> tuple[Any, Any]:
+        result = await tools_execution.run_command(
+            command='start /b python -c "import time; time.sleep(120)"', wait_seconds=30
+        )
+        cancelled = await tools_execution.cancel_command(job_id=result.job_id, grace_seconds=1)
+        return result, cancelled
+
+    result, cancelled = _run(scenario())
+    assert result.state == "exited" and result.background_processes_running is True
+    assert cancelled.background_processes_running is False
+    assert ctx.process_registry.active_handles() == []
+
+
+def test_backend_shutdown_stops_background_processes_of_an_exited_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, user_python: Path
+) -> None:
+    """AU4 P1-1: terminate_all still reaches the job after its shell has exited."""
+    from fastapi.testclient import TestClient
+
+    from scistudio.api import runtime as runtime_module
+    from scistudio.api.app import create_app
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+    parent = tmp_path / "projects"
+    parent.mkdir()
+
+    with TestClient(create_app()) as client:
+        created = client.post("/api/projects/", json={"name": "Leftovers", "description": "", "path": str(parent)})
+        assert created.status_code == 200, created.text
+        project_root = Path(created.json()["path"])
+        (project_root / "launcher.py").write_text(_LAUNCHER_SCRIPT, encoding="utf-8")
+        app_state = client.app.state  # type: ignore[attr-defined]
+        response = client.post(
+            "/api/webmcp/call",
+            headers={"X-SciStudio-WebMCP-Token": app_state.webmcp_session_token},
+            json={
+                "name": "run_command",
+                "arguments": {"command": "python launcher.py", "wait_seconds": 30},
+                "projectId": app_state.runtime.active_project.id,
+            },
+        )
+        body = response.json()["structuredContent"]
+        assert body["state"] == "exited" and body["background_processes_running"] is True, body
+        background_pid = int((project_root / "bg.pid").read_text(encoding="utf-8"))
+        assert [
+            handle
+            for handle in app_state.registry.active_handles()
+            if handle.workflow_id == tools_execution.COMMAND_REGISTRY_NAMESPACE
+        ]
+        assert not _gone(background_pid)
+
+    assert _wait_gone([background_pid]) == []
+
+
+def test_http_request_abort_through_the_bridge_leaves_the_job_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, user_python: Path
+) -> None:
+    """AU3 P2-5: a real HTTP client gives up mid-call; the job keeps running and stays manageable."""
+    import threading
+
+    import httpx
+    import uvicorn
+
+    from scistudio.api import runtime as runtime_module
+    from scistudio.api.app import create_app
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+    parent = tmp_path / "projects"
+    parent.mkdir()
+    app = create_app()
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=0, log_level="warning"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 30
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert server.started, "uvicorn did not start"
+    port = server.servers[0].sockets[0].getsockname()[1]
+    headers = {"X-SciStudio-WebMCP-Token": app.state.webmcp_session_token}
+    pid = None
+    try:
+        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30.0) as http:
+            created = http.post("/api/projects/", json={"name": "Abort", "description": "", "path": str(parent)})
+            assert created.status_code == 200, created.text
+            project_id = app.state.runtime.active_project.id
+
+            def call(name: str, **arguments: Any) -> dict[str, Any]:
+                reply = http.post(
+                    "/api/webmcp/call",
+                    headers=headers,
+                    json={"name": name, "arguments": arguments, "projectId": project_id},
+                )
+                assert reply.status_code == 200, reply.text
+                return reply.json()["structuredContent"]  # type: ignore[no-any-return]
+
+            with pytest.raises(httpx.ReadTimeout):
+                http.post(
+                    "/api/webmcp/call",
+                    headers=headers,
+                    json={
+                        "name": "run_command",
+                        "arguments": {"command": _sleep_command(120), "wait_seconds": 60, "label": "abort me"},
+                        "projectId": project_id,
+                    },
+                    timeout=3.0,
+                )
+            jobs = call("list_commands")["jobs"]
+            assert [(job["label"], job["state"]) for job in jobs] == [("abort me", "running")]
+            status = call("get_command_status", job_id=jobs[0]["job_id"], wait_seconds=1)
+            assert status["running"] is True
+            pid = status["pid"]
+            assert not _gone(pid)
+            cancelled = call("cancel_command", job_id=jobs[0]["job_id"], grace_seconds=1)
+            assert cancelled["state"] == "cancelled"
+    finally:
+        server.should_exit = True
+        thread.join(timeout=30)
+    assert pid is not None and _wait_gone([pid]) == []
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        '"scistudio" run x',
+        "sh -c 'scistudio run x'",
+        'bash -c "cd blocks; scistudio gui"',
+        "cmd /c scistudio run x",
+        'start "" /b scistudio gui',
+        "nice -n 5 scistudio run x",
+        "timeout 10 scistudio run x",
+        "env -i scistudio run x",
+        "xargs scistudio run",
+        "python -m scistudio.cli.main run x",
+        'python -c "from scistudio.cli.main import app; app()"',
+    ],
+)
+def test_wrapped_and_launched_cli_invocations_are_detected(command: str) -> None:
+    """AU3 P3-1: launchers, shell wrappers, and module forms are caught too."""
+    assert tools_execution.invokes_scistudio_cli(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    ["bash build.sh", 'python -c "import scistudio_blocks_x"', "nice -n 5 python train.py", 'sh -c "echo scistudio"'],
+)
+def test_wrappers_around_ordinary_commands_are_allowed(command: str) -> None:
+    assert not tools_execution.invokes_scistudio_cli(command)
+
+
+def test_list_commands_tells_jobs_apart_by_label_and_preview(ctx: _ExecContext) -> None:
+    """AU3 P3-10."""
+
+    async def scenario() -> tuple[Any, Any, Any]:
+        labelled = await tools_execution.run_command(command=_sleep_command(30), wait_seconds=0, label="training run")
+        plain = await tools_execution.run_command(command='python -c "print(1)"', wait_seconds=30)
+        listed = await tools_execution.list_commands()
+        await tools_execution.cancel_command(job_id=labelled.job_id, grace_seconds=1)
+        return labelled, plain, listed
+
+    labelled, plain, listed = _run(scenario())
+    by_id = {job.job_id: job for job in listed.jobs}
+    assert by_id[labelled.job_id].label == "training run"
+    assert by_id[plain.job_id].label is None
+    assert "print(1)" in by_id[plain.job_id].command_preview
+
+
+def test_background_tasks_do_not_inherit_the_bridge_marker() -> None:
+    """AU3 P3-7: a supervisor spawned inside a bridge call does not look like a bridge call."""
+    from scistudio.ai.agent.mcp._context import bridge_call_scope, invoked_through_bridge, outside_bridge_context
+
+    with bridge_call_scope():
+        assert invoked_through_bridge() is True
+        detached = outside_bridge_context()
+    assert detached.run(invoked_through_bridge) is False
+
+
+def test_command_failures_reach_the_host_as_is_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, user_python: Path
+) -> None:
+    """Owner decision 2026-09-11 (AU4 P3-5): non-zero exit, CLI denial, and a cancel that did not stop."""
+    from fastapi.testclient import TestClient
+
+    from scistudio.api import runtime as runtime_module
+    from scistudio.api.app import create_app
+    from scistudio.engine.runners.exit_info import ProcessExitInfo
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+    parent = tmp_path / "projects"
+    parent.mkdir()
+
+    with TestClient(create_app()) as client:
+        assert (
+            client.post("/api/projects/", json={"name": "Flags", "description": "", "path": str(parent)}).status_code
+            == 200
+        )
+        app_state = client.app.state  # type: ignore[attr-defined]
+
+        def call(name: str, **arguments: Any) -> tuple[bool, dict[str, Any]]:
+            reply = client.post(
+                "/api/webmcp/call",
+                headers={"X-SciStudio-WebMCP-Token": app_state.webmcp_session_token},
+                json={"name": name, "arguments": arguments, "projectId": app_state.runtime.active_project.id},
+            )
+            body = reply.json()
+            return bool(body["isError"]), body["structuredContent"]
+
+        is_error, ok = call("run_command", command='python -c "print(1)"', wait_seconds=30)
+        assert is_error is False and ok["exit_code"] == 0
+
+        is_error, failed = call("run_command", command='python -c "import sys; sys.exit(3)"', wait_seconds=30)
+        assert is_error is True
+        assert failed["state"] == "exited" and failed["exit_code"] == 3 and failed["status"] == "ok"
+
+        is_error, denied = call("run_command", command="scistudio run workflows/main.yaml")
+        assert is_error is True and denied["refusal"]["code"] == "scistudio_cli_denied"
+
+        _running_error, running = call("run_command", command=_sleep_command(60), wait_seconds=0)
+        with monkeypatch.context() as patched:
+            patched.setattr(
+                tools_execution._CommandHandle,
+                "terminate",
+                lambda self, grace_period_sec=5.0: ProcessExitInfo(exit_code=None, platform_detail="ignored"),
+            )
+            is_error, unstopped = call("cancel_command", job_id=running["job_id"], grace_seconds=0)
+        assert is_error is True and unstopped["running"] is True
+
+        is_error, stopped = call("cancel_command", job_id=running["job_id"], grace_seconds=1)
+        assert is_error is False and stopped["state"] == "cancelled"

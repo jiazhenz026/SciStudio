@@ -44,10 +44,16 @@ import logging
 import os
 import re
 import stat as stat_module
+import threading
+import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+from fastmcp.server.middleware import Middleware, MiddlewareContext
+from fastmcp.server.middleware.middleware import CallNext
+from fastmcp.tools.base import ToolResult
+from mcp.types import CallToolRequestParams, CallToolResult
 from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import ProjectFileWriter, get_context, get_project_files
@@ -74,7 +80,11 @@ _LIST_SCAN_CEILING = 100_000
 
 SEARCH_DEFAULT_RESULTS = 50
 SEARCH_MAX_RESULTS = 200
-_SEARCH_MAX_FILES = 20_000
+_SEARCH_MAX_ENTRIES = 20_000
+"""Directory entries (files and directories, matching or not) one search may visit."""
+
+_SEARCH_TIME_BUDGET_SECONDS = 20.0
+"""Wall-clock budget for one search walk (a slow or huge root such as ``/`` or a network share)."""
 _SEARCH_FILE_BYTES_CAP = 2 * 1024 * 1024
 _SEARCH_MAX_LINE_BYTES = 64 * 1024
 _SEARCH_SNIPPET_CHARS = 200
@@ -188,7 +198,8 @@ class SearchFilesResult(WorkspaceResult):
 
     root: str = ""
     hits: list[SearchHit] = Field(default_factory=list)
-    files_scanned: int = 0
+    files_scanned: int = Field(default=0, description="Files whose name matched and were examined.")
+    entries_visited: int = Field(default=0, description="Directory entries the walk visited, matching or not.")
     truncated: bool = Field(default=False, description="True when a result, file, or size bound stopped the search.")
     notes: list[str] = Field(default_factory=list, description="Which bounds applied and what was skipped.")
 
@@ -235,6 +246,75 @@ class AuthorResult(WorkspaceResult):
             "on the next write to the same file so a concurrent change is detected."
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Failure outcomes carry the MCP error flag (owner decision 2026-09-11, #2279).
+#
+# Refusals, write conflicts, a command that exited non-zero, and a cancel that
+# did not stop the command are failures: the host must see ``isError: true``.
+# They stay tool RESULTS (not exceptions), so the structured reason — status,
+# refusal code, message, alternatives — survives the bridge, which withholds
+# exception text. The tools keep returning their result models; one
+# call-tool middleware sets the flag at the MCP boundary for the tools that
+# registered a failure rule.
+# ---------------------------------------------------------------------------
+
+
+class FlaggedToolResult(ToolResult):
+    """A tool result carrying the MCP error flag, with its structured content intact."""
+
+    is_error: bool = False
+
+    def to_mcp_result(self) -> CallToolResult:  # type: ignore[override]
+        """Native MCP transports receive ``isError`` alongside the structured content."""
+        if self.meta is not None:
+            return CallToolResult(
+                content=self.content,
+                structuredContent=self.structured_content,
+                isError=self.is_error,
+                _meta=self.meta,  # type: ignore[call-arg]
+            )
+        return CallToolResult(content=self.content, structuredContent=self.structured_content, isError=self.is_error)
+
+
+def status_is_failure(structured: dict[str, Any]) -> bool:
+    """The default failure rule: a refusal or a conflict."""
+    return structured.get("status") in {"refused", "conflict"}
+
+
+_FAILURE_RULES: dict[str, Callable[[dict[str, Any]], bool]] = {}
+
+
+def register_failure_outcome(tool_name: str, rule: Callable[[dict[str, Any]], bool] = status_is_failure) -> None:
+    """Mark *tool_name*'s results as failures (``isError: true``) whenever *rule* says so."""
+    _FAILURE_RULES[tool_name] = rule
+
+
+def flag_failure(result: ToolResult, tool_name: str) -> ToolResult:
+    """Return *result* flagged as an error when its tool's failure rule matches its structured content."""
+    rule = _FAILURE_RULES.get(tool_name)
+    structured = result.structured_content
+    if rule is None or not isinstance(structured, dict) or not rule(structured):
+        return result
+    flagged = FlaggedToolResult(content=result.content, structured_content=structured, meta=result.meta)
+    flagged.is_error = True
+    return flagged
+
+
+class _FailureOutcomeMiddleware(Middleware):
+    """Sets ``isError`` on failure outcomes of the tools that registered a rule."""
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext[CallToolRequestParams],
+        call_next: CallNext[CallToolRequestParams, ToolResult],
+    ) -> ToolResult:
+        result = await call_next(context)
+        return flag_failure(result, context.message.name)
+
+
+mcp.add_middleware(_FailureOutcomeMiddleware())
 
 
 # ---------------------------------------------------------------------------
@@ -316,12 +396,17 @@ def _blacklist_refusal(rel_posix: str) -> _RefusedError | None:
     return None
 
 
-def _resolve_author_path(path: str) -> tuple[Path, Path, str]:
+def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path, Path, str]:
     """Resolve an author-tool path: project-confined, blacklist-checked.
 
-    Returns ``(target, project_root, project_relative_posix)``. Both the
-    lexical path and its symlink-resolved form are checked against the
-    blacklist, so a link cannot smuggle a write into ``data/``.
+    Returns ``(mutated_path, project_root, project_relative_posix)`` for the path
+    the operation will actually change. A write (``follow_final=True``) changes
+    the file a link points to, so the fully resolved path is confined and
+    checked. A delete or move (``follow_final=False``) changes the link itself
+    (lstat semantics): only the parent directories are resolved and the link's
+    own location is confined and checked — it never follows a link to delete or
+    move what it points to (#2279 audit AU3 P1-1). The lexical path is checked
+    against the blacklist as well.
     """
     root = _project_root()
     if root is None:
@@ -331,22 +416,26 @@ def _resolve_author_path(path: str) -> tuple[Path, Path, str]:
         )
     raw = Path(os.path.expanduser((path or "").strip()))
     lexical = Path(os.path.normpath(raw if raw.is_absolute() else root / raw))
-    resolved = Path(os.path.realpath(lexical))
-    if not _within(root, resolved):
+    if follow_final:
+        mutated = Path(os.path.realpath(lexical))
+    else:
+        head, tail = os.path.split(lexical)
+        mutated = Path(os.path.join(os.path.realpath(head), tail)) if tail else Path(os.path.realpath(lexical))
+    if not _within(root, mutated):
         raise _RefusedError(
             "outside_project",
             "Author tools only change files inside the active project. Inspect tools can read other "
             "paths; use run_command for changes elsewhere.",
             ["run_command"],
         )
-    rel = _relative_posix(root, resolved)
+    rel = _relative_posix(root, mutated)
     for candidate in (rel, _relative_posix(root, lexical) if _within(root, lexical) else None):
         if candidate is None:
             continue
         refusal = _blacklist_refusal(candidate)
         if refusal is not None:
             raise refusal
-    return resolved, root, rel
+    return mutated, root, rel
 
 
 def _require_block_list(rel_posix: str) -> None:
@@ -366,18 +455,41 @@ def _require_project_files() -> ProjectFileWriter:
     return files
 
 
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+_LINK_REPARSE_TAGS = frozenset({0xA0000003, 0xA000000C})  # junction, symlink
+
+
+def _is_link(path: Path) -> bool:
+    """A symlink or Windows junction, judged without following it (mirrors the shared write path)."""
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    if stat_module.S_ISLNK(info.st_mode):
+        return True
+    attributes = getattr(info, "st_file_attributes", 0)
+    return bool(attributes & _FILE_ATTRIBUTE_REPARSE_POINT) and getattr(info, "st_reparse_tag", 0) in _LINK_REPARSE_TAGS
+
+
 def _tree_files(directory: Path) -> list[Path]:
+    """Every entry a tree operation touches; a link inside the tree is one entry, never descended."""
     found: list[Path] = []
-    for dirpath, _dirnames, filenames in os.walk(directory):
-        for name in filenames:
-            found.append(Path(dirpath) / name)
-            if len(found) > _TREE_POLICY_FILE_LIMIT:
-                raise _RefusedError(
-                    "too_many_entries",
-                    f"The directory holds more than {_TREE_POLICY_FILE_LIMIT} files; one author-tool call touches "
-                    "at most that many. Use run_command for bulk reorganization.",
-                    ["run_command"],
-                )
+    pending = [directory]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if not _is_link(path) and entry.is_dir(follow_symlinks=False):
+                    pending.append(path)
+                    continue
+                found.append(path)
+                if len(found) > _TREE_POLICY_FILE_LIMIT:
+                    raise _RefusedError(
+                        "too_many_entries",
+                        f"The directory holds more than {_TREE_POLICY_FILE_LIMIT} files; one author-tool call touches "
+                        "at most that many. Use run_command for bulk reorganization.",
+                        ["run_command"],
+                    )
     return found
 
 
@@ -691,6 +803,62 @@ def _iter_lines(path: Path) -> Iterator[tuple[int, str]] | None:
     return _lines()
 
 
+def _walk_stop_reason(result: SearchFilesResult, stop: threading.Event | None, deadline: float) -> str | None:
+    """Why the search walk must stop now, or ``None`` to go on."""
+    if stop is not None and stop.is_set():
+        return "The search was stopped because its request ended."
+    if result.entries_visited >= _SEARCH_MAX_ENTRIES:
+        return f"Stopped after visiting {_SEARCH_MAX_ENTRIES} directory entries; narrow the path or name_pattern."
+    if time.monotonic() > deadline:
+        return f"Stopped after the {_SEARCH_TIME_BUDGET_SECONDS:g} s search time budget; narrow the path."
+    return None
+
+
+def _walk_regular_files(
+    root_dir: Path, result: SearchFilesResult, stop: threading.Event | None, stopped_by: list[str]
+) -> Iterator[Path]:
+    """Regular files below *root_dir*, within the entry and time budgets; never follows links.
+
+    Every directory entry visited counts toward ``result.entries_visited``,
+    matching or not, so a huge root such as ``/`` stays bounded (#2279 audit
+    AU4 P2-3). A set *stop* event ends the walk at the next entry; the reason a
+    walk stopped early is appended to *stopped_by*.
+    """
+    if root_dir.is_file():
+        result.entries_visited = 1
+        yield root_dir
+        return
+    deadline = time.monotonic() + _SEARCH_TIME_BUDGET_SECONDS
+    pending = [root_dir]
+    while pending:
+        try:
+            with os.scandir(pending.pop()) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+        except OSError:
+            continue
+        subdirectories: list[Path] = []
+        for entry in entries:
+            reason = _walk_stop_reason(result, stop, deadline)
+            if reason is not None:
+                stopped_by.append(reason)
+                return
+            result.entries_visited += 1
+            path = Path(entry.path)
+            try:
+                if _is_link(path):
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    if entry.name not in _SEARCH_SKIP_DIRS:
+                        subdirectories.append(path)
+                    continue
+                if not entry.is_file(follow_symlinks=False):
+                    continue  # FIFOs, sockets, devices: never opened
+            except OSError:
+                continue
+            yield path
+        pending.extend(reversed(subdirectories))
+
+
 def _search_sync(
     root_dir: Path,
     project_root: Path | None,
@@ -699,6 +867,7 @@ def _search_sync(
     use_regex: bool,
     case_sensitive: bool,
     max_results: int,
+    stop: threading.Event | None = None,
 ) -> SearchFilesResult:
     if not root_dir.exists():
         raise _RefusedError("not_found", "The search root does not exist.")
@@ -726,23 +895,11 @@ def _search_sync(
     skipped_binary = 0
     capped_files = 0
 
-    def _candidates() -> Iterator[Path]:
-        if root_dir.is_file():
-            yield root_dir
-            return
-        for dirpath, dirnames, filenames in os.walk(root_dir):
-            dirnames[:] = sorted(name for name in dirnames if name not in _SEARCH_SKIP_DIRS)
-            for name in sorted(filenames):
-                yield Path(dirpath) / name
-
-    for path in _candidates():
+    stopped_by: list[str] = []
+    for path in _walk_regular_files(root_dir, result, stop, stopped_by):
         name = path.name if case_sensitive else path.name.casefold()
         if not fnmatch.fnmatchcase(name, name_glob):
             continue
-        if result.files_scanned >= _SEARCH_MAX_FILES:
-            result.truncated = True
-            result.notes.append(f"Stopped after scanning {_SEARCH_MAX_FILES} files; narrow path or name_pattern.")
-            break
         result.files_scanned += 1
         display = _display_path(path, project_root)
         if content is None:
@@ -774,6 +931,9 @@ def _search_sync(
             result.truncated = True
             result.notes.append(f"Stopped at {max_results} results.")
             break
+    if stopped_by:
+        result.truncated = True
+        result.notes.extend(stopped_by)
     if skipped_binary:
         result.notes.append(f"Skipped {skipped_binary} binary file(s).")
     if capped_files:
@@ -801,17 +961,24 @@ async def search_files(
 ) -> SearchFilesResult:
     """Find files by name, and optionally by content, below a directory.
 
-    Bounded: stops at ``max_results`` hits, at 20000 scanned files, and reads at
-    most the first 2 MiB of each file; binary files are skipped and ``.git``,
-    ``node_modules``, and ``__pycache__`` are not descended. ``truncated`` and
-    ``notes`` say which bound applied.
+    Bounded: stops at ``max_results`` hits, after visiting 20000 directory
+    entries (matching or not), or after 20 s, and reads at most the first 2 MiB
+    of each file; binary and special files are skipped, links are not followed,
+    and ``.git``, ``node_modules``, and ``__pycache__`` are not descended.
+    ``truncated`` and ``notes`` say which bound applied. Ending the request
+    stops the walk.
     """
+    stop = threading.Event()
     try:
         root_dir, project_root = _resolve_inspect_path(path)
         bounded = max(1, min(int(max_results), SEARCH_MAX_RESULTS))
         result = await asyncio.to_thread(
-            _search_sync, root_dir, project_root, name_pattern or "*", content, regex, case_sensitive, bounded
+            _search_sync, root_dir, project_root, name_pattern or "*", content, regex, case_sensitive, bounded, stop
         )
+    except asyncio.CancelledError:
+        # The worker thread cannot be cancelled; tell it to stop at its next entry.
+        stop.set()
+        raise
     except _RefusedError as refused:
         result = SearchFilesResult(status=refused.status, refusal=refused.refusal, root=path)
     _log_outcome("search_files", result.status, result.refusal)
@@ -825,10 +992,17 @@ def _read_file_sync(
         raise _RefusedError("not_found", "The file does not exist.")
     if target.is_dir():
         raise _RefusedError("is_directory", "The path is a directory.", ["list_directory"])
-    data, total, more = _read_window(target, offset, limit)
+    if not stat_module.S_ISREG(target.stat().st_mode):
+        # A FIFO without a writer would block this thread forever; devices and
+        # sockets are not files to read.
+        raise _RefusedError("special_file", "The path is not a regular file (a FIFO, socket, or device).")
+    # The version is taken BEFORE the content: an edit landing in between then
+    # makes a write based on this version conflict, instead of overwriting
+    # content the agent never saw (#2279 audit AU4 P3-4).
     state_version = (
         files.state_version(target) if files is not None and root is not None and _within(root, target) else None
     )
+    data, total, more = _read_window(target, offset, limit)
     result = ReadFileResult(
         path=_display_path(target, root),
         absolute_path=str(target),
@@ -1103,7 +1277,8 @@ async def move_path(
 ) -> AuthorResult:
     """Rename or move a file or directory inside the active project, with UI sync.
 
-    Never overwrites an existing destination. Each moved file emits a
+    Never overwrites an existing destination. A symlink or junction is moved
+    as a link, never what it points to. Each moved file emits a
     ``deleted`` event at its old path and ``created`` at its new one. Refused
     when the source or destination touches ``data/`` or ``workflows/*.yaml``
     (for a directory: any file inside it), or when a ``blocks/*.py`` would be
@@ -1111,11 +1286,11 @@ async def move_path(
     """
     try:
         files = _require_project_files()
-        source, root, source_rel = _resolve_author_path(path)
-        target, _root, target_rel = _resolve_author_path(destination)
+        source, root, source_rel = _resolve_author_path(path, follow_final=False)
+        target, _root, target_rel = _resolve_author_path(destination, follow_final=False)
         if root in (source, target):
             raise _RefusedError("project_root", "The project root itself cannot be moved.")
-        if source.is_dir():
+        if source.is_dir() and not _is_link(source):
             await asyncio.to_thread(_check_tree, root, source, target)
         else:
             _require_block_list(target_rel)
@@ -1129,7 +1304,7 @@ async def move_path(
     except _RefusedError as refused:
         return _refused_result("move_path", refused, path)
     warnings: list[str] = []
-    if outcome.get("status") == "ok" and target.is_file():
+    if outcome.get("status") == "ok" and not _is_link(target) and target.is_file():
         try:
             warnings = port_type_warnings(target_rel, await asyncio.to_thread(_read_for_patch, target))
         except _RefusedError:
@@ -1152,17 +1327,18 @@ async def delete_path(
 ) -> AuthorResult:
     """Delete a file or directory in the active project, with UI sync.
 
-    A ``deleted`` event is emitted for every removed file so an open editor tab
-    learns its file is gone. Refused for anything under ``data/`` and for
+    A symlink or junction is removed as a link; what it points to is never
+    touched. A ``deleted`` event is emitted for every removed file so an open
+    editor tab learns its file is gone. Refused for anything under ``data/`` and for
     ``workflows/*.yaml`` (for a directory: any such file inside it). A
     non-empty directory needs ``recursive=true``.
     """
     try:
         files = _require_project_files()
-        target, root, rel = _resolve_author_path(path)
+        target, root, rel = _resolve_author_path(path, follow_final=False)
         if target == root:
             raise _RefusedError("project_root", "The project root itself cannot be deleted.")
-        if target.is_dir():
+        if target.is_dir() and not _is_link(target):
             await asyncio.to_thread(_check_tree, root, target)
         outcome = await files.delete(
             target,
@@ -1178,6 +1354,24 @@ async def delete_path(
         result.next_step = "Confirm with list_directory; the UI received a file-deleted event for each removed file."
     _log_outcome("delete_path", result.status, result.refusal)
     return result
+
+
+# Refusals and conflicts of these tools are failures. scaffold_block refuses only
+# through the WebMCP bridge; get_agent_context refuses when no project is open.
+for _tool_name in (
+    "list_directory",
+    "get_file_info",
+    "search_files",
+    "read_file",
+    "write_file",
+    "create_directory",
+    "patch_file",
+    "move_path",
+    "delete_path",
+    "get_agent_context",
+    "scaffold_block",
+):
+    register_failure_outcome(_tool_name)
 
 
 __all__ = [

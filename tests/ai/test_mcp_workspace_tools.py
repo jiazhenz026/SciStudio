@@ -335,7 +335,10 @@ class _Bridge:
         )
         assert response.status_code == 200, response.text
         body = response.json()
-        assert body["isError"] is False, body
+        # Refusals and conflicts carry isError: true (owner decision 2026-09-11); the
+        # structured reason travels either way. Tests that care read last_is_error.
+        self.last_is_error = bool(body["isError"])
+        assert "structuredContent" in body, body
         return body["structuredContent"]  # type: ignore[no-any-return]
 
 
@@ -641,3 +644,366 @@ def test_author_tool_logs_carry_no_contents_or_paths(bridge: _Bridge, caplog: py
         assert "SECRET-CONTENT-91b2" not in message, record.name
         if record.name.startswith(("scistudio.ai.agent.mcp", "scistudio.api.routes.webmcp")):
             assert "secret-path-7f3a" not in message, (record.name, message)
+
+
+# ---------------------------------------------------------------------------
+# A1-fix1 (#2279 audits AU3 / AU4): links, versions, bounds, check-then-create.
+# ---------------------------------------------------------------------------
+
+
+def _make_dir_link(link: Path, target: Path) -> str:
+    """A directory symlink where the OS allows it; on Windows without privilege, a junction."""
+    import subprocess
+    import sys
+
+    try:
+        os.symlink(target, link, target_is_directory=True)
+        return "symlink"
+    except OSError:
+        if sys.platform != "win32":
+            raise
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    return "junction"
+
+
+def _make_file_link(link: Path, target: Path) -> None:
+    import sys
+
+    try:
+        os.symlink(target, link)
+    except OSError:
+        if sys.platform == "win32":
+            pytest.skip(
+                "file symlinks need the SeCreateSymbolicLink privilege on this Windows host; "
+                "CI's Linux runner covers them"
+            )
+        raise
+
+
+def test_delete_path_removes_a_directory_link_not_its_target(bridge: _Bridge) -> None:
+    """AU3 P1-1: deleting a link deletes the link; the directory it points to survives."""
+    root = bridge.root
+    (root / "scratch").mkdir()
+    (root / "scratch" / "keep.txt").write_bytes(b"keep\n")
+    (root / "notes").mkdir(exist_ok=True)
+    kind = _make_dir_link(root / "notes" / "k", root / "scratch")
+
+    result = bridge.call("delete_path", path="notes/k", recursive=True)
+    assert result["status"] == "ok", (kind, result)
+    assert not os.path.lexists(root / "notes" / "k")
+    assert (root / "scratch" / "keep.txt").read_bytes() == b"keep\n"
+
+
+def test_move_path_moves_a_directory_link_not_its_target(bridge: _Bridge) -> None:
+    root = bridge.root
+    (root / "scratch2").mkdir()
+    (root / "scratch2" / "keep.txt").write_bytes(b"keep\n")
+    (root / "notes").mkdir(exist_ok=True)
+    kind = _make_dir_link(root / "notes" / "m", root / "scratch2")
+
+    result = bridge.call("move_path", path="notes/m", destination="notes/m2")
+    assert result["status"] == "ok", (kind, result)
+    assert not os.path.lexists(root / "notes" / "m")
+    assert tools_workspace._is_link(root / "notes" / "m2")
+    assert (root / "scratch2" / "keep.txt").read_bytes() == b"keep\n"
+    assert (root / "notes" / "m2" / "keep.txt").exists()  # the moved link still points at scratch2
+
+
+def test_links_to_protected_or_outside_targets_are_removed_as_links(bridge: _Bridge, tmp_path: Path) -> None:
+    """The blacklist and confinement evaluate the path actually being mutated."""
+    root = bridge.root
+    (root / "workflows").mkdir(exist_ok=True)
+    (root / "workflows" / "main.yaml").write_text("workflow: {}\n", encoding="utf-8")
+    (root / "data").mkdir(exist_ok=True)
+    (root / "data" / "raw.csv").write_text("x\n", encoding="utf-8")
+    outside = tmp_path / "outside-dataset"
+    outside.mkdir()
+    (outside / "ds.txt").write_text("ds\n", encoding="utf-8")
+    (root / "notes").mkdir(exist_ok=True)
+    _make_dir_link(root / "notes" / "to_data", root / "data")
+    _make_dir_link(root / "notes" / "to_wf", root / "workflows")
+    _make_dir_link(root / "notes" / "to_out", outside)
+
+    # Writing THROUGH a link changes the target, so the target is checked.
+    through_data = bridge.call("write_file", path="notes/to_data/new.csv", content="x")
+    assert through_data["refusal"]["code"] == "protected_data_dir"
+    through_wf = bridge.call("write_file", path="notes/to_wf/new.yaml", content="x")
+    assert through_wf["refusal"]["code"] == "protected_workflow_yaml"
+    through_out = bridge.call("write_file", path="notes/to_out/new.txt", content="x")
+    assert through_out["refusal"]["code"] == "outside_project"
+
+    # Moving or deleting the LINK changes only the link.
+    assert bridge.call("move_path", path="notes/to_data", destination="notes/data_link")["status"] == "ok"
+    assert bridge.call("delete_path", path="notes/data_link", recursive=True)["status"] == "ok"
+    assert bridge.call("delete_path", path="notes/to_wf", recursive=True)["status"] == "ok"
+    assert bridge.call("delete_path", path="notes/to_out", recursive=True)["status"] == "ok"
+    for gone in ("to_data", "data_link", "to_wf", "to_out"):
+        assert not os.path.lexists(root / "notes" / gone), gone
+    assert (root / "data" / "raw.csv").exists()
+    assert (root / "workflows" / "main.yaml").exists()
+    assert (outside / "ds.txt").exists()
+
+    # A link that itself sits under data/ is protected like any other entry there.
+    _make_dir_link(root / "data" / "inner_link", root / "notes")
+    refused = bridge.call("delete_path", path="data/inner_link")
+    assert refused["refusal"]["code"] == "protected_data_dir"
+    assert os.path.lexists(root / "data" / "inner_link")
+
+
+def test_recursive_delete_never_follows_a_link_inside_the_tree(bridge: _Bridge) -> None:
+    root = bridge.root
+    (root / "scratch3").mkdir()
+    (root / "scratch3" / "keep.txt").write_bytes(b"k")
+    (root / "tree" / "sub").mkdir(parents=True)
+    (root / "tree" / "sub" / "a.txt").write_bytes(b"a")
+    _make_dir_link(root / "tree" / "inner", root / "scratch3")
+
+    result = bridge.call("delete_path", path="tree", recursive=True)
+    assert result["status"] == "ok", result
+    assert not os.path.lexists(root / "tree")
+    assert (root / "scratch3" / "keep.txt").exists()
+    assert "deleted:tree/inner" in result["affected_paths"]
+
+
+def test_file_links_are_moved_and_deleted_as_links(bridge: _Bridge) -> None:
+    root = bridge.root
+    (root / "scratch4").mkdir()
+    real = root / "scratch4" / "real.txt"
+    real.write_bytes(b"real\n")
+    (root / "notes").mkdir(exist_ok=True)
+    _make_file_link(root / "notes" / "f.txt", real)
+
+    assert bridge.call("move_path", path="notes/f.txt", destination="notes/g.txt")["status"] == "ok"
+    assert os.path.islink(root / "notes" / "g.txt")
+    assert bridge.call("delete_path", path="notes/g.txt")["status"] == "ok"
+    assert not os.path.lexists(root / "notes" / "g.txt")
+    assert real.read_bytes() == b"real\n"
+
+
+def test_reads_do_not_swallow_the_watchers_external_change_event(bridge: _Bridge) -> None:
+    """AU3 P2-1 / AU4 P2-2: only writes advance a version, so the watcher still emits after reads."""
+    from watchdog.events import FileModifiedEvent
+
+    from scistudio.api.routes.workflow_watcher import _ProjectFileHandler
+
+    runtime = bridge.client.app.state.runtime  # type: ignore[attr-defined]
+    bridge.call("write_file", path="notes/watched.md", content="v1\n", create_parents=True)
+    target = bridge.root / "notes" / "watched.md"
+    captured: list[dict[str, Any]] = []
+    handler = _ProjectFileHandler(project_dir=bridge.root, broadcast=captured.append, loop=None, runtime=runtime)
+
+    # External edit; the agent reads before the watcher delivers it.
+    target.write_bytes(b"external one\n")
+    later = target.stat().st_mtime + 5
+    os.utime(target, (later, later))
+    info = bridge.call("get_file_info", path="notes/watched.md")
+    read = bridge.call("read_file", path="notes/watched.md")
+    handler.on_any_event(FileModifiedEvent(str(target)))
+    assert [(event["entity_id"], event["source"]) for event in captured] == [("notes/watched.md", "external")]
+    # The reads reported the version the watcher then assigned.
+    assert info["state_version"] == read["state_version"] == captured[0]["version"]
+
+    # Read first, then an external edit: still delivered (a fresh handler: debounce is per handler).
+    bridge.call("read_file", path="notes/watched.md")
+    target.write_bytes(b"external two\n")
+    os.utime(target, (later + 5, later + 5))
+    fresh = _ProjectFileHandler(project_dir=bridge.root, broadcast=captured.append, loop=None, runtime=runtime)
+    fresh.on_any_event(FileModifiedEvent(str(target)))
+    assert len(captured) == 2
+
+
+def test_read_file_takes_its_state_version_before_the_content(bridge: _Bridge, monkeypatch: pytest.MonkeyPatch) -> None:
+    """AU4 P3-4: a write based on read_file's version cannot overwrite content the agent never saw."""
+    bridge.call("write_file", path="notes/race.md", content="seen\n", create_parents=True)
+    target = bridge.root / "notes" / "race.md"
+    original = tools_workspace._read_window
+
+    def _edit_then_read(path: Path, offset: int, limit: int) -> tuple[bytes, int | None, bool]:
+        target.write_bytes(b"edited meanwhile\n")
+        stamp = target.stat().st_mtime + 5
+        os.utime(target, (stamp, stamp))
+        return original(path, offset, limit)
+
+    monkeypatch.setattr(tools_workspace, "_read_window", _edit_then_read)
+    read = bridge.call("read_file", path="notes/race.md")
+    monkeypatch.setattr(tools_workspace, "_read_window", original)
+
+    stale = bridge.call(
+        "write_file", path="notes/race.md", content="agent\n", expected_state_version=read["state_version"]
+    )
+    assert stale["status"] == "conflict"
+    assert stale["refusal"]["code"] == "stale_version"
+    assert target.read_bytes() == b"edited meanwhile\n"
+
+
+def test_refused_writes_and_moves_leave_no_new_directories(bridge: _Bridge) -> None:
+    """AU3 P3-4 / AU4 P3-6: check first, create after."""
+    root = bridge.root
+    write = bridge.call("write_file", path="fresh/a/b.txt", content="x", expected_state_version=3, create_parents=True)
+    assert write["status"] == "conflict" and write["refusal"]["code"] == "missing_file"
+    assert not (root / "fresh").exists()
+
+    move = bridge.call("move_path", path="notes/does-not-exist.md", destination="fresh2/x/y.md", create_parents=True)
+    assert move["status"] == "conflict" and move["refusal"]["code"] == "missing_file"
+    assert not (root / "fresh2").exists()
+
+
+def test_author_disk_work_and_lint_run_off_the_event_loop(bridge: _Bridge, monkeypatch: pytest.MonkeyPatch) -> None:
+    """AU3 P3-5 / AU4 P3-3: write, delete and the ruff lint subprocess run in worker threads."""
+    import asyncio
+
+    from scistudio.api.runtime import _file_writes
+
+    on_loop: dict[str, bool] = {}
+
+    def _spy(name: str, func: Any) -> Any:
+        def _wrapped(*args: Any, **kwargs: Any) -> Any:
+            try:
+                asyncio.get_running_loop()
+                on_loop[name] = True
+            except RuntimeError:
+                on_loop[name] = False
+            return func(*args, **kwargs)
+
+        return _wrapped
+
+    for name in ("atomic_write_bytes", "_lint_clean", "_delete_on_disk"):
+        monkeypatch.setattr(_file_writes, name, _spy(name, getattr(_file_writes, name)))
+    mark_list_blocks_called()
+    bridge.call("write_file", path="blocks/threaded_block.py", content="X = 1\n", create_parents=True)
+    bridge.call("delete_path", path="blocks/threaded_block.py")
+    assert on_loop == {"atomic_write_bytes": False, "_lint_clean": False, "_delete_on_disk": False}
+
+
+def test_block_lint_log_carries_no_file_name(bridge: _Bridge, caplog: pytest.LogCaptureFixture) -> None:
+    """AU3 P3-3 (FR-012): the lint-gate log line reports counts, not the file name."""
+    mark_list_blocks_called()
+    caplog.set_level(logging.DEBUG)
+    bridge.call("write_file", path="blocks/secretname_91f.py", content="x = undefined_name\n", create_parents=True)
+    leaks = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name.startswith(("scistudio.api.runtime", "scistudio.ai.agent.mcp", "scistudio.api.routes.webmcp"))
+        and "secretname_91f" in record.getMessage()
+    ]
+    assert leaks == []
+
+
+def test_search_bounds_entries_visited_not_matches(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AU4 P2-3: the cap counts every entry visited, so a walk over non-matching files stays bounded."""
+    monkeypatch.setattr(tools_workspace, "_SEARCH_MAX_ENTRIES", 50)
+    many = project / "many_files"
+    many.mkdir()
+    for index in range(200):
+        (many / f"f{index:03d}.dat").write_bytes(b"x")
+
+    result = _run(tools_workspace.search_files(path="many_files", name_pattern="*.nomatch"))
+    assert result.status == "ok"
+    assert result.files_scanned == 0
+    assert result.entries_visited == 50
+    assert result.truncated is True
+    assert any("50 directory entries" in note for note in result.notes)
+
+
+def test_search_walk_stops_on_request_and_on_its_time_budget(
+    stub_ctx: _StubContext, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import threading
+
+    stop = threading.Event()
+    stop.set()
+    stopped = tools_workspace._search_sync(project, project, "*", None, False, False, 50, stop)
+    assert stopped.truncated is True
+    assert stopped.entries_visited == 0
+    assert any("request ended" in note for note in stopped.notes)
+
+    monkeypatch.setattr(tools_workspace, "_SEARCH_TIME_BUDGET_SECONDS", -1.0)
+    timed = _run(tools_workspace.search_files(path=".", name_pattern="*"))
+    assert timed.truncated is True
+    assert any("time budget" in note for note in timed.notes)
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFOs exist only on POSIX")
+def test_read_file_refuses_special_files(stub_ctx: _StubContext, project: Path) -> None:
+    """AU3 P3-9: a FIFO without a writer would block the worker thread forever."""
+    fifo = project / "pipe"
+    os.mkfifo(fifo)  # type: ignore[attr-defined]
+    result = _run(tools_workspace.read_file(path="pipe"))
+    assert result.status == "refused"
+    assert result.refusal is not None and result.refusal.code == "special_file"
+
+
+# ---------------------------------------------------------------------------
+# Owner decision 2026-09-11 (AU3 P2-3): failure outcomes are isError: true.
+# ---------------------------------------------------------------------------
+
+
+def test_failure_outcomes_reach_the_host_as_is_error_with_the_reason_intact(bridge: _Bridge) -> None:
+    root = bridge.root
+    (root / "data").mkdir(exist_ok=True)
+    ok = bridge.call("write_file", path="notes/fine.md", content="fine\n", create_parents=True)
+    assert ok["status"] == "ok" and bridge.last_is_error is False
+
+    blacklisted = bridge.call("write_file", path="data/x.csv", content="x")
+    assert bridge.last_is_error is True
+    assert blacklisted["status"] == "refused"
+    assert blacklisted["refusal"]["code"] == "protected_data_dir"
+    assert blacklisted["refusal"]["use_instead"] == ["run_workflow"]
+
+    block = bridge.call("write_file", path="blocks/needs_list.py", content="X = 1\n", create_parents=True)
+    assert bridge.last_is_error is True and block["refusal"]["code"] == "list_blocks_required"
+
+    scaffold = bridge.call("scaffold_block", name="gated_block", category="process")
+    assert bridge.last_is_error is True and scaffold["refusal"]["code"] == "list_blocks_required"
+
+    conflict = bridge.call("write_file", path="notes/fine.md", content="again\n", mode="create")
+    assert bridge.last_is_error is True
+    assert conflict["status"] == "conflict" and conflict["refusal"]["code"] == "already_exists"
+
+    listing = bridge.call("list_directory", path=".")
+    assert listing["status"] == "ok" and bridge.last_is_error is False
+
+
+def test_is_error_survives_the_spec1_adapter_with_structured_content_intact() -> None:
+    from fastmcp.tools.base import ToolResult
+
+    from scistudio.ai.agent.mcp.server import adapt_tool_result
+
+    structured = {
+        "status": "refused",
+        "refusal": {"code": "protected_data_dir", "message": "m", "use_instead": ["run_workflow"]},
+    }
+    flagged = tools_workspace.flag_failure(ToolResult(structured_content=structured), "write_file")
+    adapted = adapt_tool_result(flagged)
+    assert adapted["isError"] is True
+    assert adapted["structuredContent"] == structured
+    assert "protected_data_dir" in adapted["content"][0]["text"]
+    native = flagged.to_mcp_result()
+    assert native.isError is True and native.structuredContent == structured
+
+    fine = tools_workspace.flag_failure(ToolResult(structured_content={"status": "ok"}), "write_file")
+    assert adapt_tool_result(fine)["isError"] is False
+    unregistered = tools_workspace.flag_failure(ToolResult(structured_content=structured), "list_blocks")
+    assert adapt_tool_result(unregistered)["isError"] is False
+
+
+def test_get_agent_context_without_a_project_is_an_error_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.api import runtime as runtime_module
+    from scistudio.api.app import create_app
+
+    fake_home = tmp_path / "home"
+    fake_home.mkdir()
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: fake_home))
+    with TestClient(create_app()) as client:
+        response = client.post(
+            "/api/webmcp/call",
+            headers={"X-SciStudio-WebMCP-Token": client.app.state.webmcp_session_token},  # type: ignore[attr-defined]
+            json={"name": "get_agent_context", "arguments": {}},
+        )
+    body = response.json()
+    assert body["isError"] is True
+    assert body["structuredContent"]["refusal"]["code"] == "no_active_project"

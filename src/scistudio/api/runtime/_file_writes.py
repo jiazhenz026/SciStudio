@@ -28,10 +28,12 @@ so its observable behavior is unchanged.
 
 from __future__ import annotations
 
+import asyncio
 import errno
 import logging
 import os
 import shutil
+import stat
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,14 +154,24 @@ def is_under_project_blocks_dir(project_root: Path | None, target: Path) -> bool
     return project_dropin_dir(project_root, target) == BLOCKS_DIR_NAME
 
 
-def confine_to_project(project_root: Path, target: Path) -> Path:
+def confine_to_project(project_root: Path, target: Path, *, follow_final: bool = True) -> Path:
     """Resolve *target* and reject it when it escapes *project_root*.
 
     The same realpath + commonpath sanitiser the editor route uses (CodeQL
     ``py/path-injection``). A different drive on Windows is an escape.
+
+    With ``follow_final=False`` only the parent directories are resolved, so a
+    *target* that is itself a symlink or junction names the link, not what it
+    points to. Delete and move act on the path they are given (lstat
+    semantics), so they confine that path (#2279 audit AU3 P1-1).
     """
     root = os.path.realpath(project_root)
-    candidate = os.path.realpath(os.path.join(root, target))
+    joined = os.path.normpath(os.path.join(root, target))
+    if follow_final:
+        candidate = os.path.realpath(joined)
+    else:
+        head, tail = os.path.split(joined)
+        candidate = os.path.join(os.path.realpath(head), tail) if tail else os.path.realpath(joined)
     try:
         if os.path.commonpath([root, candidate]) != root:
             raise PermissionError("Path escapes project root")
@@ -181,21 +193,37 @@ def _disk_mtime_ns(path: Path) -> int:
 
 
 def observed_entity_version(runtime: ApiRuntime, entity_id: str, target: Path) -> int:
-    """Return the file's current state version, counting unobserved disk edits.
+    """Return the file's state version as a write would see it, without advancing it.
 
-    The watcher advances a version when an external edit reaches it, under the
-    ADR-045 §3.3 rule "only when the disk is newer than the last known disk
-    version". A conflict check cannot rely on the watcher having run first — it
-    debounces, and it may not cover the path — so this applies the same rule at
-    read time: a newer mtime than the cached one bumps the version once, and a
-    later watcher event for that same mtime is then a no-op.
+    Compare-only (#2279 audits AU3 P2-1 / AU4 P2-2). Advancing the version here
+    would also record the new disk mtime as already seen, and the watcher emits
+    ``file.changed`` only when the disk is newer than the last known disk version
+    (ADR-045 §3.3) — so it would drop the external edit as a delayed echo and the
+    open UI would never learn of it. Only a real write through the shared path
+    advances a version. An external edit the watcher has not delivered yet (disk
+    mtime newer than the cached disk version) is projected as the version the
+    watcher will assign when it does: current + 1. A conflict check therefore
+    still sees it, and a write based on the projected version lines up with it.
     """
     current = runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
     cached_disk = runtime.current_entity_disk_version(FILE_ENTITY_CLASS, entity_id, path=target)
     disk = _disk_mtime_ns(target)
+    return current + 1 if disk and disk > cached_disk else current
+
+
+def absorb_unobserved_disk_edit(runtime: ApiRuntime, entity_id: str, target: Path) -> None:
+    """Advance the version past an external edit the watcher has not delivered -- writes only.
+
+    A write supersedes that pending edit (its own ``file.changed`` follows), and
+    advancing first keeps the written version one past the version the writer's
+    conflict check was based on. Reads never call this (see
+    :func:`observed_entity_version`).
+    """
+    runtime.current_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)  # seeds a first observation
+    cached_disk = runtime.current_entity_disk_version(FILE_ENTITY_CLASS, entity_id, path=target)
+    disk = _disk_mtime_ns(target)
     if disk and disk > cached_disk:
-        return runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
-    return current
+        runtime.bump_entity_version(FILE_ENTITY_CLASS, entity_id, path=target)
 
 
 def check_write_preconditions(
@@ -347,11 +375,8 @@ def _lint_clean(content: str, filename: str) -> bool:
         logger.debug("blocks-reload hook: lint raised, skipping reload", exc_info=True)
         return False
     if lint_result.diagnostics:
-        logger.info(
-            "blocks-reload hook: %s has %d lint diagnostic(s); skipping reload",
-            filename,
-            len(lint_result.diagnostics),
-        )
+        # FR-012: counts only — the file name is an argument of the call.
+        logger.info("blocks-reload hook: %d lint diagnostic(s); skipping reload", len(lint_result.diagnostics))
         return False
     # ruff missing / timeout returns an empty diagnostics list with a
     # non-empty ``note`` — "no errors observed", same as the editor.
@@ -396,7 +421,8 @@ async def maybe_reload_blocks_after_save(runtime: ApiRuntime, target: Path, cont
     project_root = Path(active.path) if active is not None else None
     if project_dropin_dir(project_root, target) is None:
         return False
-    if not _lint_clean(content, target.name):
+    # ruff runs as a subprocess; keep it off the event loop.
+    if not await asyncio.to_thread(_lint_clean, content, target.name):
         return False
     # No per-spec staleness tracking exists, so the saved file's name is the
     # canonical reloaded target downstream consumers scope the toast to.
@@ -433,7 +459,11 @@ async def write_project_file(
         create_only=create_only,
         require_existing=require_existing,
     )
-    atomic_write_bytes(runtime, target=target, entity_id=entity_id, kind=kind, encoded=content.encode("utf-8"))
+    absorb_unobserved_disk_edit(runtime, entity_id, target)
+    # Disk work (write, fsync, replace) runs in a worker thread so the event loop stays free.
+    await asyncio.to_thread(
+        atomic_write_bytes, runtime, target=target, entity_id=entity_id, kind=kind, encoded=content.encode("utf-8")
+    )
     refreshed = await maybe_reload_blocks_after_save(runtime, target, content)
     try:
         stat = target.stat()
@@ -465,27 +495,107 @@ async def write_project_file(
 # ---------------------------------------------------------------------------
 
 
+_FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+# IO_REPARSE_TAG_MOUNT_POINT (a junction) and IO_REPARSE_TAG_SYMLINK. Other
+# reparse points (cloud-file placeholders, for example) are ordinary entries.
+_LINK_REPARSE_TAGS = frozenset({0xA0000003, 0xA000000C})
+
+
+def is_link(path: Path) -> bool:
+    """True for a symlink or a Windows junction, judged without following it.
+
+    ``os.path.islink`` misses junctions before Python 3.12, and a junction is
+    the kind of link anyone can create on Windows without privilege.
+    """
+    try:
+        info = os.lstat(path)
+    except OSError:
+        return False
+    if stat.S_ISLNK(info.st_mode):
+        return True
+    attributes = getattr(info, "st_file_attributes", 0)
+    return bool(attributes & _FILE_ATTRIBUTE_REPARSE_POINT) and getattr(info, "st_reparse_tag", 0) in _LINK_REPARSE_TAGS
+
+
+def remove_link(path: Path) -> None:
+    """Remove a symlink or junction itself; what it points to is untouched."""
+    try:
+        os.unlink(path)
+    except (IsADirectoryError, PermissionError):
+        # A Windows directory symlink or junction goes with rmdir, which removes
+        # the reparse point, not the directory it names.
+        os.rmdir(path)
+
+
 def files_under(directory: Path, *, limit: int = DIRECTORY_OPERATION_FILE_LIMIT) -> list[Path]:
-    """Every file below *directory*, refusing a tree larger than *limit*."""
+    """Every file below *directory*, refusing a tree larger than *limit*.
+
+    A symlink or junction inside the tree counts as one entry and is never
+    descended: a tree operation acts on the link, not on what it points to.
+    """
     found: list[Path] = []
-    for dirpath, _dirnames, filenames in os.walk(directory):
-        for name in filenames:
-            found.append(Path(dirpath) / name)
-            if len(found) > limit:
-                raise FileWriteConflictError(
-                    "too_many_entries",
-                    (
-                        f"{directory.name}/ holds more than {limit} files; one author-tool call "
-                        "touches at most that many. Use run_command for bulk reorganization."
-                    ),
-                    entity_id=directory.name,
-                )
-    return found
+    pending = [directory]
+    while pending:
+        with os.scandir(pending.pop()) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                if not is_link(path) and entry.is_dir(follow_symlinks=False):
+                    pending.append(path)
+                    continue
+                found.append(path)
+                if len(found) > limit:
+                    raise FileWriteConflictError(
+                        "too_many_entries",
+                        (
+                            f"{directory.name}/ holds more than {limit} files; one author-tool call "
+                            "touches at most that many. Use run_command for bulk reorganization."
+                        ),
+                        entity_id=directory.name,
+                    )
+    return sorted(found)
 
 
 def _has_entries(directory: Path) -> bool:
     with os.scandir(directory) as entries:
         return any(True for _ in entries)
+
+
+def _remove_tree(directory: Path) -> None:
+    """Delete *directory* bottom-up, removing links as links (never their targets)."""
+    with os.scandir(directory) as entries:
+        children = [(Path(entry.path), entry.is_dir(follow_symlinks=False)) for entry in entries]
+    for path, is_directory in children:
+        if is_link(path):
+            remove_link(path)
+        elif is_directory:
+            _remove_tree(path)
+        else:
+            try:
+                os.unlink(path)
+            except PermissionError:
+                # A read-only file on Windows.
+                os.chmod(path, stat.S_IWRITE)
+                os.unlink(path)
+    os.rmdir(directory)
+
+
+def _delete_on_disk(target: Path, *, link: bool) -> None:
+    if link:
+        remove_link(target)
+    elif target.is_dir():
+        _remove_tree(target)
+    else:
+        os.unlink(target)
+
+
+def _move_on_disk(source_path: Path, destination: Path) -> None:
+    """Rename *source_path*; a link is renamed as a link (``os.replace`` does not follow it)."""
+    try:
+        os.replace(source_path, destination)
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+        shutil.move(str(source_path), str(destination))
 
 
 async def delete_project_path(
@@ -500,18 +610,22 @@ async def delete_project_path(
     changed_by: str | None,
     expected_state_version: int | None = None,
 ) -> tuple[list[FileChange], bool]:
-    """Delete a file or directory and emit a ``deleted`` event per removed file.
+    """Delete a file, directory, or link and emit a ``deleted`` event per removed entry.
 
-    Returns ``(changes, registry_refreshed)``. Deleting a drop-in ``.py``
-    rebuilds the registries without a lint gate — there is no longer a module
-    that could poison them.
+    A symlink or junction is removed as a link and what it points to is
+    untouched (lstat semantics, #2279 audit AU3 P1-1); a directory tree is
+    removed without ever descending through a link inside it. Returns
+    ``(changes, registry_refreshed)``. Deleting a drop-in ``.py`` rebuilds the
+    registries without a lint gate — there is no longer a module that could
+    poison them. The walk and the removal run in a worker thread.
     """
     entity_id = project_relative_entity_id(project_root, target)
-    if not target.exists():
+    if not os.path.lexists(target):
         raise FileWriteConflictError("missing_file", f"{entity_id} does not exist.", entity_id=entity_id)
-    if target.is_dir():
-        files = files_under(target)
-        if not recursive and _has_entries(target):
+    link = is_link(target)
+    if not link and target.is_dir():
+        files = await asyncio.to_thread(files_under, target)
+        if not recursive and await asyncio.to_thread(_has_entries, target):
             raise FileWriteConflictError(
                 "directory_not_empty",
                 f"{entity_id}/ is not empty; pass recursive=true to delete it with its contents.",
@@ -519,20 +633,17 @@ async def delete_project_path(
             )
     else:
         files = [target]
-        if expected_state_version is not None:
+        if expected_state_version is not None and not link:
             check_write_preconditions(
                 runtime, entity_id=entity_id, target=target, expected_state_version=expected_state_version
             )
-    # Seed each version while the file still exists so the ``deleted`` event
+    # Seed each version while the entry still exists so the ``deleted`` event
     # advances it rather than starting from the "absent" baseline.
     file_ids = [(path, project_relative_entity_id(project_root, path)) for path in files]
     for path, file_id in file_ids:
-        observed_entity_version(runtime, file_id, path)
+        absorb_unobserved_disk_edit(runtime, file_id, path)
     try:
-        if target.is_dir():
-            shutil.rmtree(target)
-        else:
-            os.unlink(target)
+        await asyncio.to_thread(_delete_on_disk, target, link=link)
     except Exception as exc:
         raise ProjectFileWriteError(f"delete failed: {exc}") from exc
 
@@ -567,18 +678,20 @@ async def move_project_path(
     changed_by: str | None,
     expected_state_version: int | None = None,
 ) -> tuple[list[FileChange], bool]:
-    """Rename or move a file or directory; never overwrites.
+    """Rename or move a file, directory, or link; never overwrites.
 
-    Each moved file emits ``deleted`` at its old entity id and ``created`` at
-    the new one, so an open editor tab learns its file went away. A move that
+    A symlink or junction is moved as a link (#2279 audit AU3 P1-1). Each
+    moved entry emits ``deleted`` at its old entity id and ``created`` at the
+    new one, so an open editor tab learns its file went away. A move that
     touches a drop-in ``.py`` rebuilds the registries, unless a moved-in module
-    fails lint (ADR-036 §3.5 keeps the registry stable in that case).
+    fails lint (ADR-036 §3.5 keeps the registry stable in that case). Disk work
+    and lint run in a worker thread.
     """
     source_id_rel = project_relative_entity_id(project_root, source_path)
     dest_id_rel = project_relative_entity_id(project_root, destination)
-    if not source_path.exists():
+    if not os.path.lexists(source_path):
         raise FileWriteConflictError("missing_file", f"{source_id_rel} does not exist.", entity_id=source_id_rel)
-    if destination.exists():
+    if os.path.lexists(destination):
         raise FileWriteConflictError(
             "already_exists",
             f"{dest_id_rel} already exists; moves never overwrite. Delete it first or pick another name.",
@@ -590,25 +703,22 @@ async def move_project_path(
             f"The parent directory of {dest_id_rel} does not exist.",
             entity_id=dest_id_rel,
         )
-    if source_path.is_dir():
-        pairs = [(path, destination / path.relative_to(source_path)) for path in files_under(source_path)]
+    link = is_link(source_path)
+    if not link and source_path.is_dir():
+        pairs = [
+            (path, destination / path.relative_to(source_path))
+            for path in await asyncio.to_thread(files_under, source_path)
+        ]
     else:
-        if expected_state_version is not None:
+        if expected_state_version is not None and not link:
             check_write_preconditions(
                 runtime, entity_id=source_id_rel, target=source_path, expected_state_version=expected_state_version
             )
         pairs = [(source_path, destination)]
     for old, _new in pairs:
-        observed_entity_version(runtime, project_relative_entity_id(project_root, old), old)
+        absorb_unobserved_disk_edit(runtime, project_relative_entity_id(project_root, old), old)
     try:
-        os.replace(source_path, destination)
-    except OSError as exc:
-        if exc.errno != errno.EXDEV:
-            raise ProjectFileWriteError(f"move failed: {exc}") from exc
-        try:
-            shutil.move(str(source_path), str(destination))
-        except Exception as move_exc:
-            raise ProjectFileWriteError(f"move failed: {move_exc}") from move_exc
+        await asyncio.to_thread(_move_on_disk, source_path, destination)
     except Exception as exc:
         raise ProjectFileWriteError(f"move failed: {exc}") from exc
 
@@ -632,9 +742,10 @@ async def move_project_path(
     refreshed = False
     touched = [path for old, new in pairs for path in (old, new) if project_dropin_dir(project_root, path) is not None]
     if touched:
-        moved_in = [new for _old, new in pairs if project_dropin_dir(project_root, new) is not None]
-        clean = all(_lint_clean(_read_text_or_empty(path), path.name) for path in moved_in)
-        if clean:
+        moved_in = [
+            new for _old, new in pairs if project_dropin_dir(project_root, new) is not None and not is_link(new)
+        ]
+        if await asyncio.to_thread(_all_lint_clean, moved_in):
             refreshed = await refresh_registries_and_broadcast(runtime, reloaded=[destination.name], path=destination)
     return changes, refreshed
 
@@ -644,6 +755,10 @@ def _read_text_or_empty(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return ""
+
+
+def _all_lint_clean(paths: list[Path]) -> bool:
+    return all(_lint_clean(_read_text_or_empty(path), path.name) for path in paths)
 
 
 # ---------------------------------------------------------------------------
@@ -663,7 +778,10 @@ class ProjectFileService:
     and returns a plain dict whose ``status`` is ``"ok"`` or ``"conflict"``.
     Disk failures raise :class:`ProjectFileWriteError`. Blacklist and
     hook-parity policy stays in the tools — this service is the editor's write
-    semantics, nothing more.
+    semantics, nothing more. ``write_text`` writes through a link to the file it
+    names; ``delete`` and ``move`` act on a link itself. Preconditions are checked
+    before any parent directory is created, so a refused call leaves nothing new
+    behind.
     """
 
     def __init__(self, runtime: ApiRuntime) -> None:
@@ -676,7 +794,7 @@ class ProjectFileService:
         return project.id, Path(os.path.realpath(project.path))
 
     def state_version(self, target: Path) -> int | None:
-        """Current state version of a project file, or ``None`` outside the project."""
+        """Current state version of a project file (compare-only), or ``None`` outside the project."""
         project = self._runtime.active_project
         if project is None:
             return None
@@ -706,8 +824,17 @@ class ProjectFileService:
         try:
             if confined.is_dir():
                 raise FileWriteConflictError("is_directory", f"{entity_id} is a directory.", entity_id=entity_id)
+            # Check first, create after: a refused write leaves no new directories behind.
+            check_write_preconditions(
+                self._runtime,
+                entity_id=entity_id,
+                target=confined,
+                expected_state_version=expected_state_version,
+                create_only=create_only,
+                require_existing=require_existing,
+            )
             if create_parents and not confined.parent.exists():
-                confined.parent.mkdir(parents=True, exist_ok=True)
+                await asyncio.to_thread(confined.parent.mkdir, parents=True, exist_ok=True)
             if not confined.parent.is_dir():
                 raise FileWriteConflictError(
                     "missing_parent",
@@ -743,9 +870,9 @@ class ProjectFileService:
     ) -> dict[str, Any]:
         """Create a directory. No ``file.changed`` event: the contract covers files."""
         _, root = self._active()
-        confined = confine_to_project(root, target)
+        confined = confine_to_project(root, target, follow_final=False)
         entity_id = project_relative_entity_id(root, confined)
-        if confined.exists():
+        if os.path.lexists(confined):
             conflict = FileWriteConflictError("already_exists", f"{entity_id} already exists.", entity_id=entity_id)
             return {"status": "conflict", **conflict.to_dict()}
         if not parents and not confined.parent.is_dir():
@@ -756,7 +883,7 @@ class ProjectFileService:
             )
             return {"status": "conflict", **conflict.to_dict()}
         try:
-            confined.mkdir(parents=parents, exist_ok=False)
+            await asyncio.to_thread(confined.mkdir, parents=parents, exist_ok=False)
         except OSError as exc:
             raise ProjectFileWriteError(f"mkdir failed: {exc}") from exc
         logger.info("project_files: mkdir outcome=ok changed_by=%s", changed_by)
@@ -771,7 +898,7 @@ class ProjectFileService:
         changed_by: str = "mcp.workspace",
     ) -> dict[str, Any]:
         project_id, root = self._active()
-        confined = confine_to_project(root, target)
+        confined = confine_to_project(root, target, follow_final=False)
         if confined == root:
             raise PermissionError("Refusing to delete the project root")
         try:
@@ -805,13 +932,24 @@ class ProjectFileService:
         changed_by: str = "mcp.workspace",
     ) -> dict[str, Any]:
         project_id, root = self._active()
-        confined_source = confine_to_project(root, source_path)
-        confined_destination = confine_to_project(root, destination)
+        confined_source = confine_to_project(root, source_path, follow_final=False)
+        confined_destination = confine_to_project(root, destination, follow_final=False)
         if root in (confined_source, confined_destination):
             raise PermissionError("Refusing to move the project root")
-        if create_parents and not confined_destination.parent.exists():
-            confined_destination.parent.mkdir(parents=True, exist_ok=True)
+        source_rel = project_relative_entity_id(root, confined_source)
+        destination_rel = project_relative_entity_id(root, confined_destination)
         try:
+            # Check first, create after: a refused move leaves no new directories behind.
+            if not os.path.lexists(confined_source):
+                raise FileWriteConflictError("missing_file", f"{source_rel} does not exist.", entity_id=source_rel)
+            if os.path.lexists(confined_destination):
+                raise FileWriteConflictError(
+                    "already_exists",
+                    f"{destination_rel} already exists; moves never overwrite. Delete it first or pick another name.",
+                    entity_id=destination_rel,
+                )
+            if create_parents and not confined_destination.parent.exists():
+                await asyncio.to_thread(confined_destination.parent.mkdir, parents=True, exist_ok=True)
             changes, refreshed = await move_project_path(
                 self._runtime,
                 project_id=project_id,
@@ -827,7 +965,7 @@ class ProjectFileService:
             return {"status": "conflict", **conflict.to_dict()}
         return {
             "status": "ok",
-            "entity_id": project_relative_entity_id(root, confined_destination),
+            "entity_id": destination_rel,
             "changes": [_change_summary(change) for change in changes],
             "registry_refreshed": refreshed,
         }
@@ -841,12 +979,14 @@ __all__ = [
     "FileWriteConflictError",
     "ProjectFileService",
     "ProjectFileWriteError",
+    "absorb_unobserved_disk_edit",
     "atomic_write_bytes",
     "check_write_preconditions",
     "confine_to_project",
     "delete_project_path",
     "emit_file_changed",
     "files_under",
+    "is_link",
     "is_under_project_blocks_dir",
     "maybe_reload_blocks_after_save",
     "move_project_path",
@@ -854,5 +994,6 @@ __all__ = [
     "project_dropin_dir",
     "project_relative_entity_id",
     "refresh_registries_and_broadcast",
+    "remove_link",
     "write_project_file",
 ]

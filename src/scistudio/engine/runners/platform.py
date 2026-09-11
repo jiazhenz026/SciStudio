@@ -62,6 +62,18 @@ class PlatformOps(Protocol):
         """Assign a process to a job object. Returns True on success."""
         ...
 
+    def terminate_job_object(self, job_handle: Any, exit_code: int = 1) -> bool:
+        """Terminate every process in a job object. Returns True on success."""
+        ...
+
+    def job_active_process_count(self, job_handle: Any) -> int | None:
+        """Number of live processes in a job object, or None when unknown."""
+        ...
+
+    def close_job_object(self, job_handle: Any) -> None:
+        """Release a job object handle (kill-on-close stops anything still in it)."""
+        ...
+
 
 class PosixOps:
     """Linux/macOS implementation using OS-level process group APIs.
@@ -236,6 +248,18 @@ class PosixOps:
     def assign_to_job(self, job_handle: Any, pid: int) -> bool:
         """No-op on POSIX."""
         return False
+
+    def terminate_job_object(self, job_handle: Any, exit_code: int = 1) -> bool:
+        """No-op on POSIX -- signal the process group instead."""
+        return False
+
+    def job_active_process_count(self, job_handle: Any) -> int | None:
+        """No job objects on POSIX."""
+        return None
+
+    def close_job_object(self, job_handle: Any) -> None:
+        """No-op on POSIX."""
+        return None
 
 
 class WindowsOps:
@@ -440,6 +464,78 @@ class WindowsOps:
             return bool(result)
         except Exception:
             return False
+
+    def terminate_job_object(
+        self, job_handle: Any, exit_code: int = 1
+    ) -> bool:  # pragma: no cover — Windows-only ctypes
+        """Terminate every process assigned to a Job Object.
+
+        Reaches descendants whose parent already exited, which a tree walk
+        from the root cannot: Windows does not reparent orphans (ADR-055 Spec 2
+        managed commands, #2279).
+        """
+        if job_handle is None:
+            return False
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+            terminate = kernel32.TerminateJobObject
+            terminate.argtypes = [wintypes.HANDLE, wintypes.UINT]
+            terminate.restype = wintypes.BOOL
+            return bool(terminate(job_handle, exit_code))
+        except Exception:
+            return False
+
+    def job_active_process_count(self, job_handle: Any) -> int | None:  # pragma: no cover — Windows-only ctypes
+        """Number of live processes in a Job Object (JobObjectBasicAccountingInformation)."""
+        if job_handle is None:
+            return None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class JOBOBJECT_BASIC_ACCOUNTING_INFORMATION(ctypes.Structure):  # noqa: N801
+                _fields_ = [
+                    ("TotalUserTime", ctypes.c_int64),
+                    ("TotalKernelTime", ctypes.c_int64),
+                    ("ThisPeriodTotalUserTime", ctypes.c_int64),
+                    ("ThisPeriodTotalKernelTime", ctypes.c_int64),
+                    ("TotalPageFaultCount", wintypes.DWORD),
+                    ("TotalProcesses", wintypes.DWORD),
+                    ("ActiveProcesses", wintypes.DWORD),
+                    ("TotalTerminatedProcesses", wintypes.DWORD),
+                ]
+
+            JobObjectBasicAccountingInformation = 1  # noqa: N806
+            kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
+            query = kernel32.QueryInformationJobObject
+            query.argtypes = [
+                wintypes.HANDLE,
+                ctypes.c_int,
+                ctypes.c_void_p,
+                wintypes.DWORD,
+                ctypes.POINTER(wintypes.DWORD),
+            ]
+            query.restype = wintypes.BOOL
+            info = JOBOBJECT_BASIC_ACCOUNTING_INFORMATION()
+            if not query(
+                job_handle, JobObjectBasicAccountingInformation, ctypes.byref(info), ctypes.sizeof(info), None
+            ):
+                return None
+            return int(info.ActiveProcesses)
+        except Exception:
+            return None
+
+    def close_job_object(self, job_handle: Any) -> None:  # pragma: no cover — Windows-only ctypes
+        """Close a Job Object handle; with kill-on-close, anything still in it is stopped."""
+        if job_handle is None:
+            return
+        with contextlib.suppress(Exception):
+            import ctypes
+
+            ctypes.windll.kernel32.CloseHandle(job_handle)  # type: ignore[attr-defined]
 
 
 def get_platform_ops() -> PlatformOps:

@@ -50,7 +50,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from contextvars import ContextVar
+from contextvars import Context, ContextVar, copy_context
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -171,6 +171,17 @@ def bridge_call_scope() -> Iterator[None]:
 def invoked_through_bridge() -> bool:
     """True inside a :func:`bridge_call_scope` (a WebMCP bridge dispatch)."""
     return _BRIDGE_CALL.get()
+
+
+def outside_bridge_context() -> Context:
+    """A copy of the current context with the bridge-call marker cleared.
+
+    For background tasks a dispatch spawns (a ``run_command`` supervisor): they
+    outlive the call and must not look like bridge calls to anything they run.
+    """
+    context = copy_context()
+    context.run(_BRIDGE_CALL.set, False)
+    return context
 
 
 _current_context: MCPContext | None = None
@@ -322,6 +333,7 @@ __all__ = [
     "get_process_registry",
     "get_project_files",
     "invoked_through_bridge",
+    "outside_bridge_context",
     "set_context",
 ]
 

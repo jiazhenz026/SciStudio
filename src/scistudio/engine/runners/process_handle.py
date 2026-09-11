@@ -105,6 +105,16 @@ class ProcessHandle:
         info.was_killed_by_framework = True
         return info
 
+    def owns_live_process(self) -> bool:
+        """True while terminating this handle can still reach a process the engine started.
+
+        The default is the #1542 PID-identity check on the root process. A
+        handle that owns more than its root — an ADR-055 managed command's Job
+        Object or process group, whose background processes outlive the shell —
+        overrides it so shutdown's ``terminate_all`` still reaches them.
+        """
+        return _pid_identity_matches(self)
+
 
 _PID_IDENTITY_TOLERANCE_SEC: float = 2.0
 
@@ -165,7 +175,7 @@ class ProcessRegistry:
         cannot confirm is still its own subprocess.
         """
         for handle in list(self._handles.values()):
-            if not _pid_identity_matches(handle):
+            if not handle.owns_live_process():
                 self._handles.pop((handle.workflow_id, handle.block_id), None)
                 continue
             try:
