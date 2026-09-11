@@ -1,5 +1,5 @@
 {
-  "base_ref": null,
+  "base_ref": "origin/feat/2308-webmcp-adapter",
   "branch": "audit/2308-no-context",
   "check_events": [],
   "check_na": [],
