@@ -147,7 +147,7 @@ language_source: en
 - the spec `tests:` entry;
 - all Codex threads resolved.
 
-CI is 17/17 green at f4e3199cf, and the PR is mergeable (CLEAN), ready for the owner to merge. |
+CI is 17/17 green at f4e3199cf. **Merged by the owner on 2026-09-11 (aedb83c19).** |
 | `AU3b` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O2, PR #2329 | `audit/2308-with-context` | `.worktrees/audit-2308-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o2-with-context.md` | product code | PR #2329 | `[~]` |
 | `AU4b` | `audit_reviewer` | `no-context` | template filled at dispatch (2026-09-11) | audit the adapter, the token file and the MCP socket surfaces | `audit/2308-no-context` | `.worktrees/audit-2308-no-context` | `docs/audit/2026-09-11-adr-055-spec4-o2-no-context.md` | product code | none (no-context) | `[~]` |
 | `AU1` | `audit_reviewer` | `with-context` | template filled at dispatch (2026-09-11) | audit O1, PR #2336 | `audit/2322-with-context` | `.worktrees/audit-2322-with-context` | `docs/audit/2026-09-11-adr-055-spec4-o1-with-context.md` | product code | PR #2336 | `[~]` |
