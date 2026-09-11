@@ -294,7 +294,13 @@ language_source: en
   - P2: desktop quit force-kills and skips graceful shutdown.
   - P2: the run lifetime rules have no governing doc.
   - Several P3s.
-- [ ] AU5 (with-context) report.
+- [x] AU5 (with-context) -> **block**. The report is `docs/audit/2026-09-11-adr-055-spec4-o3-with-context.md` on `audit/2327-with-context` (2f2f7ea05).
+  - It confirms P1-1 and adds that a mid-run project switch also strands the row.
+  - P2-1: cross-host owners count as alive forever, because hostnames are unstable.
+  - P2-2: `run-owners/` is missing from `ARCHITECTURE.md` §11.2.
+  - P3s: an unreadable marker is treated as a dead owner, and there is a sweep race, a double finalize, and ledger nits.
+  - CI is 17/17 green.
+- [x] Manager decision on the project switch, following the owner's #2327 rule: the previous project's live runs continue, and their store stays open until they finish.
 - [~] P1 findings fixed; P2/P3 fixed or tracked. A3 is fixing after merging the audit branch.
 - [ ] Track merged.
 
