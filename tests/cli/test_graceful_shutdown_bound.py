@@ -9,9 +9,11 @@ which sits inside the desktop's 25 s force-kill with the rest of the budget.
 from __future__ import annotations
 
 import asyncio
+import os
 import socket
 import threading
 import time
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -23,6 +25,22 @@ from scistudio.cli import main as cli_main
 DESKTOP_FORCE_KILL_SEC = 25.0
 # Workflow runs 10 s, AI terminal sessions 3 s, command processes a 5 s grace.
 REST_OF_THE_STOP_BUDGET_SEC = 18.0
+
+# The CLI commands write these into os.environ in-process (``gui --bundled``
+# sets SCISTUDIO_BUNDLED, which moves run logs to the user-data directory).
+_CLI_ENV_KEYS = ("SCISTUDIO_BUNDLED", "SCISTUDIO_ENGINE_API_URL", "SCISTUDIO_ROOT_PATH")
+
+
+@pytest.fixture(autouse=True)
+def _restore_cli_environment() -> Iterator[None]:
+    """Keep the in-process CLI's environment writes from leaking into later tests."""
+    previous = {key: os.environ.get(key) for key in _CLI_ENV_KEYS}
+    yield
+    for key, value in previous.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 
 def _capture_run(seen: dict[str, Any]) -> Any:
