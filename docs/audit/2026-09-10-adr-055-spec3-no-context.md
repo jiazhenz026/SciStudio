@@ -315,8 +315,11 @@ sentence that relies on it. The P3 findings can be tracked as follow-ups.
 
 - `gate_record init --task-kind maintenance --persona audit_reviewer --runtime claude-code:claude-opus-5 --branch audit/2280-spec3-no-context --base-ref feat/2280-local-background-runtime --include docs/audit/2026-09-10-adr-055-spec3-no-context.md`
   created this audit's ledger.
-- `gate_record check --mode local --base origin/feat/2280-local-background-runtime --head HEAD`:
-  result recorded in the follow-up commit on this branch.
+- `gate_record check --mode local --base origin/feat/2280-local-background-runtime --head HEAD`,
+  run on `da013b31` (the commit that first added this report): tier 2, with
+  checks `commit_hygiene`, `format_check`, `full_audit` and `lint_format`, all
+  of which passed. The only unsatisfied obligation was `guard.issue_link` ("at
+  least one linked issue is required").
 - Known gap: no issue is linked. Per the dispatch's context limits I did not
   look one up.
 - Sentrux: N/A, unavailable in this runtime.
