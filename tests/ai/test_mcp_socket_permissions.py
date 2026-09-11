@@ -125,8 +125,9 @@ def test_shared_project_directory_is_not_reused_and_the_bridge_still_finds_the_s
     async def scenario() -> None:
         server = MCPServer(socket_path=requested, project_dir=project)
         await server.start()
+        bound = server.socket_path
+        client = None
         try:
-            bound = server.socket_path
             assert bound != requested
             assert bound.parent == runtime_dir / "scistudio"
             assert _mode(bound.parent) == 0o700
@@ -138,9 +139,19 @@ def test_shared_project_directory_is_not_reused_and_the_bridge_still_finds_the_s
             assert mcp_bridge._posix_socket_connect_path(requested) == bound
             client = await asyncio.to_thread(mcp_bridge._try_connect_attached, project)
             assert client is not None
-            client.close()
+            # Keep the client attached until the server has registered it, so
+            # stop() hangs up on it and drains its transport inside the
+            # coroutine. A server transport left to the garbage collector
+            # raises out of __del__ on Python 3.13 (see MCPServer.stop, #2019).
+            for _ in range(200):
+                if server._clients:
+                    break
+                await asyncio.sleep(0.01)
+            assert server._clients, "the server never registered the bridge's connection"
         finally:
-            await server.stop()
+            await asyncio.wait_for(server.stop(), timeout=10)
+            if client is not None:
+                client.close()
         assert not bound.exists()
         assert not (shared / "mcp.sock.path").exists()
 
