@@ -315,7 +315,13 @@ language_source: en
   - machine-ID ownership with a 24 h cross-machine warning;
   - Spec 3 FR-015/FR-016 and §4.6;
   - the P3s, plus symlink-safe MCP pointer writes.
-- [~] Re-verification: AU5 re-verifies with context. AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
+- [x] AU5 re-verification (602fbd6d3, §7): **still block, on N1**.
+  - Its own findings are fixed, except P2-2's `ARCHITECTURE.md` row, which waits on the owner.
+  - New R1 (P3): Windows graceful exit no longer runs `taskkill /T`, and the lifespan never stops AI PTY sessions, so orphans are possible.
+  - New R2 (P3): the MCP-pointer hardening rides in this PR. That was a manager decision, because A3 owns `_projects.py`, and it is now attributed to #2333.
+  - A real-backend stop test is required: stop-flag run with git, with `/ws` and log SSE open, then a stdin close, and the row must end `cancelled` within budget.
+  - R1 and the test are routed to A3.
+- [~] AU6 re-audited without context at 4d02f0423 (97724be1) and says **still block**:
   - P1-1 fixed. The earlier P2s and P3s are fixed or documented.
   - New N1 (P1): the Windows stdin stop watcher makes child processes that inherit stdin, such as git, hang. Project create and open freeze and the event loop stalls.
   - New N2 (P2): uvicorn has no graceful timeout, and SSE and `/ws` keep it waiting, so the lifespan never runs before the force-kill.
