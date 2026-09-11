@@ -44,10 +44,24 @@
       ".workflow/records/2322-audit-2322-o1-no-context.json"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T13:10:57.811578Z",
+      "owner_directive": "Manager dispatch: no-context re-audit at head 07c474836; append verdicts to the existing report only",
+      "reason": "Manager re-dispatch: re-audit the same surfaces, plus the AI status route, at feat/2322-enterprise-ui head 07c474836; append a re-audit section to the same report"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T12:18:49.073992Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T13:10:57.811597Z",
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-09-11-adr-055-spec4-o1-no-context.md",
