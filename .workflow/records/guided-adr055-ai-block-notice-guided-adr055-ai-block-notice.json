@@ -1,0 +1,281 @@
+{
+  "base_ref": null,
+  "branch": "guided/adr055-ai-block-notice",
+  "check_events": [
+    {
+      "at": "2026-09-11T10:48:22.918317Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T10:49:32.671683Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6ae4b0eee0473f323944b3aead170f408a7fd45f885f85a73ffb43f447f645c1",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T10:49:45.134454Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:049331c0c4f3d9f318b41567ff84f4a5d1a59a81d79d26e11f3f8ab853983730",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T10:49:45.223041Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      "docs/specs/adr-055-ai-host-presentation.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T10:46:24.699679Z",
+      "owner_directive": "Use a clear AI-layout notice for AI Block in the palette, shared details, and existing-node config; explain that AI Chat interaction is hidden and direct users to Workbench without asserting that the backend cannot execute it.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T10:59:31.277881Z",
+      "owner_directive": "Open a new PR for the AI Block presentation notice.",
+      "reason": "Owner approved the notice preview and requested a new PR"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T10:46:24.699803Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-ai-host-presentation.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-11T10:49:45.271778Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.291316Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.309593Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.327739Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.345915Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.364015Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.383596Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.405278Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.426653Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.446668Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T10:49:45.471544Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2324,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "In AI-host presentation, hide AI Block or tell users that its PTY interaction is unavailable in this presentation.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T10:49:45.503440Z",
+      "diff_fingerprint": "sha256:7d69ed3944b44304e5bb537bc413c8cafd28da9df96aaf43fa57fb756e6d1811",
+      "mode": "pre-commit",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "guided-adr055-ai-block-notice-guided-adr055-ai-block-notice",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e1388469-e9f4-4f0e-81f7-c0ade16a0229",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-11T10:46:24.699812Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIBlockPresentationNotice.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:46:24.699817Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.presentation.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T10:46:24.699819Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BlockPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

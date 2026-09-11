@@ -86,6 +86,16 @@ right sidebar and no AI Chat entry. The demo supplies layout reference only.
   Presentation is not persisted to shared localStorage or stored on the backend.
 - Existing WebMCP registration remains independent of presentation. Selecting
   AI layout does not grant permissions or certify host capability.
+- In AI presentation, the AI Agent block (`ai.agent`, implemented by AIBlock)
+  carries a visible "Use Workbench" caption. Its palette/canvas hover details
+  and selected-node Config explain that it starts a local agent in AI Chat,
+  whose terminal, prompts and permission requests are hidden in AI layout.
+  Users are directed to Workbench for this interaction; the current external
+  AI host does not execute the block. This notice also covers imported and
+  existing nodes, including while the schema is loading. It disappears in
+  Workbench and Electron. See #2324.
+  This is presentation guidance: nodes remain editable and backend execution
+  is unchanged. A URL layout choice does not prove that PTY execution is absent.
 
 ## 3. Implementation Plan
 
@@ -103,6 +113,9 @@ and preservation of existing terminal mounts. Inspect actual browser layouts
 at narrow and wide viewports, exercise switching and resize handles, select a
 node, open Previewers, and refresh an explicit AI URL. Verify the launch-address
 helper includes AI presentation. Record local evidence separately from CI.
+Verify the AI Block notice in the palette, shared hover details and existing-node
+Config; switching presentation updates it, and other AI-category blocks are not
+incorrectly labelled as using the local agent terminal.
 
 ## 5. Boundaries
 

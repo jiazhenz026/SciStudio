@@ -6,6 +6,7 @@
 
 import { getCategoryVisual } from "../nodes/BlockNode.parts/categoryVisuals";
 import { PaletteTile } from "../palette/PaletteTile";
+import { AIBlockPresentationNotice } from "../AIBlockPresentationNotice";
 import type { BlockSummary } from "../../types/api";
 
 export interface BlockTileProps {
@@ -26,6 +27,7 @@ export function BlockTile({ block, onDragStart, onAddBlock, onEnter, onLeave }: 
     <PaletteTile
       draggable
       label={block.name}
+      caption={<AIBlockPresentationNotice blockType={block.type_name} compact />}
       onActivate={() => onAddBlock(block)}
       onDragStart={(event) => onDragStart(event, block)}
       onEnter={(rect) => onEnter(block, rect)}

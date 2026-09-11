@@ -24,6 +24,8 @@ export interface PaletteTileSwatch {
 export interface PaletteTileProps {
   /** Caption under the swatch, and the tile's `title` for a11y/tooltip. */
   label: string;
+  /** Optional supporting text below the label, outside the activation button. */
+  caption?: ReactNode;
   swatch: PaletteTileSwatch;
   /** Glyph rendered inside the swatch (e.g. the block's category icon). */
   children?: ReactNode;
@@ -55,6 +57,7 @@ const RING_WIDTH_PX = 3;
 
 export function PaletteTile({
   label,
+  caption,
   swatch,
   children,
   testId,
@@ -103,6 +106,7 @@ export function PaletteTile({
           {label}
         </span>
       </button>
+      {caption ? <div className="text-center leading-tight">{caption}</div> : null}
     </div>
   );
 }

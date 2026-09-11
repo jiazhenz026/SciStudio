@@ -4,10 +4,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { BlockPalette, paletteColumns } from "./BlockPalette";
 import type { BlockSummary } from "../types/api";
+import { setPresentation } from "../lib/presentation";
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 function port(name: string, types: string[] = []): BlockSummary["input_ports"][number] {
@@ -48,6 +50,22 @@ const defaultProps = {
   onReload: vi.fn(),
   onAddBlock: vi.fn(),
 };
+
+it("labels the local-agent tile and explains its interaction limit in hover details", () => {
+  setPresentation("ai");
+  vi.useFakeTimers();
+  const agent = makeBlock({ type_name: "ai.agent", name: "Renamed agent", base_category: "ai" });
+  render(<BlockPalette {...defaultProps} blocks={[agent]} />);
+  const tile = screen.getByTestId("palette-block-tile");
+  expect(within(tile).getByText("Use Workbench")).toBeVisible();
+  fireEvent.mouseEnter(tile);
+  act(() => vi.advanceTimersByTime(200));
+  expect(
+    within(screen.getByTestId("block-detail-popover")).getByText("Use Workbench for AI Block"),
+  ).toBeVisible();
+  act(() => setPresentation("workbench"));
+  expect(screen.queryByText("Use Workbench")).not.toBeInTheDocument();
+});
 
 const load = makeBlock({
   type_name: "load_data",
