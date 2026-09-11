@@ -645,6 +645,234 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:15.755630Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4bf4a1311b87b8aacffa43438c93c550d92dfe2ccfa21c9fd059280683282995",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:16.595296Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:32a016cceba1484eab3dbf5377ec104c29ae75cb1849a24b5811cd4d0614c654",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:17.951110Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:49c143de102f015614fc66d236742fd0dffe222d7d557d196c172992c743a493",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:17.995355Z",
+      "command": "ruff format src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:51e0833415198725bd475f6366cbf936df82ed56ae1d8bef87ed2e27ca9c8348",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T19:08:25.250551Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a15dbe93b1a6cb703ee67ba291c9f29444efba261dceee3c43b66c382ba730ae",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:31.255703Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:fb8e1bcbe555718e8ff9475e7b9ffd50a6311027589078bfc2a5b9aa373834b5",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:31.713630Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:013155c74c97bc0b325cf8b0d1255b61a054257d47d579fd694e903001fcea31",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:31.729871Z",
+      "command": "ruff check src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b1ed3425e8f4655507ed48504e0da9c29c1ad255886c032adb479f9612322e73",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T19:08:34.990933Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/panels tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py tests/previewers tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9ccc661a0de9f09dfdb865a04e2e84e5505b66324ec871d0292c6b80193eadf0",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:08:36.330549Z",
+      "command": "mypy src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b00267fecf4303efb619bc877f6cae4f50aa9a415d27fa995bd2bed805d0e26b",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:11:05.667212Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:deabbb4abc1b5cb5b69488df8f6abce19373fb6cf4aa0dc827d07266e046c292",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:11:06.550395Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:814ab4488c4774832403d73ae9677e7609ec81b95dc00277a919769d0b007777",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:11:38.375200Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:acf20eb49266eab74e4d04b334beb854f3dbf788a4ce9f43fdcb784dc05848ac",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T19:11:44.406632Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:297fb969b5b40fce7eaa539997e8d21eb0027e22e9cfd704af275103c49b1db5",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -659,7 +887,13 @@
       "tests/api/test_panel*"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-11T19:00:08.015636Z",
+      "owner_directive": "B2b: add core.interactive.data_router and core.interactive.pair_editor panels; retire compiled DataRouterModal/PairEditorModal + PANEL_REGISTRY; keep coreViewers for legacy envelopes only",
+      "reason": "plan"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-11T17:54:09.230037Z",
@@ -674,6 +908,38 @@
       "class": null,
       "kind": "path",
       "path": "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T19:00:08.015925Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-b-parity.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T19:10:15.225025Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-051.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T19:10:15.225042Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T19:10:15.225044Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-051-interactive-blocks.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -1152,6 +1418,270 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.387319Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.398179Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.409210Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.420360Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.430998Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.441767Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.452269Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.462862Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.473956Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.484593Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:08:36.509122Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.462032Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.472080Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.482180Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.492369Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.502676Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.513496Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.553810Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.577976Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.589628Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.599305Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:44.622259Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:52.954273Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:52.964131Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:52.974135Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:52.984588Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:52.994623Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.004219Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.013874Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.023622Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.033355Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.043102Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T19:11:53.065785Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1174,7 +1704,22 @@
     "base_sha": "9998f547",
     "changed_files": [
       ".workflow/records/2294-feat-2294-panels-phase-b.json",
+      "docs/adr/ADR-051.md",
+      "docs/adr/ADR-054.md",
       "docs/planning/adr-054-phase-b-parity.md",
+      "docs/specs/adr-051-interactive-blocks.md",
+      "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx",
+      "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/components/DataPreview.parts/coreViewers.tsx",
+      "frontend/src/components/DataRouterModal.parts/InputPanels.tsx",
+      "frontend/src/components/DataRouterModal.parts/ItemCard.tsx",
+      "frontend/src/components/DataRouterModal.parts/OutputPanels.tsx",
+      "frontend/src/components/DataRouterModal.parts/types.ts",
+      "frontend/src/components/DataRouterModal.tsx",
+      "frontend/src/components/Git/CommitDialog.tsx",
+      "frontend/src/components/PairEditorModal.tsx",
+      "frontend/src/components/interactiveModals.designSystem.test.tsx",
       "frontend/src/panels/builtin.test.ts",
       "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
       "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
@@ -1202,6 +1747,14 @@
       "src/scistudio/panels/builtin/core.dataframe.basic/panel.js",
       "src/scistudio/panels/builtin/core.dataframe.basic/panel.json",
       "src/scistudio/panels/builtin/core.dataframe.basic/panel.sample.json",
+      "src/scistudio/panels/builtin/core.interactive.data_router/index.html",
+      "src/scistudio/panels/builtin/core.interactive.data_router/panel.js",
+      "src/scistudio/panels/builtin/core.interactive.data_router/panel.json",
+      "src/scistudio/panels/builtin/core.interactive.data_router/panel.sample.json",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/index.html",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.js",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.json",
+      "src/scistudio/panels/builtin/core.interactive.pair_editor/panel.sample.json",
       "src/scistudio/panels/builtin/core.plot.basic/index.html",
       "src/scistudio/panels/builtin/core.plot.basic/panel.js",
       "src/scistudio/panels/builtin/core.plot.basic/panel.json",
@@ -1215,29 +1768,31 @@
       "src/scistudio/panels/builtin/core.text.basic/panel.json",
       "src/scistudio/panels/builtin/core.text.basic/panel.sample.json",
       "src/scistudio/panels/contexts.py",
+      "src/scistudio/panels/descriptor.py",
       "src/scistudio/previewers/_read_arrays.py",
       "src/scistudio/previewers/_read_series.py",
       "src/scistudio/previewers/data_access.py",
       "src/scistudio/previewers/fallbacks.py",
       "src/scistudio/previewers/models.py",
       "tests/panels/test_builtin_panels.py",
+      "tests/panels/test_panel_descriptor.py",
       "tests/previewers/test_panel_read_extensions.py",
       "tests/previewers/test_preview_data_access.py"
     ],
-    "diff_fingerprint": "sha256:b6b7c3851f957373652778ace303677c92064823b95e94a5b2e0572e808f7a33",
+    "diff_fingerprint": "sha256:7da0c07a45b4d7aabb4d71c238afa30084527d90fb49b170c0a6143ec874ff57",
     "head": "HEAD",
-    "head_sha": "03d395b3",
+    "head_sha": "e9eaa9c9",
     "surfaces": {
-      "docs": 1,
-      "frontend": 1,
+      "docs": 4,
+      "frontend": 13,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 45,
+      "implementation": 66,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 48,
-      "test": 4,
+      "sentrux": 73,
+      "test": 7,
       "workflow_ci": 0
     }
   },
@@ -1287,6 +1842,33 @@
     {
       "at": "2026-09-11T18:29:11.903531Z",
       "diff_fingerprint": "sha256:b6b7c3851f957373652778ace303677c92064823b95e94a5b2e0572e808f7a33",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T19:08:36.509152Z",
+      "diff_fingerprint": "sha256:97468b0f6be3d64734f3fd4b2ee6e5821a513f4261558d99395b3b7209b2ccdf",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit"
+      ]
+    },
+    {
+      "at": "2026-09-11T19:11:44.622305Z",
+      "diff_fingerprint": "sha256:7da0c07a45b4d7aabb4d71c238afa30084527d90fb49b170c0a6143ec874ff57",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T19:11:53.065821Z",
+      "diff_fingerprint": "sha256:7da0c07a45b4d7aabb4d71c238afa30084527d90fb49b170c0a6143ec874ff57",
       "mode": "local",
       "result": "pass",
       "tier": 1,
@@ -1367,6 +1949,48 @@
       "at": "2026-09-11T18:09:49.927999Z",
       "pattern": "docs/planning/adr-054-phase-b-parity.md",
       "reason": "B2a slice: add the nine core preview panels, their frontend faithful-display tests, and the FR-040 parity checklist"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:00:08.015902Z",
+      "pattern": "src/scistudio/panels/builtin/core.interactive.data_router/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:00:08.015913Z",
+      "pattern": "src/scistudio/panels/builtin/core.interactive.pair_editor/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:00:08.015915Z",
+      "pattern": "frontend/src/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:00:08.015916Z",
+      "pattern": "docs/planning/adr-054-phase-b-parity.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:10:15.224865Z",
+      "pattern": "docs/adr/ADR-051.md",
+      "reason": "FR-043 deletes DataRouterModal/PairEditorModal; the Approved docs that list them as governed files (ADR-051, ADR-054, adr-051-interactive-blocks spec) must repoint to the replacement core.interactive.* panel folders or full_audit doc_drift/closure fail"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:10:15.225011Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "FR-043 deletes DataRouterModal/PairEditorModal; the Approved docs that list them as governed files (ADR-051, ADR-054, adr-051-interactive-blocks spec) must repoint to the replacement core.interactive.* panel folders or full_audit doc_drift/closure fail"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T19:10:15.225015Z",
+      "pattern": "docs/specs/adr-051-interactive-blocks.md",
+      "reason": "FR-043 deletes DataRouterModal/PairEditorModal; the Approved docs that list them as governed files (ADR-051, ADR-054, adr-051-interactive-blocks spec) must repoint to the replacement core.interactive.* panel folders or full_audit doc_drift/closure fail"
     }
   ],
   "session_id": "961ab188-65cd-4521-a314-b023b4f091d4",
@@ -1386,6 +2010,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/previewers/test_preview_data_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T19:00:08.015941Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/builtin.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
