@@ -156,19 +156,23 @@ Phase B and Phase C rows are added when those phases start.
 
 ### 7.2 Dispatch
 
-- [ ] Prompt file created or dispatch prompt recorded.
-- [ ] Correct prompt template selected.
+- [x] Prompt file created or dispatch prompt recorded. ->
+      `docs/planning/adr-054-panels-dispatch-prompts.md` (A1, A2, with the
+      manager addendum sent at dispatch)
+- [x] Correct prompt template selected. -> work template for A1 and A2
 - [ ] Audit mode recorded when persona is `audit_reviewer`.
-- [ ] Agent branch/worktree assigned.
-- [ ] Write set and out-of-scope paths included in prompt.
-- [ ] TODO rule included in prompt.
-- [ ] Required checks included in prompt.
+- [x] Agent branch/worktree assigned. -> `feat/2293-a1-backend`,
+      `feat/2293-a2-frontend`, both cut from `09807ec6c`
+- [x] Write set and out-of-scope paths included in prompt.
+- [x] TODO rule included in prompt.
+- [x] Required checks included in prompt.
 
 ### 7.3 Implementation
 
-- [~] Spec amendment for the owner's decisions -> `docs/specs/adr-054-panels.md`
-- [ ] A1 backend -> `<commit>`
-- [ ] A2 frontend and SDK -> `<commit>`
+- [x] Spec amendment for the owner's decisions -> `09807ec6c` on
+      `feat/2293-panels-phase-a`
+- [~] A1 backend (dispatched 2026-09-11) -> `<commit>`
+- [~] A2 frontend and SDK (dispatched 2026-09-11) -> `<commit>`
 - [ ] Integration merge and cross-agent contract reconciliation -> `<commit>`
 - [ ] Frontend smoke in the dev app (Panels tab, preview, maximize, drill-down, interactive modal) -> `<evidence>`
 

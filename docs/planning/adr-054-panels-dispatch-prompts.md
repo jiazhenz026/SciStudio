@@ -294,3 +294,44 @@ Stop and report back if:
 - Checks fail for unclear reasons.
 - You cannot add or update required tests.
 ```
+
+---
+
+## Manager Addenda Sent At Dispatch (2026-09-11)
+
+Each agent received its prompt above with the relative worktree path replaced
+by the absolute path under `C:/Users/jiazh/workspace/SciStudio/.worktrees/`,
+followed by the addendum below, which overrides the prompt where they differ.
+
+### A1 addendum
+
+1. You run as a background agent and cannot send reports mid-run. The manager
+   and A2 read your branch directly, so commit the contract models early and
+   keep committing as you go; put everything you would have reported mid-run
+   into your final report.
+2. ADR-049 (T-009) does not stop the task. Finish everything else. The owner
+   has not yet decided how ADR-049 gets the new contract ids, so a
+   `check_package_contract_tables.py` / `full_audit` failure whose only cause
+   is ADR-049 lacking the new contract ids is expected: do not work around it,
+   do not edit ADR-049, and do not waive it; report it with the proposed text
+   path. Every other check must pass.
+3. Do not start, stop, or restart any SciStudio dev app, Electron window, or
+   backend server process; the owner may be testing in one. Tests that spin up
+   their own in-process app are fine.
+4. Take the time the work needs. When the spec is ambiguous, choose the reading
+   that follows ADR-054 and list the choice in the final report.
+
+### A2 addendum
+
+1. You run as a background agent and cannot send reports mid-run. Where A1's
+   committed models contradict the spec, follow A1's models if they are a
+   reasonable reading of the spec, otherwise follow the spec, and list every
+   such case in the final report; the manager reconciles at integration.
+2. Check `git log feat/2293-a1-backend` periodically (at least before writing
+   `frontend/src/types/api.ts` and again before finishing) and align with the
+   latest committed models.
+3. The SDK's tests may live under `frontend/src/panels/` and import the SDK
+   file by relative path, or next to the SDK; keep them runnable by the
+   existing frontend test command so `gate_record check` exercises them.
+4. Take the time the work needs. When the spec is ambiguous, choose the reading
+   that follows ADR-054 and list the choice in the final report.
