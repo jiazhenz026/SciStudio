@@ -293,7 +293,8 @@ describe("core.plot.basic", () => {
 });
 
 function panelHooks() {
-  return (window as unknown as { __panel: Record<string, (...args: unknown[]) => unknown> }).__panel;
+  return (window as unknown as { __panel: Record<string, (...args: unknown[]) => unknown> })
+    .__panel;
 }
 
 describe("core.interactive.data_router — parity with DataRouterModal (FR-041)", () => {
@@ -311,7 +312,9 @@ describe("core.interactive.data_router — parity with DataRouterModal (FR-041)"
 
   it("renders one drop zone per output port and one chip per unassigned item", async () => {
     const { root } = mount("core.interactive.data_router", { input });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=router-status]")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=router-status]")).toBeTruthy(),
+    );
     expect(root().querySelector("[data-testid=router-output-kept]")).toBeTruthy();
     expect(root().querySelector("[data-testid=router-output-discarded]")).toBeTruthy();
     expect(root().querySelector('[data-testid="router-item-input_1:0"]')).toBeTruthy();
@@ -320,7 +323,9 @@ describe("core.interactive.data_router — parity with DataRouterModal (FR-041)"
 
   it("keeps Confirm disabled until every item is assigned, then writes back {assignments}", async () => {
     const { root, api } = mount("core.interactive.data_router", { input });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=router-confirm]")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=router-confirm]")).toBeTruthy(),
+    );
     const confirm = () => root().querySelector("[data-testid=router-confirm]") as HTMLButtonElement;
     expect(confirm().disabled).toBe(true);
 
