@@ -1,15 +1,17 @@
-"""Module-level helpers for :mod:`scistudio.engine.scheduler`.
-
-ADR-046 §3 keeps these three helpers visible at the
-``scistudio.engine.scheduler.<name>`` import path (audit tooling and
-existing callers expect that surface). They live in this private
-sibling so :mod:`_lineage` can import them without a circular load
-with the package ``__init__``; the canonical names are re-exported
-from ``scheduler/__init__.py``.
-
-Pure structural relocation per umbrella #1427 Phase 3 — semantics are
-byte-identical to the pre-decomposition definitions.
-"""
+"""Module-level helpers for :mod:`scistudio.engine.scheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# Module-level helpers for :mod:`scistudio.engine.scheduler`.
+#
+# ADR-046 §3 keeps these three helpers visible at the
+# ``scistudio.engine.scheduler.<name>`` import path (audit tooling and
+# existing callers expect that surface). They live in this private
+# sibling so :mod:`_lineage` can import them without a circular load
+# with the package ``__init__``; the canonical names are re-exported
+# from ``scheduler/__init__.py``.
+#
+# Pure structural relocation per umbrella #1427 Phase 3 — semantics are
+# byte-identical to the pre-decomposition definitions.
+# Development references: #1427, ADR-046.
 
 from __future__ import annotations
 
@@ -34,12 +36,13 @@ def _extract_error_summary(error_text: str) -> str:
 def _collect_object_ids(payload: Any) -> dict[str, list[str]]:
     """Extract ``{port_name: [object_id, ...]}`` from a wire-format dict.
 
-    ADR-038 §3.2 expects the scheduler to feed the LineageRecorder a
+    The scheduler must give the LineageRecorder a
     pre-computed object-id map so it can write ``block_io`` rows without
     re-parsing the wire format. Scalars and Collection items are both
     flattened to a list per port. Ports whose values are not DataObject
     wire payloads (e.g. plain ints) are skipped silently.
     """
+    # Development references: ADR-038.
     if not isinstance(payload, dict):
         return {}
 

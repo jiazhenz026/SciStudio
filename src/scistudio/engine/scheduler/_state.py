@@ -1,17 +1,19 @@
-"""State machine helpers for :class:`DAGScheduler`.
-
-ADR-046 §5: byte-identical relocation of three state machine helpers
-from the original ``engine/scheduler.py`` god-file. These functions are
-governed by the :mod:`tests.engine.test_scheduler_state_machine_contract`
-contract test (issue #1449); any semantic change requires a separate ADR
-and an update to that contract. This module is structural-move only.
-
-Each function is a free function whose first parameter is ``self`` —
-they are bound onto :class:`DAGScheduler` in
-``scheduler/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
-fact (see ADR-042 + the doc/closure audit walker).
-"""
+"""State machine helpers for :class:`DAGScheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# State machine helpers for :class:`DAGScheduler`.
+#
+# ADR-046 §5: byte-identical relocation of three state machine helpers
+# from the original ``engine/scheduler.py`` god-file. These functions are
+# governed by the :mod:`tests.engine.test_scheduler_state_machine_contract`
+# contract test (issue #1449); any semantic change requires a separate ADR
+# and an update to that contract. This module is structural-move only.
+#
+# Each function is a free function whose first parameter is ``self`` —
+# they are bound onto :class:`DAGScheduler` in
+# ``scheduler/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
+# fact (see ADR-042 + the doc/closure audit walker).
+# Development references: #1449, ADR-042, ADR-046.
 
 from __future__ import annotations
 
@@ -64,10 +66,11 @@ def _check_completion(self: DAGScheduler) -> None:
     """Set the completed event when every block has reached a terminal
     state **and** no dispatched task is still running.
 
-    The ``_active_tasks`` guard (ADR-018 Addendum 1) prevents
+    The ``_active_tasks`` guard prevents
     ``execute()`` from returning before the final
     ``_run_and_finalize`` coroutine has finished its cleanup.
     """
+    # Development references: ADR-018, Addendum 1.
     terminal = {BlockState.DONE, BlockState.ERROR, BlockState.CANCELLED, BlockState.SKIPPED}
     if all(s in terminal for s in self._block_states.values()) and not self._active_tasks:
         self._completed_event.set()

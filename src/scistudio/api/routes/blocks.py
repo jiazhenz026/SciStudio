@@ -49,14 +49,15 @@ RuntimeDep = Annotated[Any, Depends(get_runtime)]
 def get_optional_runtime(request: Request) -> Any:
     """Return the runtime if the app has one, else ``None``.
 
-    ADR-053 FR-001 made the read-only block responses depend on the active
+    made the read-only block responses depend on the active
     project, which is a property of the runtime. They must not start *requiring*
     one: a caller that mounts this router over a bare registry — the registry
     scan tests do exactly that to read ``dropin_failures`` — has no active
-    project by definition, and the FR-002 fallback already covers "the project
+    project by definition, and the fallback already covers "the project
     tier does not exist here". Hard-failing instead would make an origin field
     a precondition for listing blocks at all.
     """
+    # Development references: ADR-053, FR-001, FR-002.
     return getattr(request.app.state, "runtime", None)
 
 
@@ -210,11 +211,12 @@ def _all_format_capabilities_for_core_io(registry: Any, spec: Any) -> list[Any]:
 def _active_project_dir(runtime: Any) -> Path | None:
     """Return the active project root, or ``None`` when no project is open.
 
-    ADR-053 FR-001: the project tier of the origin split is defined by the
+    the project tier of the origin split is defined by the
     active project, so a block only resolves to ``project`` while that project
     is open. With none open — or with no runtime at all — the same file falls
-    back to ``custom``, which is the FR-002 degradation and not a failure.
+    back to ``custom``, which is the degradation and not a failure.
     """
+    # Development references: ADR-053, FR-001, FR-002.
     active = getattr(runtime, "active_project", None)
     return Path(active.path) if active is not None else None
 
@@ -283,14 +285,15 @@ def _dropin_failures(registry: Any) -> list[DropinFailureResponse]:
 async def list_blocks(registry: BlockRegistryDep, runtime: OptionalRuntimeDep) -> BlockListResponse:
     """Return the full block palette available in the current registry.
 
-    ADR-053 FR-004: every entry carries its resolved ``origin`` tier, which is
+    every entry carries its resolved ``origin`` tier, which is
     what lets the palette name ``My Library`` and ``This Project`` separately
-    (FR-035) and what gates the promotion action (FR-019).
+    and what gates the promotion action.
 
-    ADR-053 FR-015: ``dropin_failures`` carries the drop-in files the scan
-    refused — a block whose import raised, or a type file rejected under FR-016
+    ``dropin_failures`` carries the drop-in files the scan
+    refused — a block whose import raised, or a type file rejected
     for shadowing an installed module — so a missing block has a visible cause.
     """
+    # Development references: ADR-053, FR-004, FR-015, FR-016, FR-019, FR-035.
     project_dir = _active_project_dir(runtime)
     blocks = [
         _summary(spec, registry, project_dir)
@@ -302,7 +305,9 @@ async def list_blocks(registry: BlockRegistryDep, runtime: OptionalRuntimeDep) -
 
 
 class BlockReloadResponse(BaseModel):
-    """Response shape for ``POST /api/blocks/reload`` (#1910)."""
+    """Response shape for ``POST /api/blocks/reload``."""
+
+    # Development references: #1910.
 
     reloaded: int
     added: list[str]
@@ -311,7 +316,7 @@ class BlockReloadResponse(BaseModel):
 
 @router.post("/reload", response_model=BlockReloadResponse)
 async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
-    """Hot-reload file-based (drop-in) blocks and broadcast the change (#1910).
+    """Hot-reload file-based (drop-in) blocks and broadcast the change.
 
     The palette "Reload" button previously only re-fetched the cached in-memory
     catalog (``GET /api/blocks/``) and never re-scanned the blocks directory, so
@@ -322,12 +327,13 @@ async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
     ``blocks.reloaded`` so every connected client refreshes its catalog through
     the existing WS → refresh path.
 
-    ADR-053 FR-062: the re-scan is ``refresh_all_registries()`` rather than
+    the re-scan is ``refresh_all_registries()`` rather than
     ``block_registry.hot_reload()``. Reload is an event that invalidates the
-    registry, and FR-062 is written in terms of events, not method names — a
+    registry, and consumers listen for the resulting events — a
     user who edits ``{project}/types/spectrum.py`` and presses Reload used to
     get a fresh block registry and a stale type registry.
     """
+    # Development references: #1910, ADR-053, FR-062.
     before = set(runtime.block_registry.all_specs().keys())
     runtime.refresh_all_registries()
     after = set(runtime.block_registry.all_specs().keys())
@@ -474,14 +480,19 @@ async def get_block_source(
     """Return the read-only Python source backing a registered block type.
 
     Powers the homepage "View source" action when a block is selected on the
-    canvas (#1758): core, package, and custom blocks alike resolve to their
+    canvas: core, package, and custom blocks alike resolve to their
     on-disk source file. Read-only and registry-gated — only a registered
     block type resolves, never an arbitrary filesystem path.
 
-    ADR-053 FR-019: ``origin`` is the same resolved tier the palette shows, so
-    the source editor's promotion affordance (§6.2 E1) and the palette agree
+    ``origin`` is the same resolved tier the palette shows, so
+    the source editor's promotion affordance (E1) and the palette agree
     about which library the open file came from.
     """
+    # Maintainer context:
+    # ``origin`` is the same resolved tier the palette shows, so
+    # the source editor's promotion affordance (§6.2 E1) and the palette agree
+    # about which library the open file came from.
+    # Development references: #1758, ADR-053, FR-019.
     try:
         resolved = resolve_block_source(registry, block_type, project_dir=_active_project_dir(runtime))
     except KeyError as exc:
@@ -497,14 +508,15 @@ async def serve_panel_asset(
     asset_path: str,
     registry: BlockRegistryDep,
 ) -> FileResponse:
-    """Serve a validated, path-confined same-origin interactive panel asset (ADR-051 / ADR-048).
+    """Serve a validated, path-confined same-origin interactive panel asset.
 
     A package interactive block declares a ``PanelManifest`` with an
     ``asset_root``; this route serves that panel's frontend module/assets,
-    path-confined under the root with the same suffix allowlist ADR-048 uses, so
+    path-confined under the root with the same suffix allowlist uses, so
     the server never leaks arbitrary filesystem reads. Core panels are bundled
     (no ``asset_root``) and resolve from the frontend registry, not this route.
     """
+    # Development references: ADR-048, ADR-051.
     asset_root: str | None = None
     for spec in registry.all_specs().values():
         manifest = getattr(spec, "panel_manifest", None)
@@ -535,7 +547,7 @@ def _resolve_effective_port(
     *,
     direction: str,
 ) -> InputPort | OutputPort | None:
-    """Return the effective port for ``(block_type, port_name)`` (#889).
+    """Return the effective port for ``(block_type, port_name)``.
 
     Direction-agnostic resolver shared by the input and output paths:
 
@@ -548,11 +560,12 @@ def _resolve_effective_port(
     * Falls back to the class-level ``spec.input_ports`` /
       ``spec.output_ports`` when no config is supplied or the
       registry cannot instantiate the block (e.g. malformed config).
-    * Preserves the ADR-029 legacy synthetic ``DataObject`` port for
+    * Preserves the legacy synthetic ``DataObject`` port for
       variadic blocks when no other lookup matches, so older clients
       that have not started passing ``node_config`` still get a
       sensible answer.
     """
+    # Development references: #889, ADR-029.
     expected_cls: type[InputPort] | type[OutputPort] = InputPort if direction == "input" else OutputPort
     static_ports = getattr(spec, f"{direction}_ports", []) or []
     variadic_flag = f"variadic_{direction}s"
@@ -593,7 +606,7 @@ def _resolve_subworkflow_port(
     port_name: str,
     direction: str,
 ) -> InputPort | OutputPort | None:
-    """ADR-044 — resolve a SubWorkflowBlock node's exposed connection port.
+    """Resolve a SubWorkflowBlock node's exposed connection port.
 
     A subworkflow node's ports are derived from the referenced file's
     ``exposed_ports`` (not the static spec / a config enum), so the generic
@@ -601,9 +614,10 @@ def _resolve_subworkflow_port(
     ``config.ref.path`` against the active project root; if *port_name* is a real
     exposed port, return a permissive (accept-any) port. Exposed ports are
     accept-any at authoring time — the authoritative type check runs on the
-    flattened DAG at run start (ADR-044 §4 / §9.1), so the connection hint stays
+    flattened DAG at run start, so the connection hint stays
     permissive rather than blocking the wire.
     """
+    # Development references: ADR-044.
     if getattr(spec, "base_category", None) != "subworkflow":
         return None
     from scistudio.core.types.base import DataObject
@@ -628,14 +642,15 @@ async def validate_connection_route(
 ) -> ConnectionValidationResponse:
     """Validate whether two ports can be connected.
 
-    #889: when the client supplies ``source_node_config`` /
+    when the client supplies ``source_node_config`` /
     ``target_node_config`` the route resolves the endpoints' effective
-    ports per ADR-028 / ADR-029 (LoadData ``core_type`` drives the
+    ports (LoadData ``core_type`` drives the
     output type; variadic blocks read their ports from config). The
     legacy payload — block types and port names alone — still works
-    against the class-level static spec. ADR-044: subworkflow nodes resolve
+    against the class-level static spec.: subworkflow nodes resolve
     their exposed ports from the referenced file (``_resolve_subworkflow_port``).
     """
+    # Development references: #889, ADR-028, ADR-029, ADR-044.
     source = registry.get_spec(body.source_block)
     target = registry.get_spec(body.target_block)
     if source is None or target is None:

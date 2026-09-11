@@ -115,13 +115,14 @@ _default_builder: Callable[[], BackendRouter] | None = None
 def set_default_builder(builder: Callable[[], BackendRouter]) -> None:
     """Register the factory that builds the default singleton router.
 
-    #1342 / round-4 no-cycles: the default ``type -> backend`` wiring lives on
+    round-4 no-cycles: the default ``type -> backend`` wiring lives on
     the ``core.types`` side (``scistudio.core.types._backend_defaults``) so this
     storage module never imports the concrete type classes. That wiring calls
     this at import time to hand ``get_router`` a builder *callback*; storage
     holds only the callable, not an import edge back to ``core.types``. Building
     stays lazy (first ``get_router`` access), so behaviour is unchanged.
     """
+    # Development references: #1342.
     global _default_builder
     _default_builder = builder
 

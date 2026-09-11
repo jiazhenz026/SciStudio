@@ -1,20 +1,22 @@
-"""Data catalog + routed-preview helper implementations.
-
-ADR-048 SPEC 1 (no-compat, #1594/#1604): the catalog is previewed exclusively
-through the routed previewer session API (``POST/GET/PATCH
-/api/previews/sessions`` -> registry -> router -> selected provider ->
-:class:`PreviewEnvelope`). The legacy one-shot ``GET /api/data/{ref}/preview``
-REST adapter (``preview_data`` + ``_envelope_to_legacy_preview``) was deleted
-under #1604; callers now use the session API. The runtime contributes only the
-catalog-resolution helpers the session manager needs: :func:`enrich_preview_query`
-(injects the resolved storage ref + record metadata under the private
-``_storage`` / ``_record_metadata`` query keys) and :func:`resolve_session_target`
-(rebuilds the authoritative target kind + type chain from the catalog record).
-
-The data-catalog helpers (``register_data_ref``, ``register_output_payload``,
-``get_data_record``, ``describe_ref``, ``_resolve_record_class``) are unchanged
-from the pre-split implementation (issue #1430 / umbrella #1427).
-"""
+"""Data catalog + routed-preview helper implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Data catalog + routed-preview helper implementations.
+#
+# ADR-048 SPEC 1 (no-compat, #1594/#1604): the catalog is previewed exclusively
+# through the routed previewer session API (``POST/GET/PATCH
+# /api/previews/sessions`` -> registry -> router -> selected provider ->
+# :class:`PreviewEnvelope`). The legacy one-shot ``GET /api/data/{ref}/preview``
+# REST adapter (``preview_data`` + ``_envelope_to_legacy_preview``) was deleted
+# under #1604; callers now use the session API. The runtime contributes only the
+# catalog-resolution helpers the session manager needs: :func:`enrich_preview_query`
+# (injects the resolved storage ref + record metadata under the private
+# ``_storage`` / ``_record_metadata`` query keys) and :func:`resolve_session_target`
+# (rebuilds the authoritative target kind + type chain from the catalog record).
+#
+# The data-catalog helpers (``register_data_ref``, ``register_output_payload``,
+# ``get_data_record``, ``describe_ref``, ``_resolve_record_class``) are unchanged
+# from the pre-split implementation (issue #1430 / umbrella #1427).
+# Development references: #1427, #1430, #1594, #1604, ADR-048, SPEC 1.
 
 from __future__ import annotations
 
@@ -52,7 +54,7 @@ _MAX_TYPE_CHAIN_DEPTH = 32
 def _type_chain_from_registry(type_registry: Any, type_name: str) -> list[str]:
     """Return *type_name*'s ancestry, ordered general -> specific.
 
-    #2112: a file registered straight off disk carries no ``type_chain``, and a
+    a file registered straight off disk carries no ``type_chain``, and a
     single-entry chain is not routable — :class:`PreviewRouter` walks the chain
     to reach a previewer registered for an *ancestor*, so a ``.tif`` recorded as
     a project's ``SRSImage`` with chain ``["SRSImage"]`` could never reach the
@@ -70,6 +72,7 @@ def _type_chain_from_registry(type_registry: Any, type_name: str) -> list[str]:
     chain is still better than none, and a preview must not fail because a type
     was uninstalled.
     """
+    # Development references: #2112.
     if type_registry is None:
         return [type_name]
     chain = [type_name]
@@ -128,10 +131,10 @@ def register_plot_artifact(
     output_port: str | None = None,
     plot_id: str | None = None,
 ) -> DataRecord:
-    """Register a produced plot artifact as a previewable catalog record (ADR-048 SPEC 2 FR-031).
+    """Register a produced plot artifact as a previewable catalog record.
 
-    This is the producer -> consumer link the original SPEC 2 implementation
-    left dead-wired (#1606): ``run_plot_job`` writes a display artifact to the
+    This is the producer -> consumer link the original implementation
+    left dead-wired: ``run_plot_job`` writes a display artifact to the
     preview cache but nothing registered it so the routed
     :class:`~scistudio.previewers.PreviewService` could reach the core
     ``PlotPreviewer`` (``core.plot.basic``) at runtime.
@@ -143,12 +146,13 @@ def register_plot_artifact(
     ``PlotPreviewer`` reads. The optional workflow/node/output identity is
     stored as display-only :class:`~scistudio.previewers.PreviewSource`
     metadata (it carries no workflow truth — a plot job never registers a DAG
-    node or lineage, FR-025).
+    node or lineage).
 
     Returns the catalog :class:`DataRecord`; ``record.id`` is the ``ref`` the
     frontend passes to ``POST /api/previews/sessions`` to open the plot
     preview.
     """
+    # Development references: #1606, ADR-048, FR-025, FR-031, SPEC 2.
     path = Path(artifact_path)
     suffix = path.suffix.lower().lstrip(".")
     source: dict[str, Any] = {
@@ -278,11 +282,12 @@ def _resolve_record_class(self: ApiRuntime, record: DataRecord) -> type | None:
 def get_preview_service(self: ApiRuntime) -> PreviewService:
     """Return (building on first use) this runtime's :class:`PreviewService`.
 
-    ADR-048 SPEC 1: the runtime owns a per-process preview service loaded with
+    the runtime owns a per-process preview service loaded with
     core + package + project previewers. It is built lazily and rebuilt on
     project switch via :meth:`refresh_preview_service` so project-local
     previewers and defaults track the active project.
     """
+    # Development references: ADR-048, SPEC 1.
     service = getattr(self, "_preview_service", None)
     if service is None:
         project_dir = Path(self.active_project.path) if self.active_project else None
@@ -295,7 +300,8 @@ def get_preview_service(self: ApiRuntime) -> PreviewService:
 
 
 def refresh_preview_service(self: ApiRuntime) -> PreviewService:
-    """Rebuild the runtime preview service for the active project (FR-002)."""
+    """Rebuild the runtime preview service for the active project."""
+    # Development references: FR-002.
     project_dir = Path(self.active_project.path) if self.active_project else None
     service = build_preview_service(
         project_dir=project_dir,
@@ -373,7 +379,7 @@ def enrich_preview_query(self: ApiRuntime, ref: str, query: dict[str, Any]) -> d
 
 
 def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTarget:
-    """Rebuild a routed preview target from the catalog (ADR-048 / #1592).
+    """Rebuild a routed preview target from the catalog.
 
     The routed session API (``POST /api/previews/sessions``) accepts a client
     target that may carry only ``{kind, ref}`` — the frontend ``PreviewHost``
@@ -384,6 +390,7 @@ def resolve_session_target(self: ApiRuntime, target: PreviewTarget) -> PreviewTa
     refs (e.g. a collection-only target whose items carry their own storage) are
     returned unchanged so the provider can degrade.
     """
+    # Development references: #1592, ADR-048.
     try:
         record = self.get_data_record(target.ref)
     except KeyError:

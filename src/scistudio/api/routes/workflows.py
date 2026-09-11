@@ -62,7 +62,9 @@ def _yaml_error_detail(workflow_id: str, exc: yaml.YAMLError) -> dict[str, Any]:
 
 
 class VersionedWorkflowResponse(BaseModel):
-    """Workflow response with ADR-045 server-authoritative state version."""
+    """Workflow response with server-authoritative state version."""
+
+    # Development references: ADR-045.
 
     id: str
     version: str = Field(default="1.0.0", description="Workflow YAML/schema version.")
@@ -104,7 +106,7 @@ def _workflow_session_error(exc: RuntimeError) -> HTTPException:
 def _bind_engine_api_url(request: Request) -> None:
     """Publish this API process URL so worker subprocesses can call back.
 
-    ADR-055 Spec 0 (FR-006): the URL is derived from the CONFIGURED external
+    the URL is derived from the CONFIGURED external
     base — the ``SCISTUDIO_ENGINE_API_URL`` the CLI (``serve``/``gui``)
     exports at startup — with the app's configured mount prefix
     (``app.state.root_path``) appended exactly once. Workers are subprocesses
@@ -117,6 +119,7 @@ def _bind_engine_api_url(request: Request) -> None:
     derive from the incoming request and append the configured prefix the
     same way. The endswith guard keeps repeated execute calls idempotent.
     """
+    # Development references: ADR-055, FR-006, Spec 0.
     root_path = getattr(request.app.state, "root_path", "") or ""
     base = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip().rstrip("/")
     if not base:
@@ -146,7 +149,7 @@ def _request_source(request: Request, *, changed_by: str | None = None, default:
 
 
 def _resolved_ports_for_node(runtime: ApiRuntime | None, node: Any) -> Any:
-    """Compute the ADR-044 FR-004 ``resolved_ports`` surface for a node.
+    """Compute the ``resolved_ports`` surface for a node.
 
     Returns a :class:`SubworkflowPortSurface` for ``subworkflow`` /
     ``subworkflow_broken`` nodes (so the editor can render handles from the
@@ -154,6 +157,7 @@ def _resolved_ports_for_node(runtime: ApiRuntime | None, node: Any) -> Any:
     type. Response-only; never persisted. Requires *runtime* (registry + active
     project root); returns ``None`` without it.
     """
+    # Development references: ADR-044, FR-004.
     if runtime is None:
         return None
     from scistudio.api.schemas import SubworkflowPortSurface
@@ -217,12 +221,13 @@ async def _emit_workflow_changed(
 ) -> dict[str, Any]:
     """Broadcast a ``workflow.changed`` event on the shared EventBus.
 
-    Originally introduced by #718 part (a) carrying a ``revision`` field; the
-    counter was removed in ADR-039 §5.2 / D39-2.1. The event itself still
+    Originally introduced by part (a) carrying a ``revision`` field; the
+    counter was removed in -2.1. The event itself still
     fires after every successful workflow write so other browser tabs (or
     the embedded coding agent's WS subscriber) can invalidate their cached
     view. Cross-process / cross-session durable history now lives in git.
     """
+    # Development references: #718, ADR-039.
     version = runtime.bump_workflow_version(workflow_id)
     runtime.mark_workflow_first_party_write(workflow_id, version, path=runtime.workflow_path(workflow_id), kind=kind)
     payload = runtime.versioned_change_payload(
@@ -319,9 +324,9 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
     """Import a workflow from a filesystem path (returned by the browse dialog).
 
     Emits ``workflow.changed`` after the write so other clients refetch
-    (ADR-034 Phase 2). Durable history of the change lives in git per
-    ADR-039.
+    Durable history of the change lives in git.
     """
+    # Development references: ADR-034, ADR-039.
     file_path = body.get("path")
     if not file_path:
         raise HTTPException(status_code=400, detail="Missing 'path' field.")
@@ -410,7 +415,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
 
 @router.get("/by-path", response_model=VersionedWorkflowResponse)
 async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkflowResponse:
-    """Retrieve a workflow by project-relative path (ADR-044 US1 AS3).
+    """Retrieve a workflow by project-relative path.
 
     Declared BEFORE the greedy ``/{workflow_id}`` route so ``/api/workflows/
     by-path`` is not swallowed by ``get_workflow`` with ``workflow_id="by-path"``
@@ -418,6 +423,9 @@ async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkf
     editor to open a SubWorkflowBlock's referenced file (which may live under
     ``subworkflows/``) in its own tab.
     """
+    # Maintainer context:
+    # Retrieve a workflow by project-relative path (US1 AS3).
+    # Development references: ADR-044.
     from pydantic import ValidationError
 
     try:
@@ -485,12 +493,13 @@ async def update_workflow(
 ) -> VersionedWorkflowResponse:
     """Replace a workflow definition.
 
-    ADR-039 §5.2 / D39-2.1: the in-memory ``If-Match`` revision check has
+    2.1: the in-memory ``If-Match`` revision check has
     been removed. Cross-tab concurrency now relies on the existing
     ``workflow.changed`` event (filesystem watcher echoes external edits)
-    plus durable git history (ADR-039) for after-the-fact reconciliation.
+    plus durable git history for after-the-fact reconciliation.
     Last-write-wins on the file save itself — same model as VS Code.
     """
+    # Development references: ADR-039.
     if workflow_id != body.id:
         raise HTTPException(status_code=400, detail="Workflow path/body IDs must match.")
 
@@ -557,7 +566,7 @@ async def export_workflow_to_path(body: dict, runtime: RuntimeDep) -> dict:
 
 @router.post("/import-subworkflow")
 async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
-    """ADR-044 FR-011: import an external workflow file as a project subworkflow.
+    """Import an external workflow file as a project subworkflow.
 
     Expects ``{"source_path": str}`` (an absolute or project-external path to a
     workflow YAML). Copies it into ``<project>/subworkflows/`` (numeric suffix on
@@ -566,6 +575,7 @@ async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
     SubWorkflowBlock's ``config.ref.path`` and refreshes the node's handles from
     ``resolved_ports`` in one step (no reload round-trip).
     """
+    # Development references: ADR-044, FR-011.
     source_path = body.get("source_path")
     if not source_path:
         raise HTTPException(status_code=400, detail="Missing 'source_path' field.")
@@ -587,13 +597,14 @@ async def import_subworkflow(body: dict, runtime: RuntimeDep) -> dict:
 async def delete_workflow(workflow_id: str, runtime: RuntimeDep, request: Request) -> None:
     """Delete a workflow.
 
-    #1462 / ADR-045 §3.4: after the unlink, emit a versioned
+    after the unlink, emit a versioned
     ``workflow.changed`` event with ``kind="deleted"`` attributed to
     ``source="canvas"`` (or the ``X-Source`` header) so other clients see a
     user-initiated delete rather than the FS-watcher's ``source="external"``
     echo. ``_emit_workflow_changed`` also marks the write first-party so the
     watcher suppresses the redundant FS-driven event.
     """
+    # Development references: #1462, ADR-045.
     deleted = runtime.delete_workflow(workflow_id)
     if not deleted:
         return
@@ -704,16 +715,27 @@ async def execute_from_workflow(
 ) -> ExecuteFromResponse:
     """Re-run a workflow from a specific block using checkpointed inputs.
 
-    Hotfix #992: stamp ``runs.parent_run_id`` on the new run to point at
-    the most-recent completed run of this workflow. Per ADR-038 §3.6a the
+    stamp ``runs.parent_run_id`` on the new run to point at
+    the most-recent completed run of this workflow. a the
     new run's ``parent_run_id`` "points at the historical run whose outputs
     are reused"; the checkpoint mirrors the on-disk state at the most
     recent terminal block event, so the most recent completed run is
     semantically that parent. Previously the route called
     ``start_workflow(execute_from=...)`` without forwarding a
     ``parent_run_id``, leaving the column NULL — the Lineage tab had no
-    way to render the re-run chain link required by §3.8.
+    way to render the re-run chain link.
     """
+    # Maintainer context:
+    # stamp ``runs.parent_run_id`` on the new run to point at
+    # the most-recent completed run of this workflow. a the
+    # new run's ``parent_run_id`` "points at the historical run whose outputs
+    # are reused"; the checkpoint mirrors the on-disk state at the most
+    # recent terminal block event, so the most recent completed run is
+    # semantically that parent. Previously the route called
+    # ``start_workflow(execute_from=...)`` without forwarding a
+    # ``parent_run_id``, leaving the column NULL — the Lineage tab had no
+    # way to render the re-run chain link required by §3.8.
+    # Development references: #992, ADR-038.
     parent_run_id: str | None = None
     lineage_store = getattr(runtime, "lineage_store", None)
     if lineage_store is not None:

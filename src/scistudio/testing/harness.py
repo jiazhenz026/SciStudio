@@ -1,22 +1,24 @@
-"""BlockTestHarness -- contract validation and smoke testing for blocks.
-
-External block developers use this harness to verify their blocks satisfy
-the SciStudio block contract (ADR-025, ADR-026) without manual setup.
-
-Typical usage in a pytest test::
-
-    from scistudio.testing import BlockTestHarness
-
-    def test_my_block_contract():
-        harness = BlockTestHarness(MyBlock)
-        errors = harness.validate_block()
-        assert not errors, errors
-
-    def test_my_block_smoke(tmp_path):
-        harness = BlockTestHarness(MyBlock, work_dir=tmp_path)
-        result = harness.smoke_test(inputs={"input": collection})
-        assert "output" in result
-"""
+"""BlockTestHarness -- contract validation and smoke testing for blocks."""
+# Maintainer context (kept outside generated API documentation):
+# BlockTestHarness -- contract validation and smoke testing for blocks.
+#
+# External block developers use this harness to verify their blocks satisfy
+# the SciStudio block contract (ADR-025, ADR-026) without manual setup.
+#
+# Typical usage in a pytest test::
+#
+#     from scistudio.testing import BlockTestHarness
+#
+#     def test_my_block_contract():
+#         harness = BlockTestHarness(MyBlock)
+#         errors = harness.validate_block()
+#         assert not errors, errors
+#
+#     def test_my_block_smoke(tmp_path):
+#         harness = BlockTestHarness(MyBlock, work_dir=tmp_path)
+#         result = harness.smoke_test(inputs={"input": collection})
+#         assert "output" in result
+# Development references: ADR-025, ADR-026.
 
 from __future__ import annotations
 
@@ -154,7 +156,7 @@ class BlockTestHarness:
     def validate_entry_point_callable(self, callable_result: Any) -> list[str]:
         """Validate the return value of a ``scistudio.blocks`` entry-point callable.
 
-        Per ADR-025, the callable must return either:
+        the callable must return either:
 
         * ``(PackageInfo, list[type[Block]])`` -- package metadata + blocks
         * ``list[type[Block]]`` -- plain block list (backward compatible)
@@ -163,6 +165,7 @@ class BlockTestHarness:
 
         Returns a list of human-readable error strings.
         """
+        # Development references: ADR-025.
         from scistudio.blocks.base.block import Block
         from scistudio.blocks.base.package_info import PackageInfo
 

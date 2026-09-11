@@ -127,7 +127,7 @@ async def inspect_data(
     Do NOT use to:
       - Read the payload — use ``preview_data``.
 
-    Honours the Phase 2 audit 8 MiB read-cap — this tool ONLY reads
+    Honours the the implementation audit 8 MiB read-cap — this tool ONLY reads
     metadata, never the payload.
     """
     sref = _ref_from_dict(ref)
@@ -253,16 +253,17 @@ async def get_lineage(
     """Return the transitive lineage ancestors of a data reference.
 
     Use when:
-      - You need to trace where a data object came from across multiple
-        block runs (ADR-038 lineage).
-      - You're auditing reproducibility — full ancestry from raw to result.
+      You need to trace where a data object came from across multiple
+        block runs (lineage).
+      You're auditing reproducibility — full ancestry from raw to result.
 
     Do NOT use to:
-      - Inspect the object itself — use ``inspect_data`` / ``preview_data``.
+      Inspect the object itself — use ``inspect_data`` / ``preview_data``.
 
     Returns empty nodes/edges with a diagnostic ``note`` when no
     MetadataStore is installed or object_id cannot be resolved.
     """
+    # Development references: ADR-038.
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", module=r"scistudio\.core\.metadata_store")
         from scistudio.core.metadata_store import get_metadata_store

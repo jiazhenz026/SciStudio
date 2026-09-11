@@ -20,13 +20,13 @@ from scistudio.core.types.text import Text
 def _specific_type_for_extension(registry: Any, extension: str) -> str | None:
     """Return the one installed non-``Artifact`` type that loads *extension*.
 
-    #2112: a file registered straight off disk (the data-tree preview tab, an
+    a file registered straight off disk (the data-tree preview tab, an
     upload) carries no ``type_chain``, so the extension heuristic below is all
     the router has to go on. Hardcoding it to core types recorded ``.tif`` as
     :class:`Artifact` and routed the generic artifact previewer even with the
     imaging package installed and declaring ``Image`` for ``.tif``.
 
-    The ADR-043 load capability table already states which type each extension
+    The load capability table already states which type each extension
     can be read as, so ask it rather than duplicating the mapping. ``Artifact``
     is dropped from the candidates because it declares every opaque extension
     by design and would otherwise mask the specific answer. A tie is left
@@ -36,6 +36,7 @@ def _specific_type_for_extension(registry: Any, extension: str) -> str | None:
     type depend on install order. Only an unambiguous single candidate wins;
     everything else keeps today's answer.
     """
+    # Development references: #2112, ADR-043.
     if registry is None or not extension:
         return None
     try:

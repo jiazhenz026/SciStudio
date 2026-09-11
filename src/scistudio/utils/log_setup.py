@@ -1,30 +1,32 @@
-"""Persistent file logging, correlation ids, and boundary instrumentation.
-
-#1741. The unified logging *base* for the alpha closed-beta observability work.
-It complements two existing modules without duplicating them:
-
-* :mod:`scistudio.utils.event_logger` owns the JSON-line formatter and the
-  payload sanitizer (``_JsonLineFormatter`` / ``_sanitize_value``).
-* :mod:`scistudio.utils.logging` is the thin ``configure_logging`` entry point.
-
-This module adds the pieces those two intentionally left out of scope in #827:
-
-* on-disk human-readable, per-layer ``.log`` files with rotation + 7-day
-  retention (owner direction: no JSON files on disk);
-* log-directory resolution (explicit -> ``SCISTUDIO_LOG_DIR`` -> bundled
-  ``logs_dir()`` -> ``<project>/.scistudio/logs`` -> user ``logs_dir()``);
-* a correlation-id contextvar (surfaced as ``X-Request-ID``) and a run-id
-  contextvar (per-run diagnostic logs), injected into every record;
-* a :func:`log_call` boundary decorator (sync + async) that emits DEBUG on
-  enter (sanitized args) and exit (duration), and ERROR with traceback on
-  failure;
-* :func:`redact_sensitive` for config payloads.
-
-Apply ``log_call`` at *layer boundaries* (API handlers, engine dispatch,
-runners, the frontend ``apiFetch`` wrapper) — the design goal is fine-grained
-DEBUG coverage without rewriting every internal function (owner direction
-2026-06-21).
-"""
+"""Persistent file logging, correlation ids, and boundary instrumentation."""
+# Maintainer context (kept outside generated API documentation):
+# Persistent file logging, correlation ids, and boundary instrumentation.
+#
+# #1741. The unified logging *base* for the alpha closed-beta observability work.
+# It complements two existing modules without duplicating them:
+#
+# * :mod:`scistudio.utils.event_logger` owns the JSON-line formatter and the
+#   payload sanitizer (``_JsonLineFormatter`` / ``_sanitize_value``).
+# * :mod:`scistudio.utils.logging` is the thin ``configure_logging`` entry point.
+#
+# This module adds the pieces those two intentionally left out of scope in #827:
+#
+# * on-disk human-readable, per-layer ``.log`` files with rotation + 7-day
+#   retention (owner direction: no JSON files on disk);
+# * log-directory resolution (explicit -> ``SCISTUDIO_LOG_DIR`` -> bundled
+#   ``logs_dir()`` -> ``<project>/.scistudio/logs`` -> user ``logs_dir()``);
+# * a correlation-id contextvar (surfaced as ``X-Request-ID``) and a run-id
+#   contextvar (per-run diagnostic logs), injected into every record;
+# * a :func:`log_call` boundary decorator (sync + async) that emits DEBUG on
+#   enter (sanitized args) and exit (duration), and ERROR with traceback on
+#   failure;
+# * :func:`redact_sensitive` for config payloads.
+#
+# Apply ``log_call`` at *layer boundaries* (API handlers, engine dispatch,
+# runners, the frontend ``apiFetch`` wrapper) — the design goal is fine-grained
+# DEBUG coverage without rewriting every internal function (owner direction
+# 2026-06-21).
+# Development references: #1741, #827.
 
 from __future__ import annotations
 
@@ -116,8 +118,10 @@ class HumanFormatter(logging.Formatter):
     """Human-readable on-disk format: ``ts LEVEL logger message [req/run] (+exc)``.
 
     On-disk logs are human-readable ``.log`` files only (owner direction: no JSON
-    files); the request/run correlation ids are appended in brackets (#1741).
+    files); the request/run correlation ids are appended in brackets.
     """
+
+    # Development references: #1741.
 
     def format(self, record: logging.LogRecord) -> str:
         timestamp = self.formatTime(record, datefmt="%Y-%m-%d %H:%M:%S")
@@ -142,8 +146,9 @@ def redact_sensitive(value: Any) -> Any:
     Keys whose lowercased name contains a sensitive token (``password``,
     ``secret``, ``token``, ``api_key``, ...) have their value replaced with
     ``"<redacted>"``. Recurses into nested dicts/lists. Use this before logging
-    config payloads (FR-015).
+    config payloads.
     """
+    # Development references: FR-015.
     if isinstance(value, dict):
         out: dict[Any, Any] = {}
         for key, val in value.items():
@@ -234,12 +239,13 @@ def install_file_logging(
 
     Writes a combined ``scistudio-<pid>.log`` plus one file per layer
     (``api-`` / ``engine-`` / ``frontend-<pid>.log``) so the four layers are
-    recorded separately (#1741). On-disk output is human-readable only (owner:
+    recorded separately. On-disk output is human-readable only (owner:
     no JSON files). Idempotent (a second call is a no-op once a SciStudio file
     handler exists) and best-effort: an unwritable directory degrades to
     stderr-only and never raises. Returns the combined log path, or ``None``
     when disabled/failed.
     """
+    # Development references: #1741.
     if not _file_logging_enabled(enabled):
         return None
     root = logging.getLogger()

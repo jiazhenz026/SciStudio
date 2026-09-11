@@ -1,10 +1,12 @@
-"""Write-class workflow tools (3 of 4 — ``finish_ai_block`` lives in its own module).
-
-Tools: ``write_workflow``, ``run_workflow``, ``cancel_run``.
-
-Extracted from the original single-file ``tools_workflow.py`` (#1431,
-umbrella #1427). No behavior change.
-"""
+"""Write-class workflow tools (3 of 4 — ``finish_ai_block`` lives in its own module)."""
+# Maintainer context (kept outside generated API documentation):
+# Write-class workflow tools (3 of 4 — ``finish_ai_block`` lives in its own module).
+#
+# Tools: ``write_workflow``, ``run_workflow``, ``cancel_run``.
+#
+# Extracted from the original single-file ``tools_workflow.py`` (#1431,
+# umbrella #1427). No behavior change.
+# Development references: #1427, #1431.
 
 from __future__ import annotations
 
@@ -46,13 +48,15 @@ logger = logging.getLogger(__name__)
 
 
 class RunWorkflowStartedResult(RunWorkflowResult):
-    """``run_workflow`` result carrying the poll reminder (ADR-055 Spec 2, #2279).
+    """``run_workflow`` result carrying the poll reminder.
 
     Additive: every :class:`RunWorkflowResult` field is unchanged.
     ``poll_hint`` puts the provisioned ``remind_poll_status`` hook's reminder in
     the result itself, so a host that runs no hooks (a WebMCP host) still
     receives it.
     """
+
+    # Development references: #2279, ADR-055, Spec 2.
 
     poll_hint: str = Field(
         description="Reminder to poll get_run_status until the run reaches a terminal state.",
@@ -72,18 +76,19 @@ async def write_workflow(
     """Persist a workflow YAML to disk with a file lock and pre-write schema validation.
 
     Use when:
-      - You're creating a new workflow or replacing an existing one.
+      You're creating a new workflow or replacing an existing one.
 
     Do NOT use to:
-      - Patch one block's config (use ``update_block_config`` — preserves
+      Patch one block's config (use ``update_block_config`` — preserves
         comments and key order via ruamel.yaml round-trip).
-      - Edit ``workflows/*.yaml`` via Bash/Edit/Write tools — the
-        protect_workflow_yaml hook (ADR-040 §3.6) will block such calls.
+      Edit ``workflows/*.yaml`` via Bash/Edit/Write tools — the
+        protect_workflow_yaml hook will block such calls.
         This tool is the ONLY supported write path for workflows.
 
     Returns ``WriteWorkflowResult`` with ``next_step`` pointing at
     ``validate_workflow`` for canonical post-write verification.
     """
+    # Development references: ADR-040.
     from scistudio.workflow.schema import WorkflowFileModel
 
     # Pre-write validation: parse YAML and run through the same pydantic
@@ -248,21 +253,22 @@ async def edit_workflow(
     fails schema validation, the file is left unchanged.
 
     Use when:
-      - You're changing part of an existing workflow (add/remove a node,
+      You're changing part of an existing workflow (add/remove a node,
         rewire an edge, tweak a description) and must NOT clobber the
         user's GUI-set block config or comments.
 
     Do NOT use to:
-      - Create a new workflow — use ``write_workflow`` (whole-file write).
-      - Patch one block's config params — use ``update_block_config``
+      Create a new workflow — use ``write_workflow`` (whole-file write).
+      Patch one block's config params — use ``update_block_config``
         (schema-aware per-block patch).
-      - Edit ``workflows/*.yaml`` via Bash/Edit/Write tools — the
-        protect_workflow_yaml hook (ADR-040 §3.6) blocks such calls;
+      Edit ``workflows/*.yaml`` via Bash/Edit/Write tools — the
+        protect_workflow_yaml hook blocks such calls;
         this is the sanctioned partial-edit path.
 
     Returns ``EditWorkflowResult`` with ``next_step`` pointing at
     ``validate_workflow`` for canonical post-edit verification.
     """
+    # Development references: ADR-040.
     from scistudio.workflow.schema import WorkflowFileModel
 
     if not edits:
@@ -352,7 +358,7 @@ async def edit_workflow(
 
 
 def _reconcile_node_block_types(wf_file: Any) -> list[str]:
-    """Validate node ``block_type`` values against the live block registry (#1900).
+    """Validate node ``block_type`` values against the live block registry.
 
     Two problems this closes:
 
@@ -367,6 +373,7 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
     Returns the list of warnings. Raises ``ValueError`` when any node references
     an unregistered ``block_type``.
     """
+    # Development references: #1900.
     context = get_context()
     registry = getattr(context, "block_registry", None)
     if registry is None:
@@ -449,7 +456,8 @@ async def _emit_agent_workflow_changed(
     version: int | None = None,
     version_context: tuple[Any, Any] | None = None,
 ) -> None:
-    """Emit ADR-045 versioned workflow change events for MCP writes."""
+    """Emit versioned workflow change events for MCP writes."""
+    # Development references: ADR-045.
     if version_context is None:
         version_context = _workflow_change_context()
     if version_context is None:

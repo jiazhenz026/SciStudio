@@ -1,16 +1,18 @@
-"""Lineage + output-persistence method implementations for :class:`DAGScheduler`.
-
-ADR-046 §3 (Lineage + output group): extracted verbatim from the
-original ``engine/scheduler.py`` god-file. Pure structural move per
-umbrella #1427 Phase 3 — no behavior changes. ADR-038/039 emission
-contracts are preserved.
-
-Each function is a free function whose first parameter is ``self`` —
-they are bound onto :class:`DAGScheduler` in
-``scheduler/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
-fact (see ADR-042 + the doc/closure audit walker).
-"""
+"""Lineage + output-persistence method implementations for :class:`DAGScheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# Lineage + output-persistence method implementations for :class:`DAGScheduler`.
+#
+# ADR-046 §3 (Lineage + output group): extracted verbatim from the
+# original ``engine/scheduler.py`` god-file. Pure structural move per
+# umbrella #1427 Phase 3 — no behavior changes. ADR-038/039 emission
+# contracts are preserved.
+#
+# Each function is a free function whose first parameter is ``self`` —
+# they are bound onto :class:`DAGScheduler` in
+# ``scheduler/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
+# fact (see ADR-042 + the doc/closure audit walker).
+# Development references: #1427, ADR-038, ADR-042, ADR-046.
 
 from __future__ import annotations
 
@@ -36,11 +38,11 @@ def _persist_output_metadata(
 ) -> None:
     """Persist DataObject identity rows to the unified ``data_objects`` table.
 
-    Phase D38-2.3 (ADR-038 §6 Phase 2): replaces the pre-ADR-038
+    replaces the legacy
     ``metadata.db`` write path. Writes go to the active
     :class:`~scistudio.core.lineage.LineageStore`.
 
-    **Recorder-aware split (Codex P1 #931):** when a
+    **Recorder-aware split (Codex P1):** when a
     :class:`LineageRecorder` is bound to this scheduler, the recorder
     owns the authoritative write of every ``data_objects`` row from
     its ``BLOCK_DONE`` handler. The recorder stamps the
@@ -48,7 +50,7 @@ def _persist_output_metadata(
     ``block_execution_id`` it writes to ``block_executions``. Letting
     the scheduler also pre-write would call ``upsert_data_object()``
     (which uses ``INSERT OR IGNORE``), permanently fixing the row's
-    ``produced_by_execution`` to ``NULL`` and breaking the ADR §3.7
+    ``produced_by_execution`` to ``NULL`` and breaking the lineage query invariant
     Q4b join. So when a recorder is present this method is a no-op —
     the recorder's pass writes the row with the correct producer.
 
@@ -61,6 +63,22 @@ def _persist_output_metadata(
     The method is **non-fatal**: any exception is logged as a warning
     and does not crash the workflow.
     """
+    # Maintainer context:
+    # Phase D38-2.3: replaces the legacy
+    # ``metadata.db`` write path. Writes go to the active
+    # :class:`~scistudio.core.lineage.LineageStore`.
+    # **Recorder-aware split (Codex P1):** when a
+    # :class:`LineageRecorder` is bound to this scheduler, the recorder
+    # owns the authoritative write of every ``data_objects`` row from
+    # its ``BLOCK_DONE`` handler. The recorder stamps the
+    # ``produced_by_execution`` foreign key with the same
+    # ``block_execution_id`` it writes to ``block_executions``. Letting
+    # the scheduler also pre-write would call ``upsert_data_object()``
+    # (which uses ``INSERT OR IGNORE``), permanently fixing the row's
+    # ``produced_by_execution`` to ``NULL`` and breaking the ADR §3.7
+    # Q4b join. So when a recorder is present this method is a no-op —
+    # the recorder's pass writes the row with the correct producer.
+    # Development references: #931, ADR-038.
     # Recorder owns the write path when bound — see docstring.
     if self._lineage_recorder is not None:
         return
@@ -196,13 +214,14 @@ def _upsert_wire_row(
 def _sync_checkpoint_to_store(self: DAGScheduler) -> None:
     """Backfill ``data_objects`` rows from checkpoint data on resume.
 
-    ADR-038 §5.2: when ``execute_from()`` reloads intermediate refs
+    when ``execute_from()`` reloads intermediate refs
     from a checkpoint, the referenced DataObjects may not yet exist
     in ``lineage.db`` (the checkpoint pre-dates the run). Iterate the
     rehydrated outputs and upsert each one so downstream
     ``block_io`` FK constraints succeed when the resumed run emits
     BLOCK_DONE.
     """
+    # Development references: ADR-038.
     try:
         store = self._resolve_lineage_store()
         if store is None:
@@ -233,7 +252,7 @@ def _build_block_done_data(
     outputs: dict[str, Any] | Any,
     environment: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Assemble the BLOCK_DONE event payload (ADR-038 §3.2).
+    """Assemble the BLOCK_DONE event payload.
 
     In addition to the legacy ``workflow_id`` + ``outputs`` keys this
     emits the fields that :class:`LineageRecorder` needs to write the
@@ -241,12 +260,13 @@ def _build_block_done_data(
 
     * ``config``               — resolved config dict (post-template expansion)
     * ``block_type``           — registry type name for the block
-    * ``block_version``        — registry-resolved version per ADR-038 §3.3
+    * ``block_version``        — registry-resolved version
     * ``environment``          — full env snapshot from the worker
     * ``input_object_ids``     — ``{port: [object_id, ...]}`` derived from inputs
     * ``output_object_ids``    — same shape for outputs
     * ``inputs``               — raw wire-format inputs (fallback for the recorder)
     """
+    # Development references: ADR-038.
     block_type = self._resolve_block_type(node_id, block)
     block_version = self._resolve_block_version(block, block_type)
     # ADR-051 / FR-011: the user's interactive decision travels inside the
@@ -277,11 +297,11 @@ def _build_block_terminal_data(
 ) -> dict[str, Any]:
     """Assemble the BLOCK_ERROR / BLOCK_CANCELLED / BLOCK_SKIPPED payload.
 
-    D38-3.2 (closes audit D38-3.1a P1-1 + D38-3.1b P1-3): all four
-    terminal events must carry the ADR-038 §3.2 metadata so the
+    all four
+    terminal events must carry the metadata so the
     recorder writes non-empty ``block_type`` / ``block_version`` /
     ``block_config_resolved`` columns into ``block_executions``.
-    Without this, ADR §3.7 Q3 ("which blocks ran in run X") returns
+    Without this, the query "which blocks ran in run X" returns
     empty strings for any non-completed block, breaking methods
     export and downstream queries.
 
@@ -294,6 +314,15 @@ def _build_block_terminal_data(
     sample fails (e.g. cancel during dispatch) we fall back to an
     empty dict.
     """
+    # Maintainer context:
+    # D38-3.2 (closes audit D38-3.1a P1-1 + D38-3.1b P1-3): all four
+    # terminal events must carry the metadata so the
+    # recorder writes non-empty ``block_type`` / ``block_version`` /
+    # ``block_config_resolved`` columns into ``block_executions``.
+    # Without this, ADR §3.7 Q3 ("which blocks ran in run X") returns
+    # empty strings for any non-completed block, breaking methods
+    # export and downstream queries.
+    # Development references: ADR-038.
     node = self._dag.nodes.get(node_id)
     block_type = ""
     if node is not None:
@@ -355,11 +384,12 @@ def _resolve_block_type(self: DAGScheduler, node_id: str, block: Any) -> str:
 def _resolve_block_version(self: DAGScheduler, block: Any, block_type: str) -> str:
     """Return the version stamped on the block spec at registry scan time.
 
-    Per ADR-038 §3.3 the registry force-injects this from
+    the registry force-injects this from
     ``importlib.metadata`` at scan time. When the registry is not wired
     up (mock-runner tests), fall back to the block class's ``version``
     attribute and then to ``scistudio.__version__``.
     """
+    # Development references: ADR-038.
     if self._registry is not None:
         try:
             spec = self._registry.get_spec(block_type)

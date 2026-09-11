@@ -58,26 +58,36 @@ _HASH_CHUNK_BYTES = 1024 * 1024
 
 
 def hash_artifact_file(storage_path: str | None) -> str | None:
-    """Return an xxhash digest of the file at *storage_path*, or ``None``.
+    """Return an xxhash digest of a regular artifact file, or ``None``.
 
-    #1529 (DSN-5): records a content digest alongside the mutable
-    ``storage_path`` so a subsequent run that overwrites the same path (ADR-038
-    §3.5 "no per-run isolation") can be detected as a dangling artifact.
+    A content digest lets lineage checks detect when a later run overwrites the
+    same storage path. Hashing is best effort: an empty path, missing file,
+    directory, or read failure returns ``None`` without breaking a workflow.
 
-    Returns ``None`` (rather than raising) when *storage_path* is falsy, is
-    not a regular file (e.g. a directory-backed zarr store, or a path that
-    does not exist), or cannot be read — lineage hashing is best-effort and
-    must never break a workflow. Directory-backed backends are intentionally
-    not walked here; their integrity check is deferred (see TODO below).
-    :func:`artifact_size_bytes` *does* handle directories, so #1983's retention
-    accounting works for zarr stores even while their digest stays ``None``.
-
-    TODO(#1984): hash directory-backed artifacts (zarr / parquet datasets)
-      by digesting their constituent files. Out of scope for #1529 (which
-      targeted single-file intermediates) and for #1983 (which needs sizes,
-      not digests).
-      Followup: https://github.com/jiazhenz026/SciStudio/issues/1984.
+    Directory-backed artifacts such as zarr stores are not hashed here.
+    :func:`artifact_size_bytes` still measures their size for retention accounting.
     """
+    # Maintainer context (kept outside generated API documentation):
+    # Return an xxhash digest of the file at *storage_path*, or ``None``.
+    #
+    #     #1529 (DSN-5): records a content digest alongside the mutable
+    #     ``storage_path`` so a subsequent run that overwrites the same path (ADR-038
+    #     §3.5 "no per-run isolation") can be detected as a dangling artifact.
+    #
+    #     Returns ``None`` (rather than raising) when *storage_path* is falsy, is
+    #     not a regular file (e.g. a directory-backed zarr store, or a path that
+    #     does not exist), or cannot be read — lineage hashing is best-effort and
+    #     must never break a workflow. Directory-backed backends are intentionally
+    #     not walked here; their integrity check is deferred (see TODO below).
+    #     :func:`artifact_size_bytes` *does* handle directories, so #1983's retention
+    #     accounting works for zarr stores even while their digest stays ``None``.
+    #
+    #     TODO(#1984): hash directory-backed artifacts (zarr / parquet datasets)
+    #       by digesting their constituent files. Out of scope for #1529 (which
+    #       targeted single-file intermediates) and for #1983 (which needs sizes,
+    #       not digests).
+    #       Followup: https://github.com/jiazhenz026/SciStudio/issues/1984.
+    # Development references: #1529, #1983, #1984, ADR-038, DSN-5, TODO.
     if not storage_path:
         return None
     path = Path(storage_path)
@@ -99,7 +109,7 @@ def hash_artifact_file(storage_path: str | None) -> str | None:
 def artifact_size_bytes(storage_path: str | None) -> int | None:
     """Return the on-disk size of the artifact at *storage_path*, or ``None``.
 
-    #1983: the dominant artifact backend (zarr) stores each array as a
+    the dominant artifact backend (zarr) stores each array as a
     *directory* of chunk files, so a bare ``Path.stat().st_size`` reports the
     directory inode size (typically 64 to 128 bytes) rather than the payload.
     Retention accounting and any "how much disk is this project using" surface
@@ -116,6 +126,7 @@ def artifact_size_bytes(storage_path: str | None) -> int | None:
     Returns:
         Total bytes, or ``None`` when the size cannot be determined.
     """
+    # Development references: #1983.
     if not storage_path:
         return None
     path = Path(storage_path)
@@ -152,7 +163,7 @@ _READONLY_PREFIXES = ("select", "with", "explain", "pragma", "values")
 def _reject_non_readonly_sql(sql: str) -> None:
     """Raise ``ValueError`` unless *sql* is a single read-only statement.
 
-    #1546 (BUG-11): ``execute_query`` advertised "read-only" but executed any
+    ``execute_query`` advertised "read-only" but executed any
     SQL, so a future caller passing a mutating statement could silently
     corrupt the lineage DB. We reject anything that is not a single
     SELECT/WITH/EXPLAIN/PRAGMA/VALUES statement. The check is intentionally
@@ -160,6 +171,7 @@ def _reject_non_readonly_sql(sql: str) -> None:
     batching (a trailing ``;`` plus more SQL), and matches on the first
     keyword case-insensitively.
     """
+    # Development references: #1546, BUG-11.
     stripped = _strip_sql_leading_comments(sql).strip()
     if not stripped:
         raise ValueError("execute_query: empty SQL is not allowed")
@@ -313,25 +325,27 @@ def _column_names(conn: sqlite3.Connection, table: str) -> set[str]:
 
 
 def _migrate_runs_provenance_degraded(conn: sqlite3.Connection) -> None:
-    """Add ``runs.provenance_degraded`` to pre-#1527 databases.
+    """Add ``runs.provenance_degraded`` to legacy databases.
 
     ``CREATE TABLE IF NOT EXISTS`` does not add new columns to an existing
-    table, so a lineage.db created before #1527 (BUG-6) lacks the
+    table, so a lineage.db created after the update lacks the
     ``provenance_degraded`` column. Detect its absence and ``ALTER TABLE``
     it in with the same ``DEFAULT 0`` so existing rows read as "clean".
     """
+    # Development references: #1527, BUG-6.
     if "provenance_degraded" not in _column_names(conn, "runs"):
         conn.execute("ALTER TABLE runs ADD COLUMN provenance_degraded INTEGER NOT NULL DEFAULT 0")
 
 
 def _migrate_data_objects_content_hash(conn: sqlite3.Connection) -> None:
-    """Add ``data_objects.content_hash`` to pre-#1529 databases.
+    """Add ``data_objects.content_hash`` to legacy databases.
 
     Same ``CREATE TABLE IF NOT EXISTS`` limitation as the provenance-degraded
-    migration: a lineage.db created before #1529 (DSN-5) lacks the
+    migration: a lineage.db created after the update lacks the
     ``content_hash`` column. New column is nullable so existing rows read as
     "no recorded digest" (treated as not-checkable rather than dangling).
     """
+    # Development references: #1529, DSN-5.
     if "content_hash" not in _column_names(conn, "data_objects"):
         conn.execute("ALTER TABLE data_objects ADD COLUMN content_hash TEXT")
 
@@ -592,7 +606,7 @@ class LineageStore:
     def latest_run_for_git_commit(self, commit_sha: str) -> dict[str, Any] | None:
         """Return the newest run recorded at *commit_sha*, or ``None``.
 
-        ADR-038 Addendum 1 §11.3 (#2033): the restore preflight is driven by a
+        the restore preflight is driven by a
         git commit, not a run id, so it needs the reverse of the usual lookup.
         Several runs can share one commit (the pre-run auto-commit is skipped
         when the tree is already clean, so consecutive runs of an unedited
@@ -609,6 +623,7 @@ class LineageStore:
             a manual commit or an ``auto: pre-restore`` commit, and which
             callers must report as "unknown" rather than as "no drift".
         """
+        # Development references: #2033, ADR-038, Addendum 1.
         if not commit_sha:
             return None
         with self._connect() as conn:
@@ -625,7 +640,7 @@ class LineageStore:
     def workflow_boundary_inputs(self, run_id: str) -> list[dict[str, Any]]:
         """Return the run's inputs that came from outside the run itself.
 
-        ADR-038 §3.6 Check 1 operates on
+        Check 1 operates on
         ``past_run.input_objects_at_workflow_boundary()``: the data objects a
         run consumed but did not produce. Intermediates flowing block-to-block
         inside the run are irrelevant to a drift check — they will be
@@ -645,6 +660,7 @@ class LineageStore:
             ``mtime_at_write``. Objects with no ``storage_path`` (in-memory
             values) are excluded — there is nothing on disk to compare.
         """
+        # Development references: ADR-038.
         with self._connect() as conn:
             cur = conn.execute(
                 """
@@ -986,7 +1002,7 @@ class LineageStore:
     def backfill_storage_fields(self) -> int:
         """Recover NULL ``storage_path`` / ``backend`` / ``size_bytes`` columns.
 
-        #1983: before the ``_extract_storage_fields`` fix, every row recorded
+        before the ``_extract_storage_fields`` fix, every row recorded
         ``storage_path=NULL`` because the recorder read the key from the wrong
         nesting level. The path was never actually lost — it is still in the
         row's ``wire_payload`` JSON — so existing projects can be repaired
@@ -999,6 +1015,7 @@ class LineageStore:
         Returns:
             The number of rows updated.
         """
+        # Development references: #1983.
         updated = 0
         with self._connect() as conn:
             cur = conn.execute(
@@ -1047,10 +1064,11 @@ class LineageStore:
     def runs_in_progress(self) -> list[str]:
         """Return the ids of runs that have not reached a terminal status.
 
-        #1983: artifact retention refuses to sweep while any run is still
+        artifact retention refuses to sweep while any run is still
         executing, because an in-flight run's outputs are not yet recorded in
         ``data_objects`` and would look unreferenced.
         """
+        # Development references: #1983.
         with self._connect() as conn:
             cur = conn.execute("SELECT run_id FROM runs WHERE status = 'running'")
             return [row[0] for row in cur.fetchall()]
@@ -1058,12 +1076,12 @@ class LineageStore:
     def latest_successful_run_per_workflow(self) -> dict[str, tuple[str, str]]:
         """Map each ``workflow_id`` to its most recent clean ``completed`` run.
 
-        #1983: this is the retention root set. A workflow whose runs all failed
+        this is the retention root set. A workflow whose runs all failed
         or were cancelled is absent from the mapping, which the caller treats
         as "no retained run" rather than as "retain nothing" — see
         :func:`scistudio.core.lineage.retention.plan_retention`.
 
-        Runs with ``provenance_degraded=1`` are excluded. #1527 sets that flag
+        Runs with ``provenance_degraded=1`` are excluded. The contract sets that flag
         when a block or data-object lineage write failed, so such a run's
         recorded output set is known to be incomplete. Trusting it as the
         retention root would produce a *partially* populated live set — enough
@@ -1079,6 +1097,7 @@ class LineageStore:
             since the retained run began belongs to that run however long it
             took, so the bound holds for a run of any duration.
         """
+        # Development references: #1527, #1983.
         with self._connect() as conn:
             cur = conn.execute(
                 """
@@ -1098,7 +1117,7 @@ class LineageStore:
     def artifact_paths_produced_by(self, run_ids: Iterable[str]) -> set[str]:
         """Return the storage paths of artifacts produced by the given runs.
 
-        #1983 (owner directive): liveness is "produced by the retained run",
+        (owner directive): liveness is "produced by the retained run",
         deliberately **not** "referenced by" it. A partial re-run
         (``runs.execute_from_block_id``) therefore does not extend protection
         to the upstream artifacts it consumed from an earlier run; those are
@@ -1111,6 +1130,7 @@ class LineageStore:
         Returns:
             The set of non-NULL ``storage_path`` values those runs produced.
         """
+        # Development references: #1983.
         ids = [rid for rid in run_ids if rid]
         if not ids:
             return set()

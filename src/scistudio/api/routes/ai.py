@@ -1,21 +1,23 @@
-"""Provider discovery endpoints for the embedded coding agent.
-
-ADR-034 Phase 2 trimmed this module down to the single ``/api/ai/status``
-endpoint introduced in Phase 1.2. The legacy pre-ADR-033 single-call
-surfaces (``/api/ai/generate-block``, ``/api/ai/suggest-workflow``,
-``/api/ai/optimize-params``) and their associated request/response
-schemas were deleted along with ``scistudio.ai.generation`` and
-``scistudio.ai.optimization`` — they fed an AI workflow path that the
-PTY-tab embedded agent now replaces end-to-end.
-
-ADR-053 spec 2 adds ``/api/ai/availability`` beside it. The two are
-deliberately not merged: ``/status`` answers presence for the chat Setup
-screen's dropdown and costs nothing beyond a ``--version`` probe, while
-``/availability`` grades the same rows into the four states a surface that
-is about to *spend* a user's session needs, which requires a real billed
-call to each provider. A caller that only wants to order a dropdown should
-not pay for that.
-"""
+"""Provider discovery endpoints for the embedded coding agent."""
+# Maintainer context (kept outside generated API documentation):
+# Provider discovery endpoints for the embedded coding agent.
+#
+# ADR-034 Phase 2 trimmed this module down to the single ``/api/ai/status``
+# endpoint introduced in Phase 1.2. The legacy pre-ADR-033 single-call
+# surfaces (``/api/ai/generate-block``, ``/api/ai/suggest-workflow``,
+# ``/api/ai/optimize-params``) and their associated request/response
+# schemas were deleted along with ``scistudio.ai.generation`` and
+# ``scistudio.ai.optimization`` — they fed an AI workflow path that the
+# PTY-tab embedded agent now replaces end-to-end.
+#
+# ADR-053 spec 2 adds ``/api/ai/availability`` beside it. The two are
+# deliberately not merged: ``/status`` answers presence for the chat Setup
+# screen's dropdown and costs nothing beyond a ``--version`` probe, while
+# ``/availability`` grades the same rows into the four states a surface that
+# is about to *spend* a user's session needs, which requires a real billed
+# call to each provider. A caller that only wants to order a dropdown should
+# not pay for that.
+# Development references: ADR-033, ADR-034, ADR-053, spec 2.
 
 from __future__ import annotations
 
@@ -44,11 +46,13 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 class ActiveContextRequest(BaseModel):
     """Payload for ``POST /api/ai/active-context``.
 
-    ADR-040 Addendum 5 / #1488. ``workflow_id`` is the id the GUI is
+    ``workflow_id`` is the id the GUI is
     currently editing; ``None`` clears the runtime field (e.g. the user
     closed the editor pane). Empty strings are normalised to ``None``
     inside :meth:`ApiRuntime.set_active_workflow_id`.
     """
+
+    # Development references: #1488, ADR-040, Addendum 5.
 
     workflow_id: str | None = None
 
@@ -66,12 +70,13 @@ async def set_active_context(
 ) -> ActiveContextResponse:
     """Update the active workflow id surfaced to the AI chat agent.
 
-    ADR-040 Addendum 5 / #1488. The frontend posts here whenever the
+    The frontend posts here whenever the
     user opens, switches, or closes a workflow in the editor; the
     value is persisted to ``<project>/.scistudio/active_workflow.json``
     so it survives backend restart, and is surfaced to the chat agent
     via the ``get_active_workflow_context`` MCP tool.
     """
+    # Development references: #1488, ADR-040, Addendum 5.
     runtime.set_active_workflow_id(payload.workflow_id)
     return ActiveContextResponse(workflow_id=runtime.active_workflow_id)
 
@@ -87,12 +92,12 @@ _PROBE_TIMEOUT_SECONDS = 2
 async def provider_status() -> dict[str, Any]:
     """Return per-provider availability for the embedded coding agent.
 
-    ADR-034 Phase 1.2 + multi-provider (FR-008, FR-020b): the frontend's Setup
+    multi-provider: the frontend's Setup
     screen needs to know which CLI agents are installed and logged in so it can
     order, disable, and annotate the provider dropdown.
 
     One entry per **agent** provider, in registry order. The ``user-terminal``
-    pseudo-provider is excluded (FR-003) — it is launched from its own
+    pseudo-provider is excluded — it is launched from its own
     bottom-panel surface, not from the chat Setup screen. Response shape::
 
         {
@@ -104,7 +109,7 @@ async def provider_status() -> dict[str, Any]:
           ]
         }
 
-    ``label`` is additive per FR-020b: display names come from the backend so
+    ``label`` is additive: display names come from the backend so
     adding a provider needs no frontend edit. The other four fields keep their
     original names, types, and meaning.
 
@@ -115,6 +120,7 @@ async def provider_status() -> dict[str, Any]:
     than scaling with the provider count; ``asyncio.gather`` preserves registry
     order in the result.
     """
+    # Development references: ADR-034, FR-003, FR-008, FR-020b.
     return {"providers": await _status_rows()}
 
 
@@ -134,7 +140,7 @@ async def agent_availability_report(
 ) -> dict[str, Any]:
     """Return graded agent availability for any surface that needs a working agent.
 
-    ADR-053 spec 2, FR-031 to FR-036. Where ``GET /api/ai/status`` reports
+    to. Where ``GET /api/ai/status`` reports
     whether each CLI is present and logged in, this endpoint answers the
     question a surface about to start an agent session actually has: will a
     call work *right now*? Response shape::
@@ -162,7 +168,7 @@ async def agent_availability_report(
     Two further fields are facts about the provider rather than grades of it.
     ``next_step`` is the one action that moves this provider out of this state —
     how to install it, or the command that signs it in — populated for the two
-    states FR-031 gives a guidance column to and null for the other two.
+    states the contract gives a guidance column to and null for the other two.
     ``session_unsupported_reason``, when non-null, says the provider has no
     positional prompt argument and therefore cannot be handed the opening
     instruction every SciStudio-started session is delivered with; such a
@@ -179,6 +185,7 @@ async def agent_availability_report(
     Every probe is bounded and runs concurrently: a slow or hanging provider is
     reported as a failed call rather than holding the response.
     """
+    # Development references: ADR-053, FR-031, FR-036, spec 2.
     report = await agent_availability.probe_availability(_status_rows, refresh=refresh)
     return report.as_dict()
 
@@ -189,8 +196,9 @@ def _probe_provider(descriptor: ProviderDescriptor) -> dict[str, Any]:
     Every per-CLI fact this needs — binary names, off-PATH install directories,
     config root and its environment override, credential file, auth status
     command — is read off ``descriptor``. There is no ``if provider == …``
-    chain, which is what makes a sixth provider a registry row (FR-001).
+    chain, which is what makes a sixth provider a registry row.
     """
+    # Development references: FR-001.
     binary, available, version = _binary_status(descriptor)
     return {
         "name": descriptor.key,
@@ -209,7 +217,7 @@ def _binary_status(descriptor: ProviderDescriptor) -> tuple[str | None, bool, st
     non-empty output. Version is the trimmed stdout (stderr when stdout is
     empty).
 
-    FR-005: discovery goes through :func:`~...providers_registry.resolve_binary`,
+    discovery goes through :func:`~...providers_registry.resolve_binary`,
     the same resolver the spawn path and the AI Block path use, so the three can
     never disagree about whether a provider is installed. That matters most for
     the CLIs that are never on PATH — Kimi Code and both Qoder channels live
@@ -218,6 +226,7 @@ def _binary_status(descriptor: ProviderDescriptor) -> tuple[str | None, bool, st
     than left to the registry's defaults, so this module stays the single
     monkeypatch seam the status tests drive.
     """
+    # Development references: FR-005.
     resolved = resolve_binary(descriptor, which=shutil.which, home=Path.home())
     if resolved is None:
         return None, False, None
@@ -239,7 +248,7 @@ def _binary_status(descriptor: ProviderDescriptor) -> tuple[str | None, bool, st
 
 
 def _provider_logged_in(descriptor: ProviderDescriptor, binary: str | None) -> bool:
-    """Descriptor-driven login probe (FR-009).
+    """Descriptor-driven login probe.
 
     Two ordered steps, both declared by ``descriptor.credentials``:
 
@@ -258,6 +267,7 @@ def _provider_logged_in(descriptor: ProviderDescriptor, binary: str | None) -> b
     provider reports not logged in, which is selectable in the picker: the user
     completes the CLI's own login flow inside the PTY.
     """
+    # Development references: FR-009.
     probe = descriptor.credentials
     if probe is None:
         return False

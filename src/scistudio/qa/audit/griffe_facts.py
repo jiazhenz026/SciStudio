@@ -1,4 +1,7 @@
-"""Generate Python symbol facts with griffe for ADR-042."""
+"""Generate Python symbol facts with griffe."""
+# Maintainer context (kept outside generated API documentation):
+# Generate Python symbol facts with griffe for ADR-042.
+# Development references: ADR-042.
 
 from __future__ import annotations
 

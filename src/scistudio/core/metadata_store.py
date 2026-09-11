@@ -1,34 +1,36 @@
-"""Deprecated: legacy ``metadata.db`` import surface — superseded by ADR-038.
-
-ADR-038 §3.1 collapses the pre-existing ``metadata.db`` (ADR-032) and the
-disjoint ``lineage.db`` schema into a single unified ``lineage.db`` with
-four normalized tables. Phase D38-2.3 (this module) retires the
-``metadata.db`` write path and converts this module into a thin
-deprecation shim:
-
-* :class:`MetadataStore` is preserved as a public symbol with the same
-  ``put`` / ``put_wire`` / ``get`` / ``get_wire`` / ``get_by_storage_path``
-  / ``ancestors`` / ``descendants`` / ``list_by_type`` / ``list_by_workflow``
-  / ``vacuum`` / ``delete`` / ``close`` method surface so out-of-scope
-  callers (notably the MCP inspection / QA tools) keep working.
-* Writes (``put`` / ``put_wire`` / ``put_wire_if_missing``) are best-effort
-  no-ops that emit a one-time :class:`DeprecationWarning`. The new
-  authoritative writer is the :class:`scistudio.core.lineage.LineageRecorder`
-  wired by ``ApiRuntime.start_workflow`` (D38-2.2, #920).
-* Reads delegate to the unified
-  :class:`~scistudio.core.lineage.LineageStore`'s ``data_objects`` table
-  when the active project has one, returning ``None`` / ``[]`` otherwise.
-
-Per ADR-038 §6 Phase 2 + the user direction recorded 2026-05-15 (project
-is pre-release), **no historical data migration** is performed. If a
-project directory contains a stale ``metadata.db`` from a pre-ADR-038
-run, :func:`ApiRuntime._init_metadata_store` logs an ``INFO`` line and
-leaves the file alone — it is never opened.
-
-Removal target: 6 months after merge of the parent ADR-038 cascade.
-The deprecation warning fires at most once per process to keep CI output
-clean while the cascade lands.
-"""
+"""Compatibility access to metadata through the unified lineage store."""
+# Maintainer context (kept outside generated API documentation):
+# Deprecated: legacy ``metadata.db`` import surface — superseded by ADR-038.
+#
+# ADR-038 §3.1 collapses the pre-existing ``metadata.db`` (ADR-032) and the
+# disjoint ``lineage.db`` schema into a single unified ``lineage.db`` with
+# four normalized tables. Phase D38-2.3 (this module) retires the
+# ``metadata.db`` write path and converts this module into a thin
+# deprecation shim:
+#
+# * :class:`MetadataStore` is preserved as a public symbol with the same
+#   ``put`` / ``put_wire`` / ``get`` / ``get_wire`` / ``get_by_storage_path``
+#   / ``ancestors`` / ``descendants`` / ``list_by_type`` / ``list_by_workflow``
+#   / ``vacuum`` / ``delete`` / ``close`` method surface so out-of-scope
+#   callers (notably the MCP inspection / QA tools) keep working.
+# * Writes (``put`` / ``put_wire`` / ``put_wire_if_missing``) are best-effort
+#   no-ops that emit a one-time :class:`DeprecationWarning`. The new
+#   authoritative writer is the :class:`scistudio.core.lineage.LineageRecorder`
+#   wired by ``ApiRuntime.start_workflow`` (D38-2.2, #920).
+# * Reads delegate to the unified
+#   :class:`~scistudio.core.lineage.LineageStore`'s ``data_objects`` table
+#   when the active project has one, returning ``None`` / ``[]`` otherwise.
+#
+# Per ADR-038 §6 Phase 2 + the user direction recorded 2026-05-15 (project
+# is pre-release), **no historical data migration** is performed. If a
+# project directory contains a stale ``metadata.db`` from a pre-ADR-038
+# run, :func:`ApiRuntime._init_metadata_store` logs an ``INFO`` line and
+# leaves the file alone — it is never opened.
+#
+# Removal target: 6 months after merge of the parent ADR-038 cascade.
+# The deprecation warning fires at most once per process to keep CI output
+# clean while the cascade lands.
+# Development references: #920, ADR-032, ADR-038.
 
 from __future__ import annotations
 
@@ -103,13 +105,13 @@ def _active_lineage_store() -> LineageStore | None:
 
 
 class MetadataStore:
-    """Deprecation shim — preserves the pre-ADR-038 ``metadata.db`` surface.
+    """Deprecation shim — preserves the legacy ``metadata.db`` surface.
 
     The shim is constructed by :meth:`ApiRuntime._init_metadata_store` for
     backwards compatibility with callers that import the legacy symbols.
     Writes are silent no-ops (the unified :class:`LineageStore` is the
     authoritative writer). Reads return ``None`` / ``[]`` because no
-    legacy data migration is performed per ADR-038 §6 Phase 2.
+    legacy data migration is performed.
 
     The ``db_path`` constructor argument is accepted for API compatibility
     but is no longer used — the shim never opens a SQLite connection of
@@ -121,6 +123,8 @@ class MetadataStore:
     db_path:
         Ignored (kept for backwards-compatible constructor signature).
     """
+
+    # Development references: ADR-038.
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         # Path is intentionally not stored — the shim is stateless.
@@ -140,7 +144,8 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        """No-op shim — the LineageRecorder owns writes."""
+        # Development references: ADR-038.
         _emit_deprecation_warning()
 
     def put_wire(
@@ -150,7 +155,8 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        """No-op shim — the LineageRecorder owns writes."""
+        # Development references: ADR-038.
         _emit_deprecation_warning()
 
     def put_wire_if_missing(
@@ -160,7 +166,8 @@ class MetadataStore:
         block_id: str | None = None,
         port_name: str | None = None,
     ) -> None:
-        """No-op shim — the LineageRecorder owns writes per ADR-038 §3.2."""
+        """No-op shim — the LineageRecorder owns writes."""
+        # Development references: ADR-038.
         _emit_deprecation_warning()
 
     # ------------------------------------------------------------------
@@ -173,8 +180,9 @@ class MetadataStore:
         Returns ``None`` when there is no active lineage store or the
         object id is unknown. Reconstruction uses the same
         :func:`_reconstruct_one` path as the worker subprocess, so a
-        successful return is byte-equivalent to the pre-ADR-038 result.
+        successful return is byte-equivalent to the legacy result.
         """
+        # Development references: ADR-038.
         _emit_deprecation_warning()
         wire = self.get_wire(object_id)
         if wire is None:
@@ -266,7 +274,7 @@ class MetadataStore:
     def ancestors(self, object_id: str) -> list[dict[str, Any]]:
         """Return the provenance chain via the unified ``derived_from`` column.
 
-        The shim runs the same recursive CTE as the pre-ADR-038
+        The shim runs the same recursive CTE as the legacy
         implementation, against ``lineage.db.data_objects``. Empty list
         when the lineage store is unavailable or the object id is
         unknown. Each entry carries ``object_id``, ``derived_from``,
@@ -275,6 +283,7 @@ class MetadataStore:
         carry per-row ``block_id``; we surface ``None`` and let callers
         cope).
         """
+        # Development references: ADR-038.
         _emit_deprecation_warning()
         store = _active_lineage_store()
         if store is None:
@@ -399,11 +408,13 @@ class MetadataStore:
     # ------------------------------------------------------------------
 
     def delete(self, object_id: str) -> None:
-        """No-op — the unified store owns row lifecycle per ADR-038."""
+        """No-op — the unified store owns row lifecycle."""
+        # Development references: ADR-038.
         _emit_deprecation_warning()
 
     def vacuum(self, existing_paths: set[str]) -> int:
-        """No-op — returns 0 (rows are retained per ADR-038 §3.5)."""
+        """No-op — returns 0 (rows are retained)."""
+        # Development references: ADR-038.
         _emit_deprecation_warning()
         return 0
 

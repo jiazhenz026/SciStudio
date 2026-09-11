@@ -1,60 +1,63 @@
-"""ADR-034 multi-provider agent registry — the single source of per-CLI facts.
-
-ADR-034 claimed that adding a PTY chat provider "changes only the spawned
-executable plus a few argv differences". Before this module that was false:
-per-provider knowledge lived in fifteen backend locations and two independent
-argv builders. This module makes the claim true. Every per-CLI fact consumed by
-spawn, discovery, status, and validation lives in exactly one descriptor table
-here (FR-001), and adding a sixth provider is a data change plus a discovery
-rule rather than a sweep across call sites.
-
-**Layering.** This module is a *leaf*: it MUST NOT import from
-:mod:`scistudio.api` or :mod:`scistudio.blocks`, so both the API layer and the
-block layer can depend on it without a cycle (spec §4.1, mirroring the
-constraint that makes ``ai_pty/_state.py`` safe). It holds data and pure path
-resolution only — process spawning lives in
-:mod:`scistudio.ai.agent.terminal`.
-
-**Provenance.** Every fact below is transcribed from the verified provider
-tables in ``docs/specs/adr-034-multi-provider-agent-chat.md`` §1, observed
-against the binaries installed on the owner workstation on **2026-08-06**:
-
-===============  ==========  ================  ===========================
-Provider         Binary      Version observed  Well-known install dir
-===============  ==========  ================  ===========================
-``claude-code``  claude      2.x               ``~/.local/bin``
-``codex``        codex       0.139.0           ``~/AppData/Roaming/npm``
-``kimi-code``    kimi        0.33.0            ``<KIMI_CODE_HOME>/bin``
-``qoder``        qodercli    1.1.15            ``~/.qoder/bin/qodercli``
-``qoder-cn``     qoderclicn  1.1.15            ``~/.qoder-cn/bin/qoderclicn``
-===============  ==========  ================  ===========================
-
-Re-verify this table when a provider CLI major version changes (spec §4.5).
-
-**Channel variants.** ``qoder`` and ``qoder-cn`` are two *independent*
-descriptor instances sharing every strategy field, not one descriptor with two
-binary candidates (FR-025, FR-026). A user may install both side by side, with
-separate binaries, config roots, and credentials, and must be able to pick
-which account and model catalog a chat tab uses. Modelling them as alternative
-candidates of one key would also let a missing channel silently resolve to the
-sibling channel's binary, which FR-026 forbids.
-
-**Sidecar rejection.** The Qoder security-scan plugin ships its own pinned CLI
-copy at ``~/.qodersec/bin/qodercli.exe`` (observed at 1.1.12). It is an
-internal dependency of the scanner, not a user-facing chat CLI, and it is stale
-relative to the real install. FR-027's promise is unconditional, so keeping it
-takes **two** rules, not one:
-
-1. :func:`resolve_binary` matches an exact binary name inside a *registered*
-   well-known directory and never globs under the home directory, so a stray
-   copy is not discovered.
-2. :attr:`ProviderDescriptor.excluded_dirs` names subtrees a resolution may
-   never come from, checked against the resolved path whichever source found
-   it. Rule 1 alone constrains only the well-known-directory scan; ``which``
-   searches whatever the user put on PATH, so a user whose PATH includes
-   ``~/.qodersec/bin`` would otherwise be handed the sidecar despite rule 1
-   holding.
-"""
+"""Multi-provider agent registry — the single source of per-CLI facts."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-034 multi-provider agent registry — the single source of per-CLI facts.
+#
+# ADR-034 claimed that adding a PTY chat provider "changes only the spawned
+# executable plus a few argv differences". Before this module that was false:
+# per-provider knowledge lived in fifteen backend locations and two independent
+# argv builders. This module makes the claim true. Every per-CLI fact consumed by
+# spawn, discovery, status, and validation lives in exactly one descriptor table
+# here (FR-001), and adding a sixth provider is a data change plus a discovery
+# rule rather than a sweep across call sites.
+#
+# **Layering.** This module is a *leaf*: it MUST NOT import from
+# :mod:`scistudio.api` or :mod:`scistudio.blocks`, so both the API layer and the
+# block layer can depend on it without a cycle (spec §4.1, mirroring the
+# constraint that makes ``ai_pty/_state.py`` safe). It holds data and pure path
+# resolution only — process spawning lives in
+# :mod:`scistudio.ai.agent.terminal`.
+#
+# **Provenance.** Every fact below is transcribed from the verified provider
+# tables in ``docs/specs/adr-034-multi-provider-agent-chat.md`` §1, observed
+# against the binaries installed on the owner workstation on **2026-08-06**:
+#
+# ===============  ==========  ================  ===========================
+# Provider         Binary      Version observed  Well-known install dir
+# ===============  ==========  ================  ===========================
+# ``claude-code``  claude      2.x               ``~/.local/bin``
+# ``codex``        codex       0.139.0           ``~/AppData/Roaming/npm``
+# ``kimi-code``    kimi        0.33.0            ``<KIMI_CODE_HOME>/bin``
+# ``qoder``        qodercli    1.1.15            ``~/.qoder/bin/qodercli``
+# ``qoder-cn``     qoderclicn  1.1.15            ``~/.qoder-cn/bin/qoderclicn``
+# ===============  ==========  ================  ===========================
+#
+# Re-verify this table when a provider CLI major version changes (spec §4.5).
+#
+# **Channel variants.** ``qoder`` and ``qoder-cn`` are two *independent*
+# descriptor instances sharing every strategy field, not one descriptor with two
+# binary candidates (FR-025, FR-026). A user may install both side by side, with
+# separate binaries, config roots, and credentials, and must be able to pick
+# which account and model catalog a chat tab uses. Modelling them as alternative
+# candidates of one key would also let a missing channel silently resolve to the
+# sibling channel's binary, which FR-026 forbids.
+#
+# **Sidecar rejection.** The Qoder security-scan plugin ships its own pinned CLI
+# copy at ``~/.qodersec/bin/qodercli.exe`` (observed at 1.1.12). It is an
+# internal dependency of the scanner, not a user-facing chat CLI, and it is stale
+# relative to the real install. FR-027's promise is unconditional, so keeping it
+# takes **two** rules, not one:
+#
+# 1. :func:`resolve_binary` matches an exact binary name inside a *registered*
+#    well-known directory and never globs under the home directory, so a stray
+#    copy is not discovered.
+# 2. :attr:`ProviderDescriptor.excluded_dirs` names subtrees a resolution may
+#    never come from, checked against the resolved path whichever source found
+#    it. Rule 1 alone constrains only the well-known-directory scan; ``which``
+#    searches whatever the user put on PATH, so a user whose PATH includes
+#    ``~/.qodersec/bin`` would otherwise be handed the sidecar despite rule 1
+#    holding.
+# Development references: ADR-034, FR-001, FR-025, FR-026, FR-027, docs/specs/adr-034-multi-provider-agent-
+# chat.md.
 
 from __future__ import annotations
 
@@ -99,7 +102,9 @@ WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
 
 
 class ProviderKind(StrEnum):
-    """Distinguishes agent CLIs from the shell pseudo-provider (FR-003)."""
+    """Distinguishes agent CLIs from the shell pseudo-provider."""
+
+    # Development references: FR-003.
 
     AGENT = "agent"
     TERMINAL = "terminal"
@@ -108,9 +113,11 @@ class ProviderKind(StrEnum):
 class McpStrategy(StrEnum):
     """How a provider learns about the SciStudio MCP server.
 
-    The payload is provider-agnostic in every case (FR-018); only the write
+    The payload is provider-agnostic in every case; only the write
     location and the injection mechanism differ.
     """
+
+    # Development references: FR-018.
 
     #: Explicit ``--mcp-config <path>`` flag pointing at the SciStudio-owned
     #: ``<project>/.scistudio/mcp.json``.
@@ -176,7 +183,9 @@ class SystemPromptInjection:
 
 @dataclass(frozen=True)
 class CredentialProbe:
-    """How login state is detected for one provider (FR-009)."""
+    """How login state is detected for one provider."""
+
+    # Development references: FR-009.
 
     #: Config-root-relative segments of the credential file.
     credential_path: tuple[str, ...]
@@ -191,13 +200,16 @@ class CredentialProbe:
 
 @dataclass(frozen=True)
 class ProviderDescriptor:
-    """One agent CLI channel's complete adapter definition (FR-002)."""
+    """One agent CLI channel's complete adapter definition."""
+
+    # Development references: FR-002.
 
     key: str
     """Stable provider key used on the wire, in configs, and in workflow YAML."""
 
     label: str
-    """User-facing product name. Returned by ``GET /api/ai/status`` (FR-020b)."""
+    """User-facing product name. Returned by ``GET /api/ai/status``."""
+    # Development references: FR-020b.
 
     kind: ProviderKind
 
@@ -205,9 +217,10 @@ class ProviderDescriptor:
     """Exact binary names, most preferred first.
 
     A channel variant is NEVER an alternative candidate here — it gets its own
-    descriptor (FR-026). Multiple candidates are for genuine aliases of the
+    descriptor. Multiple candidates are for genuine aliases of the
     *same* CLI.
     """
+    # Development references: FR-026.
 
     well_known_dirs: tuple[tuple[str, ...], ...]
     """Install directories absent from PATH, as path segments.
@@ -231,7 +244,7 @@ class ProviderDescriptor:
     """Argv fragment appended when the user opts into bypass permission mode."""
 
     manual_argv: tuple[str, ...] = ()
-    """Argv fragment appended when the user picks **Manual Approve** (#1994).
+    """Argv fragment appended when the user picks **Manual Approve**.
 
     Symmetric with :attr:`bypass_argv`, and it exists because silence is not a
     safe default. Passing no flag in safe mode does not mean "ask me"; it means
@@ -248,16 +261,17 @@ class ProviderDescriptor:
     :attr:`manual_argv_absent_reason`; the registry completeness test requires
     exactly one of the two to be present.
     """
+    # Development references: #1994.
 
     manual_argv_absent_reason: str | None = None
     """Why :attr:`manual_argv` is empty, when it is. ``None`` otherwise."""
 
     prompt_argv_prefix: tuple[str, ...] | None = ("--",)
-    """Argv placed before a positional initial prompt, or ``None`` (#1994).
+    """Argv placed before a positional initial prompt, or ``None``.
 
     ``("--",)`` — the end-of-options separator — is right for every CLI that
     accepts a positional prompt, and it is required rather than cosmetic
-    (#1789): ``--mcp-config`` is variadic, so without it Claude Code swallows
+    ``--mcp-config`` is variadic, so without it Claude Code swallows
     the trailing prompt as another MCP config path and exits.
 
     ``None`` means the CLI has **no** positional prompt argument, so an AI
@@ -267,6 +281,7 @@ class ProviderDescriptor:
     ``unknown command '<task>'``. That is the AI Block launch failure the owner
     reported, and appending the prompt anyway is what produced it.
     """
+    # Development references: #1789, #1994.
 
     prompt_unsupported_reason: str | None = None
     """Why :attr:`prompt_argv_prefix` is ``None``, when it is.
@@ -306,8 +321,9 @@ class ProviderDescriptor:
     directory under it. The exclusion is checked against the resolved path
     whichever source produced it — PATH or a well-known directory — because a
     user who puts the sidecar directory on PATH must not thereby be offered the
-    sidecar (FR-027).
+    sidecar.
     """
+    # Development references: FR-027.
 
     def resolve_config_root(
         self,
@@ -377,7 +393,9 @@ class ProviderDescriptor:
 
 
 class ProviderRegistry:
-    """Ordered, immutable collection of :class:`ProviderDescriptor` (FR-001)."""
+    """Ordered, immutable collection of :class:`ProviderDescriptor`."""
+
+    # Development references: FR-001.
 
     def __init__(self, descriptors: Sequence[ProviderDescriptor]) -> None:
         by_key: dict[str, ProviderDescriptor] = {}
@@ -404,8 +422,9 @@ class ProviderRegistry:
         ------
         KeyError
             When *key* is not a registered provider. The message enumerates the
-            accepted set so callers can surface it verbatim (FR-023).
+            accepted set so callers can surface it verbatim.
         """
+        # Development references: FR-023.
         try:
             return self._by_key[key]
         except KeyError:
@@ -422,11 +441,13 @@ class ProviderRegistry:
         return tuple(self._by_key)
 
     def agents(self) -> tuple[ProviderDescriptor, ...]:
-        """Agent descriptors only, in registry order (FR-003)."""
+        """Agent descriptors only, in registry order."""
+        # Development references: FR-003.
         return tuple(d for d in self._descriptors if d.is_agent)
 
     def agent_keys(self) -> tuple[str, ...]:
-        """Agent provider keys only — excludes ``user-terminal`` (FR-003)."""
+        """Agent provider keys only — excludes ``user-terminal``."""
+        # Development references: FR-003.
         return tuple(d.key for d in self.agents())
 
 
@@ -449,12 +470,13 @@ def _qoder_channel(
     and share every strategy field byte for byte. This helper fills the shared
     strategy fields once so the pair cannot drift, while the registry still
     holds two fully independent descriptor instances so each resolves, probes,
-    and spawns on its own (FR-025, FR-026).
+    and spawns on its own.
 
     Their ``--help`` surfaces were compared at 1.1.15 and differ only in the
     program name and description line. If a future release diverges, the shared
     fields split per channel with no structural change.
     """
+    # Development references: FR-025, FR-026.
     return ProviderDescriptor(
         key=key,
         label=label,
@@ -765,7 +787,7 @@ def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
     """Why a SciStudio-started session cannot use *descriptor*, or ``None``.
 
     The single place this question is answered. Every SciStudio-started session
-    — an AI Block run, a Bring In My Work session — hands its agent an opening
+    an AI Block run, a Bring In My Work session — hands its agent an opening
     instruction as a positional command-line argument, because four of the five
     registry agents have no per-session prompt channel at all. A CLI that parses
     its first positional as a *subcommand* cannot be reached that way, and
@@ -776,7 +798,7 @@ def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
     Consumers ask here rather than reading ``prompt_argv_prefix`` themselves so
     the meaning of that field is interpreted once. It sits in the registry
     beside the field it interprets, and not in ``availability`` where it began,
-    because #2014 gave it a second consumer in the block layer:
+    because the contract gave it a second consumer in the block layer:
     ``AIBlock.config_schema`` derives its ``provider`` enum from it, and
     ``blocks`` may reach into ``scistudio.ai`` only through the one carved-out
     lazy edge to this module (see the import-linter contracts in
@@ -785,6 +807,7 @@ def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:
     drag that into the block layer. ``availability`` re-exports it, so its own
     callers and the API layer are unaffected.
     """
+    # Development references: #2014.
     if descriptor.prompt_argv_prefix is not None:
         return None
     return descriptor.prompt_unsupported_reason or (
@@ -835,7 +858,7 @@ def resolve_executable(
     user's own shell would run, and preferring a copy in a well-known directory
     over it would be surprising.
 
-    Two separate rules keep a vendor sidecar copy out (FR-027), and both are
+    Two separate rules keep a vendor sidecar copy out, and both are
     needed:
 
     *Exact names, registered directories only.* Matching is by exact binary
@@ -847,15 +870,16 @@ def resolve_executable(
     it constrains only the well-known-directory scan. ``which`` searches
     whatever the user put on PATH, so a user whose PATH includes
     ``~/.qodersec/bin`` would otherwise be handed the security scanner's stale,
-    pinned copy — FR-027's promise is unconditional and does not carve out that
+    pinned copy — the API's promise is unconditional and does not carve out that
     case. ``excluded_dirs`` is therefore checked against the resolved path
     whichever source produced it, and rejecting a candidate does not fall back
     to a sibling provider's binary: it simply removes that candidate.
 
     The well-known-directory scan runs on every platform, not just Windows:
-    Kimi Code and Qoder are off PATH everywhere, and FR-005 requires the chat
+    Kimi Code and Qoder are off PATH everywhere, and the contract requires the chat
     path and the AI Block path to agree on the result on every OS.
     """
+    # Development references: FR-005, FR-027.
     resolver = shutil.which if which is None else which
     directories = tuple(well_known_dirs)
     excluded = tuple(excluded_dirs)
@@ -908,7 +932,7 @@ def resolve_binary(
 
     Off-PATH aware and exact-name only. Because each channel descriptor carries
     its own binary name and its own well-known directory, a missing channel
-    binary can never resolve to the sibling channel's binary (FR-026).
+    binary can never resolve to the sibling channel's binary.
 
     Sidecar exclusion is descriptor data (:attr:`ProviderDescriptor.excluded_dirs`)
     rather than a special case in the resolver, so a future vendor that ships a
@@ -917,6 +941,7 @@ def resolve_binary(
     ``home`` and ``env`` exist so tests can drive a fake home directory without
     depending on the CLIs installed on the developer's machine.
     """
+    # Development references: FR-026.
     directories = descriptor.well_known_directories(home=home, env=env)
     excluded = descriptor.excluded_directories(home=home, env=env)
     for name in descriptor.binary_candidates:

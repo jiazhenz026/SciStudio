@@ -1,16 +1,18 @@
-"""Streaming export helpers used by the ``SaveData`` dispatch functions.
-
-ADR-031 Phase 3 (Task 18) introduced row-group / zero-materialisation
-write paths for the storage-backed DataFrame and zarr-backed Array cases
-so very large tables and chunked arrays can be written without
-allocating the entire payload in memory. The functions live here so the
-:class:`SaveData` class file stays under the 750-LOC god-file threshold
-per issue #1459 (Phase 2 of #1427).
-
-Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
-every symbol is underscore-prefixed; the module itself starts with an
-underscore and is package-private.
-"""
+"""Streaming export helpers used by the ``SaveData`` dispatch functions."""
+# Maintainer context (kept outside generated API documentation):
+# Streaming export helpers used by the ``SaveData`` dispatch functions.
+#
+# ADR-031 Phase 3 (Task 18) introduced row-group / zero-materialisation
+# write paths for the storage-backed DataFrame and zarr-backed Array cases
+# so very large tables and chunked arrays can be written without
+# allocating the entire payload in memory. The functions live here so the
+# :class:`SaveData` class file stays under the 750-LOC god-file threshold
+# per issue #1459 (Phase 2 of #1427).
+#
+# Per ADR-028 Addendum 1 §C9 ("private functions, not helper classes")
+# every symbol is underscore-prefixed; the module itself starts with an
+# underscore and is package-private.
+# Development references: #1427, #1459, ADR-028, ADR-031, Addendum 1.
 
 from __future__ import annotations
 
@@ -34,9 +36,10 @@ def _zarr_store_copy(src_path: str, dst_path: str) -> None:
     reach the same end state when everything works, but deleting first
     throws away a saved export before its replacement exists, so a copy that
     fails partway leaves the user with neither. That is the same defect
-    fixed in ``ZarrBackend.write`` for issue #2148, and the shared helper
+    fixed in ``ZarrBackend.write`` , and the shared helper
     also carries the Windows directory-rename retry.
     """
+    # Development references: #2148.
     with atomic_replace_dir(Path(dst_path)) as staging:
         shutil.copytree(src_path, staging, dirs_exist_ok=True)
 

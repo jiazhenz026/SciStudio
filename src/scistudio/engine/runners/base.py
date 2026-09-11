@@ -48,15 +48,16 @@ class BlockRunner(Protocol):
         inputs: dict[str, Any],
         config: dict[str, Any],
     ) -> dict[str, Any]:
-        """Run an interactive block's prompt phase in an isolated subprocess (ADR-051).
+        """Run an interactive block's prompt phase in an isolated subprocess.
 
-        Spawns the worker with the ADR-051 ``phase="prompt"`` marker so it runs
+        Spawns the worker with the ``phase="prompt"`` marker so it runs
         ``block.prepare_prompt`` (not ``run``) and exits. Returns a dict with
         ``panel_payload`` (the JSON-safe window view), ``intermediate`` (a list
         of serialized storage references the engine holds across the pause), and
         ``environment``. Called by the scheduler before pausing an interactive
         block; the compute phase reuses :meth:`run`.
         """
+        # Development references: ADR-051.
         ...
 
     async def check_status(self, workflow_id: str, block_id: str) -> Any:
@@ -65,7 +66,7 @@ class BlockRunner(Protocol):
         Parameters
         ----------
         workflow_id:
-            The workflow run that owns the block (#1517: handles are keyed by
+            The workflow run that owns the block (: handles are keyed by
             ``(workflow_id, block_id)`` so concurrent runs don't collide).
         block_id:
             Block identifier within that run.
@@ -75,6 +76,7 @@ class BlockRunner(Protocol):
         Any
             Runner-specific status descriptor.
         """
+        # Development references: #1517.
         ...
 
     async def cancel(self, workflow_id: str, block_id: str) -> None:
@@ -83,8 +85,9 @@ class BlockRunner(Protocol):
         Parameters
         ----------
         workflow_id:
-            The workflow run that owns the block (#1517).
+            The workflow run that owns the block.
         block_id:
             Block identifier within that run.
         """
+        # Development references: #1517.
         ...

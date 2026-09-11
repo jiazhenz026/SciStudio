@@ -1,36 +1,38 @@
-"""Engine-agnostic helpers for the ``scistudio.events`` audit log.
-
-ADR-018 / #827 introduced a structured audit trail of engine activity on the
-``scistudio.events`` stdlib logger. This module holds the **engine-agnostic**
-half of that machinery:
-
-* :func:`_sanitize_data` / :func:`_sanitize_value` — render arbitrary event
-  payloads logger-safe (truncate large strings, drop heavy numpy/pyarrow/pandas
-  payloads behind a type marker);
-* :class:`_JsonLineFormatter` — render a :class:`logging.LogRecord` as a single
-  JSON line, promoting the ``event_type`` / ``block_id`` / ``workflow_id`` /
-  ``event_data`` extras to top-level keys;
-* :func:`install_default_handler` — install a default ``StreamHandler`` (plain
-  or JSON) on the root logger.
-
-Each emitted engine event becomes one ``INFO`` record on the
-``scistudio.events`` logger:
-
-* default (human-readable) format::
-
-    block_running block_id=load_csv_1 workflow_id=wf-abc data={}
-
-* JSON-line format::
-
-    {"event_type":"block_running","block_id":"load_csv_1",
-     "workflow_id":"wf-abc","data":{}}
-
-Round-4 no-cycles: the engine-coupled subscriber (``install_event_logger``,
-which imports :mod:`scistudio.engine.events`) moved to
-:mod:`scistudio.engine.event_logger` so this bottom ``utils`` layer no longer
-imports ``engine``. The records remain a pure observability sink; nothing reads
-them back programmatically.
-"""
+"""Engine-agnostic helpers for the ``scistudio.events`` audit log."""
+# Maintainer context (kept outside generated API documentation):
+# Engine-agnostic helpers for the ``scistudio.events`` audit log.
+#
+# ADR-018 / #827 introduced a structured audit trail of engine activity on the
+# ``scistudio.events`` stdlib logger. This module holds the **engine-agnostic**
+# half of that machinery:
+#
+# * :func:`_sanitize_data` / :func:`_sanitize_value` — render arbitrary event
+#   payloads logger-safe (truncate large strings, drop heavy numpy/pyarrow/pandas
+#   payloads behind a type marker);
+# * :class:`_JsonLineFormatter` — render a :class:`logging.LogRecord` as a single
+#   JSON line, promoting the ``event_type`` / ``block_id`` / ``workflow_id`` /
+#   ``event_data`` extras to top-level keys;
+# * :func:`install_default_handler` — install a default ``StreamHandler`` (plain
+#   or JSON) on the root logger.
+#
+# Each emitted engine event becomes one ``INFO`` record on the
+# ``scistudio.events`` logger:
+#
+# * default (human-readable) format::
+#
+#     block_running block_id=load_csv_1 workflow_id=wf-abc data={}
+#
+# * JSON-line format::
+#
+#     {"event_type":"block_running","block_id":"load_csv_1",
+#      "workflow_id":"wf-abc","data":{}}
+#
+# Round-4 no-cycles: the engine-coupled subscriber (``install_event_logger``,
+# which imports :mod:`scistudio.engine.events`) moved to
+# :mod:`scistudio.engine.event_logger` so this bottom ``utils`` layer no longer
+# imports ``engine``. The records remain a pure observability sink; nothing reads
+# them back programmatically.
+# Development references: #827, ADR-018.
 
 from __future__ import annotations
 

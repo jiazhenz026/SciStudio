@@ -10,10 +10,12 @@ from scistudio.stability import stable
 class BlockState(Enum):
     """Lifecycle state of a block instance.
 
-    Internal (ADR-052 §4.4): the engine-owned scheduler is the authoritative
-    state machine (ADR-018); block authors never set this. Not part of the
+    Internal: the engine-owned scheduler is the authoritative
+    state machine; block authors never set this. Not part of the
     public ``scistudio.blocks.base`` surface.
     """
+
+    # Development references: ADR-018, ADR-052.
 
     IDLE = "idle"
     READY = "ready"

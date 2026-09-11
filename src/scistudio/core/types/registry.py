@@ -1,99 +1,102 @@
-"""TypeRegistry — discovers and manages DataObject types from plugins and drop-in files.
-
-Per ADR-009, the registry stores :class:`TypeSpec` descriptors (module path,
-class name, base type) — never the class object itself.
-
-ADR-027 D11 + Addendum 1 §3 (T-012) added two additional capabilities on top
-of the original ADR-009 descriptor-only design:
-
-1. :meth:`TypeRegistry.resolve` is overloaded on argument type:
-
-   - ``resolve(name: str) -> TypeSpec`` — the legacy behaviour. Looks up the
-     descriptor registered under *name* and raises :class:`KeyError` when no
-     entry matches. Preserved for backward compatibility with existing
-     callers (:meth:`load_class`, the architecture tests, and the core type
-     tests).
-   - ``resolve(type_chain: list[str]) -> type | None`` — the new behaviour
-     per ADR-027 D11. Walks *type_chain* from rightmost (most specific) to
-     leftmost (most general) and returns the first registered class, or
-     ``None`` when no entry in the chain is registered. Used by the worker
-     subprocess reconstruction path (T-014) to map a serialised
-     ``type_chain`` to a concrete :class:`DataObject` subclass.
-
-2. :meth:`TypeRegistry._validate_meta_class` enforces the ADR-027 Addendum 1
-   §3 constraints on any subclass declaring a ``Meta`` ClassVar (frozen
-   Pydantic ``BaseModel``, no ``PrivateAttr`` fields, all fields
-   JSON-round-trippable). Validation runs at registration time inside
-   :meth:`scan_builtins` and :meth:`_scan_entrypoint_types`, so a plugin
-   shipping a broken ``Meta`` is rejected at startup with a clear error
-   message pointing at the offending class rather than failing silently at
-   serialisation time inside a worker subprocess.
-
-Each core base class carries per-base ``reconstruct_extra_kwargs`` /
-``serialise_extra_metadata`` hooks (ADR-052 §3.1 author extension point);
-the worker subprocess call site wires them. Both rely on the resolver and
-the validation hook added here.
-
-Declared colour and the single spec-construction site
------------------------------------------------------
-
-ADR-053 FR-050. A type may declare its own appearance
-(:attr:`scistudio.core.types.base.DataObject.ui_color` /
-``ui_ring_color``, FR-049), and this registry is where those declarations are
-read off the class and validated. Reading them here rather than at render time
-is FR-052: the types listing endpoint is the single source of type colour for
-the product, so a malformed value must be dropped before it reaches that
-endpoint, not after each consumer has had a chance to choke on it.
-
-Collecting a new per-type fact used to mean editing four places. ``TypeSpec``
-was built inline in :meth:`TypeRegistry.scan_builtins`, in
-:meth:`TypeRegistry._scan_entrypoint_types`, and in
-:meth:`TypeRegistry.register_class` (which the source-package and drop-in
-passes share), each repeating the same ``__mro__``/``__doc__`` derivation. The
-three now route through :func:`_spec_for_class`, so origin, file path, and
-colour are populated for every tier at once and a tier cannot silently miss a
-field. The passes still differ in what they do about a bad class — builtins
-raise, plugins log and skip — because that difference is real.
-
-Scan order versus BlockRegistry
--------------------------------
-
-ADR-053 FR-061. :meth:`TypeRegistry.scan_all` runs builtins -> entry-point ->
-package-src -> drop-in. :meth:`scistudio.blocks.registry.BlockRegistry.scan`
-runs builtins -> drop-in -> entry-point -> package-src. Both registries
-guarantee that entry-point registrations win on duplicates and both deliver
-it: the block registry by registering entry-points after drop-ins and
-overwriting, this registry by running entry-points early and having each
-subsequent pass skip names already present.
-
-The orders stay separate deliberately, because the two drop-in tiers have
-opposite duplicate policies and both are correct for their domain:
-
-- A drop-in *block* may override a built-in of the same name. That is the
-  point of a project-local block file: replace the shipped block for this
-  project. ``blocks.registry._scan._scan_tier1`` therefore registers
-  unconditionally, and running it after the builtin pass is what makes the
-  override happen.
-- A drop-in *type* may **not** override a core base class.
-  :meth:`TypeRegistry._scan_filesystem_dirs` skips any name already
-  registered, so a file declaring ``Array`` or ``DataFrame`` cannot shadow the
-  core class. Worker-side reconstruction resolves a serialised ``type_chain``
-  by name (:meth:`TypeRegistry.resolve`), so a shadowed core name would
-  silently change what every persisted artifact deserialises to, in one
-  process and not another.
-
-Reordering :meth:`TypeRegistry.scan_all` to match the block registry would
-move the drop-in pass ahead of ``_scan_package_src_dirs`` and hand drop-in
-types precedence over plugin-package types — an observable precedence change
-with no requirement behind it. Unifying the duplicate policies would be worse:
-it would either let a drop-in shadow a core type or stop a drop-in block from
-overriding a builtin. The shared helper extracted for FR-057
-(:mod:`scistudio.core.dropins`) owns *which directories* a process scans, not
-*in what order* a registry runs its discovery passes, so the two orders can
-differ without reintroducing the ADR-053 §2.6 drift.
-``tests/api/test_registry_provisioning_parity.py`` pins both orders and both
-precedence outcomes so neither can drift silently.
-"""
+"""TypeRegistry — discovers and manages DataObject types from plugins and drop-in files."""
+# Maintainer context (kept outside generated API documentation):
+# TypeRegistry — discovers and manages DataObject types from plugins and drop-in files.
+#
+# Per ADR-009, the registry stores :class:`TypeSpec` descriptors (module path,
+# class name, base type) — never the class object itself.
+#
+# ADR-027 D11 + Addendum 1 §3 (T-012) added two additional capabilities on top
+# of the original ADR-009 descriptor-only design:
+#
+# 1. :meth:`TypeRegistry.resolve` is overloaded on argument type:
+#
+#    - ``resolve(name: str) -> TypeSpec`` — the legacy behaviour. Looks up the
+#      descriptor registered under *name* and raises :class:`KeyError` when no
+#      entry matches. Preserved for backward compatibility with existing
+#      callers (:meth:`load_class`, the architecture tests, and the core type
+#      tests).
+#    - ``resolve(type_chain: list[str]) -> type | None`` — the new behaviour
+#      per ADR-027 D11. Walks *type_chain* from rightmost (most specific) to
+#      leftmost (most general) and returns the first registered class, or
+#      ``None`` when no entry in the chain is registered. Used by the worker
+#      subprocess reconstruction path (T-014) to map a serialised
+#      ``type_chain`` to a concrete :class:`DataObject` subclass.
+#
+# 2. :meth:`TypeRegistry._validate_meta_class` enforces the ADR-027 Addendum 1
+#    §3 constraints on any subclass declaring a ``Meta`` ClassVar (frozen
+#    Pydantic ``BaseModel``, no ``PrivateAttr`` fields, all fields
+#    JSON-round-trippable). Validation runs at registration time inside
+#    :meth:`scan_builtins` and :meth:`_scan_entrypoint_types`, so a plugin
+#    shipping a broken ``Meta`` is rejected at startup with a clear error
+#    message pointing at the offending class rather than failing silently at
+#    serialisation time inside a worker subprocess.
+#
+# Each core base class carries per-base ``reconstruct_extra_kwargs`` /
+# ``serialise_extra_metadata`` hooks (ADR-052 §3.1 author extension point);
+# the worker subprocess call site wires them. Both rely on the resolver and
+# the validation hook added here.
+#
+# Declared colour and the single spec-construction site
+# -----------------------------------------------------
+#
+# ADR-053 FR-050. A type may declare its own appearance
+# (:attr:`scistudio.core.types.base.DataObject.ui_color` /
+# ``ui_ring_color``, FR-049), and this registry is where those declarations are
+# read off the class and validated. Reading them here rather than at render time
+# is FR-052: the types listing endpoint is the single source of type colour for
+# the product, so a malformed value must be dropped before it reaches that
+# endpoint, not after each consumer has had a chance to choke on it.
+#
+# Collecting a new per-type fact used to mean editing four places. ``TypeSpec``
+# was built inline in :meth:`TypeRegistry.scan_builtins`, in
+# :meth:`TypeRegistry._scan_entrypoint_types`, and in
+# :meth:`TypeRegistry.register_class` (which the source-package and drop-in
+# passes share), each repeating the same ``__mro__``/``__doc__`` derivation. The
+# three now route through :func:`_spec_for_class`, so origin, file path, and
+# colour are populated for every tier at once and a tier cannot silently miss a
+# field. The passes still differ in what they do about a bad class — builtins
+# raise, plugins log and skip — because that difference is real.
+#
+# Scan order versus BlockRegistry
+# -------------------------------
+#
+# ADR-053 FR-061. :meth:`TypeRegistry.scan_all` runs builtins -> entry-point ->
+# package-src -> drop-in. :meth:`scistudio.blocks.registry.BlockRegistry.scan`
+# runs builtins -> drop-in -> entry-point -> package-src. Both registries
+# guarantee that entry-point registrations win on duplicates and both deliver
+# it: the block registry by registering entry-points after drop-ins and
+# overwriting, this registry by running entry-points early and having each
+# subsequent pass skip names already present.
+#
+# The orders stay separate deliberately, because the two drop-in tiers have
+# opposite duplicate policies and both are correct for their domain:
+#
+# - A drop-in *block* may override a built-in of the same name. That is the
+#   point of a project-local block file: replace the shipped block for this
+#   project. ``blocks.registry._scan._scan_tier1`` therefore registers
+#   unconditionally, and running it after the builtin pass is what makes the
+#   override happen.
+# - A drop-in *type* may **not** override a core base class.
+#   :meth:`TypeRegistry._scan_filesystem_dirs` skips any name already
+#   registered, so a file declaring ``Array`` or ``DataFrame`` cannot shadow the
+#   core class. Worker-side reconstruction resolves a serialised ``type_chain``
+#   by name (:meth:`TypeRegistry.resolve`), so a shadowed core name would
+#   silently change what every persisted artifact deserialises to, in one
+#   process and not another.
+#
+# Reordering :meth:`TypeRegistry.scan_all` to match the block registry would
+# move the drop-in pass ahead of ``_scan_package_src_dirs`` and hand drop-in
+# types precedence over plugin-package types — an observable precedence change
+# with no requirement behind it. Unifying the duplicate policies would be worse:
+# it would either let a drop-in shadow a core type or stop a drop-in block from
+# overriding a builtin. The shared helper extracted for FR-057
+# (:mod:`scistudio.core.dropins`) owns *which directories* a process scans, not
+# *in what order* a registry runs its discovery passes, so the two orders can
+# differ without reintroducing the ADR-053 §2.6 drift.
+# ``tests/api/test_registry_provisioning_parity.py`` pins both orders and both
+# precedence outcomes so neither can drift silently.
+# Development references: ADR-009, ADR-027, ADR-052, ADR-053, Addendum 1, FR-049, FR-050, FR-052, FR-057,
+# FR-061.
 
 from __future__ import annotations
 
@@ -152,8 +155,10 @@ class TypeSpec:
     """Metadata descriptor for a registered DataObject subtype.
 
     Stores the *location* of the type class (module path + class name)
-    rather than holding a reference to the class object.  See ADR-009.
+    rather than holding a reference to the class object.  See.
     """
+
+    # Development references: ADR-009.
 
     name: str
     module_path: str = ""
@@ -163,11 +168,12 @@ class TypeSpec:
     file_path: str = ""
     """The ``.py`` file the class is defined in, or ``""`` when unresolvable.
 
-    ADR-053 FR-026: the types listing reports this so a drop-in type can be
+    the types listing reports this so a drop-in type can be
     opened and promoted. Recorded for every tier, not only drop-ins — a core
     or plugin type has a real file too, and the origin split reads
     :attr:`is_dropin` rather than the presence of a path.
     """
+    # Development references: ADR-053, FR-026.
 
     is_dropin: bool = False
     """Whether this type came from a drop-in file rather than an installed one.
@@ -179,15 +185,17 @@ class TypeSpec:
     """
 
     ui_color: str | None = None
-    """The fill colour the class declared, validated, or ``None`` (FR-049)."""
+    """The fill colour the class declared, validated, or ``None``."""
+    # Development references: FR-049.
 
     ui_ring_color: str | None = None
-    """The ring colour the class declared, validated, or ``None`` (FR-049)."""
+    """The ring colour the class declared, validated, or ``None``."""
+    # Development references: FR-049.
 
     package_root: str = ""
     """Top-level import module of the distribution that registered this type.
 
-    ADR-053 FR-040 needs the Data types tab to split per-package sections the
+    needs the Data types tab to split per-package sections the
     way the Blocks tab does, and a section title the backend never supplied is
     exactly the drift this spec removes — so the scan records *which*
     distribution delivered the type, first-hand, and never infers it from a
@@ -203,6 +211,7 @@ class TypeSpec:
     the block side shares; the name itself is read from there so both surfaces
     report one string rather than two independently derived ones.
     """
+    # Development references: ADR-053, FR-040.
 
 
 def _class_file(cls: type) -> str:
@@ -216,17 +225,18 @@ def _class_file(cls: type) -> str:
 def _declared_colour(cls: type, attribute: str) -> str | None:
     """Return the CSS hex colour *cls* declares on *attribute*, else ``None``.
 
-    ADR-053 FR-052 is the whole point of this function existing at collection
+    The contract is the whole point of this function existing at collection
     time rather than at render time: a hand-edited type file in the user
     library is an ordinary place for a typo, and one typo must not be able to
     reach the palette or the canvas. An unusable value is logged and dropped,
-    which puts the type back on the FR-051 fallback it would have used had it
+    which puts the type back on the fallback it would have used had it
     declared nothing.
 
     Short hex forms are expanded to their long equivalent so every consumer
     receives ``#rrggbb`` or ``#rrggbbaa`` and none of them has to parse two
     shapes.
     """
+    # Development references: ADR-053, FR-051, FR-052.
     raw = getattr(cls, attribute, None)
     if raw is None:
         return None
@@ -289,11 +299,13 @@ class TypeRegistry:
     Provides registration, lookup by name, and enumeration.
     Supports isinstance-style matching via :meth:`is_instance`.
 
-    ADR-027 D11 + Addendum 1 §3 (T-012): also provides
+    also provides
     :meth:`resolve(type_chain)` for worker subprocess reconstruction and
     :meth:`_validate_meta_class` to enforce plugin ``Meta`` constraints at
     registration time.
     """
+
+    # Development references: ADR-027, Addendum 1.
 
     def __init__(self) -> None:
         self._registry: dict[str, TypeSpec] = {}
@@ -310,7 +322,7 @@ class TypeRegistry:
     def diagnostics(self) -> list[str]:
         """Return what the most recent ``scistudio.types`` entry-point scan refused.
 
-        ADR-053 FR-028. Same shape and same reason as
+        Same shape and same reason as
         :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics` and
         :attr:`scistudio.previewers.registry.PreviewerRegistry.diagnostics`: a
         package that contributed nothing has to be distinguishable from a
@@ -319,10 +331,11 @@ class TypeRegistry:
 
         Rebuilt by every :meth:`_scan_entrypoint_types` pass.
         """
+        # Development references: ADR-053, FR-028.
         return list(self._entry_point_diagnostics)
 
     def add_scan_dir(self, directory: str | Path) -> None:
-        """Add a directory to the filesystem scan path (issue #1332).
+        """Add a directory to the filesystem scan path.
 
         Mirrors :meth:`BlockRegistry.add_scan_dir`. Each registered
         directory is walked by :meth:`scan_all` after the entry-point and
@@ -334,11 +347,17 @@ class TypeRegistry:
         ``<project>/types`` or ``~/.scistudio/types`` dir is silently
         skipped at scan time rather than raising at registration time.
 
-        ARCHITECTURE.md §10 (project layout) and §10.5 (user-wide
-        extension paths) document the two intended tiers; ADR-053 FR-057
+        Project and user-wide
+        extension paths) document the two intended tiers;
         routes every runtime caller through
         :func:`scistudio.core.dropins.register_type_scan_dirs`.
         """
+        # Maintainer context:
+        # ARCHITECTURE.md §10 (project layout) and §10.5 (user-wide
+        # extension paths) document the two intended tiers;
+        # routes every runtime caller through
+        # :func:`scistudio.core.dropins.register_type_scan_dirs`.
+        # Development references: #1332, ADR-053, FR-057.
         self._scan_dirs.append(Path(directory))
 
     def add_package_src_dir(self, directory: str | Path) -> None:
@@ -357,7 +376,7 @@ class TypeRegistry:
         Runs :meth:`_validate_meta_class` first — the class is only added
         to the registry if validation passes.
 
-        ADR-027 Addendum 1 §3: any subclass declaring a ``Meta`` ClassVar
+        any subclass declaring a ``Meta`` ClassVar
         must obey the Pydantic constraints documented on
         :meth:`_validate_meta_class`, and validation happens here at
         registration time so broken ``Meta`` classes never enter the
@@ -371,6 +390,7 @@ class TypeRegistry:
                 attributed to no distribution, which is correct for every
                 other caller.
         """
+        # Development references: ADR-027, Addendum 1.
         self._validate_meta_class(cls)
         self.register(cls.__name__, _spec_for_class(cls, package_root=package_root))
 
@@ -387,19 +407,17 @@ class TypeRegistry:
 
         Two call shapes are supported:
 
-        - ``resolve(name: str) -> TypeSpec`` — legacy behaviour. Returns
+        ``resolve(name: str) -> TypeSpec`` — legacy behaviour. Returns
           the :class:`TypeSpec` registered under *name*, or raises
           :class:`KeyError` when no entry matches. Callers include
           :meth:`load_class`, the architecture enforcement tests, and the
-          core type tests written before ADR-027.
+          core type tests written after the update.
 
-        - ``resolve(type_chain: list[str]) -> type | None`` — ADR-027
-          D11 behaviour. Walks *type_chain* from rightmost (most
+        ``resolve(type_chain: list[str]) -> type | None`` — behaviour. Walks *type_chain* from rightmost (most
           specific) to leftmost (most general) and returns the first
           registered class. Returns ``None`` when no entry in the chain
           is registered (including when the chain is empty). Used by the
-          worker subprocess ``_reconstruct_one`` helper (ADR-027
-          Addendum 1 §1) to look up the most specific
+          worker subprocess ``_reconstruct_one`` helper to look up the most specific
           :class:`DataObject` subclass that matches a serialised type
           chain.
 
@@ -413,6 +431,7 @@ class TypeRegistry:
             >>> registry.resolve("Array")  # legacy path
             TypeSpec(name='Array', ...)
         """
+        # Development references: ADR-027, Addendum 1.
         if isinstance(name_or_chain, list):
             # ADR-027 D11: walk rightmost (most specific) -> leftmost
             # (most general) and return the first registered class.
@@ -451,7 +470,7 @@ class TypeRegistry:
     # -- ADR-027 Addendum 1 §3: Meta-class validation -----------------------
 
     def _validate_meta_class(self, cls: type) -> None:
-        """Validate that ``cls.Meta`` meets ADR-027 Addendum 1 §3 constraints.
+        """Validate that ``cls.Meta`` meets constraints.
 
         Runs at registration time (via :meth:`register_class` and from
         :meth:`scan_builtins` / :meth:`_scan_entrypoint_types`). Plugin
@@ -473,7 +492,7 @@ class TypeRegistry:
 
         ``frozen=True`` on ``model_config`` is *recommended* (and enforced
         by convention by :meth:`DataObject.with_meta`) but not strictly
-        required here — that is a soft ADR-027 Addendum 1 §3 suggestion
+        required here — that is a soft suggestion
         rather than a hard constraint.
 
         Bare ``DataObject`` and any class with ``Meta = None`` (all six
@@ -485,6 +504,7 @@ class TypeRegistry:
                 error message always includes the offending class name so
                 plugin authors can find the broken file quickly.
         """
+        # Development references: ADR-027, Addendum 1.
         meta = getattr(cls, "Meta", None)
         if meta is None:
             # Bare DataObject and the six core base classes ship with
@@ -553,11 +573,11 @@ class TypeRegistry:
     def scan_builtins(self) -> None:
         """Register all built-in DataObject subclasses shipped with SciStudio.
 
-        Per ADR-027 D2, the domain subtypes no longer live in core:
+        the domain subtypes no longer live in core:
 
-        - T-006 removed the Array family (``Image``, ``FluorImage``,
+        The contract removed the Array family (``Image``, ``FluorImage``,
           ``MSImage``, ``SRSImage``) to ``scistudio-blocks-imaging``.
-        - T-007 removed the remaining Series/DataFrame/Composite
+        The contract removed the remaining Series/DataFrame/Composite
           families (``Spectrum``, ``RamanSpectrum``, ``MassSpectrum``,
           ``PeakTable``, ``MetabPeakTable``, ``AnnData``,
           ``SpatialData``) to ``scistudio-blocks-spectral``,
@@ -569,13 +589,14 @@ class TypeRegistry:
         mechanism when the plugin is installed (see
         :meth:`_scan_entrypoint_types`).
 
-        ADR-027 Addendum 1 §3 (T-012): each built-in also passes through
+        each built-in also passes through
         :meth:`_validate_meta_class` so a future refactor that adds a
         broken ``Meta`` ClassVar to a core type fails loudly here instead
         of silently at worker-subprocess serialisation time. All six core
-        base classes ship with ``Meta = None`` today (T-005), so they
+        base classes ship with ``Meta = None`` today, so they
         short-circuit without cost.
         """
+        # Development references: ADR-027, Addendum 1.
         from scistudio.core.types.array import Array
         from scistudio.core.types.artifact import Artifact
         from scistudio.core.types.base import DataObject
@@ -607,21 +628,21 @@ class TypeRegistry:
         (subclasses of :class:`DataObject`).  Invalid entries are logged as
         warnings and skipped — they never crash the registry.
 
-        See ADR-025 Section 4 for the protocol specification and ADR-027
-        Addendum 1 §3 for the ``Meta`` constraints enforced here. A plugin
+         A plugin
         shipping a broken ``Meta`` is logged as a warning and skipped;
         the rest of its entry-point payload still registers successfully.
 
-        ADR-053 FR-025/FR-026: enumeration, load, payload shape, and
+        enumeration, load, payload shape, and
         diagnostics come from :mod:`scistudio.core.entry_points`, shared with
         the block and previewer registries. This pass used to call
         ``importlib.metadata.entry_points(group=...)`` unguarded and was the
         only group able to raise an enumeration failure into its caller — for
         a registry scan, that is the whole process's type catalogue lost to
         one unreadable ``dist-info``. It is contained like every other group
-        now. FR-029: the payload contract here is the callable one, with no
+        now.: the payload contract here is the callable one, with no
         bare-class allowance, so ``allow_bare_class=False``.
         """
+        # Development references: ADR-025, ADR-027, ADR-053, Addendum 1, FR-025, FR-026, FR-029.
         from scistudio.core.types.base import DataObject
 
         diagnostics: list[EntryPointDiagnostic] = []
@@ -698,23 +719,30 @@ class TypeRegistry:
     def scan_all(self) -> None:
         """Register built-in types and then scan entry-points for external types.
 
-        Issue #1332 / ARCHITECTURE.md §10 + §10.5: after the entry-point pass,
+        Configured scan directories: after the entry-point pass,
         this also walks every directory registered via :meth:`add_scan_dir` and
         registers any drop-in :class:`DataObject` subclass found in a ``.py``
         file there. Which directories those are is not decided here — see
-        :mod:`scistudio.core.dropins` (ADR-053 FR-057).
+        :mod:`scistudio.core.dropins`.
 
         The pass order below deliberately differs from
         :meth:`BlockRegistry.scan`. The reason is recorded in this module's
-        docstring under "Scan order versus BlockRegistry" (ADR-053 FR-061).
+        docstring under "Scan order versus BlockRegistry".
         """
+        # Maintainer context:
+        # ARCHITECTURE.md §10 + §10.5: after the entry-point pass,
+        # this also walks every directory registered via :meth:`add_scan_dir` and
+        # registers any drop-in :class:`DataObject` subclass found in a ``.py``
+        # file there. Which directories those are is not decided here — see
+        # :mod:`scistudio.core.dropins`.
+        # Development references: #1332, ADR-053, FR-057, FR-061.
         self.scan_builtins()
         self._scan_entrypoint_types()
         self._scan_package_src_dirs()
         self._scan_filesystem_dirs()
 
     def rescan(self) -> None:
-        """Rebuild this registry's contents in place (ADR-053 FR-062).
+        """Rebuild this registry's contents in place.
 
         The type-side counterpart of
         :meth:`scistudio.blocks.registry.BlockRegistry.hot_reload`. A bare
@@ -738,6 +766,7 @@ class TypeRegistry:
         read-only properties over the live runtime, so refreshing in place is
         the only way it can reach them.
         """
+        # Development references: ADR-053, FR-062.
         self._registry.clear()
         self.scan_all()
 
@@ -796,30 +825,30 @@ class TypeRegistry:
     def _scan_filesystem_dirs(self) -> None:
         """Walk each registered scan directory and register drop-in types.
 
-        Issue #1332 / ARCHITECTURE.md §10 + §10.5. Mirrors
+        Configured scan directories. Mirrors
         :meth:`BlockRegistry._scan_tier1` for the type-registration path.
 
         For each registered directory (see :meth:`add_scan_dir`):
 
-        - Silently skip if the directory does not exist (the
+        Silently skip if the directory does not exist (the
           ``<project>/types`` dir is created on project init but a
           freshly-cloned project or a user without ``~/.scistudio/types``
           must not crash registry startup).
-        - Import every ``.py`` file via
+        Import every ``.py`` file via
           :func:`importlib.util.spec_from_file_location`. Files whose
           names start with ``_`` are skipped (private / dunder modules).
-        - Any top-level :class:`DataObject` subclass that is defined in
+        Any top-level :class:`DataObject` subclass that is defined in
           the loaded module (not merely re-exported from another module)
           is registered under its ``__name__`` via
           :meth:`register_class`. Names already in the registry (from
           built-ins, entry-points, or monorepo passes) are left alone —
           plugin and built-in registrations win on duplicates.
-        - Import failures and Meta-validation failures are logged as
+        Import failures and Meta-validation failures are logged as
           warnings; the offending file is skipped and scanning
           continues. A single broken drop-in must never kill the
           registry.
-        - A file rejected under ADR-053 FR-016 for shadowing an installed
-          top-level module is skipped entirely. Spec §13 OQ-1 resolved that
+        A file rejected for shadowing an installed
+          top-level module is skipped entirely. The collision policy resolves that
           case as "registration is refused, not merely warned": telling the
           user the file is rejected and must be renamed while the type it
           declares keeps resolving and loading leaves the product saying one
@@ -834,6 +863,42 @@ class TypeRegistry:
           rather than through ``sys.path``, so it needs the verdict and not the
           mitigation.
         """
+        # Maintainer context:
+        # ARCHITECTURE.md §10 + §10.5. Mirrors
+        # :meth:`BlockRegistry._scan_tier1` for the type-registration path.
+        # Silently skip if the directory does not exist (the
+        #   ``<project>/types`` dir is created on project init but a
+        #   freshly-cloned project or a user without ``~/.scistudio/types``
+        #   must not crash registry startup).
+        # Import every ``.py`` file via
+        #   :func:`importlib.util.spec_from_file_location`. Files whose
+        #   names start with ``_`` are skipped (private / dunder modules).
+        # Any top-level :class:`DataObject` subclass that is defined in
+        #   the loaded module (not merely re-exported from another module)
+        #   is registered under its ``__name__`` via
+        #   :meth:`register_class`. Names already in the registry (from
+        #   built-ins, entry-points, or monorepo passes) are left alone —
+        #   plugin and built-in registrations win on duplicates.
+        # Import failures and Meta-validation failures are logged as
+        #   warnings; the offending file is skipped and scanning
+        #   continues. A single broken drop-in must never kill the
+        #   registry.
+        # A file rejected for shadowing an installed
+        #   top-level module is skipped entirely. Spec §13 resolved that
+        #   case as "registration is refused, not merely warned": telling the
+        #   user the file is rejected and must be renamed while the type it
+        #   declares keeps resolving and loading leaves the product saying one
+        #   thing and doing another, and nothing else reconciles the two — the
+        #   refusal is recorded on the *block* registry and the registration
+        #   happens here, and ``refresh_all_registries`` builds the two
+        #   independently. The predicate is
+        #   :func:`scistudio.core.dropins.guard_dropin_type_roots`, the same one
+        #   the block scan reports and the worker binds against, so the two sides
+        #   cannot drift into disagreeing about which files are refused. It is
+        #   asked with ``bind=False``: this pass loads drop-in types by file path
+        #   rather than through ``sys.path``, so it needs the verdict and not the
+        #   mitigation.
+        # Development references: #1332, ADR-053, FR-016, OQ-1.
         if not self._scan_dirs:
             return
 

@@ -85,7 +85,7 @@ class ZarrBackend:
         On Windows that failure is routine rather than hypothetical: a
         directory rename is denied while any handle is open anywhere in its
         subtree, and antimalware opens the staged chunks the moment they are
-        written (issue #2148). The shared helper renames the old tree aside,
+        written. The shared helper renames the old tree aside,
         retries the swap while Windows reports the tree busy, and rolls the
         old tree back when the swap still cannot complete.
 
@@ -98,6 +98,7 @@ class ZarrBackend:
             An updated :class:`StorageReference` whose metadata records the
             array shape and dtype.
         """
+        # Development references: #2148.
         arr = np.asarray(data)
 
         with atomic_replace_dir(Path(ref.path)) as staging:

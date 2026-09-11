@@ -97,12 +97,13 @@ def _source_file_stem(obj: DataObject) -> tuple[str, str]:
 
 
 def _sheet_name_of(obj: DataObject) -> str | None:
-    """Return the round-trip Excel sheet name recorded at load (#1810).
+    """Return the round-trip Excel sheet name recorded at load.
 
     The loader stores the originating sheet name in ``user['sheet_name']`` so a
     saved workbook can reproduce it. Returns ``None`` for objects that never
     came from an .xlsx sheet.
     """
+    # Development references: #1810.
     user = getattr(obj, "user", None)
     name = user.get("sheet_name") if isinstance(user, dict) else None
     return str(name) if name else None
@@ -159,12 +160,13 @@ def _save_collection(
 
 
 def _collection_targets_xlsx(collection: Collection, config: BlockConfig) -> bool:
-    """True when a DataFrame/Series Collection should be saved as .xlsx (#1810).
+    """True when a DataFrame/Series Collection should be saved as .xlsx.
 
     A Collection targets xlsx when the configured ``filename`` ends in ``.xlsx``,
     or — when no filename is configured — when the items carry an .xlsx source
     (the load → save round-trip case). DataFrame/Series only.
     """
+    # Development references: #1810.
     if collection.item_type not in (DataFrame, Series):
         return False
     configured = config.get("filename")
@@ -178,7 +180,7 @@ def _collection_targets_xlsx(collection: Collection, config: BlockConfig) -> boo
 
 
 def _save_collection_xlsx(collection: Collection, config: BlockConfig) -> None:
-    """Save a DataFrame/Series Collection to .xlsx, grouping by source workbook (#1810).
+    """Save a DataFrame/Series Collection to .xlsx, grouping by source workbook.
 
     Items are grouped by their originating workbook (``framework.source`` stem):
     each distinct source file becomes one multi-sheet workbook (sheets named by
@@ -186,6 +188,7 @@ def _save_collection_xlsx(collection: Collection, config: BlockConfig) -> None:
     workbook named by the configured ``filename`` (owner decision). This makes
     the load → save round-trip reproduce the original file ↔ sheet grouping.
     """
+    # Development references: #1810.
     items = list(collection)
     if not items:
         raise ValueError("SaveData received an empty Collection; nothing to save.")
@@ -430,12 +433,13 @@ class SaveData(IOBlock):
     def _detect_format(self, path: Path) -> str | None:
         """Resolve *path* to a stable format id via the capability map.
 
-        ADR-043 / spec FR-003: the legacy ``supported_extensions``
+        spec: the legacy ``supported_extensions``
         ClassVar has been removed; the per-instance ``_detect_format``
         now consults :data:`_SAVE_EXTENSION_MAP`, which is derived from
         :attr:`format_capabilities` at module load time. Compound-suffix
         matching mirrors :meth:`IOBlock._detect_format`.
         """
+        # Development references: ADR-043, FR-003.
 
         if not _SAVE_EXTENSION_MAP:
             return None
@@ -563,7 +567,7 @@ class SaveData(IOBlock):
 def _save_array(obj: DataObject, config: BlockConfig) -> None:
     """Save :class:`Array` to ``.npy`` / ``.npz`` / ``.zarr`` / ``.parquet`` / ``.pkl``.
 
-    ADR-031 Phase 3 (Task 18): streaming export paths are used when the
+    streaming export paths are used when the
     source Array is storage-backed by zarr and the target format supports
     chunked writes. For zarr-to-zarr, ``shutil.copytree`` is used for
     zero-materialization copy. For formats that do not support chunked
@@ -572,6 +576,7 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
     Pickle gating: ``.pkl`` / ``.pickle`` requires
     ``allow_pickle=True`` in the block config.
     """
+    # Development references: ADR-031.
     assert isinstance(obj, Array), f"Expected Array, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.
@@ -683,12 +688,13 @@ def _save_array(obj: DataObject, config: BlockConfig) -> None:
 def _save_dataframe(obj: DataObject, config: BlockConfig) -> None:
     """Save :class:`DataFrame` to ``.csv`` / ``.tsv`` / ``.parquet`` / ``.json`` / ``.pkl``.
 
-    ADR-031 Phase 3 (Task 18): for CSV, TSV, and Parquet formats, uses
+    for CSV, TSV, and Parquet formats, uses
     streaming export paths when the source DataFrame is storage-backed
     by the arrow backend. This avoids full materialisation for large
     tables. JSON export still requires full materialisation because
     ``json.dump`` needs the complete record list.
     """
+    # Development references: ADR-031.
     assert isinstance(obj, DataFrame), f"Expected DataFrame, got {type(obj).__name__}"
     path = _require_path(config)
     # ADR-043 FR-003: format dispatch through SaveData.format_capabilities.

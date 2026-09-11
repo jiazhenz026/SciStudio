@@ -1,34 +1,37 @@
-"""Tutorial progress, its grouping, and the one unlock it drives.
-
-``docs/specs/adr-053-learning-center.md`` FR-074 to FR-081.
-
-**Progress is a backend file** (FR-074). Browser storage was rejected for three
-reasons the spec records: the backend has to read progress to decide the unlock
-and write it when a package is uninstalled, browser storage does not survive
-clearing browsing data, and the desktop and web surfaces would keep two copies
-that disagree.
-
-**A group's counts are a question about the catalogue, not about this file**
-(FR-076, FR-077). What is stored is the set of completed ``(source, id)`` pairs
-and nothing else; the totals come from whoever lists the catalogue and are
-supplied to :meth:`ProgressStore.groups` per call. That is what makes FR-077
-fall out rather than needing code: a source that ships a seventh tutorial widens
-its own total, the completed set is unchanged, and the group goes back to
-incomplete — which is the intended reading, because there is new material. It
-also means a stored completion for a tutorial the source no longer ships stops
-being counted instead of pushing ``completed`` above ``total``.
-
-**Exactly one product behavior is driven by progress** (FR-079), and it is
-driven by the core group alone (FR-080): completing one named core tutorial
-presents the work-import offer, once. Package progress is display only. And no
-capability is gated on any of it (FR-081) — the work-import toolbar entry is
-permanently available; the unlock decides only when the product *volunteers* it,
-which is why this module exposes a "pending offer" flag and not a permission.
-
-**Which tutorial that is, is configuration** (FR-079, spec assumption A-005):
-the scenarios spec decides, and may change its mind. See
-:func:`work_import_milestone` for the three places the value can come from.
-"""
+"""Tutorial progress, its grouping, and the one unlock it drives."""
+# Maintainer context (kept outside generated API documentation):
+# Tutorial progress, its grouping, and the one unlock it drives.
+#
+# ``docs/specs/adr-053-learning-center.md`` FR-074 to FR-081.
+#
+# **Progress is a backend file** (FR-074). Browser storage was rejected for three
+# reasons the spec records: the backend has to read progress to decide the unlock
+# and write it when a package is uninstalled, browser storage does not survive
+# clearing browsing data, and the desktop and web surfaces would keep two copies
+# that disagree.
+#
+# **A group's counts are a question about the catalogue, not about this file**
+# (FR-076, FR-077). What is stored is the set of completed ``(source, id)`` pairs
+# and nothing else; the totals come from whoever lists the catalogue and are
+# supplied to :meth:`ProgressStore.groups` per call. That is what makes FR-077
+# fall out rather than needing code: a source that ships a seventh tutorial widens
+# its own total, the completed set is unchanged, and the group goes back to
+# incomplete — which is the intended reading, because there is new material. It
+# also means a stored completion for a tutorial the source no longer ships stops
+# being counted instead of pushing ``completed`` above ``total``.
+#
+# **Exactly one product behavior is driven by progress** (FR-079), and it is
+# driven by the core group alone (FR-080): completing one named core tutorial
+# presents the work-import offer, once. Package progress is display only. And no
+# capability is gated on any of it (FR-081) — the work-import toolbar entry is
+# permanently available; the unlock decides only when the product *volunteers* it,
+# which is why this module exposes a "pending offer" flag and not a permission.
+#
+# **Which tutorial that is, is configuration** (FR-079, spec assumption A-005):
+# the scenarios spec decides, and may change its mind. See
+# :func:`work_import_milestone` for the three places the value can come from.
+# Development references: FR-074, FR-076, FR-077, FR-079, FR-080, FR-081, docs/specs/adr-053-learning-
+# center.md.
 
 from __future__ import annotations
 
@@ -102,12 +105,14 @@ class CatalogueTotals:
 
 @dataclass(frozen=True)
 class ProgressGroup:
-    """One source's progress, as reported (FR-076).
+    """One source's progress, as reported.
 
-    No aggregate across groups exists anywhere in this module, because FR-076
+    No aggregate across groups exists anywhere in this module, because the contract
     forbids reporting one: a percentage over a catalogue packages can grow does
     not denote a fixed point in the user's experience.
     """
+
+    # Development references: FR-076.
 
     source_kind: str
     source_id: str
@@ -126,25 +131,26 @@ def _config_value(name: str, root: Path | None = None) -> Any:
 
 
 def work_import_milestone(root: Path | None = None) -> str | None:
-    """Return the core tutorial id whose completion offers work import (FR-079).
+    """Return the core tutorial id whose completion offers work import.
 
     Resolved from three sources, first hit winning:
     :data:`WORK_IMPORT_MILESTONE_ENV_VAR`, then ``work_import_milestone`` in
     ``~/.scistudio/`` :data:`CONFIG_FILENAME`, then
-    :data:`DEFAULT_WORK_IMPORT_MILESTONE`. FR-079 requires the trigger to be
+    :data:`DEFAULT_WORK_IMPORT_MILESTONE`. The contract requires the trigger to be
     configuration rather than a constant, and spec assumption A-005 gives the
     reason: the scenarios spec decides which tutorial this is and may revise that
     choice, so it must be changeable without touching the unlock's logic.
 
     A **core tutorial id** rather than a full :class:`TutorialKey`, because
-    FR-080 restricts product behavior to the core group. Making the milestone
+    restricts product behavior to the core group. Making the milestone
     structurally incapable of naming a package tutorial is stronger than
     checking that it does not.
 
     ``None`` means no milestone is configured, and the offer is then never
-    volunteered — the toolbar entry remains available regardless (FR-081), so an
+    volunteered — the toolbar entry remains available regardless, so an
     unconfigured milestone withholds a prompt rather than a capability.
     """
+    # Development references: FR-079, FR-080, FR-081.
     from_env = os.environ.get(WORK_IMPORT_MILESTONE_ENV_VAR, "").strip()
     if from_env:
         return from_env
@@ -170,12 +176,13 @@ class ProgressStore:
 
     @property
     def root(self) -> Path:
-        """Return the directory holding the progress file (FR-074).
+        """Return the directory holding the progress file.
 
         Resolved per access rather than at construction so a store built before
         the home directory is known — or in a test that redirects it — reads the
         current answer.
         """
+        # Development references: FR-074.
         return self._root or user_library_dir()
 
     @property
@@ -229,7 +236,8 @@ class ProgressStore:
     # -- completion (FR-075) ---------------------------------------------
 
     def completed_keys(self) -> frozenset[TutorialKey]:
-        """Return every recorded completion, keyed by source and id (FR-075)."""
+        """Return every recorded completion, keyed by source and id."""
+        # Development references: FR-075.
         keys = (self._key_of(record) for record in self._records(self._read()))
         return frozenset(key for key in keys if key is not None)
 
@@ -240,11 +248,12 @@ class ProgressStore:
     def mark_completed(self, key: TutorialKey, *, completed_at: str | None = None) -> bool:
         """Record *key* as complete; return whether this was the first time.
 
-        The return value is what FR-079's "once" is decided on by the caller
+        The return value is what the API's "once" is decided on by the caller
         that ends a session: a re-completion of the milestone tutorial after a
         restart must not present the offer a second time, and the dismissal flag
         alone would not distinguish "already offered" from "never offered".
         """
+        # Development references: FR-079.
         raw = self._read()
         records = self._records(raw)
         if any(self._key_of(record) == key for record in records):
@@ -263,13 +272,13 @@ class ProgressStore:
     # -- grouping (FR-076, FR-077) ---------------------------------------
 
     def groups(self, totals: Iterable[CatalogueTotals]) -> tuple[ProgressGroup, ...]:
-        """Return one :class:`ProgressGroup` per entry of *totals* (FR-076).
+        """Return one :class:`ProgressGroup` per entry of *totals*.
 
-        Input order is preserved, so the caller's ordering — core first, per
-        FR-084 — survives. Completion is counted as the intersection of the
+        Input order is preserved, so the caller's ordering — core first, — survives. Completion is counted as the intersection of the
         recorded set with the ids the source currently ships, which is where
-        FR-077 comes from: a widened total is reported as widened, uncompensated.
+        comes from: a widened total is reported as widened, uncompensated.
         """
+        # Development references: FR-076, FR-077, FR-084.
         completed = self.completed_keys()
         by_group: dict[tuple[str, str], set[str]] = {}
         for key in completed:
@@ -289,11 +298,12 @@ class ProgressStore:
     def remove_group(self, source_kind: str, source_id: str) -> int:
         """Drop every completion for one source; return how many went.
 
-        FR-078's mechanism. Deleting rather than retaining-and-hiding is what
+        The API's mechanism. Deleting rather than retaining-and-hiding is what
         makes "reinstalling starts from zero" true: a retained record would make
         a reinstalled package look already-finished to a user who has never seen
         its tutorials, and no surface would explain why.
         """
+        # Development references: FR-078.
         raw = self._read()
         records = self._records(raw)
         kept = [
@@ -307,7 +317,7 @@ class ProgressStore:
         return len(records) - len(kept)
 
     def remove_package_group(self, distribution: str) -> int:
-        """Drop the progress group of an uninstalled package (FR-078).
+        """Drop the progress group of an uninstalled package.
 
         Called from the uninstall route
         (:func:`scistudio.api.routes.packages._forget_package_progress`); this
@@ -322,26 +332,29 @@ class ProgressStore:
         imports this module, so importing the normalizer back would close a
         cycle; the one call site folds instead.
         """
+        # Development references: FR-078.
         return self.remove_group("package", distribution)
 
     def clear(self) -> None:
-        """Delete all recorded progress and the unlock's state (FR-088).
+        """Delete all recorded progress and the unlock's state.
 
         The progress half of clearing tutorial data. The directories are
         :func:`scistudio.tutorials.projects.clear_tutorial_data`'s half.
         """
+        # Development references: FR-088.
         self.path.unlink(missing_ok=True)
 
     # -- the one unlock (FR-079, FR-080, FR-081) -------------------------
 
     def work_import_offer_pending(self, root: Path | None = None) -> bool:
-        """Return whether the work-import offer is owed to the user (FR-079).
+        """Return whether the work-import offer is owed to the user.
 
         True only when a milestone is configured, that core tutorial has been
         completed, and the offer has not yet been presented. It gates nothing:
-        the toolbar entry is available whatever this returns (FR-081), so a
+        the toolbar entry is available whatever this returns, so a
         ``False`` here withholds a prompt and no capability.
         """
+        # Development references: FR-079, FR-081.
         milestone = work_import_milestone(root if root is not None else self._root)
         if not milestone:
             return False
@@ -352,8 +365,9 @@ class ProgressStore:
     def dismiss_work_import_offer(self) -> None:
         """Record that the offer has been presented, so it does not return.
 
-        FR-079's "once", and User Story 5's skip path: the user is told the
+        Offer it once; when skipped, the user is told the
         toolbar entry stays available and is not asked again.
         """
+        # Development references: FR-079.
         raw = self._read()
         self._write({**raw, "completed": self._records(raw), "work_import_offer_dismissed": True})

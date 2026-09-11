@@ -1,4 +1,5 @@
-"""Git REST API endpoints (ADR-039 §3.5)."""
+"""Git REST API endpoints."""
+# Development references: ADR-039.
 
 from __future__ import annotations
 
@@ -75,8 +76,9 @@ def _engine_for_request(request: Request) -> GitEngine:
     ``_git`` property is lazy) so a missing git surfaces as a
     structured ``503`` before any endpoint handler runs, rather than
     bubbling up as an uncaught 500 from the first subprocess call
-    inside a handler. Codex P1 on PR #927.
+    inside a handler. Codex P1 on.
     """
+    # Development references: #927.
     runtime = request.app.state.runtime
     if runtime.active_project is None:
         raise HTTPException(status_code=409, detail="No active project")
@@ -91,9 +93,9 @@ def _engine_for_request(request: Request) -> GitEngine:
 
 
 def _capture_pre_op_ref(engine: GitEngine) -> str | None:
-    """Capture the HEAD SHA before a tree-mutating git op (ADR-045 §5.1 #5).
+    """Capture the HEAD SHA before a tree-mutating git op.
 
-    ADR-045 §5.1 row #5 retires the SHA-256 hash-snapshot diff: each git
+    row retires the SHA-256 hash-snapshot diff: each git
     endpoint is a **write site** that already knows the semantic, so the set
     of affected workflows is derived from git itself rather than by hashing
     every YAML pre/post-op. Callers capture the pre-op HEAD here, run the git
@@ -104,6 +106,7 @@ def _capture_pre_op_ref(engine: GitEngine) -> str | None:
     no commits yet); :func:`_emit_workflow_diff` falls back to a working-tree
     diff in that case.
     """
+    # Development references: #5, ADR-045.
     try:
         state = engine.head_state()
     except GitError:
@@ -114,7 +117,7 @@ def _capture_pre_op_ref(engine: GitEngine) -> str | None:
 def _changed_workflow_paths(engine: GitEngine, project_dir: Path, before_ref: str | None) -> dict[str, str]:
     """Return ``{posix_relative_path: kind}`` for workflow YAMLs git says changed.
 
-    ADR-045 §5.1 #5: replaces the hash-snapshot diff. Affected workflows are
+    replaces the hash-snapshot diff. Affected workflows are
     discovered with ``git diff --name-status`` over two surfaces, unioned:
 
     * **committed**: ``<before_ref>..HEAD`` — captures branch switch, merge,
@@ -128,6 +131,7 @@ def _changed_workflow_paths(engine: GitEngine, project_dir: Path, before_ref: st
     ``created`` / ``deleted`` / ``modified`` vocabulary the watcher and the
     frontend handler at ``useWebSocket.ts`` already share.
     """
+    # Development references: #5, ADR-045.
     diffs: list[str] = []
     after_ref = _capture_pre_op_ref(engine)  # current (post-op) HEAD SHA
     if before_ref and after_ref and before_ref != after_ref:
@@ -192,7 +196,7 @@ async def _emit_workflow_diff(
 ) -> None:
     """Emit ``workflow.changed`` once per workflow YAML the git op rewrote.
 
-    ADR-045 §5.1 #5 (retire the hash-snapshot diff): callers capture the
+    (retire the hash-snapshot diff): callers capture the
     pre-op HEAD via :func:`_capture_pre_op_ref`, run the git operation, then
     call this helper. It asks git which ``workflows/*.yaml`` paths changed
     (see :func:`_changed_workflow_paths`), classifies each as ``created`` /
@@ -209,6 +213,7 @@ async def _emit_workflow_diff(
     a stale-canvas-until-next-refresh fallback. The watcher is still
     running as insurance.
     """
+    # Development references: #5, ADR-045.
     changed = _changed_workflow_paths(engine, project_dir, before_ref)
 
     for relative in sorted(changed.keys()):
@@ -253,7 +258,7 @@ async def _emit_workflow_diff(
 def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
     """Auto-commit a dirty working tree with ``prefix="auto"``.
 
-    ADR-039 Addendum 1 §11.3 (#1354): the dirty-tree branch-switch and
+    the dirty-tree branch-switch and
     restore paths used to call ``git stash``. They now auto-commit
     instead so the user's prior state is one ``git checkout HEAD^``
     away in History rather than buried in a stash drawer the user is
@@ -265,6 +270,7 @@ def _auto_commit_if_dirty(engine: GitEngine, message: str) -> str | None:
     dirty but the staged diff was empty by the time ``commit()`` ran
     (typically: untracked-only files plus a gitignore-filtered subset).
     """
+    # Development references: #1354, ADR-039, Addendum 1.
     if not engine.status()["dirty"]:
         return None
     try:
@@ -290,7 +296,7 @@ async def _apply_worktree_op(
     Four endpoints — merge, cherry-pick, merge-complete, merge-abort — were the
     same nine lines with one call swapped out: resolve the engine, snapshot
     HEAD, run the op, translate ``GitError``, refresh the registry, emit the
-    workflow diff. #2033 made them *more* alike by adding the registry refresh
+    workflow diff. made them *more* alike by adding the registry refresh
     to each, which is what pushed the pair into the semantic-duplication
     ratchet's cluster set. Naming the shape is the honest fix; the alternative
     was four copies drifting apart one hotfix at a time.
@@ -311,6 +317,7 @@ async def _apply_worktree_op(
     Returns:
         Whatever *run_op* returned, so callers can shape their own response.
     """
+    # Development references: #2033.
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
@@ -369,34 +376,34 @@ async def _announce_registry_refresh(runtime: Any, op: str) -> None:
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
     """Rebuild the in-process registries after a git op rewrote the tree.
 
-    ADR-038 Addendum 1 §11.1 (#2033). Per-project custom blocks live under
-    ``<project>/blocks/`` (ADR-039 §3.5b "blocks alongside git"), so every git
+    Per-project custom blocks live under
+    ``<project>/blocks/`` (b "blocks alongside git"), so every git
     operation that rewrites the working tree can change a block's source. The
     registry holds the parsed spec — ports, config schema, and the definitions
     ``start_workflow`` validates against — and is otherwise rebuilt only on
     project open and package operations.
 
     Without this call the registry keeps serving the *pre-op* block definitions
-    while the execution subprocess (which reloads source from disk per ADR-017)
+    while the execution subprocess (which reloads source from disk)
     runs the *post-op* code. A restore that correctly recovered a block's file
     could then still be rejected by validation citing a definition that no
     longer exists on disk, with no indication that the cause is a stale cache.
 
-    ``branch_switch`` has called this since the Phase 3.5 integration audit
-    (P2-2); ADR-038 Addendum 1 extends it to every other worktree-rewriting
-    endpoint. ADR-053 FR-062 (#2021/#2009) widens *what* it rebuilds:
+    ``branch_switch`` has called this since the integration audit; the contract extends it to every other worktree-rewriting
+    endpoint. widens *what* it rebuilds:
     a branch can rewrite ``<project>/types/`` and ``<project>/previewers/``
     exactly as it rewrites ``<project>/blocks/``, so this refreshes all three
     rather than the block registry alone. The two changes are orthogonal --
-    #2033 found the events, #2021 found the registries -- and every
+    Both events and registries must stay current, and every
     worktree-rewriting endpoint now gets both. Call it after the git operation succeeds and before the
     ``workflow.changed`` emit, so the frontend's reload reads fresh specs.
 
     Best-effort by design: the git operation has already landed on disk and a
     failed refresh must not roll it back. Failures are logged; the registry
     then stays stale until the next project open or restart, which is the
-    pre-#2033 behaviour rather than a regression.
+    legacy behaviour rather than a regression.
     """
+    # Development references: #2021, #2033, ADR-017, ADR-038, ADR-039, ADR-053, Addendum 1, FR-062.
     try:
         runtime.refresh_all_registries()
     except Exception:
@@ -448,7 +455,8 @@ def _git_error_to_http(err: GitError) -> HTTPException:
 
 @router.post("/commit", response_model=CommitResponse)
 async def commit(request: Request, body: CommitRequest) -> CommitResponse:
-    """Create a new commit. ADR-039 §3.5 line 217."""
+    """Create a new commit. line 217."""
+    # Development references: ADR-039.
     engine = _engine_for_request(request)
     try:
         sha = engine.commit(body.message, files=body.files, author=body.author, prefix=None)
@@ -465,15 +473,16 @@ async def log(
     branch: str | None = None,
     limit: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Return commit history. ADR-039 §3.5 line 218.
+    """Return commit history. line 218.
 
-    Hotfix #1009: default to ``None`` (unbounded) rather than 500.
-    The frontend GitGraph uses row virtualisation (#1004), so a deep
+    default to ``None`` (unbounded) rather than 500.
+    The frontend GitGraph uses row virtualisation, so a deep
     history only costs lane-assignment time, not DOM nodes. The 500
     cap silently truncated dev repos (e.g. SciStudio's own ~570-commit
     history shown as "starts at fix572"). Clients that want a hard
     cap can still pass ``?limit=N`` explicitly.
     """
+    # Development references: #1004, #1009, ADR-039.
     engine = _engine_for_request(request)
     try:
         return engine.log(branch=branch, limit=limit)
@@ -488,7 +497,8 @@ async def diff(
     to: str | None = "WORKING",
     file: str | None = None,
 ) -> dict[str, str]:
-    """Return a unified diff string. ADR-039 §3.5 line 219."""
+    """Return a unified diff string. line 219."""
+    # Development references: ADR-039.
     engine = _engine_for_request(request)
     try:
         text = engine.diff(
@@ -503,9 +513,9 @@ async def diff(
 
 @router.post("/restore")
 async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
-    """Soft-restore files from a prior commit. ADR-039 §3.5 line 220, §3.6.
+    """Soft-restore files from a prior commit.
 
-    ADR-039 Addendum 1 (#1354): when the working tree is dirty, auto-
+    when the working tree is dirty, auto-
     commit the dirty content first with ``prefix="auto"`` and
     ``message="pre-restore @ <iso-ts> (target=<short_sha>)"`` so the
     user's prior state is recoverable via a normal ``git checkout
@@ -514,6 +524,9 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
     ``RestoreWorkflowButton`` surfaces a "committed as <sha>" hint
     when it is non-null.
     """
+    # Maintainer context:
+    # Soft-restore files from a prior commit. line 220, §3.6.
+    # Development references: #1354, ADR-039, Addendum 1.
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
@@ -557,7 +570,8 @@ async def restore(request: Request, body: RestoreRequest) -> dict[str, Any]:
 
 @router.get("/branches")
 async def branches(request: Request) -> list[dict[str, Any]]:
-    """List all local branches. ADR-039 §3.5 line 221."""
+    """List all local branches. line 221."""
+    # Development references: ADR-039.
     engine = _engine_for_request(request)
     try:
         return engine.branches()
@@ -569,7 +583,7 @@ async def branches(request: Request) -> list[dict[str, Any]]:
 async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str, Any]:
     """Switch to an existing branch.
 
-    ADR-039 Addendum 1 (#1354): when the working tree is dirty, auto-
+    when the working tree is dirty, auto-
     commit the dirty content first with ``prefix="auto"`` and
     ``message="pre-switch @ <iso-ts> (from=<old>, to=<new>)"`` so the
     raw "your local changes would be overwritten" error is replaced by
@@ -578,9 +592,9 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     ``null``); the frontend ``BranchPicker`` surfaces a transient
     toast when it is non-null.
 
-    Phase 3.5 integration audit P2-2: after the branch switch lands,
+    integration audit P2-2: after the branch switch lands,
     refresh the in-process block registry so per-project custom blocks
-    that ship under ``<project>/blocks/`` (per ADR-039 §3.5b "blocks
+    that ship under ``<project>/blocks/`` (per b "blocks
     alongside git") pick up the new on-disk source. Without this call,
     the registry continues to serve the previous branch's block bodies
     until the next ``open_project`` or process restart.
@@ -589,6 +603,7 @@ async def branch_switch(request: Request, body: BranchSwitchRequest) -> dict[str
     (the branch is already committed in the working tree); we log and
     proceed.
     """
+    # Development references: #1354, ADR-039, Addendum 1.
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     project_dir = Path(runtime.active_project.path)
@@ -653,7 +668,7 @@ async def branch_create(request: Request, body: BranchCreateRequest) -> dict[str
 async def branch_delete(request: Request, name: str, force: bool = False) -> dict[str, str]:
     """Delete a local branch.
 
-    ADR-039 Addendum 1 §11.4 row #1356 — silent auto-tag safety net.
+    row — silent auto-tag safety net.
     The safety net is **two-phase**:
 
     1. Compute orphan candidates and lineage-reference intersection
@@ -666,7 +681,7 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
 
     This ordering means a failed request leaves the repository in
     its original state — pins are never created without a successful
-    delete (Codex P2 on PR #1381). The window between delete success
+    delete (Codex P2 on). The window between delete success
     and pin writes is microseconds; ``git gc`` does not run mid-call,
     and the reflog keeps the formerly-branch SHA reachable until our
     pin lands.
@@ -674,11 +689,13 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
     Per owner decision 2026-05-21 this is intentionally silent: no
     warn / confirm dialog, no response payload change.
 
-    TODO(#1380): cleanup mechanism for accumulated
-    refs/scistudio/lineage/* refs.
-      Out of scope per ADR-039 Addendum 1 §11.4 row #1356.
-      Followup: https://github.com/zjzcpj/SciStudio/issues/1380
     """
+    # Maintainer context (kept outside generated API documentation):
+    # TODO(#1380): cleanup mechanism for accumulated
+    # refs/scistudio/lineage/* refs.
+    #   Out of scope per ADR-039 Addendum 1 §11.4 row #1356.
+    #   Followup: https://github.com/zjzcpj/SciStudio/issues/1380
+    # Development references: #1356, #1380, #1381, ADR-039, Addendum 1, TODO.
     engine = _engine_for_request(request)
     runtime = request.app.state.runtime
     lineage_store = getattr(runtime, "lineage_store", None)
@@ -726,7 +743,8 @@ async def branch_delete(request: Request, name: str, force: bool = False) -> dic
 
 @router.get("/status")
 async def status_endpoint(request: Request) -> dict[str, Any]:
-    """Return working-tree status. ADR-039 §3.5 line 222."""
+    """Return working-tree status. line 222."""
+    # Development references: ADR-039.
     engine = _engine_for_request(request)
     try:
         return engine.status()
@@ -752,10 +770,10 @@ async def merge(request: Request, body: MergeRequest) -> dict[str, Any]:
     The registry refresh and the ``workflow.changed`` emit both run even when
     the merge came back conflicted: the non-conflicted half already landed in
     the working tree, so the user must see the conflict UI *and* a canvas that
-    reflects what did apply (hotfix #988 / ADR-045 §5.1 #5, ADR-038 Addendum 1
-    §11.1). ``_apply_worktree_op`` does not care whether the result carries
+    reflects what did apply. ``_apply_worktree_op`` does not care whether the result carries
     conflicts, which is what makes that fall out for free.
     """
+    # Development references: #5, #988, ADR-038, ADR-045, Addendum 1.
     return await _apply_worktree_op(
         request,
         "merge",

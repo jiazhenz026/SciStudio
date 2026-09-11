@@ -1,76 +1,78 @@
-"""Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits
-and ``git.head_changed`` on HEAD/ref tip movements (ADR-039 §3.8).
-
-D39-3.2 (#968): this is now the **single source of truth** for
-``git.head_changed`` events. The previous parallel
-``core.versioning.watcher.GitChangeWatcher`` asyncio-poll implementation
-was deleted because (a) it emitted with the wrong payload key
-(``head_sha`` vs the frontend's expected ``commit_sha``) and (b) its
-lifespan was not re-bound on project switch. The watchdog-based handler
-below already provides project-switch hot-reload via
-``WorkflowWatcher.start_for_project`` (invoked from
-``routes/projects.py::_restart_workflow_watcher``) and emits the
-canonical ``commit_sha`` field that ``frontend/src/hooks/useWebSocket.ts``
-reads.
-
-ADR-034 Phase 2 §3.6 — when claude or codex (or any external editor) writes
-a workflow YAML in the active project's ``workflows/`` directory, the canvas
-must refetch and refresh. PTY mode no longer carries the in-process
-``write_workflow`` MCP-call hook ADR-033 relied on, so we observe the
-filesystem directly via :mod:`watchdog` and republish through the existing
-``EventBus`` so the standard ``/ws`` outbound loop forwards the event.
-
-ADR-039 §3.8 — when an external actor (CLI ``git`` command, an editor's
-git plugin, an agent running git via the PTY) moves ``HEAD`` or a branch
-tip, the canvas and the Git tab (D39-2.3a-and-later) must invalidate their
-cached log/branch/status state. We extend the same watcher to observe
-``<project>/.git/HEAD`` and ``<project>/.git/refs/heads/*`` and publish a
-new ``git.head_changed`` engine event with payload
-``{commit_sha, ref, kind}``.
-
-Design constraints (kept narrow on purpose):
-
-* **Single observer per app instance.** Started in ``lifespan`` after the
-  ApiRuntime is built; stopped in the ``finally`` block. The
-  ``WorkflowWatcher`` is a module-level singleton keyed by project path.
-* **Self-write suppression.** ADR-045 §5.1 #3 (NARROW): the primary
-  suppression is the runtime's version-vector first-party-write signature
-  (``is_recent_first_party_entity_write``), which drops only an *exact*
-  originating write signature. The legacy ``(path, mtime, size)`` dedupe
-  deque is retained as a **fallback only** for the runtime-less
-  drift-detector path (tests / degraded mode); when a runtime is wired the
-  workflow handler relies on the version signature and skips the deque. Canvas
-  write paths still call :func:`mark_self_write` so the fallback stays
-  functional. The dedupe deque caps at 32 entries (FIFO).
-* **200 ms per-path debounce.**  Editors that write atomically by renaming
-  a tempfile, plus AV/cloud-sync churn on Windows, can produce a burst of
-  Modified/Created events. The watcher coalesces them.
-* **YAML-only filter.**  ``.yaml`` and ``.yml`` (case-insensitive). Anything
-  else in the workflows directory is ignored.
-* **Path resolution.**  All inputs and stored paths go through
-  ``Path.resolve()`` so symlinked roots (e.g. macOS ``/tmp`` ->
-  ``/private/tmp``) compare equal.
-
-Platform notes:
-
-* **Windows** — ``watchdog`` uses ``ReadDirectoryChangesW``. Antivirus and
-  cloud-sync clients can cause spurious modify events; the 200 ms debounce
-  plus the ``(mtime, size)`` self-write tuple absorb that noise without
-  needing the polling fallback.
-* **macOS** — ``watchdog`` uses FSEvents. Filenames are normalised to NFD
-  by HFS+/APFS; we therefore normalise both stored and emitted paths
-  through :func:`unicodedata.normalize` before comparing or sending.
-  ``/tmp`` is a symlink to ``/private/tmp``; ``Path.resolve()`` collapses
-  this so the self-write dedupe matches.
-* **Linux** — ``watchdog`` uses inotify. No NFD normalisation needed;
-  filenames are passed through verbatim.
-
-The watcher emits engine events of type ``workflow.changed`` (the existing
-:data:`scistudio.engine.events.WORKFLOW_CHANGED` constant from #718). The
-``/ws`` handler already forwards that event type to connected clients, so
-no new WebSocket protocol is added — the browser observes the same
-``workflow.changed`` payload it already handles for canvas saves.
-"""
+"""Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits"""
+# Maintainer context (kept outside generated API documentation):
+# Filesystem watcher that emits ``workflow.changed`` on canvas-relevant edits
+# and ``git.head_changed`` on HEAD/ref tip movements (ADR-039 §3.8).
+#
+# D39-3.2 (#968): this is now the **single source of truth** for
+# ``git.head_changed`` events. The previous parallel
+# ``core.versioning.watcher.GitChangeWatcher`` asyncio-poll implementation
+# was deleted because (a) it emitted with the wrong payload key
+# (``head_sha`` vs the frontend's expected ``commit_sha``) and (b) its
+# lifespan was not re-bound on project switch. The watchdog-based handler
+# below already provides project-switch hot-reload via
+# ``WorkflowWatcher.start_for_project`` (invoked from
+# ``routes/projects.py::_restart_workflow_watcher``) and emits the
+# canonical ``commit_sha`` field that ``frontend/src/hooks/useWebSocket.ts``
+# reads.
+#
+# ADR-034 Phase 2 §3.6 — when claude or codex (or any external editor) writes
+# a workflow YAML in the active project's ``workflows/`` directory, the canvas
+# must refetch and refresh. PTY mode no longer carries the in-process
+# ``write_workflow`` MCP-call hook ADR-033 relied on, so we observe the
+# filesystem directly via :mod:`watchdog` and republish through the existing
+# ``EventBus`` so the standard ``/ws`` outbound loop forwards the event.
+#
+# ADR-039 §3.8 — when an external actor (CLI ``git`` command, an editor's
+# git plugin, an agent running git via the PTY) moves ``HEAD`` or a branch
+# tip, the canvas and the Git tab (D39-2.3a-and-later) must invalidate their
+# cached log/branch/status state. We extend the same watcher to observe
+# ``<project>/.git/HEAD`` and ``<project>/.git/refs/heads/*`` and publish a
+# new ``git.head_changed`` engine event with payload
+# ``{commit_sha, ref, kind}``.
+#
+# Design constraints (kept narrow on purpose):
+#
+# * **Single observer per app instance.** Started in ``lifespan`` after the
+#   ApiRuntime is built; stopped in the ``finally`` block. The
+#   ``WorkflowWatcher`` is a module-level singleton keyed by project path.
+# * **Self-write suppression.** ADR-045 §5.1 #3 (NARROW): the primary
+#   suppression is the runtime's version-vector first-party-write signature
+#   (``is_recent_first_party_entity_write``), which drops only an *exact*
+#   originating write signature. The legacy ``(path, mtime, size)`` dedupe
+#   deque is retained as a **fallback only** for the runtime-less
+#   drift-detector path (tests / degraded mode); when a runtime is wired the
+#   workflow handler relies on the version signature and skips the deque. Canvas
+#   write paths still call :func:`mark_self_write` so the fallback stays
+#   functional. The dedupe deque caps at 32 entries (FIFO).
+# * **200 ms per-path debounce.**  Editors that write atomically by renaming
+#   a tempfile, plus AV/cloud-sync churn on Windows, can produce a burst of
+#   Modified/Created events. The watcher coalesces them.
+# * **YAML-only filter.**  ``.yaml`` and ``.yml`` (case-insensitive). Anything
+#   else in the workflows directory is ignored.
+# * **Path resolution.**  All inputs and stored paths go through
+#   ``Path.resolve()`` so symlinked roots (e.g. macOS ``/tmp`` ->
+#   ``/private/tmp``) compare equal.
+#
+# Platform notes:
+#
+# * **Windows** — ``watchdog`` uses ``ReadDirectoryChangesW``. Antivirus and
+#   cloud-sync clients can cause spurious modify events; the 200 ms debounce
+#   plus the ``(mtime, size)`` self-write tuple absorb that noise without
+#   needing the polling fallback.
+# * **macOS** — ``watchdog`` uses FSEvents. Filenames are normalised to NFD
+#   by HFS+/APFS; we therefore normalise both stored and emitted paths
+#   through :func:`unicodedata.normalize` before comparing or sending.
+#   ``/tmp`` is a symlink to ``/private/tmp``; ``Path.resolve()`` collapses
+#   this so the self-write dedupe matches.
+# * **Linux** — ``watchdog`` uses inotify. No NFD normalisation needed;
+#   filenames are passed through verbatim.
+#
+# The watcher emits engine events of type ``workflow.changed`` (the existing
+# :data:`scistudio.engine.events.WORKFLOW_CHANGED` constant from #718). The
+# ``/ws`` handler already forwards that event type to connected clients, so
+# no new WebSocket protocol is added — the browser observes the same
+# ``workflow.changed`` payload it already handles for canvas saves.
+# Development references: #3, #718, #968, ADR-033, ADR-034, ADR-039, ADR-045.
 
 from __future__ import annotations
 
@@ -384,7 +386,9 @@ class _WorkflowFileHandler(FileSystemEventHandler):
 
 
 class _ProjectFileHandler(_WorkflowFileHandler):
-    """Emit ADR-045 ``file.changed`` events for editable external file writes."""
+    """Emit ``file.changed`` events for editable external file writes."""
+
+    # Development references: ADR-045.
 
     def _entity_id_for(self, path: Path) -> str | None:
         try:
@@ -508,7 +512,7 @@ class _ProjectFileHandler(_WorkflowFileHandler):
 class _GitHeadHandler(FileSystemEventHandler):
     """Bridge watchdog events on ``<project>/.git/`` to ``GIT_HEAD_CHANGED``.
 
-    ADR-039 §3.8: the canvas and the (D39-2.3a-and-later) Git tab must
+    the canvas and the Git tab must
     refresh their cached log / branch / status views when an external
     actor (CLI ``git`` command, an editor's git plugin, an agent calling
     git via the PTY) moves ``HEAD`` or a branch tip.
@@ -531,6 +535,13 @@ class _GitHeadHandler(FileSystemEventHandler):
     The handler reuses the same 200ms-debounce window as the workflow
     handler — bursts of git internal writes collapse to one event.
     """
+
+    # Maintainer context:
+    # the canvas and the (D39-2.3a-and-later) Git tab must
+    # refresh their cached log / branch / status views when an external
+    # actor (CLI ``git`` command, an editor's git plugin, an agent calling
+    # git via the PTY) moves ``HEAD`` or a branch tip.
+    # Development references: ADR-039.
 
     def __init__(
         self,
@@ -679,11 +690,11 @@ class WorkflowWatcher:
 
     The watcher manages three schedules per project:
 
-    1. ``<project>/workflows/`` for canvas-relevant YAML edits (ADR-034).
-    2. ``<project>/`` for editable file-tab external writes (ADR-045).
+    1. ``<project>/workflows/`` for canvas-relevant YAML edits.
+    2. ``<project>/`` for editable file-tab external writes.
     3. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
-       (ADR-039 §3.8). Silently skipped when the project is not a git
-       repo yet (no ``.git`` directory) — D39-2.2a/b's auto-init will
+    Silently skipped when the project is not a git
+       repo yet (no ``.git`` directory) — automatic initialization will
        create it later.
 
     Both surfaces emit engine events on the supplied :class:`EventBus` —
@@ -691,6 +702,15 @@ class WorkflowWatcher:
     isolation, and subscriber list semantics are uniform with the rest
     of the engine.
     """
+
+    # Maintainer context:
+    # 1. ``<project>/workflows/`` for canvas-relevant YAML edits.
+    #     2. ``<project>/`` for editable file-tab external writes.
+    #     3. ``<project>/.git/`` for HEAD + ``refs/heads/*`` movements
+    # Silently skipped when the project is not a git
+    #        repo yet (no ``.git`` directory) — D39-2.2a/b's auto-init will
+    #        create it later.
+    # Development references: ADR-034, ADR-039, ADR-045.
 
     def __init__(self, event_bus: EventBus) -> None:
         self._event_bus = event_bus
@@ -727,15 +747,23 @@ class WorkflowWatcher:
 
     def start_for_project(self, project_dir: Path, loop: asyncio.AbstractEventLoop) -> None:
         """Begin watching ``<project_dir>/workflows/`` for YAML changes and
-        ``<project_dir>/.git/`` for HEAD/ref movements (ADR-039 §3.8).
+        ``<project_dir>/.git/`` for HEAD/ref movements.
 
         If a previous project was being observed, its observers are stopped
         first. If the workflows directory does not exist yet it is created
         (best-effort) so the watcher attaches before the first save. The
         ``.git/`` schedule is skipped silently when the project is not yet
-        a git repo — D39-2.2b auto-init populates it on first save and
+        a git repo — automatic initialization populates it on first save and
         ``start_for_project`` will catch up on the next project re-open.
         """
+        # Maintainer context:
+        # If a previous project was being observed, its observers are stopped
+        # first. If the workflows directory does not exist yet it is created
+        # (best-effort) so the watcher attaches before the first save. The
+        # ``.git/`` schedule is skipped silently when the project is not yet
+        # a git repo — D39-2.2b auto-init populates it on first save and
+        # ``start_for_project`` will catch up on the next project re-open.
+        # Development references: ADR-039.
         workflows_dir = (project_dir / "workflows").resolve()
         git_dir = (project_dir / ".git").resolve()
         # Codex P2-B: scheduling below uses ``git_dir.is_dir()`` (worktrees
@@ -872,10 +900,11 @@ class WorkflowWatcher:
     async def _broadcast_git_to_event_bus(self, payload: dict[str, Any]) -> None:
         """Emit a ``git.head_changed`` EngineEvent so /ws forwards it.
 
-        ADR-039 §3.8: the canvas + Git tab subscribes to this event to
+        the canvas + Git tab subscribes to this event to
         invalidate cached log/branch/status state when an external actor
         moves HEAD or a branch tip.
         """
+        # Development references: ADR-039.
         await self._event_bus.emit(
             EngineEvent(
                 event_type=GIT_HEAD_CHANGED,

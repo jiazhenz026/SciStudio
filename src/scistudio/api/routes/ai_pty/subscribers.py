@@ -1,17 +1,19 @@
-"""Cross-WS subscriber registry used by the engine-initiated tab path.
-
-The workflow WS handler (``scistudio.api.ws``) registers one
-subscriber per connection on accept and unregisters on disconnect.
-Engine-initiated tab opens / closes call :func:`broadcast_ai_pty_message`
-which fans out the message dict to every live subscriber. See the
-package ``__init__`` module docstring for the rationale (ADR-035 §3.10
-without adding new EngineEvent types).
-
-State (``_ai_pty_subscribers``, ``_ai_pty_subscribers_lock``) lives on
-the package namespace; this module accesses it via late-bound lookup so
-the test suite's existing monkeypatch contract on the package keeps
-working.
-"""
+"""Cross-WS subscriber registry used by the engine-initiated tab path."""
+# Maintainer context (kept outside generated API documentation):
+# Cross-WS subscriber registry used by the engine-initiated tab path.
+#
+# The workflow WS handler (``scistudio.api.ws``) registers one
+# subscriber per connection on accept and unregisters on disconnect.
+# Engine-initiated tab opens / closes call :func:`broadcast_ai_pty_message`
+# which fans out the message dict to every live subscriber. See the
+# package ``__init__`` module docstring for the rationale (ADR-035 §3.10
+# without adding new EngineEvent types).
+#
+# State (``_ai_pty_subscribers``, ``_ai_pty_subscribers_lock``) lives on
+# the package namespace; this module accesses it via late-bound lookup so
+# the test suite's existing monkeypatch contract on the package keeps
+# working.
+# Development references: ADR-035.
 
 from __future__ import annotations
 

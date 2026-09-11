@@ -39,8 +39,9 @@ _SIZE_WARNING_THRESHOLD = 2 * 1024 * 1024 * 1024
 def _get_backend(ref: StorageReference) -> Any:
     """Return the appropriate backend instance for *ref*.
 
-    ADR-031 D2: moved from proxy.py to be shared by DataObject methods.
+    moved from proxy.py to be shared by DataObject methods.
     """
+    # Development references: ADR-031.
     from scistudio.core.storage.arrow_backend import ArrowBackend
     from scistudio.core.storage.composite_store import CompositeStore
     from scistudio.core.storage.filesystem import FilesystemBackend
@@ -299,11 +300,12 @@ class DataObject:
     def _validate_user(user: dict[str, Any]) -> None:
         """Validate that the *user* metadata dict is JSON-serialisable.
 
-        ADR-017: cross-process worker transport requires JSON. The
+        cross-process worker transport requires JSON. The
         framework and meta slots are Pydantic models, which handle their
         own serialisation; only the free-form ``user`` dict needs this
         explicit check.
         """
+        # Development references: ADR-017.
         import json
 
         try:
@@ -564,7 +566,7 @@ class DataObject:
     def get_in_memory_data(self) -> Any:
         """Materialise data from storage for persistence/export.
 
-        ADR-031 D6: primary path routes through :meth:`to_memory` ->
+        primary path routes through :meth:`to_memory` ->
         storage backend read. For backward compatibility with the
         ``_auto_flush()`` transition (loaders that still set ``_data``
         or ``_arrow_table`` transiently before the framework persists
@@ -572,6 +574,7 @@ class DataObject:
         set. Subclasses override for non-storage-backed types (Text
         returns ``self.content``; Artifact returns file bytes).
         """
+        # Development references: ADR-031.
         if self._storage_ref is not None:
             return self.to_memory()
         # ADR-031 Addendum 2: use the declared _transient_data slot

@@ -1,24 +1,26 @@
-"""Markdown methods export for a lineage run (ADR-038 §3.7, §5.1).
-
-Renders a human-readable Methods-section markdown document that answers the
-four user questions surfaced in ADR-038 §3.7:
-
-1. Which run? (run_id, started_at, status, workflow_id, git commit + dirty,
-   environment snapshot)
-2. Which workflow was running? (workflow_yaml_snapshot literal)
-3. Which blocks ran? (per-block list: block_id, block_type, version, timing,
-   termination)
-4a. Per-block params? (block_config_resolved per block)
-4b. Per-block I/O DataObjects? (block_io ↔ data_objects join per block)
-
-The renderer is **read-only** against the :class:`LineageStore` — it does
-not modify any rows. Callers (the `/api/runs/{run_id}/methods` route)
-serve the returned string as ``text/markdown``.
-
-The output is intentionally plain markdown — no YAML/HTML scaffolding, no
-front-matter — so users can paste it directly into a Methods section of a
-paper, a notebook, or a plain markdown editor without post-processing.
-"""
+"""Markdown methods export for a lineage run."""
+# Maintainer context (kept outside generated API documentation):
+# Markdown methods export for a lineage run (ADR-038 §3.7, §5.1).
+#
+# Renders a human-readable Methods-section markdown document that answers the
+# four user questions surfaced in ADR-038 §3.7:
+#
+# 1. Which run? (run_id, started_at, status, workflow_id, git commit + dirty,
+#    environment snapshot)
+# 2. Which workflow was running? (workflow_yaml_snapshot literal)
+# 3. Which blocks ran? (per-block list: block_id, block_type, version, timing,
+#    termination)
+# 4a. Per-block params? (block_config_resolved per block)
+# 4b. Per-block I/O DataObjects? (block_io ↔ data_objects join per block)
+#
+# The renderer is **read-only** against the :class:`LineageStore` — it does
+# not modify any rows. Callers (the `/api/runs/{run_id}/methods` route)
+# serve the returned string as ``text/markdown``.
+#
+# The output is intentionally plain markdown — no YAML/HTML scaffolding, no
+# front-matter — so users can paste it directly into a Methods section of a
+# paper, a notebook, or a plain markdown editor without post-processing.
+# Development references: ADR-038.
 
 from __future__ import annotations
 

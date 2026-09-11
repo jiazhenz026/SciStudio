@@ -1,70 +1,73 @@
-"""The tutorial manifest — its model, its published schema, and its validation.
-
-ADR-053 Learning Center spec, FR-005 … FR-015, FR-020, FR-020a
-(``docs/specs/adr-053-learning-center.md``).
-
-A tutorial is a **directory containing a ``tutorial.yaml``**, and that manifest
-is the only file required for the tutorial to be listed (FR-005). Assets live
-under ``assets/`` with the reserved subdirectories ``data/``, ``code/``,
-``panels/``, ``replay/``, ``workflows/`` and ``pages/`` (FR-006).
-
-Two failures that look alike and are not
-----------------------------------------
-
-:class:`ManifestValidationError` says *this manifest is wrong*.
-:class:`UnsupportedManifestVersionError` says *this manifest was written for a
-newer core*. FR-007a is explicit that the second is not a malformed manifest:
-it is listed as unavailable naming the version it requires, on the same path as
-an unmet requirement (FR-024). The two owe the user different messages, so they
-are different types and discovery can tell them apart without parsing strings.
-
-Why there is no tutorial-kind field
------------------------------------
-
-The presence of ``bootstrap`` is what decides whether a tutorial gets a project
-(FR-009). The spec rejects a second classification because the step actions
-already declare what each step does, and a ``kind`` could contradict them.
-
-The Learning Center nevertheless has to list reading tutorials apart from
-hands-on ones, and does it without such a field: :attr:`TutorialManifest.is_reading_only`
-reads the answer off the steps' own ``done_when``. Anyone arriving here to add
-``kind: reading`` should look at that property first — a derived answer cannot
-disagree with the steps, and a declared one can.
-
-Containment is checked while listing, not while writing
--------------------------------------------------------
-
-Asset paths resolve inside the tutorial directory (FR-014) and write
-destinations inside the tutorial project (FR-015), and both are rejected *at
-validation* — "so a bad tutorial fails while being listed rather than while
-writing files into a user's project". The primitives live in
-:mod:`scistudio.tutorials.actions`; this module applies them.
-
-Tier grading (FR-020, FR-020a)
-------------------------------
-
-``driver`` is accepted only for ``core`` and ``package``. Rejecting the field
-alone would not make a tier incapable of carrying executable code, so the
-grading also rejects, for ``user`` and ``project``: an asset under
-``assets/code/``, ``assets/panels/`` or ``assets/replay/``; a ``replay``
-action; and a write or copy destination resolving under a directory the product
-imports, executes, or reads as configuration for something it executes
-(:data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`).
-Without all three, a project-level tutorial could drop a ``.py`` into
-``blocks/`` through an ordinary write action and have it imported on the next
-registry refresh. FR-020a records why this is deliberately a *different*
-tradeoff from drop-in blocks, where ``{project}/blocks/*.py`` is executed with
-sandboxing deferred to #1531: tutorial code is reached earlier and far more
-often, because merely listing the catalogue touches it.
-
-Boundaries
-----------
-
-This module imports :mod:`scistudio.tutorials.conditions` and
-:mod:`scistudio.tutorials.actions` and nothing else from the package —
-``manifest -> conditions`` is the one direction the boundary allows, never the
-reverse (checklist §6.1.2). It never imports ``scistudio.api``.
-"""
+"""The tutorial manifest — its model, its published schema, and its validation."""
+# Maintainer context (kept outside generated API documentation):
+# The tutorial manifest — its model, its published schema, and its validation.
+#
+# ADR-053 Learning Center spec, FR-005 … FR-015, FR-020, FR-020a
+# (``docs/specs/adr-053-learning-center.md``).
+#
+# A tutorial is a **directory containing a ``tutorial.yaml``**, and that manifest
+# is the only file required for the tutorial to be listed (FR-005). Assets live
+# under ``assets/`` with the reserved subdirectories ``data/``, ``code/``,
+# ``panels/``, ``replay/``, ``workflows/`` and ``pages/`` (FR-006).
+#
+# Two failures that look alike and are not
+# ----------------------------------------
+#
+# :class:`ManifestValidationError` says *this manifest is wrong*.
+# :class:`UnsupportedManifestVersionError` says *this manifest was written for a
+# newer core*. FR-007a is explicit that the second is not a malformed manifest:
+# it is listed as unavailable naming the version it requires, on the same path as
+# an unmet requirement (FR-024). The two owe the user different messages, so they
+# are different types and discovery can tell them apart without parsing strings.
+#
+# Why there is no tutorial-kind field
+# -----------------------------------
+#
+# The presence of ``bootstrap`` is what decides whether a tutorial gets a project
+# (FR-009). The spec rejects a second classification because the step actions
+# already declare what each step does, and a ``kind`` could contradict them.
+#
+# The Learning Center nevertheless has to list reading tutorials apart from
+# hands-on ones, and does it without such a field: :attr:`TutorialManifest.is_reading_only`
+# reads the answer off the steps' own ``done_when``. Anyone arriving here to add
+# ``kind: reading`` should look at that property first — a derived answer cannot
+# disagree with the steps, and a declared one can.
+#
+# Containment is checked while listing, not while writing
+# -------------------------------------------------------
+#
+# Asset paths resolve inside the tutorial directory (FR-014) and write
+# destinations inside the tutorial project (FR-015), and both are rejected *at
+# validation* — "so a bad tutorial fails while being listed rather than while
+# writing files into a user's project". The primitives live in
+# :mod:`scistudio.tutorials.actions`; this module applies them.
+#
+# Tier grading (FR-020, FR-020a)
+# ------------------------------
+#
+# ``driver`` is accepted only for ``core`` and ``package``. Rejecting the field
+# alone would not make a tier incapable of carrying executable code, so the
+# grading also rejects, for ``user`` and ``project``: an asset under
+# ``assets/code/``, ``assets/panels/`` or ``assets/replay/``; a ``replay``
+# action; and a write or copy destination resolving under a directory the product
+# imports, executes, or reads as configuration for something it executes
+# (:data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`).
+# Without all three, a project-level tutorial could drop a ``.py`` into
+# ``blocks/`` through an ordinary write action and have it imported on the next
+# registry refresh. FR-020a records why this is deliberately a *different*
+# tradeoff from drop-in blocks, where ``{project}/blocks/*.py`` is executed with
+# sandboxing deferred to #1531: tutorial code is reached earlier and far more
+# often, because merely listing the catalogue touches it.
+#
+# Boundaries
+# ----------
+#
+# This module imports :mod:`scistudio.tutorials.conditions` and
+# :mod:`scistudio.tutorials.actions` and nothing else from the package —
+# ``manifest -> conditions`` is the one direction the boundary allows, never the
+# reverse (checklist §6.1.2). It never imports ``scistudio.api``.
+# Development references: #1531, ADR-053, FR-005, FR-006, FR-007a, FR-009, FR-014, FR-015, FR-020, FR-020a,
+# FR-024, docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -130,31 +133,36 @@ __all__ = [
 
 
 TUTORIAL_MANIFEST_FILENAME = "tutorial.yaml"
-"""FR-005: the one file a tutorial directory must contain."""
+"""The one file a tutorial directory must contain."""
+# Development references: FR-005.
 
 ASSETS_DIR_NAME = "assets"
 
 RESERVED_ASSET_DIRS: tuple[str, ...] = ("data", "code", "panels", "replay", "workflows", "pages")
-"""FR-006: data files, block/type/previewer/plot sources, built panel bundles,
+"""Data files, block/type/previewer/plot sources, built panel bundles,
 scripted replay material, workflow YAML written into the project, and reading
 content."""
+# Development references: FR-006.
 
 EXECUTABLE_ASSET_DIRS: frozenset[str] = frozenset({"code", "panels", "replay", "workflows"})
 """The reserved asset directories whose contents the product imports, executes,
-plays back, or reads as configuration for something it executes. A user-level
-or project-level tutorial may not carry any of them (FR-020a).
+Plays back, or reads as configuration for something it executes. A user-level
+or project-level tutorial may not carry any of them.
 
 ``workflows`` is here for the reason :data:`~scistudio.tutorials.actions.EXECUTED_PROJECT_PATHS`
-lists the project directory of the same name (#2063): a workflow YAML names a
+lists the project directory of the same name: a workflow YAML names a
 code block's ``script_path`` and ``cwd``, so it is configuration the product
 acts on to execute, graded executable-adjacent rather than as data."""
+# Development references: #2063, FR-020a.
 
 SUPPORTED_MANIFEST_VERSIONS: frozenset[int] = frozenset({1})
-"""FR-007a. A manifest declaring a version outside this set is unavailable, not
-malformed."""
+"""A manifest declaring a version outside this set is unavailable, not
+Malformed."""
+# Development references: FR-007a.
 
 SCHEMA_PATH = Path(__file__).resolve().parent / "schema" / "tutorial.schema.json"
-"""FR-013: the published schema package authors write against."""
+"""The published schema package authors write against."""
+# Development references: FR-013.
 
 
 SAY_MOODS: tuple[str, ...] = (
@@ -166,7 +174,7 @@ SAY_MOODS: tuple[str, ...] = (
     "error",
     "angry",
 )
-"""FR-011f (#2136) — the expressions a beat may be delivered with.
+"""The expressions a beat may be delivered with.
 
 A closed vocabulary, and closed is what makes the prefix form safe: a line
 beginning ``explain:`` is an expression, and a line beginning ``Note:`` is a
@@ -175,6 +183,7 @@ this tuple is ever read as anything but prose.
 
 The set is the sprite set. Adding a seventh is adding a seventh drawing, which
 is why this is a tuple of names rather than an open string."""
+# Development references: #2136, FR-011f.
 
 DEFAULT_SAY_MOOD = "idle"
 """What a beat that names no expression is delivered with.
@@ -210,13 +219,13 @@ ROUTE_TARGETS: frozenset[str] = frozenset(
         "previewers",
     }
 )
-"""The closed set of destinations a step's ``route_to`` may name (FR-011).
+"""The closed set of destinations a step's ``route_to`` may name.
 
 The first seven mirror the product's real bottom-panel tabs; ``canvas``,
 ``block_palette``, ``data_types``, and ``workflows`` are the surfaces outside
-that strip a step can send a user to — the last three are the left panel's
+That strip a step can send a user to — the last three are the left panel's
 Blocks, Data types and Workflows tabs (``data_types`` joined for the
-type-authoring levels, #2061; ``workflows`` for core tutorial 1's opening,
+type-authoring levels, ; ``workflows`` for core tutorial 1's opening,
 which shows the reader where their workflows are kept before building one).
 
 **Manifests name the tab the way the product names it to the user, not the way
@@ -234,6 +243,7 @@ That mismatch is recorded here because it will otherwise read as a bug: the
 next person to compare this set against ``BottomTab`` will find two names that
 do not appear there, and this paragraph is the answer.
 """
+# Development references: #2061, FR-011.
 
 
 @dataclass(frozen=True)
@@ -284,10 +294,10 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     ),
     HighlightSpec(name="bottom_tab", points_at="one tab in the bottom panel", required=("tab",)),
 )
-"""The closed set of interface elements a step's ``highlight`` may name (FR-011).
+"""The closed set of interface elements a step's ``highlight`` may name.
 
 Deliberately small, and deliberately not a guess at a general vocabulary for
-the product's interface. Every member is something core tutorial 1 actually
+The product's interface. Every member is something core tutorial 1 actually
 needs: drag one named block out of the palette, configure one named node, press
 Run, create a plot, restore from History.
 
@@ -315,6 +325,7 @@ names, so a new member without a matching frontend annotation is a step whose
 guidance is silently dropped — which is exactly the failure this closure exists
 to stop.
 """
+# Development references: FR-011.
 
 
 @dataclass(frozen=True)
@@ -348,10 +359,10 @@ PREFILL_SPECS: tuple[PrefillSpec, ...] = (
         required=("block_type", "key", "value"),
     ),
 )
-"""The closed set of dialogs a step's ``prefill`` may seed (FR-011b).
+"""The closed set of dialogs a step's ``prefill`` may seed.
 
 ``prefill`` says what a dialog the reader is about to open should already be
-holding when it opens. A step that asks for a block named
+Holding when it opens. A step that asks for a block named
 ``normalize_fluorescence`` and then presents a dialog offering ``my_block``
 makes the reader retype something the tutorial already decided; the step and
 the dialog were saying different things, and only one of them was the product.
@@ -374,6 +385,7 @@ empty, and never overwrites a value they have typed. A step using it must judge
 something the *reader* did — the folder they browsed to, the block they wired —
 and not the field it seeded, or the step judges the tutorial's own work.
 """
+# Development references: FR-011b.
 
 PREFILL_TARGETS: frozenset[str] = frozenset(spec.name for spec in PREFILL_SPECS)
 """The accepted ``prefill`` target names, derived from :data:`PREFILL_SPECS`."""
@@ -383,7 +395,9 @@ _PREFILL_SPECS_BY_NAME: Mapping[str, PrefillSpec] = MappingProxyType({spec.name:
 
 @dataclass(frozen=True)
 class Prefill:
-    """One dialog a step seeds, and the values it seeds it with (FR-011b)."""
+    """One dialog a step seeds, and the values it seeds it with."""
+
+    # Development references: FR-011b.
 
     target: str
     args: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
@@ -404,7 +418,7 @@ _HIGHLIGHT_SPECS_BY_NAME: Mapping[str, HighlightSpec] = MappingProxyType({spec.n
 
 @dataclass(frozen=True)
 class Highlight:
-    """What a step points at, and which one of it (FR-011).
+    """What a step points at, and which one of it.
 
     ``args`` is empty for the surface and singleton targets, whose name is
     already an address. It carries the entity targets' required argument —
@@ -412,6 +426,8 @@ class Highlight:
     ``plot_card`` — which is what lets the frontend pick one element out of a
     list of like elements rather than lighting up their container.
     """
+
+    # Development references: FR-011.
 
     target: str
     args: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
@@ -425,9 +441,11 @@ class TutorialSourceKind(StrEnum):
     """Where a tutorial came from. Declared here because it is a validation input.
 
     Discovery imports it from this module rather than the other way round: the
-    tier decides which manifests are legal (FR-020, FR-020a), so the tier has to
+    tier decides which manifests are legal, so the tier has to
     be knowable before discovery exists.
     """
+
+    # Development references: FR-020, FR-020a.
 
     CORE = "core"
     PACKAGE = "package"
@@ -439,11 +457,12 @@ class TutorialSourceKind(StrEnum):
         """True for ``core`` and ``package`` — the tiers that may ship code.
 
         A package author has a signed, distributed artifact that passes the
-        ADR-049 validator. A user-level or project-level manifest is written by
+        validator. A user-level or project-level manifest is written by
         hand or by an agent, so the format makes it structurally incapable of
         carrying executable code rather than relying on a review that never
         happens.
         """
+        # Development references: ADR-049.
         return self in (TutorialSourceKind.CORE, TutorialSourceKind.PACKAGE)
 
 
@@ -453,7 +472,9 @@ class TutorialSourceKind(StrEnum):
 
 
 class TutorialManifestError(Exception):
-    """Base for every manifest failure. Always names the file (FR-013)."""
+    """Base for every manifest failure. Always names the file."""
+
+    # Development references: FR-013.
 
     def __init__(self, message: str, *, path: Path) -> None:
         self.path = path
@@ -461,7 +482,9 @@ class TutorialManifestError(Exception):
 
 
 class ManifestValidationError(TutorialManifestError):
-    """The manifest is wrong: names the file, the field, and the reason (FR-013)."""
+    """The manifest is wrong: names the file, the field, and the reason."""
+
+    # Development references: FR-013.
 
     def __init__(self, *, path: Path, field_name: str, reason: str) -> None:
         self.field_name = field_name
@@ -470,14 +493,16 @@ class ManifestValidationError(TutorialManifestError):
 
 
 class UnsupportedManifestVersionError(TutorialManifestError):
-    """The manifest was written for a core this one is not (FR-007a).
+    """The manifest was written for a core this one is not.
 
     Not a subclass of :class:`ManifestValidationError`, and deliberately so: a
     manifest this core cannot read is listed as unavailable naming the version
-    it requires, on the same path as an unmet requirement (FR-024), while a
+    it requires, on the same path as an unmet requirement, while a
     malformed one is listed with its validation message. Discovery has to tell
     them apart to say the right thing.
     """
+
+    # Development references: FR-007a, FR-024.
 
     def __init__(self, *, path: Path, declared_version: int, supported_versions: frozenset[int]) -> None:
         self.declared_version = declared_version
@@ -496,13 +521,15 @@ class UnsupportedManifestVersionError(TutorialManifestError):
 
 @dataclass(frozen=True)
 class TutorialRequirements:
-    """FR-008's ``requires`` block, parsed but not evaluated.
+    """The API's ``requires`` block, parsed but not evaluated.
 
     Discovery evaluates it, not this module: a tutorial whose requirements are
-    unmet is still listed (FR-024), because a user cannot decide whether to
+    unmet is still listed, because a user cannot decide whether to
     install a package whose teaching material is invisible until after
     installing it.
     """
+
+    # Development references: FR-008, FR-024.
 
     scistudio: str | None = None
     agent: bool = False
@@ -519,7 +546,9 @@ class TutorialRequirements:
 
 @dataclass(frozen=True)
 class TutorialBootstrap:
-    """FR-009's ``bootstrap`` block. Its presence is what grants a project."""
+    """The API's ``bootstrap`` block. Its presence is what grants a project."""
+
+    # Development references: FR-009.
 
     project_name: str | None = None
     do: tuple[Action, ...] = ()
@@ -527,17 +556,19 @@ class TutorialBootstrap:
 
 @dataclass(frozen=True)
 class TutorialTrigger:
-    """A step's user-triggered action: a label, and what pressing it does (#2061).
+    """A step's user-triggered action: a label, and what pressing it does.
 
     Distinct from entry ``do`` in exactly one respect — *when* it runs. Entry
     actions run because the reader arrived; a trigger runs because the reader
     pressed the button the label names, which is what lets a step hold its
     material back until asked for: "press Play to watch the agent work" cannot
     be an entry action without playing before the sentence is readable.
-    Execution reuses the entry machinery whole (FR-056, FR-059, FR-059a), so a
+    Execution reuses the entry machinery whole, so a
     trigger's writes land and the registries settle before the trigger reports
     done.
     """
+
+    # Development references: #2061, FR-056, FR-059, FR-059a.
 
     label: str
     do: tuple[Action, ...]
@@ -545,7 +576,9 @@ class TutorialTrigger:
 
 @dataclass(frozen=True)
 class TutorialStep:
-    """One step of a manifest-driven tutorial (FR-011)."""
+    """One step of a manifest-driven tutorial."""
+
+    # Development references: FR-011.
 
     id: str
     #: FR-011c — the short heading the step card shows.
@@ -628,12 +661,17 @@ class TutorialStep:
 
     @property
     def awaiting_continue(self) -> bool:
-        """FR-012: a step with no ``done_when`` advances on an explicit user continue.
+        """A step with no ``done_when`` advances on an explicit user continue.
 
         Exposed as state rather than inferred by each caller so the driver and
         the API can both say "awaiting continue" without re-deriving it — the
-        session response carries this field verbatim (checklist §6.1.6).
+        session response carries this field verbatim.
         """
+        # Maintainer context:
+        # Exposed as state rather than inferred by each caller so the driver and
+        # the API can both say "awaiting continue" without re-deriving it — the
+        # session response carries this field verbatim (checklist §6.1.6).
+        # Development references: FR-012.
         return self.done_when is None
 
 
@@ -657,12 +695,14 @@ class TutorialManifest:
 
     @property
     def creates_project(self) -> bool:
-        """FR-009: a tutorial declaring ``bootstrap`` gets a project; one omitting it does not."""
+        """A tutorial declaring ``bootstrap`` gets a project; one omitting it does not."""
+        # Development references: FR-009.
         return self.bootstrap is not None
 
     @property
     def is_driver_driven(self) -> bool:
-        """FR-010: exactly one of ``steps`` and ``driver`` is set."""
+        """Exactly one of ``steps`` and ``driver`` is set."""
+        # Development references: FR-010.
         return self.driver is not None
 
     @property
@@ -696,7 +736,8 @@ class TutorialManifest:
         return None
 
     def resolve_asset(self, relative: str) -> Path:
-        """Resolve a tutorial-directory-relative asset path, rejecting escapes (FR-014)."""
+        """Resolve a tutorial-directory-relative asset path, rejecting escapes."""
+        # Development references: FR-014.
         return resolve_contained_path(self.directory, relative, field_name="asset")
 
 
@@ -976,8 +1017,9 @@ def _parse_trigger(raw: Any, *, field_name: str, path: Path) -> TutorialTrigger 
 
     Both halves are required. A trigger with no label is a button the reader
     cannot be asked to press, and one with no actions is a button that does
-    nothing — each is an authoring mistake worth failing at listing (FR-013).
+    nothing — each is an authoring mistake worth failing at listing.
     """
+    # Development references: FR-013.
     if raw is None:
         return None
     if not isinstance(raw, Mapping):
@@ -1013,7 +1055,7 @@ def _parse_trigger(raw: Any, *, field_name: str, path: Path) -> TutorialTrigger 
 def split_say_mood(beat: str) -> tuple[str, str]:
     """Split one beat into the expression it names and the line it is.
 
-    FR-011f (#2136). The expression is written as a prefix on the line itself —
+    The expression is written as a prefix on the line itself —
     ``explain: A block is SciStudio's basic unit.`` — rather than as a second
     field parallel to ``say``. Two lists that have to stay the same length is a
     shape an author gets wrong silently; a prefix cannot drift from the line it
@@ -1023,6 +1065,7 @@ def split_say_mood(beat: str) -> tuple[str, str]:
     prose and is left exactly where it was found, so no existing line has to be
     escaped and no author has to know the rule until they want it.
     """
+    # Development references: #2136, FR-011f.
     head, separator, rest = beat.partition(":")
     if separator and head.strip() in SAY_MOODS:
         return head.strip(), rest.strip()
@@ -1114,13 +1157,14 @@ def _parse_pages(raw: Any, *, field_name: str, path: Path) -> tuple[str, ...]:
 
 
 def _parse_compacts(raw: Any, *, beats: int, field_name: str, path: Path) -> tuple[bool, ...]:
-    """Parse ``compact`` into one flag per beat (FR-011e).
+    """Parse ``compact`` into one flag per beat.
 
     One boolean is every beat's form, which is what every manifest written
     before this said. A list is read beside ``say``, entry for entry, and must
     be the same length — the same rule ``highlight`` follows, and for the same
     reason: a list one short would silently change the form of the last beat.
     """
+    # Development references: FR-011e.
     slots = max(1, beats)
     if raw is None:
         return (False,) * slots
@@ -1150,7 +1194,7 @@ def _parse_compacts(raw: Any, *, beats: int, field_name: str, path: Path) -> tup
 
 
 def _parse_highlights(raw: Any, *, beats: int, field_name: str, path: Path) -> tuple[Highlight | None, ...]:
-    """Parse ``highlight`` into one entry per beat (FR-089e).
+    """Parse ``highlight`` into one entry per beat.
 
     One highlight is every beat's highlight, which is what every manifest
     written before this said and goes on meaning. A list is read beside ``say``,
@@ -1160,6 +1204,7 @@ def _parse_highlights(raw: Any, *, beats: int, field_name: str, path: Path) -> t
     A step that says nothing still gets one slot, so a highlight declared
     without any ``say`` is not thrown away.
     """
+    # Development references: FR-089e.
     slots = max(1, beats)
     if raw is None:
         return (None,) * slots
@@ -1257,12 +1302,13 @@ def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | No
 def _check_closed_value(value: str | None, accepted: frozenset[str], *, field_name: str, path: Path) -> None:
     """Reject a step field naming something outside its core-owned set.
 
-    Same argument FR-049 makes for the condition vocabulary, applied to the two
+    Same argument the contract makes for the condition vocabulary, applied to the two
     step fields that address the interface: a free-form name is a typo that
     fails the *user* — the highlight never appears, the route never happens, and
     nothing says why — rather than failing the author while the tutorial is
     being listed.
     """
+    # Development references: FR-049.
     if value is not None and value not in accepted:
         raise ManifestValidationError(
             path=path,
@@ -1276,7 +1322,8 @@ def _optional_str(value: Any) -> str | None:
 
 
 def _reject_unsupported_version(declared_version: int, *, path: Path) -> None:
-    """FR-007a: 'written for a newer core' is a different answer from 'malformed'."""
+    """'written for a newer core' is a different answer from 'malformed'."""
+    # Development references: FR-007a.
     if declared_version not in SUPPORTED_MANIFEST_VERSIONS:
         raise UnsupportedManifestVersionError(
             path=path,
@@ -1311,13 +1358,14 @@ def parse_manifest(
 ) -> TutorialManifest:
     """Validate and parse manifest data that has already been read from YAML.
 
-    Applies, in order: the schema (FR-013), the supported-version check
-    (FR-007a), the ``steps`` xor ``driver`` rule (FR-010), the step and action
-    and condition parsers (FR-011, FR-049, FR-057), and the tier rules that can
-    be judged from the declaration alone (FR-020, FR-020a). The tier rules that
+    Applies, in order: the schema, the supported-version check
+    The ``steps`` xor ``driver`` rule, the step and action
+    and condition parsers, and the tier rules that can
+    be judged from the declaration alone. The tier rules that
     need the directory on disk are :func:`validate_tier_assets`, applied by
     :func:`load_manifest`.
     """
+    # Development references: FR-007a, FR-010, FR-011, FR-013, FR-020, FR-020a, FR-049, FR-057.
     if not isinstance(data, Mapping):
         raise ManifestValidationError(
             path=path,
@@ -1360,7 +1408,7 @@ def parse_manifest(
 def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> TutorialManifest:
     """Read, validate, and parse ``<directory>/tutorial.yaml``.
 
-    FR-005: the manifest is the only file required. Everything else about the
+    the manifest is the only file required. Everything else about the
     tutorial directory is optional, and a tutorial with no ``assets/`` tree is
     a legal tutorial.
 
@@ -1370,6 +1418,7 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
     like a missing file rather than like a wrong argument — so it is caught and
     named.
     """
+    # Development references: FR-005.
     if directory.is_file():
         raise ManifestValidationError(
             path=directory,
@@ -1403,11 +1452,12 @@ def load_manifest(directory: Path, *, source_kind: TutorialSourceKind) -> Tutori
 def _all_actions(manifest: TutorialManifest) -> tuple[tuple[str, Action], ...]:
     """Every action a tutorial can perform, wherever it is declared.
 
-    The containment (FR-014, FR-015) and tier walks (FR-020a) iterate this, so
+    The containment and tier walks iterate this, so
     a place actions can be declared that is missing here is a hole in both. A
-    trigger's ``do`` (#2061) is on the list for exactly that reason: pressing
+    trigger's ``do`` is on the list for exactly that reason: pressing
     the button reaches the project as surely as entering the step does.
     """
+    # Development references: #2061, FR-014, FR-015, FR-020a.
     collected: list[tuple[str, Action]] = []
     if manifest.bootstrap is not None:
         collected.extend(("bootstrap.do", action) for action in manifest.bootstrap.do)
@@ -1419,13 +1469,14 @@ def _all_actions(manifest: TutorialManifest) -> tuple[tuple[str, Action], ...]:
 
 
 def validate_asset_containment(manifest: TutorialManifest) -> None:
-    """Re-check every declared asset source against the real directory (FR-014).
+    """Re-check every declared asset source against the real directory.
 
     The parser already rejects ``..`` and absolute paths lexically. This pass
     runs once the directory is known and adds the symbolic-link check, so an
     asset path that points outside the tutorial through a link is rejected
     while the tutorial is being listed rather than while it is writing.
     """
+    # Development references: FR-014.
     for field_name, action in _all_actions(manifest):
         for suffix, source in iter_asset_sources(action):
             full_field = f"{field_name}.{suffix}"
@@ -1445,7 +1496,7 @@ comparing the two messages is comparing this sentence."""
 def _tier_rejection(manifest: TutorialManifest, *, field_name: str, may_not: str) -> ManifestValidationError:
     """Build a tier rejection, naming the tier the same way in every one.
 
-    FR-020a is five separate restrictions — a ``driver`` field, a ``replay``
+    The contract is five separate restrictions — a ``driver`` field, a ``replay``
     action, a write into an executed project path, a copy landing in one, and a
     carried executable asset — and they are separate because they are judged at
     different times against different things. What they share is the sentence
@@ -1453,17 +1504,19 @@ def _tier_rejection(manifest: TutorialManifest, *, field_name: str, may_not: str
     what keeps five messages agreeing on how they name the tier and the field,
     which is the part of them a reader compares when one fires.
     """
+    # Development references: FR-020a.
     return _fail(manifest.path, field_name, f"a {manifest.source_kind.value}-level tutorial may not {may_not}")
 
 
 def validate_tier_rules(manifest: TutorialManifest) -> None:
-    """Apply the tier rules judgeable from the declaration alone (FR-020, FR-020a).
+    """Apply the tier rules judgeable from the declaration alone.
 
     Rejects, for ``user`` and ``project``: a ``driver`` field, a ``replay``
     action, and a write or copy destination whose first segment names a
     directory the product imports or executes. Each rejection names the tier,
     the field, and the restriction.
     """
+    # Development references: FR-020, FR-020a.
     if manifest.source_kind.allows_executable_content:
         # The driver check is inside the gate rather than before it: a core or
         # package tutorial may declare one, so there is nothing to reject.
@@ -1495,7 +1548,7 @@ def validate_tier_rules(manifest: TutorialManifest) -> None:
 
 
 def validate_tier_assets(manifest: TutorialManifest) -> None:
-    """Apply the tier rules that need the directory on disk (FR-020a).
+    """Apply the tier rules that need the directory on disk.
 
     Two checks. A ``user``- or ``project``-level tutorial may not *carry* an
     asset under ``assets/code/``, ``assets/panels/`` or ``assets/replay/``. And
@@ -1503,6 +1556,7 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
     project directory is rejected as well, because copying a directory to the
     project root reaches ``blocks/`` just as directly as naming it.
     """
+    # Development references: FR-020a.
     if manifest.source_kind.allows_executable_content:
         return
     for name in sorted(EXECUTABLE_ASSET_DIRS):
@@ -1522,15 +1576,16 @@ def validate_tier_assets(manifest: TutorialManifest) -> None:
 
 
 def validate_step_pages(manifest: TutorialManifest) -> None:
-    """Every declared page names a file under ``assets/pages/`` (FR-011, FR-014).
+    """Every declared page names a file under ``assets/pages/``.
 
-    Checked at load rather than at read, for FR-014's reason: a reading step
+    Checked at load rather than at read, because a reading step
     whose page is missing should fail the tutorial while it is being listed,
     not fail the reader on the page turn. A name is accepted with or without
     its extension — the same rule the pages route applies when serving one —
     and containment is enforced first, so ``../`` cannot reach outside the
     pages directory whichever spelling is used.
     """
+    # Development references: FR-011, FR-014.
     pages_dir = manifest.assets_dir / "pages"
     for index, step in enumerate(manifest.steps):
         for page in step.pages:

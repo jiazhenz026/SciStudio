@@ -1,17 +1,19 @@
-"""docs_landing calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: governed change without docs/changelog/checklist landing or an
-explicit N/A rationale.
-
-Ported from the legacy ``docs_landing`` (deleted on this branch). The
-implementation/governance surface classification now comes from the evaluator's
-single ``surfaces`` classifier instead of the guard's own
-``IMPLEMENTATION_PREFIXES``/``GOVERNANCE_PREFIXES`` sets. Docs evidence is
-reconciled against the observed diff: only ``verified_docs_paths`` (declared docs
-paths the evaluator confirmed are in the diff) count, never claimed-but-unverified
-paths (spec §3.3.4). A docs N/A rationale supplied by the evaluator (via
-``extras['docs_na']``) satisfies the obligation.
-"""
+"""Docs_landing calculator."""
+# Maintainer context (kept outside generated API documentation):
+# docs_landing calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: governed change without docs/changelog/checklist landing or an
+# explicit N/A rationale.
+#
+# Ported from the legacy ``docs_landing`` (deleted on this branch). The
+# implementation/governance surface classification now comes from the evaluator's
+# single ``surfaces`` classifier instead of the guard's own
+# ``IMPLEMENTATION_PREFIXES``/``GOVERNANCE_PREFIXES`` sets. Docs evidence is
+# reconciled against the observed diff: only ``verified_docs_paths`` (declared docs
+# paths the evaluator confirmed are in the diff) count, never claimed-but-unverified
+# paths (spec §3.3.4). A docs N/A rationale supplied by the evaluator (via
+# ``extras['docs_na']``) satisfies the obligation.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

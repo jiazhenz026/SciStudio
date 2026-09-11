@@ -1,31 +1,33 @@
-"""CodeBlock v2 backend-registry primitives.
-
-Issue #1482: extracted from :mod:`scistudio.blocks.code.code_block` to
-break the static import cycle between ``code_block`` and
-:mod:`scistudio.blocks.code.validation`. ``validation._script_extension_diagnostics``
-needs ``list_codeblock_backends`` to surface the registered extension
-set; importing it from ``code_block`` (which itself imports
-``validate_codeblock_config`` from ``validation``) creates the cycle
-that sentrux flags. Putting the registry primitives in their own
-module makes ``validation → _backends_registry`` a one-way edge and
-keeps ``code_block`` free to depend on both without re-introducing a
-cycle.
-
-Public surface (re-exported by ``code_block`` for backward
-compatibility with the ``backends/*`` modules that import these
-names from ``code_block``):
-
-- :class:`CodeBlockBackend` — Protocol every backend implements.
-- :class:`CodeBlockRuntimeContext` — frozen dataclass passed to backends.
-- :func:`register_codeblock_backend` / :func:`unregister_codeblock_backend`
-  — mutate the in-process registry.
-- :func:`list_codeblock_backends` / :func:`resolve_codeblock_backend`
-  — read the registry; both trigger
-  :func:`ensure_codeblock_backends_loaded` so first use lazy-loads the
-  built-in backend modules.
-- :func:`ensure_codeblock_backends_loaded` — idempotent entry point.
-- :func:`run_codeblock_process` — interpreter subprocess wrapper.
-"""
+"""CodeBlock v2 backend-registry primitives."""
+# Maintainer context (kept outside generated API documentation):
+# CodeBlock v2 backend-registry primitives.
+#
+# Issue #1482: extracted from :mod:`scistudio.blocks.code.code_block` to
+# break the static import cycle between ``code_block`` and
+# :mod:`scistudio.blocks.code.validation`. ``validation._script_extension_diagnostics``
+# needs ``list_codeblock_backends`` to surface the registered extension
+# set; importing it from ``code_block`` (which itself imports
+# ``validate_codeblock_config`` from ``validation``) creates the cycle
+# that sentrux flags. Putting the registry primitives in their own
+# module makes ``validation → _backends_registry`` a one-way edge and
+# keeps ``code_block`` free to depend on both without re-introducing a
+# cycle.
+#
+# Public surface (re-exported by ``code_block`` for backward
+# compatibility with the ``backends/*`` modules that import these
+# names from ``code_block``):
+#
+# - :class:`CodeBlockBackend` — Protocol every backend implements.
+# - :class:`CodeBlockRuntimeContext` — frozen dataclass passed to backends.
+# - :func:`register_codeblock_backend` / :func:`unregister_codeblock_backend`
+#   — mutate the in-process registry.
+# - :func:`list_codeblock_backends` / :func:`resolve_codeblock_backend`
+#   — read the registry; both trigger
+#   :func:`ensure_codeblock_backends_loaded` so first use lazy-loads the
+#   built-in backend modules.
+# - :func:`ensure_codeblock_backends_loaded` — idempotent entry point.
+# - :func:`run_codeblock_process` — interpreter subprocess wrapper.
+# Development references: #1482.
 
 from __future__ import annotations
 

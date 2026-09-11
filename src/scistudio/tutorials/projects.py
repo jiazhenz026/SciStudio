@@ -1,37 +1,40 @@
-"""Tutorial projects and the tutorial-scoped library.
-
-``docs/specs/adr-053-learning-center.md`` FR-062 to FR-073. A tutorial
-declaring ``bootstrap`` gets a project of its own, created under one parent
-directory, marked so it never reaches a project-listing surface, deleted and
-recreated when the tutorial is restarted, and deleted along with the scoped
-library when the user clears tutorial data.
-
-**This module decides; it does not act on the runtime.** Creating a project is
-:meth:`scistudio.api.runtime.ApiRuntime.create_project`'s job — it scaffolds the
-directory tree, writes ``project.yaml``, initializes git, provisions agent
-assets, and records the known-projects entry that FR-063 requires. What is
-tutorial-specific is *where* the project goes, *what it is called*, *which
-identity it carries*, and *what is deleted when*. Those are here, expressed as
-plans and paths the API layer applies, because ``scistudio.tutorials`` may not
-import ``scistudio.api`` (checklist §6.1.2) and because the same answers are
-needed by the session, the restart confirmation, and the clear confirmation,
-which are three different callers.
-
-**Identity is the pair of source and tutorial id** (FR-019), so
-:class:`TutorialKey` carries both and the marker on the known-projects entry
-carries both. Two packages may ship a tutorial called ``intro`` and both must be
-able to have a project on disk at the same time, which is why the directory name
-encodes the source as well (:func:`tutorial_project_dir_name`).
-
-**Containment is by location.** Every tutorial project is a direct child of
-:func:`scistudio.core.dropins.tutorial_parent_dir`, and the scoped library is
-the one other child. That is what lets :func:`clear_preview` name what clearing
-deletes without consulting the known-projects registry, what lets
-:func:`scistudio.core.dropins.library_root_for_project` route a tutorial
-project's drop-in scans to the teaching library instead of the user's own
-(FR-070, FR-071), and what makes "leave user projects untouched" (FR-073) true
-by construction rather than by a filter that could be got wrong.
-"""
+"""Tutorial projects and the tutorial-scoped library."""
+# Maintainer context (kept outside generated API documentation):
+# Tutorial projects and the tutorial-scoped library.
+#
+# ``docs/specs/adr-053-learning-center.md`` FR-062 to FR-073. A tutorial
+# declaring ``bootstrap`` gets a project of its own, created under one parent
+# directory, marked so it never reaches a project-listing surface, deleted and
+# recreated when the tutorial is restarted, and deleted along with the scoped
+# library when the user clears tutorial data.
+#
+# **This module decides; it does not act on the runtime.** Creating a project is
+# :meth:`scistudio.api.runtime.ApiRuntime.create_project`'s job — it scaffolds the
+# directory tree, writes ``project.yaml``, initializes git, provisions agent
+# assets, and records the known-projects entry that FR-063 requires. What is
+# tutorial-specific is *where* the project goes, *what it is called*, *which
+# identity it carries*, and *what is deleted when*. Those are here, expressed as
+# plans and paths the API layer applies, because ``scistudio.tutorials`` may not
+# import ``scistudio.api`` (checklist §6.1.2) and because the same answers are
+# needed by the session, the restart confirmation, and the clear confirmation,
+# which are three different callers.
+#
+# **Identity is the pair of source and tutorial id** (FR-019), so
+# :class:`TutorialKey` carries both and the marker on the known-projects entry
+# carries both. Two packages may ship a tutorial called ``intro`` and both must be
+# able to have a project on disk at the same time, which is why the directory name
+# encodes the source as well (:func:`tutorial_project_dir_name`).
+#
+# **Containment is by location.** Every tutorial project is a direct child of
+# :func:`scistudio.core.dropins.tutorial_parent_dir`, and the scoped library is
+# the one other child. That is what lets :func:`clear_preview` name what clearing
+# deletes without consulting the known-projects registry, what lets
+# :func:`scistudio.core.dropins.library_root_for_project` route a tutorial
+# project's drop-in scans to the teaching library instead of the user's own
+# (FR-070, FR-071), and what makes "leave user projects untouched" (FR-073) true
+# by construction rather than by a filter that could be got wrong.
+# Development references: FR-019, FR-062, FR-063, FR-070, FR-071, FR-073, docs/specs/adr-053-learning-
+# center.md.
 
 from __future__ import annotations
 
@@ -94,7 +97,7 @@ RemoveTree = Callable[[Path], None]
 @provisional(since="0.3.4")
 @dataclass(frozen=True)
 class TutorialKey:
-    """A tutorial's identity: its source and its id (FR-019, FR-075).
+    """A tutorial's identity: its source and its id.
 
     ``source_id`` is ``""`` for core, the distribution name for a package, and
     ``"user"`` or ``"project"`` for the two local tiers — the same spelling the
@@ -102,6 +105,8 @@ class TutorialKey:
     discovery through the project marker to the progress record without being
     re-encoded at each boundary.
     """
+
+    # Development references: FR-019, FR-075.
 
     source_kind: str
     source_id: str
@@ -122,18 +127,21 @@ class TutorialKey:
 
     @property
     def group(self) -> tuple[str, str]:
-        """Return the progress group this tutorial belongs to (FR-076)."""
+        """Return the progress group this tutorial belongs to."""
+        # Development references: FR-076.
         return (self.source_kind, self.source_id)
 
 
 @runtime_checkable
 class SupportsTutorialMarker(Protocol):
-    """Structural view of a known-projects entry carrying the FR-064 marker.
+    """Structural view of a known-projects entry carrying the marker.
 
     :class:`scistudio.api.runtime.models.KnownProject` satisfies it. Declared
     structurally so this module stays free of any import of the API layer, the
     same device :class:`scistudio.core.dropins.SupportsScanDirs` uses.
     """
+
+    # Development references: FR-064.
 
     path: str
     tutorial_source_kind: str | None
@@ -147,9 +155,11 @@ class TutorialProjectPlan:
 
     A plan rather than a call, because the caller that has to make the call is
     the one holding the ``ApiRuntime`` this module may not import. The same plan
-    also answers the FR-067 confirmation, which needs the directory named before
+    also answers the confirmation, which needs the directory named before
     anything is created or deleted.
     """
+
+    # Development references: FR-067.
 
     key: TutorialKey
     parent: Path
@@ -171,12 +181,13 @@ def tutorial_project_dir_name(key: TutorialKey) -> str:
     it is: ``~/SciStudio Tutorials/welcome-to-scistudio``. Every other source
     prefixes its kind and id, separated by :data:`_COMPONENT_SEPARATOR`.
 
-    The scheme is injective, which FR-019 needs it to be: slugs contain no dot,
+    The scheme is injective, which needs it to be: slugs contain no dot,
     so a core name (no dot) can never equal a non-core one (two dots), and two
     non-core names are equal only when all three components are. Two packages
     shipping ``intro`` therefore get two directories rather than one they fight
     over.
     """
+    # Development references: FR-019.
     tutorial = _slug(key.tutorial_id) or "tutorial"
     if key.source_kind == "core":
         return tutorial
@@ -185,12 +196,13 @@ def tutorial_project_dir_name(key: TutorialKey) -> str:
 
 
 def tutorial_project_path(key: TutorialKey) -> Path:
-    """Return where *key*'s tutorial project lives (FR-062, FR-066).
+    """Return where *key*'s tutorial project lives.
 
-    A pure function of the identity, which is what makes FR-066's "creates a new
+    A pure function of the identity, which is what makes the API's "creates a new
     one at the same location" true without recording the previous location
     anywhere.
     """
+    # Development references: FR-062, FR-066.
     return tutorial_parent_dir() / tutorial_project_dir_name(key)
 
 
@@ -227,9 +239,10 @@ def tutorial_key_of(entry: SupportsTutorialMarker) -> TutorialKey | None:
     The marker is read as a whole: an entry is a tutorial project only when it
     carries a complete identity, so a half-written entry is treated as a user
     project. That is the safe direction — a user project wrongly marked would
-    vanish from every listing surface (FR-065) with no way for the user to find
+    vanish from every listing surface with no way for the user to find
     it again, while a tutorial project wrongly unmarked is merely visible.
     """
+    # Development references: FR-065.
     kind = entry.tutorial_source_kind
     tutorial_id = entry.tutorial_id
     if not kind or not tutorial_id or kind not in SOURCE_KINDS:
@@ -238,10 +251,11 @@ def tutorial_key_of(entry: SupportsTutorialMarker) -> TutorialKey | None:
 
 
 def is_tutorial_entry(entry: SupportsTutorialMarker) -> bool:
-    """Return whether *entry* is a tutorial project (FR-064).
+    """Return whether *entry* is a tutorial project.
 
-    The predicate the listing route filters on (FR-065).
+    The predicate the listing route filters on.
     """
+    # Development references: FR-064, FR-065.
     return tutorial_key_of(entry) is not None
 
 
@@ -253,9 +267,10 @@ def tutorial_entries(entries: Iterable[SupportsTutorialMarker]) -> tuple[Support
 def find_tutorial_project(entries: Iterable[SupportsTutorialMarker], key: TutorialKey) -> SupportsTutorialMarker | None:
     """Return the known-projects entry for *key*, or ``None``.
 
-    What FR-066 resolves against: restarting deletes *that tutorial's* previous
+    What resolves against: restarting deletes *that tutorial's* previous
     project, and the registry is the record of which one that was.
     """
+    # Development references: FR-066.
     for entry in entries:
         if tutorial_key_of(entry) == key:
             return entry
@@ -268,7 +283,7 @@ def find_tutorial_project(entries: Iterable[SupportsTutorialMarker], key: Tutori
 
 
 def tutorial_project_exists(path: str | Path) -> bool:
-    """Return whether *path* is still a usable project directory (FR-069).
+    """Return whether *path* is still a usable project directory.
 
     A tutorial project the user deleted outside the product must invalidate its
     session on the next interaction and be offered from the start. The session
@@ -276,30 +291,33 @@ def tutorial_project_exists(path: str | Path) -> bool:
     :meth:`scistudio.api.runtime.ApiRuntime.list_projects` prunes stale entries
     on, so the two agree about what "gone" means.
     """
+    # Development references: FR-069.
     target = Path(path)
     return target.is_dir() and (target / "project.yaml").is_file()
 
 
 def ensure_tutorial_parent() -> Path:
-    """Create and return :func:`tutorial_parent_dir` (FR-062)."""
+    """Create and return :func:`tutorial_parent_dir`."""
+    # Development references: FR-062.
     parent = tutorial_parent_dir()
     parent.mkdir(parents=True, exist_ok=True)
     return parent
 
 
 def scoped_library_dirs() -> tuple[Path, ...]:
-    """Return the tutorial-scoped library's tier directories (FR-070).
+    """Return the tutorial-scoped library's tier directories.
 
-    ``previewers/`` sits beside ``blocks/`` and ``types/`` (#2086): the level
+    ``previewers/`` sits beside ``blocks/`` and ``types/``: the level
     designs have one tutorial's previewer travel to the next tutorial's project,
     which needs the same swap the other two kinds already make.
     """
+    # Development references: #2086, FR-070.
     root = tutorial_library_dir()
     return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME, root / PREVIEWERS_DIR_NAME)
 
 
 def ensure_scoped_library() -> Path:
-    """Create the tutorial-scoped library and return its root (FR-070).
+    """Create the tutorial-scoped library and return its root.
 
     Created eagerly at bootstrap rather than on first write, because the
     save-to-library action the scenarios teach has to land somewhere and a
@@ -307,6 +325,7 @@ def ensure_scoped_library() -> Path:
     Every registry skips missing scan directories, so an empty library costs
     nothing until something is saved into it.
     """
+    # Development references: FR-070.
     root = tutorial_library_dir()
     for directory in scoped_library_dirs():
         directory.mkdir(parents=True, exist_ok=True)
@@ -354,10 +373,11 @@ def _guarded_remove(target: Path, remove_tree: RemoveTree | None) -> bool:
 
     Every deleting entry point funnels through here. The check is not
     defense-in-depth against this module's own callers so much as the one place
-    the FR-073 promise — user projects are untouched — is enforced: nothing
+    the promise — user projects are untouched — is enforced: nothing
     outside :func:`scistudio.core.dropins.tutorial_parent_dir` can be removed by
     any function in this module, whatever it is handed.
     """
+    # Development references: FR-073.
     if not is_tutorial_location(target):
         raise ValueError(f"Refusing to delete {target}: not inside {tutorial_parent_dir()}")
     if target.resolve() == tutorial_parent_dir().resolve():
@@ -371,12 +391,13 @@ def _guarded_remove(target: Path, remove_tree: RemoveTree | None) -> bool:
 def restart_preview(entries: Iterable[SupportsTutorialMarker], key: TutorialKey) -> Path | None:
     """Return the directory restarting *key* would delete, or ``None``.
 
-    The data FR-067's confirmation needs, which is the directory itself: the
+    The data the restart confirmation needs, which is the directory itself: the
     label says "restart" while the effect is deleting a folder, and the user is
     entitled to see which one before agreeing. Read from the known-projects
     entry rather than recomputed from the identity, so what is named is what
     exists.
     """
+    # Development references: FR-067.
     entry = find_tutorial_project(entries, key)
     if entry is None:
         return None
@@ -387,14 +408,15 @@ def restart_preview(entries: Iterable[SupportsTutorialMarker], key: TutorialKey)
 def delete_tutorial_project(path: str | Path, *, remove_tree: RemoveTree | None = None) -> bool:
     """Delete one tutorial project directory; return whether it existed.
 
-    FR-066's first half. Removing the known-projects entry is the caller's, for
+    Remove the directory. Removing the known-projects entry is the caller's responsibility, for
     the same reason creation is: the registry lives on the ``ApiRuntime``.
     """
+    # Development references: FR-066.
     return _guarded_remove(Path(path), remove_tree)
 
 
 def clear_preview() -> tuple[Path, ...]:
-    """Return the directories clearing tutorial data would delete (FR-088).
+    """Return the directories clearing tutorial data would delete.
 
     Every tutorial project plus the scoped library, in that order, and only the
     ones that exist — a confirmation listing directories that are not there
@@ -403,6 +425,7 @@ def clear_preview() -> tuple[Path, ...]:
     because a project whose entry was pruned (its ``project.yaml`` removed by
     hand, say) is still a directory the user asked to be rid of.
     """
+    # Development references: FR-088.
     parent = tutorial_parent_dir()
     if not parent.is_dir():
         return ()
@@ -412,7 +435,7 @@ def clear_preview() -> tuple[Path, ...]:
 
 
 def clear_tutorial_data(*, remove_tree: RemoveTree | None = None) -> tuple[Path, ...]:
-    """Delete every tutorial project and the scoped library (FR-073).
+    """Delete every tutorial project and the scoped library.
 
     Returns what was actually deleted, which is what the response reports rather
     than the preview it was asked to confirm: the two can differ if something
@@ -424,6 +447,7 @@ def clear_tutorial_data(*, remove_tree: RemoveTree | None = None) -> tuple[Path,
     anyway, and removing it would also remove anything the user had put beside a
     tutorial project without telling us.
     """
+    # Development references: FR-073.
     deleted: list[Path] = []
     for target in clear_preview():
         if _guarded_remove(target, remove_tree):

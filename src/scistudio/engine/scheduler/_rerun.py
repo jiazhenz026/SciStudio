@@ -1,17 +1,19 @@
-"""Rerun, reset, and graph-traversal helpers for :class:`DAGScheduler`.
-
-ADR-046 §3 (Rerun / graph group): extracted verbatim from the original
-``engine/scheduler.py`` god-file. Pure structural move per umbrella
-#1427 Phase 3 — no behavior changes. ADR-018 Addendum 1 cancellation
-semantics (terminate subprocess → cancel task → drain) are preserved
-byte-identically.
-
-Each function is a free function whose first parameter is ``self`` —
-they are bound onto :class:`DAGScheduler` in
-``scheduler/__init__.py`` via class-body static assignment so griffe
-emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
-fact (see ADR-042 + the doc/closure audit walker).
-"""
+"""Rerun, reset, and graph-traversal helpers for :class:`DAGScheduler`."""
+# Maintainer context (kept outside generated API documentation):
+# Rerun, reset, and graph-traversal helpers for :class:`DAGScheduler`.
+#
+# ADR-046 §3 (Rerun / graph group): extracted verbatim from the original
+# ``engine/scheduler.py`` god-file. Pure structural move per umbrella
+# #1427 Phase 3 — no behavior changes. ADR-018 Addendum 1 cancellation
+# semantics (terminate subprocess → cancel task → drain) are preserved
+# byte-identically.
+#
+# Each function is a free function whose first parameter is ``self`` —
+# they are bound onto :class:`DAGScheduler` in
+# ``scheduler/__init__.py`` via class-body static assignment so griffe
+# emits the canonical ``scistudio.engine.scheduler.DAGScheduler.<method>``
+# fact (see ADR-042 + the doc/closure audit walker).
+# Development references: #1427, ADR-018, ADR-042, ADR-046, Addendum 1.
 
 from __future__ import annotations
 
@@ -35,9 +37,10 @@ async def _cancel_if_active(self: DAGScheduler, block_id: str) -> None:
     terminates the subprocess handle (when present) or cancels the
     asyncio task, then awaits its completion so the task entry is
     removed from ``_active_tasks`` before the caller re-dispatches
-    the block.  Introduced to fix #424 — rerunning a RUNNING block
+    the block.  Introduced to fix — rerunning a RUNNING block
     must kill the previous subprocess first.
     """
+    # Development references: #424.
     if self._block_states.get(block_id) != BlockState.RUNNING:
         return
     task = self._active_tasks.get(block_id)
@@ -138,15 +141,15 @@ async def _drain_active_tasks(self: DAGScheduler) -> None:
 async def _cancel_active_tasks_on_shutdown(self: DAGScheduler) -> None:
     """Best-effort cleanup of any tasks still running on shutdown.
 
-    Called from ``execute()``'s ``finally`` block (ADR-018
-    Addendum 1). Iterates every entry in ``self._active_tasks``:
+    Called from ``execute()``'s ``finally`` block. Iterates every entry in ``self._active_tasks``:
 
     1. If a ``ProcessHandle`` is registered, terminate the
-       subprocess via the ADR-019 path.
+       subprocess via the path.
     2. If the task is still not done, cancel it and await its
        completion. Swallows any exception because this runs inside
        a ``finally`` clause and must not mask the original error.
     """
+    # Development references: ADR-018, ADR-019, Addendum 1.
     for block_id, task in list(self._active_tasks.items()):
         handle = None
         if self._process_registry is not None:

@@ -1,39 +1,42 @@
-"""Step actions — what entering a tutorial step *does* before it says anything.
-
-ADR-053 Learning Center spec, FR-056 … FR-061c
-(``docs/specs/adr-053-learning-center.md``).
-
-Three things live here and nothing else:
-
-* the **action model and its parser** — ``write``, ``copy``, ``replay``;
-* **path containment** — FR-014's "an asset path resolves inside the tutorial
-  directory" and FR-015's "a write destination resolves inside the tutorial
-  project", both enforced *at validation* so a bad tutorial fails while it is
-  being listed rather than while it is writing files into a user's project;
-* **execution**, including the replay segment ordering FR-061b requires.
-
-This module imports nothing else from :mod:`scistudio.tutorials`, which is what
-lets :mod:`scistudio.tutorials.manifest` import it. It never imports
-``scistudio.api``: the API layer injects the replay delivery it owns
-(checklist §6.1.2, §6.1.7).
-
-Ordering is a property of the API, not a convention (FR-059)
---------------------------------------------------------------
-
-A step that says "we have written this block for you" must not be readable
-before the block exists. :func:`perform_step_entry` is therefore the only way
-to obtain a step's display payload: it runs the step's actions first and calls
-the caller's ``reveal`` callback afterwards. A driver that wants the step text
-has to go through the actions to get it.
-
-Overwriting is deliberate
--------------------------
-
-A write action whose destination the user has already edited overwrites it
-(spec §2 Edge Cases). Tutorial projects are disposable and the designed
-scenarios depend on the tutorial controlling their contents; the step text says
-when it writes.
-"""
+"""Step actions — what entering a tutorial step *does* before it says anything."""
+# Maintainer context (kept outside generated API documentation):
+# Step actions — what entering a tutorial step *does* before it says anything.
+#
+# ADR-053 Learning Center spec, FR-056 … FR-061c
+# (``docs/specs/adr-053-learning-center.md``).
+#
+# Three things live here and nothing else:
+#
+# * the **action model and its parser** — ``write``, ``copy``, ``replay``;
+# * **path containment** — FR-014's "an asset path resolves inside the tutorial
+#   directory" and FR-015's "a write destination resolves inside the tutorial
+#   project", both enforced *at validation* so a bad tutorial fails while it is
+#   being listed rather than while it is writing files into a user's project;
+# * **execution**, including the replay segment ordering FR-061b requires.
+#
+# This module imports nothing else from :mod:`scistudio.tutorials`, which is what
+# lets :mod:`scistudio.tutorials.manifest` import it. It never imports
+# ``scistudio.api``: the API layer injects the replay delivery it owns
+# (checklist §6.1.2, §6.1.7).
+#
+# Ordering is a property of the API, not a convention (FR-059)
+# --------------------------------------------------------------
+#
+# A step that says "we have written this block for you" must not be readable
+# before the block exists. :func:`perform_step_entry` is therefore the only way
+# to obtain a step's display payload: it runs the step's actions first and calls
+# the caller's ``reveal`` callback afterwards. A driver that wants the step text
+# has to go through the actions to get it.
+#
+# Overwriting is deliberate
+# -------------------------
+#
+# A write action whose destination the user has already edited overwrites it
+# (spec §2 Edge Cases). Tutorial projects are disposable and the designed
+# scenarios depend on the tutorial controlling their contents; the step text says
+# when it writes.
+# Development references: ADR-053, FR-014, FR-015, FR-056, FR-059, FR-061b, FR-061c,
+# docs/specs/adr-053-learning-center.md.
 
 from __future__ import annotations
 
@@ -96,7 +99,7 @@ block's terminal opening does not end the conversation that asked for it.
 """
 
 REPLAY_SURFACES: frozenset[str] = frozenset({AI_CHAT_TERMINAL_SURFACE, AI_BLOCK_TERMINAL_SURFACE})
-"""FR-061a: the closed, core-owned set of surfaces a replay action may name.
+"""The closed, core-owned set of surfaces a replay action may name.
 
 This is the *single* declaration. The published manifest schema deliberately
 does not restate it (``tutorial.schema.json`` types ``surface`` as a plain
@@ -105,9 +108,14 @@ step. A manifest naming a surface outside this set is rejected by
 :func:`parse_action` at validation.
 
 Byte delivery does not live here — the PTY injection that feeds the AI Chat
-terminal is a separate slice (checklist §6.1.7). This module defines the
+terminal is a separate slice. This module defines the
 sequence and the :class:`ReplayDelivery` interface that slice drives.
 """
+# Maintainer context:
+# Byte delivery does not live here — the PTY injection that feeds the AI Chat
+# terminal is a separate slice (checklist §6.1.7). This module defines the
+# sequence and the :class:`ReplayDelivery` interface that slice drives.
+# Development references: FR-061a.
 
 
 EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
@@ -136,9 +144,9 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
 )
 """Project paths the product imports, executes, or reads to configure execution.
 
-FR-020a names ``blocks/``, ``types/``, ``previewers/`` and ``plots/`` as a
+The ``blocks/``, ``types/``, ``previewers/`` and ``plots/`` directories form a
 floor — "at minimum" — not as the whole answer, and the first four alone are
-not enough to make SC-012 true. ``create_project`` provisions an agent tree
+not enough to make true. ``create_project`` provisions an agent tree
 into **every** project including tutorial ones
 (``api/runtime/_projects.py`` calls ``install_project_agent_assets``), and the
 AI PTY spawns with ``cwd`` set to the project root, so every provider's
@@ -159,7 +167,7 @@ Two rules decided the membership, and both matter:
 
 Deliberately *not* here: ``user-guide/`` and ``docs/``, which the provisioner
 also writes and the agent can read through its search tools. Those influence
-what an agent is told, not what the product imports or runs, and FR-020a is
+what an agent is told, not what the product imports or runs, and the contract is
 about executable code. That is a real question, but a broader one than this
 requirement, and quietly folding it in here would misrepresent what this set
 means.
@@ -172,6 +180,7 @@ these; see :func:`scistudio.tutorials.manifest.validate_tier_rules`, which owns
 the tier grading because it owns
 :class:`~scistudio.tutorials.manifest.TutorialSourceKind`.
 """
+# Development references: FR-020a, SC-012.
 
 _EXECUTED_BY_FOLDED_NAME: Mapping[str, str] = {entry.casefold(): entry for entry in EXECUTED_PROJECT_PATHS}
 
@@ -193,11 +202,13 @@ class ActionValidationError(ValueError):
 
 
 class ActionExecutionError(RuntimeError):
-    """An action failed while a step was being entered (FR-060).
+    """An action failed while a step was being entered.
 
     Carries the step id and the action so the session layer can end the session
     with an error naming both, rather than advancing silently.
     """
+
+    # Development references: FR-060.
 
     def __init__(self, *, step_id: str, action: Action, reason: str) -> None:
         self.step_id = step_id
@@ -225,10 +236,11 @@ def validate_relative_path(relative: str, *, field_name: str) -> PurePosixPath:
     (:func:`scistudio.tutorials.manifest.validate_tier_assets`), which is a
     better answer than forbidding the root and leaving the reason unstated.
 
-    The check is lexical on purpose. FR-014 and FR-015 require rejection *at
+    The check is lexical so invalid paths are rejected *at
     validation*, when the tutorial project may not exist yet, so it cannot
     depend on resolving anything on disk.
     """
+    # Development references: FR-014, FR-015.
     if not relative or not relative.strip():
         raise ActionValidationError(f"{field_name}: path must not be empty")
     if relative == ".":
@@ -270,11 +282,12 @@ def executed_project_path_hit(relative: str) -> str | None:
 def resolve_contained_path(base: Path, relative: str, *, field_name: str) -> Path:
     """Resolve ``relative`` under ``base`` and reject anything that escapes it.
 
-    Used with the tutorial directory for asset sources (FR-014) and with the
-    tutorial project for destinations (FR-015). When ``base`` exists the real
+    Used with the tutorial directory for asset sources and with the
+    tutorial project for destinations. When ``base`` exists the real
     paths are compared as well, so a symlink planted inside the base cannot
     carry a write outside it.
     """
+    # Development references: FR-014, FR-015.
     validate_relative_path(relative, field_name=field_name)
     base_norm = Path(os.path.normpath(str(base)))
     candidate = Path(os.path.normpath(str(base_norm / relative)))
@@ -300,9 +313,14 @@ def resolve_contained_path(base: Path, relative: str, *, field_name: str) -> Pat
 class WriteAction:
     """Write one asset file into the tutorial project.
 
-    Available at any step, not only at bootstrap (FR-058). An existing
-    destination is overwritten (spec §2 Edge Cases).
+    Available at any step, not only at bootstrap. An existing
+    destination is overwritten.
     """
+
+    # Maintainer context:
+    # Available at any step, not only at bootstrap. An existing
+    # destination is overwritten (spec §2 Edge Cases).
+    # Development references: FR-058.
 
     source: str
     """Tutorial-directory-relative path of the asset to write."""
@@ -336,7 +354,7 @@ FileAction = WriteAction | CopyAction
 @provisional(since="0.3.4")
 @dataclass(frozen=True)
 class RunAction:
-    """Start a real workflow run from a step (FR-061d).
+    """Start a real workflow run from a step.
 
     The tutorial runtime could already *observe* runs -- ``run_succeeded`` and
     ``run_failed`` judge steps on them -- but not start one, so every run in
@@ -352,6 +370,8 @@ class RunAction:
     reader-pressed Run already went through, so nothing new judges it.
     """
 
+    # Development references: FR-061d.
+
     workflow: str
     """Tutorial-project-relative path of the workflow YAML to run."""
 
@@ -360,7 +380,9 @@ class RunAction:
 
 @dataclass(frozen=True)
 class ReplaySegment:
-    """One ordered piece of a replay, with the actions bound to it (FR-061b)."""
+    """One ordered piece of a replay, with the actions bound to it."""
+
+    # Development references: FR-061b.
 
     id: str
     source: str
@@ -369,23 +391,26 @@ class ReplaySegment:
     """The actions bound to this segment.
 
     Write and copy actions MUST land before the segment's bytes are delivered
-    (FR-061b, as revised by #2083 for a paced surface). A ``run`` bound here
+    (as revised by  for a paced surface). A ``run`` bound here
     starts after every one of them has landed and settled -- a reply that
     writes a block and then runs a workflow that uses it cannot be allowed to
     race its own registry re-scan.
     """
+    # Development references: #2083, FR-061b.
 
 
 @provisional(since="0.3.4")
 @dataclass(frozen=True)
 class ReplayAction:
-    """Replay scripted material into one named surface (FR-061, FR-061a, FR-061b).
+    """Replay scripted material into one named surface.
 
     How a tutorial shows a conversation that would otherwise need a live model:
     the material is scripted, and the surface renders it as though it had just
     arrived. A segment may bind to the file actions that must land first, so
     text claiming a file was written cannot be read before the file exists.
     """
+
+    # Development references: FR-061, FR-061a, FR-061b.
 
     surface: str
     """The surface to replay into; one of :data:`REPLAY_SURFACES`."""
@@ -408,7 +433,8 @@ SegmentAction = FileAction | RunAction
 """What a replay segment may bind: the file actions, plus starting a run."""
 
 Action = WriteAction | CopyAction | ReplayAction | RunAction
-"""Every action a step may declare (FR-057)."""
+"""Every action a step may declare."""
+# Development references: FR-057.
 
 
 RunPort = Callable[[str], None]
@@ -465,7 +491,7 @@ def _require_declaration(
     The three things this module parses out of a manifest — a file action, a
     replay, a replay segment — each open with the same two rejections: a body
     that is not a mapping, and a key the format does not define. Both messages
-    have to name the declaration's own field path for FR-013's errors to point
+    have to name the declaration's own field path for the API's errors to point
     at the right place, so the caller passes that path in rather than three
     parsers separately agreeing on how to build it.
 
@@ -473,6 +499,7 @@ def _require_declaration(
     ``also_accepts`` are accepted without being named, which is a segment's
     optional ``do``.
     """
+    # Development references: FR-013.
     if not isinstance(raw, Mapping):
         raise ActionValidationError(f"{field_name}: expected a mapping with {' and '.join(repr(key) for key in keys)}")
     unknown = set(raw) - set(keys) - set(also_accepts)
@@ -615,8 +642,9 @@ def parse_segment_actions(raw: Any, *, field_name: str) -> tuple[SegmentAction, 
     A segment may not nest a replay -- a scripted reply that opens another
     scripted reply is not a thing the format means -- but it may start a run,
     which is how a transcript that says "running it now" comes to be telling
-    the truth (FR-061d).
+    the truth.
     """
+    # Development references: FR-061d.
     parsed = _parse_action_list(
         raw,
         field_name=field_name,
@@ -629,9 +657,10 @@ def parse_segment_actions(raw: Any, *, field_name: str) -> tuple[SegmentAction, 
 def iter_file_actions(actions: Iterable[Action]) -> Iterable[FileAction]:
     """Yield every write and copy an action list performs, including inside replays.
 
-    The tier rules (FR-020a) and the containment checks need every destination a
+    The tier rules and the containment checks need every destination a
     tutorial can reach, and a replay reaches destinations through its segments.
     """
+    # Development references: FR-020a.
     for action in actions:
         if isinstance(action, RunAction):
             # No source and no destination: nothing for a tier rule or a
@@ -650,9 +679,10 @@ def iter_asset_sources(action: Action) -> Iterable[tuple[str, str]]:
     """Yield ``(suffix, source)`` for every asset one action reads.
 
     ``suffix`` names the sub-field within the action, so a caller that knows
-    where the action was declared can build the full field name FR-013's error
+    where the action was declared can build the full field name the API's error
     messages need.
     """
+    # Development references: FR-013.
     if isinstance(action, RunAction):
         return
     if isinstance(action, ReplayAction):
@@ -677,18 +707,23 @@ class ActionContext:
 
     tutorial_dir: Path
     project_dir: Path | None
-    """``None`` for a tutorial that declares no ``bootstrap`` and so has no project (FR-009)."""
+    """``None`` for a tutorial that declares no ``bootstrap`` and so has no project."""
+    # Development references: FR-009.
 
 
 @runtime_checkable
 class ReplayDelivery(Protocol):
-    """The interface the replay byte-delivery slice implements (checklist §6.1.7).
+    """The interface the replay byte-delivery slice implements.
 
     This module owns the *sequence*; it does not own the bytes. The API layer
     supplies an object satisfying this protocol, bound to one surface, and
     :func:`execute_replay` drives it. ``close`` exists so ending a session
-    mid-replay leaves nothing behind (FR-061c).
+    mid-replay leaves nothing behind.
     """
+
+    # Maintainer context:
+    # The interface the replay byte-delivery slice implements (checklist §6.1.7).
+    # Development references: FR-061c.
 
     @property
     def surface(self) -> str:
@@ -700,7 +735,8 @@ class ReplayDelivery(Protocol):
         ...
 
     def close(self) -> None:
-        """Terminate the scripted session and release its resources (FR-061c)."""
+        """Terminate the scripted session and release its resources."""
+        # Development references: FR-061c.
         ...
 
 
@@ -748,7 +784,7 @@ def execute_replay(
 ) -> tuple[Path, ...]:
     """Run a replay: deliver each segment's bytes and land its bound actions.
 
-    FR-061b is the ordering rule here: a scripted agent that claims to have
+    Replay ordering matters: a scripted agent that claims to have
     written a block is matched by the block existing at the moment the claim
     becomes readable. Which moment that is depends on how the surface plays the
     bytes, and that is what ``defer`` is for.
@@ -757,7 +793,7 @@ def execute_replay(
     the segment's actions run first — the original ordering, and still the
     right one for any surface that renders a transcript at once.
 
-    With ``defer``, the surface reveals the transcript over time (#2083: the
+    With ``defer``, the surface reveals the transcript over time (: the
     scripted agent window types it at a speaking pace). "The moment the claim
     becomes readable" is then the end of the reply, not the start of it, and
     running the actions here would put the block on the canvas ten seconds
@@ -775,6 +811,7 @@ def execute_replay(
     :func:`execute_actions` does — which is nothing at all when deferring,
     because nothing has been written yet.
     """
+    # Development references: #2083, FR-061b.
     if delivery.surface != action.surface:
         raise ActionExecutionError(
             step_id=step_id,
@@ -819,8 +856,9 @@ def execute_action(
     A :class:`RunAction` is not run here and writes nothing; see
     :func:`start_runs` for why starting one is a separate pass.
 
-    Raises :class:`ActionExecutionError` on any failure (FR-060).
+    Raises :class:`ActionExecutionError` on any failure.
     """
+    # Development references: FR-060.
     if isinstance(action, RunAction):
         return ()
     if isinstance(action, ReplayAction):
@@ -864,7 +902,7 @@ def start_runs(
     """Start every :class:`RunAction` in *actions*, and return what was started.
 
     A separate pass rather than a branch inside :func:`execute_actions`, so
-    that the ordering FR-061d requires is a property of the call sequence
+    that the required ordering is a property of the call sequence
     instead of something an author has to get right by where they put the
     action in their ``do`` list. A run always comes last: the workflow it
     executes may have been written by an action beside it, and the blocks that
@@ -877,6 +915,7 @@ def start_runs(
             ``done_when`` waits on a run that will never happen, and the reader
             is left pressing a button that does nothing.
     """
+    # Development references: FR-061d.
     started: list[str] = []
     for action in _declared_runs(actions, include_bound=include_bound):
         if run is None:
@@ -940,19 +979,19 @@ def perform_step_entry(
     defer: list[SegmentAction] | None = None,
     run: RunPort | None = None,
 ) -> _Reveal:
-    """Run a step's entry actions, let the product take them in, then reveal (FR-059).
+    """Run a step's entry actions, let the product take them in, then reveal.
 
     The only way to get at ``reveal()``'s result is through this call, so the
-    ordering FR-059 requires is a property of the API rather than something a
+    required ordering is a property of the API rather than something a
     caller has to remember. If any action fails the exception propagates and
     ``reveal`` is never called, so the step's text cannot be read after a
-    failed entry (FR-060).
+    failed entry.
 
     ``settle`` is the third position in that ordering, and exists because
     writing a file is not the same as the product having noticed it. A step
     that says "we have written this block for you — find it in the palette"
     reads as broken while the file sits on disk unscanned, which satisfies
-    FR-059's letter and misses what it is for. The hook is called with the
+    The API's letter and misses what it is for. The hook is called with the
     paths just written, before ``reveal``, so whatever the product has to do to
     take them in has happened by the time the step's text can be read. It is
     given no way to change the reveal, and a caller that supplies none gets the
@@ -960,12 +999,13 @@ def perform_step_entry(
 
     ``defer`` is passed to :func:`execute_actions` for a replay to collect its
     bound actions into. Whatever lands there has not run and has not settled,
-    so a caller that defers owns running it — and settling it — later (#2083).
+    so a caller that defers owns running it — and settling it — later.
 
     ``run`` is the port a ``run`` action reaches. It is called after the settle
     and never before, so a workflow started here sees every file this step
     wrote and a product that has already noticed them.
     """
+    # Development references: #2083, FR-059, FR-060.
     written = execute_actions(actions, context=context, step_id=step_id, delivery=delivery, defer=defer)
     if settle is not None and written:
         settle(written)

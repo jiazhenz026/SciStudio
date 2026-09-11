@@ -52,21 +52,22 @@ async def create_project(request: Request, body: ProjectCreate, runtime: Runtime
 async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
     """List the user's projects, excluding tutorial projects.
 
-    ADR-053 Learning Center FR-065: this one response feeds all three surfaces
+    Learning Center: this one response feeds all three surfaces
     the requirement names — the recent-project list, the projects dropdown, and
     the welcome pane — so filtering it is the whole of the hiding. A tutorial
     project is a disposable teaching artifact that restarting and clearing both
-    delete (FR-066, FR-073); a user who wandered into one and started real
+    delete; a user who wandered into one and started real
     analysis would lose it, so the only way back in is the Learning Center.
 
     The filter is here rather than in
     :meth:`scistudio.api.runtime.ApiRuntime.list_projects` because that method
     is the runtime's answer to "which projects exist", which the Learning Center
-    needs unfiltered, and because FR-065 also requires marked projects to stay
+    needs unfiltered, and because also requires marked projects to stay
     fully operable through every other route — ``GET``/``PUT``/``DELETE`` and
     the file endpoints all resolve through ``runtime.known_projects``, which
     this leaves untouched.
     """
+    # Development references: ADR-053, FR-065, FR-066, FR-073.
     return [
         ProjectResponse(**runtime.project_response(project))
         for project in runtime.list_projects()
@@ -98,7 +99,8 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
 
 
 ADR036_FILE_SIZE_CAP_BYTES: int = 10 * 1024 * 1024
-"""Hard upper bound on file size returned/accepted by GET/PUT (per ADR-036 搂3.2)."""
+"""Hard upper bound on file size returned/accepted by GET/PUT (per  搂3.2)."""
+# Development references: ADR-036.
 
 
 class FileReadResponse(BaseModel):
@@ -165,7 +167,8 @@ _maybe_reload_blocks_after_save = _file_writes.maybe_reload_blocks_after_save
 
 
 def _is_new_custom_block_scaffold_path(path: str) -> bool:
-    """Return True only for the ADR-036 ``blocks/<name>.py`` scaffold path."""
+    """Return True only for the ``blocks/<name>.py`` scaffold path."""
+    # Development references: ADR-036.
     parts = [part for part in path.replace("\\", "/").split("/") if part]
     return (
         len(parts) == 2 and parts[0] == "blocks" and Path(parts[1]).name == parts[1] and Path(parts[1]).suffix == ".py"
@@ -194,15 +197,16 @@ def _resolve_project_file(runtime: ApiRuntime, project_id: str, path: str) -> tu
     sandbox check used by both GET and PUT 鈥?kept as a helper so both
     endpoints enforce the rules identically.
 
-    Rejection codes (per ADR-036 搂3.2):
-      - 404: project unknown
-      - 400: empty path / contains ``..`` segment / path is a directory
-      - 403: resolved path escapes project root (symlink, traversal)
-      - 415: extension not in :data:`ADR036_FILE_ALLOWLIST`
+    Rejection codes (per  搂3.2):
+      404: project unknown
+      400: empty path / contains ``..`` segment / path is a directory
+      403: resolved path escapes project root (symlink, traversal)
+      415: extension not in :data:`ADR036_FILE_ALLOWLIST`
 
     Size cap and existence/UTF-8 checks are done by the caller because
     they apply differently to read vs. write.
     """
+    # Development references: ADR-036.
     project = runtime.known_projects.get(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
@@ -240,12 +244,13 @@ async def read_project_file(
     runtime: RuntimeDep,
     path: str = "",
 ) -> FileReadResponse:
-    """Read a project-relative file as UTF-8 text. (ADR-036 搂3.2)
+    """Read a project-relative file as UTF-8 text.
 
-    Sandbox + allowlist + size cap per ADR-036 搂3.2. The full rationale and
+    Sandbox + allowlist + size cap 搂3.2. The full rationale and
     edge-case matrix lives in the ADR; the helper :func:`_resolve_project_file`
     enforces sandbox + allowlist; size and UTF-8 checks happen here.
     """
+    # Development references: ADR-036.
     project_root, target = _resolve_project_file(runtime, project_id, path)
 
     if not target.exists():
@@ -298,9 +303,9 @@ async def write_project_file(
     request: Request,
     path: str = "",
 ) -> FileWriteResponse:
-    """Write a project-relative file atomically. (ADR-036 搂3.2)
+    """Write a project-relative file atomically.
 
-    Sandbox / allowlist / size cap per ADR-036 搂3.2. Size cap is checked
+    Sandbox / allowlist / size cap 搂3.2. Size cap is checked
     BEFORE touching disk so 413 rejects never leave a partial tmpfile.
 
     Atomic write: ``tempfile.NamedTemporaryFile`` in the destination's
@@ -314,6 +319,7 @@ async def write_project_file(
     Coordinated this way (mark, then rename) so the watcher's
     ``(path, mtime, size)`` triple matches the freshly-renamed file.
     """
+    # Development references: ADR-036.
     project_root, target = _resolve_project_file(runtime, project_id, path)
 
     encoded = body.content.encode("utf-8")

@@ -53,6 +53,31 @@ DO keep Sphinx cross-reference roles — `:class:`X``, `:meth:`X``, `:func:`X``,
 and the reference build renders them as clean inline code. Do not convert or
 delete them.
 
+#### Automated enforcement
+
+`full_audit` includes a blocking `docstrings` child check. It parses every
+Python file under `src/scistudio`, including private modules, so newly exported
+symbols receive the same protection as existing reference pages and OpenAPI
+descriptions. It checks module, class, synchronous/asynchronous function,
+property, and assignment-following attribute docstrings, including instance
+attributes in constructors and additional consecutive documentation strings.
+
+The check rejects the internal identifier families listed above, numbered
+development phases and tasks, agent dispatch identifiers, internal document
+paths, and explicit development notes such as `TODO`, `FIXME`, implementation
+plans, and dispatch prompts. Each error names the file, source line, and owner.
+Unreadable or invalid Python source also fails the check. Ordinary comments
+and executable string values are outside its scope; move maintainer references
+into `#` comments while preserving the behavior in the docstring.
+
+The check recognizes specific development markers. Reviewers must still check
+prose for unexplained internal terminology and incomplete sentences. External
+standards and Sphinx roles remain valid documentation content.
+
+Run it through the usual `python -m scistudio.qa.audit.full_audit` command, or
+through the repository's `gate_record check` workflow, which includes full
+audit. There is no baseline exemption for existing documentation strings.
+
 ### 2.2 A complete, consistent shape
 
 Every public class / function / block docstring states, in this order:

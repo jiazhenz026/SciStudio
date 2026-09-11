@@ -61,6 +61,7 @@ def collection_hashes(collection: Collection) -> list[str]:
     Returns a list of content hashes, one per item in the Collection,
     preserving the Collection's item order.
 
-    Issue #55: Enables item-level lineage tracking for Collection ports.
+    Enables item-level lineage tracking for Collection ports.
     """
+    # Development references: #55.
     return [content_hash(item) for item in collection]

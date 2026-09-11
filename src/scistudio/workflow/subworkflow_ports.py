@@ -1,15 +1,17 @@
-"""ADR-044 FR-004 — resolve a ``SubWorkflowBlock``'s effective port surface.
-
-Given a reference to a subworkflow file, read its ``exposed_ports`` section and
-produce the parent-facing port surface. When a block registry is supplied, each
-exposed port's ``accepted_types`` is inherited from the inner block's effective
-port (FR-004); without a registry the types default to accept-any (``[]``).
-
-This lives in the ``workflow`` layer and depends only on ``serializer`` plus the
-*caller-supplied* registry object — it never imports ``scistudio.blocks`` — so
-both the API route (which delivers ``resolved_ports`` to the editor, D4) and
-``SubWorkflowBlock.get_effective_*_ports`` can reuse it with no import cycle.
-"""
+"""Resolve a ``SubWorkflowBlock``'s effective port surface."""
+# Maintainer context (kept outside generated API documentation):
+# ADR-044 FR-004 — resolve a ``SubWorkflowBlock``'s effective port surface.
+#
+# Given a reference to a subworkflow file, read its ``exposed_ports`` section and
+# produce the parent-facing port surface. When a block registry is supplied, each
+# exposed port's ``accepted_types`` is inherited from the inner block's effective
+# port (FR-004); without a registry the types default to accept-any (``[]``).
+#
+# This lives in the ``workflow`` layer and depends only on ``serializer`` plus the
+# *caller-supplied* registry object — it never imports ``scistudio.blocks`` — so
+# both the API route (which delivers ``resolved_ports`` to the editor, D4) and
+# ``SubWorkflowBlock.get_effective_*_ports`` can reuse it with no import cycle.
+# Development references: ADR-044, FR-004.
 
 from __future__ import annotations
 
@@ -57,13 +59,13 @@ def resolve_port_surface(
     *,
     registry: Any | None = None,
 ) -> PortSurface:
-    """Resolve the exposed-port surface for a subworkflow reference (FR-004).
+    """Resolve the exposed-port surface for a subworkflow reference.
 
     Returns a :class:`PortSurface` dict. ``broken`` is ``True`` when *ref_path*
-    is missing or does not resolve to a readable workflow file (FR-010). A file
-    with no ``exposed_ports`` section resolves to an empty, non-broken surface
-    (FR-008).
+    is missing or does not resolve to a readable workflow file. A file
+    with no ``exposed_ports`` section resolves to an empty, non-broken surface.
     """
+    # Development references: FR-004, FR-008, FR-010.
     if not ref_path:
         return _empty_surface(ref_path, broken=True)
     try:
@@ -158,11 +160,11 @@ def derive_exposed_ports(
 ) -> ExposedPorts:
     """Derive an exposed-port surface from a workflow's open (unconnected) ports.
 
-    ADR-044 Addendum 1 — when a workflow file is imported as a subworkflow and
+    when a workflow file is imported as a subworkflow and
     declares no ``exposed_ports`` section, every input port with no incoming
     edge and every output port with no outgoing edge is an *open* boundary port
     and is exposed so the referenced pipeline surfaces usable handles on the
-    parent canvas (FR-004) without the user hand-editing YAML. Both the exposed
+    parent canvas without the user hand-editing YAML. Both the exposed
     ``name`` and ``internal`` ref use the dot form ``"<node_id>.<port>"``; the
     node id is unique within the file so the generated names never collide even
     when several inner nodes share a port name (e.g. two unconnected ``spectra``
@@ -171,6 +173,7 @@ def derive_exposed_ports(
     A *registry* is required to read each node's effective ports; without it (or
     for a node whose block cannot be instantiated) that node contributes nothing.
     """
+    # Development references: ADR-044, Addendum 1, FR-004.
     connected_inputs = {edge.target for edge in definition.edges}
     connected_outputs = {edge.source for edge in definition.edges}
     inputs: list[ExposedPort] = []
@@ -194,13 +197,14 @@ def _accepted_types(
     direction: str,
     registry: Any | None,
 ) -> list[str]:
-    """Return inner-port ``accepted_types`` as type-name strings (FR-004).
+    """Return inner-port ``accepted_types`` as type-name strings.
 
     Best-effort: returns ``[]`` (accept-any) when no registry is supplied, the
     internal ref is malformed, the inner block cannot be instantiated, or the
     named port is absent. The authoritative typed surface is produced for the
     editor by the API route, which always passes the runtime registry.
     """
+    # Development references: FR-004.
     if registry is None:
         return []
     try:

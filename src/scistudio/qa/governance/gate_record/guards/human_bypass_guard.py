@@ -1,14 +1,16 @@
-"""human_bypass_guard calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: ``human-authored`` / ``admin-approved:bypass`` claimed without
-verified maintainer/admin provenance, or an invalid override-label vocabulary.
-
-Ported from the legacy ``human_bypass_guard`` (deleted on this branch). The
-shared label vocabulary now lives in ``labels`` (no longer exported from here),
-and the legacy ``admin-approved:ai-override`` label is migrated to
-``admin-approved:bypass``. AI evidence is derived from the ledger ``runtime``
-field rather than the legacy commit-message heuristic (digest decision).
-"""
+"""Human_bypass_guard calculator."""
+# Maintainer context (kept outside generated API documentation):
+# human_bypass_guard calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: ``human-authored`` / ``admin-approved:bypass`` claimed without
+# verified maintainer/admin provenance, or an invalid override-label vocabulary.
+#
+# Ported from the legacy ``human_bypass_guard`` (deleted on this branch). The
+# shared label vocabulary now lives in ``labels`` (no longer exported from here),
+# and the legacy ``admin-approved:ai-override`` label is migrated to
+# ``admin-approved:bypass``. AI evidence is derived from the ledger ``runtime``
+# field rather than the legacy commit-message heuristic (digest decision).
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 

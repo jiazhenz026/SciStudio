@@ -1,4 +1,7 @@
-"""Bidirectional governed-surface closure checks for ADR-042."""
+"""Bidirectional governed-surface closure checks."""
+# Maintainer context (kept outside generated API documentation):
+# Bidirectional governed-surface closure checks for ADR-042.
+# Development references: ADR-042.
 
 from __future__ import annotations
 

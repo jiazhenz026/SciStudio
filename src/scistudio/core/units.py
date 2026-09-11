@@ -1,22 +1,24 @@
-"""PhysicalQuantity — value + unit dataclass for SciStudio metadata.
-
-Implements ADR-027 D6 (``PhysicalQuantity`` definition and unit tables)
-and ADR-027 Addendum 1 §4 (``PhysicalQuantity`` Pydantic v2 integration
-via ``__get_pydantic_core_schema__``).
-
-The class supports the small set of physical units SciStudio actually
-needs (length, time, frequency, wavenumber). Cross-kind conversions and
-comparisons are rejected; same-kind conversions are honoured. Pydantic
-v2 integration makes ``pixel_size: PhysicalQuantity`` round-trip
-transparently as ``{"value": float, "unit": str}`` inside any
-``BaseModel`` without per-field boilerplate.
-
-Out of scope for this module (see ADR-027 D6 §"Out of scope"):
-
-* No ``pint`` integration — this is a deliberate minimalism choice.
-* No dimensional algebra (``Q(2.0, "m") + Q(3.0, "mm")``).
-* No units beyond the four kinds below.
-"""
+"""PhysicalQuantity — value + unit dataclass for SciStudio metadata."""
+# Maintainer context (kept outside generated API documentation):
+# PhysicalQuantity — value + unit dataclass for SciStudio metadata.
+#
+# Implements ADR-027 D6 (``PhysicalQuantity`` definition and unit tables)
+# and ADR-027 Addendum 1 §4 (``PhysicalQuantity`` Pydantic v2 integration
+# via ``__get_pydantic_core_schema__``).
+#
+# The class supports the small set of physical units SciStudio actually
+# needs (length, time, frequency, wavenumber). Cross-kind conversions and
+# comparisons are rejected; same-kind conversions are honoured. Pydantic
+# v2 integration makes ``pixel_size: PhysicalQuantity`` round-trip
+# transparently as ``{"value": float, "unit": str}`` inside any
+# ``BaseModel`` without per-field boilerplate.
+#
+# Out of scope for this module (see ADR-027 D6 §"Out of scope"):
+#
+# * No ``pint`` integration — this is a deliberate minimalism choice.
+# * No dimensional algebra (``Q(2.0, "m") + Q(3.0, "mm")``).
+# * No units beyond the four kinds below.
+# Development references: ADR-027, Addendum 1.
 
 from __future__ import annotations
 
@@ -72,8 +74,8 @@ _SCALE: dict[str, float] = {**_LENGTH, **_TIME, **_FREQ, **_WAVENUM}
 class PhysicalQuantity:
     """A physical quantity: a numeric value paired with a unit string.
 
-    See ADR-027 D6 for the unit alphabet and conversion rules.
-    See ADR-027 Addendum 1 §4 for the Pydantic v2 integration contract.
+
+
 
     The dataclass is frozen so that ``Meta`` Pydantic models containing
     ``PhysicalQuantity`` fields remain immutable in spirit (and so that
@@ -87,6 +89,8 @@ class PhysicalQuantity:
         >>> PhysicalQuantity(1.0, "s") == PhysicalQuantity(1.0, "m")
         False
     """
+
+    # Development references: ADR-027, Addendum 1.
 
     value: float
     unit: str
@@ -185,10 +189,8 @@ class PhysicalQuantity:
 
     @classmethod
     def __get_pydantic_core_schema__(cls, source_type: Any, handler: Any) -> Any:
-        """Return the Pydantic v2 core schema for ``PhysicalQuantity``.
-
-        See ADR-027 Addendum 1 §4 for the full contract.
-        """
+        """Return the Pydantic v2 core schema for ``PhysicalQuantity``."""
+        # Development references: ADR-027, Addendum 1.
         # Imported lazily so importing ``scistudio.core.units`` does not
         # pay the pydantic_core import cost unless Pydantic integration
         # is actually exercised. pydantic_core ships as a transitive

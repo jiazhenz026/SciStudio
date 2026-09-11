@@ -1,4 +1,7 @@
-"""Strict ADR and spec frontmatter schemas from ADR-042."""
+"""Strict ADR and spec frontmatter schemas."""
+# Maintainer context (kept outside generated API documentation):
+# Strict ADR and spec frontmatter schemas from ADR-042.
+# Development references: ADR-042.
 
 from __future__ import annotations
 
@@ -67,7 +70,9 @@ class GovernedSurfaces(BaseModel):
 
 
 class ADRFrontmatter(BaseModel):
-    """ADR frontmatter contract from ADR-042 Section 3.3."""
+    """ADR frontmatter contract ."""
+
+    # Development references: ADR-042.
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
@@ -124,7 +129,9 @@ class ADRFrontmatter(BaseModel):
 
 
 class ADRAddendumFrontmatter(ADRFrontmatter):
-    """Standalone ADR addendum frontmatter contract from ADR-042 Addendum 1."""
+    """Standalone ADR addendum frontmatter contract ."""
+
+    # Development references: ADR-042, Addendum 1.
 
     addendum: int = Field(gt=0)
 
@@ -176,7 +183,9 @@ class SpecScope(BaseModel):
 
 
 class SpecFrontmatter(BaseModel):
-    """Spec frontmatter contract from ADR-042 Section 3.4."""
+    """Spec frontmatter contract ."""
+
+    # Development references: ADR-042.
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 

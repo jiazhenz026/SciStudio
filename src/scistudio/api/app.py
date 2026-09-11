@@ -1,11 +1,13 @@
-"""FastAPI app factory, lifespan, CORS, and realtime endpoints.
-
-``create_app`` is the one public symbol here (ADR-052 canonical root
-``scistudio.api.app``): the enterprise edition builds the standard backend
-through it and composes its own guard, lifespan hooks, capabilities, and
-routers onto it (ADR-055 identity seam, ``docs/specs/adr-055-identity-seam.md``).
-The seam's types live in :mod:`scistudio.api.seam`.
-"""
+"""FastAPI app factory, lifespan, CORS, and realtime endpoints."""
+# Maintainer context (kept outside generated API documentation):
+# FastAPI app factory, lifespan, CORS, and realtime endpoints.
+#
+# ``create_app`` is the one public symbol here (ADR-052 canonical root
+# ``scistudio.api.app``): the enterprise edition builds the standard backend
+# through it and composes its own guard, lifespan hooks, capabilities, and
+# routers onto it (ADR-055 identity seam, ``docs/specs/adr-055-identity-seam.md``).
+# The seam's types live in :mod:`scistudio.api.seam`.
+# Development references: ADR-052, ADR-055, docs/specs/adr-055-identity-seam.md.
 
 from __future__ import annotations
 
@@ -62,13 +64,14 @@ __all__ = ["create_app"]
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and tear down the shared API runtime.
 
-    T-ECA-205: also starts the in-process MCP server (Phase 2 of the
-    ADR-033 embedded coding agent cascade). The server listens on a
+    also starts the in-process MCP server (of the
+     embedded coding agent cascade). The server listens on a
     project-local socket (POSIX) or TCP loopback port (Windows); the
     ``scistudio mcp-bridge`` subprocess proxies CC stdin/stdout into it.
     Server start is best-effort — if it fails, we log ERROR but let
     FastAPI come up so the rest of the app is usable.
     """
+    # Development references: ADR-033, ECA-205.
     runtime = ApiRuntime()
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
@@ -273,7 +276,7 @@ RESERVED_ROOT_PATH_SEGMENTS = ("api", "ws")
 
 
 def normalize_root_path(raw: str | None) -> str:
-    """Normalize a configured mount prefix (ADR-055 Spec 0, FR-008).
+    """Normalize a configured mount prefix.
 
     This is the single backend normalization point for the mount prefix:
     ``""`` and ``"/"`` both mean "mounted at the root" (the default no-op);
@@ -286,6 +289,7 @@ def normalize_root_path(raw: str | None) -> str:
     reserved ``/api`` or ``/ws`` route namespaces (see
     ``RESERVED_ROOT_PATH_SEGMENTS``).
     """
+    # Development references: ADR-055, FR-008, Spec 0.
     segments = [segment for segment in (raw or "").strip().split("/") if segment]
     if segments and segments[0] in RESERVED_ROOT_PATH_SEGMENTS:
         raise ValueError(
@@ -300,7 +304,7 @@ def normalize_root_path(raw: str | None) -> str:
 class _RootPathGuardMiddleware:
     """Reject requests arriving OUTSIDE the configured mount prefix.
 
-    ADR-055 Spec 0 edge-case contract: while a prefix is configured, the
+    edge-case contract: while a prefix is configured, the
     unprefixed root MUST NOT silently keep serving — the chosen behavior is
     404 (HTTP) / close-1008 (WebSocket). Serving both forms is forbidden by
     the spec, and redirecting API or WebSocket callers would hide proxy
@@ -310,6 +314,8 @@ class _RootPathGuardMiddleware:
     no response-body buffering is added to the hot path. Installed only when
     the prefix is non-empty, so the default mount carries zero overhead.
     """
+
+    # Development references: ADR-055, Spec 0.
 
     def __init__(self, app: ASGIApp, root_path: str) -> None:
         self.app = app
@@ -358,9 +364,8 @@ def create_app(
     the loopback token guards ``/api/webmcp/*``, every other route is
     unauthenticated, no lifespan hooks run, and every capability is off.
 
-    The keyword arguments are the ADR-055 identity seam
-    (``docs/specs/adr-055-identity-seam.md``), through which an edition
-    composes its own deployment on the same backend:
+    The keyword arguments let an edition configure its deployment on the
+    same backend:
 
     ``guard``
         A :class:`~scistudio.api.seam.GuardFactory` installed in place of the
@@ -368,7 +373,7 @@ def create_app(
         no loopback token is minted. Requests under a self-authenticating
         prefix bypass it, as they bypass the default guard.
     ``lifespan_hooks``
-        :class:`~scistudio.api.seam.LifespanHook` s entered in order at startup,
+        Instances of :class:`~scistudio.api.seam.LifespanHook` entered in order at startup,
         after the core runtime exists, and exited in reverse before it stops.
     ``capabilities``
         The :class:`~scistudio.api.seam.Capabilities` declared to the frontend
@@ -396,6 +401,7 @@ def create_app(
             routers=[transfer_router],
         )
     """
+    # Development references: ADR-055, docs/specs/adr-055-identity-seam.md.
     if guard is not None and not callable(guard):
         raise TypeError("create_app(guard=...) must be a GuardFactory: a callable taking (app, context)")
     hooks = tuple(lifespan_hooks)
@@ -599,7 +605,7 @@ def _resolve_spa_static_dir() -> Path | None:
     Otherwise the served frontend would depend on where the ``.app`` physically
     sits: inside a source checkout the walk-up finds a stray ``frontend/dist``
     and serves that; in ``/Applications`` it falls back to the packaged copy.
-    Same bundle, different UI (#1747).
+    Same bundle, different UI.
 
     For editable installs (development), ``frontend/dist/`` is preferred because
     it reflects the latest ``npm run build``. The packaged copy at
@@ -608,6 +614,7 @@ def _resolve_spa_static_dir() -> Path | None:
     Returns the first directory that contains an ``index.html``, or ``None`` if
     no built SPA is available.
     """
+    # Development references: #1747.
     packaged = Path(__file__).parent / "static"
 
     # Bundled desktop app: only ever serve the embedded SPA so the UI is

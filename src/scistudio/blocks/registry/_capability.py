@@ -1,36 +1,38 @@
-"""Capability registry helpers (ADR-043) for :class:`BlockRegistry`.
-
-Per ADR-047 §C9: this module hosts only module-level private helpers — it
-must contain **zero** ``class`` definitions. The :class:`BlockRegistry`
-class and its 5 error subclasses live in ``__init__.py``.
-
-Owns:
-
-- ``_iter_capability_specs`` — iteration helper over (capability, spec) pairs.
-- ``list_format_capabilities`` — filtered enumeration of registered capabilities.
-- ``find_loader_capability`` / ``find_saver_capability`` — explicit-failure
-  ADR-043 lookups (raise on miss / ambiguity).
-- ``_find_format_capability`` — shared core for the two finders.
-- ``_capability_satisfies_query`` — capability-id verification helper.
-- ``_resolve_capability_class`` / ``_resolve_first_capability_class`` —
-  reach the block class behind a capability (mtime-aware re-import).
-- ``_resolve_class`` — generic spec → class re-import.
-- ``_validate_dynamic_ports`` — ADR-028 Addendum 1 shape check.
-
-Note: ``_format_capabilities_from_class`` was relocated to
-:mod:`scistudio.blocks.registry._spec` per issue #1482 to break the
-static import cycle between this module and ``_spec``. It is re-exported
-through ``scistudio.blocks.registry`` for backward compatibility.
-
-Module-level utilities:
-
-- ``_iter_compound_to_single_suffix`` — compound→single extension fallback chain.
-- ``_exact_ext_in_mapping`` / ``_ext_in_mapping`` — extension membership tests.
-- ``_capability_matches_type`` / ``_capability_type_specificity`` — IS-A and
-  specificity helpers used in candidate ranking.
-- ``_capability_error_message`` — diagnostic-string builder.
-- ``_validate_capability_id`` — package-qualified id syntax check.
-"""
+"""Capability registry helpers for :class:`BlockRegistry`."""
+# Maintainer context (kept outside generated API documentation):
+# Capability registry helpers (ADR-043) for :class:`BlockRegistry`.
+#
+# Per ADR-047 §C9: this module hosts only module-level private helpers — it
+# must contain **zero** ``class`` definitions. The :class:`BlockRegistry`
+# class and its 5 error subclasses live in ``__init__.py``.
+#
+# Owns:
+#
+# - ``_iter_capability_specs`` — iteration helper over (capability, spec) pairs.
+# - ``list_format_capabilities`` — filtered enumeration of registered capabilities.
+# - ``find_loader_capability`` / ``find_saver_capability`` — explicit-failure
+#   ADR-043 lookups (raise on miss / ambiguity).
+# - ``_find_format_capability`` — shared core for the two finders.
+# - ``_capability_satisfies_query`` — capability-id verification helper.
+# - ``_resolve_capability_class`` / ``_resolve_first_capability_class`` —
+#   reach the block class behind a capability (mtime-aware re-import).
+# - ``_resolve_class`` — generic spec → class re-import.
+# - ``_validate_dynamic_ports`` — ADR-028 Addendum 1 shape check.
+#
+# Note: ``_format_capabilities_from_class`` was relocated to
+# :mod:`scistudio.blocks.registry._spec` per issue #1482 to break the
+# static import cycle between this module and ``_spec``. It is re-exported
+# through ``scistudio.blocks.registry`` for backward compatibility.
+#
+# Module-level utilities:
+#
+# - ``_iter_compound_to_single_suffix`` — compound→single extension fallback chain.
+# - ``_exact_ext_in_mapping`` / ``_ext_in_mapping`` — extension membership tests.
+# - ``_capability_matches_type`` / ``_capability_type_specificity`` — IS-A and
+#   specificity helpers used in candidate ranking.
+# - ``_capability_error_message`` — diagnostic-string builder.
+# - ``_validate_capability_id`` — package-qualified id syntax check.
+# Development references: #1482, ADR-028, ADR-043, ADR-047, Addendum 1.
 
 from __future__ import annotations
 
@@ -176,7 +178,7 @@ def _iter_capability_specs(registry: BlockRegistry) -> list[tuple[FormatCapabili
 
 
 def _validate_dynamic_ports(cls: type) -> None:
-    """Validate the shape of ``cls.dynamic_ports`` per ADR-028 Addendum 1.
+    """Validate the shape of ``cls.dynamic_ports``.
 
     Called at scan time so malformed declarations fail loudly at import.
     Accepts ``None`` (the default) and any dict that matches::
@@ -207,15 +209,25 @@ def _validate_dynamic_ports(cls: type) -> None:
     Raises ``ValueError`` with the offending class name and field path
     when the shape is wrong.
 
-    T-TRK-008 (SaveData) note: the ``input_port_mapping`` variant was
-    added in this ticket per ADR-028 Addendum 1 §C5/§C9. T-TRK-006
-    (PR #321) only declared the ``output_port_mapping`` variant
-    because LoadData (T-TRK-007) was the first consumer; SaveData is
+    (SaveData) note: the ``input_port_mapping`` variant was
+    supported by this registry.
+    only declared the ``output_port_mapping`` variant
+    because LoadData was the first consumer; SaveData is
     the symmetric output-direction consumer and uses the
     ``input_port_mapping`` key. The frontend
-    ``computeEffectivePorts`` helper in T-TRK-009 must handle both
+    ``computeEffectivePorts`` helper in must handle both
     keys.
     """
+    # Maintainer context:
+    # (SaveData) note: the ``input_port_mapping`` variant was
+    #    added in this ticket §C5/§C9.
+    # only declared the ``output_port_mapping`` variant
+    #    because LoadData was the first consumer; SaveData is
+    #    the symmetric output-direction consumer and uses the
+    #    ``input_port_mapping`` key. The frontend
+    #    ``computeEffectivePorts`` helper in must handle both
+    #    keys.
+    # Development references: #321, ADR-028, Addendum 1, TRK-006, TRK-007, TRK-008, TRK-009.
     descriptor = getattr(cls, "dynamic_ports", None)
     if descriptor is None:
         return
@@ -283,7 +295,7 @@ def _validate_dynamic_ports(cls: type) -> None:
 
 
 def _validate_interactive_capability(cls: type) -> None:
-    """Bind the interaction capability to ``INTERACTIVE`` mode at scan time (ADR-051 FR-002).
+    """Bind the interaction capability to ``INTERACTIVE`` mode at scan time.
 
     Mirrors :func:`_validate_dynamic_ports`: a pure module-level scan-time
     class-shape validator that raises ``ValueError`` (the scanners catch and
@@ -294,6 +306,7 @@ def _validate_interactive_capability(cls: type) -> None:
     :class:`~scistudio.blocks.base.interactive.PanelManifest`. A no-op for the
     common AUTO/EXTERNAL case (neither half present).
     """
+    # Development references: ADR-051, FR-002.
     # Local imports keep this registry helper import-light and avoid a cycle
     # with blocks.base (mirrors the lazy-import style used across this module).
     from scistudio.blocks.base.interactive import InteractiveMixin, PanelManifest
@@ -393,7 +406,8 @@ def list_format_capabilities(
     extension: str | None = None,
     format_id: str | None = None,
 ) -> list[FormatCapability]:
-    """List registered ADR-043 IO format capabilities matching filters."""
+    """List registered IO format capabilities matching filters."""
+    # Development references: ADR-043.
     normalized_extension = normalize_extension(extension) if extension else None
     normalized_format_id = format_id.strip().lower() if format_id else None
 

@@ -1,23 +1,25 @@
-"""Private helpers shared by ``SaveData`` and its dispatch functions.
-
-This module is **package-private** per ADR-028 Addendum 1 §C9
-("private functions, not helper classes"): every public symbol is
-prefixed with an underscore and the module name itself starts with an
-underscore. External callers must import :class:`SaveData` from
-:mod:`scistudio.blocks.io.savers`; importing helpers directly is
-unsupported and the names may change without notice.
-
-The functions here were extracted from
-:mod:`scistudio.blocks.io.savers.save_data` in issue #1459 (Phase 2
-of the backend god-file refactor umbrella #1427). They keep the
-``_save_*`` dispatch functions and the :class:`SaveData` class in the
-sibling ``save_data`` module short enough to fit under the 750-LOC
-god-file threshold while preserving the exact behavior of every
-public entry point.
-
-Symmetric to :mod:`scistudio.blocks.io.loaders._helpers` on the load
-side.
-"""
+"""Private helpers shared by ``SaveData`` and its dispatch functions."""
+# Maintainer context (kept outside generated API documentation):
+# Private helpers shared by ``SaveData`` and its dispatch functions.
+#
+# This module is **package-private** per ADR-028 Addendum 1 §C9
+# ("private functions, not helper classes"): every public symbol is
+# prefixed with an underscore and the module name itself starts with an
+# underscore. External callers must import :class:`SaveData` from
+# :mod:`scistudio.blocks.io.savers`; importing helpers directly is
+# unsupported and the names may change without notice.
+#
+# The functions here were extracted from
+# :mod:`scistudio.blocks.io.savers.save_data` in issue #1459 (Phase 2
+# of the backend god-file refactor umbrella #1427). They keep the
+# ``_save_*`` dispatch functions and the :class:`SaveData` class in the
+# sibling ``save_data`` module short enough to fit under the 750-LOC
+# god-file threshold while preserving the exact behavior of every
+# public entry point.
+#
+# Symmetric to :mod:`scistudio.blocks.io.loaders._helpers` on the load
+# side.
+# Development references: #1427, #1459, ADR-028, Addendum 1.
 
 from __future__ import annotations
 
@@ -103,11 +105,12 @@ def _matches_target_type(obj: object, target_cls: type[DataObject]) -> bool:
 
     ``isinstance`` fails when *obj*'s class was reconstructed under a different
     class identity than the registry-resolved ``target_cls`` — a by-path import
-    yields a distinct class object with the same ``__name__``. #1950: the save
+    yields a distinct class object with the same ``__name__``.: the save
     path must accept the same logical types the workflow validator does (see
     ``port_accepts_type``), so it falls back to :func:`same_registered_type` on
     the object's class instead of failing right after validation passes.
     """
+    # Development references: #1950.
     return isinstance(obj, target_cls) or same_registered_type(type(obj), target_cls)
 
 
@@ -117,12 +120,18 @@ def _unwrap_for_save(
 ) -> DataObject:
     """Unwrap a single-item :class:`Collection` or return the bare object.
 
-    Per spec §j, mixed-type Collections (where some item is not a
+    Mixed-type Collections (where some item is not a
     ``target_cls`` instance) raise :class:`ValueError`. A Collection
     of all-``target_cls`` items with exactly one element is unwrapped
     transparently. A Collection of length > 1 also raises because the
     save dispatch functions write a single file at the configured path.
     """
+    # Maintainer context:
+    # Per spec §j, mixed-type Collections (where some item is not a
+    # ``target_cls`` instance) raise :class:`ValueError`. A Collection
+    # of all-``target_cls`` items with exactly one element is unwrapped
+    # transparently. A Collection of length > 1 also raises because the
+    # save dispatch functions write a single file at the configured path.
     if isinstance(obj, Collection):
         items = list(obj)
         if not items:
@@ -191,10 +200,11 @@ def _slot_path_for(
 def _dataframe_to_arrow_table(obj: DataFrame) -> Any:
     """Coerce a :class:`DataFrame` into a :class:`pyarrow.Table`.
 
-    ADR-031 D6: always routes through ``get_in_memory_data()`` ->
+    always routes through ``get_in_memory_data()`` ->
     ``to_memory()`` -> storage backend read. The former ``_arrow_table``
     backdoor is removed.
     """
+    # Development references: ADR-031.
     import pyarrow as pa
 
     raw = obj.get_in_memory_data()
@@ -263,20 +273,22 @@ def _safe_sheet_name(name: str, used: set[str], index: int) -> str:
 def _write_table_to_xlsx(table: Any, dest_path: Path, sheet_name: str = "Sheet1") -> None:
     """Write a :class:`pyarrow.Table` to ``dest_path`` as a single-sheet .xlsx.
 
-    Uses the pandas + openpyxl bridge (#1810). The caller owns atomicity (wrap
+    Uses the pandas + openpyxl bridge. The caller owns atomicity (wrap
     in ``atomic_path``); this writes straight to ``dest_path``.
     """
+    # Development references: #1810.
     _write_tables_to_xlsx([(sheet_name or "Sheet1", table)], dest_path)
 
 
 def _write_tables_to_xlsx(named_tables: list[tuple[str, Any]], dest_path: Path) -> None:
     """Write one or more ``(sheet_name, pa.Table)`` pairs into a single .xlsx.
 
-    Each pair becomes one sheet (#1810). Used both for the single-sheet save and
+    Each pair becomes one sheet. Used both for the single-sheet save and
     for the Collection -> multi-sheet workbook grouping path. Sheet names are
     made Excel-legal and unique; each table is dimension-checked. The caller owns
     atomicity (wrap in ``atomic_path``).
     """
+    # Development references: #1810.
     import pandas as pd
 
     if not named_tables:

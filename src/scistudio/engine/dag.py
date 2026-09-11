@@ -1,9 +1,11 @@
-"""DAG construction from workflow definition (topological sort, dependency resolution).
-
-ADR-018: DAG supports querying downstream dependents for skip propagation.
-DAGScheduler._propagate_skip() walks downstream from a failed/cancelled block
-and marks blocks SKIPPED if all required inputs are unsatisfiable.
-"""
+"""DAG construction from workflow definition (topological sort, dependency resolution)."""
+# Maintainer context (kept outside generated API documentation):
+# DAG construction from workflow definition (topological sort, dependency resolution).
+#
+# ADR-018: DAG supports querying downstream dependents for skip propagation.
+# DAGScheduler._propagate_skip() walks downstream from a failed/cancelled block
+# and marks blocks SKIPPED if all required inputs are unsatisfiable.
+# Development references: ADR-018.
 
 from __future__ import annotations
 

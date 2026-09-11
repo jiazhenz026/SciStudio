@@ -1,15 +1,17 @@
-"""The single shared evaluator for ADR-042 Addendum 6 (spec §3).
-
-``reconcile()`` is the one reconciliation code path that every command, hook,
-PR wrapper, and CI step calls. The ``mode`` only changes which facts are
-required-now versus recorded as a pre-PR gap; it never forks the logic.
-
-Pipeline (§3.3): observe git diff -> classify surfaces -> reconcile declared
-scope -> reconcile declared docs/test claims -> infer obligations -> derive
-strictness tier (escalate, never lower, §7.6) -> infer + run tier-selected
-checks (with parity) -> run guard calculators -> write a reconcile event ->
-sanitize committed events.
-"""
+"""The single shared evaluator."""
+# Maintainer context (kept outside generated API documentation):
+# The single shared evaluator for ADR-042 Addendum 6 (spec §3).
+#
+# ``reconcile()`` is the one reconciliation code path that every command, hook,
+# PR wrapper, and CI step calls. The ``mode`` only changes which facts are
+# required-now versus recorded as a pre-PR gap; it never forks the logic.
+#
+# Pipeline (§3.3): observe git diff -> classify surfaces -> reconcile declared
+# scope -> reconcile declared docs/test claims -> infer obligations -> derive
+# strictness tier (escalate, never lower, §7.6) -> infer + run tier-selected
+# checks (with parity) -> run guard calculators -> write a reconcile event ->
+# sanitize committed events.
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -107,9 +109,10 @@ def commit_message_problems(message: str) -> list[str]:
     """Validate one commit message's Conventional Commits subject line.
 
     Returns a list of problems (empty when the message passes). This replaces
-    the removed commitizen commit-msg hook (#2150); the check runs at the
+    the removed commitizen commit-msg hook; the check runs at the
     PR-gating modes against the final commit instead of blocking every commit.
     """
+    # Development references: #2150.
 
     lines = message.splitlines()
     subject = lines[0] if lines else ""
@@ -135,13 +138,14 @@ def _final_commit_message_problems(repo_root: Path, *, head: str) -> list[str]:
 
 
 def _add_commit_hygiene_check(selection: checks.CheckSelection, mode: str) -> None:
-    """#2150: require the relocated commit-time hygiene hooks in PR-gating modes.
+    """Require the relocated commit-time hygiene hooks in PR-gating modes.
 
     The commit-time hygiene hooks (trailing-whitespace, end-of-file, yaml/json
     parse, large-file, merge-conflict, private-key) moved here: they run as
     ``commit_hygiene`` in the modes that replace the removed commit hooks —
     never in the (now hookless) commit modes.
     """
+    # Development references: #2150.
 
     if mode in _PR_GATING_COMMIT_CHECK_MODES and "commit_hygiene" not in selection.required:
         selection.required = sorted({*selection.required, "commit_hygiene"})
@@ -155,12 +159,13 @@ def _enforce_final_commit_message(
     unsatisfied: list[str],
     repair_hints: list[str],
 ) -> None:
-    """#2150: validate the FINAL commit's Conventional Commits subject.
+    """Validate the FINAL commit's Conventional Commits subject.
 
     The commitizen commit-msg hook is removed; PR-gating modes validate the
     final commit instead (owner decision: only the final commit, not the whole
     branch range).
     """
+    # Development references: #2150.
 
     if mode not in _COMMIT_MESSAGE_CHECK_MODES:
         return
@@ -197,7 +202,10 @@ _SURFACE_CLASSIFIERS = {
 
 @dataclass
 class ReconcileResult:
-    """The consolidated outcome of one ``reconcile()`` call (spec §3.1)."""
+    """The consolidated outcome of one ``reconcile()`` call."""
+
+    # Maintainer context:
+    # The consolidated outcome of one ``reconcile()`` call (spec §3.1).
 
     report: AuditReport
     strictness_tier: StrictnessTier
@@ -218,7 +226,9 @@ class ReconcileResult:
 
 
 def classify_surfaces(changed_files: Sequence[str]) -> dict[str, list[str]]:
-    """Group changed files by surface class (§3.3.2)."""
+    """Group changed files by surface class."""
+    # Maintainer context:
+    # Group changed files by surface class (§3.3.2).
 
     grouped: dict[str, list[str]] = {name: [] for name in _SURFACE_CLASSIFIERS}
     for path in changed_files:
@@ -229,7 +239,9 @@ def classify_surfaces(changed_files: Sequence[str]) -> dict[str, list[str]]:
 
 
 def derive_tier(task_kind: TaskKind, grouped: dict[str, list[str]]) -> StrictnessTier:
-    """Derive the strictness tier: baseline + escalation only (§7.6)."""
+    """Derive the strictness tier: baseline + escalation only."""
+    # Maintainer context:
+    # Derive the strictness tier: baseline + escalation only (§7.6).
 
     tier: StrictnessTier = _BASELINE_TIER.get(task_kind, 2)
     escalate = bool(grouped["protected_core"] or grouped["governance"] or grouped["workflow_ci"])
@@ -262,17 +274,20 @@ def _scope_findings(
     base: str | None = None,
     head: str | None = None,
 ) -> list[AuditFinding]:
-    """Reconcile declared scope against the PR-authored diff (§3.3.3).
+    """Reconcile declared scope against the PR-authored diff.
 
     ``changed_files`` here is the PR-AUTHORED scope set (first-parent, non-merge
     commits) so merge-imported main-side changes are never flagged as
-    out-of-scope (#1463 Bug A). Integration/umbrella records (manager task kind)
+    out-of-scope (Bug A). Integration/umbrella records (manager task kind)
     treat declared scope as advisory and downgrade out-of-scope to a warning
-    (#1283). Main-side renames of a scoped path are tolerated: when a scoped
+    Main-side renames of a scoped path are tolerated: when a scoped
     include glob matches zero current files but the path was renamed/split on the
     base, the out-of-scope finding for the new location is downgraded to a
-    warning with a remap hint rather than blocking (#1463 Bug B).
+    warning with a remap hint rather than blocking (Bug B).
     """
+    # Maintainer context:
+    # Reconcile declared scope against the PR-authored diff (§3.3.3).
+    # Development references: #1283, #1463.
 
     include = ledger.effective_include()
     exclude = ledger.effective_exclude()
@@ -330,7 +345,7 @@ def _scope_findings(
 def _stale_include_globs(repo_root: Path, include: Sequence[str], *, base: str, head: str) -> set[str]:
     """Return declared include globs that match zero files in the working tree.
 
-    Used for #1463 Bug B rename tolerance: an include like
+    Used for Bug B rename tolerance: an include like
     ``src/scistudio/api/runtime.py`` that no longer exists (it was split into a
     ``runtime/`` package on the base while the PR was in review) matches nothing
     on the PR branch. Such a stale glob signals a main-side rename/split, so the
@@ -339,6 +354,7 @@ def _stale_include_globs(repo_root: Path, include: Sequence[str], *, base: str, 
     missing path are the clearest signal; wildcard globs are checked against the
     union of base+head trees.
     """
+    # Development references: #1463.
 
     tracked = set(io.tracked_files(repo_root, head)) | set(io.tracked_files(repo_root, base))
     stale: set[str] = set()
@@ -358,24 +374,28 @@ def _verify_claims(declared: Sequence[str], changed_files: Sequence[str]) -> tup
 
 
 def _observed_docs_evidence(grouped: dict[str, list[str]]) -> list[str]:
-    """Return docs/governed-doc files present in the observed diff (§7.5).
+    """Return docs/governed-doc files present in the observed diff.
 
     The workflow-gate job validates that documentation LANDED; a docs or
     governed-doc file in the git diff is objective git-observed landing
     evidence, independent of whether the agent declared it as a ``docs_event``.
     Used in ``ci`` mode so docs-landing is satisfiable from the observed diff.
     """
+    # Maintainer context:
+    # Return docs/governed-doc files present in the observed diff (§7.5).
 
     return sorted({*grouped.get("docs", []), *grouped.get("governed_docs", [])})
 
 
 def _observed_test_evidence(grouped: dict[str, list[str]]) -> list[str]:
-    """Return test files present in the observed diff (§7.5).
+    """Return test files present in the observed diff.
 
     A changed test file in the git diff satisfies ``changed_test_required``
     directly: the diff is the evidence, so ``ci`` mode does not require a
     separately recorded ``test_event`` when tests visibly changed.
     """
+    # Maintainer context:
+    # Return test files present in the observed diff (§7.5).
 
     return sorted(set(grouped.get("test", [])))
 
@@ -391,13 +411,15 @@ def _docs_na_rationales(ledger: GateLedger) -> list[str]:
 
 
 def _recorded_sentrux_evidence(ledger: GateLedger) -> Any | None:
-    """Return the latest recorded Sentrux evidence payload, or None (§4).
+    """Return the latest recorded Sentrux evidence payload, or None.
 
     Sentrux evidence rides in on a ``check_event`` (or ``guard_event``) the agent
     recorded; the evaluator surfaces the latest such payload to the
     ``sentrux_gate`` calculator via ``extras['sentrux_evidence']``. Absent
     evidence means the guard records an advisory (opt-in), never a hard block.
     """
+    # Maintainer context:
+    # Return the latest recorded Sentrux evidence payload, or None (§4).
 
     for event in reversed(ledger.check_events):
         name = (event.name or "").lower()
@@ -407,7 +429,7 @@ def _recorded_sentrux_evidence(ledger: GateLedger) -> Any | None:
 
 
 def _observed_labels_from_context(pr_context: Mapping[str, Any] | None) -> list[AdminLabel]:
-    """Convert CI PR-context ``labels`` into provenance-carrying AdminLabels (§4).
+    """Convert CI PR-context ``labels`` into provenance-carrying AdminLabels.
 
     The CI workflow assembles ``pr_context['labels']`` from the real GitHub event
     as ``[{name, actor, permission}, ...]`` where ``actor``/``permission`` are the
@@ -418,6 +440,8 @@ def _observed_labels_from_context(pr_context: Mapping[str, Any] | None) -> list[
     admin/maintainer permission, so a label with no/insufficient provenance never
     authorizes. Entries without a name are dropped; malformed entries are skipped.
     """
+    # Maintainer context:
+    # Convert CI PR-context ``labels`` into provenance-carrying AdminLabels (§4).
 
     if not pr_context:
         return []
@@ -468,7 +492,7 @@ def _build_pr_context(
     pr_context: Mapping[str, Any] | None,
     observed_admin_labels: Sequence[AdminLabel],
 ) -> dict[str, Any] | None:
-    """Assemble the PR context the merge/core/human guards read (§3.2).
+    """Assemble the PR context the merge/core/human guards read.
 
     The caller may pass a partial ``pr_context`` (real GitHub event in CI mode)
     carrying ``reviews`` and ``merge_intent``. The evaluator passes those through
@@ -478,6 +502,8 @@ def _build_pr_context(
     real PR yet, so labels are recorded intent only and no context is built unless
     the caller supplies one.
     """
+    # Maintainer context:
+    # Assemble the PR context the merge/core/human guards read (§3.2).
 
     if mode not in ("pre-pr", "ci") and pr_context is None:
         return None
@@ -494,7 +520,9 @@ def _infer_obligations(
     grouped: dict[str, list[str]],
     required_checks: Sequence[str],
 ) -> RequiredObligations:
-    """Infer required obligations from task kind, tier, and surfaces (§3.3.5)."""
+    """Infer required obligations from task kind, tier, and surfaces."""
+    # Maintainer context:
+    # Infer required obligations from task kind, tier, and surfaces (§3.3.5).
 
     docs: list[str] = []
     tests: list[str] = []
@@ -577,13 +605,15 @@ _GUARD_REPAIR_ACTIONS: dict[str, str] = {
 
 
 def _guard_repair_hint(guard_name: str, report: AuditReport) -> str:
-    """Build an actionable repair hint for a blocking guard (§5.2).
+    """Build an actionable repair hint for a blocking guard.
 
     Prefers the guard's own remediation/suggested_fix, falls back to the
     finding message, and always appends a concrete per-guard action plus the
     relevant finding evidence (e.g. the missing pointer path) so guard findings
     carry the same one-pass guidance as docs/test/issue/check obligations.
     """
+    # Maintainer context:
+    # Build an actionable repair hint for a blocking guard (§5.2).
 
     lines = [f"- guard.{guard_name}"]
     errors = report.error_findings()
@@ -621,7 +651,7 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
     instead of printing (``CheckSpec.report_json``), then a tail of its raw
     transcript.
 
-    Both were silently lossy before #2143. ``full_audit`` reports only into
+    Both were silently lossy after the update. ``full_audit`` reports only into
     ``.audit/full-audit.json``, so its transcript is empty and the failure
     reached the reader with no reason at all while its findings sat unread in
     that file. And a fixed 50-line tail of a line-oriented tool showed the last
@@ -633,6 +663,7 @@ def _failed_check_excerpt(repo_root: Path, event: CheckEvent, *, max_lines: int 
 
     Tail-biased because pytest/ruff/mypy put their error summary last.
     """
+    # Development references: #2143.
 
     blocks: list[str] = []
 
@@ -808,8 +839,9 @@ def _valid_prior_check_event(
     """Return the newest passing event for ``name`` that still covers this diff.
 
     ``require_repo_scope`` rejects diff-scoped evidence, so a fast local run can
-    never stand in for a CI-mirror obligation (spec FR-008).
+    never stand in for a CI-mirror obligation.
     """
+    # Development references: FR-008.
 
     for event in reversed(ledger.check_events):
         if event.name == name and checks.event_is_valid_for(
@@ -902,15 +934,25 @@ def required_for_mode(required: Sequence[str], *, mode: EvaluatorMode) -> list[s
     of those the current caller is responsible for proving, given that separate
     CI jobs own the quality matrix authoritatively on the same PR.
 
-    - ``ci``: the workflow-gate job validates governance and guards, not the
-      ``ci.yml`` quality matrix (§7.5). Re-requiring ledger events for it would
+    ``ci``: the workflow-gate job validates governance and guards, not the
+      ``ci.yml`` quality matrix. Re-requiring ledger events for it would
       duplicate ``ci.yml`` and block on evidence this job was never meant to
       demand.
-    - ``pre-commit``: a fast local gate that drops the two slowest checks
-      (#1628), so a commit neither proves nor runs them.
+    ``pre-commit``: a fast local gate that drops the two slowest checks
+    so a commit neither proves nor runs them.
     Every remaining check either has a diff-scoped variant or costs under 20s, so
-    no local mode defers one outright (ADR-042 Addendum 7 §2.5).
+    no local mode defers one outright.
     """
+    # Maintainer context:
+    # ``ci``: the workflow-gate job validates governance and guards, not the
+    #       ``ci.yml`` quality matrix (§7.5). Re-requiring ledger events for it would
+    #       duplicate ``ci.yml`` and block on evidence this job was never meant to
+    #       demand.
+    #     ``pre-commit``: a fast local gate that drops the two slowest checks
+    # so a commit neither proves nor runs them.
+    #     Every remaining check either has a diff-scoped variant or costs under 20s, so
+    #     no local mode defers one outright.
+    # Development references: #1628, ADR-042, Addendum 7.
 
     if mode == "ci":
         return [name for name in required if name not in _CI_OWNED_QUALITY_CHECKS]
@@ -932,7 +974,9 @@ def reconcile(
     force_checks: bool = False,
     only: Sequence[str] | None = None,
 ) -> ReconcileResult:
-    """The single shared reconciliation entry point (spec §3.1)."""
+    """The single shared reconciliation entry point."""
+    # Maintainer context:
+    # The single shared reconciliation entry point (spec §3.1).
 
     staged = mode == "pre-commit"
 

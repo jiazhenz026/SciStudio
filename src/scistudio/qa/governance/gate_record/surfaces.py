@@ -1,16 +1,18 @@
-"""Single file-surface classifier for the ADR-042 Addendum 6 gate ledger.
-
-This module is the ONE authority for path/surface questions the evaluator and
-every guard calculator ask: is a path a test, implementation, governance,
-protected-core, frontend, packaging, workflow/CI, docs, governed-doc, or
-sentrux-applicable surface? It resolves the historical ``_sentrux_applies``
-(excluded ``tests/**``) vs ``sentrux_gate.sentrux_applies_to_changes``
-(included ``tests/**``) divergence into a single ``sentrux_applies`` predicate
-(spec §4.1). The CI-inclusive definition is canonical; local and CI agree.
-
-It also absorbs ``paths.is_gate_record_path`` so guards no longer reimplement
-the per-PR-records exclusion (#1316/#1340/#1362).
-"""
+"""Single file-surface classifier for the gate ledger."""
+# Maintainer context (kept outside generated API documentation):
+# Single file-surface classifier for the ADR-042 Addendum 6 gate ledger.
+#
+# This module is the ONE authority for path/surface questions the evaluator and
+# every guard calculator ask: is a path a test, implementation, governance,
+# protected-core, frontend, packaging, workflow/CI, docs, governed-doc, or
+# sentrux-applicable surface? It resolves the historical ``_sentrux_applies``
+# (excluded ``tests/**``) vs ``sentrux_gate.sentrux_applies_to_changes``
+# (included ``tests/**``) divergence into a single ``sentrux_applies`` predicate
+# (spec §4.1). The CI-inclusive definition is canonical; local and CI agree.
+#
+# It also absorbs ``paths.is_gate_record_path`` so guards no longer reimplement
+# the per-PR-records exclusion (#1316/#1340/#1362).
+# Development references: #1316, ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -233,7 +235,9 @@ def is_implementation_path(path: str) -> bool:
 
 
 def is_protected_core_path(path: str) -> bool:
-    """Return True for protected core/runtime/engine paths (§7.8)."""
+    """Return True for protected core/runtime/engine paths."""
+    # Maintainer context:
+    # Return True for protected core/runtime/engine paths (§7.8).
 
     normalized = normalize_path(path)
     if is_gate_record_path(normalized):
@@ -242,7 +246,9 @@ def is_protected_core_path(path: str) -> bool:
 
 
 def is_governance_path(path: str) -> bool:
-    """Return True for governance surfaces (§7.8). Gate records excluded."""
+    """Return True for governance surfaces. Gate records excluded."""
+    # Maintainer context:
+    # Return True for governance surfaces (§7.8). Gate records excluded.
 
     normalized = normalize_path(path)
     if matches_any(normalized, GOVERNANCE_NON_TOUCH_PATTERNS):
@@ -251,7 +257,9 @@ def is_governance_path(path: str) -> bool:
 
 
 def is_governed_doc_path(path: str) -> bool:
-    """Return True for AI-developer workflow docs (governance docs, §7.8)."""
+    """Return True for AI-developer workflow docs (governance docs)."""
+    # Maintainer context:
+    # Return True for AI-developer workflow docs (governance docs, §7.8).
 
     return matches_any(path, GOVERNED_DOCS_PATTERNS)
 
@@ -263,12 +271,13 @@ def is_architecture_doc_path(path: str) -> bool:
 
 
 def is_protected_architecture_path(path: str) -> bool:
-    """Return True for the owner-controlled architecture document (#2054).
+    """Return True for the owner-controlled architecture document.
 
     Narrower than :func:`is_architecture_doc_path` and answering a different
     question: that one asks "did this change land documentation?", this one
     asks "does this change need the owner's permission to exist?".
     """
+    # Development references: #2054.
 
     return matches_any(path, PROTECTED_ARCHITECTURE_PATTERNS)
 
@@ -301,11 +310,13 @@ def is_workflow_ci_path(path: str) -> bool:
 
 
 def sentrux_applies(path: str) -> bool:
-    """Return True when Sentrux evidence applies to ``path`` (§4.1).
+    """Return True when Sentrux evidence applies to ``path``.
 
     CI-inclusive canonical predicate: includes ``tests/**``. Gate-record
     evidence and ordinary non-ADR/non-spec docs are excluded.
     """
+    # Maintainer context:
+    # Return True when Sentrux evidence applies to ``path`` (§4.1).
 
     normalized = normalize_path(path)
     if is_gate_record_path(normalized):

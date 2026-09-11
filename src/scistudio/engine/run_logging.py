@@ -1,15 +1,17 @@
-"""Per-run diagnostic log files (#1741).
-
-Each workflow run gets its own ``run-<run_id>.log`` (JSON-line) under the
-resolved log directory, capturing the engine events, worker stdout/stderr, and
-tracebacks emitted while that run executes — exactly the artifact a developer
-needs to reproduce a tester's failing run offline.
-
-Implemented as a root-logger ``FileHandler`` scoped by the ``run_id`` contextvar
-(:data:`scistudio.utils.log_setup.run_id_var`) so concurrent runs never
-cross-contaminate. Best-effort: a failure to open the file degrades to the
-process-level log, never crashing the run.
-"""
+"""Per-run diagnostic log files."""
+# Maintainer context (kept outside generated API documentation):
+# Per-run diagnostic log files (#1741).
+#
+# Each workflow run gets its own ``run-<run_id>.log`` (JSON-line) under the
+# resolved log directory, capturing the engine events, worker stdout/stderr, and
+# tracebacks emitted while that run executes — exactly the artifact a developer
+# needs to reproduce a tester's failing run offline.
+#
+# Implemented as a root-logger ``FileHandler`` scoped by the ``run_id`` contextvar
+# (:data:`scistudio.utils.log_setup.run_id_var`) so concurrent runs never
+# cross-contaminate. Best-effort: a failure to open the file degrades to the
+# process-level log, never crashing the run.
+# Development references: #1741.
 
 from __future__ import annotations
 
@@ -45,9 +47,10 @@ class _RunFilter(logging.Filter):
 def run_log_path(run_id: object, *, project_root: str | Path | None = None) -> Path:
     """Return the per-run log file for *run_id* (whether or not it exists yet).
 
-    #1973: readers need the same answer the writer uses, so the naming rule
+    readers need the same answer the writer uses, so the naming rule
     lives here rather than being restated at every call site.
     """
+    # Development references: #1973.
     return resolve_log_dir(project_root=project_root) / f"run-{_safe_run_id(run_id)}.log"
 
 

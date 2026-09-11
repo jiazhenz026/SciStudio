@@ -1,4 +1,5 @@
-"""Finding models shared by ADR-042 audit tools."""
+"""Finding models shared by audit tools."""
+# Development references: ADR-042.
 
 from __future__ import annotations
 
@@ -11,7 +12,9 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 
 class DriftClass(StrEnum):
-    """ADR-042 drift classes for documentation/code consistency checks."""
+    """Drift classes for documentation/code consistency checks."""
+
+    # Development references: ADR-042.
 
     MATCH = "match"
     BEHAVIOR_DRIFT = "behavior-drift"
@@ -29,7 +32,9 @@ class Severity(StrEnum):
 
 
 class AuditStatus(StrEnum):
-    """Overall status for an ADR-042 audit report."""
+    """Overall status for an audit report."""
+
+    # Development references: ADR-042.
 
     PASS = "pass"
     FAIL = "fail"
@@ -82,7 +87,9 @@ Finding = AuditFinding
 
 
 class AuditReport(BaseModel):
-    """Shared report envelope for ADR-042 audit tools."""
+    """Shared report envelope for audit tools."""
+
+    # Development references: ADR-042.
 
     model_config = ConfigDict(extra="forbid")
 

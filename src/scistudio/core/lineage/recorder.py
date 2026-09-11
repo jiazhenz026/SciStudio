@@ -293,12 +293,20 @@ class LineageRecorder:
           mapping where each value carries the full FrameworkMeta +
           storage_path metadata we need to upsert into ``data_objects``.
           Despite the historical name (``outputs=``), this carries inputs
-          when ``direction='input'`` — D38-3.2 renamed for clarity.
+          when ``direction='input'`` — the update renamed for clarity.
 
         We iterate over the union of both, preferring ``payload`` for ordering
         and using ``port_values`` to materialise the matching ``data_objects``
         row when only an object_id string is available.
         """
+        # Maintainer context:
+        # * ``payload`` — ``{port_name: [object_id, ...]}`` already unrolled for
+        #   Collections; gives us the object_id we need on ``block_io``.
+        # * ``port_values`` — the raw wire-format ``{port_name: <dict|list>}``
+        #   mapping where each value carries the full FrameworkMeta +
+        #   storage_path metadata we need to upsert into ``data_objects``.
+        #   Despite the historical name (``outputs=``), this carries inputs
+        #   when ``direction='input'`` — D38-3.2 renamed for clarity.
         if self._store is None:
             return
 
@@ -428,7 +436,7 @@ def _wire_items_for_port(value: Any) -> list[dict[str, Any] | None]:
       (``api/runtime/__init__.py``). The recorder runs off the same event,
       so by the time it reads ``data["outputs"]`` the value is usually the
       ``kind`` form even though ``output_object_ids`` was computed from the
-      ``_collection`` form (#1757).
+      ``_collection`` form.
 
     Unrolling both keeps the per-item wire dicts aligned with the
     ``output_object_ids`` list so every Collection item is recorded with
@@ -438,6 +446,7 @@ def _wire_items_for_port(value: Any) -> list[dict[str, Any] | None]:
     Returns an empty list when the value is not a recognised DataObject
     payload (e.g. a scalar int passed through as a port value).
     """
+    # Development references: #1757.
     if isinstance(value, dict):
         if value.get("_collection") or value.get("kind") == "collection":
             return [item if isinstance(item, dict) else None for item in (value.get("items") or [])]
@@ -463,23 +472,23 @@ def _extract_type_name(wire_dict: dict[str, Any]) -> str:
     (see ``scistudio.core.types.base.TypeIdentity``); the leaf — the
     concrete output type that lineage queries / methods exports
     expect — is the LAST element, not the first. Codex P1 reconcile
-    on PR #979.
+    on.
 
-    Hotfix #995: handle Collection wire-wrappers. When a block emits
+    handle Collection wire-wrappers. When a block emits
     ``Collection[T]`` the serialised wire-dict has shape
     ``{"kind": "collection", "item_type": "T", "items": [<T-wire-dict>, ...]}``
     and the root-level ``metadata`` is absent — the per-item type info
-    lives at ``items[i].metadata.type_chain``. Pre-#995 the helper
+    lives at ``items[i].metadata.type_chain``. Pre- the helper
     only inspected the root, so every Collection output landed in
     ``data_objects.type_name`` as the literal ``"DataObject"`` fallback,
     which surfaced in the Lineage tab Methods MD as
-    ``Type | DataObject`` instead of ``Image`` / ``Mask`` / etc. (Phase
-    4a finding).
+    ``Type | DataObject`` instead of ``Image`` / ``Mask`` / etc. (a finding).
 
     The fix probes the Collection wrapper FIRST so the homogeneous
-    Collection invariant (per ADR-038 §3.1) is captured by a single
+    Collection invariant is captured by a single
     type-name read.
     """
+    # Development references: #979, #995, ADR-038.
     # Hotfix #995: Collection wrapper short-circuit.
     if wire_dict.get("kind") == "collection":
         item_type = wire_dict.get("item_type")
@@ -506,7 +515,7 @@ def _extract_type_name(wire_dict: dict[str, Any]) -> str:
 def _extract_storage_fields(wire_dict: dict[str, Any]) -> tuple[str | None, str | None]:
     """Return ``(backend, storage_path)`` from a wire-format payload.
 
-    #1983: a block output reaches the recorder in one of two shapes, and only
+    a block output reaches the recorder in one of two shapes, and only
     one of them carries these keys at the top level.
 
     * The raw worker form written by ``serialise_outputs`` has
@@ -521,7 +530,7 @@ def _extract_storage_fields(wire_dict: dict[str, Any]) -> tuple[str | None, str 
     ``backend``/``storage_path`` as NULL for every artifact, which left
     ``data_objects`` with no record of where anything lives — and with it no
     basis for size accounting, integrity checks, or retention. This is the same
-    dual-shape hazard #1757 fixed for the Collection wrapper.
+    dual-shape hazard fixed for the Collection wrapper.
 
     Args:
         wire_dict: One wire-format payload for a single data object.
@@ -529,6 +538,7 @@ def _extract_storage_fields(wire_dict: dict[str, Any]) -> tuple[str | None, str 
     Returns:
         The backend name and storage path, each ``None`` when absent.
     """
+    # Development references: #1757, #1983.
     metadata = wire_dict.get("metadata")
     nested = metadata if isinstance(metadata, dict) else {}
 

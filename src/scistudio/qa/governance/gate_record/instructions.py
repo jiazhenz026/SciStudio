@@ -1,10 +1,12 @@
-"""Task-specific instruction generator for ``init`` (ADR-042 Addendum 6 §7.5).
-
-Renders, from task kind + persona + tier + scope + issues + governance-touch,
-the guidance the agent needs at each workflow concern, plus the §7.7.4 task-kind
-and §7.7.5 persona CLI argument profiles. Instructions are guidance; ``check``
-remains authoritative (§5.2).
-"""
+"""Task-specific instruction generator for ``init``."""
+# Maintainer context (kept outside generated API documentation):
+# Task-specific instruction generator for ``init`` (ADR-042 Addendum 6 §7.5).
+#
+# Renders, from task kind + persona + tier + scope + issues + governance-touch,
+# the guidance the agent needs at each workflow concern, plus the §7.7.4 task-kind
+# and §7.7.5 persona CLI argument profiles. Instructions are guidance; ``check``
+# remains authoritative (§5.2).
+# Development references: ADR-042, Addendum 6.
 
 from __future__ import annotations
 
@@ -70,7 +72,9 @@ def generate_instructions(
     governance_touch: bool,
     record_path: str,
 ) -> str:
-    """Render the task-specific init instructions (§7.5)."""
+    """Render the task-specific init instructions."""
+    # Maintainer context:
+    # Render the task-specific init instructions (§7.5).
 
     lines: list[str] = []
     lines.append(f"Gate ledger created: {record_path}")

@@ -1,9 +1,11 @@
-"""Engine event bus — publish/subscribe backbone for runtime coordination.
-
-ADR-018: EventBus becomes the runtime backbone. All state changes, cancellation,
-process lifecycle, and checkpoint events flow through this bus.
-ADR-017: PROCESS_SPAWNED event added for subprocess tracking.
-"""
+"""Engine event bus — publish/subscribe backbone for runtime coordination."""
+# Maintainer context (kept outside generated API documentation):
+# Engine event bus — publish/subscribe backbone for runtime coordination.
+#
+# ADR-018: EventBus becomes the runtime backbone. All state changes, cancellation,
+# process lifecycle, and checkpoint events flow through this bus.
+# ADR-017: PROCESS_SPAWNED event added for subprocess tracking.
+# Development references: ADR-017, ADR-018.
 
 from __future__ import annotations
 
@@ -99,15 +101,16 @@ class EventBus:
         Each callback is invoked in order. If a callback is a coroutine
         function its result is awaited. Exceptions in individual callbacks
         are caught, logged, and do **not** prevent subsequent callbacks
-        from running (error isolation per ADR-018).
+        from running (error isolation).
 
-        #1544 (BUG-9): iterate over a snapshot copy of the subscriber list.
+        iterate over a snapshot copy of the subscriber list.
         A callback that (un)subscribes during dispatch — directly or via an
         awaited coroutine — must not corrupt the in-flight iteration
         (skipped callback / ``RuntimeError: list changed size``). The
         snapshot also makes the per-event dispatch set deterministic:
         callbacks added mid-dispatch only take effect on the next emit.
         """
+        # Development references: #1544, ADR-018, BUG-9.
         for callback in list(self._subscribers[event.event_type]):
             try:
                 result = callback(event)

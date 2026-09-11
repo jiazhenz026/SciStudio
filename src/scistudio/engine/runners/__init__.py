@@ -1,8 +1,10 @@
-"""Block runner implementations.
-
-ADR-019: New submodules for cross-platform process lifecycle management.
-ADR-017: LocalRunner + worker.py for subprocess-based block execution.
-"""
+"""Block runner implementations."""
+# Maintainer context (kept outside generated API documentation):
+# Block runner implementations.
+#
+# ADR-019: New submodules for cross-platform process lifecycle management.
+# ADR-017: LocalRunner + worker.py for subprocess-based block execution.
+# Development references: ADR-017, ADR-019.
 
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.platform import PlatformOps, get_platform_ops

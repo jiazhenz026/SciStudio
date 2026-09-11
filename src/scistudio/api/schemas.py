@@ -8,13 +8,15 @@ from pydantic import BaseModel, Field
 
 
 class SubworkflowPortEntry(BaseModel):
-    """One exposed port of a referenced subworkflow (ADR-044 FR-004).
+    """One exposed port of a referenced subworkflow.
 
     ``block_id`` / ``block_type`` / ``block_label`` / ``port`` carry the owning
     inner block's provenance so the editor can show which inner block each
     exposed port belongs to (the exposed ``name`` is the opaque ``"<block>.<port>"``
     dot form). Defaulted so older clients and broken refs stay valid.
     """
+
+    # Development references: ADR-044, FR-004.
 
     name: str
     accepted_types: list[str] = Field(default_factory=list)
@@ -25,13 +27,15 @@ class SubworkflowPortEntry(BaseModel):
 
 
 class SubworkflowPortSurface(BaseModel):
-    """Resolved exposed-port surface for a SubWorkflowBlock node (ADR-044 FR-004).
+    """Resolved exposed-port surface for a SubWorkflowBlock node.
 
     Response-only: computed server-side from the referenced file's
     ``exposed_ports`` and never persisted to the workflow YAML. The editor
     renders the node's handles from this; ``broken`` is ``True`` when the
-    reference cannot be resolved (FR-010).
+    reference cannot be resolved.
     """
+
+    # Development references: ADR-044, FR-004, FR-010.
 
     inputs: list[SubworkflowPortEntry] = Field(default_factory=list)
     outputs: list[SubworkflowPortEntry] = Field(default_factory=list)
@@ -76,11 +80,12 @@ class WorkflowCreate(BaseModel):
 class WorkflowResponse(WorkflowCreate):
     """Response body returned when reading a workflow.
 
-    The legacy ``revision`` field (#718 part a) was removed by ADR-039 §5.2
-    / D39-2.1; durable concurrency control lives in git now. The semver
+    Durable concurrency control lives in git. The semver
     ``version`` string above still describes the schema version of the
     YAML payload.
     """
+
+    # Development references: #718, ADR-039.
 
 
 class WorkflowExecutionResponse(BaseModel):
@@ -124,7 +129,9 @@ class BlockPortResponse(BaseModel):
 
 
 class MetadataFidelityResponse(BaseModel):
-    """Serializable ADR-043 metadata-fidelity declaration."""
+    """Serializable metadata-fidelity declaration."""
+
+    # Development references: ADR-043.
 
     level: str = "pixel_only"
     typed_meta_reads: list[str] = Field(default_factory=list)
@@ -135,7 +142,9 @@ class MetadataFidelityResponse(BaseModel):
 
 
 class FormatCapabilityResponse(BaseModel):
-    """Serializable ADR-043 IO format capability metadata."""
+    """Serializable IO format capability metadata."""
+
+    # Development references: ADR-043.
 
     id: str
     direction: str
@@ -208,7 +217,9 @@ class BlockSummary(BaseModel):
 
 
 class DropinFailureResponse(BaseModel):
-    """One drop-in file the block scan refused (ADR-053 FR-015/FR-016)."""
+    """One drop-in file the block scan refused."""
+
+    # Development references: ADR-053, FR-015, FR-016.
 
     file_path: str = Field(description="Absolute path of the drop-in file that was refused.")
     error_type: str = Field(description="Exception class name, or 'DropinTypeNameCollision' for FR-016.")
@@ -229,11 +240,13 @@ class BlockListResponse(BaseModel):
 class TypeSummary(BaseModel):
     """One registered ``DataObject`` type, as the Data types tab sees it.
 
-    ADR-053 FR-026. Deliberately not an extension of :class:`TypeHierarchyEntry`
-    on the block response: FR-027 makes the types listing independent of the
+    Deliberately not an extension of :class:`TypeHierarchyEntry`
+    on the block response: the types listing is independent of the
     block listing, so the Data types tab neither waits for nor re-triggers a
     palette fetch.
     """
+
+    # Development references: ADR-053, FR-026, FR-027.
 
     name: str = Field(description="Registered type name, e.g. 'DataFrame'.")
     base_type: str = Field(default="", description="Immediate parent type name, or '' for DataObject itself.")
@@ -282,17 +295,21 @@ class TypeSummary(BaseModel):
 
 
 class TypeListResponse(BaseModel):
-    """Response body for the registered data type listing (ADR-053 FR-026)."""
+    """Response body for the registered data type listing."""
+
+    # Development references: ADR-053, FR-026.
 
     types: list[TypeSummary] = Field(default_factory=list)
 
 
 class TypeTemplateResponse(BaseModel):
-    """Response shape for ``GET /api/types/template`` (ADR-053 FR-028).
+    """Response shape for ``GET /api/types/template``.
 
     Identical in shape to ``BlockTemplateResponse`` so the new-block and
-    new-data-type flows can share their fetch-write-open steps (FR-033).
+    new-data-type flows can share their fetch-write-open steps.
     """
+
+    # Development references: ADR-053, FR-028, FR-033.
 
     kind: str
     content: str
@@ -300,7 +317,9 @@ class TypeTemplateResponse(BaseModel):
 
 
 class BlockSourceResponse(BaseModel):
-    """Read-only source code backing a registered block type (#1758)."""
+    """Read-only source code backing a registered block type."""
+
+    # Development references: #1758.
 
     block_type: str = Field(description="Registered block type name the source belongs to.")
     path: str = Field(description="Absolute filesystem path of the block's source file.")
@@ -344,8 +363,7 @@ class BlockSchemaResponse(BlockSummary):
 class BlockConnectionValidation(BaseModel):
     """Request body for validating a proposed port connection.
 
-    ``source_node_config`` and ``target_node_config`` are optional per
-    #889 (ADR-028 / ADR-029 effective-ports drift). When provided, the
+    ``source_node_config`` and ``target_node_config`` are optional (effective-ports drift). When provided, the
     backend resolves each endpoint's effective ports from the per-node
     config — required for ``LoadData`` (``core_type`` chooses the
     output type) and variadic blocks (``AIBlock`` / ``CodeBlock`` /
@@ -354,6 +372,8 @@ class BlockConnectionValidation(BaseModel):
     absent, the backend falls back to the static class-level port
     spec (legacy behaviour) so older clients keep working.
     """
+
+    # Development references: #889, ADR-028, ADR-029.
 
     source_block: str
     source_port: str
@@ -407,8 +427,10 @@ class DataRegisterPathResponse(BaseModel):
     Field names mirror the frontend ``PreviewTarget``: the caller opens a
     preview with ``{kind: "data_ref", ref, recorded_type, type_chain}``.
     ``extension`` and ``remembered`` let the caller show, and undo, the
-    remembered open-as choice without a second round trip (#2112).
+    remembered open-as choice without a second round trip.
     """
+
+    # Development references: #2112.
 
     ref: str
     recorded_type: str
@@ -419,12 +441,14 @@ class DataRegisterPathResponse(BaseModel):
 
 
 class DataOpenAsCandidate(BaseModel):
-    """One type a file could be opened as (#2112).
+    """One type a file could be opened as.
 
     ``origin`` and ``package_name`` are the same tier facts the Data types tab
     reports, so the picker can say where a candidate came from rather than
     offering a bare list of names.
     """
+
+    # Development references: #2112.
 
     name: str
     base_type: str = ""
@@ -438,13 +462,15 @@ class DataOpenAsCandidate(BaseModel):
 
 
 class DataOpenAsCandidatesResponse(BaseModel):
-    """Answer to ``GET /api/data/open-as/candidates`` (#2112).
+    """Answer to ``GET /api/data/open-as/candidates``.
 
     ``candidates`` is ordered project -> package -> core, so the first entry is
     the picker's default. ``remembered`` is the project's recorded choice for
     this extension when there is one, in which case the caller opens the file
     without asking.
     """
+
+    # Development references: #2112.
 
     path: str
     extension: str
@@ -453,7 +479,9 @@ class DataOpenAsCandidatesResponse(BaseModel):
 
 
 class DataOpenAsEntry(BaseModel):
-    """One remembered extension -> type choice (#2112)."""
+    """One remembered extension -> type choice."""
+
+    # Development references: #2112.
 
     extension: str
     type_name: str
@@ -461,7 +489,9 @@ class DataOpenAsEntry(BaseModel):
 
 
 class DataOpenAsListResponse(BaseModel):
-    """The open project's remembered open-as choices (#2112)."""
+    """The open project's remembered open-as choices."""
+
+    # Development references: #2112.
 
     entries: list[DataOpenAsEntry] = Field(default_factory=list)
 
@@ -527,7 +557,9 @@ class PreviewEnvelopeModel(BaseModel):
 
 
 class PreviewerChoiceModel(BaseModel):
-    """One recorded per-type previewer choice (#2049)."""
+    """One recorded per-type previewer choice."""
+
+    # Development references: #2049.
 
     target_type: str
     """Type name the choice applies to. Exact: a choice on a type does not
@@ -544,14 +576,18 @@ class PreviewerChoiceModel(BaseModel):
 
 
 class PreviewerChoiceListResponse(BaseModel):
-    """Response body for ``GET /api/previews/choices`` (#2049)."""
+    """Response body for ``GET /api/previews/choices``."""
+
+    # Development references: #2049.
 
     choices: list[PreviewerChoiceModel] = Field(default_factory=list)
     """Effective choices after the project layer overrides the user layer."""
 
 
 class PreviewerChoiceRequest(BaseModel):
-    """Request body for ``PUT /api/previews/choices/{target_type}`` (#2049)."""
+    """Request body for ``PUT /api/previews/choices/{target_type}``."""
+
+    # Development references: #2049.
 
     previewer_id: str
     scope: str = "user"
@@ -574,12 +610,14 @@ class PreviewerSpecModel(BaseModel):
 
 
 class PreviewerListResponse(BaseModel):
-    """Response body for ``GET /api/previews/previewers`` (#2095).
+    """Response body for ``GET /api/previews/previewers``.
 
     ``PreviewerSpecModel`` was declared when the preview system landed and
     never served; this is the route that makes previewer provenance answerable
     the way the Data types tab answers it for types.
     """
+
+    # Development references: #2095.
 
     previewers: list[PreviewerSpecModel] = Field(default_factory=list)
     """Registered specs, ordered project -> user -> package -> core, then by id."""
@@ -590,7 +628,9 @@ class PreviewerListResponse(BaseModel):
 
 
 class PreviewerReloadResponse(BaseModel):
-    """Response body for ``POST /api/previews/reload`` (#2095)."""
+    """Response body for ``POST /api/previews/reload``."""
+
+    # Development references: #2095.
 
     reloaded: int
     """Number of previewer specs registered after the rebuild."""
@@ -758,7 +798,8 @@ class PlotListItem(BaseModel):
     broken: bool = False
     """True when the bound target (node_id + output_port) no longer resolves in
     its workflow — e.g. the source block was deleted/recreated. The app shell
-    flags these for relink (bug#7 / PR #1712 review)."""
+    flags these for relink (bug#7 /  review)."""
+    # Development references: #1712.
     output_type: str = ""
     """Core type of the bound output port (e.g. ``Spectrum``), resolved live from
     the workflow's current targets so the plot card can show the full block info.
@@ -847,7 +888,7 @@ UserLibraryTarget = Literal["blocks", "types", "previewers"]
 
 
 class MoveSourceRef(BaseModel):
-    """The project file a library write should consume (ADR-053 FR-017).
+    """The project file a library write should consume.
 
     Promotion **moves**: the copy in the library becomes the only copy, so the
     write that creates it is also what removes the original. Naming the source
@@ -855,6 +896,8 @@ class MoveSourceRef(BaseModel):
     blast radius at exactly this operation — there is no way to reach the
     removal except by first writing that file's content somewhere else.
     """
+
+    # Development references: ADR-053, FR-017.
 
     project_id: str = Field(description="Project whose root the path is resolved against.")
     path: str = Field(
@@ -866,7 +909,9 @@ class MoveSourceRef(BaseModel):
 
 
 class UserLibraryWriteRequest(BaseModel):
-    """Request body for ``PUT /api/user-library/file`` (ADR-053 FR-006)."""
+    """Request body for ``PUT /api/user-library/file``."""
+
+    # Development references: ADR-053, FR-006.
 
     content: str = Field(description="Full UTF-8 text to write to the file.")
     overwrite: bool = Field(
@@ -888,12 +933,14 @@ class UserLibraryWriteRequest(BaseModel):
 
 
 class UserLibraryFileResponse(BaseModel):
-    """Response body for ``GET /api/user-library/file`` (ADR-053 FR-031).
+    """Response body for ``GET /api/user-library/file``.
 
     The user-library counterpart of the project file read: a 200 means the file
     exists, a 404 means it does not, which is exactly the signal the frontend's
     existence probe needs before offering to create or promote.
     """
+
+    # Development references: ADR-053, FR-031.
 
     target: UserLibraryTarget
     filename: str
@@ -905,7 +952,9 @@ class UserLibraryFileResponse(BaseModel):
 
 
 class UserLibraryWriteResponse(BaseModel):
-    """Response body for ``PUT /api/user-library/file`` (ADR-053 FR-006/FR-010)."""
+    """Response body for ``PUT /api/user-library/file``."""
+
+    # Development references: ADR-053, FR-006, FR-010.
 
     target: UserLibraryTarget
     filename: str

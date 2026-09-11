@@ -1,18 +1,20 @@
-"""core_change_guard calculator (ADR-042 Addendum 6 spec §4).
-
-Produces: AI-authored protected-core change lacks admin-approved:core-change
-provenance.
-
-Ported from the legacy ``core_change_guard`` (deleted on this branch, on
-``origin/main``). Reads ONLY ``GuardInputs``: protected-core surfaces come from
-the evaluator's single ``surfaces`` classifier, the label vocabulary from
-``labels``, and observed/requested labels + PR context from the bundle. The
-guard keeps no protected-path list, label vocabulary, or git access of its own.
-
-The rule body lives in ``_authorization.check_label_gated_surface``, shared with
-``architecture_doc_guard`` (#2054). What is left here is the configuration that
-makes this guard *this* guard: which surface, which label, what to say.
-"""
+"""Core_change_guard calculator."""
+# Maintainer context (kept outside generated API documentation):
+# core_change_guard calculator (ADR-042 Addendum 6 spec §4).
+#
+# Produces: AI-authored protected-core change lacks admin-approved:core-change
+# provenance.
+#
+# Ported from the legacy ``core_change_guard`` (deleted on this branch, on
+# ``origin/main``). Reads ONLY ``GuardInputs``: protected-core surfaces come from
+# the evaluator's single ``surfaces`` classifier, the label vocabulary from
+# ``labels``, and observed/requested labels + PR context from the bundle. The
+# guard keeps no protected-path list, label vocabulary, or git access of its own.
+#
+# The rule body lives in ``_authorization.check_label_gated_surface``, shared with
+# ``architecture_doc_guard`` (#2054). What is left here is the configuration that
+# makes this guard *this* guard: which surface, which label, what to say.
+# Development references: #2054, ADR-042, Addendum 6.
 
 from __future__ import annotations
 

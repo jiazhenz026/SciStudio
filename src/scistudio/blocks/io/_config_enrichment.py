@@ -43,7 +43,7 @@ def io_capable_type_names(registry: Any, type_registry: Any, *, direction: str) 
 def format_extensions_by_type(registry: Any, *, direction: str) -> dict[str, list[str]]:
     """Return ``{type name: sorted extensions}`` for one IO *direction*.
 
-    ADR-053 FR-054. The types listing endpoint reports, per type, the file
+    The types listing endpoint reports, per type, the file
     extensions it can be loaded from and saved to; those facts already exist as
     :class:`~scistudio.blocks.io.capabilities.FormatCapability` records and only
     need grouping. Grouping is by ``capability.data_type.__name__``, the same
@@ -51,13 +51,14 @@ def format_extensions_by_type(registry: Any, *, direction: str) -> dict[str, lis
     the extensions a type advertises are derived from one reading of the
     capability table.
 
-    ``direction`` is ``"load"`` or ``"save"``; FR-055 keeps them separate,
+    ``direction`` is ``"load"`` or ``"save"``; the contract keeps them separate,
     because a type readable from a format it cannot be written back to is a
     real asymmetry and collapsing the two directions would hide it. A type with
     no capability in this direction is simply absent from the mapping — the
-    caller supplies the FR-056 empty list, since only the caller knows the full
+    caller supplies the empty list, since only the caller knows the full
     set of registered types.
     """
+    # Development references: ADR-053, FR-054, FR-055, FR-056.
     grouped: dict[str, set[str]] = {}
     for capability in registry.list_format_capabilities(direction=direction):
         grouped.setdefault(capability.data_type.__name__, set()).update(capability.extensions)

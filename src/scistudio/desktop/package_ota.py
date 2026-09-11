@@ -1,17 +1,19 @@
-"""Pure decision logic for per-package OTA hot-update (issue #1784).
-
-This module mirrors the role of the desktop core's ``desktop/ota.js``: it
-decides *whether* a package update applies, with no network or filesystem
-dependencies, so the rules are directly unit-testable. The IO side — fetching
-each package's manifest, downloading/verifying the snapshot, staging it, and
-relaunching — lives in :mod:`scistudio.desktop.package_manager`.
-
-Unlike core OTA, packages compare by **semver** rather than a monotonic build
-number: a package update is a full replace of the installed package directory
-that shadows any bundled copy, so there is no "installer baseline build" to
-sequence against. The manifest records the new ``version`` and the minimum core
-base it requires (``requires.min_core_base``).
-"""
+"""Pure decision logic for per-package OTA hot-update."""
+# Maintainer context (kept outside generated API documentation):
+# Pure decision logic for per-package OTA hot-update (issue #1784).
+#
+# This module mirrors the role of the desktop core's ``desktop/ota.js``: it
+# decides *whether* a package update applies, with no network or filesystem
+# dependencies, so the rules are directly unit-testable. The IO side — fetching
+# each package's manifest, downloading/verifying the snapshot, staging it, and
+# relaunching — lives in :mod:`scistudio.desktop.package_manager`.
+#
+# Unlike core OTA, packages compare by **semver** rather than a monotonic build
+# number: a package update is a full replace of the installed package directory
+# that shadows any bundled copy, so there is no "installer baseline build" to
+# sequence against. The manifest records the new ``version`` and the minimum core
+# base it requires (``requires.min_core_base``).
+# Development references: #1784.
 
 from __future__ import annotations
 

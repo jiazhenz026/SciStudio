@@ -1,27 +1,29 @@
-"""Scan / registration helpers for :class:`BlockRegistry`.
-
-Per ADR-047 §C9: this module hosts only module-level private helpers — it
-must contain **zero** ``class`` definitions. The :class:`BlockRegistry`
-class lives in ``__init__.py``.
-
-Owns:
-
-- ``_scan_builtins`` — register the four core blocks (LoadData, SaveData,
-  AIBlock, SubWorkflowBlock).
-- ``_scan_tier1`` — discover blocks from ``.py`` files under configured
-  scan directories.
-- ``_reject_shadowing_type_files`` — ADR-053 FR-016 / §13 OQ-1 reporting
-  adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
-  the rule and the mitigation for every process.
-- ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
-  (ADR-025 callable protocol).
-- ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
-  ``packages/*/src`` source packages (desktop runtime).
-- ``_register_spec`` — apply per-spec validation and write into the
-  registry's ``_registry`` + ``_aliases`` dicts.
-- ``_validate_capability_registration`` — ADR-043 capability-id and
-  default-conflict cross-spec validation.
-"""
+"""Scan / registration helpers for :class:`BlockRegistry`."""
+# Maintainer context (kept outside generated API documentation):
+# Scan / registration helpers for :class:`BlockRegistry`.
+#
+# Per ADR-047 §C9: this module hosts only module-level private helpers — it
+# must contain **zero** ``class`` definitions. The :class:`BlockRegistry`
+# class lives in ``__init__.py``.
+#
+# Owns:
+#
+# - ``_scan_builtins`` — register the four core blocks (LoadData, SaveData,
+#   AIBlock, SubWorkflowBlock).
+# - ``_scan_tier1`` — discover blocks from ``.py`` files under configured
+#   scan directories.
+# - ``_reject_shadowing_type_files`` — ADR-053 FR-016 / §13 OQ-1 reporting
+#   adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
+#   the rule and the mitigation for every process.
+# - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
+#   (ADR-025 callable protocol).
+# - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
+#   ``packages/*/src`` source packages (desktop runtime).
+# - ``_register_spec`` — apply per-spec validation and write into the
+#   registry's ``_registry`` + ``_aliases`` dicts.
+# - ``_validate_capability_registration`` — ADR-043 capability-id and
+#   default-conflict cross-spec validation.
+# Development references: ADR-025, ADR-043, ADR-047, ADR-053, FR-016, OQ-1.
 
 from __future__ import annotations
 
@@ -119,12 +121,12 @@ def _validate_capability_registration(registry: BlockRegistry, spec: BlockSpec) 
 def _scan_builtins(registry: BlockRegistry) -> None:
     """Register first-party core blocks shipped inside ``scistudio`` itself.
 
-    Issue #1779: core's own palette blocks are registered here by direct
+    core's own palette blocks are registered here by direct
     import, **not** via ``scistudio.blocks`` entry points. Entry-point
     discovery (:func:`_scan_tier2`) depends on installed ``*.dist-info``
     metadata, which the desktop bundle does not carry — it ships core as raw
     source on ``PYTHONPATH`` and strips build metadata (``stage-resources.sh``,
-    #1775). Relying on entry points for first-party blocks made the whole
+    ). Relying on entry points for first-party blocks made the whole
     process/code/app palette vanish in packaged builds, leaving only the
     handful already hard-registered here. Direct registration is
     environment-independent (source checkout, editable install, bundled
@@ -139,6 +141,7 @@ def _scan_builtins(registry: BlockRegistry) -> None:
     The excluded classes remain importable for plugin development
     and tests.
     """
+    # Development references: #1775, #1779.
     from scistudio.blocks.ai.ai_block import AIBlock
     from scistudio.blocks.app import AppBlock
     from scistudio.blocks.code import CodeBlock
@@ -165,20 +168,22 @@ def _scan_builtins(registry: BlockRegistry) -> None:
 
 
 def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: str, message: str) -> None:
-    """Record one refused drop-in file on the registry (ADR-053 FR-015)."""
+    """Record one refused drop-in file on the registry."""
+    # Development references: ADR-053, FR-015.
     from scistudio.blocks.registry import DropinFailure
 
     registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
 
 
 def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Path, ...]) -> None:
-    """Report every FR-016 collision in *import_roots* on the registry.
+    """Report every collision in *import_roots* on the registry.
 
     Detection and the pre-binding that keeps the installed module resolving are
     :func:`scistudio.core.dropins.guard_dropin_type_roots`, which the worker and
     the in-process instantiation path call too. This function is only the block
-    registry's FR-015 reporting adapter for it.
+    registry's reporting adapter for it.
     """
+    # Development references: FR-015, FR-016.
     for collision in guard_dropin_type_roots(import_roots):
         logger.error("ADR-053 FR-016: rejected drop-in type %s — %s", collision.path, collision.message)
         _record_dropin_failure(registry, collision.path, "DropinTypeNameCollision", collision.message)
@@ -187,7 +192,7 @@ def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Pa
 def _scan_tier1(registry: BlockRegistry) -> None:
     """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
 
-    Security boundary (issue #1531): drop-in files are executed as Python
+    Security boundary: drop-in files are executed as Python
     modules in the server process.  Only files from trusted project- or
     user-controlled directories should be registered via
     :meth:`BlockRegistry.add_scan_dir`.
@@ -198,39 +203,40 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     not an exotic case: a script converted into a block keeps its
     ``sys.exit(main())`` idiom or its ``argparse`` error path, and under the
     narrower ``except Exception`` such a file killed the palette refresh on
-    every startup, recorded no ``DropinFailure`` — so FR-015's "silent
+    every startup, recorded no ``DropinFailure`` — so the API's "silent
     disappearance ends" was not met for that class — and left the user no
     in-product way to find the file, because the palette they would have used
-    to find it is what died
-    (``docs/audit/2026-08-07-adr-053-spec1-write-path.md`` P2-1).
+    to find it is what died.
     ``KeyboardInterrupt`` is re-raised: it is the operator's own signal, and
     swallowing it would make the server un-interruptible during a scan.
 
     Two failure modes remain outside this boundary and cannot be brought inside
     it in-process: ``os._exit()``, which no handler can intercept, and a module
     that never returns from import, which needs a wall clock this process does
-    not control. Both belong to the out-of-process sandbox the ``TODO(#1531)``
-    below defers — a thread-based bound would change where every well-behaved
+    not control. Both require isolation in a separate process — a thread-based bound would change where every well-behaved
     drop-in executes, and an asynchronous interrupt would land in whichever
     thread happens to be the main one. This paragraph states the boundary
     rather than claiming isolation the code does not provide.
 
-    ADR-053 FR-012/FR-014: the drop-in type directories of the same tiers join
+    the drop-in type directories of the same tiers join
     ``sys.path`` for the duration of drop-in execution, project tier first, so
     ``from spectrum import SpectrumData`` resolves ``<project>/types/spectrum.py``
     and a project type shadows a user-library type of the same file name. Which
     directories those are is decided by :mod:`scistudio.core.dropins`, not here.
-    FR-013: the same roots are stamped on every Tier-1 spec so the worker
+    the same roots are stamped on every Tier-1 spec so the worker
     subprocess reconstructs the block against an identical import path.
 
-    FR-015: every refusal — a module that raised on import, and every FR-016
+    every refusal — a module that raised on import, and every
     type-name collision — is recorded on the registry and returned by
     ``GET /api/blocks/``, so a drop-in block no longer disappears in silence.
 
-    TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
-      Out of scope per issue #1531 (contained hardening only for this PR).
-      Followup: https://github.com/zjzcpj/SciStudio/issues/1531
     """
+    # Maintainer context (kept outside generated API documentation):
+    # TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
+    #   Out of scope per issue #1531 (contained hardening only for this PR).
+    #   Followup: https://github.com/zjzcpj/SciStudio/issues/1531
+    # Development references: #1531, ADR-053, FR-012, FR-013, FR-014, FR-015, FR-016, TODO,
+    # adr-053-spec1-write-path.
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
 
@@ -339,7 +345,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
 def _scan_tier2(registry: BlockRegistry) -> None:
     """Tier 2: scan ``scistudio.blocks`` entry-points using callable protocol.
 
-    This group is reserved for third-party plugin packages (#1779). Core's own
+    This group is reserved for third-party plugin packages. Core's own
     first-party blocks are registered directly in :func:`_scan_builtins` and do
     not appear here, so a packaged build with no ``*.dist-info`` metadata still
     gets the full core palette.
@@ -351,18 +357,19 @@ def _scan_tier2(registry: BlockRegistry) -> None:
     * ``list[type[Block]]`` -- plain list (backward compatible, uses
       entry-point name as the package display name)
 
-    See ADR-025 for the full specification.
 
-    ADR-053 FR-025: enumeration, per-entry-point error containment, payload
+
+    enumeration, per-entry-point error containment, payload
     shape, diagnostics, and ``sys.path`` preparation are
     :mod:`scistudio.core.entry_points`'s answer, shared with the type and
     previewer registries. What stays here is registration: what a
     :class:`PackageInfo` means, which classes are eligible, and what a
-    ``BlockSpec`` carries. ``allow_bare_class=True`` below is the FR-029
+    ``BlockSpec`` carries. ``allow_bare_class=True`` below is the
     compatibility affordance for this group alone; the reason it exists and
     the reason it is not extended are recorded in that module, not repeated
     here.
     """
+    # Development references: #1779, ADR-025, ADR-053, FR-025, FR-029.
     diagnostics: list[EntryPointDiagnostic] = []
     # FR-030: the plugin import roots carry the ``dist-info`` that makes a
     # user-installed package's entry points visible at all. The previewer
@@ -385,9 +392,10 @@ def _register_entry_point_blocks(
 
     The registration half of :func:`_scan_tier2`: which payload shapes carry
     blocks, which classes are eligible, and what a ``BlockSpec`` records. The
-    ``(PackageInfo, list)`` pair, the plain list, and the FR-029 bare class are
+    ``(PackageInfo, list)`` pair, the plain list, and the bare class are
     the shapes this group accepts.
     """
+    # Development references: FR-029.
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.base.package_info import PackageInfo
     from scistudio.blocks.registry._spec import _spec_from_class
@@ -501,12 +509,13 @@ def _record_entry_point_diagnostics(
     registry: BlockRegistry,
     diagnostics: list[EntryPointDiagnostic],
 ) -> None:
-    """Publish this scan's entry-point diagnostics on the registry (FR-028).
+    """Publish this scan's entry-point diagnostics on the registry.
 
     Replaces the previous pass's list rather than appending to it, so the
     surface always describes the most recent scan the way
     :meth:`BlockRegistry.dropin_failures` does.
     """
+    # Development references: FR-028.
     registry._entry_point_diagnostics = [str(diagnostic) for diagnostic in diagnostics]
 
 
@@ -619,9 +628,10 @@ def _scan_package_src_dirs(registry: BlockRegistry) -> None:
     """Tier 3: scan hard-installed ``packages/*/src`` source packages.
 
     This desktop package path imports already-present ``scistudio_blocks_*``
-    source packages through the existing ADR-025 package protocol so ADR-043
+    source packages through the existing package protocol so
     capability validation remains the registry's single source of truth.
     """
+    # Development references: ADR-025, ADR-043.
     package_dirs = [*registry._package_src_dirs, *_desktop_resource_package_dirs()]
     for _root_name, module_name, import_roots in iter_source_package_module_candidates(package_dirs):
         _scan_source_package_module(

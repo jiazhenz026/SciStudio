@@ -1,21 +1,23 @@
-"""The one label-gated-surface policy, shared by the guards that apply it (#2054).
-
-``core_change_guard`` and ``architecture_doc_guard`` gate different surfaces on
-different labels, but the policy is a single one: *this surface may only change
-when an authorization CI can verify the provenance of exists.* Each guard used
-to carry its own copy of it, which is two places for one answer to drift — and
-drift here is not cosmetic, because the guards would then disagree about whether
-the same owner action authorized anything at all.
-
-They are now two configurations of :func:`check_label_gated_surface` rather than
-two implementations of the same rule. What differs between them is data: which
-surface class the evaluator classified, which label authorizes it, and what to
-say when it is missing.
-
-Kept out of ``_base`` on purpose: ``_base`` owns the frozen ``GuardInputs``
-bundle and the ``Guard`` type, which every guard imports. This is policy, and a
-guard that does not gate on a label has no reason to see it.
-"""
+"""The one label-gated-surface policy, shared by the guards that apply it."""
+# Maintainer context (kept outside generated API documentation):
+# The one label-gated-surface policy, shared by the guards that apply it (#2054).
+#
+# ``core_change_guard`` and ``architecture_doc_guard`` gate different surfaces on
+# different labels, but the policy is a single one: *this surface may only change
+# when an authorization CI can verify the provenance of exists.* Each guard used
+# to carry its own copy of it, which is two places for one answer to drift — and
+# drift here is not cosmetic, because the guards would then disagree about whether
+# the same owner action authorized anything at all.
+#
+# They are now two configurations of :func:`check_label_gated_surface` rather than
+# two implementations of the same rule. What differs between them is data: which
+# surface class the evaluator classified, which label authorizes it, and what to
+# say when it is missing.
+#
+# Kept out of ``_base`` on purpose: ``_base`` owns the frozen ``GuardInputs``
+# bundle and the ``Guard`` type, which every guard imports. This is policy, and a
+# guard that does not gate on a label has no reason to see it.
+# Development references: #2054.
 
 from __future__ import annotations
 

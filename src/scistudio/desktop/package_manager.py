@@ -1,16 +1,18 @@
-"""In-app Package Manager services (issue #1784).
-
-This module is the IO side of the per-package OTA flow whose pure decision
-logic lives in :mod:`scistudio.desktop.package_ota`. It backs the desktop
-Package Manager UI: listing installed packages, checking each one's
-self-declared OTA source for newer releases, and downloading/verifying/staging,
-rolling back, or deleting a package.
-
-Packages self-declare their update source via :class:`PackageInfo.ota`
-(``manifest_url`` + ``channel``); core never maintains a package list. The
-check iterates the *loaded* registry packages, fetches each manifest, and
-compares by semver against the running core base.
-"""
+"""In-app Package Manager services."""
+# Maintainer context (kept outside generated API documentation):
+# In-app Package Manager services (issue #1784).
+#
+# This module is the IO side of the per-package OTA flow whose pure decision
+# logic lives in :mod:`scistudio.desktop.package_ota`. It backs the desktop
+# Package Manager UI: listing installed packages, checking each one's
+# self-declared OTA source for newer releases, and downloading/verifying/staging,
+# rolling back, or deleting a package.
+#
+# Packages self-declare their update source via :class:`PackageInfo.ota`
+# (``manifest_url`` + ``channel``); core never maintains a package list. The
+# check iterates the *loaded* registry packages, fetches each manifest, and
+# compares by semver against the running core base.
+# Development references: #1784.
 
 from __future__ import annotations
 

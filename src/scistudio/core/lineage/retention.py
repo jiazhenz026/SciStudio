@@ -1,30 +1,32 @@
-"""Artifact retention — keep the last successful run, reclaim the rest (#1983).
-
-Every block output is persisted as a full-size artifact under
-``data/zarr/<workflow_id>/<block_id>/``, and until #1983 nothing ever removed
-one. A real project accumulated 16 GB of zarr from 634 MB of source images:
-16 runs of the same pipeline at ~0.69 GB each, with one node holding 102
-persisted arrays for a workflow that reads 6 input files.
-
-The retention rule is deliberately simple, per owner directive:
-
-    For each workflow, keep the artifacts produced by its most recent
-    **successful** run. Reclaim everything else.
-
-Two consequences follow from that wording and are intentional:
-
-* "most recent **successful**" — a run that fails partway does not make the
-  previous good run's artifacts reclaimable. Reclaiming on any run would leave
-  a failed session with nothing on disk.
-* "**produced by**" — a partial re-run (``runs.execute_from_block_id``)
-  produces only its downstream nodes, so the upstream artifacts it inherited
-  from an earlier run are reclaimed. That workflow then needs a full re-run.
-  The owner chose this over inherited-input protection because the resulting
-  behaviour is easier to predict.
-
-Storage layout is unchanged: artifacts stay under
-``data/zarr/<workflow_id>/<block_id>/``.
-"""
+"""Artifact retention — keep the last successful run, reclaim the rest."""
+# Maintainer context (kept outside generated API documentation):
+# Artifact retention — keep the last successful run, reclaim the rest (#1983).
+#
+# Every block output is persisted as a full-size artifact under
+# ``data/zarr/<workflow_id>/<block_id>/``, and until #1983 nothing ever removed
+# one. A real project accumulated 16 GB of zarr from 634 MB of source images:
+# 16 runs of the same pipeline at ~0.69 GB each, with one node holding 102
+# persisted arrays for a workflow that reads 6 input files.
+#
+# The retention rule is deliberately simple, per owner directive:
+#
+#     For each workflow, keep the artifacts produced by its most recent
+#     **successful** run. Reclaim everything else.
+#
+# Two consequences follow from that wording and are intentional:
+#
+# * "most recent **successful**" — a run that fails partway does not make the
+#   previous good run's artifacts reclaimable. Reclaiming on any run would leave
+#   a failed session with nothing on disk.
+# * "**produced by**" — a partial re-run (``runs.execute_from_block_id``)
+#   produces only its downstream nodes, so the upstream artifacts it inherited
+#   from an earlier run are reclaimed. That workflow then needs a full re-run.
+#   The owner chose this over inherited-input protection because the resulting
+#   behaviour is easier to predict.
+#
+# Storage layout is unchanged: artifacts stay under
+# ``data/zarr/<workflow_id>/<block_id>/``.
+# Development references: #1983.
 
 from __future__ import annotations
 
