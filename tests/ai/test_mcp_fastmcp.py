@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import json
 from collections.abc import Coroutine, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -607,6 +608,78 @@ def test_socket_tools_list_excludes_external_tagged(audience_fixture_tools: None
     names = {t["name"] for t in response["result"]["tools"]}
     assert "audience_fixture_external" not in names
     assert "audience_fixture_untagged" in names
+
+
+def test_socket_tools_call_rejects_external_tagged(audience_fixture_tools: None, tmp_path: Path) -> None:
+    """FR-004 (owner decision 2026-09-11): the socket neither lists nor executes it.
+
+    A caller that knows the name gets the unknown-tool error shape
+    (METHOD_NOT_FOUND) with a message pointing at the WebMCP bridge.
+    """
+    from scistudio.ai.agent.mcp.server import MCPServer
+
+    server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
+    response = _run(
+        server.dispatch(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "audience_fixture_external", "arguments": {}},
+            }
+        )
+    )
+    assert response is not None
+    assert "result" not in response
+    assert response["id"] == 2
+    assert response["error"]["code"] == -32601
+    assert "audience_fixture_external" in response["error"]["message"]
+    assert "WebMCP bridge" in response["error"]["message"]
+
+    # Same error shape as a genuinely unknown tool (only the message differs).
+    unknown = _run(
+        server.dispatch(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/call",
+                "params": {"name": "no_such_tool_anywhere", "arguments": {}},
+            }
+        )
+    )
+    assert unknown is not None
+    assert set(unknown) == set(response)
+    assert set(unknown["error"]) == set(response["error"])
+    assert unknown["error"]["code"] == response["error"]["code"]
+
+
+def test_socket_tools_call_dispatches_untagged(audience_fixture_tools: None, tmp_path: Path) -> None:
+    """Untagged tools keep executing over the socket transport."""
+    from scistudio.ai.agent.mcp.server import MCPServer
+
+    server = MCPServer(socket_path=tmp_path / "mcp.sock", project_dir=tmp_path)
+    response = _run(
+        server.dispatch(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "audience_fixture_untagged", "arguments": {}},
+            }
+        )
+    )
+    assert response is not None
+    assert "error" not in response
+    payload = json.loads(response["result"]["content"][0]["text"])
+    assert payload == {"ok": True}
+
+
+def test_bridge_path_still_dispatches_external_tagged(audience_fixture_tools: None) -> None:
+    """The socket rejection is transport-local: ``mcp.call_tool`` (the bridge path) still runs it."""
+    from scistudio.ai.agent.mcp.server import serialise_result
+
+    result = _run(mcp.call_tool("audience_fixture_external", {}))
+    assert serialise_result(result) == {"ok": True}
 
 
 def test_webmcp_catalogue_includes_external_tagged(audience_fixture_tools: None) -> None:

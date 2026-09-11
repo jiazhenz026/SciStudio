@@ -394,9 +394,22 @@ class MCPServer:
                 # Pre-check tool existence so the unknown-tool error
                 # surfaces as JSON-RPC METHOD_NOT_FOUND (-32601) rather
                 # than INVALID_PARAMS (-32602).
-                known_tools = await mcp.list_tools()
-                if name not in {t.name for t in known_tools}:
+                known_tools = {t.name: t for t in await mcp.list_tools()}
+                called_tool = known_tools.get(name)
+                if called_tool is None:
                     return _error_response(req_id, _METHOD_NOT_FOUND, f"unknown tool '{name}'")
+                if AUDIENCE_EXTERNAL_TAG in set(called_tool.tags or set()):
+                    # ADR-055 Spec 1 (FR-004, owner decision 2026-09-11): the
+                    # local socket transport neither lists NOR executes
+                    # external-audience tools. A caller that knows the name
+                    # gets the same METHOD_NOT_FOUND shape as an unknown tool.
+                    # The WebMCP bridge calls ``mcp.call_tool`` directly and is
+                    # unaffected by this check.
+                    return _error_response(
+                        req_id,
+                        _METHOD_NOT_FOUND,
+                        f"unknown tool '{name}': it is available only through the WebMCP bridge",
+                    )
                 try:
                     result = await mcp.call_tool(name, arguments)
                 except Exception as exc:
