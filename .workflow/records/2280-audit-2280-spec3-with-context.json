@@ -1,0 +1,73 @@
+{
+  "base_ref": "origin/feat/2280-local-background-runtime",
+  "branch": "audit/2280-spec3-with-context",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-10-adr-055-spec3-with-context.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T04:21:27.223733Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-10-adr-055-spec3-with-context.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T04:21:27.223757Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "audit report only; no user-visible behavior change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2280,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Audit PR #2284 (ADR-055 Spec 3, issue #2280) with context before merge; write the report to docs/audit/2026-09-10-adr-055-spec3-with-context.md; no implementation code",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2280-audit-2280-spec3-with-context",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code:claude-opus-5",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9a07ae02-5cee-45d4-a1d8-afb35552c776",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-11T04:21:27.223765Z",
+      "class": "audit",
+      "kind": "na",
+      "path": null,
+      "rationale": "report-only change; no code, config, or behavior changed",
+      "verified_in_diff": null
+    }
+  ]
+}
