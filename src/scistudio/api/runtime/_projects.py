@@ -28,6 +28,7 @@ from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.serializer import save_yaml
 
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
+from ._run_lifetime import reconcile_interrupted_runs
 
 if TYPE_CHECKING:
     from . import ApiRuntime, KnownProject
@@ -199,6 +200,10 @@ def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
     except Exception:
         logger.warning("ADR-038: Failed to initialize LineageStore (non-fatal)", exc_info=True)
         self.lineage_store = None
+    if self.lineage_store is not None:
+        # #2327: opening the store is the first point this process can see
+        # runs a killed or crashed process left ``running``; finish them here.
+        reconcile_interrupted_runs(self.lineage_store, project_path)
     try:
         from scistudio.core.metadata_store import _set_active_lineage_store
 

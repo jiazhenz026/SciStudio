@@ -624,6 +624,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2327] **Closing the browser no longer cancels a running workflow.** Two
+  seconds after the last SciStudio browser tab disconnected, the backend used
+  to cancel every active run, whoever had started it. That included a run an
+  external AI started over MCP after its user closed the WebMCP tab, and any
+  server analysis whose user closed a laptop. ADR-055 §7 says the browser does
+  not own the analysis, so a run now ends only when it completes or someone
+  cancels it. Reopen the page and the run is still there, in Run history and
+  on the canvas. The disconnect cancel was the #1500 fix for runs whose lineage
+  stayed `running` forever, so that guarantee now comes from the backend
+  itself. When the backend shuts down, it cancels live runs and waits up to 10
+  seconds for each run's history to record `cancelled`. It writes `cancelled`
+  itself for any run that has not stopped by then. If the backend was killed
+  or crashed, the next time the project is opened, any run a dead process left
+  `running` is recorded as `failed` and the reason is logged. A run whose
+  owning process is still alive (another backend with the same project open,
+  possibly on another machine) is left alone. Each run now keeps a small owner
+  file under `.scistudio/run-owners/` while it is in flight.
+
 - [#2220] **Opening a file dialog no longer freezes the whole app.** Pressing
   Browse anywhere — a block's path field, Open Project, Bring In My Work, the
   Package Manager, a subworkflow file, the diagnostics export — stalled every

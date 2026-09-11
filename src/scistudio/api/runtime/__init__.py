@@ -50,7 +50,7 @@ from scistudio.engine.resources import ResourceManager
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 
-from . import _data, _projects, _runs, _workflows
+from . import _data, _projects, _run_lifetime, _runs, _workflows
 from ._file_writes import ProjectFileService
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
@@ -814,6 +814,8 @@ class ApiRuntime:
     start_workflow = _runs.start_workflow
     _log_workflow_task_failure = _runs._log_workflow_task_failure
     get_run = _runs.get_run
+    # #2327: runs outlive browser connections; shutdown ends them (_run_lifetime).
+    shutdown_workflow_runs = _run_lifetime.shutdown_workflow_runs
 
 
 # Sorted to satisfy ruff RUF022.

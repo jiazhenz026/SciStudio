@@ -1,0 +1,92 @@
+{
+  "base_ref": null,
+  "branch": "fix/2327-run-lifetime",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/ws.py",
+      "src/scistudio/api/runtime/**",
+      "tests/api/test_ws*.py",
+      "tests/api/test_runtime_*.py",
+      "tests/api/runtime/**",
+      "CHANGELOG.md",
+      ".workflow/records/2327-fix-2327-run-lifetime.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-11T11:24:35.958828Z",
+      "owner_directive": "Plan: (1) delete the GUI-disconnect grace cancel from ws.py; (2) new api/runtime/_run_lifetime.py: per-run owner marker (pid+create_time+host) written before the runs row, released after finalize; reconcile_interrupted_runs() on lineage-store open finalizes running rows whose owner process is gone as failed; shutdown_workflow_runs() cancels live runs with a bounded wait and force-finalizes stragglers as cancelled; (3) app.py lifespan: minimal hunk replacing the unbounded cancel+gather loop with runtime.shutdown_workflow_runs(). No core/schema change: reuses LineageStore.runs_in_progress/get_run/finalize_run and the existing failed/cancelled states.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-11T11:24:35.958862Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2327,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner 2026-09-11 decision on #2327 (option 1): remove the last-GUI-disconnect auto-cancel from ws.py. Constraint: #1500 must not regress; every run must reach a terminal lineage state on graceful shutdown, on kill/crash (next startup reconciles runs a previous process left running), and when a run's worker dies.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2327-fix-2327-run-lifetime",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T11:24:35.958848Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "20b0cc57-8266-46e0-a867-95aa4c7de0c5",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-11T11:24:35.958871Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ws.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T11:24:35.958875Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_run_lifetime.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

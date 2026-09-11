@@ -230,13 +230,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # D39-3.2 (#968): the standalone git_watcher was deleted — its
         # ``.git/`` surface is now covered by the unified workflow_watcher
         # observer above. No separate teardown required.
-        pending_run_tasks = []
-        for run in runtime.workflow_runs.values():
-            if not run.task.done():
-                run.task.cancel()
-                pending_run_tasks.append(run.task)
-        if pending_run_tasks:
-            await asyncio.gather(*pending_run_tasks, return_exceptions=True)
+        # #2327: browser disconnects no longer end runs, so shutdown does.
+        # Cancel every live run and wait, bounded, until its lineage row is
+        # terminal. The policy lives in ``api/runtime/_run_lifetime.py``.
+        await runtime.shutdown_workflow_runs()
         app.state.registry.terminate_all(grace_period_sec=5.0)
         await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.

@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
@@ -110,26 +109,19 @@ def test_websocket_handler_handles_cancelled_error_on_shutdown() -> None:
     asyncio.run(_run())
 
 
-def test_last_gui_disconnect_cancels_active_workflow(monkeypatch: Any) -> None:
-    """When the browser session disappears, running workflows must not leave lineage running."""
+def test_last_gui_disconnect_leaves_active_workflow_running() -> None:
+    """#2327: closing the last /ws client never cancels a run (ADR-055 §7).
+
+    #1500 cancelled every active run two seconds after the last client left.
+    The guarantees that replace it (bounded shutdown, startup reconciliation,
+    worker death) are pinned in ``tests/api/test_runtime_run_lifetime.py``,
+    which also waits out the old grace period against the real endpoint.
+    """
 
     async def _run() -> None:
-        ws_module._gui_ws_clients.clear()
-        if ws_module._gui_disconnect_cancel_task is not None:
-            ws_module._gui_disconnect_cancel_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await ws_module._gui_disconnect_cancel_task
-            ws_module._gui_disconnect_cancel_task = None
-
-        monkeypatch.setattr(ws_module, "_GUI_DISCONNECT_GRACE_SEC", 0.01)
-
         task = asyncio.create_task(asyncio.sleep(60))
-
-        async def cancel_workflow() -> None:
-            task.cancel()
-
-        scheduler = SimpleNamespace(cancel_workflow=AsyncMock(side_effect=cancel_workflow))
-        runtime = SimpleNamespace(workflow_runs={"wf-browser-owned": SimpleNamespace(task=task, scheduler=scheduler)})
+        scheduler = SimpleNamespace(cancel_workflow=AsyncMock())
+        runtime = SimpleNamespace(workflow_runs={"wf-headless": SimpleNamespace(task=task, scheduler=scheduler)})
         event_bus = EventBus()
         event_bus.runtime = runtime  # type: ignore[attr-defined]
 
@@ -144,8 +136,24 @@ def test_last_gui_disconnect_cancels_active_workflow(monkeypatch: Any) -> None:
         with contextlib.suppress(asyncio.CancelledError):
             await handler
 
-        await asyncio.sleep(0.05)
-        scheduler.cancel_workflow.assert_awaited_once()
-        assert task.cancelled()
+        await asyncio.sleep(0.1)
+        scheduler.cancel_workflow.assert_not_awaited()
+        assert not task.done()
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
     asyncio.run(_run())
+
+
+def test_ws_module_no_longer_tracks_gui_clients_for_cancellation() -> None:
+    """#2327: the disconnect-cancel machinery is gone, not merely disabled."""
+    for name in (
+        "_GUI_DISCONNECT_GRACE_SEC",
+        "_gui_ws_clients",
+        "_gui_disconnect_cancel_task",
+        "_cancel_after_gui_disconnect_grace",
+        "_cancel_running_workflows_for_gui_disconnect",
+        "_has_active_workflow_runs",
+    ):
+        assert not hasattr(ws_module, name), name

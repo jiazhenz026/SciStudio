@@ -21,6 +21,7 @@ from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import WorkflowDefinition
 
 from ._helpers import _now_iso
+from ._run_lifetime import abandon_run, attach_task, claim_run, release_run
 
 if TYPE_CHECKING:
     from . import ApiRuntime, WorkflowRun
@@ -130,6 +131,11 @@ def _build_lineage_recorder(
             workflow_dirty=1 if workflow_dirty else 0,
         )
         recorder = LineageRecorder(self.event_bus, self.lineage_store, run_id=run_id, workflow_id=workflow_id)
+        # #2327: the owner marker must exist before the ``running`` row does,
+        # so startup reconciliation never mistakes a run that has just started
+        # for one a dead process left behind.
+        project = getattr(self, "active_project", None)
+        claim_run(recorder, workflow_id=workflow_id, project_dir=project.path if project is not None else None)
         recorder.begin_run(run)
         return recorder
     except Exception:
@@ -499,17 +505,23 @@ def start_workflow(
         flattened=had_subworkflows,
     )
 
-    scheduler = DAGScheduler(
-        workflow=workflow,
-        event_bus=self.event_bus,
-        resource_manager=self.resource_manager,
-        process_registry=self.process_registry,
-        runner=self.runner,
-        registry=self.block_registry,
-        checkpoint_manager=checkpoint_manager,
-        lineage_recorder=lineage_recorder,
-        project_dir=str(self.active_project.path) if self.active_project else None,
-    )
+    try:
+        scheduler = DAGScheduler(
+            workflow=workflow,
+            event_bus=self.event_bus,
+            resource_manager=self.resource_manager,
+            process_registry=self.process_registry,
+            runner=self.runner,
+            registry=self.block_registry,
+            checkpoint_manager=checkpoint_manager,
+            lineage_recorder=lineage_recorder,
+            project_dir=str(self.active_project.path) if self.active_project else None,
+        )
+    except Exception:
+        # #2327: the ``runs`` row already exists; without a task nothing
+        # would ever move it off ``running``.
+        abandon_run(lineage_recorder)
+        raise
 
     # #1741: per-run diagnostic log. Reuse the lineage run_id when available so
     # the ``run-<id>.log`` filename matches the lineage ``runs`` row; otherwise
@@ -537,13 +549,23 @@ def start_workflow(
                 )
                 await scheduler.execute()
 
-    task = asyncio.create_task(_run())
+    try:
+        task = asyncio.create_task(_run())
+    except Exception:
+        abandon_run(lineage_recorder)
+        raise
     task.add_done_callback(lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished)))
     if lineage_recorder is not None:
         recorder_for_callback = lineage_recorder
+        attach_task(recorder_for_callback.run_id, task)
 
         def _on_done(finished: asyncio.Task[None]) -> None:
-            self._finalize_lineage_run(recorder_for_callback, finished, scheduler)
+            try:
+                self._finalize_lineage_run(recorder_for_callback, finished, scheduler)
+            finally:
+                # #2327: release only after the terminal status is written, so
+                # reconciliation never sees this run as unowned and running.
+                release_run(recorder_for_callback.run_id)
 
         task.add_done_callback(_on_done)
     self.workflow_runs[workflow_id] = WorkflowRun(
