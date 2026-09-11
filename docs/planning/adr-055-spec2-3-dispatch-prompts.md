@@ -422,6 +422,29 @@ Stop and report back if: you are asked to read issue/checklist/PR context; the a
 
 ---
 
+## A2-fix1 — Spec 3 audit fix round (sent to A2 via SendMessage)
+
+```markdown
+[DISPATCH-TEMPLATE-V1: fix]
+
+Task identity, rules, environment notes, coordination and gate flow are unchanged from A2 (branch feat/2280-local-background-runtime, worktree .worktrees/feat-2280-local-background-runtime, issue #2280, PR #2284). This round fixes the two Spec 3 audits.
+
+1. Integrate the audit evidence first: `git cherry-pick b4312fdb0 c67327a56 da013b31be caf5865e5` (AU1 with-context report + its ledger, AU2 no-context report + its ledger), same pattern as the Spec 0/1 round. Then read both reports in full:
+   docs/audit/2026-09-10-adr-055-spec3-with-context.md, docs/audit/2026-09-10-adr-055-spec3-no-context.md.
+2. Fix (each with a test that fails before the fix):
+   - AU1 P2-1: quitting at the launch-mode picker (or closing the splash there) leaves the loader's crash-loop marker set, so a working patched shell is refused on every later launch. Invariant: a shell that rendered the picker and handled the user's choice or close is not a shell fault; a shell that fails before that still is. Prove it with the loader's own marker functions in desktop/ota.js (read-only; do not change ota.js or bootstrap.js).
+   - AU1 P2-2 / AU2 P2-2 / Codex 3985756076: `stopRuntime` SIGKILL escalation never fires (`child.killed` is true once SIGTERM is sent). Escalate on actual liveness (exitCode/signalCode), and make every relaunch path wait for real backend exit. Pre-existing on main, in scope because Spec 3 depends on it.
+   - AU1 P2-4: behavioural tests for the main.js orchestration. Commit the fake-Electron harness scenarios as tests, and make the five surviving mutations from AU1 fail them: vouching on readiness alone; setting the bridge-ready flag early; removing the connection-window IPC sender check; not awaiting backend exit before relaunch; external-AI mode creating the main window. Re-run those mutations and report that each is now caught.
+   - AU1 P2-5: CHANGELOG entry for the new launch mode (owner decision 2026-09-11). `gate_record amend --include CHANGELOG.md` first; follow the file's existing format.
+   - P3s from both reports: fix every one that fits this PR. That includes the ones the owner hit live: "Stop and Quit" with a desktop window attached quits without confirmation (the owner ran into this). It also includes: restart is unresponsive for up to 30 s after a startup crash; `stopRuntimeAndWait` does not wait when a stop is in flight; `windowAllClosedAction` ignores `platform`; macOS reopen through `activate` in external-AI mode; the picker has no timeout if the splash fails to load; test enforcement for relative requires in ota.js/background-mode.js and assets referenced from HTML; the stale shell list in `docs/specs/desktop-shell-ota-hot-update.md` §6 (amend it in); spec frontmatter `feature_branch`/`tests`. For any P3 you do not fix, give a one-line rationale; the manager tracks it with the owner.
+   - HOLD: AU1 P2-3 / AU2 P2-1 / Codex 3985756074, what happens when the backend stops or dies after every window is closed. This waits on an owner decision; the manager will send it. Do not change that behavior until then.
+3. After fixing, reply on PR #2284 to both Codex review comments (3985756074: "held for owner decision" until the manager sends it; 3985756076: the fix commit). Use `gh api repos/jiazhenz026/SciStudio/pulls/2284/comments/<id>/replies -f body=...`.
+4. Gate: amend before every new file; `gate_record check --record <ledger> --mode pre-pr --base origin/main --head HEAD --pr-body-file .workflow/local/pr-body.md`; commit (trailers as before); push; post-PR finalize with `--record`; confirm CI green. Still no Electron GUI launch (the manager runs live checks) and never kill a process you did not start. Run long commands in the foreground with output redirected to a log; do not background them.
+5. Report: fix commits, test/mutation results, P3s fixed vs not fixed (with rationale), CI status.
+```
+
+---
+
 ## AU3 — Audit the Spec 2 branch, with-context
 
 ```markdown
