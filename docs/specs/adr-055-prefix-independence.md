@@ -11,7 +11,7 @@ related_adrs:
   - 55
 related_specs:
   - adr-055-webmcp-bridge
-  - adr-055-lab-deployment
+  - adr-055-enterprise-support
 scope:
   in:
     - A single backend-configured mount prefix (root path) applied to the FastAPI app so the UI, /api routes, /ws, and asset serving all resolve correctly when the service is mounted below a non-root path such as a JupyterHub user route.
@@ -21,9 +21,9 @@ scope:
     - CLI flags and environment variables for host binding and mount prefix on the serve and gui entry points.
     - Regression coverage proving the default empty prefix preserves current desktop and local-browser behavior exactly.
   out:
-    - JupyterHub, authentication, or any Hub-specific behavior (adr-055-lab-deployment). This spec's prefix plumbing must not import or reference Hub concepts.
+    - JupyterHub, authentication, or any Hub-specific behavior (adr-055-enterprise-support). This spec's prefix plumbing must not import or reference Hub concepts.
     - The WebMCP bridge routes (adr-055-webmcp-bridge); this spec delivers the prefix plumbing they consume.
-    - Per-user routing, spawning, or any control plane (adr-055-lab-deployment).
+    - Per-user routing, spawning, or any control plane (adr-055-enterprise-support).
     - Desktop launcher mode selection and background runtime (adr-055-local-background-runtime).
 governs:
   modules:

@@ -4,7 +4,7 @@ title: "ADR-055 Spec 2 — Agent Context, Workspace Access, And Managed Executio
 status: Draft
 feature_branch: feat/2279-agent-context-workspace
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 2 merges ADR-055 sections 5.1, 5.2, and 5.3 (owner decision: one spec). get_agent_context exposes the existing provisioned project assets with real paths; workspace tools reuse existing services rather than duplicating domain logic; run_command executes arbitrary code as an intended capability via asyncio subprocess registered in the ProcessRegistry for process-tree cancellation, with explicit project context and the bundled Python environment. All new tools register in the shared FastMCP registry with the external-audience tag per adr-055-webmcp-bridge; none are router-internal. Amended by the owner decisions of 2026-09-10 recorded on issue #2279: transfer moves to adr-055-lab-deployment; inspect tools read anything the backend OS user can read; author tools enforce a server-side blacklist mirroring the provisioned hooks; hook parity is surfaced in tool results; the shared write helper gains an optional expected state_version; managed command state is kept in memory and cleared on restart. Amended again on 2026-09-11 after the with-context (AU3) and no-context (AU4) audits: delete and move act on links as links; a command owns its whole job (Windows Job Object, POSIX process group) for cancel and shutdown; exit is detected apart from pipe EOF with a bounded drain; reads never advance a state version; searches are bounded by entries visited; and, by owner decision, failure outcomes carry isError: true."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 2 merges ADR-055 sections 5.1, 5.2, and 5.3 (owner decision: one spec). get_agent_context exposes the existing provisioned project assets with real paths; workspace tools reuse existing services rather than duplicating domain logic; run_command executes arbitrary code as an intended capability via asyncio subprocess registered in the ProcessRegistry for process-tree cancellation, with explicit project context and the bundled Python environment. All new tools register in the shared FastMCP registry with the external-audience tag per adr-055-webmcp-bridge; none are router-internal. Amended by the owner decisions of 2026-09-10 recorded on issue #2279: transfer moves to adr-055-enterprise-support; inspect tools read anything the backend OS user can read; author tools enforce a server-side blacklist mirroring the provisioned hooks; hook parity is surfaced in tool results; the shared write helper gains an optional expected state_version; managed command state is kept in memory and cleared on restart. Amended again on 2026-09-11 after the with-context (AU3) and no-context (AU4) audits: delete and move act on links as links; a command owns its whole job (Windows Job Object, POSIX process group) for cancel and shutdown; exit is detected apart from pipe EOF with a bounded drain; reads never advance a state version; searches are bounded by entries visited; and, by owner decision, failure outcomes carry isError: true."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -16,7 +16,7 @@ related_adrs:
 related_specs:
   - adr-055-webmcp-bridge
   - adr-055-prefix-independence
-  - adr-055-lab-deployment
+  - adr-055-enterprise-support
 scope:
   in:
     - "The `get_agent_context` tool over existing provisioned assets: project identity, effective guidance, an index of documentation and skills with real readable paths, the instance's execution environment and capabilities, and hook guidance with execution location made explicit."
@@ -29,7 +29,7 @@ scope:
     - Registration of all new tools in the shared FastMCP registry with the external-audience visibility tag from adr-055-webmcp-bridge.
   out:
     - The webmcp router, registration module, and session middleware (adr-055-webmcp-bridge).
-    - "Transfer: the user-picked upload, the streaming download endpoint, inline transfer caps, and TransferRecord moved to adr-055-lab-deployment (#2279 decision 1). The only transfer use case is a lab-server backend with a laptop browser; local mode registers no upload/download tools."
+    - "Transfer: the user-picked upload, the streaming download endpoint, inline transfer caps, and TransferRecord moved to adr-055-enterprise-support (#2279 decision 1). The only transfer use case is a lab-server backend with a laptop browser; local mode registers no upload/download tools."
     - "Workflow worker and grandchild process cleanup when the backend stops (tracked separately in #2281)."
     - "Provisioning changes: instructions, skills, hooks, and agent-reference assets already exist (ADR-040); this spec consumes them, it does not redesign them."
     - Automatic host-native hook execution or system-prompt installation (excluded by ADR-055 section 10).
@@ -123,7 +123,7 @@ The decisions that shape this text:
 
 | # | Decision |
 |---|---|
-| 1 | Transfer (user-picked upload, streaming download endpoint, inline caps, TransferRecord) moves to `adr-055-lab-deployment`; local mode registers no upload/download tools. |
+| 1 | Transfer (user-picked upload, streaming download endpoint, inline caps, TransferRecord) moves to `adr-055-enterprise-support`; local mode registers no upload/download tools. |
 | 2 | Inspect tools read anything the backend's OS user can read; absolute paths are accepted and project-relative paths resolve against the active project. Reads stay bounded while streaming. |
 | 3 | Author tools stay project-confined and refuse any mutation whose source or target is `workflows/*.yaml\|*.yml` (use `write_workflow` / `update_block_config`) or under `data/` (use `run_workflow`). Backend runtime writes into `data/` are unaffected. |
 | 4 | Hook parity in tool results: list_blocks-before-block-write (once per backend lifetime, and for `scaffold_block` through the bridge), concrete port type warnings, scistudio CLI denial in `run_command`, and an additive `run_workflow` poll hint. |
@@ -666,7 +666,7 @@ alive. Cancellation runs in a thread. The environment is `desktop/paths.py`'s
 5. **T-005** (US3): additive `run_workflow` poll hint.
 6. **T-006** (cross-cutting): failure flag, bounded logging, audience tags
    verified through both catalogues, spec text (this spec amended; transfer
-   moved to `adr-055-lab-deployment`).
+   moved to `adr-055-enterprise-support`).
 
 ### 4.4 Verification Plan
 
@@ -757,5 +757,5 @@ alive. Cancellation runs in a thread. The environment is `desktop/paths.py`'s
 - One environment per user, shared by that user's projects; no per-project
   environments (source: ADR-055 section 8, owner-confirmed).
 - File transfer between a laptop browser and a lab-server backend is specified
-  in `adr-055-lab-deployment` (source: #2279 decision 1).
+  in `adr-055-enterprise-support` (source: #2279 decision 1).
 - Failure outcomes are errors for the host (source: owner decision 2026-09-11).

@@ -31,7 +31,7 @@ scope:
     - The loopback session token mechanics (defined in adr-055-webmcp-bridge); the backend injects the token into the page it serves, so the connection window only presents the address.
     - "A backend that outlives Electron: the POSIX parent-watchdog opt-out, instance adoption and re-adoption, and runtime-port.js discovery changes (dropped by owner decision 3 on #2280)."
     - "Worker and grandchild process cleanup when the backend stops or dies (#2281)."
-    - Lab deployment (adr-055-lab-deployment).
+    - Lab deployment (adr-055-enterprise-support).
     - The AI-host presentation (deferred by owner).
 governs:
   modules: []

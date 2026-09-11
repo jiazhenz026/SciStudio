@@ -4,7 +4,7 @@ title: "ADR-055 Spec 1 — WebMCP Bridge Over The Shared FastMCP Registry"
 status: Draft
 feature_branch: docs/2263-adr-055-specs
 created: 2026-09-05
-input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 1 transplants and hardens the hackathon demo's HTTP-to-WebMCP bridge (scistudio-web-demo commit 952f697b, read-only reference at .scratch-design/webmcp-recovery/scistudio-web-demo) per ADR-055 sections 4 and 9.2. Owner decisions recorded: new tools live in the shared FastMCP registry with tag-based per-transport visibility (no router-internal dispatch, no second registry); the bridge defines the session-substrate contract (one middleware, two identity backends: loopback token here, Hub OAuth in adr-055-lab-deployment); bridge URLs are prefix-aware per adr-055-prefix-independence; bounded call logging (operation identifiers and outcomes, never full arguments)."
+input: "Owner-directed live session: author the ADR-055 implementation spec set under umbrella issue #2263. Spec 1 transplants and hardens the hackathon demo's HTTP-to-WebMCP bridge (scistudio-web-demo commit 952f697b, read-only reference at .scratch-design/webmcp-recovery/scistudio-web-demo) per ADR-055 sections 4 and 9.2. Owner decisions recorded: new tools live in the shared FastMCP registry with tag-based per-transport visibility (no router-internal dispatch, no second registry); the bridge defines the session-substrate contract (one middleware, two identity backends: loopback token here, Hub OAuth in adr-055-enterprise-support); bridge URLs are prefix-aware per adr-055-prefix-independence; bounded call logging (operation identifiers and outcomes, never full arguments)."
 owners:
   - "@jiazhenz026"
 related_adrs:
@@ -13,7 +13,7 @@ related_adrs:
 related_specs:
   - adr-055-prefix-independence
   - adr-055-agent-context-workspace
-  - adr-055-lab-deployment
+  - adr-055-enterprise-support
 scope:
   in:
     - The HTTP bridge router `src/scistudio/api/routes/webmcp.py` with `GET /api/webmcp/tools` and `POST /api/webmcp/call`, dispatching through the shared module-level FastMCP registry (`src/scistudio/ai/agent/mcp/server.py`).
@@ -26,7 +26,7 @@ scope:
     - All bridge URLs built prefix-aware via adr-055-prefix-independence helpers.
   out:
     - "The domain tools themselves (`get_agent_context`, workspace, execution): adr-055-agent-context-workspace defines them; this spec provides only registration, catalogue filtering, and dispatch."
-    - Hub OAuth and per-user routing (adr-055-lab-deployment); this spec defines only the middleware seam they plug into.
+    - Hub OAuth and per-user routing (adr-055-enterprise-support); this spec defines only the middleware seam they plug into.
     - The AI-host presentation (deferred by owner; no spec in this set).
     - Any change to the local socket transport's wire protocol or to existing tool behavior.
 governs:
@@ -92,7 +92,7 @@ Four decisions go beyond the demo, all recorded with the owner:
    testable.
 3. **A session substrate.** Bridge endpoints sit behind one middleware with two
    pluggable identity backends: a loopback token (this spec) and Hub OAuth
-   (`adr-055-lab-deployment`). The token is delivered through the served page
+   (`adr-055-enterprise-support`). The token is delivered through the served page
    bootstrap, reusing the runtime-injection mechanism from
    `adr-055-prefix-independence`.
 4. **Project binding.** A bridge call presents the project it believes is
@@ -101,7 +101,7 @@ Four decisions go beyond the demo, all recorded with the owner:
 
 The bridge depends on `adr-055-prefix-independence` for all URL construction
 and is the foundation for `adr-055-agent-context-workspace` (the tools it
-exposes) and `adr-055-lab-deployment` (its second identity backend).
+exposes) and `adr-055-enterprise-support` (its second identity backend).
 
 ## 2. User Scenarios & Testing
 

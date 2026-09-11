@@ -507,7 +507,50 @@
   },
   "runtime": "claude-code:claude-opus-5",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322067Z",
+      "pattern": "docs/specs/adr-055-lab-deployment.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322084Z",
+      "pattern": "docs/specs/adr-054-panels.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322086Z",
+      "pattern": "docs/specs/adr-055-agent-context-workspace.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322088Z",
+      "pattern": "docs/specs/adr-055-local-background-runtime.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322089Z",
+      "pattern": "docs/specs/adr-055-prefix-independence.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322091Z",
+      "pattern": "docs/specs/adr-055-webmcp-bridge.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T08:52:04.322092Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "PR #2292 merged; remove the old Lab spec and repoint references (#2303 scope)"
+    }
+  ],
   "session_id": "68368b08-788d-458b-9ef4-d9227771d643",
   "strictness_tier": 3,
   "task_kind": "docs",

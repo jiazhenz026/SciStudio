@@ -19,7 +19,7 @@ related_specs:
   - adr-048-preview-system
   - adr-051-interactive-blocks
   - adr-052-public-api-surface
-  - adr-055-lab-deployment
+  - adr-055-enterprise-support
   - adr-055-prefix-independence
 scope:
   in:
@@ -57,7 +57,7 @@ governs:
     - docs/specs/adr-054-panels.md
     - docs/specs/adr-048-preview-system.md
     - docs/specs/adr-051-interactive-blocks.md
-    - docs/specs/adr-055-lab-deployment.md
+    - docs/specs/adr-055-enterprise-support.md
     - docs/adr/ADR-049.md
     - docs/package-development/previewers.md
     - docs/package-development/index.md
@@ -599,7 +599,7 @@ CDNs, and renders.
   base path (adr-055-prefix-independence), with the path confinement of
   `scistudio.previewers.assets.resolve_asset`. The session middleware MUST accept a
   valid token in place of the session cookie on these paths only; this is the
-  documented exception recorded in `docs/specs/adr-055-lab-deployment.md`.
+  documented exception recorded in `docs/specs/adr-055-enterprise-support.md`.
 - **FR-027**: Token-scoped responses MUST allow cross-origin reads
   (`Access-Control-Allow-Origin: *`, no credentials) and carry
   `Referrer-Policy: no-referrer`; their file-type allowlist MUST add `.html`,
@@ -712,7 +712,7 @@ CDNs, and renders.
   with no running host.
 - **FR-047**: `docs/specs/adr-048-preview-system.md` and
   `docs/specs/adr-051-interactive-blocks.md` MUST state which of their frontend
-  contracts this spec replaces and link here; `docs/specs/adr-055-lab-deployment.md`
+  contracts this spec replaces and link here; `docs/specs/adr-055-enterprise-support.md`
   MUST record the token-authenticated exception of FR-026; `docs/adr/ADR-049.md`
   MUST carry the contract rows of FR-038.
 - **FR-048**: The Phase C PR MUST propose updated text for ARCHITECTURE.md §9.6,
@@ -805,7 +805,7 @@ panel page ──GET (token in path)──▶ /api/panels/t/{token}/{assets|sdk|
 | `docs/package-development/previewers.md`, `index.md`, `architecture.md`, `blocks.md`, `publishing.md` | modify | Phase C |
 | `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md` | create | Phase C skill |
 | `src/scistudio/_skills/scistudio/SKILL.md`, `scistudio-write-block/SKILL.md`, `scistudio-inspect-data/SKILL.md`, `src/scistudio/_agent_reference/*.md` | modify | Phase C references |
-| `docs/specs/adr-048-preview-system.md`, `docs/specs/adr-051-interactive-blocks.md`, `docs/specs/adr-055-lab-deployment.md` | modify | FR-047 |
+| `docs/specs/adr-048-preview-system.md`, `docs/specs/adr-051-interactive-blocks.md`, `docs/specs/adr-055-enterprise-support.md` | modify | FR-047 |
 | `src/scistudio/tutorials/core/what-is-a-type/**` | modify | FR-049 code assets |
 | `tests/panels/**`, `tests/api/test_panel_routes.py`, `tests/api/test_panel_security.py`, `tests/api/test_app.py`, `frontend/src/panels/*.test.*` | create or modify | Coverage for Phases A and B |
 
