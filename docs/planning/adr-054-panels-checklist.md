@@ -71,7 +71,10 @@ language_source: en
     PV-14-001 to PV-14-008; A1 extends the coverage check to read addenda
   - `docs/adr/ADR-054.md` (`agent_editable: false`): its `planned_governs`
     surfaces are created by Phase A, and the audit reports a resolved planned
-    surface as an ERROR; owner decision pending
+    surface as an ERROR. Owner authorized (2026-09-11) a frontmatter-only move
+    of those entries into `governs` in the Phase A PR; the manager does it at
+    integration, once the surfaces exist. The spec's `planned_governs` moves the
+    same way
 - Deferred work:
   - `TODO(#2288)`: Lab session middleware accepts the per-mount token (FR-026)
   - `TODO(#2288)`: "What Is A Type" migrates to panels (FR-049)
