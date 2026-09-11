@@ -1,0 +1,165 @@
+{
+  "base_ref": "origin/main",
+  "branch": "codex/2293-panels-phase-a",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "docs/architecture/ARCHITECTURE.md",
+      "frontend/src/components/Enterprise/**",
+      "src/scistudio/api/seam.py"
+    ],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/previewers/**",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/blocks/registry/**",
+      "src/scistudio/blocks/base/interactive.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/ws.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/data.py",
+      "src/scistudio/api/routes/blocks.py",
+      "frontend/src/**",
+      "tests/panels/**",
+      "tests/previewers/**",
+      "tests/api/test_panel*",
+      "tests/api/test_app.py",
+      "tests/blocks/**",
+      "scripts/audit/check_package_contract_tables.py",
+      "pyproject.toml",
+      "CHANGELOG.md",
+      "docs/planning/adr-054-*-notes.md",
+      ".workflow/records/2293-panel-*.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T15:17:05.753043Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-backend-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753216Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-frontend-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753218Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-security-notes.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753223Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2293,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Integrate Phase A panel mechanism from isolated A1/A2/A3 worktrees, preserve existing sidebar entry, and verify ADR-055 enterprise identity/prefix contracts.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2293-panels-phase-a",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:20:02.032537Z",
+      "pattern": "src/scistudio/api/runtime/_data.py",
+      "reason": "Panel collection authority needs an opaque backend snapshot created at output registration, rather than trusting browser-supplied membership."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:20:02.032728Z",
+      "pattern": "tests/api/test_panel_collection_authority.py",
+      "reason": "Panel collection authority needs an opaque backend snapshot created at output registration, rather than trusting browser-supplied membership."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T15:26:31.961774Z",
+      "pattern": "tests/architecture/test_placement.py",
+      "reason": "New ADR-054 panels package must appear in the architecture placement inventory; preserve rejection of unknown packages."
+    }
+  ],
+  "session_id": "b7020383-3e6d-40b9-a422-dd3acb4c8aa1",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T15:17:05.753229Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753231Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_preview_data_access.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753232Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_security.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753233Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_guard_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T15:17:05.753234Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
