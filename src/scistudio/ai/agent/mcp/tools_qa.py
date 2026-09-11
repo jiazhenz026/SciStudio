@@ -116,31 +116,11 @@ class OpenGuiResult(BaseModel):
 
 
 def _docs_root() -> Path:
-    """Locate the ``docs/`` tree visible to the active MCP session.
+    """Locate the documentation tree of the active MCP project.
 
-    The **only** docs root MCP tools ever resolve is
-    ``ctx.project_dir/docs``. If the active project has no ``docs/``
-    subdirectory this raises :class:`FileNotFoundError`.
-
-    (P0 information-disclosure): prior to this change
-    ``_docs_root()`` fell back to walking ``__file__.parents`` looking
-    for any ``docs/`` directory. With SciStudio installed editable from a
-    developer checkout (as it commonly is during e2e testing), that walk
-    landed on the developer's source-tree docs/ — letting a production
-    embedded agent search and read SciStudio ADRs / specs / planning
-    documents and disclosing absolute developer-machine paths via MCP
-    responses. This violated the dev/prod boundary.
-
-    **No env-var backdoor.** An earlier draft of this fix gated the
-    parents-walk behind ``SCISTUDIO_DEV=1``, mirroring the monorepo-scan
-    convention. That was rejected: any env-var-controlled escape into
-    "dev mode" is a soft attack surface — a compromised shell init, a
-    malicious launcher script, or a supply-chain dependency that sets
-    env vars could silently re-open the leak. The MCP docs surface is
-    therefore identical in production and development. Contributors
-    iterating on SciStudio itself should read source-tree docs through
-    their editor / filesystem tools, not through the production MCP
-    server.
+    Return ``ctx.project_dir/docs``. Raise :class:`FileNotFoundError` when the
+    project has no documentation directory. Searches stay within the active
+    project and do not fall back to the installed package's source tree.
     """
     # Development references: #1097, ADR-040.
     ctx = get_context()

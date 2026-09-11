@@ -196,7 +196,7 @@ def _finding(rule_id: str, message: str, *, severity: Severity = Severity.ERROR,
 
 
 def check(inputs: GuardInputs) -> AuditReport:
-    """Validate Sentrux evidence with active-addendum (opt-in) semantics."""
+    """Validate Sentrux evidence with the configured opt-in policy."""
 
     applies = surfaces.sentrux_applies_to_changes(inputs.changed_files)
     raw_evidence = inputs.extras.get("sentrux_evidence")

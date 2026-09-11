@@ -1081,7 +1081,7 @@ class LineageStore:
         as "no retained run" rather than as "retain nothing" — see
         :func:`scistudio.core.lineage.retention.plan_retention`.
 
-        Runs with ``provenance_degraded=1`` are excluded. The contract sets that flag
+        Runs with ``provenance_degraded=1`` are excluded. The recorder sets that flag
         when a block or data-object lineage write failed, so such a run's
         recorded output set is known to be incomplete. Trusting it as the
         retention root would produce a *partially* populated live set — enough

@@ -294,10 +294,6 @@ def _serialise_one(obj: DataObject) -> dict[str, Any]:
     top-level ``backend``/``path``/``format``/``metadata`` envelope
     that the engine's wire format expects.
 
-    §"Out of scope", the top-level wire-format
-    keys are unchanged from the pre-Addendum format; only the contents
-    of the ``metadata`` sidecar become richer.
-
     Auto-flush behaviour is preserved **outside** this
     function: the worker's :func:`serialise_outputs` calls
     :meth:`Block._auto_flush` before handing the object to

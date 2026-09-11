@@ -1300,13 +1300,10 @@ def _parse_highlight(raw: Any, *, field_name: str, path: Path) -> Highlight | No
 
 
 def _check_closed_value(value: str | None, accepted: frozenset[str], *, field_name: str, path: Path) -> None:
-    """Reject a step field naming something outside its core-owned set.
+    """Reject unknown interface names in a step field during validation.
 
-    Same argument the contract makes for the condition vocabulary, applied to the two
-    step fields that address the interface: a free-form name is a typo that
-    fails the *user* — the highlight never appears, the route never happens, and
-    nothing says why — rather than failing the author while the tutorial is
-    being listed.
+    Catch misspelled highlight targets and routes before a user starts a tutorial
+    whose interface actions cannot complete.
     """
     # Development references: FR-049.
     if value is not None and value not in accepted:
@@ -1494,15 +1491,10 @@ comparing the two messages is comparing this sentence."""
 
 
 def _tier_rejection(manifest: TutorialManifest, *, field_name: str, may_not: str) -> ManifestValidationError:
-    """Build a tier rejection, naming the tier the same way in every one.
+    """Build a rejection message that identifies the tutorial's source tier.
 
-    The contract is five separate restrictions — a ``driver`` field, a ``replay``
-    action, a write into an executed project path, a copy landing in one, and a
-    carried executable asset — and they are separate because they are judged at
-    different times against different things. What they share is the sentence
-    they open with: *a <tier>-level tutorial may not ...*. Composing it here is
-    what keeps five messages agreeing on how they name the tier and the field,
-    which is the part of them a reader compares when one fires.
+    Use the same wording for unsupported drivers, replay actions, executable
+    assets, and writes or copies into protected project paths.
     """
     # Development references: FR-020a.
     return _fail(manifest.path, field_name, f"a {manifest.source_kind.value}-level tutorial may not {may_not}")

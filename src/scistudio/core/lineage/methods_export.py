@@ -71,7 +71,7 @@ def render_methods_markdown(store: LineageStore, run_id: str) -> str:
 
 
 def _render_run_header(run: dict[str, Any]) -> list[str]:
-    """Q1 + Q2 header — run identity, workflow identity, git commit, status."""
+    """Render run identity, workflow identity, git commit, and status."""
     started = run.get("started_at") or "?"
     finished = run.get("finished_at") or "(still running)"
     status = run.get("status") or "?"
@@ -153,7 +153,7 @@ def _render_environment(run: dict[str, Any]) -> list[str]:
 
 
 def _render_workflow_snapshot(run: dict[str, Any]) -> list[str]:
-    """Q2 — workflow YAML literal (the recipe)."""
+    """Render the workflow YAML recipe."""
     snapshot = run.get("workflow_yaml_snapshot") or ""
     if not snapshot.strip():
         return []
@@ -168,7 +168,7 @@ def _render_workflow_snapshot(run: dict[str, Any]) -> list[str]:
 
 
 def _render_block_executions(store: LineageStore, run_id: str) -> list[str]:
-    """Q3 + Q4a + Q4b — per-block params + I/O DataObjects."""
+    """Render per-block parameters and input/output DataObjects."""
     block_execs = store.list_block_executions(run_id)
     if not block_execs:
         return ["", "## Blocks", "", "_No blocks executed in this run._"]

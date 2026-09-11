@@ -224,7 +224,7 @@ def get_run_methods(run_id: str, store: Any = _LineageStoreDep) -> PlainTextResp
 
     Served as ``text/markdown; charset=utf-8`` so the browser can offer
     "View source" instead of attempting to render it as HTML. The body
-    answers Q1-Q4 in one document; see
+    describes the run, workflow, parameters, and inputs/outputs; see
     :mod:`scistudio.core.lineage.methods_export` for the renderer.
     """
     # Development references: ADR-038.

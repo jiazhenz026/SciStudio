@@ -223,18 +223,10 @@ def _class_file(cls: type) -> str:
 
 
 def _declared_colour(cls: type, attribute: str) -> str | None:
-    """Return the CSS hex colour *cls* declares on *attribute*, else ``None``.
+    """Return a valid CSS hex colour declared on *attribute*, or ``None``.
 
-    The contract is the whole point of this function existing at collection
-    time rather than at render time: a hand-edited type file in the user
-    library is an ordinary place for a typo, and one typo must not be able to
-    reach the palette or the canvas. An unusable value is logged and dropped,
-    which puts the type back on the fallback it would have used had it
-    declared nothing.
-
-    Short hex forms are expanded to their long equivalent so every consumer
-    receives ``#rrggbb`` or ``#rrggbbaa`` and none of them has to parse two
-    shapes.
+    Log and discard invalid values so palette and canvas rendering use the type's
+    fallback colour. Expand short forms to ``#rrggbb`` or ``#rrggbbaa``.
     """
     # Development references: ADR-053, FR-051, FR-052.
     raw = getattr(cls, attribute, None)

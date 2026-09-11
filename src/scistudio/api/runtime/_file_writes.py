@@ -973,7 +973,7 @@ class ProjectFileService:
     async def make_directory(
         self, target: Path, *, parents: bool = False, changed_by: str = "mcp.workspace"
     ) -> dict[str, Any]:
-        """Create a directory. No ``file.changed`` event: the contract covers files."""
+        """Create a directory without emitting a file-change event."""
         _, root = self._active()
         confined = confine_to_project(root, target, follow_final=False)
         entity_id = project_relative_entity_id(root, confined)

@@ -105,11 +105,10 @@ class CatalogueTotals:
 
 @dataclass(frozen=True)
 class ProgressGroup:
-    """One source's progress, as reported.
+    """Completion progress for one tutorial source.
 
-    No aggregate across groups exists anywhere in this module, because the contract
-    forbids reporting one: a percentage over a catalogue packages can grow does
-    not denote a fixed point in the user's experience.
+    Counts apply only to this group. Sources are reported separately because
+    installing packages can change the available catalogue.
     """
 
     # Development references: FR-076.

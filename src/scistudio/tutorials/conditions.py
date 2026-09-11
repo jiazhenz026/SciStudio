@@ -986,17 +986,11 @@ def _eval_interaction_completed(args: Mapping[str, Any], state: ProductState) ->
 
 
 def _eval_file_exists(args: Mapping[str, Any], state: ProductState) -> bool:
-    """Does a project-relative path exist?
+    """Check whether a project-relative path exists without creating it.
 
-    The contract is a requirement rather than a convenience *because of this term*.
-    The ``file.changed`` watcher event is filtered to ``ADR036_FILE_ALLOWLIST``
-    (``.py .r .txt .md .yaml .yml .json .csv .log``), so a ``file_exists``
-    condition on a TIFF, a Zarr store, or any other data file is never
-    event-driven and can only be re-checked through the explicit evaluate
-    request. A step whose completion turns on such a file must not be written
-    expecting the event map to reach it.
-
-    Reading the filesystem is a pure read; nothing is created.
+    The file watcher reports only allowlisted text-file changes. Conditions on
+    other files, such as TIFF images or Zarr stores, require an explicit evaluate
+    request instead of relying on watcher events.
     """
     # Development references: FR-053, FR-055.
     project_dir = state.project_dir
@@ -1090,14 +1084,10 @@ def evaluate(condition: Condition, state: ProductState, *, entered_at: str | Non
 BLOCKS_RELOADED_TERMS: frozenset[str] = frozenset(
     {"block_registered", "type_registered", "previewer_registered", "library_contains"}
 )
-"""Terms re-evaluated when the registries reload.
+"""Condition terms re-evaluated when registries reload.
 
-The event's own name is ``BLOCKS_RELOADED`` in ``scistudio.api.ws``. This
-Package may not import ``scistudio.api``, and the contract
-requires the runtime to subscribe using the *declared constant* rather than a
-string literal, so the name is not written down here at all: the API layer
-passes it in through :class:`ExternalEventNames` at wiring time. That is why
-this constant names only the terms.
+The API layer supplies the event name through :class:`ExternalEventNames`
+when wiring subscriptions. This constant identifies only the affected terms.
 """
 # Maintainer context:
 # The event's own name is ``BLOCKS_RELOADED`` in ``scistudio.api.ws``. This

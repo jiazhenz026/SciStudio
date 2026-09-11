@@ -1214,9 +1214,8 @@ class TutorialRuntime:
 
         A driver that can name its step's condition is only re-evaluated for
         events whose terms it uses; one that cannot is re-evaluated for every
-        mapped event. Both produce the same responses, which is what the contract
-        constrains, and evaluation is side-effect free, so the extra
-        reads cost nothing observable.
+        mapped event. Evaluation is side-effect free, so the extra reads do not
+        change the response or product state.
         """
         # Development references: FR-040, FR-050, FR-055.
         terms = build_event_term_map(self._external).get(event_type)

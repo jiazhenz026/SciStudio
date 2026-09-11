@@ -51,7 +51,7 @@ def format_extensions_by_type(registry: Any, *, direction: str) -> dict[str, lis
     the extensions a type advertises are derived from one reading of the
     capability table.
 
-    ``direction`` is ``"load"`` or ``"save"``; the contract keeps them separate,
+    ``direction`` is ``"load"`` or ``"save"``; their capabilities are separate,
     because a type readable from a format it cannot be written back to is a
     real asymmetry and collapsing the two directions would hide it. A type with
     no capability in this direction is simply absent from the mapping — the

@@ -486,7 +486,7 @@ class _ApiProductState:
     project can change underneath: constructing them at read time is what keeps
     them from going stale without making the protocol's shape a lie.
 
-    The contract is a property of this class as a whole. Nothing below creates a file,
+    These methods do not create a file,
     mutates a registry, opens a project, or triggers a run; the two methods that
     touch a database open it read-only through the existing store, and every
     failure path returns "no" rather than raising, because a condition that
@@ -603,7 +603,7 @@ class _ApiProductState:
         """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
 
         Read straight off the preview cache, whose layout is the plot runtime's
-        The contract: ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
+        Preview files under ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
         <plot_id>/`` holding ``current.*`` display artifacts beside a
         ``current.json`` run record. A directory holding only the record has
         recorded a run that produced no figure, so it does not count — the term
@@ -1179,8 +1179,8 @@ def _build_wiring(runtime: ApiRuntime) -> _TutorialWiring:
 
         A step that writes ``blocks/normalize_fluorescence.py`` and then says
         "find Normalize Fluorescence in the palette" is unfollowable until this
-        runs: the file is on disk and the block is not in the registry. The contract
-        orders actions before the step's text so that a step claiming something
+        runs: the file is on disk and the block is not in the registry. Actions
+        run before the step's text so that a step claiming something
         exists is true when read, and for a block "exists" means the product
         has it, not that a file does.
 

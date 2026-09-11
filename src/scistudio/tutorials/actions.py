@@ -142,43 +142,16 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
         "AGENTS.md",  # auto-loaded verbatim as agent instructions
     }
 )
-"""Project paths the product imports, executes, or reads to configure execution.
+"""Project paths that contain executable code or execution configuration.
 
-The ``blocks/``, ``types/``, ``previewers/`` and ``plots/`` directories form a
-floor — "at minimum" — not as the whole answer, and the first four alone are
-not enough to make true. ``create_project`` provisions an agent tree
-into **every** project including tutorial ones
-(``api/runtime/_projects.py`` calls ``install_project_agent_assets``), and the
-AI PTY spawns with ``cwd`` set to the project root, so every provider's
-project-scope discovery is live. A tutorial that could write ``.claude/hooks/``
-would be shipping code that runs on the next tool call, before any human reads
-it.
+Includes block, type, previewer, plot, and provisioned agent directories.
+Match the destination's first path segment, regardless of file extension,
+so configuration files and scripts receive the same protection.
 
-Two rules decided the membership, and both matter:
-
-* **Configuration that steers execution counts.** ``.claude/settings.json`` and
-  ``.codex/config.toml`` execute nothing themselves; they decide what does.
-  Admitting them because "it is only JSON" would leave the same hole open
-  through a different door.
-* **The match is on the path, never on the extension.** Forbidding ``*.py``
-  under ``.claude/hooks/`` while allowing ``*.sh`` would be the same bug with
-  an extra step. Membership is tested against the first segment of a
-  destination, so everything beneath a listed entry is covered.
-
-Deliberately *not* here: ``user-guide/`` and ``docs/``, which the provisioner
-also writes and the agent can read through its search tools. Those influence
-what an agent is told, not what the product imports or runs, and the contract is
-about executable code. That is a real question, but a broader one than this
-requirement, and quietly folding it in here would misrepresent what this set
-means.
-
-**Adding a provisioned directory to a project means adding it here.** If
-``create_project`` or ``agent_provisioning`` grows a new target, this list is
-the thing that has to grow with it, or a project-level tutorial can write into
-it. User-level and project-level tutorials are rejected for naming any of
-these; see :func:`scistudio.tutorials.manifest.validate_tier_rules`, which owns
-the tier grading because it owns
-:class:`~scistudio.tutorials.manifest.TutorialSourceKind`.
+``user-guide/`` and ``docs/`` are outside this set because the product does
+not import or execute them. User-level and project-level tutorials cannot
+write into the listed paths; :func:`scistudio.tutorials.manifest.validate_tier_rules`
+enforces these restrictions.
 """
 # Development references: FR-020a, SC-012.
 
