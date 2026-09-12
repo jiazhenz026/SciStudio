@@ -71,6 +71,10 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
 
         info = {
             "name": path.name,
+            # The viewer this read serves identifies an artifact by its storage
+            # path, not by its bare file name: two run outputs are routinely
+            # called ``figure.png``, and only the path tells them apart.
+            "path": str(path),
             "mime_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
             "size": path.stat().st_size,
         }

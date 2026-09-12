@@ -60,25 +60,8 @@ afterEach(() => {
 // core.text.basic is an ES module on the shared component set; it is
 // covered by textPanel.test.ts.
 
-describe("core.artifact.basic", () => {
-  it("shows name, mime, size and an inline image", async () => {
-    const { root } = mount("core.artifact.basic", {
-      input: { ref: "art" },
-      reads: {
-        "artifact.info": { name: "pic.png", mime_type: "image/png", size: 2048 },
-        "artifact.file": { name: "pic.png", mime_type: "image/png", url: "blob:pic" },
-      },
-    });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=artifact-image]")).toBeTruthy(),
-    );
-    expect(root().querySelector("[data-testid=artifact-name]")?.textContent).toBe("pic.png");
-    expect(root().querySelector("[data-testid=artifact-size]")?.textContent).toContain("2.0 KiB");
-    expect(
-      root().querySelector<HTMLImageElement>("[data-testid=artifact-image]")?.getAttribute("src"),
-    ).toBe("blob:pic");
-  });
-});
+// core.artifact.basic is an ES module on the shared component set; it is
+// covered by artifactPanel.test.ts.
 
 // core.composite.basic is an ES module on the shared component set; it is
 // covered by compositePanel.test.ts.
