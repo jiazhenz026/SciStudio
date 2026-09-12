@@ -291,11 +291,17 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
   const openAs = tab.openAs;
   return (
+    /*
+     * A focused preview is a stage, not a page: the whole point of opening one
+     * is the extra room, so the preview takes the height rather than sitting at
+     * 420px with two thirds of the tab empty below it. The column can still
+     * shrink (`min-h-0`) so a preview that overflows scrolls inside itself.
+     */
     <div
-      className="h-full min-h-0 overflow-y-auto bg-stone-50/60 px-6 py-6 scrollbar-thin sm:px-10 lg:px-16"
+      className="flex h-full min-h-0 flex-col bg-stone-50/60 px-6 py-6 sm:px-10 lg:px-16"
       data-testid="preview-tab-pane"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
         {openAs ? (
           <div
             className="mb-3 flex items-center gap-2 text-xs text-stone-500"

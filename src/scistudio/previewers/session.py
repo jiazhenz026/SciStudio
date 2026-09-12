@@ -36,6 +36,7 @@ from typing import Any, TypeVar, cast
 from urllib.parse import unquote_to_bytes
 from uuid import uuid4
 
+from scistudio.previewers._plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import (
     EnvelopeKind,
@@ -74,15 +75,8 @@ _PLOT_EXPORT_MIME = {
 # Canonical single-word plot formats a user may export to. ``jpg`` folds to
 # ``jpeg`` so the on-disk ``.jpg`` sibling and a ``jpeg`` request resolve to the
 # same file (#1918).
-_PLOT_EXPORT_FORMATS = frozenset({"svg", "pdf", "png", "jpeg"})
-# Format -> on-disk suffix used for the promoted ``current.<suffix>`` siblings.
-_PLOT_FORMAT_SUFFIX = {"svg": ".svg", "pdf": ".pdf", "png": ".png", "jpeg": ".jpg"}
-
-
-def _canonical_plot_format(suffix: str) -> str:
-    """Fold a ``.ext``/``ext`` suffix to a canonical plot format (``jpg``→``jpeg``)."""
-    ext = suffix.lower().lstrip(".")
-    return "jpeg" if ext == "jpg" else ext
+_PLOT_EXPORT_FORMATS = frozenset(EXPORT_FORMAT_ORDER)
+_canonical_plot_format = canonical_format
 
 
 def _export_group_stem(primary: Path) -> str:
@@ -98,9 +92,16 @@ def _sibling_for_format(primary: Path, fmt: str) -> Path:
     The plot run promotes one ``<stem>.<suffix>`` file per allowed format, so the
     sibling for a requested format shares the primary's directory and stem and
     only swaps the extension (``current.svg`` → ``current.pdf`` for ``pdf``).
+
+    Resolution goes through the shared plot-format authority, which accepts both
+    spellings of a JPEG suffix. The map this replaced looked only for ``.jpg``,
+    so a run that wrote ``.jpeg`` advertised a format in the Save menu that the
+    export then refused. When nothing was rendered for *fmt* the canonical
+    candidate is returned, so the caller's own ``is_file`` check still produces
+    the "not rendered for this plot" error naming the format asked for.
     """
-    suffix = _PLOT_FORMAT_SUFFIX.get(fmt, "." + fmt)
-    return primary.parent / (_export_group_stem(primary) + suffix)
+    found = sibling_for(primary, fmt)
+    return found if found is not None else primary.parent / f"{primary.stem}.{canonical_format(fmt)}"
 
 
 ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]

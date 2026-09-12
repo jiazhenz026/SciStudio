@@ -192,14 +192,53 @@ def register_plot_artifact(
     )
 
 
+def _output_storage(self: ApiRuntime, payload: dict[str, Any]) -> StorageReference | None:
+    """Resolve where an output's bytes actually are, or ``None`` when nowhere.
+
+    An output that was persisted names its own backend and path, and that is
+    the answer. An output that was *not* persisted serialises with all three
+    storage fields set to ``None`` — the keys are present, the values are not.
+    An :class:`~scistudio.core.types.Artifact` is the ordinary case: it is a
+    pointer to a file the run never rewrote, so its location lives in its own
+    ``file_path`` (relative to the project root unless it is absolute).
+
+    Stringifying the absent path is what this used to do, which registered every
+    such output under a path literally called ``"None"``. Nothing pointed out
+    the lie: the compiled viewer displayed that path and a size of zero, and the
+    panel freshness stamp — which does stat the file — reported the data as no
+    longer available, for data that had never moved.
+    """
+    raw_path = payload.get("path")
+    metadata = payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {}
+    if raw_path is None:
+        named = (metadata or {}).get("file_path")
+        if not isinstance(named, str) or not named:
+            return None
+        path = Path(named)
+        if not path.is_absolute():
+            root = getattr(getattr(self, "active_project", None), "path", None)
+            if not root:
+                return None
+            path = Path(root) / path
+        # ``filesystem`` is the honest backend for a plain file on disk, and the
+        # only backend check in the runtime tests for ``zarr``.
+        return StorageReference(backend="filesystem", path=str(path), format=payload.get("format"), metadata=metadata)
+    return StorageReference(
+        backend=str(payload["backend"] or "filesystem"),
+        path=str(raw_path),
+        format=payload.get("format"),
+        metadata=payload.get("metadata"),
+    )
+
+
 def register_output_payload(self: ApiRuntime, payload: Any) -> Any:
     if isinstance(payload, dict) and {"backend", "path"}.issubset(payload.keys()):
-        ref = StorageReference(
-            backend=str(payload["backend"]),
-            path=str(payload["path"]),
-            format=payload.get("format"),
-            metadata=payload.get("metadata"),
-        )
+        ref = _output_storage(self, payload)
+        if ref is None:
+            # Nothing was persisted and the object names no file of its own, so
+            # there is no reference to register. The value travels on as itself
+            # rather than as a catalog entry pointing at a path that is not there.
+            return payload
         explicit_type_name: str | None = None
         raw_meta = payload.get("metadata") or {}
         tc = raw_meta.get("type_chain") if isinstance(raw_meta, dict) else None

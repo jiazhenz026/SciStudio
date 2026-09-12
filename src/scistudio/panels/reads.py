@@ -6,7 +6,7 @@ from dataclasses import asdict
 from typing import Any
 
 from scistudio.panels.contexts import READ_POINTS, PanelContext, PanelContexts, read_access
-from scistudio.panels.targets import PanelError, child_targets
+from scistudio.panels.targets import PanelError, child_targets, plot_variant_target
 
 
 def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str, params: dict[str, Any]) -> Any:
@@ -65,10 +65,22 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         chunk = asdict(access.text_chunk(storage, **options))
         return {**chunk, "text": chunk["content"], "sampled": False, "complete": not chunk["truncated"]}
     if op in ("artifact.info", "artifact.file"):
-        _only(options, set())
-        path = access.artifact_file(storage)
+        _only(options, {"variant"} if op == "artifact.file" else set())
         import mimetypes
 
+        from scistudio.previewers._plot_formats import available_formats
+
+        primary = access.artifact_file(storage)
+        # A plot is rendered once per allowed format, and the reader picks between
+        # them in the Save menu. ``variant`` names which of those files to grant;
+        # without it the primary is served, which is what every other artifact has.
+        granted = target
+        variant = options.get("variant")
+        if variant:
+            granted = plot_variant_target(target, str(variant))
+            if granted.storage is None:  # pragma: no cover - constructed with storage
+                raise PanelError(400, "unsupported", "This target has no artifact file")
+        path = access.artifact_file(granted.storage) if variant else primary
         info = {
             "name": path.name,
             # The viewer this read serves identifies an artifact by its storage
@@ -78,8 +90,12 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             "mime_type": mimetypes.guess_type(path.name)[0] or "application/octet-stream",
             "size": path.stat().st_size,
         }
+        if "PlotArtifact" in target.target.type_chain:
+            # Reported off the primary, so the menu is the same set whichever
+            # format is currently being shown.
+            info["formats"] = available_formats(primary)
         if op == "artifact.file":
-            token, grant_id = store.grant_artifact(context, target)
+            token, grant_id = store.grant_artifact(context, granted)
             info["url"] = f"/api/panels/t/{token}/artifact/{grant_id}"
         return info
     raise PanelError(400, "unsupported", f"Unsupported panel read operation: {op}")

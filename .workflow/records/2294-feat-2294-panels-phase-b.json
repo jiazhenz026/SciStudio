@@ -1040,6 +1040,11 @@
       "at": "2026-09-11T19:00:08.015636Z",
       "owner_directive": "B2b: add core.interactive.data_router and core.interactive.pair_editor panels; retire compiled DataRouterModal/PairEditorModal + PANEL_REGISTRY; keep coreViewers for legacy envelopes only",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-12T00:24:34.206900Z",
+      "owner_directive": "Owner approved folding the artifact storage-reference fix into Phase B rather than a separate PR.",
+      "reason": "Artifact outputs are never persisted, so their wire envelope carries backend/path None; register_output_payload stringified that into a path literally called 'None', and every panel read of an artifact (and of any collection of them) then failed as stale_context 409. The artifact panel cannot be verified without this."
     }
   ],
   "docs_events": [
@@ -2236,6 +2241,18 @@
       "at": "2026-09-11T19:10:15.225015Z",
       "pattern": "docs/specs/adr-051-interactive-blocks.md",
       "reason": "FR-043 deletes DataRouterModal/PairEditorModal; the Approved docs that list them as governed files (ADR-051, ADR-054, adr-051-interactive-blocks spec) must repoint to the replacement core.interactive.* panel folders or full_audit doc_drift/closure fail"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T00:24:34.207459Z",
+      "pattern": "src/scistudio/api/runtime/_data.py",
+      "reason": "Artifact outputs are never persisted, so their wire envelope carries backend/path None; register_output_payload stringified that into a path literally called 'None', and every panel read of an artifact (and of any collection of them) then failed as stale_context 409. The artifact panel cannot be verified without this."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T00:24:34.207472Z",
+      "pattern": "tests/api/test_runtime_data_registration.py",
+      "reason": "Artifact outputs are never persisted, so their wire envelope carries backend/path None; register_output_payload stringified that into a path literally called 'None', and every panel read of an artifact (and of any collection of them) then failed as stale_context 409. The artifact panel cannot be verified without this."
     }
   ],
   "session_id": "961ab188-65cd-4521-a314-b023b4f091d4",

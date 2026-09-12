@@ -535,7 +535,9 @@ export function PreviewHost({
 
   if (activeEnvelope.panel) {
     return (
-      <div>
+      // Another link in the chain that lets a panel take the height its host
+      // gives it; see the note in `PanelPreview`.
+      <div className="flex min-h-0 flex-1 flex-col">
         {childStack.length > 0 ? (
           <button type="button" data-testid="preview-host-back" onClick={popChild}>
             ← Back

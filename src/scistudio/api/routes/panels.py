@@ -329,7 +329,22 @@ def panel_artifact(token: str, grant_id: str, request: Request) -> Response:
         if target.storage is None:
             raise PanelError(403, "unauthorized_ref", "Artifact grant has no storage")
         path = read_access().artifact_file(target.storage)
-        response = _static_response(request, path, token)
+        if path.suffix.lower() == ".svg":
+            # SVG is the one artifact format that is also a document. The
+            # compiled Save path scrubbed it before writing the reader's file,
+            # and these bytes are what a panel now saves, so scrubbing has to
+            # happen here or that protection would have been dropped in the
+            # move to panels. Display is unaffected: what this strips is scripts,
+            # event handlers, and remote references.
+            from scistudio.previewers.helpers import sanitize_svg
+
+            sanitized, _removed = sanitize_svg(path.read_text(encoding="utf-8", errors="replace"))
+            response: Response = Response(sanitized.encode("utf-8"), media_type="image/svg+xml")
+            for header, value in _static_response(request, path, token).headers.items():
+                if header.lower() not in ("content-type", "content-length"):
+                    response.headers[header] = value
+        else:
+            response = _static_response(request, path, token)
         # Artifacts are data, never executable application documents.
         response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
         response.headers["Content-Disposition"] = "attachment; filename*=UTF-8''" + quote(path.name)

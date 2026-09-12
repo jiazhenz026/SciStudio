@@ -66,29 +66,8 @@ afterEach(() => {
 // core.composite.basic is an ES module on the shared component set; it is
 // covered by compositePanel.test.ts.
 
-describe("core.plot.basic", () => {
-  it("renders an image artifact with zoom and save controls", async () => {
-    const { root, api } = mount("core.plot.basic", {
-      input: { ref: "p", kind: "plot_artifact" },
-      reads: {
-        "artifact.info": { name: "plot.png", mime_type: "image/png", size: 100 },
-        "artifact.file": {
-          name: "plot.png",
-          mime_type: "image/png",
-          url: "blob:plot",
-          data: new ArrayBuffer(8),
-        },
-      },
-    });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=plot-image]")).toBeTruthy());
-    expect(
-      root().querySelector<HTMLImageElement>("[data-testid=plot-image]")?.getAttribute("src"),
-    ).toBe("blob:plot");
-    expect(root().querySelector("[data-testid=plot-zoom-controls]")).toBeTruthy();
-    (root().querySelector("[data-testid=plot-export-button]") as HTMLButtonElement).click();
-    expect(api.save).toHaveBeenCalled();
-  });
-});
+// core.plot.basic is an ES module on the shared component set; it is
+// covered by plotPanel.test.ts.
 
 function panelHooks() {
   return (window as unknown as { __panel: Record<string, (...args: unknown[]) => unknown> })

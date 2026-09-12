@@ -32,6 +32,12 @@ import logging
 import mimetypes
 
 from scistudio.core.storage.ref import StorageReference
+from scistudio.previewers._plot_formats import (
+    EXPORT_FORMAT_ORDER,
+    PLOT_SUFFIXES,
+    available_formats,
+    canonical_format,
+)
 from scistudio.previewers.helpers import sanitize_svg
 from scistudio.previewers.models import (
     EnvelopeKind,
@@ -59,40 +65,15 @@ logger = logging.getLogger(__name__)
 # string itself is non-load-bearing display metadata (ADR-052 §7.2/§12, owner
 # option c), so it is resolved from the stdlib ``mimetypes`` registry rather
 # than a hand-maintained map.
-_PLOT_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".svg", ".pdf"})
-# Canonical export formats, and the order the frontend Save-as menu offers them.
-_PLOT_EXPORT_FORMAT_ORDER = ("svg", "pdf", "png", "jpeg")
-
-
-def _canonical_plot_format(suffix: str) -> str:
-    """Fold a ``.ext``/``ext`` suffix to a canonical plot format (``jpg``→``jpeg``)."""
-    ext = suffix.lower().lstrip(".")
-    return "jpeg" if ext == "jpg" else ext
-
-
-def _available_plot_formats(primary: object) -> list[str]:
-    """Formats actually rendered for this plot, resolved from the sibling files.
-
-    The plot run promotes one ``<stem>.<suffix>`` file per allowed format next to
-    the preferred-format primary. Globbing the primary's stem tells the
-    frontend which formats a Save-as menu can offer without re-rendering. Falls
-    back to just the primary's own format when siblings cannot be enumerated.
-    """
-    # Development references: #1918.
-    from pathlib import Path
-
-    path = primary if isinstance(primary, Path) else Path(str(primary))
-    own = _canonical_plot_format(path.suffix)
-    try:
-        found = {
-            _canonical_plot_format(sib.suffix)
-            for sib in path.parent.glob(f"{path.stem}.*")
-            if sib.is_file() and sib.suffix.lower() in _PLOT_SUFFIXES
-        }
-    except OSError:
-        found = set()
-    found.add(own)
-    return [fmt for fmt in _PLOT_EXPORT_FORMAT_ORDER if fmt in found]
+#
+# The set, the Save-as order, and the sibling lookup live in
+# :mod:`scistudio.previewers._plot_formats`: the panel read layer has to offer
+# the same menu for the same figure from inside a sandboxed frame, and a second
+# copy of the answer here is how the two would come to disagree.
+_PLOT_SUFFIXES = PLOT_SUFFIXES
+_PLOT_EXPORT_FORMAT_ORDER = EXPORT_FORMAT_ORDER
+_canonical_plot_format = canonical_format
+_available_plot_formats = available_formats
 
 
 def _ref_for(request: PreviewRequest) -> StorageReference:

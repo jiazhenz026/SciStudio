@@ -59,8 +59,18 @@ export function PanelPreview({
     rootSnapshot.current = snapshot;
     if (!child) onSnapshot?.(snapshot);
   };
+  /*
+   * The frame fills whatever the host gives it. `PanelFrame` asks for the
+   * remaining height with `flex-1`, which does nothing unless every wrapper
+   * between it and the stage is a flex column that can be shrunk — these two
+   * were plain blocks, so the iframe fell back to its 420px floor and a figure
+   * occupied a third of a focused tab.
+   *
+   * `hidden` sets `display: none`, which a display rule would override, so the
+   * inner wrapper's flex class is applied only while it is the visible one.
+   */
   return (
-    <div data-testid="panel-preview">
+    <div className="flex min-h-0 flex-1 flex-col" data-testid="panel-preview">
       {child ? (
         <button
           type="button"
@@ -72,7 +82,7 @@ export function PanelPreview({
           ← Back
         </button>
       ) : null}
-      <div hidden={child !== null}>
+      <div className={child === null ? "flex min-h-0 flex-1 flex-col" : undefined} hidden={child !== null}>
         <PanelFrame
           request={root}
           onFallback={onFallback}

@@ -197,3 +197,47 @@ def child_targets(
             )
         result.append({"name": name, "type_name": resolved, "ref": ref})
     return {"slots": result, "sampled": False, "truncated": False, "complete": True}
+
+
+def plot_variant_target(parent: FrozenTarget, fmt: str) -> FrozenTarget:
+    """Freeze the sibling file holding *fmt* for a plot, so its bytes can be granted.
+
+    A plot run writes one file per rendered format beside its primary, and the
+    reader chooses between them in the Save menu. Serving one therefore means
+    granting a file the catalog never recorded, which is why this builds a child
+    of the plot's own frozen target rather than looking anything up: the parent
+    is re-validated with the child on every read, and the only files reachable
+    are the ones the shared plot-format authority resolves — same directory,
+    same stem, a suffix a plot run may write. A format name arriving from a
+    panel cannot widen that.
+    """
+    # Development references: #1918, #2294, ADR-054 FR-040.
+    from scistudio.previewers._plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
+
+    if parent.storage is None:
+        raise PanelError(400, "unsupported", "This target has no artifact file")
+    canonical = canonical_format(fmt)
+    if canonical not in EXPORT_FORMAT_ORDER:
+        raise PanelError(422, "invalid_request", f"Unsupported plot format: {fmt!r}")
+    ref = f"{parent.target.ref}#format:{canonical}"
+    existing = parent.children.get(ref)
+    if existing is not None:
+        return existing
+    primary = Path(parent.storage.path).resolve()
+    sibling = sibling_for(primary, canonical)
+    if sibling is None:
+        raise PanelError(404, "not_found", f"This plot was not rendered as {canonical}")
+    storage = StorageReference(backend=parent.storage.backend, path=str(sibling), format=canonical)
+    child = FrozenTarget(
+        target=PreviewTarget(
+            kind=TargetKind.DATA_REF,
+            ref=ref,
+            recorded_type=parent.target.recorded_type,
+            type_chain=parent.target.type_chain,
+        ),
+        storage=storage,
+        stamp=file_stamp(str(sibling)),
+        parent=parent,
+    )
+    parent.children[ref] = child
+    return child
