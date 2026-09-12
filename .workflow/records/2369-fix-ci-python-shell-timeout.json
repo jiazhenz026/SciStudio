@@ -1,0 +1,70 @@
+{
+  "base_ref": null,
+  "branch": "fix/ci-python-shell-timeout",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-12T03:28:21.466921Z",
+      "class": "comment",
+      "kind": "na",
+      "path": null,
+      "rationale": "The reason the value is what it is now lives in the comment beside it, which is where the next person changing it will be reading.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2369,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner asked for an emergency PR raising only the CI shell timeout, with the root-cause investigation kept separate so the unblock is not held behind it.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2369-fix-ci-python-shell-timeout",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:28:21.466738Z",
+      "pattern": ".github/workflows/ci.yml",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "872aec31-941f-4470-90c9-0220468dd261",
+  "strictness_tier": null,
+  "task_kind": "hotfix",
+  "test_events": [
+    {
+      "at": "2026-09-12T03:28:21.467252Z",
+      "class": "ci",
+      "kind": "na",
+      "path": null,
+      "rationale": "The change is the value of a shell-level kill switch in CI; there is no product behaviour to assert, and the suite it guards is what proves it \u2014 it runs on this PR.",
+      "verified_in_diff": null
+    }
+  ]
+}
