@@ -413,7 +413,7 @@ def _delegate_load_each(
     :func:`~scistudio.blocks.io.io_block._collect_load_batch`, so
     :attr:`~scistudio.blocks.io.IOBlock.accepts_path_list` has the same
     semantics whether the core ``Load`` block delegates to the loader or the
-    loader runs as its own user-facing block (#2357). Only an empty batch needs
+    loader runs as its own user-facing block. Only an empty batch needs
     a type stated, and it comes from the capability, whose ``data_type`` is the
     class the loader itself declared.
     """
@@ -423,7 +423,8 @@ def _delegate_load_each(
         single = dict(params)
         single["path"] = single_path
         loader = loader_cls(config={"params": single})
-        return loader.load(BlockConfig(params=single), output_dir)
+        loaded: DataObject | Collection = loader.load(BlockConfig(params=single), output_dir)
+        return loaded
 
     with _activated_package_import_roots():
         return _collect_load_batch(path_list, load_one, empty_item_type=empty_item_cls)

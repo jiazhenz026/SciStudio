@@ -2022,6 +2022,14 @@
       "path": "tests/blocks/io/test_multi_path_delegated_load.py",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T00:58:52.003744Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/io/test_simple_io.py",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ]
 }

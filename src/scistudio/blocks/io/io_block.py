@@ -51,7 +51,7 @@ def _collect_load_batch(
 
     The single loop behind :attr:`IOBlock.accepts_path_list`'s default. Both
     execution routes share it so the declaration means the same thing
-    everywhere (#2357 review): the core ``Load`` block's delegation
+    everywhere: the core ``Load`` block's delegation
     (:func:`~scistudio.blocks.io._unified_dispatch.delegate_load`) and a
     user-facing loader's own :meth:`IOBlock.run`.
 
@@ -65,7 +65,7 @@ def _collect_load_batch(
     The item type is inferred from what the loader returned rather than
     declared up front: a drop-in type imported by path is a distinct class
     object with the same ``__name__`` as the registry's, and ``Collection``
-    compares item types by identity (#1950). Only an empty list needs a type
+    compares item types by identity. Only an empty list needs a type
     stated, supplied by the caller (the delegated route passes the capability's
     declared data type; the direct route passes the loader's own declared
     output type).
@@ -364,7 +364,7 @@ class IOBlock(Block):
     def _load_with_path_fanout(self, config: BlockConfig, *, output_dir: str) -> DataObject | Collection:
         """Call :meth:`load` once — or once per path when ``path`` is a list.
 
-        #2357 (P2 review): the fan-out used to live only in
+        The fan-out used to live only in
         :func:`~scistudio.blocks.io._unified_dispatch.delegate_load`, so a
         loader executed as its own user-facing block still received the whole
         list despite the default ``accepts_path_list = False`` — the public

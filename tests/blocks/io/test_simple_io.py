@@ -65,11 +65,26 @@ def test_simple_loader_run_delegates_to_load_file(tmp_path: Path) -> None:
     assert loaded.user == {"path": str(path), "seen": "ok"}
 
 
-def test_simple_loader_rejects_multi_path_config(tmp_path: Path) -> None:
+def test_simple_loader_fans_out_multi_path_config(tmp_path: Path) -> None:
+    path_a = str(tmp_path / "a.tif")
+    path_b = str(tmp_path / "b.tif")
+    block = _LocalLoader(config={"params": {"path": [path_a, path_b], "marker": "ok"}})
+
+    result = block.run({}, block.config)
+
+    collection = result["data"]
+    assert isinstance(collection, Collection)
+    assert [item.user["path"] for item in collection] == [path_a, path_b]
+    assert all(item.user["seen"] == "ok" for item in collection)
+
+
+def test_simple_loader_load_still_rejects_a_list_directly(tmp_path: Path) -> None:
+    # The fan-out lives in IOBlock.run(); load() itself still owns the
+    # single-path guard for anyone calling it without the run() wrapper.
     block = _LocalLoader(config={"params": {"path": [str(tmp_path / "a.tif"), str(tmp_path / "b.tif")]}})
 
     with pytest.raises(ValueError, match="single path"):
-        block.run({}, block.config)
+        block.load(block.config, "")
 
 
 def test_simple_saver_synthesizes_pixel_only_capability() -> None:
