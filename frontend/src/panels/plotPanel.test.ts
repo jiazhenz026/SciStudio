@@ -82,13 +82,20 @@ function stubHost({
       }
       return Promise.reject(Object.assign(new Error(`no read ${op}`), { code: "not_found" }));
     },
-    save: vi.fn(() => Promise.resolve(null)),
+    save: vi.fn((_value: { name: string; mime: string; data: ArrayBuffer }) =>
+      Promise.resolve(null),
+    ),
     setViewState: vi.fn(),
     reportError: vi.fn(() => Promise.resolve(null)),
   };
   (window as unknown as { scistudio: unknown }).scistudio = api;
   document.body.innerHTML = '<div id="root"></div>';
   return { api, variants };
+}
+
+/** The narrow shape a test reaches back into the stub host through. */
+interface PanelHostStub {
+  read: (op: string, params?: Record<string, unknown>) => Promise<unknown>;
 }
 
 const root = () => document.getElementById("root") as HTMLElement;
@@ -224,9 +231,7 @@ describe("core.plot.basic — saving in a format the run rendered (#1918)", () =
 
     // Drive the unrendered case directly: the picker cannot offer it, but a
     // remembered view state can still name it.
-    const { read } = window.scistudio as unknown as {
-      read: (op: string, p: Record<string, unknown>) => Promise<unknown>;
-    };
+    const { read } = (window as unknown as { scistudio: PanelHostStub }).scistudio;
     await expect(read("artifact.file", { variant: "pdf" })).rejects.toThrow("not rendered");
     expect(api.save).not.toHaveBeenCalled();
   });

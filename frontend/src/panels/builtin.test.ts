@@ -164,25 +164,5 @@ describe("core.interactive.pair_editor — parity with PairEditorModal (FR-041)"
   });
 });
 
-describe("core.base.fallback", () => {
-  it("renders the type chain and metadata", async () => {
-    const { root } = mount("core.base.fallback", {
-      input: { ref: "o" },
-      reads: {
-        metadata: {
-          type_chain: ["DataObject", "Mystery"],
-          metadata: { k: "v" },
-          shape: null,
-          dtype: null,
-        },
-      },
-    });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=object-metadata]")).toBeTruthy(),
-    );
-    expect(root().querySelector("[data-testid=object-type]")?.textContent).toContain("Mystery");
-    expect(root().querySelector("[data-testid=object-metadata]")?.textContent).toContain(
-      '"k": "v"',
-    );
-  });
-});
+// core.base.fallback is an ES module on the shared component set; it is
+// covered by fallbackPanel.test.ts.

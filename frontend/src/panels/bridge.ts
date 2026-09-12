@@ -9,6 +9,11 @@ export interface PanelBridgeHandlers {
   save: (payload: unknown) => Promise<unknown>;
   viewState: (state: unknown) => void;
   resize: (height: number) => void;
+  /** Where a tutorial step's target sits inside the frame, or `null` if absent. */
+  highlightRect?: (
+    request: { target: string; key: string | null },
+    rect: { top: number; left: number; width: number; height: number } | null,
+  ) => void;
   ready: () => void;
   failure: (message: string) => void;
 }
@@ -68,6 +73,33 @@ export function createPanelBridge(
       )
         throw new PanelError("invalid_request", "Invalid height");
       handlers.resize(Math.max(120, Math.min(4096, payload.height)));
+      return null;
+    }
+    if (type === "highlightRect") {
+      /*
+       * Where a tutorial step's target sits inside the frame. Purely positional
+       * and only ever acted on while the host asked for this target, so it
+       * cannot be used to make the host point somewhere it was not pointing.
+       */
+      if (!isRecord(payload) || typeof payload.target !== "string")
+        throw new PanelError("invalid_request", "A highlight report needs its target");
+      const rect = payload.rect;
+      const box =
+        isRecord(rect) &&
+        ["top", "left", "width", "height"].every(
+          (side) => typeof rect[side] === "number" && Number.isFinite(rect[side] as number),
+        )
+          ? {
+              top: rect.top as number,
+              left: rect.left as number,
+              width: rect.width as number,
+              height: rect.height as number,
+            }
+          : null;
+      handlers.highlightRect?.(
+        { target: payload.target, key: typeof payload.key === "string" ? payload.key : null },
+        box,
+      );
       return null;
     }
     if (type === "save" && context.services.includes("save")) return handlers.save(payload);
@@ -151,6 +183,9 @@ export function createPanelBridge(
   port.start();
   return {
     theme: (theme: PanelTheme) => send({ v: 1, id: "theme", type: "theme", payload: theme }),
+    /** Tell the frame which tutorial target to measure, or `null` for none. */
+    highlight: (request: { target: string; key: string | null } | null) =>
+      send({ v: 1, id: "highlight", type: "highlight", payload: request }),
     dispose() {
       if (disposed) return;
       send({ v: 1, id: "dispose", type: "dispose", payload: null });

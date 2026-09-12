@@ -24,8 +24,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { TutorialHighlightView } from "../../lib/api/learningCenter";
+import { panelHighlightRect, requestPanelHighlight } from "../../panels/panelHighlights";
 
-import { findTutorialTarget } from "./targets";
+import { findTutorialTarget, tutorialTargetKey } from "./targets";
 
 /**
  * A target's box in viewport coordinates.
@@ -92,7 +93,14 @@ function union(a: HighlightRect, b: HighlightRect): HighlightRect {
 function measure(highlight: TutorialHighlightView | null): HighlightRect | null {
   if (!highlight) return null;
   const element = findTutorialTarget(highlight.target, highlight.args);
-  if (!element) return null;
+  /*
+   * A target inside a panel frame is in another document, so this walk cannot
+   * find it and the step would degrade to a centred card with no ring — which
+   * is what happened to every step pointing at a collection item once the
+   * collection viewer became a panel. The frame measures its own element and
+   * reports the box; `panelHighlightRect` adds the frame's current position.
+   */
+  if (!element) return panelHighlightRect(highlight.target, tutorialTargetKey(highlight.target, highlight.args));
   const box = boxOf(element);
   if (!box) return null;
   const panel = expandedPanelOf(element);
@@ -125,6 +133,9 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
 
     const view: TutorialHighlightView | null =
       target === null ? null : { target, args: JSON.parse(args) };
+    // Any mounted panel frame starts measuring this target, and stops when the
+    // step stops pointing at anything.
+    requestPanelHighlight(view === null ? null : { target: view.target, key: tutorialTargetKey(view.target, view.args) });
     let frame = 0;
 
     const tick = () => {
@@ -137,7 +148,10 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
     };
     tick();
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      requestPanelHighlight(null);
+    };
   }, [target, args]);
 
   return rect;

@@ -72,7 +72,11 @@ export function PanelPreview({
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-testid="panel-preview">
       {child ? (
+        // `self-start` because the column stretches its children, and the frame
+        // below has to be stretched: without it the button becomes a full-width
+        // bar whose centred label reads as a centred control.
         <button
+          className="self-start"
           type="button"
           onClick={() => {
             setChild(null);

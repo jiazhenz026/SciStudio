@@ -539,7 +539,13 @@ export function PreviewHost({
       // gives it; see the note in `PanelPreview`.
       <div className="flex min-h-0 flex-1 flex-col">
         {childStack.length > 0 ? (
-          <button type="button" data-testid="preview-host-back" onClick={popChild}>
+          // `self-start`: see the note on the same button in `PanelPreview`.
+          <button
+            className="self-start"
+            type="button"
+            data-testid="preview-host-back"
+            onClick={popChild}
+          >
             ← Back
           </button>
         ) : null}

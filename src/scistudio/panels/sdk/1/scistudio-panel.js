@@ -49,9 +49,60 @@
     api.theme = theme;
     themeCallbacks.forEach(function (callback) { callback(theme); });
   }
+  /*
+   * Tutorial pointing (ADR-054). The host measures a step's target by walking
+   * its own document for `[data-tutorial-target]`, which cannot reach inside
+   * this frame. When a step points at something here the host says so, and this
+   * measures that element and reports its box back; the host adds the frame's
+   * own position to get viewport coordinates.
+   *
+   * The loop runs only while a step is pointing into this panel, and reports
+   * only when the box actually changes, so a panel nobody is pointing at does
+   * no work and a still target sends nothing.
+   */
+  var highlightWanted = null;
+  var highlightFrame = 0;
+  var highlightLast = null;
+  function highlightElement(request) {
+    if (!request || typeof request.target !== "string") return null;
+    var selector = '[data-tutorial-target="' + (window.CSS && CSS.escape ? CSS.escape(request.target) : request.target) + '"]';
+    if (request.key !== null && request.key !== undefined) {
+      selector += '[data-tutorial-target-key="' + (window.CSS && CSS.escape ? CSS.escape(String(request.key)) : request.key) + '"]';
+    }
+    return document.querySelector(selector);
+  }
+  function highlightBox(element) {
+    if (!element || typeof element.getBoundingClientRect !== "function") return null;
+    var box = element.getBoundingClientRect();
+    // A zero-sized box is an element that is in the document but not laid out.
+    // Reporting it would ring nothing; the host treats null as "not here".
+    if (box.width <= 0 || box.height <= 0) return null;
+    return { top: box.top, left: box.left, width: box.width, height: box.height };
+  }
+  function sameBox(a, b) {
+    if (!a || !b) return a === b;
+    return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+  }
+  function highlightTick() {
+    var next = highlightBox(highlightElement(highlightWanted));
+    if (!sameBox(highlightLast, next)) {
+      highlightLast = next;
+      request("highlightRect", { target: highlightWanted.target, key: highlightWanted.key, rect: next }).catch(function () {});
+    }
+    highlightFrame = window.requestAnimationFrame(highlightTick);
+  }
+  function setHighlight(request_) {
+    if (highlightFrame) { window.cancelAnimationFrame(highlightFrame); highlightFrame = 0; }
+    highlightWanted = request_ && typeof request_.target === "string" ? request_ : null;
+    highlightLast = null;
+    if (!highlightWanted || typeof window.requestAnimationFrame !== "function") return;
+    highlightTick();
+  }
+
   function dispose() {
     if (disposed) return;
     disposed = true;
+    if (highlightFrame) { window.cancelAnimationFrame(highlightFrame); highlightFrame = 0; }
     pending.forEach(function (item) {
       clearTimeout(item.timer);
       item.reject(failure("disposed", "Panel has been disposed"));
@@ -150,6 +201,7 @@
       var data = incoming.data;
       if (!data || data.v !== 1 || typeof data.type !== "string" || disposed) return;
       if (data.type === "theme") { applyTheme(data.payload); return; }
+      if (data.type === "highlight") { setHighlight(data.payload); return; }
       if (data.type === "dispose") { dispose(); return; }
       if (data.type !== "result" && data.type !== "error") return;
       var item = pending.get(data.id);

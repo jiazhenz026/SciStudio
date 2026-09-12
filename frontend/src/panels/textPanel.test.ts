@@ -149,7 +149,9 @@ describe("core.text.basic — the rendered document", () => {
   it("says it is still reading while chunks are arriving", async () => {
     // A document long enough that the first render happens mid-read.
     const { api } = stubHost("x".repeat(500), 10);
-    let resolveSecond: ((value: unknown) => void) | null = null;
+    // Explicitly typed: inference narrows it to `never` through the closure
+    // that assigns it, and the call below then fails to type-check.
+    let resolveSecond: null | (() => void) = null;
     const original = api.read;
     let calls = 0;
     api.read = (op: string, params: Record<string, unknown> = {}) => {
@@ -165,7 +167,7 @@ describe("core.text.basic — the rendered document", () => {
     await vi.waitFor(() =>
       expect(root().querySelector("[data-testid=text-loading-more]")).toBeTruthy(),
     );
-    resolveSecond?.(null);
+    (resolveSecond as null | (() => void))?.();
   });
 });
 

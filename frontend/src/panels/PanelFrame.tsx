@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { apiUrl, getBasePath } from "../lib/api/base-path";
 import { panelsApi } from "../lib/api/panels";
 import { createPanelBridge } from "./bridge";
+import {
+  forgetPanelHighlight,
+  reportPanelHighlight,
+  subscribePanelHighlight,
+} from "./panelHighlights";
 import { savePanelBytes } from "./save";
 import { observePanelTheme, readPanelTheme } from "./theme";
 import { isRecord } from "./types";
@@ -152,6 +157,9 @@ export function PanelFrame(props: PanelFrameProps) {
       save: savePanelBytes,
       viewState: (state) => callbacks.current.onViewState?.(state, context),
       resize: setHeight,
+      highlightRect: (request, rect) => {
+        if (frame.current) reportPanelHighlight(frame.current, request, rect);
+      },
       ready: () => {
         clearTimeout(readyTimer.current);
         setReady(true);
@@ -180,6 +188,25 @@ export function PanelFrame(props: PanelFrameProps) {
     );
   };
   initialize.current = connect;
+
+  /*
+   * A tutorial step can point at something inside a panel (`preview_item` in the
+   * collection panel, `plot_export_button` in the plot panel). The host's own
+   * measurement walks its document and cannot reach in here, so the frame is
+   * told which target is wanted and reports where it sits; `panelHighlights`
+   * turns that into viewport coordinates for the ring and the step card.
+   *
+   * Told only while a step points at something, so a panel nobody is pointing
+   * at is never asked to measure anything.
+   */
+  useEffect(() => {
+    const stop = subscribePanelHighlight((request) => bridge.current?.highlight(request));
+    return () => {
+      stop();
+      const element = frame.current;
+      if (element) forgetPanelHighlight(element);
+    };
+  }, [ready]);
   const onLoad = () => {
     if (!context || error) return;
     if (loaded.current) {

@@ -4,26 +4,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Object preview</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
+      .object-title { font-weight: 600; }
+      .object-field {
+        font-size: 11px; word-break: break-all;
+        color: rgb(var(--ss-ink, 40 33 24) / 0.7);
       }
-      .wrap { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-      .card { padding: 12px; border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1); border-radius: 8px; background: rgb(var(--ss-surface, 255 255 255)); display: flex; flex-direction: column; gap: 6px; }
-      .field { font-size: 11px; color: rgb(var(--ss-ink, 40 33 24) / 0.75); }
-      .field b { color: rgb(var(--ss-ink, 40 33 24)); }
-      pre { margin: 0; max-height: 260px; overflow: auto; padding: 8px; border-radius: 6px; background: rgb(var(--ss-ink, 40 33 24) / 0.05); font: 11px/1.5 ui-monospace, Menlo, monospace; }
-      a.download { font-size: 12px; }
-      .err { color: #b3261e; padding: 8px; }
+      .object-image { max-width: 100%; max-height: 320px; border-radius: 6px; margin-top: 6px; }
+      .object-metadata {
+        margin: 0; max-height: 260px; overflow: auto; padding: 8px; border-radius: 6px;
+        background: rgb(var(--ss-ink, 40 33 24) / 0.05);
+        font: 11px/1.5 ui-monospace, Menlo, monospace;
+      }
     </style>
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>
