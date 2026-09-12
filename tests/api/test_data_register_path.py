@@ -108,5 +108,7 @@ def test_registered_ref_opens_preview_session(client: TestClient, opened_project
         json={"target": {"kind": "data_ref", "ref": ref}, "query": {}},
     )
     assert session.status_code == 200, session.text
-    assert session.json()["kind"] == "dataframe"
-    assert session.json()["payload"]["total_rows"] == 2
+    # A registered path routes exactly as an uploaded one does: to the table
+    # panel, which then reads its own rows.
+    assert session.json()["kind"] == "panel"
+    assert session.json()["panel"]["id"] == "core.dataframe.basic"

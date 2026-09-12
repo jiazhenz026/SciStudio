@@ -81,8 +81,10 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
         json={"target": {"kind": "data_ref", "ref": csv_ref}, "query": {}},
     )
     assert session.status_code == 200, session.text
-    assert session.json()["kind"] == "dataframe"
-    assert session.json()["payload"]["total_rows"] == 2
+    # An uploaded CSV routes to the table panel; its rows arrive through that
+    # panel's own read rather than in the session payload (ADR-054 Phase B).
+    assert session.json()["kind"] == "panel"
+    assert session.json()["panel"]["id"] == "core.dataframe.basic"
 
     text_response = client.post(
         "/api/data/upload",
@@ -96,8 +98,8 @@ def test_upload_metadata_and_preview_for_csv_and_text(client: TestClient, opened
         json={"target": {"kind": "data_ref", "ref": text_ref}, "query": {}},
     )
     assert text_session.status_code == 200, text_session.text
-    assert text_session.json()["kind"] == "text"
-    assert "hello from SciStudio" in text_session.json()["payload"]["content"]
+    assert text_session.json()["kind"] == "panel"
+    assert text_session.json()["panel"]["id"] == "core.text.basic"
 
 
 def test_upload_oversized_file_rejected_with_413(

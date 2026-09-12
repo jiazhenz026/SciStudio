@@ -37,8 +37,13 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             "total": result["total_rows"],
             "sort": {"by": result["sort_by"], "direction": result["sort_dir"]},
             "sampled": False,
-            "truncated": result["total_rows"] > len(result["rows"]),
-            "complete": result["total_rows"] <= len(result["rows"]),
+            # A page is not a truncation. Every row of the table is reachable by
+            # paging, so the read reports the table as complete however many
+            # pages it takes — flagging a paged table as truncated is exactly the
+            # misleading status #1886 Part 1 forbids, and it disagreed with the
+            # session metadata for the same table, which has always said False.
+            "truncated": False,
+            "complete": True,
         }
     if op == "table.xy":
         _only(options, {"x_column", "y_column", "max_points"})
