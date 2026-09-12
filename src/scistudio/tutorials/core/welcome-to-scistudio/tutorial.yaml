@@ -360,8 +360,10 @@ steps:
   # customization；左边 previewer 卡片（切过去、高亮）存了目前所有可用的 previewer。
   #
   # Two steps because `route_to` belongs to the step: the first points at the
-  # preview surface, the second has to switch the left panel to Previewers
-  # before the list it rings is on screen at all.
+  # preview surface, the second has to open All Previewers in the preview
+  # column before the list it rings is on screen at all. (That list was a
+  # left-panel tab until ADR-054 FR-040 moved it into the preview column; the
+  # step's `route_to` and `highlight` did not change.)
   - id: what-a-previewer-is
     title: Previewers
     highlight: data_preview
