@@ -34,8 +34,8 @@ function project(id: string): ProjectResponse {
     name: id,
     path: `/tmp/${id}`,
     description: "",
-    created_at: "2026-09-11T00:00:00Z",
     last_opened: "2026-09-11T00:00:00Z",
+    workflow_count: 0,
     workflows: [],
     current_workflow_id: null,
   };
