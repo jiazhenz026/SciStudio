@@ -1,0 +1,17 @@
+# The second picture of the answer, written for the reader by core tutorial 4.
+#
+# Bound to the same output as the volcano, and reading the same tables: this
+# one keeps only the genes both tumors agree on, which is what a conclusion
+# about "the cancer" rather than "this one tumor" can stand on.
+schema_version: 1
+id: shared_genes
+title: "What both tumors agree on"
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: compare
+  output_port: genes
+  display_label: Compare Regions
+script:
+  language: python
+  path: render.py

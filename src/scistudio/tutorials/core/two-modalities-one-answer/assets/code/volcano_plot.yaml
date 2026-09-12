@@ -1,0 +1,17 @@
+# The first picture of the answer, written for the reader by core tutorial 4.
+#
+# Bound to Compare Regions' `genes` output: one table per tumor, one row per
+# tested gene. The plot draws that table; it computes nothing — the test and
+# the correction happened in the block.
+schema_version: 1
+id: cancer_vs_rest
+title: "Cancer against the rest, gene by gene"
+target:
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: compare
+  output_port: genes
+  display_label: Compare Regions
+script:
+  language: python
+  path: render.py

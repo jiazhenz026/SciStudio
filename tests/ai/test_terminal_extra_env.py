@@ -113,6 +113,30 @@ def test_pty_child_env_removes_electron_node_mode(monkeypatch: pytest.MonkeyPatc
     assert child_env["FORCE_COLOR"] == "3"
 
 
+def test_pty_child_env_strips_host_terminal_identity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2359: host-terminal identity must not reach PTY-hosted agent CLIs.
+
+    Claude Code 2.1.x arms its external-clear watchdog (``probeExternalClear``)
+    only when ``TERM_PROGRAM`` says iTerm.app / Apple_Terminal. The embedded
+    terminal is xterm.js, but when SciStudio is launched from a real terminal
+    the leaked identity armed that watchdog anyway — and collapsing the bottom
+    panel (a 1-row PTY viewport, so the cursor-position probe answers row=1)
+    made it misfire into programmatic ``/clear`` submissions that destroyed
+    the conversation. The strip must hold even when ``extra_env`` tries to
+    smuggle the identity back in.
+    """
+    monkeypatch.setenv("TERM_PROGRAM", "Apple_Terminal")
+    monkeypatch.setenv("TERM_PROGRAM_VERSION", "455.1")
+
+    child_env = _build_child_env({"TERM_PROGRAM": "iTerm.app"})
+
+    assert "TERM_PROGRAM" not in child_env
+    assert "TERM_PROGRAM_VERSION" not in child_env
+    # The xterm.js-facing terminal knobs stay as advertised.
+    assert child_env["TERM"] == "xterm-256color"
+    assert child_env["COLORTERM"] == "truecolor"
+
+
 def test_pty_child_env_blocks_extra_env_electron_node_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Per-PTY env may override normal keys, but not desktop-only launch keys."""
     monkeypatch.delenv("ELECTRON_RUN_AS_NODE", raising=False)

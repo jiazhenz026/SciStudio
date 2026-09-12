@@ -1,0 +1,61 @@
+# The workflow core tutorial 4 writes for the reader when the level reaches the
+# canvas. At this point it only reads: one Load for the slides, one for the
+# tables.
+#
+# This level is not a lesson in building a workflow — tutorials 1 and 2 already
+# taught dragging, Browse and wiring — so the reader receives it built and
+# spends the level changing it instead.
+#
+# One node per kind, not one per file: a Load handed a list of paths emits a
+# Collection, so the workflow does not change shape when the other two tumors
+# arrive.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Read every tumor's H&E slide and its spot-by-gene expression table.
+  nodes:
+    # The mask Load comes first in this list, though it sits in the middle of
+    # the canvas: a tutorial ring on a Load lands on the first one drawn, and
+    # the level asks the reader to open the masks.
+    - id: load-masks
+      block_type: load_data
+      config:
+        params:
+          core_type: HEMask
+          path:
+            - data/raw/CID4535_mask.png
+            - data/raw/CID4290_mask.png
+      layout:
+        x: 140
+        y: 380
+    - id: load-slides
+      block_type: load_data
+      config:
+        params:
+          # No capability_id: the picture reader is a drop-in block whose id
+          # carries its file's mtime, so a value written here would name a
+          # capability that does not exist on the reader's machine. Dispatch
+          # resolves (HEImage, .png) to the one loader that claims it, then fans
+          # that single-file loader out across the list.
+          core_type: HEImage
+          path:
+            - data/raw/CID4535_he.png
+            - data/raw/CID4290_he.png
+      layout:
+        x: 140
+        y: 140
+    - id: load-counts
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          # The sequencing core exported the tables in the other order. A
+          # Collection is paired by position, so the analysis step needs the
+          # Pair Editor to put them back beside their slides.
+          path:
+            - data/raw/CID4290_counts.csv
+            - data/raw/CID4535_counts.csv
+      layout:
+        x: 140
+        y: 620
+  edges: []
