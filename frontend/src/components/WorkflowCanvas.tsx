@@ -1,11 +1,20 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
+import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
+import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { useAppStore } from "../store";
 import { useDeclaredTypeColors } from "../store/useTypeCatalog";
-import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  BlockSummary,
+  TypeHierarchyEntry,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../types/api";
 import { computeEffectivePorts, resolveDrivingConfigValue } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
@@ -30,6 +39,148 @@ const nodeTypes = {
   subworkflow: SubWorkflowNode,
 };
 const edgeTypes = { typed: TypedEdge };
+
+// ---------------------------------------------------------------------------
+// ADR-054 Phase D (#2354) — the block context menu (FR-035).
+// ---------------------------------------------------------------------------
+
+/** What the menu says instead of an action when the block has produced nothing. */
+export const NO_OUTPUTS_REASON =
+  "This block has no outputs yet. Run it, then open this menu again.";
+
+/**
+ * Is `child` the type `parent`, or a subtype of it?
+ *
+ * DIRECTIONAL, and that is the whole point. `arePortTypesCompatible` answers a
+ * different question — "could these two ports be wired?" — and says yes in
+ * BOTH directions, because a `DataObject` port legitimately accepts an `Image`
+ * and an `Image` port legitimately receives from a `DataObject` producer. A
+ * MiniApp is not a wire: FR-034 says it opens on data "of the declared type or
+ * a subtype", so an `Image` MiniApp must NOT be offered on a `DataObject`
+ * output, which the bidirectional rule would do. This mirrors the backend's
+ * `_check_type`, which the sources route applies to the same question.
+ */
+export function isDeclaredSubtype(
+  child: string,
+  parent: string,
+  typeHierarchy: TypeHierarchyEntry[] | undefined,
+): boolean {
+  if (child === parent) return true;
+  const bases = new Map<string, string>();
+  for (const entry of typeHierarchy ?? []) {
+    if (entry.name && entry.base_type) bases.set(entry.name, entry.base_type);
+  }
+  const seen = new Set<string>([child]);
+  let cursor = bases.get(child);
+  while (cursor) {
+    if (cursor === parent) return true;
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    cursor = bases.get(cursor);
+  }
+  return false;
+}
+
+/**
+ * The output ports of `node` that PRODUCED DATA in the latest run.
+ *
+ * Two sources, and both are needed. `blockOutputs[nodeId]` is keyed by output
+ * port and is the canvas's record of what the run actually produced — a port
+ * missing from it has no data to open a MiniApp on, whatever the schema says.
+ * The effective ports supply the TYPE, resolved the same way the edges and the
+ * port handles resolve it (variadic ports, then the dynamic-port driving
+ * value), so the menu and the port the user is looking at cannot disagree.
+ */
+export function producedOutputPorts(
+  node: WorkflowNode,
+  schema: BlockSchemaResponse | undefined,
+  outputs: Record<string, unknown> | undefined,
+): BlockPortResponse[] {
+  if (!outputs || !schema) return [];
+  const params = (node.config.params as Record<string, unknown> | undefined) ?? {};
+  const variadic = resolveVariadicPorts(schema.output_ports ?? [], params, "output", schema);
+  const dynamic = schema.dynamic_ports ?? null;
+  const driving = resolveDrivingConfigValue(params, schema, dynamic?.source_config_key);
+  const effective = computeEffectivePorts(dynamic, driving, variadic, "output");
+  return effective.filter((port) => Object.prototype.hasOwnProperty.call(outputs, port.name));
+}
+
+/** The ports of this block a MiniApp declaring `type` can open on. */
+export function portsForMiniApp(
+  ports: BlockPortResponse[],
+  type: string,
+  typeHierarchy: TypeHierarchyEntry[] | undefined,
+): BlockPortResponse[] {
+  return ports.filter((port) =>
+    (port.accepted_types ?? []).some((candidate) =>
+      isDeclaredSubtype(candidate, type, typeHierarchy),
+    ),
+  );
+}
+
+interface CanvasMenuEntry {
+  key: string;
+  label: string;
+  disabled: boolean;
+  onSelect: () => void;
+}
+
+interface BlockContextMenuProps {
+  x: number;
+  y: number;
+  entries: CanvasMenuEntry[];
+  /** Shown under the entries when they are disabled, so the menu says WHY (FR-035). */
+  reason: string | null;
+  onClose: () => void;
+}
+
+/**
+ * The menu itself.
+ *
+ * The same primitive `ProjectTree.parts/ContextMenu.tsx` uses — a fixed-position
+ * panel at the pointer, dismissed on an outside mousedown — rather than a new
+ * one. There is no generic context-menu component in the UI kit (only the
+ * ProjectTree's, which is hard-wired to a tree node's three actions), and the
+ * radix `DropdownMenu` this app has is anchored to a trigger element, which a
+ * right-click at a point is not.
+ */
+function BlockContextMenu({ x, y, entries, reason, onClose }: BlockContextMenuProps) {
+  useEffect(() => {
+    const handler = () => onClose();
+    window.addEventListener("mousedown", handler);
+    return () => window.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed z-50 min-w-48 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
+      data-testid="canvas-block-context-menu"
+      onMouseDown={(event) => event.stopPropagation()}
+      style={{ left: x, top: y }}
+    >
+      {entries.map((entry) => (
+        <button
+          className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100 disabled:text-stone-400 disabled:hover:bg-transparent"
+          data-testid={`canvas-context-${entry.key}`}
+          disabled={entry.disabled}
+          key={entry.key}
+          onClick={() => {
+            entry.onSelect();
+            onClose();
+          }}
+          type="button"
+        >
+          {entry.label}
+        </button>
+      ))}
+      {reason ? (
+        <p className="px-4 py-1.5 text-[11px] text-stone-500" data-testid="canvas-context-reason">
+          {reason}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 interface WorkflowCanvasProps {
   nodes: WorkflowNode[];
@@ -95,6 +246,20 @@ interface WorkflowCanvasProps {
    * broken node. Full repoint persistence is deferred (TODO(#890)).
    */
   onLocateSubworkflow?: (nodeId: string) => void;
+  // --- ADR-054 Phase D §FR-035 — the block context menu (all optional) -----
+  /**
+   * The MiniApps this workspace knows about, from `GET /api/panels/miniapps`.
+   * The canvas filters them per block by declared type; it does not fetch them,
+   * because the same list backs the MiniApps tab and the toolbar.
+   */
+  miniApps?: MiniAppSummary[];
+  /** Open `summary` on `target`. The canvas has already resolved which port. */
+  onOpenMiniApp?: (summary: MiniAppSummary, target: MiniAppTarget) => void;
+  /**
+   * FR-023 — New MiniApp with the block's output pre-filled. `null` when the
+   * block produced nothing to pre-fill with.
+   */
+  onNewMiniApp?: (target: MiniAppTarget | null) => void;
 }
 
 /**
@@ -268,6 +433,14 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   // consumed only by the node's status surface, so it does not need to be
   // threaded down through ProjectWorkspace.
   const blockRunStartedAt = useAppStore((s) => s.blockRunStartedAt);
+  /*
+   * ADR-054 FR-035 — a MiniApp target names the workflow the block belongs to,
+   * and the canvas is not told which workflow it is showing: the id lives on
+   * the workflow slice, which is what the tab restores on every switch. Read
+   * here for the same reason `highlightedNodeId` is: transient identity the
+   * context menu needs and nothing above the canvas would otherwise thread.
+   */
+  const workflowId = useAppStore((s) => s.workflowId);
   const {
     blocks,
     schemas,
@@ -298,6 +471,9 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onTidyLayout,
     onOpenSubworkflow,
     onLocateSubworkflow,
+    miniApps,
+    onOpenMiniApp,
+    onNewMiniApp,
   } = props;
 
   // Track positions locally during drag so nodes follow the cursor smoothly.
@@ -414,6 +590,76 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
 
   const showReadabilityControls = Boolean(onTidyLayout || onEnterFocusMode);
 
+  /*
+   * FR-035 — the context menu.
+   *
+   * It exists only when the workspace gave the canvas somewhere to send a
+   * choice: without `onNewMiniApp` and `onOpenMiniApp` a right-click keeps the
+   * browser's own menu, which is what every other consumer of this component
+   * (the subworkflow child canvas, the tests that predate this) still sees.
+   * THE HOVER TOOLBAR IS UNTOUCHED — this adds a second, slower route to the
+   * same block, and nothing was moved into it.
+   */
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodeId: string;
+  } | null>(null);
+  /** Set when several of the block's ports match; FR-034's "asking" case. */
+  const [pickerFor, setPickerFor] = useState<{
+    summary: MiniAppSummary;
+    blockId: string;
+  } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  const menuNode = contextMenu ? (nodes.find((n) => n.id === contextMenu.nodeId) ?? null) : null;
+  const menuSchema = menuNode ? schemas[menuNode.block_type] : undefined;
+  const menuPorts = menuNode
+    ? producedOutputPorts(menuNode, menuSchema, blockOutputs?.[menuNode.id])
+    : [];
+  const menuHasOutputs = menuPorts.length > 0;
+
+  const targetFor = (blockId: string, port: string): MiniAppTarget | null =>
+    workflowId ? { workflow_id: workflowId, block_id: blockId, port } : null;
+
+  const openOn = (summary: MiniAppSummary, blockId: string, ports: BlockPortResponse[]) => {
+    // FR-034 — one match opens straight away; several ask, through the same
+    // picker the MiniApps tab uses, narrowed to this block.
+    if (ports.length === 1) {
+      const target = targetFor(blockId, ports[0].name);
+      if (target) onOpenMiniApp?.(summary, target);
+      return;
+    }
+    setPickerFor({ summary, blockId });
+  };
+
+  const menuEntries: CanvasMenuEntry[] = menuNode
+    ? [
+        ...(miniApps ?? [])
+          .map((summary) => ({
+            summary,
+            ports: portsForMiniApp(menuPorts, summary.type, menuSchema?.type_hierarchy),
+          }))
+          .filter((entry) => entry.ports.length > 0)
+          .map((entry) => ({
+            key: `miniapp-${entry.summary.panel_id}`,
+            label: `Open in ${entry.summary.name}`,
+            disabled: !workflowId,
+            onSelect: () => openOn(entry.summary, menuNode.id, entry.ports),
+          })),
+        {
+          key: "new-miniapp",
+          label: "New MiniApp",
+          // FR-035 — disabled, not hidden, for a block that has produced
+          // nothing: the entry is how the user learns the feature exists, and
+          // `reason` below says what to do about it.
+          disabled: !menuHasOutputs || !workflowId,
+          onSelect: () =>
+            onNewMiniApp?.(menuHasOutputs ? targetFor(menuNode.id, menuPorts[0].name) : null),
+        },
+      ]
+    : [];
+
   return (
     <div
       className="relative h-full"
@@ -437,6 +683,15 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         onNodeClick={handlers.handleNodeClick}
         onNodeDoubleClick={handlers.handleNodeDoubleClick}
         onNodeDragStop={handlers.handleNodeDragStop}
+        onNodeContextMenu={(event, node) => {
+          // FR-035 is about BLOCK nodes. Annotations and subworkflow containers
+          // keep the browser menu: a subworkflow has no outputs of its own to
+          // open a MiniApp on, and an annotation is not data at all.
+          if (node.type !== "block") return;
+          if (!onNewMiniApp && !onOpenMiniApp) return;
+          event.preventDefault();
+          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+        }}
         onNodesDelete={handlers.handleNodesDelete}
         onPaneClick={handlers.handlePaneClick}
         deleteKeyCode={["Backspace", "Delete"]}
@@ -460,6 +715,30 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           />
         ) : null}
       </ReactFlow>
+      {contextMenu && menuNode ? (
+        <BlockContextMenu
+          entries={menuEntries}
+          onClose={closeContextMenu}
+          reason={menuHasOutputs ? null : NO_OUTPUTS_REASON}
+          x={contextMenu.x}
+          y={contextMenu.y}
+        />
+      ) : null}
+      {/* FR-034's "several ports match" case, on the block the user picked. */}
+      <MiniAppTargetPicker
+        onOpenChange={(open) => {
+          if (!open) setPickerFor(null);
+        }}
+        onPick={(target) => {
+          if (pickerFor) onOpenMiniApp?.(pickerFor.summary, target);
+          setPickerFor(null);
+        }}
+        open={pickerFor !== null}
+        restrictTo={
+          pickerFor && workflowId ? { workflow_id: workflowId, block_id: pickerFor.blockId } : null
+        }
+        summary={pickerFor?.summary ?? null}
+      />
     </div>
   );
 }
