@@ -8,13 +8,13 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { useEffect, useRef, type RefObject, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject, type ReactNode } from "react";
 
 import { usePresentation } from "../lib/presentation";
 import { useAppStore } from "../store";
 import { openDataFileAsPreview } from "../lib/openDataFile";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { AnyTab, FileTab, PreviewTab } from "../store/types";
+import type { AnyTab, FileTab, MiniAppTab, PreviewTab } from "../store/types";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -31,6 +31,12 @@ import { DataPreview } from "../components/DataPreview";
 import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { PreviewerPalette } from "../components/PreviewerPalette";
+import { ConvertToBlockDialog } from "../miniapps/ConvertToBlockDialog";
+import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
+import { MiniAppPalette } from "../miniapps/MiniAppPalette";
+import { MiniAppTabLayer, useMiniAppPreviewColumn } from "../miniapps/MiniAppTab";
+import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
+import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
@@ -70,10 +76,22 @@ export type LeftTab =
   | "blocks"
   | "types"
   | "previewers"
+  // ADR-054 FR-031 — the MiniApps section, in the activity bar's previewers
+  // slot. `previewers` stays in the union: the Previewers list moves into the
+  // preview column (FR-033) and the tutorial still routes to it.
+  | "miniapps"
   | "workflows"
   | "data"
   | "project"
   | "preview";
+
+/** ADR-054 — what the MiniApps section and the MiniApp tab call back into. */
+export interface MiniAppWiring {
+  /** FR-034 — a card was opened; pick the output it runs on. */
+  onOpen: (summary: MiniAppSummary) => void;
+  /** FR-023 — the New MiniApp dialog. */
+  onCreate: () => void;
+}
 
 /**
  * What the Data section opens with. Module-level so the reference is stable —
@@ -167,7 +185,9 @@ export interface ProjectWorkspaceProps {
   setPanelSize: (key: "palette" | "preview" | "bottom", size: number) => void;
 }
 
-function PaletteOrProjectPane(props: ProjectWorkspaceProps & { previewPane?: ReactNode }) {
+function PaletteOrProjectPane(
+  props: ProjectWorkspaceProps & { previewPane?: ReactNode; miniApps: MiniAppWiring },
+) {
   const {
     leftTab,
     onLeftTabChange,
@@ -209,6 +229,11 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps & { previewPane?: Rea
         <TypePalette />
       ) : leftTab === "previewers" ? (
         <PreviewerPalette />
+      ) : leftTab === "miniapps" ? (
+        // ADR-054 FR-031 — the MiniApps list. Like the Data types and
+        // Previewers panes it reads its own catalogue; only the two actions
+        // that leave the pane are wired from here.
+        <MiniAppPalette onOpen={props.miniApps.onOpen} onCreate={props.miniApps.onCreate} />
       ) : leftTab === "blocks" ? (
         <BlockPalette
           blocks={blocks}
@@ -470,6 +495,28 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     selectedNodeLabel,
   } = props;
 
+  // ADR-054 FR-018/FR-019 — every open MiniApp, and the focused one. Derived
+  // here rather than threaded from App: the tab list is already a prop, and a
+  // MiniApp pane must stay mounted while a tab of another kind is active, so
+  // the layer needs all of them, not just the active one.
+  const miniAppTabs = useMemo(
+    () => tabs.filter((tab): tab is MiniAppTab => tab.kind === "miniapp"),
+    [tabs],
+  );
+  const activeMiniAppTab = miniAppTabs.find((tab) => tab.id === activeTabId) ?? null;
+
+  // ADR-054 FR-023/FR-034/FR-036 — the three MiniApp dialogs are mounted once
+  // here, beside the workspace, and opened from the palette, the tab toolbar
+  // and (through the store opener) a block's context menu.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pickerFor, setPickerFor] = useState<MiniAppSummary | null>(null);
+  const [convertFor, setConvertFor] = useState<string | null>(null);
+  const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
+  const miniApps: MiniAppWiring = {
+    onOpen: (summary) => setPickerFor(summary),
+    onCreate: () => setCreateOpen(true),
+  };
+
   // #2090 — the store's `paletteCollapsed` (toggled by the activity bar and
   // Ctrl+B) was disconnected from the actual panel before; this handle is
   // what makes the collapse real.
@@ -483,6 +530,12 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       panel.expand();
     }
   }, [paletteCollapsed]);
+
+  // ADR-054 FR-020 — the right preview column folds away while a MiniApp tab
+  // is active and comes back at the width it had. The rules (and why the panel
+  // handle rather than `panelSizes.preview` holds the width) are in the hook.
+  const previewPanelRef = useRef<PanelImperativeHandle>(null);
+  useMiniAppPreviewColumn(previewPanelRef, activeMiniAppTab !== null);
 
   // ADR-044 — preview panels read the same run-scoped, exposed-mapped outputs as
   // the canvas, so selecting a subworkflow node (or a node in an expanded child
@@ -592,7 +645,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         }
       }}
     >
-      <PaletteOrProjectPane {...props} previewPane={previewPane} />
+      <PaletteOrProjectPane {...props} previewPane={previewPane} miniApps={miniApps} />
     </ResizablePanel>
   );
   const stagePanel = (
@@ -629,8 +682,24 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
              * element left her standing in the corner of the *window*, over
              * the left panel, when it was not on screen.
              */}
-            <div className="h-full min-h-0" data-tutorial-target="workspace_stage">
-              <CanvasOrEditor {...props} />
+            <div className="relative h-full min-h-0" data-tutorial-target="workspace_stage">
+              {/*
+               * ADR-054 FR-019 — the MiniApp layer sits over the stage and
+               * every open MiniApp stays mounted inside it, active or not.
+               * A MiniApp's context (and therefore its `panel.py` process)
+               * lives exactly as long as its frame is mounted, so unmounting
+               * on a focus change would kill the process the tab exists to
+               * keep running. What changes on a focus change is only which
+               * one is visible.
+               */}
+              <div className={activeMiniAppTab ? "hidden" : "h-full min-h-0"}>
+                <CanvasOrEditor {...props} />
+              </div>
+              <MiniAppTabLayer
+                tabs={miniAppTabs}
+                activeTabId={activeTabId}
+                onConvert={setConvertFor}
+              />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -706,6 +775,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {/* The workbench has a separate preview; AI mode uses the Preview card. */}
         {!isAi && (
           <ResizablePanel
+            panelRef={previewPanelRef}
             id="workspace-preview"
             defaultSize="22%"
             minSize="15%"
@@ -717,6 +787,45 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
+      {/*
+       * ADR-054 FR-023 / FR-034 / FR-036 — the MiniApp dialogs. Mounted beside
+       * the panel group rather than inside a pane so opening one does not
+       * depend on which section, tab or column is on screen.
+       */}
+      <CreateMiniAppDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(result) => {
+          setCreateOpen(false);
+          openMiniAppTab({
+            panelId: result.panel_id,
+            name: result.name,
+            target: result.target,
+          });
+        }}
+      />
+      <MiniAppTargetPicker
+        open={pickerFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setPickerFor(null);
+        }}
+        summary={pickerFor}
+        onPick={(target: MiniAppTarget) => {
+          const summary = pickerFor;
+          setPickerFor(null);
+          if (summary) {
+            openMiniAppTab({ panelId: summary.panel_id, name: summary.name, target });
+          }
+        }}
+      />
+      <ConvertToBlockDialog
+        open={convertFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setConvertFor(null);
+        }}
+        panelId={convertFor ?? ""}
+        onStarted={() => setConvertFor(null)}
+      />
     </div>
   );
 }
