@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
+import { openAllPreviewers } from "../components/DataPreview";
 import { applyStepRoute } from "../components/LearningCenter.parts/targets";
 import { useAppStore } from "../store";
 import { hasRecordedTutorialProgress } from "../store/learningCenterSlice";
@@ -313,7 +314,15 @@ export function useLearningCenter({
 
   useEffect(() => {
     if (!tutorialStepKey || !tutorialStepRoute) return;
-    applyStepRoute(tutorialStepRoute, { openBottomTab, setLeftTab, showCanvas });
+    // ADR-054 FR-040 — the `previewers` route no longer switches the left
+    // panel: the list lives in the preview column now, and `openAllPreviewers`
+    // is DataPreview's own door to it (it expands a collapsed column first).
+    applyStepRoute(tutorialStepRoute, {
+      openBottomTab,
+      setLeftTab,
+      showCanvas,
+      showAllPreviewers: openAllPreviewers,
+    });
     // `tutorialStepRoute` is a property of the step `tutorialStepKey` names, so
     // the key alone decides when this runs. Adding the route or the two setters
     // would re-route on identity changes that are not a new step.

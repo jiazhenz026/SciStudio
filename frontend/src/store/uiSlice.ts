@@ -130,7 +130,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   // Desktop menu (desktop/menu.js) opens these dialogs without going through
   // the toolbar, so the open state is shared store state.
   packageManagerOpen: false,
+  createMiniAppOpen: false,
   bringInMyWorkOpen: false,
   setPackageManagerOpen: (open) => set({ packageManagerOpen: open }),
+  setCreateMiniAppOpen: (open) => set({ createMiniAppOpen: open }),
   setBringInMyWorkOpen: (open) => set({ bringInMyWorkOpen: open }),
 });

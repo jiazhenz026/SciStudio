@@ -413,6 +413,7 @@ export default function App() {
             onOpenRecent={(project) => void openProject(project.id)}
             onCloseProject={() => closeCurrentProject()}
             onNewWorkflow={newWorkflow}
+            onNewMiniApp={() => useAppStore.getState().setCreateMiniAppOpen(true)}
             onNewCustomBlock={whenProjectOpen(createNewCustomBlock)}
             onNewDataType={whenProjectOpen(createNewDataType)}
             onNewNote={whenProjectOpen(createNewNote)}

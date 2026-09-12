@@ -508,7 +508,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   // ADR-054 FR-023/FR-034/FR-036 — the three MiniApp dialogs are mounted once
   // here, beside the workspace, and opened from the palette, the tab toolbar
   // and (through the store opener) a block's context menu.
-  const [createOpen, setCreateOpen] = useState(false);
+  const createOpen = useAppStore((s) => s.createMiniAppOpen);
+  const setCreateOpen = useAppStore((s) => s.setCreateMiniAppOpen);
   const [pickerFor, setPickerFor] = useState<MiniAppSummary | null>(null);
   const [convertFor, setConvertFor] = useState<string | null>(null);
   const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);

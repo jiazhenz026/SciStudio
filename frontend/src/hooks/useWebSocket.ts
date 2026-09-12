@@ -8,6 +8,7 @@ import {
   nextBackoffDelay,
   type ConnectionStatus,
 } from "./connectionState";
+import { handleWsDisconnected } from "./useWebSocket.parts/handleMiniApp";
 import { dispatchWorkflowEvent } from "./useWebSocket.parts/dispatchEvent";
 
 /** Heartbeat interval (#177): ping the server to detect stale sockets. */
@@ -131,6 +132,13 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
       clearHeartbeat();
       if (_activeSocket === socket) _activeSocket = null;
       socket = null;
+      // ADR-054 FR-013 / CONTRACT §2.1 — the id the backend minted belongs to
+      // the socket that is now gone. Keeping it would let a MiniApp opened
+      // during the reconnect window bind to a client the backend has already
+      // written off, and the grace-period sweep would close that context out
+      // from under a tab the reader is looking at. The next `hello` supplies
+      // the new one.
+      handleWsDisconnected({ setWsClientId: useAppStore.getState().setWsClientId });
       if (cancelled) return;
       scheduleReconnect();
     };
@@ -192,6 +200,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
       }
       if (_activeSocket === socket) _activeSocket = null;
       socket = null;
+      handleWsDisconnected({ setWsClientId: useAppStore.getState().setWsClientId });
       setStatus("disconnected");
     };
   }, [appendLog, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);

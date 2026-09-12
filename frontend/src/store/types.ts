@@ -470,8 +470,15 @@ export interface UISlice {
    */
   packageManagerOpen: boolean;
   /** See `packageManagerOpen`; the dialog mounts only while open. */
+  /**
+   * ADR-054 FR-037 — the toolbar's New menu lives in `App.tsx` while the create
+   * dialog is mounted in `ProjectWorkspace`, so the request travels through the
+   * store, exactly as `bringInMyWorkOpen` does for the desktop menu.
+   */
+  createMiniAppOpen: boolean;
   bringInMyWorkOpen: boolean;
   setPackageManagerOpen: (open: boolean) => void;
+  setCreateMiniAppOpen: (open: boolean) => void;
   setBringInMyWorkOpen: (open: boolean) => void;
 }
 

@@ -4,16 +4,14 @@
  * The three cases here are the ones a user feels: an identity that is never
  * read leaves every MiniApp process outliving the tab that opened it; an
  * `open_miniapp` that opens a second tab on a target already open leaves the
- * agent's answer split across two frames; and a reload that is not debounced
- * restarts the process several times for one editor save.
+ * agent's answer split across two frames; and a files_changed frame that is
+ * dropped leaves the reader looking at a MiniApp the agent has already replaced.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 import {
-  MINIAPP_RELOAD_DEBOUNCE_MS,
-  cancelPendingMiniAppReloads,
   handleOpenMiniApp,
   handlePanelFilesChanged,
   handleWsDisconnected,
@@ -142,66 +140,63 @@ describe("panel.open_miniapp opens the tab the agent asked for (FR-030)", () => 
   });
 });
 
-describe("panel.files_changed reloads once per burst (FR-022)", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    cancelPendingMiniAppReloads();
-    vi.useRealTimers();
-  });
-
-  it("waits for the writes to settle before reloading", () => {
-    /*
-     * One save can produce several events — the file, a temporary file renamed
-     * over it, an asset written beside it — and each reload is a new frame,
-     * context, and process. Three events inside the window are one reload.
-     */
-    const reloadMiniApp = vi.fn();
+describe("panel.files_changed tells the workspace its panel moved (FR-022)", () => {
+  /*
+   * The 500 ms window FR-022 asks for is a window on the RELOAD, and the reload
+   * is the tab's (`MiniAppTab`, covered by MiniAppTab.test.tsx). This handler
+   * only forwards, so a burst of three saves is three store bumps and still one
+   * reload — the counter is idempotent. Debouncing here as well would stack the
+   * two windows into a second.
+   */
+  it("forwards the panel id the frame names", () => {
+    const notifyPanelFilesChanged = vi.fn();
     const event = frame({ type: "panel.files_changed", data: { panel_id: "peak_explorer" } });
 
-    handlePanelFilesChanged(event, { reloadMiniApp });
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS - 100);
-    handlePanelFilesChanged(event, { reloadMiniApp });
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS - 100);
-    handlePanelFilesChanged(event, { reloadMiniApp });
+    handlePanelFilesChanged(event, { notifyPanelFilesChanged });
 
-    expect(reloadMiniApp).not.toHaveBeenCalled();
-
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS);
-
-    expect(reloadMiniApp).toHaveBeenCalledTimes(1);
-    expect(reloadMiniApp).toHaveBeenCalledWith("peak_explorer");
+    expect(notifyPanelFilesChanged).toHaveBeenCalledWith("peak_explorer");
   });
 
-  it("keeps one panel's burst from delaying another's reload", () => {
-    const reloadMiniApp = vi.fn();
+  it("forwards every frame in a burst and lets the tab coalesce them", () => {
+    const notifyPanelFilesChanged = vi.fn();
+    const event = frame({ type: "panel.files_changed", data: { panel_id: "peak_explorer" } });
+
+    handlePanelFilesChanged(event, { notifyPanelFilesChanged });
+    handlePanelFilesChanged(event, { notifyPanelFilesChanged });
+    handlePanelFilesChanged(event, { notifyPanelFilesChanged });
+
+    expect(notifyPanelFilesChanged).toHaveBeenCalledTimes(3);
+    expect(notifyPanelFilesChanged.mock.calls.every(([id]) => id === "peak_explorer")).toBe(true);
+  });
+
+  it("keeps one panel's saves from being reported as another's", () => {
+    const notifyPanelFilesChanged = vi.fn();
 
     handlePanelFilesChanged(
       frame({ type: "panel.files_changed", data: { panel_id: "peak_explorer" } }),
-      { reloadMiniApp },
+      { notifyPanelFilesChanged },
     );
     handlePanelFilesChanged(
-      frame({ type: "panel.files_changed", data: { panel_id: "spectra_browser" } }),
-      { reloadMiniApp },
+      frame({ type: "panel.files_changed", data: { panel_id: "threshold" } }),
+      { notifyPanelFilesChanged },
     );
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS);
 
-    expect(reloadMiniApp.mock.calls.map(([id]) => id).sort()).toEqual([
+    expect(notifyPanelFilesChanged.mock.calls.map(([id]) => id)).toEqual([
       "peak_explorer",
-      "spectra_browser",
+      "threshold",
     ]);
   });
 
   it("ignores a frame with no panel id", () => {
-    const reloadMiniApp = vi.fn();
+    const notifyPanelFilesChanged = vi.fn();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    handlePanelFilesChanged(frame({ type: "panel.files_changed", data: {} }), { reloadMiniApp });
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS * 2);
+    handlePanelFilesChanged(frame({ type: "panel.files_changed", data: {} }), {
+      notifyPanelFilesChanged,
+    });
 
-    expect(reloadMiniApp).not.toHaveBeenCalled();
+    expect(notifyPanelFilesChanged).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
 });

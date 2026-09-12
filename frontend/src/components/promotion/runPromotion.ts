@@ -33,11 +33,14 @@ export async function runPromotion(item: PromotableItem): Promise<PromotionOutco
     },
   });
 
-  if (outcome.status === "promoted" && item.target !== "previewers") {
+  if (outcome.status === "promoted" && item.target !== "previewers" && item.target !== "panels") {
     // FR-020 — land the user looking at `My Library`, the section this whole
     // feature exists to teach. It brings that section into view; it does not
     // filter the palette down to the item, which read as the palette breaking.
-    // A previewer has no palette tab to reveal (#2086): the inline
+    // A previewer has no palette tab to reveal (#2086), and neither does a
+    // MiniApp — its own MiniApps tab is where it lands, and revealing the
+    // Blocks tab instead would teach the wrong location (ADR-054 FR-039).
+    // The inline
     // confirmation below still names it, and pretending the Blocks tab is its
     // section would teach the wrong location.
     revealInLibrary(item.target === "types" ? "types" : "blocks");

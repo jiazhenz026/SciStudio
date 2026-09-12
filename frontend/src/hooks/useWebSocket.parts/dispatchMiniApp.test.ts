@@ -12,7 +12,6 @@ import { useAppStore } from "../../store";
 import type { WorkflowEventMessage } from "../../types/api";
 
 import { dispatchWorkflowEvent } from "./dispatchEvent";
-import { MINIAPP_RELOAD_DEBOUNCE_MS, cancelPendingMiniAppReloads } from "./handleMiniApp";
 
 /**
  * Install spies for the MiniApp store actions and hand them back.
@@ -24,18 +23,18 @@ import { MINIAPP_RELOAD_DEBOUNCE_MS, cancelPendingMiniAppReloads } from "./handl
 function spyOnStoreActions() {
   const setWsClientId = vi.fn();
   const openMiniAppTab = vi.fn();
-  const reloadMiniApp = vi.fn();
+  const notifyPanelFilesChanged = vi.fn();
   const previous = useAppStore.getState();
-  useAppStore.setState({ setWsClientId, openMiniAppTab, reloadMiniApp });
+  useAppStore.setState({ setWsClientId, openMiniAppTab, notifyPanelFilesChanged });
   return {
     setWsClientId,
     openMiniAppTab,
-    reloadMiniApp,
+    notifyPanelFilesChanged,
     restore: () =>
       useAppStore.setState({
         setWsClientId: previous.setWsClientId,
         openMiniAppTab: previous.openMiniAppTab,
-        reloadMiniApp: previous.reloadMiniApp,
+        notifyPanelFilesChanged: previous.notifyPanelFilesChanged,
       }),
   };
 }
@@ -51,7 +50,6 @@ function frame(body: Record<string, unknown>): WorkflowEventMessage {
 }
 
 afterEach(() => {
-  cancelPendingMiniAppReloads();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
@@ -98,8 +96,12 @@ describe("the dispatcher routes the MiniApp frames", () => {
     actions.restore();
   });
 
-  it("consumes panel.files_changed and reloads once the burst settles", () => {
-    vi.useFakeTimers();
+  it("consumes panel.files_changed and tells the store which panel moved", () => {
+    /*
+     * Forwarded straight through: FR-022's 500 ms window is the tab's, not the
+     * dispatcher's (see handleMiniApp.ts). The store counter is idempotent, so
+     * a burst of saves is several bumps and still one reload.
+     */
     const actions = spyOnStoreActions();
 
     const consumed = dispatchWorkflowEvent(
@@ -108,9 +110,7 @@ describe("the dispatcher routes the MiniApp frames", () => {
     );
 
     expect(consumed).toBe(true);
-    expect(actions.reloadMiniApp).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(MINIAPP_RELOAD_DEBOUNCE_MS);
-    expect(actions.reloadMiniApp).toHaveBeenCalledWith("peak_explorer");
+    expect(actions.notifyPanelFilesChanged).toHaveBeenCalledWith("peak_explorer");
     actions.restore();
   });
 });

@@ -136,7 +136,9 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     // ADR-054 FR-022: the panel directory of an open MiniApp changed on disk.
     // The 500 ms debounce lives in the handler, not in the tab: this is where
     // the burst arrives, and one reload per burst is cheaper than one per tab.
-    handlePanelFilesChanged(payload, { reloadMiniApp: useAppStore.getState().reloadMiniApp });
+    handlePanelFilesChanged(payload, {
+      notifyPanelFilesChanged: useAppStore.getState().notifyPanelFilesChanged,
+    });
     return true;
   }
   return false;

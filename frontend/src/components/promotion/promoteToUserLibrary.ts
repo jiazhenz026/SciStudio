@@ -117,6 +117,21 @@ export interface PromotionIo {
     /** Why it could not be removed, or `null`. */
     moveError: string | null;
   }>;
+  /**
+   * `POST /api/user-library/directory` — the whole-directory door
+   * (ADR-054 FR-039). A MiniApp is a directory, so it has no `content` to
+   * hand over and no filename to rename: the collision answer for one is
+   * overwrite or cancel, never "save it under another name".
+   */
+  writeDirectory: (
+    name: string,
+    options: { overwrite: boolean },
+  ) => Promise<{
+    path: string;
+    kind: "created" | "modified";
+    movedFrom: string | null;
+    moveError: string | null;
+  }>;
   /** True when an error from `write` is the FR-008 collision. */
   isCollision: (error: unknown) => boolean;
 }
@@ -363,6 +378,10 @@ export async function promoteToUserLibrary(
     };
   }
 
+  if (item.source.from === "panelDirectory") {
+    return promoteDirectory(item, item.source.panelId, deps);
+  }
+
   let source: PromotionSource;
   let catalogue: readonly TypeSummary[];
   try {
@@ -452,5 +471,73 @@ export async function promoteToUserLibrary(
       promotedDependencies,
       error: error instanceof Error ? error.message : String(error),
     };
+  }
+}
+
+/**
+ * Promote a whole panel directory (ADR-054 FR-039).
+ *
+ * Separate from the file path above rather than folded into it, because three
+ * of that path's four stages are meaningless here: there is no content to
+ * read, no cascade a directory can drag along, and no rename — a MiniApp's
+ * directory name IS its `panel_id`, and the descriptor inside it declares the
+ * same id, so saving it under a second name would produce a directory whose
+ * `panel.json` disagrees with where it lives. The collision answer is
+ * therefore overwrite or cancel; a `rename` is refused rather than obeyed.
+ */
+async function promoteDirectory(
+  item: PromotableItem,
+  panelId: string,
+  deps: { io: PromotionIo; prompts: PromotionPrompts },
+): Promise<PromotionOutcome> {
+  const { io, prompts } = deps;
+  const answer = await prompts.confirm({
+    item,
+    filename: panelId,
+    cascade: { dependencies: [], secondLevel: [], unreadable: [] },
+  });
+  if (answer.action === "cancel") {
+    return emptyOutcome(item, "cancelled");
+  }
+
+  let overwrite = false;
+  for (;;) {
+    try {
+      const result = await io.writeDirectory(panelId, { overwrite });
+      return {
+        ...emptyOutcome(item, "promoted"),
+        promoted: {
+          kind: item.kind,
+          label: item.label,
+          filename: panelId,
+          path: result.path,
+          overwritten: overwrite,
+          movedFrom: result.movedFrom,
+          moveError: result.moveError,
+        },
+        warnings: result.moveError === null ? [] : [result.moveError],
+      };
+    } catch (error) {
+      if (!io.isCollision(error)) {
+        return {
+          ...emptyOutcome(item, "failed"),
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+      const collision = await prompts.resolveCollision({
+        target: item.target,
+        filename: panelId,
+        label: item.label,
+        detail: error instanceof Error ? error.message : String(error),
+      });
+      if (collision.action === "overwrite") {
+        overwrite = true;
+        continue;
+      }
+      // `cancel` and `rename` land here alike: a MiniApp cannot be renamed on
+      // the way in (see the note above), so the only honest answer to a rename
+      // request is to stop and leave the library as it was.
+      return emptyOutcome(item, "cancelled");
+    }
   }
 }

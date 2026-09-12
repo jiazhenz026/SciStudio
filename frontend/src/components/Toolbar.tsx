@@ -55,6 +55,8 @@ interface ToolbarProps {
   onOpenRecent: (project: ProjectResponse) => void;
   onCloseProject: () => void;
   onNewWorkflow: () => void;
+  /** ADR-054 FR-037 — open the MiniApp create dialog. */
+  onNewMiniApp?: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewCustomBlock?: () => void;
   /** ADR-053 FR-032 — optional. "New data type", the type-side twin. */
@@ -101,6 +103,7 @@ export function Toolbar(props: ToolbarProps) {
     onOpenRecent,
     onCloseProject,
     onNewWorkflow,
+    onNewMiniApp,
     onNewCustomBlock,
     onNewDataType,
     onNewNote,
@@ -196,6 +199,7 @@ export function Toolbar(props: ToolbarProps) {
             currentProject={currentProject}
             isFileTab={isFileTab}
             onNewWorkflow={onNewWorkflow}
+            onNewMiniApp={onNewMiniApp}
             onNewCustomBlock={onNewCustomBlock}
             onNewDataType={onNewDataType}
             onNewNote={onNewNote}

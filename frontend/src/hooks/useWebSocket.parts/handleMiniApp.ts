@@ -28,7 +28,6 @@ import type { LogEntry, WorkflowEventMessage } from "../../types/api";
  * write, the rename of a temporary file, an asset rewritten beside it). 500 ms
  * is the spec's number.
  */
-export const MINIAPP_RELOAD_DEBOUNCE_MS = 500;
 
 /** The store actions these handlers drive. All are owned by the store slice. */
 export interface MiniAppRealtimeDeps {
@@ -37,7 +36,7 @@ export interface MiniAppRealtimeDeps {
   /** Open the MiniApp tab, or focus it when its id is already open (FR-018). */
   openMiniAppTab: (input: { panelId: string; name: string; target: MiniAppTarget }) => void;
   /** Reload every open MiniApp tab on this panel (FR-022). */
-  reloadMiniApp: (panelId: string) => void;
+  notifyPanelFilesChanged: (panelId: string) => void;
   appendLog: (entry: LogEntry) => void;
 }
 
@@ -132,45 +131,24 @@ export function handleOpenMiniApp(
   });
 }
 
-/** Pending reloads, one timer per panel id. */
-const reloadTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
 /**
- * FR-022 — the panel directory changed; reload the MiniApp after it settles.
+ * FR-022 — the panel directory changed; tell the workspace the panel moved.
  *
- * Debounced here rather than in the tab: this is where the burst arrives, and
- * coalescing at the source means one reload per burst no matter how many tabs
- * are open on the panel. Keyed by panel id so a save in one MiniApp never
- * delays the reload of another.
+ * Deliberately NOT debounced here. FR-022's 500 ms window is a window on the
+ * *reload*, and the reload happens in the tab (`MiniAppTab`), which is where
+ * the timer lives and where unmounting cancels it. Coalescing here as well
+ * would stack the two windows into one second, and a module-level timer map
+ * outlives the tabs it fires into. The store bump is an idempotent counter, so
+ * three bumps inside one burst are one reload either way.
  */
 export function handlePanelFilesChanged(
   payload: WorkflowEventMessage,
-  deps: Pick<MiniAppRealtimeDeps, "reloadMiniApp">,
+  deps: Pick<MiniAppRealtimeDeps, "notifyPanelFilesChanged">,
 ): void {
   const panelId = field(payload, "panel_id");
   if (panelId === null) {
     console.warn("[panel.files_changed] frame carries no panel_id; ignoring", payload);
     return;
   }
-  const pending = reloadTimers.get(panelId);
-  if (pending !== undefined) clearTimeout(pending);
-  reloadTimers.set(
-    panelId,
-    setTimeout(() => {
-      reloadTimers.delete(panelId);
-      deps.reloadMiniApp(panelId);
-    }, MINIAPP_RELOAD_DEBOUNCE_MS),
-  );
-}
-
-/**
- * Drop every pending reload without running it.
- *
- * For tests, and for a caller that knows the tabs are gone. A timer that fires
- * into a closed workspace reloads nothing, so this is tidiness rather than
- * correctness.
- */
-export function cancelPendingMiniAppReloads(): void {
-  for (const timer of reloadTimers.values()) clearTimeout(timer);
-  reloadTimers.clear();
+  deps.notifyPanelFilesChanged(panelId);
 }

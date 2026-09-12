@@ -188,6 +188,11 @@ def _render_tool_catalog() -> str:
         "inspection": "### (c) Run & data inspection",
         "qa": "### (d) Project Q&A",
         "plot": "### (e) Plot authoring",
+        # ADR-054 FR-029 — `category:panels`. This map is the whole of what the
+        # prompt renders: `grouped` is built from its keys, so a category
+        # missing here drops its tools from the catalogue silently. A tool the
+        # agent is never told about is a tool it never calls.
+        "panels": "### (f) MiniApps & panels",
     }
     grouped: dict[str, list[str]] = {key: [] for key in category_titles}
 
