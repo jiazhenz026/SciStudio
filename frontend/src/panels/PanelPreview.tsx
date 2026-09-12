@@ -112,10 +112,20 @@ export function PanelPreview({
                * open an item can never finish. Imported lazily: the store pulls
                * in every slice, and this module is rendered by tests that mock a
                * narrow API surface.
+               *
+               * Nothing waits for this, so it has to answer for its own failure.
+               * An unhandled rejection here is not hypothetical: the import can
+               * still be in flight when whatever is around it goes away — a test
+               * environment torn down, a chunk that never arrives — and an
+               * unhandled rejection fails the whole run even when every test in
+               * it passed. Reporting that an item was opened is best effort; not
+               * reporting it costs a tutorial step, and must cost nothing else.
                */
-              void import("../store").then(({ useAppStore }) =>
-                useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
-              );
+              void import("../store")
+                .then(({ useAppStore }) =>
+                  useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
+                )
+                .catch(() => {});
               return null;
             } finally {
               busy.current = false;

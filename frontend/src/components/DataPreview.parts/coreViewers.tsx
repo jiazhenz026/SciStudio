@@ -788,10 +788,17 @@ export function CollectionViewer({
                  * other way to finish. Imported here rather than at the top of
                  * the file: the store pulls in every slice, and this module is
                  * rendered by tests that mock a narrow API surface.
+                 *
+                 * Nothing waits for this, so it has to answer for its own
+                 * failure: the import can still be in flight when whatever is
+                 * around it goes away, and an unhandled rejection fails a whole
+                 * test run even when every test in it passed.
                  */
-                void import("../../store").then(({ useAppStore }) =>
-                  useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
-                );
+                void import("../../store")
+                  .then(({ useAppStore }) =>
+                    useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
+                  )
+                  .catch(() => {});
               }}
               className="rounded-2xl border border-ink/10 bg-white px-3 py-2 text-left text-xs hover:bg-ink/5"
             >
