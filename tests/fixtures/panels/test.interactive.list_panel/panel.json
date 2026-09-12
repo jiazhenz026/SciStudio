@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.list_panel",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

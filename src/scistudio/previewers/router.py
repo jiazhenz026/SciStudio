@@ -182,7 +182,14 @@ class PreviewRouter:
         previewer_id = self._registry.choice_for(type_name)
         if previewer_id is None:
             return None
-        spec = self._registry.get(previewer_id)
+        matches = [
+            s
+            for s in self._registry.all_specs()
+            if s.previewer_id == previewer_id
+            and s.target_type in chain
+            and bool(s.supports_collection) == want_collection
+        ]
+        spec = matches[0] if matches else None
         if spec is None:
             logger.debug("chosen previewer %r for %r is not registered; falling back", previewer_id, type_name)
             return None

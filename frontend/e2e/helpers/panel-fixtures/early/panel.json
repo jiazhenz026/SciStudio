@@ -1,0 +1,1 @@
+{ "id": "browser.early", "api_version": "1.0", "contexts": ["preview"], "types": ["BrowserText"] }

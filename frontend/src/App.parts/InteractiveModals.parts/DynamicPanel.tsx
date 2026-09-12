@@ -1,9 +1,10 @@
 /**
  * ADR-051 — host React component for a package-provided interactive panel.
  *
- * The core panels in {@link ../InteractiveModals.tsx} resolve from the built-in
- * `PANEL_REGISTRY`. A package-provided interactive block instead ships its
- * window as a same-origin ESM module referenced by `panelManifest.module_url`.
+ * The core panels in {@link ../InteractiveModals.tsx} are core-tier HTML panels
+ * (empty `module_url`) mounted through the sandboxed `<InteractivePanel>` host.
+ * A package-provided interactive block instead ships its window as a
+ * same-origin ESM module referenced by `panelManifest.module_url`.
  * This component bridges that module into the React tree:
  *
  *   1. Builds a constrained {@link PanelHostApi} whose `confirm`/`cancel` drive

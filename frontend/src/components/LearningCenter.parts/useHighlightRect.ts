@@ -24,8 +24,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { TutorialHighlightView } from "../../lib/api/learningCenter";
+import { panelHighlightRect, requestPanelHighlight } from "../../panels/panelHighlights";
 
-import { findTutorialTarget } from "./targets";
+import { findTutorialTarget, tutorialTargetKey } from "./targets";
 
 /**
  * A target's box in viewport coordinates.
@@ -89,10 +90,30 @@ function union(a: HighlightRect, b: HighlightRect): HighlightRect {
   };
 }
 
-function measure(highlight: TutorialHighlightView | null): HighlightRect | null {
-  if (!highlight) return null;
+function measure(highlight: TutorialHighlightView | null, owner: symbol): HighlightRect | null {
+  if (!highlight) {
+    requestPanelHighlight(owner, null);
+    return null;
+  }
   const element = findTutorialTarget(highlight.target, highlight.args);
-  if (!element) return null;
+  /*
+   * A target inside a panel frame is in another document, so this walk cannot
+   * find it and the step would degrade to a centred card with no ring — which
+   * is what happened to every step pointing at a collection item once the
+   * collection viewer became a panel. The frame measures its own element and
+   * reports the box; `panelHighlightRect` adds the frame's current position.
+   *
+   * Asked for here, where the miss happens, rather than once per target: a
+   * frame is asked only for what the host could not find, so the stage target —
+   * which is always in the host document — never reaches a panel, and a target
+   * that appears in the host later stops being asked for.
+   */
+  if (!element) {
+    const key = tutorialTargetKey(highlight.target, highlight.args);
+    requestPanelHighlight(owner, { target: highlight.target, key });
+    return panelHighlightRect(highlight.target, key);
+  }
+  requestPanelHighlight(owner, null);
   const box = boxOf(element);
   if (!box) return null;
   const panel = expandedPanelOf(element);
@@ -114,7 +135,16 @@ function same(a: HighlightRect | null, b: HighlightRect | null): boolean {
  * the card in the center of the screen with no overlay for all of them.
  */
 export function useHighlightRect(highlight: TutorialHighlightView | null): HighlightRect | null {
-  const [rect, setRect] = useState<HighlightRect | null>(() => measure(highlight));
+  /*
+   * This tracker's own identity. `ActiveStep` runs two of them — one for the
+   * step's target and one for the stage the dialogue stands on — and a shared
+   * slot let the second overwrite the first's request and either one's cleanup
+   * clear the other's.
+   */
+  const owner = useRef<symbol>();
+  if (owner.current === undefined) owner.current = Symbol("highlight-tracker");
+  const self = owner.current;
+  const [rect, setRect] = useState<HighlightRect | null>(() => measure(highlight, self));
   const current = useRef<HighlightRect | null>(rect);
 
   const target = highlight?.target ?? null;
@@ -128,7 +158,7 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
     let frame = 0;
 
     const tick = () => {
-      const next = measure(view);
+      const next = measure(view, self);
       if (!same(current.current, next)) {
         current.current = next;
         setRect(next);
@@ -137,8 +167,11 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
     };
     tick();
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [target, args]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      requestPanelHighlight(self, null);
+    };
+  }, [target, args, self]);
 
   return rect;
 }

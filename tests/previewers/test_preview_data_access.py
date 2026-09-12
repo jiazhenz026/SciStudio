@@ -125,6 +125,47 @@ def test_composite_slots_inventory_only() -> None:
     assert slots.slots == {"raster": "Array", "obs": "DataFrame"}
 
 
+def test_composite_slots_read_the_type_from_a_recorded_slot_envelope() -> None:
+    """A slot recorded as a wire envelope reports its type, not the envelope.
+
+    The serializer writes each slot as ``{backend, path, format, metadata}`` with
+    the type in ``metadata.type_chain``. Stringifying that mapping put a whole
+    JSON blob on screen as the slot's "type" and matched no previewer, so opening
+    the slot failed to route.
+    """
+    access = PreviewDataAccess()
+    slots = access.composite_slots(
+        {
+            "slots": {
+                "image": {
+                    "backend": "zarr",
+                    "path": "/p/image/data.zarr",
+                    "format": None,
+                    "metadata": {"type_chain": ["DataObject", "Array"], "framework": {}},
+                },
+                "measurements": {
+                    "backend": "arrow",
+                    "path": "/p/measurements/data.parquet",
+                    "format": "parquet",
+                    "metadata": {"type_chain": ["DataObject", "DataFrame"]},
+                },
+                "notes": "Text",
+            }
+        }
+    )
+    assert slots.slots == {"image": "Array", "measurements": "DataFrame", "notes": "Text"}
+    for name, type_name in slots.slots.items():
+        assert "{" not in type_name, f"{name} leaked a mapping as its type"
+
+
+def test_composite_slots_report_no_type_when_the_record_carries_none() -> None:
+    # A bare storage descriptor has no type to report; an empty name is honest
+    # and lets the caller resolve the type from the slot itself.
+    access = PreviewDataAccess()
+    slots = access.composite_slots({"slots": {"raw": {"backend": "filesystem", "path": "/p/raw"}}})
+    assert slots.slots == {"raw": ""}
+
+
 def _write_composite(tmp_path: Path) -> StorageReference:
     """Persist a real two-slot composite via the core CompositeStore."""
     from scistudio.core.storage.composite_store import CompositeStore
@@ -317,13 +358,15 @@ def test_array_plane_signed_extent_not_clipped(monkeypatch: pytest.MonkeyPatch, 
     assert plane.slice_axes == []  # 2-D: nothing to slice
     assert plane.vmin is not None and plane.vmin < 0  # negative preserved
     assert plane.vmax is not None and plane.vmax > 0
-    # The matrix itself still carries the negative values.
-    finite_values = [v for row in plane.matrix for v in row if v is not None]
+    # The matrix itself still carries the negative values. Non-finite cells are
+    # sentinel strings ("NaN"/"Infinity"/"-Infinity"); finite cells are numbers.
+    finite_values = [v for row in plane.matrix for v in row if isinstance(v, (int, float))]
     assert min(finite_values) < 0
 
 
 def test_array_plane_all_nan_extent_is_none(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """An all-NaN plane yields ``vmin``/``vmax`` of None (no misleading legend)."""
+    import json
     import sys
     import types
 
@@ -345,16 +388,20 @@ def test_array_plane_all_nan_extent_is_none(monkeypatch: pytest.MonkeyPatch, tmp
     plane = PreviewDataAccess().array_plane(ref)
     assert plane.vmin is None
     assert plane.vmax is None
-    # The matrix is JSON-safe: non-finite cells are encoded as ``None``.
-    assert all(v is None for row in plane.matrix for v in row)
+    # The matrix is JSON-safe: NaN cells are conveyed as the sentinel "NaN"
+    # (distinctly, never erased to ``null``).
+    assert all(v == "NaN" for row in plane.matrix for v in row)
+    json.dumps(plane.matrix, allow_nan=False)
 
 
 def test_array_plane_matrix_is_json_safe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A plane mixing NaN/inf with finite values serializes as strict JSON.
 
     Masked scientific arrays carry NaN/+-inf; the numeric matrix is the primary
-    preview payload, so non-finite cells must be encoded as ``null`` (not the
-    invalid ``NaN`` / ``Infinity`` JSON tokens) or the session response breaks.
+    preview payload, so non-finite cells are conveyed as the distinct sentinel
+    strings ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"`` (not the invalid ``NaN`` /
+    ``Infinity`` JSON tokens, and never erased to ``null``) so the frontend can
+    tell NaN from +-inf while the session response stays strict JSON (#1886 E).
     """
     import json
     import sys
@@ -382,9 +429,9 @@ def test_array_plane_matrix_is_json_safe(monkeypatch: pytest.MonkeyPatch, tmp_pa
     ref = StorageReference(backend="zarr", path=str(zarr_path), format="zarr")
     plane = PreviewDataAccess().array_plane(ref)
 
-    # Non-finite cells became None; finite cells survived.
-    assert plane.matrix[0] == [1.0, None, 3.0]
-    assert plane.matrix[1] == [None, -2.0, None]
+    # Non-finite cells became distinct sentinels; finite cells survived.
+    assert plane.matrix[0] == [1.0, "NaN", 3.0]
+    assert plane.matrix[1] == ["Infinity", -2.0, "-Infinity"]
     # vmin/vmax ignore the non-finite cells.
     assert plane.vmin == -7.0
     assert plane.vmax == 5.5
@@ -401,7 +448,7 @@ def test_array_tile_bounds_dimensions(monkeypatch: pytest.MonkeyPatch, tmp_path:
         dtype = "float32"
 
         def __getitem__(self, key: object) -> np.ndarray:
-            return np.arange(1024 * 1024, dtype=np.float32).reshape(1024, 1024)
+            return np.arange(1024 * 1024, dtype=np.float32).reshape(1024, 1024)[key]
 
     fake_zarr = types.ModuleType("zarr")
     fake_zarr.Array = _FakeZarrArray  # type: ignore[attr-defined]
@@ -436,3 +483,29 @@ def test_dataframe_page_caps_page_size(tmp_path: Path) -> None:
     access = PreviewDataAccess(max_rows=5)
     page = access.dataframe_page(ref, page_size=100)
     assert page.page_size == 5
+
+
+def test_table_cells_are_json_safe_and_keep_missing_values_visible() -> None:
+    """A cell JSON has no literal for must not take the whole page down.
+
+    A table holding NaN or a timestamp column used to fail to serialise, so the
+    preview reported "Out of range float values are not JSON compliant" instead
+    of showing the data. Non-finite numbers keep the sentinel spelling the array
+    reads use, so a missing measurement stays visible (#1886 item E).
+    """
+    import datetime
+    import decimal
+    import json
+
+    from scistudio.previewers.data_access import _json_safe_value
+
+    assert _json_safe_value(float("nan")) == "NaN"
+    assert _json_safe_value(float("inf")) == "Infinity"
+    assert _json_safe_value(float("-inf")) == "-Infinity"
+    assert _json_safe_value(1.5) == 1.5
+    assert _json_safe_value(datetime.datetime(2026, 9, 11, 23, 4, 33)) == "2026-09-11T23:04:33"
+    assert _json_safe_value(datetime.date(2026, 9, 11)) == "2026-09-11"
+    assert _json_safe_value(decimal.Decimal("1.25")) == "1.25"
+    assert _json_safe_value(b"\x00\x01") == "AAE="
+    # Nested containers are covered too, and the result is strict-JSON encodable.
+    json.dumps(_json_safe_value({"a": [float("nan"), datetime.date(2026, 1, 1)]}), allow_nan=False)

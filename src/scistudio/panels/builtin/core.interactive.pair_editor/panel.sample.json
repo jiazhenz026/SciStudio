@@ -1,0 +1,19 @@
+{
+  "context": "interactive",
+  "input": {
+    "ports": ["input_1", "input_2"],
+    "items_per_port": {
+      "input_1": [
+        { "index": 0, "name": "sample_A.tif", "type": "Image" },
+        { "index": 1, "name": "sample_B.tif", "type": "Image" },
+        { "index": 2, "name": "sample_C.tif", "type": "Image" }
+      ],
+      "input_2": [
+        { "index": 0, "name": "mask_A.tif", "type": "Image" },
+        { "index": 1, "name": "mask_B.tif", "type": "Image" },
+        { "index": 2, "name": "mask_C.tif", "type": "Image" }
+      ]
+    },
+    "collection_length": 3
+  }
+}

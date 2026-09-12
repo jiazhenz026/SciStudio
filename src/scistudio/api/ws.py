@@ -231,20 +231,67 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                         )
                     )
                 elif msg_type == "interactive_complete":
+                    # ADR-054: a new panel must own this exact waiting prompt.
+                    # Validation claims once; the event contract below stays unchanged.
+                    from scistudio.panels.contexts import get_panel_contexts
+                    from scistudio.panels.targets import PanelError
+
+                    runtime = getattr(event_bus, "runtime", None)
+                    if runtime is not None:
+                        try:
+                            get_panel_contexts(runtime).claim_writeback(
+                                data.get("context_id"),
+                                data.get("workflow_id"),
+                                data.get("block_id"),
+                                data.get("data", {}),
+                            )
+                        except PanelError as exc:
+                            outbound_queue.put_nowait(
+                                {
+                                    "type": "panel_error",
+                                    "workflow_id": data.get("workflow_id"),
+                                    "block_id": data.get("block_id"),
+                                    "context_id": data.get("context_id"),
+                                    "error": {"code": exc.code, "message": exc.message},
+                                }
+                            )
+                            continue
                     # ADR-051 audit P2-1 / #1517: carry workflow_id so the
                     # scheduler can run-scope the response (the decision is
                     # nested under ``response`` and the scoping id is stripped
                     # before it reaches ``interactive_response`` / lineage).
-                    await event_bus.emit(
-                        EngineEvent(
-                            event_type=INTERACTIVE_COMPLETE,
-                            block_id=data.get("block_id"),
-                            data={
-                                "workflow_id": data.get("workflow_id"),
-                                "response": data.get("data", {}),
-                            },
+                    scope = {
+                        "context_id": data.get("context_id"),
+                        "workflow_id": data.get("workflow_id"),
+                        "block_id": data.get("block_id"),
+                    }
+                    try:
+                        await event_bus.emit(
+                            EngineEvent(
+                                event_type=INTERACTIVE_COMPLETE,
+                                block_id=data.get("block_id"),
+                                data={
+                                    "workflow_id": data.get("workflow_id"),
+                                    "response": data.get("data", {}),
+                                },
+                            )
                         )
-                    )
+                    except Exception:
+                        if runtime is None or not scope["context_id"]:
+                            raise
+                        outbound_queue.put_nowait(
+                            {
+                                "type": "panel_error",
+                                **scope,
+                                "error": {
+                                    "code": "completion_failed",
+                                    "message": "Decision dispatch failed; reopen the panel",
+                                },
+                            }
+                        )
+                    else:
+                        if runtime is not None and scope["context_id"]:
+                            outbound_queue.put_nowait({"type": "panel_accepted", **scope})
                 elif msg_type == "ping":
                     outbound_queue.put_nowait({"type": "pong"})
                 elif msg_type == "block_user_marked_done":

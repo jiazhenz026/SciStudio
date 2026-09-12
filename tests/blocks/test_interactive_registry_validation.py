@@ -19,6 +19,7 @@ from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.blocks.registry._capability import _validate_interactive_capability
+from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
 
 def _validate(cls: type) -> None:

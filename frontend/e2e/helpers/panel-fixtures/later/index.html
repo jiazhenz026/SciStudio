@@ -1,0 +1,8 @@
+<!doctype html><button id="navigate">Navigate</button>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script>
+  scistudio.ready().then(() => {
+    document.body.dataset.ready = "yes";
+    document.querySelector("#navigate").onclick = () => location.replace("next.html");
+  });
+</script>
