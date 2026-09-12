@@ -14,7 +14,7 @@ These tests fail against the pre-#2362 runtime.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from fastapi.testclient import TestClient
@@ -189,7 +189,7 @@ def test_every_workflow_run_tolerates_a_runtime_without_the_accessor() -> None:
     from scistudio.api.ws import _every_workflow_run
 
     class _Stub:
-        workflow_runs: dict[str, Any] = {"main": "run"}
+        workflow_runs: ClassVar[dict[str, Any]] = {"main": "run"}
 
     assert _every_workflow_run(_Stub()) == ["run"]
     assert _every_workflow_run(object()) == []

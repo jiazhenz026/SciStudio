@@ -207,7 +207,9 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
       set({
         tabs: state.tabs.map((t) => {
           if (t.kind !== "workflow") return t;
-          const isBacking = backingTabId ? t.id === backingTabId : t.workflowId === state.workflowId;
+          const isBacking = backingTabId
+            ? t.id === backingTabId
+            : t.workflowId === state.workflowId;
           return isBacking ? { ...captureActiveTab(state, t), id: t.id } : t;
         }),
       });
