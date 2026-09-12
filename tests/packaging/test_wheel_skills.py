@@ -7,7 +7,7 @@ in **both** editable installs and wheel installs (per the
 
 Skill bodies authored by I40b in Phase 2c (ADR-040). The base SKILL.md
 carries the agent identity + skill index + the ``<!-- project_context -->``
-and ``<!-- tool_catalog -->`` splice markers; the 5 task skills carry
+and ``<!-- tool_catalog -->`` splice markers; the task skills carry
 the task-scoped teaching surfaces.
 """
 
@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-# Per ADR-040 §3.4 + ADR-048 SPEC 2, these 6 task skills MUST exist alongside
-# the base ``scistudio`` skill.
+# Per ADR-040 §3.4 + ADR-048 SPEC 2 + ADR-054 MiniApp FR-028, these 7 task
+# skills MUST exist alongside the base ``scistudio`` skill.
 _TASK_SKILLS: tuple[str, ...] = (
     "scistudio-build-workflow",
     "scistudio-write-block",
@@ -24,6 +24,7 @@ _TASK_SKILLS: tuple[str, ...] = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    "scistudio-write-miniapp",
 )
 
 
@@ -49,7 +50,7 @@ def test_base_skill_loadable_via_importlib_resources() -> None:
 
 
 def test_all_task_skills_loadable_via_importlib_resources() -> None:
-    """All 5 task skill ``SKILL.md`` files are shipped with real bodies."""
+    """Every task skill ``SKILL.md`` file is shipped with a real body."""
     base_dir = files("scistudio") / "_skills" / "scistudio"
     for task_skill in _TASK_SKILLS:
         skill_md = base_dir / task_skill / "SKILL.md"
@@ -62,7 +63,7 @@ def test_all_task_skills_loadable_via_importlib_resources() -> None:
 
 
 def test_base_skill_indexes_all_task_skills() -> None:
-    """The base ``SKILL.md`` must reference all 5 task skills by name.
+    """The base ``SKILL.md`` must reference every task skill by name.
 
     Discoverability check: the agent reads the base first and uses its
     skill index to find the relevant task skill. If a task skill is
