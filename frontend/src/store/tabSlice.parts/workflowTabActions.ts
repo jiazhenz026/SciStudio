@@ -132,6 +132,20 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
     } else if (tab.kind === "file") {
       isDirty = tab.dirty;
       displayLabel = tab.displayName;
+    } else if (tab.kind === "miniapp") {
+      /*
+       * ADR-054 FR-019 — closing a MiniApp tab closes its context, which ends
+       * its `panel.py` process. That teardown is NOT done here: `closeTab` is
+       * synchronous and returns a boolean, and it is not the only way a
+       * MiniApp goes away (closing or switching the project empties the tab
+       * list wholesale, with no per-tab hook at all). It is unmount-driven
+       * instead, in `PanelFrame`'s effect cleanup, so every path that removes
+       * the tab from this list also ends the process. Dropping the tab is all
+       * that is needed here — and a MiniApp holds no unsaved document, so it
+       * never prompts.
+       */
+      isDirty = false;
+      displayLabel = tab.displayName;
     } else {
       // #2112 — preview tabs are read-only snapshots: never dirty, never prompt.
       isDirty = false;
@@ -168,13 +182,16 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
     const state = get();
     if (!state.activeTabId) return;
     const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    if (activeTab?.kind === "preview") {
+    if (activeTab?.kind === "preview" || activeTab?.kind === "miniapp") {
       // #2112 — while a preview tab owns focus, the live workflow slice still
       // belongs to the backing workflow tab (restoreTab on a preview only sets
       // activeTabId). Capture into that tab so autosave / WebSocket updates
       // landing during the preview are not lost when switching back restores
       // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
       // tab's own id must be preserved explicitly.
+      //
+      // ADR-054 FR-019 — a MiniApp tab focuses the same way and, unlike a
+      // preview, can hold focus for a long time, so the same capture applies.
       set({
         tabs: state.tabs.map((t) =>
           t.kind === "workflow" && t.workflowId === state.workflowId
