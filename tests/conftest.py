@@ -21,13 +21,19 @@ import pytest
 #
 # ``faulthandler`` is not bound by any of that: the timer lives in a watchdog
 # thread inside the interpreter and dumps every thread's stack wherever they
-# are parked. Armed a little under the shell guard so the dump is written while
-# there is still a process to write it, and in each xdist worker as well as the
-# controller, because the worker is usually the one that is stuck.
+# are parked, in each xdist worker as well as the controller.
+#
+# The value matters. This is a diagnosis aid, not a budget: it must fire late
+# enough that a suite which is merely slow still finishes, and early enough that
+# a genuinely stuck one is dumped while there is still a process to write it.
+# Set well under the phase's own 600s shell guard but not so far under that it
+# shoots a run the shell would have let finish — an earlier 480s turned a run
+# that was going to complete into one that reported a stack trace at 68%, which
+# is a worse answer than the one it replaced.
 #
 # Set ``SCISTUDIO_TEST_HANG_DUMP_SECONDS=0`` to disarm it — for a debugger
 # session, where being killed mid-breakpoint is exactly wrong.
-_HANG_DUMP_SECONDS = int(os.environ.get("SCISTUDIO_TEST_HANG_DUMP_SECONDS", "480"))
+_HANG_DUMP_SECONDS = int(os.environ.get("SCISTUDIO_TEST_HANG_DUMP_SECONDS", "570"))
 
 
 def pytest_configure(config: pytest.Config) -> None:

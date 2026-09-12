@@ -41,6 +41,9 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+const STEP = Symbol("step-tracker");
+const STAGE = Symbol("stage-tracker");
+
 describe("asking a frame to measure", () => {
   it("tells listeners what is wanted, and says so again when it changes", () => {
     const seen: Array<string | null> = [];
@@ -49,9 +52,9 @@ describe("asking a frame to measure", () => {
     // mounts mid-step starts measuring without waiting for the next change.
     expect(seen).toEqual([null]);
 
-    requestPanelHighlight({ target: "preview_item", key: "0" });
-    requestPanelHighlight({ target: "preview_item", key: "0" }); // unchanged
-    requestPanelHighlight(null);
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" });
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" }); // unchanged
+    requestPanelHighlight(STEP, null);
 
     expect(seen).toEqual([null, "preview_item", null]);
   });
@@ -59,16 +62,53 @@ describe("asking a frame to measure", () => {
   it("tells them apart by key, so one card of a batch can be named", () => {
     const seen: Array<string | null> = [];
     subscribePanelHighlight((request) => seen.push(request?.key ?? null));
-    requestPanelHighlight({ target: "preview_item", key: "0" });
-    requestPanelHighlight({ target: "preview_item", key: "3" });
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" });
+    requestPanelHighlight(STEP, { target: "preview_item", key: "3" });
     expect(seen).toEqual([null, "0", "3"]);
+  });
+
+  it("keeps one tracker's request when a second tracker asks for nothing", () => {
+    /*
+     * `ActiveStep` runs two trackers: the step's own target, and the stage the
+     * dialogue is drawn on. The stage is always in the host document, so its
+     * tracker asks for nothing — and with a single shared slot it still cleared
+     * the step's request, leaving the frame measuring nothing and the step
+     * pointing at empty space with no error anywhere.
+     */
+    const seen: Array<string | null> = [];
+    subscribePanelHighlight((request) => seen.push(request?.target ?? null));
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" });
+    requestPanelHighlight(STAGE, null);
+
+    expect(seen).toEqual([null, "preview_item"]);
+  });
+
+  it("does not let a second tracker's target displace the first's", () => {
+    const seen: Array<string | null> = [];
+    subscribePanelHighlight((request) => seen.push(request?.target ?? null));
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" });
+    requestPanelHighlight(STAGE, { target: "workspace_stage", key: null });
+
+    // The first asker still wanting something wins, so the answer does not
+    // depend on which component happened to render second.
+    expect(seen).toEqual([null, "preview_item"]);
+  });
+
+  it("hands over to the other tracker only once the first is done", () => {
+    const seen: Array<string | null> = [];
+    subscribePanelHighlight((request) => seen.push(request?.target ?? null));
+    requestPanelHighlight(STEP, { target: "preview_item", key: "0" });
+    requestPanelHighlight(STAGE, { target: "plot_export_button", key: null });
+    requestPanelHighlight(STEP, null);
+
+    expect(seen).toEqual([null, "preview_item", "plot_export_button"]);
   });
 });
 
 describe("turning a frame-local box into a host one", () => {
   it("adds the frame's own position, read at the time of asking", () => {
     const frame = frameAt(100, 50);
-    requestPanelHighlight({ target: "plot_export_button", key: null });
+    requestPanelHighlight(STEP, { target: "plot_export_button", key: null });
     reportPanelHighlight(
       frame,
       { target: "plot_export_button", key: null },
@@ -159,13 +199,13 @@ describe("not pointing at a frame that is gone", () => {
 
   it("drops every report when the step stops pointing at anything", () => {
     const frame = frameAt(0, 0);
-    requestPanelHighlight({ target: "x", key: null });
+    requestPanelHighlight(STEP, { target: "x", key: null });
     reportPanelHighlight(
       frame,
       { target: "x", key: null },
       { top: 1, left: 1, width: 2, height: 2 },
     );
-    requestPanelHighlight(null);
+    requestPanelHighlight(STEP, null);
     // A stale box from the previous step must not answer the next one.
     expect(panelHighlightRect("x", null)).toBeNull();
   });
