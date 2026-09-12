@@ -1,0 +1,1692 @@
+{
+  "base_ref": null,
+  "branch": "guided/2082-tutorial-level-4-multimodal",
+  "check_events": [
+    {
+      "at": "2026-09-11T21:01:02.672930Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad799021bffb6030d79d0942a3246f53f57e81f6303e71c3d97820fcfa500553",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:03.929855Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8ee4aa78d4cd0471920a9dacf13a3583795af58654f372c3a6f95f453d9beaf9",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:05.152195Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3e567a35158b6beebc01a52520a5a8f6bcad4538daec57d216036aae962b88ac",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:05.469932Z",
+      "command": "ruff format src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:716855cfa0a29b5fa04d0b73fe7efcb6c93b69dcd199aa86f067227a60a651a8",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:01:13.095627Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8192f28384061847ad70a8b6cf7890b81565743c95e7a88b64a42ce98b510ccd",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:17.956102Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c1a3215ae4566c222d4a6704b73f927417f383702f08d36ef3302d295beca79d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:18.484010Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13890fa114c5b2ebdd0840761da08601d1ba093a2858338ee1acd0ccf3615db9",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:01:18.492486Z",
+      "command": "ruff check src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:119df07ce49326bd0f11adaeaa79c9845c48b975e1004c226e21ef57a1e728ab",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:04:53.201086Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:97a3a88c4e15aac59bef1b169b01412d9e01cf76b21195faf0050a5db863f1f6",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:04:57.328082Z",
+      "command": "mypy src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:afc61e865676e7b93f34aee99b614f43c502d10ac09691f9eb6f479aef744442",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:23.439618Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:12b57a1a551f600f097aa0af5f5fb7281c37a3d6ad8072e51a672971b854aa50",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:24.598484Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fc9e934d5614e75daaf805d8e4c20d40ad449e0a338c3b4781747904a326683d",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:25.990732Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:131dddb2fedab0b3c0ad4bf0693effb9f0b1388d6badf016aa5423ca1a3fc3c0",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:26.032622Z",
+      "command": "ruff format src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:74f8c2debac38e8dd2ac0cadf28b8bb25354791413c2231139daab87bd4f7940",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:19:35.554978Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8192f28384061847ad70a8b6cf7890b81565743c95e7a88b64a42ce98b510ccd",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.110219Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:80bd543585168e6a9b49f2c7f42b09eef78c131bab6744714acf03d973269989",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.252943Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5f8e2b76631e23ac1bf00538642779cc69c604176027b3df10f4c9dce149474b",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:19:41.263173Z",
+      "command": "ruff check src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py tests/tutorials/test_conditions.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_manifest_schema.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a2eb2c24c5452c1b2d92a15a000790ecbb83cc11509c7c1303ed4138f46990c1",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-11T21:23:12.035302Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d463b4ded80d2cd816585a1ffcd5fab1dec54a595628c3f388f31e9781bbb99c",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:23:12.377288Z",
+      "command": "mypy src/scistudio/tutorials/conditions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ff4984f0804391aea94ed795efff73ccbf79125cab55a39e6c4c469407e84feb",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:24:09.776209Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:845a1ffd7164dfb55ffc6a81c50403e3a288ad3124a95d3fa1a675d85472568f",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:24:38.906621Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:620d07e233ad4721571826c8cc29cc40d9b023b90315b0314d373994cd60460c",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-11T21:26:23.985120Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:620d07e233ad4721571826c8cc29cc40d9b023b90315b0314d373994cd60460c",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "tests/tutorials/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-08-26T20:28:41.584979Z",
+      "owner_directive": "Bring the old two-modalities-one-answer draft over as the base, then adapt it into the galgame dialogue-beat style used by levels 1-3. Also: drop level 4's dependency on the earlier levels \u2014 whatever resources it needs (the Image previewer/type, the segmentation block) should be recreated quietly into the tutorial project by the tutorial itself instead of being pulled from My Library.",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "at": "2026-08-26T20:45:48.849174Z",
+      "owner_directive": "Adapt the old draft into galgame dialogue beats and land the level's own prerequisites at bootstrap",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-11T12:54:44.870177Z",
+      "owner_directive": "\u5173\u53614\u6062\u590d\u56de\u6765\u7136\u540e\u7ee7\u7eed\u505a\uff1b\u8fd9\u56de\u5148\u505a\u5173\u53614\uff08\u65b0\u7684\u5173\u53615\u662f\u4ecb\u7ecd ADR-054 miniapp \u7684\u5173\u5361\uff0c\u540e\u9762\u518d\u8bf4\uff09",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "at": "2026-09-11T13:00:47.969920Z",
+      "owner_directive": "\u6559\u7a0b\u76ee\u7684\u4e0d\u662f\u6559\u7528\u6237\u600e\u4e48\u8bbe\u7f6eworkflow\u3001\u600e\u4e48\u8fde\u7ebf\u3002load the slides \u90a3\u91cc\u5148\u7ed9\u7528\u6237\u5199\u597d\u4e00\u4e2a\u57fa\u672c\u7684 workflow\uff0c\u7136\u540e\u8ba9\u7528\u6237\u52a8\u624b\u6539\uff1bdrag Load + Browse + \u8bbe\u7f6e\u8fd9\u4e9b\u5e2e\u7528\u6237\u505a\u597d\u3002\u5e9f\u8bdd\u592a\u591a\uff0c\u5148\u81ea\u5df1\u780d\u4e00\u4e0b\u7b80\u5316\uff0c\u7136\u540e\u628a\u6559\u7a0b yaml \u7ed9\u6211\u6279\u6ce8",
+      "reason": "Owner redirected level 4: it is not a wiring lesson; pre-build the workflow and trim the copy"
+    },
+    {
+      "at": "2026-09-11T13:14:48.192142Z",
+      "owner_directive": "\u6570\u636e\u73b0\u5728\u770b\u4e0a\u53bb\u592a\u5047\u4e86\u3002\u80fd\u4e0d\u80fd\u641e\u4e2a\u771f\u7684HE\u67d3\u8272\u7ec4\u7ec7\u56fe\uff0c\u8fd8\u6709\u5bf9\u5e94\u7684\u7a7a\u95f4\u8f6c\u5f55\u7ec4\u6570\u636e\uff1f",
+      "reason": "Owner: the synthetic dataset looks fake; replace it with real data"
+    },
+    {
+      "at": "2026-09-11T13:17:44.635674Z",
+      "owner_directive": "\u7528B\u5427\uff0810x Visium Human Breast Cancer Block A Section 1/2\uff09\uff0c2\u5f20\u5c31\u591f\u4e86\u3002\u65b0\u7684\u5267\u60c5\u6211\u91cd\u65b0\u8bbe\u8ba1\u3002\u4f60\u5148\u641e\u65b0\u6570\u636e",
+      "reason": "Owner chose the dataset; story to be redesigned by owner"
+    },
+    {
+      "at": "2026-09-11T13:21:04.614598Z",
+      "owner_directive": "\u90a3\u5c316mb\u5c31\u884c\u4e86\uff08\u4e24\u5f20\u5207\u7247\uff1aH&E 1000px JPEG + 200 \u4e2a\u57fa\u56e0\u7684\u8868\u8fbe\u8868\uff09",
+      "reason": "Owner approved the shipped size of the real dataset"
+    },
+    {
+      "at": "2026-09-11T13:43:21.275541Z",
+      "owner_directive": "\u4fdd\u75592000\u4e2a\u57fa\u56e0\uff0c\u5b58csv\u5427\uff0c29MB\u53ef\u4ee5\u63a5\u53d7",
+      "reason": "Owner widened the gene panel and chose CSV"
+    },
+    {
+      "at": "2026-09-11T13:48:59.986432Z",
+      "owner_directive": "\u5f00\u4f8b\u5916\uff08\u7ed9\u5173\u53614\u7684\u6570\u636e\u76ee\u5f55\u5f00 check-added-large-files \u4f8b\u5916\uff09\u3002\u5148\u63d0\u4ea4\u4e00\u4e2a\u8fdc\u7aef\u5206\u652f\uff0c\u6211\u53bb\u53e6\u5916\u4e00\u4e2a\u7535\u8111\u4e0a\u7ee7\u7eed\u5f00\u53d1",
+      "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    },
+    {
+      "at": "2026-09-11T15:15:04.880009Z",
+      "owner_directive": "\u91cd\u5199\u6559\u7a0b4\u5267\u60c5\u4ee5\u5339\u914d\u771f\u6570\u636e\uff08\u4e24\u5f20H&E\u80bf\u7624\u5207\u7247+\u914d\u5bf9Visium\u7a7a\u95f4\u8868\u8fbe\uff0c\u95ee\u9898=\u764c\u7ec4\u7ec7vs\u5176\u4ed6\u7ec4\u7ec7\u7684\u8868\u8fbe\u5dee\u5f02\uff09\u3002\u5148\u843d\u5730owner\u6279\u6ce8\u7684\u4e24\u5904\uff1asummary \u548c\u7b2c\u4e00\u6b65 two-instruments-one-question \u7684 say\u3002",
+      "reason": "Real Visium+H&E assets replaced the fake data; storyline must be rewritten. Owner annotated the summary and the opening step; write those first."
+    },
+    {
+      "at": "2026-09-11T15:19:42.223110Z",
+      "owner_directive": "\u6362\u7528\u5019\u90091\u6570\u636e\u96c6\uff1aWu et al. 2021 \u4e73\u817a\u764c Visium \u56fe\u8c31\uff08Zenodo 4739739, CC-BY-4.0\uff0c\u542b\u6bcf spot \u75c5\u7406\u6807\u6ce8 + annotated H&E\uff09\u3002\u53d6 4 \u4f8b\u5207\u7247\uff0c\u4fbf\u4e8e\u8bbe\u8ba1\u540e\u9762\u7684 pairing \u548c branching \u5267\u60c5\u3002",
+      "reason": "Current 10x Block A assets carry no pathologist annotation; owner chose to replace them with an annotated public dataset so the storyline can use a real cancer-region mask."
+    },
+    {
+      "at": "2026-09-11T15:23:17.705102Z",
+      "owner_directive": "\u9009\u5b9a 4 \u4f8b\uff1aCID4535(ER+)\u3001CID4290(ER+)\u3001CID44971(TNBC)\u3001CID4465(TNBC)\u3002\u75c5\u7406 Classification \u6807\u6ce8\u505a\u6210 mask \u56fe\u7247\uff08\u7531 spot \u7ea7\u6807\u7b7e\u6805\u683c\u5316\u6d3e\u751f\uff0c\u9700\u5728 SOURCE.md \u6ce8\u660e\u4e3a\u6d3e\u751f\u7269\uff09\u3002",
+      "reason": "Owner selected the four samples and chose rasterised mask images over a per-spot label column, so the tutorial can show a cancer-region mask on the H&E."
+    },
+    {
+      "at": "2026-09-11T15:28:23.462027Z",
+      "owner_directive": "mask \u505a\u6210\u591a\u7c7b\u3001\u6309\u989c\u8272\u533a\u5206\uff08\u4e0d\u662f\u4e8c\u503c\u764c/\u975e\u764c\uff09\u3002",
+      "reason": "Owner chose a multi-class colour mask over a binary cancer mask, so the mask asset must encode several pathology classes by colour."
+    },
+    {
+      "at": "2026-09-11T15:29:35.125389Z",
+      "owner_directive": "mask \u4fdd\u7559 spot \u70b9\u9635\uff08\u4e0d\u505a\u5f62\u6001\u5b66\u586b\u5145\uff09\uff1b5 \u7c7b\u5f52\u5e76\u65b9\u6848\u901a\u8fc7\uff1aInvasive cancer / DCIS / Stroma / Lymphocytes / Normal\uff0cUncertain+Artefact \u4e22\u5f03\u3002",
+      "reason": "Owner settled the two open mask-design questions so asset generation can start."
+    },
+    {
+      "at": "2026-09-11T15:34:55.103895Z",
+      "owner_directive": "\u8d44\u4ea7\u843d\u5730\uff1a\u628a 4 \u4f8b Wu 2021 \u8d44\u4ea7\uff08he.jpg / mask.png / counts.csv\uff09\u5199\u5165 assets/data\uff0c\u5220\u9664\u65e7\u7684\u5408\u6210\u6570\u636e\u4e0e 10x Block A \u6570\u636e\uff0c\u66f4\u65b0 SOURCE.md\u3002",
+      "reason": "Owner approved the generated assets; land them and retire the superseded synthetic and 10x Block A data."
+    },
+    {
+      "at": "2026-09-11T15:37:19.850553Z",
+      "owner_directive": "\u82f1\u5f0f\u62fc\u5199\u4e00\u5f8b\u6539\u7f8e\u5f0f\uff08analyse\u2192analyze \u7b49\uff09\u3002",
+      "reason": "Owner set the spelling convention for this tutorial's prose and code comments."
+    },
+    {
+      "at": "2026-09-11T15:39:32.163162Z",
+      "owner_directive": "\u5220\u6389\u5f00\u573a\u4e4b\u540e\u7684\u6240\u6709\u6b65\u9aa4\uff08\u4ece the-question \u8d77\u5230\u7ed3\u5c3e\uff09\uff0c\u6574\u6761\u5267\u60c5\u968f\u6570\u636e\u91cd\u5199\uff0c\u63a5\u4e0b\u6765\u8bf4\u5230\u54ea\u5199\u5230\u54ea\u3002",
+      "reason": "The new assets invalidate every downstream beat; owner scrapped them rather than patching, and will direct the rewrite beat by beat."
+    },
+    {
+      "at": "2026-09-11T15:42:31.392453Z",
+      "owner_directive": "\u6e05\u7406\u6389\u6b8b\u7559\u7684\u65e7\u5267\u60c5\u6ce8\u91ca\u3002\u7ed3\u6784\uff1a\u5f00\u573a\u5148\u5f15\u5165 2 \u4f8b\uff0c\u540e\u9762\u6362\u4e9a\u578b\u5207 git branch \u65f6\u518d\u5f15\u5165\u53e6\u5916 2 \u4f8b\u3002",
+      "reason": "Owner set the sample-reveal structure and asked for the stale comments to go with the deleted beats."
+    },
+    {
+      "at": "2026-09-11T15:44:30.108299Z",
+      "owner_directive": "\u5f00\u573a\u7528\u4e24\u4f8b ER\uff08CID4535\u3001CID4290\uff09\uff1b\u4e24\u4f8b TNBC \u7559\u5230\u5207\u5206\u652f\u65f6\u5f15\u5165\u3002",
+      "reason": "Owner picked which subtype opens the level."
+    },
+    {
+      "at": "2026-09-11T15:47:59.569976Z",
+      "owner_directive": "\u7b2c\u4e00\u6b65 focus \u5230 Data\uff0c\u5e76\u52a0\u4e00\u53e5\uff1a\u9879\u76ee\u91cc\u6240\u6709\u6570\u636e\u90fd\u80fd\u5728 Data \u5361\u7247\u4e0b\u770b\u5230\u3002\u7b2c\u4e8c\u6b65\uff1a\u5148\u7ed9\u8bfb\u8005\u5199\u597d\u4e00\u4e2a\u8bfb\u6570\u636e\u7684 workflow\uff0c\u518d\u8ba9\u8bfb\u8005\u770b\u6570\u636e\u3002",
+      "reason": "Owner directed the shape of the first two beats."
+    },
+    {
+      "at": "2026-09-11T15:49:22.839024Z",
+      "owner_directive": "core \u6ca1\u6709\u8bfb jpg/png \u6210\u50cf\u7d20\u7684\u80fd\u529b\uff0c\u7ed9\u8fd9\u4e2a project \u4e13\u95e8\u5199\u4e00\u4e2a io block \u8bfb jpg \u548c png\u3002",
+      "reason": "Core load_data only reaches jpg/png as opaque Artifacts, so the project needs its own pixel loader."
+    },
+    {
+      "at": "2026-09-11T15:51:13.520174Z",
+      "owner_directive": "\u7ed9\u8fd9\u4e2a project \u4e13\u95e8\u5199\u4e00\u4e2a image previewer\u3002",
+      "reason": "The shipped previewer renders grayscale micrographs; the Visium slides are RGB."
+    },
+    {
+      "at": "2026-09-11T15:54:34.655702Z",
+      "owner_directive": "\u7b2c\u4e00\u6b65\u7684 focus \u4e0d\u8981\u4e00\u4e0a\u6765\u5c31\u7f69\u5728 Data \u4e0a\uff0c\u7b49\u8bf4\u5230 'They are waiting under Data' \u8fd9\u53e5\u4e4b\u540e\u518d\u51fa\u73b0\u3002",
+      "reason": "Owner watched the step in the app and wants the Data ring to arrive with the line that names it."
+    },
+    {
+      "at": "2026-09-11T15:58:10.908294Z",
+      "owner_directive": "\u4e0d\u8981 4 \u4e2a Load\u2014\u2014SciStudio \u652f\u6301\u6279\u5904\u7406\uff0c\u7528 Collection\u3002",
+      "reason": "Four single-file Loads ignored the product's batch model; a multi-path Load emits a Collection and every downstream block runs once per item."
+    },
+    {
+      "at": "2026-09-11T16:00:27.301058Z",
+      "owner_directive": "read-them-in \u7b2c\u4e00\u62cd\u6539\u4e3a\uff1a\u8ba9\u6211\u4eec\u5148\u770b\u4e00\u4e0b\u6570\u636e\u957f\u5565\u6837\u3002\u6211\u5e2e\u4f60\u642d\u5efa\u4e86\u4e00\u4e2a workflow \u8bfb\u5165\u6570\u636e\u3002",
+      "reason": "Owner rewrote the beat; the shipped wording was too wordy."
+    },
+    {
+      "at": "2026-09-11T16:06:26.109719Z",
+      "owner_directive": "\u628a\u6559\u7a0b\u81ea\u5df1\u7684 Image \u7c7b\u578b\u6539\u540d\u4e3a HEImage\u3002",
+      "reason": "The imaging package's entry-point Image type shadows the tutorial's drop-in one; a distinct name removes the collision."
+    },
+    {
+      "at": "2026-09-11T16:09:16.328798Z",
+      "owner_directive": "\u4fee\u590d Load \u62a5 'no load capability registered for HEImage'\uff08loader block \u6ca1\u8fdb bootstrap\uff09\uff1bmask \u7528 HEMask \u7c7b\u578b\u3002",
+      "reason": "The new loader block was never added to bootstrap, so no capability reached the project; and the mask needs a type of its own."
+    },
+    {
+      "at": "2026-09-11T16:21:14.501561Z",
+      "owner_directive": "loader \u591a\u8def\u5f84\u7f3a\u9677\u6d3e implementer \u5355\u72ec\u5f00 PR \u4fee\uff1b\u65b9\u6848\u5b9a\u4e3a\uff1a\u9ed8\u8ba4\u94fa\u5f00\u5217\u8868\uff0c\u9664\u975e loader \u663e\u5f0f\u58f0\u660e\u81ea\u5df1\u5403\u5217\u8868\u3002",
+      "reason": "The multi-path loader defect is core work outside this guided session; owner directed a separate implementer PR."
+    },
+    {
+      "at": "2026-09-11T16:25:03.336814Z",
+      "owner_directive": "\u770b\u6570\u636e\u8fd9\u4e00\u6b65\u8981\u5e26\u4e0a mask \u4e00\u8d77\u3002",
+      "reason": "Owner wants the mask present when the reader first looks at the data, not held back."
+    },
+    {
+      "at": "2026-09-11T16:29:00.019832Z",
+      "owner_directive": "mask \u52a0\u989c\u8272 legend\uff1bmask \u663e\u793a\u65f6\u6700\u597d\u534a\u900f\u660e\u53e0\u52a0\u5230 H&E \u56fe\u4e0a\u3002",
+      "reason": "Owner asked for a colour key on the mask preview and a translucent overlay of the mask on its slide."
+    },
+    {
+      "at": "2026-09-11T16:33:46.466251Z",
+      "owner_directive": "\u53e0\u52a0\u914d\u8272\u5b9a\u65b9\u68482\uff1a\u5e95\u56fe\u53bb\u8272\u6210\u7070\u5ea6 + mask \u7528\u6ee1\u9971\u548c\u8272\uff1b\u65e0\u5f69\u8272\uff08Normal \u7070\uff09\u4fdd\u6301\u4e2d\u6027\u4e0d\u9971\u548c\u5316\u3002",
+      "reason": "Owner picked the overlay look from the rendered comparison."
+    },
+    {
+      "at": "2026-09-11T16:35:13.466201Z",
+      "owner_directive": "mask \u672c\u6765\u5c31\u662f\u6211\u4eec\u9020\u7684\u5047\u56fe\u2014\u2014\u76f4\u63a5\u628a\u53e0\u52a0\u597d\u7684\u56fe\u5f53 mask \u5b58\u6210\u8d44\u4ea7\u8bfb\u8fdb\u53bb\uff0c\u4e0d\u8981\u5728 previewer/block \u91cc\u73b0\u573a\u5408\u6210\u3002",
+      "reason": "The mask is an asset we author, so the overlay belongs in the file rather than in a render-time join the previewer cannot make."
+    },
+    {
+      "at": "2026-09-11T16:42:51.112324Z",
+      "owner_directive": "\u5148\u6e05\u7406\uff1a\u53bb\u6389\u8fc7\u65f6\u63cf\u8ff0\uff08mask \u80cc\u666f\u9ed1\u3001\u6bcf\u50cf\u7d20\u989c\u8272\u5373\u533a\u57df\uff09\u3001\u6b8b\u7559\u82f1\u5f0f\u62fc\u5199\u3001\u65e7\u5408\u6210\u6570\u636e\u7684 4 \u4e2a block\uff0c\u6d4b\u8bd5\u6539\u5230\u5f53\u524d\u5267\u60c5\u3002\u5408\u6210 mask PNG \u7684 legend \u5728\u9884\u89c8\u91cc\u5b8c\u5168\u7cca\u6389\uff0c\u8981\u4fee\u3002",
+      "reason": "Owner asked to clear the loose ends found on resume, and reported the baked-in mask legend is unreadable"
+    },
+    {
+      "at": "2026-09-11T16:51:17.615493Z",
+      "owner_directive": "core \u9884\u89c8\u964d\u91c7\u6837\u8fdd\u53cd #1886 \u5fe0\u5b9e\u663e\u793a\u539f\u5219\u2014\u2014\u5199\u77ed prompt \u8f6c\u7ed9 ADR-054 \u91cd\u6784 agent \u5904\u7406 core \u4fa7\uff1b\u672c\u5173\u7ee7\u7eed\uff1a\u6e05\u7406\u6536\u5c3e\uff0c\u6559\u7a0b previewer \u5982\u5b9e\u6807\u6ce8 sampled\u3002",
+      "reason": "Core array previews still decimate to 256 px despite #1886; owner routes the core fix to the ADR-054 agent and keeps this session on the tutorial"
+    },
+    {
+      "at": "2026-09-11T16:58:54.213573Z",
+      "owner_directive": "look-at-them \u8ba9\u8bfb\u8005\u70b9 mask \u7684\u90a3\u4e2a Load\uff0c\u597d\u770b\u5230 mask\u3002\u4e0b\u4e00\u6b65\u8ba9\u8bfb\u8005\u7528 Pair Editor \u914d\u5bf9\uff1a\u628a CSV Load \u7684\u6587\u4ef6\u987a\u5e8f\u548c\u56fe\u50cf Load \u8c03\u6362\uff0c\u903c\u8bfb\u8005\u624b\u52a8\u914d\u5bf9\u3002",
+      "reason": "Owner directed the next two beats: open the mask Load, then pair the two modalities by hand in the Pair Editor"
+    },
+    {
+      "at": "2026-09-11T17:10:35.843161Z",
+      "owner_directive": "\u914d\u5bf9\u8fd9\u4e00\u6b65\u987a\u4fbf\u628a\u5b8c\u6574 workflow \u505a\u51fa\u6765\uff1anormalize \u548c\u540e\u7eed\u5206\u6790\u3002",
+      "reason": "Owner asked for the full analysis workflow at the pairing beat: Pair Editor, Label Spots (region read off the mask), Normalize, Compare Regions"
+    },
+    {
+      "at": "2026-09-11T17:14:06.444662Z",
+      "owner_directive": "pair-them \u6cbf\u7528\u4e4b\u524d\u6559\u7a0b\u7684\u505a\u6cd5\uff1a\u7ed9\u7528\u6237\u4e00\u4e2a write workflow for me \u7684\u6309\u94ae\uff0c\u70b9\u4e86\u518d\u5199\u5165\u5b8c\u6574 workflow\u3002\u6587\u6848\u592a\u5570\u55e6\uff0c\u76f4\u63a5\u8bf4 Let me write the rest of the analysis for you\u3002",
+      "reason": "Owner live-tested: the analysis workflow landed with no reader action; it should arrive on a trigger press, with terser copy"
+    },
+    {
+      "at": "2026-09-11T17:16:25.361884Z",
+      "owner_directive": "Label Spots \u6539\u53eb Annotate Regions\u3002",
+      "reason": "Owner renamed the block that reads each spot's region off the mask"
+    },
+    {
+      "at": "2026-09-11T17:56:21.713627Z",
+      "owner_directive": "H&E \u9009 A\uff1a\u5206\u6790 workflow \u53bb\u6389 Load Slides\u3002\u56fe\u90fd\u7ed9\u4e00\u4e2a\u6309\u94ae\u5e2e\u7528\u6237\u5199\u3002\u7b14\u8bb0\u4e5f\u5e2e\u7528\u6237\u5199\uff0c\u7b14\u8bb0\u91cc\u5e26\u4e0a\u56fe\u7684\u94fe\u63a5\uff0c\u8ba9\u56fe\u51fa\u73b0\u5728\u7b14\u8bb0\u91cc\u3002",
+      "reason": "Owner settled the post-pairing beats: plots and the conclusion note are trigger-written, the note embeds the figures"
+    },
+    {
+      "at": "2026-09-11T18:03:33.638169Z",
+      "owner_directive": "\u7b14\u8bb0\u5148\u7528 A\uff1a\u53ea\u5199\u4e00\u4e2a\u7ed3\u8bba\uff0c\u4e0d\u505a markdown \u9884\u89c8\uff0c\u4e5f\u4e0d\u8ba9\u7528\u6237\u4fdd\u5b58\u56fe\u3002",
+      "reason": "Owner chose a text-only conclusion note written by a trigger; no figure embedding"
+    },
+    {
+      "at": "2026-09-11T18:08:56.857532Z",
+      "owner_directive": "Draw the plots\uff1a\u7528\u6237\u70b9\u5b8c draw \u4ee5\u540e\u518d\u5207\u5230 plot \u9875\uff0c\u5426\u5219 UI \u5237\u65b0\u4e0d\u51fa\u65b0\u7684 plot\u3002pair-them \u6ca1 run \u5c31\u8df3\u8d70\u4e86\uff08\u9a8c\u8bc1\u6709\u95ee\u9898\uff09\u3002",
+      "reason": "Owner live-tested: an open Plots tab misses trigger-written cards; pair-them passed on a stale interaction marker from an earlier run in the same backend process"
+    },
+    {
+      "at": "2026-09-11T18:09:43.990237Z",
+      "owner_directive": "\u5199 note \u90a3\u91cc\u8981\u5f15\u5bfc\u7528\u6237\u53bb New \u2192 New note\uff0c\u8ba9\u7528\u6237\u6539 note \u7684\u540d\u5b57\uff0c\u7b49\u65b0\u7684 note \u5728 canvas \u6253\u5f00\u4ee5\u540e\uff0c\u518d\u76f4\u63a5\u4e00\u6b65\u5199\u3002\u5199 note \u7684\u529e\u6cd5\u53c2\u8003 tutorial 1\u3002",
+      "reason": "Owner wants the reader to create and name the note themselves, with the tutorial filling it once it is open"
+    },
+    {
+      "at": "2026-09-11T18:21:24.831363Z",
+      "owner_directive": "\u5f15\u5165 git branching\uff1a\u544a\u8bc9\u7528\u6237\u6765\u4e86\u4e24\u4e2a\u65b0\u6570\u636e\uff0c\u9700\u8981\u7a0d\u5fae\u4e0d\u4e00\u6837\u7684\u5904\u7406\u65b9\u6cd5\uff1b\u8ba9\u7528\u6237\u5f00\u65b0 git branch\uff0c\u5e2e\u7528\u6237\u6539 workflow \u8dd1\uff0c\u91cd\u590d plot \u548c\u5199 note\uff1b\u544a\u8bc9\u7528\u6237\u5207 branch \u5c31\u80fd\u5728\u4e24\u6279\u6570\u636e\u7684 workflow \u95f4\u5207\u6362\uff0c\u8ba9\u7528\u6237\u5207\u56de\u7b2c\u4e00\u4e2a branch\uff0c\u544a\u8bc9\u7528\u6237\u7b2c\u4e00\u6279\u7684 workflow \u56de\u6765\u4e86\uff0c\u7136\u540e\u7ed3\u675f\u3002",
+      "reason": "Owner specified the closing git-branch segment of level 4"
+    },
+    {
+      "at": "2026-09-11T18:22:01.816642Z",
+      "owner_directive": "\u5207\u6362\u5206\u652f\u4e4b\u524d\u6307\u5bfc\u7528\u6237\u5148\u63d0\u4ea4\u4e00\u4e0b\u3002",
+      "reason": "Owner: commit before branching so the new branch starts from the reader's current work"
+    },
+    {
+      "at": "2026-09-11T18:25:38.589395Z",
+      "owner_directive": "\u6559\u7a0b\u81ea\u5df1\u7684 block \u5404\u81ea\u7ed9\u4e00\u4e2a\u56fe\u6807\u3002git_committed \u4e8b\u4ef6\uff08\u63d0\u4ea4\u6210\u529f\u65f6\u4e0a\u62a5\uff0c\u6559\u7a0b\u53ef\u5224\u5b9a\u5df2\u63d0\u4ea4\uff09\u548c\u8fd9\u4e2a PR \u4e00\u8d77\u505a\uff0c\u5728 scope \u8303\u56f4\u3002\u4ea4\u4e92\u8bb0\u5f55\u4e0d\u5206\u9879\u76ee\u3001\u65b0\u5efa\u5206\u652f\u4e0d\u5e26\u672a\u63d0\u4ea4\u6539\u52a8\u8fd9\u4e24\u4e2a core \u95ee\u9898\u4e0d\u505a\u3002",
+      "reason": "Owner widened this PR to a git_committed tutorial event and per-block icons; declined the other two core fixes"
+    },
+    {
+      "at": "2026-09-11T18:33:12.087183Z",
+      "owner_directive": "look-at-them \u4e0d\u53ea\u8981\u70b9 block\uff0c\u8fd8\u8981\u5728 preview \u91cc\u70b9\u4e00\u4e2a\u5361\u7247\u628a\u6570\u636e\u6253\u5f00\u3002two-new-tumors \u592a\u62bd\u8c61\uff1a\u8ba9\u7528\u6237\u70b9 mask \u770b\uff0c\u544a\u8bc9\u7528\u6237\u76f4\u63a5\u5bf9\u6bd4 non-tumor \u4f1a\u5f15\u5165\u65e9\u671f\u764c\u53d8\u533a\u57df\u7b49\u5e26\u6765\u7684 bias\uff0c\u6240\u4ee5\u8fd9\u6b21\u53ea\u5bf9\u6bd4\u764c\u548c stroma\u3002",
+      "reason": "Owner live-tested: the mask look needs an opened preview card, and the TNBC rationale must be shown on a mask rather than stated"
+    },
+    {
+      "at": "2026-09-11T18:34:39.734590Z",
+      "owner_directive": "Commit \u90a3\u53e5\u9700\u8981\u5207\u5230 git tab\uff0cfocus \u5230 commit \u6309\u94ae\u3002",
+      "reason": "Owner: the commit instruction must ring the Git tab's Commit button; needs a git_commit_button highlight target alongside git_committed"
+    },
+    {
+      "at": "2026-09-11T18:35:32.616389Z",
+      "owner_directive": "Commit \u7684 short message \u5e2e\u7528\u6237\u586b\u597d\u3002make-a-branch \u8981\u5f15\u5bfc + \u9ad8\u4eae\uff08\u5206\u652f\u9009\u62e9\u5668\uff09\uff0c\u8ddf\u4e4b\u524d\u4e00\u6837\u3002",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "at": "2026-09-11T18:37:25.278131Z",
+      "owner_directive": "run-tnbc \u4e4b\u524d\u5f15\u5bfc\u7528\u6237\u70b9 Compare Regions\uff0c\u7136\u540e\u9ad8\u4eae config \u91cc\u9762\u7684 stroma\uff0c\u544a\u8bc9\u7528\u6237\u4f60\u6539\u4e86\u8fd9\u4e2a\u3002commit \u4e4b\u540e\u3001\u6362 branch \u4e4b\u524d\u4e5f\u505a\u4e00\u4e2a\u5f15\u5bfc\uff0c\u544a\u8bc9\u7528\u6237\u539f\u6765\u662f\u5565\u3002",
+      "reason": "Owner wants the recipe difference shown on the Compare Regions setting on both sides of the branch"
+    },
+    {
+      "at": "2026-09-11T20:46:01.286810Z",
+      "owner_directive": "\u6ca1\u7ed9\u7528\u6237\u8bf4\u6e05\u695a ER \u548c TNBC \u662f\u4ec0\u4e48\u3002\u5728\u8bfb\u6570\u636e\u4e4b\u524d\u6700\u5f00\u59cb\u52a0\u4e24\u53e5\u8bdd\uff1a\u4eca\u5929\u5206\u6790\u4ec0\u4e48\u6570\u636e\uff0cER \u548c TNBC \u90fd\u662f\u4ec0\u4e48\u3002",
+      "reason": "Owner reviewed the full level: the subtypes the story turns on were never defined for the reader"
+    },
+    {
+      "at": "2026-09-11T21:16:29.468033Z",
+      "owner_directive": "\u56fe\u7247\u89e3\u7801\u9009 A\uff1aslides \u6539 PNG\uff0cloader \u624b\u5199 PNG \u89e3\u7801\uff0c\u4e0d\u7528 Pillow\uff08core \u6e90\u7801\u4e0d\u8bb8\u5bfc\u5165\u56fe\u50cf\u89e3\u7801\u5e93\uff0c\u7167\u5173\u5361 2 \u624b\u5199 TIFF \u7684\u5148\u4f8b\uff09\u3002",
+      "reason": "Gate pre-PR failed test_core_source_does_not_import_package_owned_image_decoders on the level's Pillow import; owner chose a hand-written PNG reader over exempting tutorial assets"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-08-26T20:45:12.706607Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:12.706613Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849194Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849200Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849207Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision changes; the level uses the existing manifest vocabulary and adds no runtime capability",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420411Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420424Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [
+    {
+      "at": "2026-09-11T21:04:57.398527Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.411015Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.424329Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.437648Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.450820Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.462505Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.474164Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.485525Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.499866Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.511225Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:04:57.524798Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.422271Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.433066Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.444946Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.457042Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.469667Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.481701Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.493239Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.505326Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.518607Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.529821Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:23:12.542192Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:38.951483Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:38.963684Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:38.975405Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:38.987120Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:38.999076Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.010917Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.022920Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.034337Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.046607Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.059627Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:24:39.073532Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.025035Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.036791Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.048047Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.059414Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.070912Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.082289Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.093363Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.104319Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.115385Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.126636Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:24.138073Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.405879Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.417678Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.428697Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.439776Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.450520Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.460938Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.472639Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.484107Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.495683Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.507184Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:26:45.518779Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.828170Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.838540Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.848956Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.859173Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.869123Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.879023Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.888874Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.898746Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.909279Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.919668Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:01.957793Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.507280Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.519777Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.531926Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.543995Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.556320Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.568592Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.581642Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.595577Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.609248Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.623290Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-11T21:27:17.637259Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2082,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "e9dcd01aa2ef8dbdddfdadc0d5839a53a664a13d",
+    "base_sha": "e9dcd01a",
+    "changed_files": [
+      ".pre-commit-config.yaml",
+      ".workflow/records/2082-guided-2082-tutorial-level-4-multimodal.json",
+      "CHANGELOG.md",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
+      "frontend/src/components/Git/BranchPicker.tsx",
+      "frontend/src/components/Git/CommitDialog.tsx",
+      "frontend/src/components/Git/GitTab.tsx",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "src/scistudio/tutorials/conditions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/annotate_regions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/compare_regions.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_image.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/he_mask.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/load_slide_image.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/normalize_expression.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_plot.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/shared_genes_render.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_plot.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/volcano_render.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_he.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4290_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_he.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/CID4535_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/er/SOURCE.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_he.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID4465_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_counts.csv",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_he.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/CID44971_mask.png",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/tnbc/SOURCE.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/notes/conclusion.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/notes/conclusion_tnbc.md",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/analysis.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/analysis_tnbc.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/workflows/main.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "src/scistudio/tutorials/manifest.py",
+      "tests/tutorials/test_conditions.py",
+      "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "tests/tutorials/test_manifest_schema.py"
+    ],
+    "diff_fingerprint": "sha256:45aa0166eaaf49a9466f6518a47a3b104ab310b68961c3855032cce11625e6e0",
+    "head": "HEAD",
+    "head_sha": "37e3b98a",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 6,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 40,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 44,
+      "test": 4,
+      "workflow_ci": 1
+    }
+  },
+  "owner_directive": "Guided session: author core tutorial level 4 (multimodal joint analysis + git branches) as galgame-style dialogue beats, owner-directed live. Confirmed level 4 = the multimodal level (scenarios doc \u5173\u5361 3, issue #2082); the AI level shipped today as order 3.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [],
+    "number": 2358,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-11T21:04:57.524838Z",
+      "diff_fingerprint": "sha256:35c89f8293f4322883def87b9d38d94cd66cf69800d5035accab2bbda45ac900",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.python_tests"
+      ]
+    },
+    {
+      "at": "2026-09-11T21:23:12.542235Z",
+      "diff_fingerprint": "sha256:e4a98b0e07e2ee15e19d987b139384ba9ec5fd5636b4973dfc91883bf8fd7f8b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-11T21:24:39.073568Z",
+      "diff_fingerprint": "sha256:285d5d30747694c67bd26d0ab2ecadb8f71cc761a41b609f28350b6434ccc56b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-11T21:26:24.138107Z",
+      "diff_fingerprint": "sha256:285d5d30747694c67bd26d0ab2ecadb8f71cc761a41b609f28350b6434ccc56b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T21:26:45.518815Z",
+      "diff_fingerprint": "sha256:285d5d30747694c67bd26d0ab2ecadb8f71cc761a41b609f28350b6434ccc56b",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T21:27:01.957828Z",
+      "diff_fingerprint": "sha256:45aa0166eaaf49a9466f6518a47a3b104ab310b68961c3855032cce11625e6e0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-11T21:27:17.637303Z",
+      "diff_fingerprint": "sha256:45aa0166eaaf49a9466f6518a47a3b104ab310b68961c3855032cce11625e6e0",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2082-guided-2082-tutorial-level-4-multimodal",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:28:41.584999Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:28:41.585005Z",
+      "pattern": "tests/tutorials/**",
+      "reason": "Owner set the starting point and one design constraint for level 4"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:45:12.706581Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "The dependency removal invalidates two landed claims: the changelog entry written for the old design, and the spec paragraph that justifies library isolation by a reuse no level performs any more"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-08-26T20:45:12.706600Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "The dependency removal invalidates two landed claims: the changelog entry written for the old design, and the spec paragraph that justifies library isolation by a reuse no level performs any more"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870206Z",
+      "pattern": "src/scistudio/tutorials/core/two-modalities-one-answer/**",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870215Z",
+      "pattern": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870219Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T12:54:44.870222Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Worktree was destroyed by the 2026-09-06 bulk cleanup; uncommitted level-4 work restored from the cleanup backup patch onto current origin/main"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T13:48:59.986447Z",
+      "pattern": ".pre-commit-config.yaml",
+      "reason": "Owner approved a check-added-large-files exception for level 4's real dataset (two ~15 MB CSVs); push a remote branch to continue on another machine"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077444Z",
+      "pattern": "src/scistudio/tutorials/conditions.py",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077576Z",
+      "pattern": "frontend/src/components/Git/CommitDialog.tsx",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:26:59.077578Z",
+      "pattern": "tests/tutorials/test_conditions.py",
+      "reason": "git_committed tutorial event: backend vocabulary, Commit dialog report, and the vocabulary tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616530Z",
+      "pattern": "src/scistudio/tutorials/manifest.py",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616534Z",
+      "pattern": "frontend/src/components/LearningCenter.parts/targets.ts",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616535Z",
+      "pattern": "frontend/src/components/Git/GitTab.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616536Z",
+      "pattern": "frontend/src/components/Git/BranchPicker.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616538Z",
+      "pattern": "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616539Z",
+      "pattern": "tests/tutorials/test_manifest_schema.py",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T18:35:32.616540Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Tutorial git guidance: git_commit_button and git_branch_picker highlight targets, a git_commit message prefill, their registries, tests and the spec's prefill list"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-11T20:59:12.420293Z",
+      "pattern": "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
+      "reason": "Pre-PR: ConfigPanel carries the config_field target; record the tests and docs this change updated"
+    }
+  ],
+  "session_id": "d6328ecd-e6f7-47cb-9c27-1b1ba30f38df",
+  "strictness_tier": 1,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-08-26T20:45:12.706618Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-08-26T20:45:48.849211Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420427Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420428Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_conditions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420429Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_manifest_schema.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T20:59:12.420430Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

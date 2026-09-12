@@ -181,9 +181,11 @@ architecture. Tutorial projects are hidden from the recent-project surfaces and
 reachable only through the Learning Center, so a user cannot wander into one and
 mistake a disposable teaching artifact for their own work. Tutorial projects
 scan an isolated library directory instead of the user's real one, because one
-scenario has the user save a custom type to My Library in order to reuse it in
-the next scenario, and that must not deposit a teaching type into every real
-project the user opens afterwards. And progress drives exactly one thing: after
+scenario has the user save a custom type to My Library, and that must not
+deposit a teaching type into every real project the user opens afterwards.
+The isolation is what makes the promotion safe to teach; no scenario depends
+on a later one finding what an earlier one left there, because a level that
+needed another level's leftovers could not be played first. And progress drives exactly one thing: after
 the AI scenario, the product offers to bring the user's existing work across.
 ADR-053 §4.2's percentage threshold is replaced by that named milestone.
 
@@ -677,10 +679,12 @@ and a reader who supplies something else MUST NOT be blocked, because the step's
 `done_when` judges the world rather than the dialog.
 
 The current members are `new_custom_block` and `new_data_type`, each seeding
-its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name; and
-`block_config`, the one settings-field target the next paragraph constrains.
-`new_data_type` joined as the type-side twin of `new_custom_block` (#2061),
-because the type-authoring levels name the file they are about to discuss.
+its dialog's filename stem; `new_plot`, seeding the new-plot dialog's name;
+`git_commit`, seeding the Git tab's commit message; and `block_config`, the one
+settings-field target the next paragraph constrains. `new_data_type` joined as
+the type-side twin of `new_custom_block` (#2061), because the type-authoring
+levels name the file they are about to discuss. `git_commit` joined with core
+tutorial 4, which has the reader commit before each branch operation (#2082).
 
 A target that seeds a block's settings rather than a dialog MUST fill only a
 field the reader has left empty, and MUST NOT overwrite a value they supplied.

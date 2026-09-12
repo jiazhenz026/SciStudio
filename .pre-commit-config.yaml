@@ -34,6 +34,12 @@ repos:
         stages: [manual]
       - id: check-added-large-files
         args: ["--maxkb=1000"]
+        # Owner-approved exception (#2082): core tutorial 4 ships a real
+        # Visium breast-cancer dataset (Wu et al. 2021, CC BY 4.0) — four
+        # per-spot count tables of 4-10 MB (2000 genes) and region masks
+        # around 1 MB. Scoped to that one data directory; every other path
+        # keeps the 1000 KB ceiling.
+        exclude: ^src/scistudio/tutorials/core/two-modalities-one-answer/assets/data/
         stages: [manual]
       - id: check-merge-conflict
         stages: [manual]

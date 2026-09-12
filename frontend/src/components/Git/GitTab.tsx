@@ -68,6 +68,7 @@ export function GitTab(): JSX.Element {
         <GitStatusBadge onClick={() => setCommitOpen(true)} />
         <Button
           data-testid="git-tab-commit-button"
+          data-tutorial-target="git_commit_button"
           variant="toolbar"
           size="toolbar"
           type="button"
