@@ -80,12 +80,14 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         # them in the Save menu. ``variant`` names which of those files to grant;
         # without it the primary is served, which is what every other artifact has.
         granted = target
+        path = primary
         variant = options.get("variant")
         if variant:
             granted = plot_variant_target(target, str(variant))
-            if granted.storage is None:  # pragma: no cover - constructed with storage
+            sibling = granted.storage
+            if sibling is None:  # pragma: no cover - always constructed with storage
                 raise PanelError(400, "unsupported", "This target has no artifact file")
-        path = access.artifact_file(granted.storage) if variant else primary
+            path = access.artifact_file(sibling)
         info = {
             "name": path.name,
             # The viewer this read serves identifies an artifact by its storage

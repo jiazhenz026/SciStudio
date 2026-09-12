@@ -1021,6 +1021,170 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:07:56.956314Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:143260c86953e66d298f1e44d2e14e2b9d9a6aae075bde5c5dbdb62a8063300a",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:07:57.993525Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:04efb6d665ec8d4e0506eb0c4a0691957472750adfc2ecd1e69f1ae9f22f960c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:07:59.431209Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ddfe63b21a6e293e88ba24fd67ad0e0e4f793d7ba8616d90253a397cb2f6232f",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:07:59.483843Z",
+      "command": "ruff format src/scistudio/api/routes/panels.py src/scistudio/api/runtime/_data.py src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/reads.py src/scistudio/panels/targets.py src/scistudio/panels/validation.py src/scistudio/previewers/_plot_formats.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py src/scistudio/previewers/session.py tests/api/test_data.py tests/api/test_data_register_path.py tests/api/test_plot_preview_wiring.py tests/api/test_previewer_discovery.py tests/api/test_previewers.py tests/api/test_runtime_data_registration.py tests/conftest.py tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py tests/panels/test_plot_artifact_reads.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bbfe52201913af67399d1f2bb59aa3af7402a129ba1c9d4bcd8ef51276c36730",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-12T02:08:04.480336Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:a2db6550cc47f5a362231b08a511b4801dc2de261c36d1c5834c421c72266336",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:08:11.059290Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c9d1cc12915251816454a03f91d364c6e1efeb0c8398e47fd9e9ae7540b25c45",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:08:11.197752Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f9c06e8fcfaac5524f80f3a98f9e6ab7948b09e5563f182c69c359458b9f5def",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:08:11.219615Z",
+      "command": "ruff check src/scistudio/api/routes/panels.py src/scistudio/api/runtime/_data.py src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/reads.py src/scistudio/panels/targets.py src/scistudio/panels/validation.py src/scistudio/previewers/_plot_formats.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py src/scistudio/previewers/session.py tests/api/test_data.py tests/api/test_data_register_path.py tests/api/test_plot_preview_wiring.py tests/api/test_previewer_discovery.py tests/api/test_previewers.py tests/api/test_runtime_data_registration.py tests/conftest.py tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py tests/panels/test_plot_artifact_reads.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py",
+      "covered_surface": "python_lint",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:c2ccf386221620f63a249a2db08b1fb539cf25ebba1f55fec712d44441737413",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-12T02:11:21.792601Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:9a2aa27fe515d6ea3ef9b58b6d6eb5d72aa806ede6dd286007df6afd2b6f6756",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T02:11:27.851284Z",
+      "command": "mypy src/scistudio/api/routes/panels.py src/scistudio/api/runtime/_data.py src/scistudio/panels/contexts.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/reads.py src/scistudio/panels/targets.py src/scistudio/panels/validation.py src/scistudio/previewers/_plot_formats.py src/scistudio/previewers/_read_arrays.py src/scistudio/previewers/_read_series.py src/scistudio/previewers/data_access.py src/scistudio/previewers/fallbacks.py src/scistudio/previewers/models.py src/scistudio/previewers/session.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d5129c8b068646bb7c6157e3ff227efec37d243b36e987aacd096060299c37fb",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1923,6 +2087,116 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:02:39.431762Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-222/popen-gw11/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-12T02:02:40.244874Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-222/popen-gw11/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-12T02:11:27.960850Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:27.974576Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:27.988740Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.002529Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.022953Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.046076Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.059374Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.071840Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.085773Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.111148Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T02:11:28.175223Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1941,8 +2215,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "codex/2293-panels-phase-a",
-    "base_sha": "9998f547",
+    "base": "099ea333caaae4053be1c48c2547f5905711a460",
+    "base_sha": "099ea333",
     "changed_files": [
       ".workflow/records/2294-feat-2294-panels-phase-b.json",
       "docs/adr/ADR-051.md",
@@ -1952,6 +2226,8 @@
       "frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx",
       "frontend/src/App.parts/InteractiveModals.test.tsx",
       "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/components/DataPreview.parts/PreviewHost.tsx",
       "frontend/src/components/DataPreview.parts/coreViewers.tsx",
       "frontend/src/components/DataRouterModal.parts/InputPanels.tsx",
       "frontend/src/components/DataRouterModal.parts/ItemCard.tsx",
@@ -1959,11 +2235,33 @@
       "frontend/src/components/DataRouterModal.parts/types.ts",
       "frontend/src/components/DataRouterModal.tsx",
       "frontend/src/components/Git/CommitDialog.tsx",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/LearningCenter.parts/useHighlightRect.ts",
       "frontend/src/components/PairEditorModal.tsx",
       "frontend/src/components/interactiveModals.designSystem.test.tsx",
+      "frontend/src/panels/PanelFrame.tsx",
+      "frontend/src/panels/PanelPreview.tsx",
+      "frontend/src/panels/arrayPanel.test.ts",
+      "frontend/src/panels/artifactPanel.test.ts",
+      "frontend/src/panels/bridge.ts",
       "frontend/src/panels/builtin.test.ts",
+      "frontend/src/panels/collectionPanel.test.ts",
+      "frontend/src/panels/compositePanel.test.ts",
+      "frontend/src/panels/dataRouterPanel.test.ts",
+      "frontend/src/panels/dataframePanel.test.ts",
+      "frontend/src/panels/fallbackPanel.test.ts",
+      "frontend/src/panels/libraries.test.ts",
+      "frontend/src/panels/pairEditorPanel.test.ts",
+      "frontend/src/panels/panelHighlights.test.ts",
+      "frontend/src/panels/panelHighlights.ts",
+      "frontend/src/panels/panelUi.test.ts",
+      "frontend/src/panels/plotPanel.test.ts",
+      "frontend/src/panels/seriesPanel.test.ts",
+      "frontend/src/panels/textPanel.test.ts",
       "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
       "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/runtime/_data.py",
       "src/scistudio/panels/builtin/core.array.basic/index.html",
       "src/scistudio/panels/builtin/core.array.basic/panel.js",
       "src/scistudio/panels/builtin/core.array.basic/panel.json",
@@ -2010,31 +2308,53 @@
       "src/scistudio/panels/builtin/core.text.basic/panel.sample.json",
       "src/scistudio/panels/contexts.py",
       "src/scistudio/panels/descriptor.py",
+      "src/scistudio/panels/files.py",
+      "src/scistudio/panels/lib/index.json",
+      "src/scistudio/panels/lib/lucide@1.45.0/LICENSE",
+      "src/scistudio/panels/lib/lucide@1.45.0/dist/lucide.min.js",
+      "src/scistudio/panels/lib/preact-htm@3.1.1/LICENSE",
+      "src/scistudio/panels/lib/preact-htm@3.1.1/LICENSE-preact",
+      "src/scistudio/panels/lib/preact-htm@3.1.1/dist/preact-standalone.module.js",
+      "src/scistudio/panels/reads.py",
+      "src/scistudio/panels/sdk/1/panel-ui.js",
+      "src/scistudio/panels/sdk/1/panel.css",
+      "src/scistudio/panels/sdk/1/scistudio-panel.js",
+      "src/scistudio/panels/targets.py",
       "src/scistudio/panels/validation.py",
+      "src/scistudio/previewers/_plot_formats.py",
       "src/scistudio/previewers/_read_arrays.py",
       "src/scistudio/previewers/_read_series.py",
       "src/scistudio/previewers/data_access.py",
       "src/scistudio/previewers/fallbacks.py",
       "src/scistudio/previewers/models.py",
+      "src/scistudio/previewers/session.py",
+      "tests/api/test_data.py",
+      "tests/api/test_data_register_path.py",
+      "tests/api/test_plot_preview_wiring.py",
+      "tests/api/test_previewer_discovery.py",
+      "tests/api/test_previewers.py",
+      "tests/api/test_runtime_data_registration.py",
+      "tests/conftest.py",
       "tests/panels/test_builtin_panels.py",
       "tests/panels/test_panel_descriptor.py",
+      "tests/panels/test_plot_artifact_reads.py",
       "tests/previewers/test_panel_read_extensions.py",
       "tests/previewers/test_preview_data_access.py"
     ],
-    "diff_fingerprint": "sha256:b500164aefa1fd884fdcb6fa19b96d077b6c62d3577475f790e64dd99130719f",
+    "diff_fingerprint": "sha256:d320cb563c4cf84abf9e70df68bd66257e418d6e94817611d68d4d073b7c6b0f",
     "head": "HEAD",
-    "head_sha": "d2ee73ca",
+    "head_sha": "7c497158",
     "surfaces": {
       "docs": 4,
-      "frontend": 13,
+      "frontend": 35,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 67,
+      "implementation": 105,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 74,
-      "test": 7,
+      "sentrux": 120,
+      "test": 29,
       "workflow_ci": 0
     }
   },
@@ -2123,6 +2443,20 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-12T02:11:28.175386Z",
+      "diff_fingerprint": "sha256:d320cb563c4cf84abf9e70df68bd66257e418d6e94817611d68d4d073b7c6b0f",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check"
+      ]
     }
   ],
   "record_id": "2294-feat-2294-panels-phase-b",
@@ -2253,6 +2587,48 @@
       "at": "2026-09-12T00:24:34.207472Z",
       "pattern": "tests/api/test_runtime_data_registration.py",
       "reason": "Artifact outputs are never persisted, so their wire envelope carries backend/path None; register_output_payload stringified that into a path literally called 'None', and every panel read of an artifact (and of any collection of them) then failed as stale_context 409. The artifact panel cannot be verified without this."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300492Z",
+      "pattern": "tests/conftest.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300643Z",
+      "pattern": "tests/api/test_previewers.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300645Z",
+      "pattern": "tests/api/test_data.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300646Z",
+      "pattern": "tests/api/test_data_register_path.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300648Z",
+      "pattern": "tests/api/test_plot_preview_wiring.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300648Z",
+      "pattern": "tests/api/test_previewer_discovery.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:07:42.300649Z",
+      "pattern": "src/scistudio/api/routes/panels.py",
+      "reason": "Phase B turns every core previewer into a panel, so the legacy preview-envelope assertions in these tests pin a shape the product no longer produces; each was migrated to the panel read path rather than deleted. tests/conftest.py arms a faulthandler watchdog so the 3.13 hang this stack currently dies of names itself instead of leaving exit code 124."
     }
   ],
   "session_id": "961ab188-65cd-4521-a314-b023b4f091d4",

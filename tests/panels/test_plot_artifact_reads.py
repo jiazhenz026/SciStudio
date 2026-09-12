@@ -11,14 +11,13 @@ can reach is what these tests are mostly about.
 from __future__ import annotations
 
 import pytest
+from tests.panels.conftest import make_runtime
 
 from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
 from scistudio.panels.contexts import read_access
 from scistudio.panels.reads import read_context
 from scistudio.panels.targets import PanelError, freeze_target, plot_variant_target
-
-from tests.panels.conftest import make_runtime
 
 SVG_WITH_SCRIPT = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
@@ -62,7 +61,7 @@ def context_for(store, ref="data-plot"):
 
 class TestAvailableFormats:
     def test_info_reports_every_format_the_run_rendered(self, plot_runtime):
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         info = read_context(store, context, "data-plot", "artifact.info", {})
 
@@ -80,7 +79,7 @@ class TestAvailableFormats:
         assert "formats" not in info
 
     def test_the_menu_does_not_change_with_the_format_being_shown(self, plot_runtime):
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         primary = read_context(store, context, "data-plot", "artifact.info", {})
         as_pdf = read_context(store, context, "data-plot", "artifact.file", {"variant": "pdf"})
@@ -90,7 +89,7 @@ class TestAvailableFormats:
 
 class TestVariantGrants:
     def test_a_variant_grants_that_format_s_own_file(self, plot_runtime):
-        runtime, store, plots = plot_runtime
+        _runtime, store, plots = plot_runtime
         context = context_for(store)
         result = read_context(store, context, "data-plot", "artifact.file", {"variant": "pdf"})
 
@@ -100,14 +99,14 @@ class TestVariantGrants:
         assert "/artifact/" in result["url"]
 
     def test_the_primary_is_served_when_no_variant_is_named(self, plot_runtime):
-        runtime, store, plots = plot_runtime
+        _runtime, store, plots = plot_runtime
         context = context_for(store)
         result = read_context(store, context, "data-plot", "artifact.file", {})
 
         assert result["path"] == str(plots / "current.png")
 
     def test_a_format_the_run_did_not_render_is_refused(self, plot_runtime):
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         with pytest.raises(PanelError) as caught:
             read_context(store, context, "data-plot", "artifact.file", {"variant": "jpeg"})
@@ -126,14 +125,14 @@ class TestVariantGrants:
     )
     def test_a_format_name_cannot_reach_beyond_the_figure(self, plot_runtime, variant):
         """The format name is panel-controlled, so it must not be a path."""
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         with pytest.raises(PanelError):
             read_context(store, context, "data-plot", "artifact.file", {"variant": variant})
 
     def test_an_empty_format_name_means_no_choice_was_made(self, plot_runtime):
         """Empty is "no variant", which is the primary — not an error and not a path."""
-        runtime, store, plots = plot_runtime
+        _runtime, store, plots = plot_runtime
         context = context_for(store)
         result = read_context(store, context, "data-plot", "artifact.file", {"variant": ""})
 
@@ -141,13 +140,13 @@ class TestVariantGrants:
 
     def test_a_neighbour_with_another_stem_is_not_reachable(self, plot_runtime):
         """`other.jpg` sits beside the figure but is not part of it."""
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         with pytest.raises(PanelError):
             read_context(store, context, "data-plot", "artifact.file", {"variant": "jpeg"})
 
     def test_asking_twice_reuses_one_grant(self, plot_runtime):
-        runtime, store, _plots = plot_runtime
+        _runtime, store, _plots = plot_runtime
         context = context_for(store)
         first = read_context(store, context, "data-plot", "artifact.file", {"variant": "pdf"})
         second = read_context(store, context, "data-plot", "artifact.file", {"variant": "pdf"})
@@ -155,7 +154,7 @@ class TestVariantGrants:
         assert first["url"] == second["url"]
 
     def test_a_variant_target_stays_a_child_of_the_plot(self, plot_runtime):
-        runtime, store, plots = plot_runtime
+        runtime, _store, plots = plot_runtime
         parent = freeze_target(runtime, "data-plot")
         child = plot_variant_target(parent, "svg")
 

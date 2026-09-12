@@ -535,45 +535,23 @@ export function PreviewHost({
 
   if (activeEnvelope.panel) {
     return (
-      // Another link in the chain that lets a panel take the height its host
-      // gives it; see the note in `PanelPreview`.
-      <div className="flex min-h-0 flex-1 flex-col">
-        {childStack.length > 0 ? (
-          // `self-start`: see the note on the same button in `PanelPreview`.
-          <button
-            className="self-start"
-            type="button"
-            data-testid="preview-host-back"
-            onClick={popChild}
-          >
-            ← Back
-          </button>
-        ) : null}
-        <PanelPreview
-          key={`${activeEnvelope.session_id}:${activeEnvelope.panel.id}`}
-          target={activeEnvelope.target}
-          panelId={activeEnvelope.panel.id}
-          previewSessionId={activeEnvelope.session_id}
-          initialViewState={initialViewState}
-          onSnapshot={onPanelSnapshot}
-          renderChild={(child, onSnapshot) => (
-            <PreviewHost
-              target={child.target}
-              initialEnvelope={child}
-              onPanelSnapshot={onSnapshot}
-              importer={importer}
-            />
-          )}
-          onFallback={() => {
-            onPanelSnapshot?.(null);
-            if (activeEnvelope.session_id && childStack.length > 0) {
-              void patchQuery({ core_only: true }).catch((err: unknown) => {
-                setHostDiagnostics((value) => [...value, String(err)]);
-              });
-            } else setCoreOnlyTarget(fallbackTargetKey);
-          }}
-        />
-      </div>
+      <MountedPanel
+        envelope={activeEnvelope}
+        panelId={activeEnvelope.panel.id}
+        initialViewState={initialViewState}
+        onPanelSnapshot={onPanelSnapshot}
+        importer={importer}
+        canPopChild={childStack.length > 0}
+        onPopChild={popChild}
+        onFallback={() => {
+          onPanelSnapshot?.(null);
+          if (activeEnvelope.session_id && childStack.length > 0) {
+            void patchQuery({ core_only: true }).catch((err: unknown) => {
+              setHostDiagnostics((value) => [...value, String(err)]);
+            });
+          } else setCoreOnlyTarget(fallbackTargetKey);
+        }}
+      />
     );
   }
 
@@ -611,6 +589,69 @@ export function PreviewHost({
           onExport={(r) => void exportResource(r)}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A panel-backed envelope: the frame, and the way back out of a child.
+ *
+ * Extracted from `PreviewHost` rather than inlined because every wrapper
+ * between the stage and the iframe has to be a flex column that can shrink, or
+ * the frame falls back to its own minimum height and a figure takes a third of
+ * a focused tab. Keeping that chain in one readable place is the point.
+ */
+function MountedPanel({
+  envelope,
+  panelId,
+  initialViewState,
+  onPanelSnapshot,
+  importer,
+  canPopChild,
+  onPopChild,
+  onFallback,
+}: {
+  envelope: PreviewEnvelope;
+  panelId: string;
+  initialViewState?: PreviewHostProps["initialViewState"];
+  onPanelSnapshot?: PreviewHostProps["onPanelSnapshot"];
+  importer?: PreviewHostProps["importer"];
+  canPopChild: boolean;
+  onPopChild: () => void;
+  onFallback: () => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {canPopChild ? (
+        // `self-start`: the column stretches its children and the frame below
+        // has to be stretched, so without it this becomes a full-width bar
+        // whose centred label reads as a centred control.
+        <button
+          className="self-start"
+          type="button"
+          data-testid="preview-host-back"
+          onClick={onPopChild}
+        >
+          ← Back
+        </button>
+      ) : null}
+      <PanelPreview
+        key={`${envelope.session_id}:${panelId}`}
+        target={envelope.target}
+        panelId={panelId}
+        previewSessionId={envelope.session_id}
+        initialViewState={initialViewState}
+        onSnapshot={onPanelSnapshot}
+        renderChild={(child, onSnapshot) => (
+          <PreviewHost
+            target={child.target}
+            initialEnvelope={child}
+            onPanelSnapshot={onSnapshot}
+            importer={importer}
+          />
+        )}
+        onFallback={onFallback}
+      />
     </div>
   );
 }

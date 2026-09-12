@@ -204,10 +204,13 @@ export function PanelFrame(props: PanelFrameProps) {
    * at is never asked to measure anything.
    */
   useEffect(() => {
+    // Captured now, not read in the cleanup: by then the ref may already point
+    // at the next frame, and the report that needs forgetting belongs to this
+    // one — forgetting the wrong frame leaves a ring over a panel that is gone.
+    const element = frame.current;
     const stop = subscribePanelHighlight((request) => bridge.current?.highlight(request));
     return () => {
       stop();
-      const element = frame.current;
       if (element) forgetPanelHighlight(element);
     };
   }, [ready]);

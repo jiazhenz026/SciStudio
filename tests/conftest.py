@@ -43,6 +43,7 @@ def pytest_unconfigure(config: pytest.Config) -> None:
     if _HANG_DUMP_SECONDS > 0:
         faulthandler.cancel_dump_traceback_later()
 
+
 # ---------------------------------------------------------------------------
 # Fixture block-package discovery (issue #1770)
 # ---------------------------------------------------------------------------

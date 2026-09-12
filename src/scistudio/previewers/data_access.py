@@ -42,10 +42,11 @@ def _json_safe_value(value: Any) -> Any:
 
     Non-finite numbers use the same sentinel strings the array reads use
     (``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``), so a missing measurement is
-    shown as what it is rather than erased to an empty cell (#1886 item E).
-    Temporal and decimal values become their ISO / decimal text, and bytes
-    become base64 — each readable, and none of them silently dropped.
+    shown as what it is rather than erased to an empty cell. Temporal and
+    decimal values become their ISO / decimal text, and bytes become base64 —
+    each readable, and none of them silently dropped.
     """
+    # Development references: #1886 item E.
     if isinstance(value, float):
         if math.isnan(value):
             return "NaN"

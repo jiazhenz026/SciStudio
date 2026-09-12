@@ -7,7 +7,6 @@
  * whose data shape was assumed rather than checked. Each of those shipped once.
  */
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 

@@ -20,7 +20,6 @@ from types import SimpleNamespace
 import pytest
 
 from scistudio.api.runtime._data import describe_ref, register_data_ref, register_output_payload
-from scistudio.core.storage.ref import StorageReference
 from scistudio.previewers.models import PreviewTarget
 
 

@@ -6643,7 +6643,7 @@
     ]
    }
   },
-  "/api/panels/t/{token}/sdk/{major}/scistudio-panel.js": {
+  "/api/panels/t/{token}/sdk/{major}/{name}": {
    "get": {
     "parameters": [
      {
@@ -6657,6 +6657,14 @@
      {
       "in": "path",
       "name": "major",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
       "required": true,
       "schema": {
        "type": "string"
