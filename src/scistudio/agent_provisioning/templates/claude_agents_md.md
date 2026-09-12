@@ -106,7 +106,7 @@ provisioned identically into every skills tree the assistant CLIs
 discover (`.agents/skills/`, `.claude/skills/`), so every provider sees
 the same teaching surface. Each skill
 lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
-`<root>/scistudio/`; the six task skills sit beside it).
+`<root>/scistudio/`; the seven task skills sit beside it).
 
 - `scistudio-build-workflow` — design a new workflow (YAML schema,
   validation, run lifecycle).
@@ -120,6 +120,9 @@ lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
   / lineage) without materialising.
 - `scistudio-project-qa` — answer the user's SciStudio / project
   questions, grounded in the reference docs below + MCP tools.
+- `scistudio-write-miniapp` — author a MiniApp: a small page under
+  `panels/<panel_id>/`, opened on one block output, for looking,
+  comparing, or tuning interactively.
 
 The skill body is the canonical teaching surface. This file is the
 identity + non-negotiable-rules index. If a rule here conflicts with

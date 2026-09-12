@@ -74,8 +74,8 @@ def test_creates_parent_dir_if_missing(tmp_path: Path) -> None:
 # Content assertions read AGENTS.md, the canonical entry point (#2137).
 
 
-def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
-    """The AGENTS.md template must reference all 5 task skills.
+def test_template_indexes_all_task_skills(tmp_project_dir: Path) -> None:
+    """The AGENTS.md template must reference every task skill.
 
     Cross-discoverability rule: the project-level AGENTS.md is the
     agent's entry point on each turn; if a task skill is not indexed
@@ -89,6 +89,8 @@ def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
         "scistudio-debug-run",
         "scistudio-inspect-data",
         "scistudio-project-qa",
+        "scistudio-write-plot",
+        "scistudio-write-miniapp",
     ):
         assert task_skill in body, f"AGENTS.md template must reference {task_skill}."
 
