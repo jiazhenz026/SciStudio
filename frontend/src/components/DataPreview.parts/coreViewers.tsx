@@ -788,10 +788,17 @@ export function CollectionViewer({
                  * other way to finish. Imported here rather than at the top of
                  * the file: the store pulls in every slice, and this module is
                  * rendered by tests that mock a narrow API surface.
+                 *
+                 * Nothing waits for this, so it has to answer for its own
+                 * failure: the import can still be in flight when whatever is
+                 * around it goes away, and an unhandled rejection fails a whole
+                 * test run even when every test in it passed.
                  */
-                void import("../../store").then(({ useAppStore }) =>
-                  useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
-                );
+                void import("../../store")
+                  .then(({ useAppStore }) =>
+                    useAppStore.getState().reportTutorialUiEvent("preview_item_opened"),
+                  )
+                  .catch(() => {});
               }}
               className="rounded-2xl border border-ink/10 bg-white px-3 py-2 text-left text-xs hover:bg-ink/5"
             >
@@ -850,14 +857,24 @@ export interface CoreFallbackRendererProps {
   onExport?: (resource: PreviewResource) => void;
 }
 
-/** Routes an envelope to the core fallback viewer for its {@link EnvelopeKind}. */
+/**
+ * Routes an envelope to the core fallback viewer for its {@link EnvelopeKind}.
+ *
+ * ADR-054 Phase B (FR-043): these compiled viewers are retained ONLY for legacy
+ * previewer envelopes — envelopes carrying no `.panel`. Anything with a `.panel`
+ * is a panel and must render through `PanelPreview` / `InteractivePanel`; the
+ * {@link PreviewHost} routes those away before this renderer is reached, and the
+ * guard below is the belt-and-braces refusal so a panel envelope can never fall
+ * through to a compiled viewer.
+ */
 export function CoreFallbackRenderer({
   envelope,
   onPatchQuery,
   onOpenResource,
   onExport,
 }: CoreFallbackRendererProps) {
-  const kind: EnvelopeKind = envelope.kind;
+  // A panel envelope never renders through the compiled viewers (FR-043).
+  const kind: EnvelopeKind = envelope.panel || envelope.kind === "panel" ? "error" : envelope.kind;
   switch (kind) {
     case "dataframe":
       return <DataFrameViewer envelope={envelope} onPatchQuery={onPatchQuery} />;

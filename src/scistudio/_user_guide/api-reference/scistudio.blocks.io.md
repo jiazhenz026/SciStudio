@@ -80,6 +80,10 @@ Inherit from this to build a custom IO block. Choose a direction with the
 - ``direction = "input"`` (a loader): override `load` to read the
   configured ``path`` and return a `DataObject` or a
   `Collection`. A loader has no data input port — it is a pure source.
+  Write it for one file: when the user selects several, the runtime calls it
+  once per path and collects the results. Set
+  `accepts_path_list` to ``True`` to take the whole list in one call
+  instead.
 - ``direction = "output"`` (a saver): override `save` to write the
   object arriving on the ``data`` input port to the configured ``path``.
 
@@ -212,6 +216,12 @@ type". Set the class attributes `output_type`, `format_id`, and
 rest: it declares one `scistudio.blocks.io.FormatCapability` from
 those attributes, reads the ``path`` from config, and calls your
 `load_file`. This is an input-only block; `save` always raises.
+
+One file per call is all you handle. A ``path`` holding several files is
+fanned out by the caller — once per file, results collected into a
+`Collection` — which is the default for every loader
+(`scistudio.blocks.io.IOBlock.accepts_path_list`), not something this
+base class opts into.
 
 Example:
     >>> class LoadJsonText(SimpleLoader):

@@ -78,7 +78,7 @@ _constant_ — see the module source for the value.
 
 ```python
 class PreviewEnvelope
-PreviewEnvelope(previewer_id: 'str', target: 'PreviewTarget', kind: 'EnvelopeKind', payload: 'dict[str, Any]' = <factory>, session_id: 'str | None' = None, resources: 'tuple[PreviewResource, ...]' = (), metadata: 'PreviewMetadata' = <factory>, diagnostics: 'tuple[str, ...]' = (), error: 'PreviewErrorInfo | None' = None, frontend_manifest: 'FrontendManifest | None' = None) -> None
+PreviewEnvelope(previewer_id: 'str', target: 'PreviewTarget', kind: 'EnvelopeKind', payload: 'dict[str, Any]' = <factory>, session_id: 'str | None' = None, resources: 'tuple[PreviewResource, ...]' = (), metadata: 'PreviewMetadata' = <factory>, diagnostics: 'tuple[str, ...]' = (), error: 'PreviewErrorInfo | None' = None, frontend_manifest: 'FrontendManifest | None' = None, panel: 'dict[str, Any] | None' = None) -> None
 ```
 
 The backend's complete response describing one preview.
@@ -165,7 +165,7 @@ optional structured detail.
 
 ```python
 class PreviewLimits
-PreviewLimits(max_rows: 'int' = 200, max_bytes: 'int' = 8388608, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256) -> None
+PreviewLimits(max_rows: 'int' = 200, max_bytes: 'int' = 20971520, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256) -> None
 ```
 
 The bounded-read budgets applied to a preview session.
@@ -361,7 +361,7 @@ Example:
 
 ```python
 class PreviewerSpec
-PreviewerSpec(previewer_id: 'str', owner_kind: 'OwnerKind', owner_name: 'str', target_type: 'str', supports_collection: 'bool' = False, priority: 'int' = 0, capabilities: 'tuple[str, ...]' = (), backend_provider: 'PreviewProvider | str | None' = None, resource_provider: 'PreviewResourceProvider | str | None' = None, frontend_manifest: 'FrontendManifest | None' = None, api_version: 'str' = '1') -> None
+PreviewerSpec(previewer_id: 'str', owner_kind: 'OwnerKind', owner_name: 'str', target_type: 'str', supports_collection: 'bool' = False, priority: 'int' = 0, capabilities: 'tuple[str, ...]' = (), backend_provider: 'PreviewProvider | str | None' = None, resource_provider: 'PreviewResourceProvider | str | None' = None, frontend_manifest: 'FrontendManifest | None' = None, api_version: 'str' = '1', panel: 'dict[str, Any] | None' = None) -> None
 ```
 
 Declares one preview provider and how the router should choose it.

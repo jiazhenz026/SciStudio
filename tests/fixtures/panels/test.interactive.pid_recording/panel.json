@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.pid_recording",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

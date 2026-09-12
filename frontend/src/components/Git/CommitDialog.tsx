@@ -8,8 +8,8 @@
  *
  * Implementation notes (D39-2.3b):
  *   - No external Dialog primitive is registered yet; we use a fixed-
- *     position overlay with a centered card. The same pattern already
- *     ships in DataRouterModal.tsx.
+ *     position overlay with a centered card, the same overlay pattern the
+ *     interactive panel host (`panels/InteractivePanel.tsx`) uses.
  *   - All `data-testid` attributes match the contract in the top-of-file
  *     docstring; vitest tests below assert against them.
  *

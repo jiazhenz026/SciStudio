@@ -1,0 +1,12 @@
+<!doctype html>
+<p id="status">starting</p>
+<button id="index">Open table</button><button id="notes">Open legacy</button>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script>
+  scistudio.ready().then(() => {
+    document.querySelector("#status").textContent = "navigator ready";
+    for (const slot of ["index", "notes"])
+      document.getElementById(slot).onclick = () =>
+        scistudio.open(scistudio.input.ref + "#" + slot);
+  });
+</script>

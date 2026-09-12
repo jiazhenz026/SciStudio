@@ -341,6 +341,9 @@ def _validate_interactive_capability(cls: type) -> None:
             f"{cls_name}: INTERACTIVE block must declare a valid interactive_panel "
             f"PanelManifest with a non-empty panel_id (ADR-051 FR-002)."
         )
+    from scistudio.panels.validation import validate_interactive_panel
+
+    validate_interactive_panel(panel)
 
 
 def _resolve_class(spec: BlockSpec) -> type | None:

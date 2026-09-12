@@ -39,6 +39,8 @@ scope:
     - "Any change to the ADR-051 runtime, its `interactive_prompt` event, interaction memory, or the embedded agent's MCP preview tools (`src/scistudio/ai/agent/mcp/tools_inspection/_preview.py`, which read data independently of the preview service)."
 governs:
   modules:
+    - scistudio.panels
+    - scistudio.api.routes.panels
     - scistudio.previewers
     - scistudio.blocks.base.interactive
     - scistudio.blocks.registry
@@ -53,8 +55,12 @@ governs:
     - scistudio.blocks.base.interactive.PanelManifest
     - scistudio.blocks.base.interactive.InteractiveMixin
   entry_points:
+    - scistudio.panels
     - scistudio.previewers
   files:
+    - src/scistudio/panels/**
+    - src/scistudio/api/routes/panels.py
+    - frontend/src/panels/**
     - docs/specs/adr-054-panels.md
     - docs/specs/adr-048-preview-system.md
     - docs/specs/adr-051-interactive-blocks.md
@@ -105,16 +111,10 @@ governs:
     - docs/user/reference/**
     - docs/user/llms.txt
 planned_governs:
-  modules:
-    - scistudio.panels
-    - scistudio.api.routes.panels
+  modules: []
   contracts: []
-  entry_points:
-    - scistudio.panels
+  entry_points: []
   files:
-    - src/scistudio/panels/**
-    - src/scistudio/api/routes/panels.py
-    - frontend/src/panels/**
     - src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md
     - docs/package-development/panels.md
   excludes: []
@@ -179,6 +179,30 @@ interactive window stays a full-screen modal; the ADR-048 §3 routing ladder,
 ambiguity rule, and per-type user choice carry over. Both legacy previewer forms
 — `mount(container, host)` modules and Python-only previewers — keep working,
 deprecated, through 0.5.x.
+
+### Phase A Owner Decisions (2026-09-11)
+
+Phase A preserves the existing Previewers sidebar entry and includes panel
+candidates in that catalog. Phase D (#2354) performs the MiniApps/All Previewers
+transition. SDK sample mode (FR-046) belongs to A; it does not require an
+intermediate Panels tab, card sample-opening flow, or directory promotion.
+
+The existing ADR-055 identity and prefix seams apply now: verify the default and
+replacement fake guards at root and proxy-prefixed mounts. Fake-guard evidence
+is not real JupyterHub verification.
+
+TODO(#2294): Replace the temporary compiled windows for
+`core.interactive.data_router` and `core.interactive.pair_editor` with core-tier
+HTML panels in Phase B; remove their explicit compatibility exceptions then.
+Out of scope per the Phase A/B split; follow-up:
+https://github.com/jiazhenz026/SciStudio/issues/2294.
+Other missing ids and context mismatches remain errors.
+
+Owner clarification preserves the existing refusal to override core ids:
+FR-002's `core.*` reservation remains strict for non-core tiers. A customized
+core preview uses a new non-core id and the same concrete type, selected through
+the routing ladder or per-type user choice. Same-id shadowing applies only to
+non-core ids; this does not expand the implementation's override behavior.
 
 ## 2. User Scenarios & Testing
 
@@ -382,19 +406,24 @@ deprecation diagnostic naming the replacement.
 
 ### User Story 9 - A user adjusts a built-in panel by copying it (Priority: P3)
 
-A user copies `core.dataframe.basic` into `<project>/panels/` and edits it.
+A user copies `core.dataframe.basic` into `<project>/panels/lab.dataframe/`,
+changes its descriptor id to `lab.dataframe`, retains the `DataFrame` type claim,
+and edits its page.
 
-**Why this priority**: Built-ins become adjustable (ADR-054 §6) through tier
-resolution alone.
+**Why this priority**: Built-ins become adjustable (ADR-054 §6) through a
+separately named panel and the existing type-routing or user-choice mechanism.
 
-**Independent Test**: Copy a core panel directory into a project, change its
-page, reload, and assert the project copy is resolved.
+**Independent Test**: Copy a core panel directory into a project under a new
+non-core id, change its page, reload, and assert the project copy resolves for
+the declared type while the original core id remains available.
 
 **Acceptance Scenarios**:
 
-1. **Given** a project panel with the id of a core panel, **When** a matching type
-   is previewed, **Then** the project panel is mounted and the Previewers list
-   shows the core panel as shadowed.
+1. **Given** a project panel with a new non-core id and the concrete type of a
+   core panel, **When** that type is previewed and resolves to the project panel,
+   **Then** the project panel is mounted and the core panel keeps its own id.
+2. **Given** a project panel that retains a `core.*` id, **When** discovery runs,
+   **Then** the descriptor is refused by FR-002.
 
 ### User Story 10 - The agent writes a working panel (Priority: P3)
 
@@ -437,7 +466,8 @@ CDNs, and renders.
 - A plot artifact is a PDF: the browser's built-in PDF viewer does not run inside
   a sandboxed frame, so `core.plot.basic` uses the local PDF renderer.
 - An artifact is larger than the inline limit: the panel reads it through
-  `artifact.file`, a token-scoped file URL.
+  `artifact.file`: the host consumes a distinct context-target artifact grant and
+  transfers bounded bytes to the SDK; the frame uses a local blob URL.
 - The panel relies on `localStorage`, `alert`, or pop-ups: unavailable at an
   opaque origin without `allow-modals` or `allow-popups`; the SDK documents this
   and offers view state (FR-018) instead of storage.
@@ -489,7 +519,8 @@ CDNs, and renders.
   ids.
 - **FR-007**: Panel ids and legacy previewer ids MUST share one namespace. At the
   same tier a panel shadows a legacy previewer with the same id and the legacy
-  previewer is reported as shadowed; across tiers the higher tier wins as today.
+  previewer is reported as shadowed; across tiers the higher tier wins for
+  non-core ids. FR-002 continues to refuse `core.*` descriptors outside core.
 - **FR-008**: When no candidate matches, routing MUST return `core.base.fallback`.
 
 **Phase A — contexts and reads**
@@ -521,7 +552,7 @@ CDNs, and renders.
   | `series.points` | decimated index and values, with the decimation method |
   | `text.chunk` | text, encoding, offset, next offset |
   | `artifact.info` | name, MIME type, size |
-  | `artifact.file` | a token-scoped URL for the artifact's bytes, including plot-job outputs in the preview cache |
+  | `artifact.file` | backend: a distinct context-target grant URL, including preview-cache plot artifacts; SDK: artifact metadata, an `ArrayBuffer` in `data`, and a frame-local blob URL in `url` |
   | `composite.slots` | slot names, types, and child references |
   | `collection.items` | a page of item references with types, and the next cursor |
 
@@ -543,9 +574,18 @@ CDNs, and renders.
 - **FR-015**: The host MUST mount every panel in an `iframe` whose `sandbox`
   attribute is exactly `allow-scripts`, whose `referrerpolicy` is `no-referrer`,
   and whose `src` is the panel's token-scoped entry URL.
-- **FR-016**: On the frame's first load the host MUST create a `MessageChannel`,
-  transfer one port to the frame in a single `init` message addressed to that
-  frame's window, and exchange every further message over that port. Messages
+- **FR-016**: Context creation MUST return an unpredictable 256-bit
+  `bootstrap_proof`, stable across renewal. The backend MUST prepend trusted
+  bootstrap code before all panel entry markup. That code creates a private
+  bootstrap `MessageChannel` and sends `{v: 1, id: "bootstrap", type: "bootstrap",
+  proof}` with exactly one port to the parent. The host MUST accept at most one
+  bootstrap from the intended iframe with the matching context proof. After the
+  first load and a valid bootstrap, the host creates the canonical
+  `MessageChannel` and transfers its `init` and one canonical port through the
+  retained bootstrap port, never through the iframe's current `contentWindow`.
+  The bootstrap forwards initialization once in its original document; a
+  replacement document cannot receive it. All subsequent operations use only
+  the canonical port. Messages
   have the form `{v: <api major>, id, type, payload}`. Panel-to-host types:
   `ready`, `read`, `writeBack`, `open`, `save`, `viewState`, `resize`,
   `reportError`. Host-to-panel types: `init` (context kind, operations and
@@ -568,9 +608,16 @@ CDNs, and renders.
   independently refuse reads outside the context (FR-011) and accept an
   interactive decision only for the block its context was opened for.
 - **FR-020**: `open(ref)` MUST be accepted only for a child of the preview
-  context's target. The host MUST resolve the child's panel through the routing
-  ladder, open a child context, mount it in the same area, and keep the
-  drill-down stack and back action the preview host keeps today.
+  context's target. The host MUST call guarded
+  `POST /api/panels/contexts/{context_id}/open` with `{ref}`; the backend
+  authorizes the child and returns a `PreviewEnvelopeModel` from the shared
+  panel/legacy routing pipeline. The host mounts the selected renderer in the
+  same area and retains the existing drill-down stack and Back action. The
+  child preview session retains independent backend-frozen authority, including
+  composite ancestry, so closing the parent context does not invalidate it.
+  Session get, query patch and resource reads MUST validate that authority;
+  changed project, registry or source data invalidates the child session.
+  Client query patches MUST NOT replace its backend-owned private fields.
 - **FR-021**: `save` MUST write only where the user chooses — the desktop's native
   dialog or a browser download — under a configurable size limit (100 MiB by
   default), and never into the project without that choice. `save` is available
@@ -589,9 +636,18 @@ CDNs, and renders.
   `interactive`, show an error naming both panels with Cancel. A `PanelManifest`
   with a `module_url` MUST keep using the legacy loader (FR-036).
 - **FR-024**: The host MUST map `writeBack` to the existing `interactive_complete`
-  message and its Cancel to the existing `cancel_block` message. The
-  interaction-memory toggle and the JSON-safety check on the response are
-  unchanged.
+  message and its Cancel to the existing `cancel_block` message. Panel completion
+  carries top-level `context_id`, `workflow_id` and `block_id`. After claiming
+  the context once and successfully dispatching the existing completion event,
+  the server sends `panel_accepted` with those same top-level identity fields.
+  A refused claim or failed dispatch sends `panel_error` with the same identity
+  fields and `error: {code, message}`. The host MUST match all three identity
+  fields and await acceptance before success-driven modal close, context
+  teardown or interaction-memory persistence. Rejection and the 30-second
+  acknowledgement timeout MUST surface as errors without recording acceptance;
+  cancellation/unmount aborts the wait. The acknowledgement confirms claim and
+  dispatch; the existing engine event, decision payload, interaction-memory
+  toggle and JSON-safety rules remain unchanged.
 
 **Phase A — serving and security**
 
@@ -603,20 +659,38 @@ CDNs, and renders.
   `/api/panels/t/{token}/sdk/{major}/scistudio-panel.js`, and
   `/api/panels/t/{token}/lib/{name}@{version}/{path}`, built from the configured
   base path (adr-055-prefix-independence), with the path confinement of
-  `scistudio.previewers.assets.resolve_asset`. The session middleware MUST accept a
-  valid token in place of the session cookie on these paths only; this is the
-  documented exception recorded in `docs/specs/adr-055-enterprise-support.md`.
+  `scistudio.previewers.assets.resolve_asset`. The installed ADR-055 identity
+  guard MUST delegate the literal `/api/panels/t/` subtree through
+  `register_self_authenticating_prefix`; these routes validate their own token
+  without a session cookie. Catalog, context, read, renewal and close operations
+  remain behind the installed guard. No Lab-specific middleware is added.
 - **FR-027**: Token-scoped responses MUST allow cross-origin reads
   (`Access-Control-Allow-Origin: *`, no credentials) and carry
   `Referrer-Policy: no-referrer`; their file-type allowlist MUST add `.html`,
   `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.ttf`, `.otf`, and `.wasm` to today's
   set. No other API route may send permissive CORS headers.
+  The static mount token MUST NOT authorize artifact data. The backend's
+  `artifact.file` result uses a separate grant bound to one context-authorized
+  target; the host validates the local grant route and consumes it with no
+  redirects, enforcing a 100 MiB limit against declared size and streamed bytes.
+  Body consumption has its own 30-second deadline after response headers.
+  It transfers the bytes over the context's MessageChannel. The SDK creates a
+  frame-local blob URL, revokes the previous artifact URL on replacement and all
+  remaining URLs on disposal. Context close aborts host transfers and revokes
+  backend grants. The frame does not fetch the grant URL; `connect-src 'none'`
+  remains unchanged. This transfer contract does not establish Phase B PDF.js
+  rendering or companion-asset parity (#2294).
 - **FR-028**: Panel HTML responses MUST carry a Content-Security-Policy with
   `connect-src 'none'`; `script-src`, `style-src`, and `font-src` limited to the
   token-scoped path, `'unsafe-inline'`, and the CDN allowlist hosts; and
   `img-src` limited to the token-scoped path, `data:`, and `blob:`.
 - **FR-029**: The host MUST dispose a panel frame, and close its context, when the
-  frame loads any document other than its panel entry.
+  frame loads any document other than its panel entry. The first load event is
+  not proof of entry identity: without FR-016's valid document-bound bootstrap,
+  the host MUST withhold input and initialization. The existing ten-second
+  readiness deadline includes a missing entry handshake. A navigation before
+  initialization destroys the original document's bootstrap port, so the new
+  document receives no input; subsequent frame loads dispose the mount.
 - **FR-030**: The backend MUST refuse `POST`, `PUT`, `PATCH`, and `DELETE`
   requests whose `Origin` header is `null`, on every route.
 - **FR-031**: The backend MUST refuse to start when `SCISTUDIO_CORS_ORIGINS`
@@ -664,7 +738,9 @@ CDNs, and renders.
   with the resolved panel id and the mount's latest view state; the tab MUST keep
   its `preview:<ref>` dedup and drop rule; dropping or closing a tab MUST dispose
   its frames and close its contexts; Data-tree open and the type-change chip MUST
-  re-resolve the panel for the chosen type.
+  re-resolve the panel for the chosen type. A maximized child MUST carry its
+  `previewSessionId` so its independent frozen authority survives parent-frame
+  teardown, including for composite slots absent from the top-level catalog.
 
 **Phase B — core migration**
 

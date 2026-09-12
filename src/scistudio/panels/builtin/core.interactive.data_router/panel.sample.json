@@ -1,0 +1,16 @@
+{
+  "context": "interactive",
+  "input": {
+    "input_ports": ["input_1", "input_2"],
+    "items_per_port": {
+      "input_1": [
+        { "index": 0, "port": "input_1", "ref": "input_1:0", "name": "alpha.csv", "type": "DataFrame" },
+        { "index": 1, "port": "input_1", "ref": "input_1:1", "name": "beta.csv", "type": "DataFrame" }
+      ],
+      "input_2": [
+        { "index": 0, "port": "input_2", "ref": "input_2:0", "name": "gamma.csv", "type": "DataFrame" }
+      ]
+    },
+    "output_ports": ["kept", "discarded"]
+  }
+}

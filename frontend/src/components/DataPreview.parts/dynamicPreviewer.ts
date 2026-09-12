@@ -115,6 +115,8 @@ function injectManifestCss(manifest: PreviewerManifest): void {
  * Validate + import + mount a dynamic previewer. Resolves to a {@link LoadResult}.
  * Never throws.
  */
+const warnedLegacyModules = new Set<string>();
+
 export async function mountDynamicPreviewer(
   manifest: PreviewerManifest,
   container: HTMLElement,
@@ -145,6 +147,12 @@ export async function mountDynamicPreviewer(
   try {
     // ADR-055 Spec 0: the manifest emits a backend-relative URL; import the
     // prefixed form so the module resolves under a mounted prefix.
+    if (!warnedLegacyModules.has(manifest.module_url)) {
+      warnedLegacyModules.add(manifest.module_url);
+      console.warn(
+        `Legacy panel module ${manifest.module_url} is deprecated through 0.5.x; migrate to a panel folder before 0.6 (#2288).`,
+      );
+    }
     mod = await importer(apiUrl(manifest.module_url));
   } catch (err) {
     return {

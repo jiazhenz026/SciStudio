@@ -130,7 +130,7 @@ class TestCORSOrigins:
         monkeypatch.delenv("SCISTUDIO_CORS_ORIGINS", raising=False)  # type: ignore[union-attr]
         app = create_app()
         cors_mw = next(
-            (m for m in app.user_middleware if m.cls is CORSMiddleware),
+            (m for m in app.user_middleware if issubclass(m.cls, CORSMiddleware)),
             None,
         )
         assert cors_mw is not None
@@ -140,22 +140,17 @@ class TestCORSOrigins:
         assert "*" not in allowed
 
     def test_cors_env_var_wildcard(self, monkeypatch: object) -> None:
-        """SCISTUDIO_CORS_ORIGINS=* allows all origins."""
+        """ADR-054 FR-031 refuses a global wildcard grant at startup."""
         monkeypatch.setenv("SCISTUDIO_CORS_ORIGINS", "*")  # type: ignore[union-attr]
-        app = create_app()
-        cors_mw = next(
-            (m for m in app.user_middleware if m.cls is CORSMiddleware),
-            None,
-        )
-        assert cors_mw is not None
-        assert cors_mw.kwargs.get("allow_origins") == ["*"]
+        with pytest.raises(ValueError, match="SCISTUDIO_CORS_ORIGINS"):
+            create_app()
 
     def test_cors_env_var_custom(self, monkeypatch: object) -> None:
         """SCISTUDIO_CORS_ORIGINS with custom comma-separated origins."""
         monkeypatch.setenv("SCISTUDIO_CORS_ORIGINS", "http://localhost:3000, http://localhost:4000")  # type: ignore[union-attr]
         app = create_app()
         cors_mw = next(
-            (m for m in app.user_middleware if m.cls is CORSMiddleware),
+            (m for m in app.user_middleware if issubclass(m.cls, CORSMiddleware)),
             None,
         )
         assert cors_mw is not None

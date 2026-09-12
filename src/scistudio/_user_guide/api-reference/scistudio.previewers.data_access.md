@@ -12,7 +12,7 @@ Self-contained public-API reference — 11 symbols from this module's `__all__`,
 
 ```python
 class ArrayPlane
-ArrayPlane(shape: 'list[int]', axes: 'list[str]', dtype: 'str', slice_axis_name: 'str | None', slice_axis_size: 'int | None', slice_index: 'int | None', slice_axes: 'list[SliceAxis]', matrix: 'list[list[float | None]]', vmin: 'float | None', vmax: 'float | None', truncated: 'bool', ndim: 'int') -> None
+ArrayPlane(shape: 'list[int]', axes: 'list[str]', dtype: 'str', slice_axis_name: 'str | None', slice_axis_size: 'int | None', slice_index: 'int | None', slice_axes: 'list[SliceAxis]', matrix: 'list[list[float | str]]', vmin: 'float | None', vmax: 'float | None', truncated: 'bool', ndim: 'int') -> None
 ```
 
 A bounded 2-D plane sliced out of an N-D array, with axis metadata.
@@ -29,7 +29,7 @@ extra axis).
 
 ```python
 class ArrayTile
-ArrayTile(y0: 'int', x0: 'int', height: 'int', width: 'int', matrix: 'list[list[float]]') -> None
+ArrayTile(y0: 'int', x0: 'int', height: 'int', width: 'int', matrix: 'list[list[float | str]]') -> None
 ```
 
 A bounded rectangular tile read out of a 2-D array plane.
@@ -58,7 +58,7 @@ files return metadata only.
 
 ```python
 class CollectionSample
-CollectionSample(count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]', sampled: 'bool') -> None
+CollectionSample(count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]', sampled: 'bool', next_cursor: 'str | None' = None, page: 'int | None' = None, page_size: 'int | None' = None, total_pages: 'int | None' = None) -> None
 ```
 
 A bounded sample of a collection's items.
@@ -94,7 +94,7 @@ render a pager. The page size is capped by the session row budget.
 
 ```python
 class PreviewDataAccess
-PreviewDataAccess(*, max_rows: 'int' = 200, max_bytes: 'int' = 8388608, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256, text_chars: 'int' = 5000, series_points: 'int' = 256) -> 'None'
+PreviewDataAccess(*, max_rows: 'int' = 200, max_bytes: 'int' = 20971520, max_items: 'int' = 100, max_tile: 'int' = 256, max_dim: 'int' = 256, text_chars: 'int' = 5000, series_points: 'int' = 256) -> 'None'
 ```
 
 The bounded reader a provider uses for every payload read.
@@ -118,13 +118,14 @@ Example:
 - `table_xy_points(self, ref: 'StorageReference', *, x_column: 'str | None' = None, y_column: 'str | None' = None) -> 'TableXYPoints'` — `provisional` · Since `0.3.1` — Return all finite x/y points from two Parquet table columns.
 - `array_plane(self, ref: 'StorageReference', *, slice_index: 'int' = 0, axis_indices: 'dict[int, int] | None' = None) -> 'ArrayPlane'` — `provisional` · Since `0.3.1` — Return array shape/axes metadata plus one bounded, downsampled 2-D plane.
 - `array_tile(self, ref: 'StorageReference', *, slice_index: 'int' = 0, y0: 'int' = 0, x0: 'int' = 0, height: 'int | None' = None, width: 'int | None' = None) -> 'ArrayTile'` — `provisional` · Since `0.3.1` — Read one bounded rectangular tile from a 2-D plane.
-- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]') -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
-- `text_chunk(self, ref: 'StorageReference') -> 'TextChunk'` — `provisional` · Since `0.3.1` — Return a bounded chunk of text plus a truncation marker.
+- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]', *, max_points: 'int | None' = None) -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
+- `text_chunk(self, ref: 'StorageReference', *, offset: 'int' = 0, length: 'int | None' = None) -> 'TextChunk'` — `provisional` · Since `0.3.1` — Return a bounded chunk of text plus a truncation marker.
 - `artifact_metadata(self, ref: 'StorageReference', *, mime_type: 'str | None' = None) -> 'ArtifactInfo'` — `provisional` · Since `0.3.1` — Return bounded artifact metadata, inlining a small image as a data URI.
 - `composite_slots(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'` — `provisional` · Since `0.3.1` — Return a composite's slot inventory without rendering any child.
 - `composite_slot_ref(self, ref: 'StorageReference', slot_name: 'str') -> 'StorageReference | None'` — `provisional` · Since `0.3.1` — Resolve the storage reference for one slot of a composite target.
 - `composite_raster_slot(self, ref: 'StorageReference', slot_name: 'str' = 'raster') -> 'ArrayPlane | None'` — `provisional` · Since `0.3.1` — Bounded read of a composite's raster slot subdirectory, if present.
-- `collection_sample(self, *, count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]') -> 'CollectionSample'` — `provisional` · Since `0.3.1` — Return a bounded sample of a collection's item references.
+- `artifact_file(self, ref: 'StorageReference') -> 'Path'` — `provisional` · Since `0.3.5` — Resolve an existing artifact for the host's streaming file response.
+- `collection_sample(self, *, count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]', cursor: 'str | None' = None, limit: 'int | None' = None, page: 'int | None' = None, page_size: 'int | None' = None) -> 'CollectionSample'` — `provisional` · Since `0.3.1` — Return a bounded page of a collection's item references.
 
 ## `SeriesPoints` — _class_
 
@@ -132,13 +133,14 @@ Example:
 
 ```python
 class SeriesPoints
-SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0) -> None
+SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, sampled: 'bool' = False, complete: 'bool' = True, decimation: 'str' = 'none', nonfinite_positions: 'list[int]' = <factory>, nonfinite_positions_complete: 'bool' = True) -> None
 ```
 
 The complete finite set of (x, y) chart points for a Series preview.
 
-Unlike the bounded readers, this returns every plottable point so a line
-preview and any point export match the stored data exactly.
+Legacy calls return every plottable point. Explicit ``max_points`` opts
+into bounded uniform-index decimation for panel display, with flags and
+the method recorded so an export cannot mistake a sample for the source.
 
 ## `SliceAxis` — _class_
 
@@ -161,7 +163,7 @@ the frontend needs to render one such index picker.
 
 ```python
 class TableXYPoints
-TableXYPoints(columns: 'list[str]', x_column: 'str', y_column: 'str', points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int') -> None
+TableXYPoints(columns: 'list[str]', x_column: 'str', y_column: 'str', points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int', nonfinite_positions: 'list[int]' = <factory>) -> None
 ```
 
 The complete finite set of (x, y) points from two table columns.
@@ -172,7 +174,7 @@ The complete finite set of (x, y) points from two table columns.
 
 ```python
 class TextChunk
-TextChunk(content: 'str', truncated: 'bool', total_bytes: 'int', language: 'str') -> None
+TextChunk(content: 'str', truncated: 'bool', total_bytes: 'int', language: 'str', encoding: 'str' = 'utf-8', offset: 'int' = 0, next_offset: 'int | None' = None) -> None
 ```
 
 A bounded chunk of text plus a truncation marker.

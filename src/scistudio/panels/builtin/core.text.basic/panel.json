@@ -1,0 +1,10 @@
+{
+  "id": "core.text.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Text"],
+  "name": "Text",
+  "description": "Bounded, paged plain-text view with encoding and truncation notice (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

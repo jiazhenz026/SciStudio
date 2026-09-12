@@ -1,0 +1,198 @@
+/* SciStudio panel stylesheet (SDK major 1).
+ *
+ * One shared sheet so every panel — built-in, packaged, or agent-written —
+ * looks like the rest of the application without re-deriving its styling. The
+ * host injects the app's design tokens (--ss-ink, --ss-canvas, --ss-ember,
+ * --ss-pine, --ss-sea, --ss-sand, plus the light/dark mode flag) into the frame;
+ * the fallbacks below keep a panel readable when it is opened standalone, for
+ * example from its panel.sample.json.
+ *
+ * Link it from a panel document:
+ *   <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ *
+ * Classes are semantic, not utilities: describe what a thing IS (a card, a
+ * toolbar, a field) rather than how it looks, so the look can change centrally.
+ */
+
+:root {
+  color-scheme: light dark;
+  --ink: var(--ss-ink, 28 33 27);
+  --canvas: var(--ss-canvas, 245 241 232);
+  --ember: var(--ss-ember, 240 106 68);
+  --pine: var(--ss-pine, 46 93 80);
+  --sea: var(--ss-sea, 45 120 145);
+  --sand: var(--ss-sand, 221 196 157);
+  --surface: #fff;
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --radius-pill: 999px;
+  --gap: 8px;
+  --line: rgb(var(--ink) / 0.1);
+}
+
+* { box-sizing: border-box; }
+
+/*
+ * A preview frame is given its height by the host, and the document has to pass
+ * that height inward or nothing inside can fill it: a panel whose content was
+ * meant to take the room — a figure, an image, a plot — would sit at its natural
+ * size with the rest of the frame empty below it.
+ *
+ * An interactive frame is the other way round: it opens a window that sizes
+ * itself to the panel, so the document must be free to be as tall as its
+ * content and is measured rather than stretched. The SDK publishes which of the
+ * two this is; without it, nothing is stretched, which is the safe default.
+ */
+:root[data-panel-context="preview"],
+:root[data-panel-context="preview"] body { height: 100%; }
+
+body {
+  margin: 0;
+  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: rgb(var(--ink));
+  background: transparent;
+}
+
+/*
+ * The standard panel shell: padded column with consistent vertical rhythm,
+ * filling the frame. Children keep their natural heights, so this changes
+ * nothing for a panel that does not ask for the space; one that does gets it by
+ * putting `flex: 1; min-height: 0` on the child that should grow.
+ */
+.panel {
+  display: flex; flex-direction: column; gap: var(--gap); padding: var(--gap);
+  box-sizing: border-box;
+}
+:root[data-panel-context="preview"] .panel { min-height: 100%; }
+.panel-stack { display: flex; flex-direction: column; gap: var(--gap); }
+.panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); }
+.panel-spacer { flex: 1; }
+
+/* Card — the app's bordered white surface. */
+.panel-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  padding: 8px 12px;
+}
+.panel-card-tight { padding: 6px 8px; }
+
+/* Summary/metadata strip, e.g. "Array  shape […]  dtype float64". */
+.panel-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); font-size: 12px; color: rgb(var(--ink) / 0.7); }
+.panel-meta strong, .panel-meta .panel-meta-key { font-weight: 500; color: rgb(var(--ink)); }
+
+/* Muted helper text and section labels. */
+.panel-hint { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+.panel-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ink) / 0.6); }
+
+/* Controls. */
+.panel-button {
+  font: inherit; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-control);
+  background: var(--surface); color: rgb(var(--ink));
+  padding: 4px 10px;
+}
+.panel-button:hover { background: rgb(var(--ink) / 0.05); }
+.panel-button:disabled { opacity: 0.45; cursor: default; }
+.panel-button-primary { background: rgb(var(--ember)); border-color: rgb(var(--ember)); color: #fffdf8; }
+.panel-button-primary:hover { filter: brightness(0.95); background: rgb(var(--ember)); }
+
+.panel-input, .panel-select {
+  font: inherit; color: rgb(var(--ink));
+  border: 1px solid rgb(var(--ink) / 0.15); border-radius: 6px;
+  background: var(--surface); padding: 2px 6px;
+}
+.panel-input-number { width: 64px; text-align: right; }
+
+.panel-field { display: flex; align-items: center; gap: var(--gap); font-size: 12px; color: rgb(var(--ink) / 0.7); }
+.panel-field-name { width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-field-range { flex: 1; }
+.panel-readout { min-width: 68px; text-align: right; font-variant-numeric: tabular-nums; color: rgb(var(--ink) / 0.5); }
+
+/* Pill/badge. */
+.panel-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: var(--radius-pill); padding: 2px 8px;
+  font-size: 10px; background: rgb(var(--ink) / 0.08); color: rgb(var(--ink) / 0.7);
+}
+
+/* Scrollable data surface (tables, grids). */
+.panel-scroll {
+  max-height: 320px; overflow: auto;
+  border: 1px solid var(--line); border-radius: 12.8px;
+  background: var(--surface);
+}
+
+/* Dense numeric table with sticky headers. Headers are OPAQUE so scrolled cells
+   pass under them rather than showing through. */
+.panel-table { border-collapse: collapse; font-size: 10px; font-variant-numeric: tabular-nums; }
+.panel-table th {
+  position: sticky;
+  background: linear-gradient(rgb(var(--ink) / 0.1), rgb(var(--ink) / 0.1)), var(--surface);
+  padding: 2px 4px; font-weight: normal; color: rgb(var(--ink) / 0.45);
+}
+.panel-table thead th { top: 0; }
+.panel-table tbody th { left: 0; z-index: 10; }
+.panel-table th.panel-table-corner { left: 0; top: 0; z-index: 20; }
+.panel-table td { padding: 2px 4px; text-align: right; white-space: nowrap; }
+.panel-table td.panel-table-pad, .panel-table th.panel-table-pad { position: static; background: transparent; padding: 0; }
+.panel-table-nonfinite { font-style: italic; }
+
+/* Value-scale legend (min .. ramp .. max). */
+.panel-legend { display: flex; align-items: center; gap: var(--gap); font-size: 10px; color: rgb(var(--ink) / 0.6); }
+.panel-legend-ramp { height: 8px; flex: 1; border-radius: 4px; }
+
+/* Clickable item card used by collection/composite grids. */
+.panel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--gap); }
+.panel-item {
+  display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-card);
+  background: var(--surface); padding: 8px 12px; color: rgb(var(--ink));
+}
+.panel-item:hover { background: rgb(var(--ink) / 0.05); }
+.panel-item-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-item-sub { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+
+/* Full-width clickable row: a label over a value, with a trailing hint. */
+.panel-list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--gap);
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-card);
+  background: var(--surface); color: rgb(var(--ink)); padding: 12px 16px;
+}
+.panel-list-row:hover { background: rgb(var(--ink) / 0.05); }
+.panel-list-row-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: rgb(var(--ink) / 0.6); }
+.panel-list-row-value { display: block; margin-top: 2px; font-size: 14px; color: rgb(var(--ink)); }
+.panel-list-row-trailing { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+
+/* Pager: "rows 1–50 of 200 · page 1/4" with prev/next. Pagination is normal
+   navigation, never a caveat about the data (#1886 Part 1). */
+.panel-pager { display: flex; align-items: center; gap: var(--gap); font-size: 10px; color: rgb(var(--ink) / 0.6); }
+
+/* Icons (lucide): sized to the surrounding text. */
+.panel-icon { width: 14px; height: 14px; stroke-width: 2; vertical-align: -2px; }
+
+/* Error / empty / loading states. */
+.panel-error { color: #b3261e; padding: var(--gap); }
+.panel-empty { color: rgb(var(--ink) / 0.5); padding: var(--gap); }
+.panel-loading {
+  display: flex; align-items: center; gap: var(--gap);
+  padding: var(--gap); color: rgb(var(--ink) / 0.55);
+}
+.panel-loading-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgb(var(--ink) / 0.35);
+  animation: panel-pulse 1.1s ease-in-out infinite;
+}
+@keyframes panel-pulse {
+  0%, 100% { opacity: 0.25; transform: scale(0.85); }
+  50% { opacity: 0.8; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-loading-dot { animation: none; opacity: 0.5; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root { --surface: rgb(var(--ink) / 0.06); }
+}

@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.select_option",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

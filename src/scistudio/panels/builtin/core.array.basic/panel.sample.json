@@ -1,0 +1,46 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-array", "kind": "data_ref", "recorded_type": "Array" },
+  "reads": {
+    "array.plane": {
+      "source_shape": [4, 4],
+      "source_dtype": "float64",
+      "dtype": "<f8",
+      "shape": [4, 4],
+      "axes": ["y", "x"],
+      "slice_axes": [],
+      "vmin": -1.0,
+      "vmax": 3.0,
+      "sampled": false,
+      "truncated": false,
+      "complete": true,
+      "values": [
+        [0.0, 1.5, "NaN", 3.0],
+        [-1.0, 0.25, 2.0, "Infinity"],
+        [0.5, "-Infinity", 1.0, 2.5],
+        [1.0, 1.25, 0.75, 3.0]
+      ]
+    },
+    "array.tile": {
+      "source_shape": [4, 4],
+      "source_dtype": "float64",
+      "dtype": "<f8",
+      "shape": [4, 4],
+      "axes": ["y", "x"],
+      "slice_axes": [],
+      "y0": 0,
+      "x0": 0,
+      "height": 4,
+      "width": 4,
+      "sampled": false,
+      "truncated": false,
+      "complete": true,
+      "values": [
+        [0.0, 1.5, "NaN", 3.0],
+        [-1.0, 0.25, 2.0, "Infinity"],
+        [0.5, "-Infinity", 1.0, 2.5],
+        [1.0, 1.25, 0.75, 3.0]
+      ]
+    }
+  }
+}

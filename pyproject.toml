@@ -158,6 +158,9 @@ scistudio = [
     # has a Learning Center whose schema fails to load and whose catalogue is
     # empty, and ``wheel-release-smoke`` would not notice because it inspects
     # the SPA bundle only. Same failure class as #824 and #2032.
+    "panels/sdk/**/*",
+    "panels/lib/**/*",
+    "panels/builtin/**/*",
     "tutorials/schema/*.json",
     "tutorials/core/**/*",
 ]

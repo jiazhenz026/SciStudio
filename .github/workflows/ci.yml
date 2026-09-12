@@ -130,8 +130,16 @@ jobs:
         # ``--timeout=60`` (pytest-timeout) hard-kills any test that hangs
         # past 60 s and prints its traceback, so a stuck CI surfaces a
         # diagnosable failure instead of timing out the whole job at 6 h.
-        # ``timeout 600`` is a belt-and-suspenders shell-level kill in
+        # ``timeout 900`` is a belt-and-suspenders shell-level kill in
         # case pytest-timeout itself wedges (xdist + pty edge cases).
+        #
+        # It is a guard against a wedge, not a performance budget, so it has to
+        # sit well clear of how long the suite honestly takes. At 600 s it no
+        # longer did: the 3.13 parallel phase runs to about that, and a limit
+        # equal to the runtime killed runs that were still making progress — the
+        # same commit passing and failing on consecutive runs (#2369). Keep the
+        # headroom when changing this; a guard that fires on a healthy suite
+        # reports a hang that is not there and hides the one that is.
         #
         # Two-phase run (#1896): the parallel bulk first (deselecting the
         # ``serial`` marker), then the ``serial`` PTY/subprocess/thread tests
@@ -151,18 +159,18 @@ jobs:
             cov_parallel=""
             cov_serial=""
           fi
-          timeout 600 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread $cov_parallel
+          timeout 900 pytest -n auto -m "not serial" $nocov --timeout=60 --timeout-method=thread $cov_parallel
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
-            echo "::error::pytest parallel phase exceeded 600s shell timeout (hang escaped --timeout=60)"
+            echo "::error::pytest parallel phase exceeded 900s shell timeout (hang escaped --timeout=60)"
           fi
           if [ $rc -ne 0 ]; then exit $rc; fi
-          timeout 600 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread $cov_serial
+          timeout 900 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread $cov_serial
           rc=$?
           if [ $rc -eq 5 ]; then rc=0; fi
           if [ $rc -eq 124 ]; then
-            echo "::error::pytest serial phase exceeded 600s shell timeout (hang escaped --timeout=60)"
+            echo "::error::pytest serial phase exceeded 900s shell timeout (hang escaped --timeout=60)"
           fi
           exit $rc
 

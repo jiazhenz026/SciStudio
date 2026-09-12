@@ -95,7 +95,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
       show_source: false
       heading_level: 4
       members_order: source
-      filters: ["!^_", "!^png_data_uri$"]
+      filters: ["!^_", "!^panel_array_plane$", "!^panel_array_tile$", "!^panel_series_points$", "!^panel_table_xy$", "!^png_data_uri$"]
 
 ## `SeriesPoints` — _class_
 

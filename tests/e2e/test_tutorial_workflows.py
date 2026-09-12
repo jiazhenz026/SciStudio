@@ -91,9 +91,9 @@ def terminations(record: dict[str, Any]) -> dict[str, str]:
     return {be["block_id"]: be["termination"] for be in record["block_executions"]}
 
 
-def column_names(envelope: dict[str, Any]) -> list[str]:
-    columns = envelope["payload"]["columns"]
-    return [column["name"] if isinstance(column, dict) else str(column) for column in columns]
+def column_names(page: dict[str, Any]) -> list[str]:
+    """The column names a table read reports, whichever shape it names them in."""
+    return [column["name"] if isinstance(column, dict) else str(column) for column in page["columns"]]
 
 
 def review_project(backend: Backend, projects_dir: Path, name: str) -> Project:
@@ -141,11 +141,18 @@ def test_welcome_workflow_normalizes_the_plate_and_saves_it(
     assert mean(by_condition["pos_control"]) == pytest.approx(1.0, abs=1e-9)
     assert 0.0 < mean(by_condition["treated_1uM"]) < mean(by_condition["treated_5uM"]) < 1.0
 
-    # The block's output is previewable the way the GUI opens it.
+    # The block's output is previewable the way the GUI opens it: the session
+    # names the panel to mount, and the rows arrive through that panel's own
+    # read rather than in the envelope (ADR-054 Phase B).
     ref = normalized_done["data"]["outputs"]["normalized"]["data_ref"]
-    envelope = backend.open_preview(ref, {"page": 1, "page_size": 50})
-    assert "normalized_activity" in column_names(envelope)
-    assert envelope["payload"]["total_rows"] == 12
+    envelope = backend.open_preview(ref)
+    assert envelope["kind"] == "panel", envelope
+    assert envelope["panel"]["id"] == "core.dataframe.basic", envelope
+
+    context = backend.open_panel(ref)
+    page = backend.panel_read(context, ref, "table.page", {"page": 1, "page_size": 50})
+    assert "normalized_activity" in column_names(page)
+    assert page["total"] == 12
 
 
 def test_ai_tutorial_fits_the_ic50_from_the_doses_the_ai_block_read(

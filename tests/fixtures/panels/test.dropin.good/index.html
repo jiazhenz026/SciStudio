@@ -1,0 +1,10 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Interactive fixture</title></head>
+<body><pre id="prompt"></pre><button id="confirm">Confirm</button>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script>
+scistudio.ready().then(() => {
+  document.querySelector('#prompt').textContent = JSON.stringify(scistudio.input);
+  document.querySelector('#confirm').onclick = () => scistudio.writeBack({selected: true});
+});
+</script></body></html>
