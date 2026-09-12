@@ -62,7 +62,13 @@ function stubHost({
     ready: () => Promise.resolve(api),
     read: (op: string, params: Record<string, unknown> = {}) => {
       if (op === "artifact.info") {
-        return Promise.resolve({ name, path: `/runs/${name}`, mime_type: mime, size: 128, formats });
+        return Promise.resolve({
+          name,
+          path: `/runs/${name}`,
+          mime_type: mime,
+          size: 128,
+          formats,
+        });
       }
       if (op === "artifact.file") {
         const variant = params.variant as string | undefined;
@@ -78,7 +84,12 @@ function stubHost({
             url: `blob:${variant}`,
           });
         }
-        return Promise.resolve({ name, mime_type: mime, data: new ArrayBuffer(8), url: "blob:primary" });
+        return Promise.resolve({
+          name,
+          mime_type: mime,
+          data: new ArrayBuffer(8),
+          url: "blob:primary",
+        });
       }
       return Promise.reject(Object.assign(new Error(`no read ${op}`), { code: "not_found" }));
     },
@@ -212,7 +223,9 @@ describe("core.plot.basic — saving in a format the run rendered (#1918)", () =
     const select = testid("plot-format-select") as HTMLSelectElement;
     select.value = "pdf";
     select.dispatchEvent(new Event("change", { bubbles: true }));
-    await vi.waitFor(() => expect(saveButton().getAttribute("aria-label")).toBe("Save plot as pdf"));
+    await vi.waitFor(() =>
+      expect(saveButton().getAttribute("aria-label")).toBe("Save plot as pdf"),
+    );
 
     saveButton().click();
     /*

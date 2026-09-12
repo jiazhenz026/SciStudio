@@ -100,7 +100,11 @@ function measure(highlight: TutorialHighlightView | null): HighlightRect | null 
    * collection viewer became a panel. The frame measures its own element and
    * reports the box; `panelHighlightRect` adds the frame's current position.
    */
-  if (!element) return panelHighlightRect(highlight.target, tutorialTargetKey(highlight.target, highlight.args));
+  if (!element)
+    return panelHighlightRect(
+      highlight.target,
+      tutorialTargetKey(highlight.target, highlight.args),
+    );
   const box = boxOf(element);
   if (!box) return null;
   const panel = expandedPanelOf(element);
@@ -135,7 +139,11 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
       target === null ? null : { target, args: JSON.parse(args) };
     // Any mounted panel frame starts measuring this target, and stops when the
     // step stops pointing at anything.
-    requestPanelHighlight(view === null ? null : { target: view.target, key: tutorialTargetKey(view.target, view.args) });
+    requestPanelHighlight(
+      view === null
+        ? null
+        : { target: view.target, key: tutorialTargetKey(view.target, view.args) },
+    );
     let frame = 0;
 
     const tick = () => {

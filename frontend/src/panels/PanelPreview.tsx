@@ -86,7 +86,10 @@ export function PanelPreview({
           ← Back
         </button>
       ) : null}
-      <div className={child === null ? "flex min-h-0 flex-1 flex-col" : undefined} hidden={child !== null}>
+      <div
+        className={child === null ? "flex min-h-0 flex-1 flex-col" : undefined}
+        hidden={child !== null}
+      >
         <PanelFrame
           request={root}
           onFallback={onFallback}

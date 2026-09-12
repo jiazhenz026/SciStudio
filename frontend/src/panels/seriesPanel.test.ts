@@ -92,10 +92,7 @@ const POINTS = [
  * then row-wise pairs — and rendered every series as empty, so this fixture is
  * built from what the route was observed to emit.
  */
-function seriesRead(
-  points: Array<{ x: number; y: number }>,
-  extra: Record<string, unknown> = {},
-) {
+function seriesRead(points: Array<{ x: number; y: number }>, extra: Record<string, unknown> = {}) {
   return {
     index: points.map((p) => p.x),
     values: points.map((p) => p.y),
@@ -181,7 +178,14 @@ describe("core.series.basic — the read contract", () => {
     expect(readPoints({})).toEqual([]);
     expect(readPoints(seriesRead([]))).toEqual([]);
     // The binary transport's row-wise JSON form is still understood.
-    expect(readPoints({ values: [[0, 1], [1, 4]] })).toEqual([
+    expect(
+      readPoints({
+        values: [
+          [0, 1],
+          [1, 4],
+        ],
+      }),
+    ).toEqual([
       { x: 0, y: 1 },
       { x: 1, y: 4 },
     ]);

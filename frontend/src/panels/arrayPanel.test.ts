@@ -206,9 +206,7 @@ describe("core.array.basic — the rendered surface", () => {
   it("shows the shape, dtype and axes summary", async () => {
     stubHost({ "array.plane": PLANE_3x3, "array.tile": TILE_3x3 });
     await loadPanelModule();
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=array-info]")).toBeTruthy(),
-    );
+    await vi.waitFor(() => expect(root().querySelector("[data-testid=array-info]")).toBeTruthy());
     const info = root().querySelector("[data-testid=array-info]")?.textContent ?? "";
     expect(info).toContain("Array");
     expect(info).toContain("shape [3, 3]");
@@ -273,7 +271,17 @@ describe("core.array.basic — per-axis slice controls", () => {
     vmin: 0,
     vmax: 1,
   };
-  const ND_TILE = { ...ND_PLANE, y0: 0, x0: 0, height: 2, width: 2, values: [[0, 1], [1, 0]] };
+  const ND_TILE = {
+    ...ND_PLANE,
+    y0: 0,
+    x0: 0,
+    height: 2,
+    width: 2,
+    values: [
+      [0, 1],
+      [1, 0],
+    ],
+  };
 
   it("renders one control per non-displayed axis", async () => {
     stubHost({ "array.plane": ND_PLANE, "array.tile": ND_TILE });

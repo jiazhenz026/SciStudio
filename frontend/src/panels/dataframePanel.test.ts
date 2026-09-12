@@ -150,7 +150,9 @@ describe("core.dataframe.basic — the rendered table", () => {
   it("renders the page's rows under their column headers", async () => {
     stubHost(TABLE, COLUMNS);
     await loadPanelModule();
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy(),
+    );
 
     expect(headers().map((th) => th.textContent)).toEqual(COLUMNS);
     expect(cells()).toEqual(["1", "9.5000", "a", "2", "3.2500", "b"]);
@@ -170,7 +172,9 @@ describe("core.dataframe.basic — the rendered table", () => {
   it("shows no truncation badge for a complete paged table (#1886 Part 1)", async () => {
     stubHost(TABLE, COLUMNS);
     await loadPanelModule();
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy(),
+    );
 
     const text = (root().textContent ?? "").toLowerCase();
     // Pagination is navigation, not a caveat about the data.
@@ -225,7 +229,9 @@ describe("core.dataframe.basic — paging reaches every row", () => {
       const box = byLabel("Jump to page") as HTMLInputElement;
       box.value = value;
       box.dispatchEvent(new Event("input", { bubbles: true }));
-      await vi.waitFor(() => expect((byLabel("Jump to page") as HTMLInputElement).value).toBe(value));
+      await vi.waitFor(() =>
+        expect((byLabel("Jump to page") as HTMLInputElement).value).toBe(value),
+      );
       (byLabel("Jump to page") as HTMLInputElement).dispatchEvent(
         new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
       );
@@ -309,7 +315,6 @@ describe("core.dataframe.basic — edge cases", () => {
   });
 });
 
-
 describe("core.dataframe.basic — a wide table stays responsive", () => {
   it("keeps only the columns in view in the DOM, and reaches the rest by scrolling", async () => {
     // A feature matrix is thousands of columns wide; rendering a cell per column
@@ -320,10 +325,14 @@ describe("core.dataframe.basic — a wide table stays responsive", () => {
     columns.forEach((c, i) => (row[c] = i));
     stubHost([row, { ...row }], columns, 2);
     await loadPanelModule();
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy());
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=dataframe-table]")).toBeTruthy(),
+    );
 
     const rendered = () =>
-      [...root().querySelectorAll("thead th")].filter((th) => !th.classList.contains("dataframe-pad"));
+      [...root().querySelectorAll("thead th")].filter(
+        (th) => !th.classList.contains("dataframe-pad"),
+      );
     expect(rendered().length).toBeGreaterThan(0);
     expect(rendered().length).toBeLessThan(100);
     // The first columns are the ones on screen.

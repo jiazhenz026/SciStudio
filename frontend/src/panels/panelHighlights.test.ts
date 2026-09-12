@@ -22,7 +22,16 @@ import {
 function frameAt(top: number, left: number, width = 800, height = 600): HTMLIFrameElement {
   const element = document.createElement("iframe");
   element.getBoundingClientRect = () =>
-    ({ top, left, width, height, right: left + width, bottom: top + height, x: left, y: top }) as DOMRect;
+    ({
+      top,
+      left,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height,
+      x: left,
+      y: top,
+    }) as DOMRect;
   document.body.appendChild(element);
   return element;
 }
@@ -76,7 +85,11 @@ describe("turning a frame-local box into a host one", () => {
 
   it("follows the frame when the host scrolls, with no new report", () => {
     const frame = frameAt(100, 50);
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 10, left: 0, width: 5, height: 5 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 10, left: 0, width: 5, height: 5 },
+    );
     expect(panelHighlightRect("x", null)?.top).toBe(110);
 
     // The host scrolled; only the frame moved, and the panel has no way to know.
@@ -86,7 +99,11 @@ describe("turning a frame-local box into a host one", () => {
 
   it("answers only for the target and key that were asked about", () => {
     const frame = frameAt(0, 0);
-    reportPanelHighlight(frame, { target: "preview_item", key: "0" }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "preview_item", key: "0" },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
 
     expect(panelHighlightRect("preview_item", "0")).not.toBeNull();
     expect(panelHighlightRect("preview_item", "1")).toBeNull();
@@ -95,7 +112,11 @@ describe("turning a frame-local box into a host one", () => {
 
   it("reports nothing for a target the frame says it does not have", () => {
     const frame = frameAt(0, 0);
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
     reportPanelHighlight(frame, { target: "x", key: null }, null);
     expect(panelHighlightRect("x", null)).toBeNull();
   });
@@ -104,7 +125,11 @@ describe("turning a frame-local box into a host one", () => {
 describe("not pointing at a frame that is gone", () => {
   it("ignores a frame that has left the document", () => {
     const frame = frameAt(0, 0);
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
     frame.remove();
     // Otherwise a closed panel would keep a ring on screen over whatever
     // replaced it.
@@ -113,13 +138,21 @@ describe("not pointing at a frame that is gone", () => {
 
   it("ignores a frame that is mounted but not laid out", () => {
     const frame = frameAt(0, 0, 0, 0);
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
     expect(panelHighlightRect("x", null)).toBeNull();
   });
 
   it("forgets a frame on request", () => {
     const frame = frameAt(0, 0);
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
     forgetPanelHighlight(frame);
     expect(panelHighlightRect("x", null)).toBeNull();
   });
@@ -127,7 +160,11 @@ describe("not pointing at a frame that is gone", () => {
   it("drops every report when the step stops pointing at anything", () => {
     const frame = frameAt(0, 0);
     requestPanelHighlight({ target: "x", key: null });
-    reportPanelHighlight(frame, { target: "x", key: null }, { top: 1, left: 1, width: 2, height: 2 });
+    reportPanelHighlight(
+      frame,
+      { target: "x", key: null },
+      { top: 1, left: 1, width: 2, height: 2 },
+    );
     requestPanelHighlight(null);
     // A stale box from the previous step must not answer the next one.
     expect(panelHighlightRect("x", null)).toBeNull();

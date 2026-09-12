@@ -193,9 +193,7 @@ describe("core.interactive.pair_editor — the surface", () => {
 
     // Move input_1's first item down to the third row → [1, 2, 0].
     dragTo(testid("pair-input_1-row-0")!, testid("pair-input_1-row-2")!);
-    await vi.waitFor(() =>
-      expect(testid("pair-input_1-row-0")?.textContent).toContain("s1"),
-    );
+    await vi.waitFor(() => expect(testid("pair-input_1-row-0")?.textContent).toContain("s1"));
     confirm().click();
 
     expect(api.writeBack).toHaveBeenCalledWith({

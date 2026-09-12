@@ -105,10 +105,7 @@ export function forgetPanelHighlight(frame: HTMLIFrameElement): void {
  * The frame's position is read now rather than when the panel reported, so the
  * ring follows the host's own scrolling and resizing for free.
  */
-export function panelHighlightRect(
-  target: string,
-  key: string | null,
-): PanelHighlightRect | null {
+export function panelHighlightRect(target: string, key: string | null): PanelHighlightRect | null {
   for (const entry of reported.values()) {
     if (entry.request.target !== target || entry.request.key !== key) continue;
     if (!entry.frame.isConnected) continue;

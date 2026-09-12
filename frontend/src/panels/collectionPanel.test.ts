@@ -98,9 +98,9 @@ afterEach(() => {
 describe("core.collection.basic — item labels", () => {
   it("prefers the backend-resolved display name", async () => {
     const { itemLabel } = await loadPanelModule();
-    expect(
-      itemLabel({ ref: "data-2330b123", display_name: "sample.tif", metadata: {} }),
-    ).toBe("sample.tif");
+    expect(itemLabel({ ref: "data-2330b123", display_name: "sample.tif", metadata: {} })).toBe(
+      "sample.tif",
+    );
   });
 
   it("derives the source filename from loader metadata, not the data ref", async () => {
@@ -112,15 +112,22 @@ describe("core.collection.basic — item labels", () => {
         data_ref: "data-2330b123456789",
         metadata: {
           framework: {
-            source: "C:/Users/<user>/Desktop/workspace/Example/array/random_10x30x30x30_float32.npy",
+            source:
+              "C:/Users/<user>/Desktop/workspace/Example/array/random_10x30x30x30_float32.npy",
           },
         },
       }),
     ).toBe("random_10x30x30x30_float32.npy");
 
-    expect(itemLabel({ ref: "r", metadata: { source_file: "/data/scan_01.tif" } })).toBe("scan_01.tif");
-    expect(itemLabel({ ref: "r", metadata: { meta: { file_path: "/data/b/plate.csv" } } })).toBe("plate.csv");
-    expect(itemLabel({ ref: "r", metadata: { user: { display_name: "Sheet 2" } } })).toBe("Sheet 2");
+    expect(itemLabel({ ref: "r", metadata: { source_file: "/data/scan_01.tif" } })).toBe(
+      "scan_01.tif",
+    );
+    expect(itemLabel({ ref: "r", metadata: { meta: { file_path: "/data/b/plate.csv" } } })).toBe(
+      "plate.csv",
+    );
+    expect(itemLabel({ ref: "r", metadata: { user: { display_name: "Sheet 2" } } })).toBe(
+      "Sheet 2",
+    );
   });
 
   it("treats a package name as provenance, not a filename", async () => {
@@ -253,7 +260,13 @@ describe("core.collection.basic — every item is reachable (#1886 B)", () => {
 
   it("stops when a cursor returns no further items", async () => {
     const { ops } = stubHost({
-      input: { ref: "c", count: 500, item_type: "Image", items: makeItems(0, 10), next_cursor: "c1" },
+      input: {
+        ref: "c",
+        count: 500,
+        item_type: "Image",
+        items: makeItems(0, 10),
+        next_cursor: "c1",
+      },
       // A cursor that keeps pointing forward while returning nothing must not
       // spin: an empty page ends the walk.
       reads: { "collection.items": { count: 500, items: [], next_cursor: "c2" } },
@@ -266,7 +279,13 @@ describe("core.collection.basic — every item is reachable (#1886 B)", () => {
 
   it("surfaces a failed page read", async () => {
     const { api } = stubHost({
-      input: { ref: "c", count: 200, item_type: "Image", items: makeItems(0, 100), next_cursor: "c1" },
+      input: {
+        ref: "c",
+        count: 200,
+        item_type: "Image",
+        items: makeItems(0, 100),
+        next_cursor: "c1",
+      },
       reads: {},
     });
     await loadPanelModule();

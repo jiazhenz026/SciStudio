@@ -54,10 +54,7 @@ function metadataRead(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function stubHost(
-  meta: Record<string, unknown>,
-  file: Record<string, unknown> | null = null,
-) {
+function stubHost(meta: Record<string, unknown>, file: Record<string, unknown> | null = null) {
   const api = {
     input: { ref: "o", kind: "data_ref" },
     viewState: {},

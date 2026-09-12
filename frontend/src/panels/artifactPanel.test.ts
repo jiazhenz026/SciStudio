@@ -62,7 +62,10 @@ function info(overrides: Record<string, unknown> = {}) {
  * `file` may be `null` to model a grant that fails while the metadata read
  * succeeds — the two are separately authorized reads, not one call.
  */
-function stubHost(infoResult: Record<string, unknown>, fileUrl: string | null = "/api/panels/t/tok/artifact/g1") {
+function stubHost(
+  infoResult: Record<string, unknown>,
+  fileUrl: string | null = "/api/panels/t/tok/artifact/g1",
+) {
   const api = {
     input: { ref: "art", kind: "data_ref" },
     viewState: {},
@@ -170,7 +173,9 @@ describe("core.artifact.basic — the card the viewer showed", () => {
 
 describe("core.artifact.basic — artifacts with no picture", () => {
   it("shows the metadata and says why there is no inline view", async () => {
-    stubHost(info({ name: "report.bin", path: "/p/report.bin", mime_type: "application/octet-stream" }));
+    stubHost(
+      info({ name: "report.bin", path: "/p/report.bin", mime_type: "application/octet-stream" }),
+    );
     await loadPanelModule();
     await vi.waitFor(() => expect(testid("artifact-inline-notice")).toBeTruthy());
 

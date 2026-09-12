@@ -27,7 +27,9 @@ let preact: { html: unknown; render: (v: unknown, el: Element) => void };
 async function importPanelModule(file: string, rewrite?: (src: string) => string) {
   const source = readFileSync(file, "utf8");
   const body = rewrite ? rewrite(source) : source;
-  return import(/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(body).toString("base64")}`);
+  return import(
+    /* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(body).toString("base64")}`
+  );
 }
 
 beforeAll(async () => {
@@ -51,9 +53,28 @@ function mount(vnode: unknown): HTMLElement {
 describe("panel-ui — every component renders a DOM node", () => {
   it("exports the documented set", () => {
     for (const name of [
-      "Panel", "Stack", "Row", "Spacer", "Card", "Meta", "Hint", "Label", "Badge",
-      "Button", "Input", "Select", "Field", "ScrollArea", "Table", "Legend",
-      "ItemGrid", "Item", "Pager", "Icon", "ErrorState", "EmptyState",
+      "Panel",
+      "Stack",
+      "Row",
+      "Spacer",
+      "Card",
+      "Meta",
+      "Hint",
+      "Label",
+      "Badge",
+      "Button",
+      "Input",
+      "Select",
+      "Field",
+      "ScrollArea",
+      "Table",
+      "Legend",
+      "ItemGrid",
+      "Item",
+      "Pager",
+      "Icon",
+      "ErrorState",
+      "EmptyState",
     ]) {
       expect(typeof ui[name], `${name} is exported`).toBe("function");
     }
@@ -90,7 +111,18 @@ describe("panel-ui — props reach the DOM", () => {
     // A plain `ref` on a function component silently resolves to the component;
     // every container in this set takes `elementRef` instead. This is the bug
     // that broke the array panel's scroll measurement.
-    for (const name of ["Panel", "Stack", "Row", "Card", "ScrollArea", "Table", "ItemGrid", "Item", "Button", "Input"]) {
+    for (const name of [
+      "Panel",
+      "Stack",
+      "Row",
+      "Card",
+      "ScrollArea",
+      "Table",
+      "ItemGrid",
+      "Item",
+      "Button",
+      "Input",
+    ]) {
       const box: { current: unknown } = { current: null };
       mount(html`<${ui[name] as never} elementRef=${box} />`);
       expect(box.current, `${name} elementRef is an element`).toBeInstanceOf(HTMLElement);
@@ -116,7 +148,10 @@ describe("panel-ui — props reach the DOM", () => {
     const host = mount(html`
       <div>
         <${ui.Button as never} onClick=${() => (clicked += 1)}>go<//>
-        <${ui.Input as never} value="a" onInput=${(e: Event) => (typed = (e.target as HTMLInputElement).value)} />
+        <${ui.Input as never}
+          value="a"
+          onInput=${(e: Event) => (typed = (e.target as HTMLInputElement).value)}
+        />
       </div>
     `);
     (host.querySelector("button") as HTMLButtonElement).click();
@@ -185,7 +220,9 @@ describe("panel-ui — composite components", () => {
     expect(first.textContent?.toLowerCase()).not.toContain("truncated");
     expect(first.textContent?.toLowerCase()).not.toContain("incomplete");
 
-    const last = mount(html`<${ui.Pager as never} page=${4} totalPages=${4} label="rows 151–200 of 200" />`);
+    const last = mount(
+      html`<${ui.Pager as never} page=${4} totalPages=${4} label="rows 151–200 of 200" />`,
+    );
     const lastButtons = [...last.querySelectorAll("button")] as HTMLButtonElement[];
     expect(lastButtons[1].disabled).toBe(true);
     expect(last.textContent).toContain("rows 151–200 of 200");
