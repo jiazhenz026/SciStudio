@@ -95,6 +95,9 @@ export const useAppStore = create<AppStore>()(
         previewCollapsed: state.previewCollapsed,
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
+        // #2361 — whether a markdown tab opens split. Persisted so closing the
+        // preview reads as a preference, not as something a tab switch undoes.
+        markdownPreviewVisible: state.markdownPreviewVisible,
         // ADR-034 Phase 1.3: persist terminal tab metadata (NOT subprocess
         // state). On rehydrate, any `running` tab is downgraded to `closed`
         // with synthetic exit code -1 so the user sees the Reopen button.

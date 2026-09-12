@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2361] **A markdown file shows what it says while you write it.** Opening a
+  `.md` file splits the centre stage: the editor on the left, a live preview on
+  the right, resizable and roughly half each. The preview reads the tab's own
+  content, which the editor already holds, so it follows typing without a save
+  and without a round trip to the backend; it reparses shortly after you stop
+  and keeps the previous rendering on screen in between, so nothing flickers
+  mid-word. Headings, emphasis, fenced code, GFM tables, and task lists all
+  render. Hide closes the split and hands the whole stage back to the editor,
+  which then carries a Preview button to reopen it; that choice is remembered
+  across tabs and restarts. Every other kind of file is unchanged — the editor
+  alone, full width, with no preview and no toggle.
+  Two things a project file cannot do are shown as what they are rather than as
+  something broken. An image renders as a marker naming the file it points at,
+  because the app has no way to fetch a project file's bytes and will not fetch
+  an image from whatever host a document names. A link to another project file,
+  a bare `#heading`, or an unusual scheme renders as its own text with the
+  target in a tooltip; an `http(s)` or `mailto:` link is real and opens outside
+  the app. HTML written into the document stays visible as text and never
+  becomes part of the app's own page.
 - [#2308] **AI apps without WebMCP can use SciStudio through a local MCP
   server.** Claude Desktop, Claude Code, Codex and Cursor can launch local MCP
   servers but do not expose WebMCP. The new `scistudio webmcp-adapter` command
