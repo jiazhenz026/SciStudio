@@ -110,31 +110,72 @@ def _output_ports_for_block(ctx: Any, block_type: str, node_config: dict[str, An
     return ports
 
 
-def _latest_output_for(ctx: Any, node_id: str, output_port: str) -> tuple[str | None, bool, bool]:
-    """Find the latest recorded output for ``node_id:output_port``.
+def workflow_run_keys(workflow_path: str, workflow_id: str | None) -> tuple[str, ...]:
+    """Return the keys under which *this* workflow's run may be registered.
+
+    ``ctx.workflow_runs`` is a registry of runs keyed by the workflow's canonical
+    id — which is also the stem of its file, because ``ApiRuntime.workflow_path``
+    resolves an id to ``workflows/<id>.yaml``. A node id alone is NOT a key into
+    that registry: two workflows may legitimately contain a node with the same
+    name, so a lookup that omits the workflow resolves to whichever workflow
+    happens to come last in iteration order (#2362).
+
+    The file stem is the primary key because it is what
+    ``ApiRuntime.start_workflow`` registered the run under. The declared
+    ``workflow_id`` is accepted as a secondary key for a workflow whose YAML
+    ``id:`` differs from its filename; the canonical invariant is that the two
+    are equal, so in practice this collapses to a single key.
+
+    Args:
+        workflow_path: Project-relative path of the workflow file.
+        workflow_id: The workflow's declared id, when the YAML records one.
+
+    Returns:
+        The candidate run-registry keys, most specific first, de-duplicated.
+
+    Example:
+        >>> workflow_run_keys("workflows/main.yaml", "main")
+        ('main',)
+        >>> workflow_run_keys("workflows/main.yaml", "renamed")
+        ('main', 'renamed')
+    """
+    # Development references: #2362.
+    keys: list[str] = []
+    stem = Path(workflow_path.replace("\\", "/")).stem
+    for candidate in (stem, workflow_id):
+        if candidate and candidate not in keys:
+            keys.append(candidate)
+    return tuple(keys)
+
+
+def _latest_output_for(
+    ctx: Any, workflow_keys: tuple[str, ...], node_id: str, output_port: str
+) -> tuple[str | None, bool, bool]:
+    """Find the latest recorded output for ``node_id:output_port`` in ONE workflow.
 
     Returns ``(latest_run_id, output_available, is_collection)``. Reads the
     in-memory scheduler outputs exactly like ``tools_inspection.get_block_output``
     — never the lineage store, never mutating anything.
+
+    *workflow_keys* comes from :func:`workflow_run_keys` and confines the lookup
+    to the run of the workflow the node actually belongs to. Scanning every run
+    and matching on ``(node_id, output_port)`` alone reported another workflow's
+    output for any node name two workflows share (#2362).
     """
     runs = getattr(ctx, "workflow_runs", None)
     if not isinstance(runs, dict) or not runs:
         return None, False, False
-    # Iterate in insertion order; a subsequent run overrides. dict preserves order.
-    latest_run_id: str | None = None
-    available = False
-    is_collection = False
-    for run_id, run in runs.items():
+    for run_id in workflow_keys:
+        run = runs.get(run_id)
+        if run is None:
+            continue
         scheduler = getattr(run, "scheduler", None)
         outputs = getattr(scheduler, "_block_outputs", {}) if scheduler is not None else {}
         block_payload = outputs.get(node_id)
         if not isinstance(block_payload, dict) or output_port not in block_payload:
             continue
-        latest_run_id = run_id
-        available = True
-        value = block_payload[output_port]
-        is_collection = _looks_like_collection(value)
-    return latest_run_id, available, is_collection
+        return run_id, True, _looks_like_collection(block_payload[output_port])
+    return None, False, False
 
 
 def _looks_like_collection(value: Any) -> bool:
@@ -202,6 +243,8 @@ def discover_targets(
             logger.debug("discover_targets: failed to load %s: %s", wf_file, exc)
             continue
         workflow_id = definition.id or None
+        # #2362: confine the recorded-output overlay to THIS workflow's run.
+        run_keys = workflow_run_keys(rel, workflow_id)
         for node in definition.nodes:
             ports = _output_ports_for_block(ctx, node.block_type, node.config)
             node_label = str(node.config.get("label", "")) if isinstance(node.config, dict) else ""
@@ -230,7 +273,7 @@ def discover_targets(
                     targets.append(diag_target)
                 continue
             for port_name, type_name in ports:
-                latest_run_id, available, is_collection = _latest_output_for(ctx, node.id, port_name)
+                latest_run_id, available, is_collection = _latest_output_for(ctx, run_keys, node.id, port_name)
                 diagnostics: list[str] = []
                 if not available:
                     diagnostics.append("no recorded output for this port yet; run the workflow before run_plot_job.")
@@ -282,4 +325,5 @@ __all__ = [
     "discover_targets",
     "make_target_id",
     "resolve_target_by_id",
+    "workflow_run_keys",
 ]

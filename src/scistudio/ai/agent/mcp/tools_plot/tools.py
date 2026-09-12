@@ -267,7 +267,13 @@ async def run_plot_job(
     plot_id: str = Field(description="Plot id under plots/ to execute."),
     run_id: Annotated[
         str | None,
-        Field(description="Optional specific run id to source the target output from; defaults to latest."),
+        Field(
+            description=(
+                "Optional specific run id to source the target output from; defaults to latest. "
+                "It must name the run of the plot's OWN workflow; any other run resolves to no "
+                "input rather than to another workflow's data."
+            )
+        ),
     ] = None,
     timeout_seconds: Annotated[
         float | None,
@@ -289,6 +295,10 @@ async def run_plot_job(
     current.*`` + ``current.json``, overwriting any prior current artifacts.
     Enforces timeout, output-size, and file-count caps with sanitized errors.
     The artifact is consumable by the core PlotPreviewer.
+
+    The input comes from the run of the workflow the plot is bound to, and only
+    that one. Two workflows may contain a node with the same name; resolving by
+    node id alone fed the plot a namesake's output (#2362).
     """
     # Development references: FR-023, FR-025, FR-031.
     return _runtime.run_plot_job(_plot_ctx(), plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)

@@ -234,7 +234,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # ``.git/`` surface is now covered by the unified workflow_watcher
         # observer above. No separate teardown required.
         pending_run_tasks = []
-        for run in runtime.workflow_runs.values():
+        # #2362: every run this process still holds, including any detached by a
+        # project switch — those are still executing and still need cancelling.
+        for run in runtime.all_workflow_runs():
             if not run.task.done():
                 run.task.cancel()
                 pending_run_tasks.append(run.task)

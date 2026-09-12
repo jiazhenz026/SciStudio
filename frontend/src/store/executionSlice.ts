@@ -2,16 +2,16 @@ import type { StateCreator } from "zustand";
 
 import type { AppStore, ExecutionSlice } from "./types";
 import {
+  emptyWorkflowExecution,
   extractBlockError,
   maybeAppendErrorLog,
-  nextBlockOutputs,
-  nextBlockRunStarts,
-  nextBlockStates,
-  nextErrorMaps,
+  nextExecutionByWorkflow,
   nextIsRunning,
+  projectExecution,
 } from "./executionSlice.parts/eventReducer";
 
 export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice> = (set) => ({
+  executionByWorkflow: {},
   blockStates: {},
   blockRunStartedAt: {},
   blockOutputs: {},
@@ -24,12 +24,6 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
   consumeEvent: (event) =>
     set((state) => {
       const extraction = extractBlockError(event);
-      const { nextErrors, nextSummaries } = nextErrorMaps(
-        event,
-        extraction,
-        state.blockErrors,
-        state.blockErrorSummaries,
-      );
       const { logEntries: nextLogs, appended } = maybeAppendErrorLog(
         event,
         extraction,
@@ -39,12 +33,19 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
       // produced a Logs-panel row AND the user isn't already looking.
       const bumpUnread = appended && state.activeBottomTab !== "logs";
 
+      // #2362: the node-keyed facts are recorded under the workflow the event
+      // came from, then projected down to the workflow on screen. Two
+      // workflows may contain a node with the same name, so a single global
+      // map let a run of one silently answer for the other.
+      const executionByWorkflow = nextExecutionByWorkflow(
+        event,
+        state.executionByWorkflow,
+        state.workflowId,
+      );
+
       return {
-        blockStates: nextBlockStates(event, state.blockStates),
-        blockRunStartedAt: nextBlockRunStarts(event, state.blockRunStartedAt),
-        blockOutputs: nextBlockOutputs(event, state.blockOutputs),
-        blockErrors: nextErrors,
-        blockErrorSummaries: nextSummaries,
+        executionByWorkflow,
+        ...projectExecution(executionByWorkflow, state.workflowId),
         logEntries: nextLogs,
         isRunning: nextIsRunning(event, state.isRunning),
         executionMessages: [
@@ -68,11 +69,8 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
     }),
   resetExecution: () =>
     set({
-      blockStates: {},
-      blockRunStartedAt: {},
-      blockOutputs: {},
-      blockErrors: {},
-      blockErrorSummaries: {},
+      executionByWorkflow: {},
+      ...emptyWorkflowExecution(),
       executionMessages: [],
       logEntries: [],
       isRunning: false,

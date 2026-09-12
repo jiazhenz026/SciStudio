@@ -1,0 +1,226 @@
+{
+  "base_ref": null,
+  "branch": "bugfix/2362-composite-identity-leaks",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-12T01:12:34.089846Z",
+      "owner_directive": "Sweep broadened by the owner to every reachable instance of the partial-identity bug class. Fixed here: plot input resolution and target discovery (plot/runtime.py, plot/targets.py); per-workflow frontend execution state; project-scoped run registry with all_workflow_runs for backend-wide sweeps; run-scoped MCP block-error capture; workflow-scoped tutorial port_has_output and rendered_plots; workflow-scoped DataPreview plot match; project-scoped git history cache; prompt-scoped interactive memory write; unique workflow tab ids plus a preview tab's backingTabId. Deferred with rationale in #2364: the protected-core type-registry singleton and retention keying, the frontend catalog latches, and three cosmetic same-family matches.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-12T01:12:34.090166Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090186Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural decision changes; the fix restores the identity semantics ADR-053 and ADR-048 already assume",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090192Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "no user-visible feature or API change; a bug fix restoring intended behaviour",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2362,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the bug class where a partial identity is used as a lookup key when a composite identity is required: node_id/block_id keyed without workflow_id, so same-named nodes in different workflows overwrite and impersonate each other. Owner broadened scope to sweep for every reachable instance of the class (run-scoped without run_id, project-scoped without project identity, cache keys missing a dimension, scans that fall back on a partial match without break). Carry the full identity; do not fix by renaming or by adding a break. Every fix needs a test that fails before and passes after. Defer anything that does not fit one reviewable PR with a tracked TODO citing an issue.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2362-bugfix-2362-composite-identity-leaks",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.089999Z",
+      "pattern": "src/scistudio/plot/runtime.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090008Z",
+      "pattern": "src/scistudio/plot/targets.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090012Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090014Z",
+      "pattern": "src/scistudio/api/runtime/_projects.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090015Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090016Z",
+      "pattern": "src/scistudio/api/seam.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090017Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090019Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090020Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/_errors.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090021Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090022Z",
+      "pattern": "frontend/src/store/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090023Z",
+      "pattern": "frontend/src/components/DataPreview.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090024Z",
+      "pattern": "frontend/src/components/DataPreview.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090025Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090026Z",
+      "pattern": "frontend/src/hooks/useRealtime.test.tsx",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090027Z",
+      "pattern": "frontend/src/testUtils.ts",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090028Z",
+      "pattern": "tests/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T01:12:34.090029Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "5c815939-0edf-429d-8c05-f3e4892ba165",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-12T01:12:34.090195Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_plot_workflow_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090197Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_project_scoped_runs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090198Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorial_product_state_workflow_scope.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090199Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_run_error_scope.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T01:12:34.090200Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/compositeIdentity.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

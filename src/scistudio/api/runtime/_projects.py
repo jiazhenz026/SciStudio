@@ -458,7 +458,15 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     candidate.last_opened = _now_iso()
     self.known_projects[candidate.id] = candidate
     self._save_known_projects()
+    # #2362: a run is addressable by workflow id alone, so leaving the previous
+    # project's runs in the registry let the incoming project's ``main`` resolve
+    # the outgoing project's ``main``. Retire them — but only on an actual
+    # switch: re-opening the already-active project (the GUI does this) must not
+    # detach the user's own live run.
+    switching = self.active_project is None or self.active_project.id != candidate.id
     self.active_project = candidate
+    if switching:
+        self.detach_workflow_runs()
     self.data_catalog = {}
     # ADR-053 FR-062: a project switch invalidates all three registries —
     # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
@@ -687,6 +695,8 @@ def delete_project(self: ApiRuntime, project_id_or_path: str) -> None:
         self.known_projects.pop(project.id, None)
         if self.active_project is not None and self.active_project.id == project.id:
             self.active_project = None
+            # #2362: the project is gone; its runs must not answer for the next one.
+            self.detach_workflow_runs()
             self.data_catalog = {}
         self._save_known_projects()
         return
@@ -708,6 +718,8 @@ def delete_project(self: ApiRuntime, project_id_or_path: str) -> None:
     self.known_projects.pop(project.id, None)
     if self.active_project is not None and self.active_project.id == project.id:
         self.active_project = None
+        # #2362: the project is gone; its runs must not answer for the next one.
+        self.detach_workflow_runs()
         self.data_catalog = {}
     self._save_known_projects()
 

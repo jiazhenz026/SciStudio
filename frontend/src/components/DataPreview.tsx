@@ -133,8 +133,16 @@ export function DataPreview({
   // that block is selected (never in the "Select a block" empty state, and not
   // while a different block is selected). `activePlot` is derived, so it stays
   // correct regardless of the order in which a Run updates the node + result.
+  // #2362 — and to the workflow that node lives in. A node id is not unique
+  // across a project and `plotPreviewTarget` survives a tab switch, so matching
+  // on the id alone presented a figure rendered in another workflow as this
+  // node's result: the "Plot artifact" pill, the preview, and a working
+  // Maximize. The source carries `workflow_id` — this component stamps it
+  // itself when it builds a target above — so the match now reads it.
   const plotBelongsToSelected =
-    plotPreviewTarget != null && plotPreviewTarget.source?.node_id === selectedNodeId;
+    plotPreviewTarget != null &&
+    plotPreviewTarget.source?.node_id === selectedNodeId &&
+    (plotPreviewTarget.source?.workflow_id ?? null) === workflowId;
   const activePlot = showPlotResult && plotBelongsToSelected ? plotPreviewTarget : null;
 
   // Hotfix 2026-05-23 — the port section reserves ~38% of the right column with

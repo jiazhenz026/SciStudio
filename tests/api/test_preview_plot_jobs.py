@@ -61,6 +61,14 @@ class _StubScheduler:
         self._block_outputs = block_outputs
 
 
+# #2362: ``workflow_runs`` is keyed by WORKFLOW ID — that is what
+# ``ApiRuntime.start_workflow`` registers a run under, and what the plot layer,
+# ``get_run`` and ``cancel_run`` all look one up by. The invented ``"run_1"``
+# key only worked while the plot layer scanned every run and matched on
+# ``(node_id, output_port)`` alone. These fixtures write the workflow ``main``.
+_WORKFLOW_ID = "main"
+
+
 class _StubRun:
     def __init__(self, block_outputs: dict[str, dict[str, Any]]) -> None:
         self.scheduler = _StubScheduler(block_outputs)
@@ -110,7 +118,7 @@ def setup(tmp_path: Path) -> tuple[Path, _StubRuntime, Path]:
         {"demo.segment": _StubSpec(output_ports=[_StubPort(name="measurements", accepted_types=[_Measurements])])}
     )
     runs = {
-        "run_1": _StubRun(
+        _WORKFLOW_ID: _StubRun(
             {
                 "node_a": {
                     "measurements": {
@@ -165,7 +173,7 @@ def test_writes_current_svg_and_json_at_fr026_layout(setup: tuple[Path, _StubRun
     assert record["target"]["node_id"] == "node_a"
     assert record["target"]["output_port"] == "measurements"
     assert record["script_hash"]
-    assert record["run_id"] == "run_1"
+    assert record["run_id"] == _WORKFLOW_ID
     assert any(o["filename"] == "current.svg" for o in record["outputs"])
     assert record["cache_key"] == res.cache_key
 
@@ -212,7 +220,7 @@ def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(
     project, runtime, wf = setup
     wf_before = wf.read_text(encoding="utf-8")
     # Snapshot scheduler outputs (the only live run state).
-    sched = runtime.workflow_runs["run_1"].scheduler
+    sched = runtime.workflow_runs[_WORKFLOW_ID].scheduler
     outputs_before = json.dumps(sched._block_outputs, sort_keys=True, default=str)
     run_ids_before = set(runtime.workflow_runs.keys())
 

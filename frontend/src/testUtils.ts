@@ -16,6 +16,9 @@ export function resetAppStore() {
     workflowDirty: false,
     workflowHistory: [],
     workflowFuture: [],
+    // #2362 — per-workflow execution buckets; the flat maps below are the
+    // projection of this onto the active workflow.
+    executionByWorkflow: {},
     blockStates: {},
     blockRunStartedAt: {},
     blockOutputs: {},

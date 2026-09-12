@@ -68,6 +68,14 @@ class _DoneTask:
         return False
 
 
+# #2362: ``workflow_runs`` is keyed by WORKFLOW ID — that is what
+# ``ApiRuntime.start_workflow`` registers a run under, and what the plot layer,
+# ``get_run`` and ``cancel_run`` all look one up by. The invented ``"run_1"``
+# key only worked while the plot layer scanned every run and matched on
+# ``(node_id, output_port)`` alone. These fixtures write the workflow ``main``.
+_WORKFLOW_ID = "main"
+
+
 class _StubRun:
     def __init__(self, block_outputs: dict[str, dict[str, Any]]) -> None:
         self.scheduler = _StubScheduler(block_outputs)
@@ -78,7 +86,7 @@ def _seed_block_output(runtime: ApiRuntime, project: Path) -> None:
     """Record a CSV block output for node_a/measurements (the plot target)."""
     csv = project / "measurements.csv"
     csv.write_text("x,y\n" + "\n".join(f"{i},{i * 2}" for i in range(20)), encoding="utf-8")
-    runtime.workflow_runs["run_1"] = _StubRun(  # type: ignore[assignment]
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(  # type: ignore[assignment]
         {
             "node_a": {
                 "measurements": {
@@ -382,7 +390,7 @@ def test_plot_relink_route_rebinds_manifest_target(
         "  edges: []\n",
         encoding="utf-8",
     )
-    runtime.workflow_runs["run_1"] = _StubRun(  # type: ignore[assignment]
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(  # type: ignore[assignment]
         {
             "node_fresh": {
                 "measurements": {

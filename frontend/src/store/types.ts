@@ -20,6 +20,7 @@ import type {
   WorkflowResponse,
 } from "../types/api";
 import type { DeclaredTypeColors } from "../config/typeColorMap";
+import type { WorkflowExecutionState } from "./executionSlice.parts/eventReducer";
 import type {
   TutorialCatalogueResponse,
   TutorialSessionResponse,
@@ -300,6 +301,18 @@ export interface InteractivePrompt {
 }
 
 export interface ExecutionSlice {
+  /**
+   * #2362 — every node-keyed execution fact, held under the workflow that
+   * produced it. The five flat maps below are the projection of this one onto
+   * the workflow currently on screen, and remain the only thing consumers read.
+   *
+   * A node id is not unique across a project: two workflows may legitimately
+   * contain a node with the same name, and the user can have both open as tabs.
+   * Keyed by node id alone, running one workflow overwrote the other's entries
+   * for every shared name, so a plot or preview bound to a node resolved the
+   * wrong workflow's data.
+   */
+  executionByWorkflow: Record<string, WorkflowExecutionState>;
   blockStates: Record<string, string>;
   /**
    * #1974 — epoch-ms instant at which each block entered the running state,
@@ -934,6 +947,19 @@ export interface PreviewTab {
   displayName: string;
   /** Set when the tab came from a Data-tree double-click (#2112). */
   openAs?: PreviewTabOpenAs;
+  /**
+   * #2362 — id of the workflow tab whose snapshot the live workflow slice
+   * belongs to while this preview owns focus.
+   *
+   * `syncActiveTab` has to write that slice back somewhere, and it used to find
+   * the destination by `workflowId`. Two workflow tabs may legitimately carry
+   * the same `workflowId` — imported subworkflow copies share an internal id,
+   * which is exactly why `openTab` dedups on `tabKey` and not on it — so the
+   * capture landed in every one of them and clobbered the others' canvases,
+   * which autosave then wrote to the wrong files. Undefined only when the
+   * preview was opened while a non-workflow tab held focus.
+   */
+  backingTabId?: string;
   /**
    * Collection targets carry their item snapshot through the session query
    * (see `refEntries.ts`), so the initial query must freeze alongside the

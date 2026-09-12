@@ -20,6 +20,26 @@ import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 type StoreSetter = StoreApi<AppStore>["setState"];
 type StoreGetter = StoreApi<AppStore>["getState"];
 
+/**
+ * #2362 — a monotonic suffix for tab ids.
+ *
+ * The id used to be `tab-<workflowId>-<Date.now()>`, neither component of which
+ * is unique: two imported copies of one subworkflow share the workflow id (that
+ * is why `openTab` dedups on `tabKey` instead), and two opens in the same
+ * millisecond share the timestamp. Two tabs then answered to one id, and every
+ * `t.id === activeTabId` match in this file — switch, close, capture — hit both.
+ *
+ * The counter is process-local, which is all that is needed: workflow tabs are
+ * never persisted (see `partialize` in `store/index.ts`), so no id has to
+ * survive a reload.
+ */
+let tabSerial = 0;
+
+function nextTabSerial(): string {
+  tabSerial += 1;
+  return `${Date.now()}-${tabSerial}`;
+}
+
 export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["openTab"] {
   return (workflow, displayName, runPrefix, tabKey) => {
     const state = get();
@@ -59,7 +79,7 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       : [...state.tabs];
 
     const idForTab = workflow.id || displayName || "main";
-    const tabId = `tab-${idForTab}-${Date.now()}`;
+    const tabId = `tab-${idForTab}-${nextTabSerial()}`;
     const baseVersion = workflowStateVersion(workflow as VersionedWorkflowResponse);
     const newTab: WorkflowTab = {
       kind: "workflow",
@@ -175,12 +195,21 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
       // landing during the preview are not lost when switching back restores
       // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
       // tab's own id must be preserved explicitly.
+      //
+      // #2362: address that tab by its own id. `workflowId` is not unique
+      // across tabs — imported subworkflow copies share an internal id, which
+      // is precisely why `openTab` dedups on `tabKey` instead — so matching on
+      // it wrote this capture into every such tab, clobbering the others'
+      // canvases, which autosave then committed to the wrong files.
+      // `backingTabId` is absent only when the preview was opened while a
+      // non-workflow tab held focus; the `workflowId` match remains for that.
+      const backingTabId = activeTab.backingTabId;
       set({
-        tabs: state.tabs.map((t) =>
-          t.kind === "workflow" && t.workflowId === state.workflowId
-            ? { ...captureActiveTab(state, t), id: t.id }
-            : t,
-        ),
+        tabs: state.tabs.map((t) => {
+          if (t.kind !== "workflow") return t;
+          const isBacking = backingTabId ? t.id === backingTabId : t.workflowId === state.workflowId;
+          return isBacking ? { ...captureActiveTab(state, t), id: t.id } : t;
+        }),
       });
       return;
     }

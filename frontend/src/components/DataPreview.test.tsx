@@ -180,6 +180,8 @@ describe("DataPreview", () => {
       type_chain: ["DataObject", "PlotArtifact"],
       source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
     };
+    // #2362 — the result belongs to a node IN a workflow; `main` is open.
+    useAppStore.setState({ workflowId: "main" });
 
     const { rerender } = render(
       <DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />,
@@ -209,6 +211,37 @@ describe("DataPreview", () => {
       );
     });
     await waitFor(() => expect(screen.getByTestId("preview-host")).toBeInTheDocument());
+  });
+
+  // #2362 — a node id is not unique across a project, and `plotPreviewTarget`
+  // survives a tab switch, so the result must be matched on the workflow too.
+  it("hides a plot result whose node lives in a different workflow (#2362)", async () => {
+    const plotTarget = {
+      kind: "plot_artifact" as const,
+      ref: "data-plot-1",
+      recorded_type: "PlotArtifact",
+      type_chain: ["DataObject", "PlotArtifact"],
+      // Rendered in `array_wf`; the user has since switched to `artifact_wf`,
+      // whose canvas has its own node called `load_one`.
+      source: { workflow_id: "array_wf", node_id: "load_one", output_port: "output" },
+    };
+    useAppStore.setState({ workflowId: "artifact_wf" });
+
+    render(
+      <DataPreview
+        blockOutputs={{ load_one: {} }}
+        selectedNodeId="load_one"
+        selectedNodeLabel="Load One"
+      />,
+    );
+    act(() => useAppStore.getState().setPlotPreviewTarget(plotTarget));
+
+    await waitFor(() => expect(screen.getByText(/Nothing to preview yet/i)).toBeInTheDocument());
+    expect(createPreviewSession).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "plot_artifact" }),
+      expect.anything(),
+    );
+    expect(screen.queryByText(/Plot artifact/i)).not.toBeInTheDocument();
   });
 
   // #898 - pill labels show source filename (independent of the renderer).

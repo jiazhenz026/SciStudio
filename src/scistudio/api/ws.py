@@ -160,18 +160,34 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
     }
 
 
+def _every_workflow_run(runtime: Any) -> list[Any]:
+    """Every run the runtime holds, active project's or not (#2362).
+
+    ``workflow_runs`` only exposes the ACTIVE project's runs; a run detached by
+    a project switch is still executing and still owns a worker, so the two
+    sweeps below — cancel-on-GUI-disconnect and is-anything-running — must see
+    it too. Falls back to the mapping for a runtime stub that predates the
+    accessor.
+    """
+    everything = getattr(runtime, "all_workflow_runs", None)
+    if callable(everything):
+        return list(everything())
+    runs = getattr(runtime, "workflow_runs", None)
+    return list(runs.values()) if isinstance(runs, dict) else []
+
+
 async def _cancel_running_workflows_for_gui_disconnect(event_bus: EventBus) -> None:
     """Cancel active workflows when the GUI session disappears."""
     runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
+    if runtime is None:
         return
 
-    for workflow_id, run in list(runs.items()):
+    for run in _every_workflow_run(runtime):
         task = getattr(run, "task", None)
         if task is not None and callable(getattr(task, "done", None)) and task.done():
             continue
         scheduler = getattr(run, "scheduler", None)
+        workflow_id = getattr(getattr(scheduler, "_workflow", None), "id", "<unknown>")
         cancel_workflow = getattr(scheduler, "cancel_workflow", None)
         if not callable(cancel_workflow):
             continue
@@ -195,10 +211,9 @@ async def _cancel_running_workflows_for_gui_disconnect(event_bus: EventBus) -> N
 
 def _has_active_workflow_runs(event_bus: EventBus) -> bool:
     runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
+    if runtime is None:
         return False
-    for run in runs.values():
+    for run in _every_workflow_run(runtime):
         task = getattr(run, "task", None)
         if task is None:
             continue

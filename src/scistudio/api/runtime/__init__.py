@@ -342,6 +342,16 @@ class ApiRuntime:
             _WORKFLOW_RUNS_MAX,
             evictable=_run_is_evictable,
         )
+        # #2362: runs carried over from a project that is no longer active.
+        # ``workflow_runs`` is keyed by workflow id alone and ``main`` is the
+        # default workflow name in every project, so a run left in the registry
+        # across a project switch answered as the NEW project's run of that
+        # name — up to and including ``cancel_run`` killing the previous
+        # project's live execution. ``detach_workflow_runs`` moves them here at
+        # the switch: no longer addressable by workflow id, still referenced so
+        # a live ``asyncio.Task`` is not orphaned, and still visible to the
+        # backend-wide sweeps through ``all_workflow_runs``.
+        self._detached_workflow_runs: list[WorkflowRun] = []
         # ADR-034: the MCP server's TCP/socket port is published into the
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
         # subprocess can discover it. POSIX transports publish a socket pointer;
@@ -442,6 +452,42 @@ class ApiRuntime:
         for key, run in value.items():
             registry[key] = run
         self._workflow_runs = registry
+
+    def detach_workflow_runs(self) -> None:
+        """Retire the active project's runs so the next project cannot inherit them.
+
+        A run is registered under its workflow id and nothing else, and only
+        while its project is active — so at a project switch every entry belongs
+        to the project being left. Leaving them addressable meant the incoming
+        project's ``main`` resolved the outgoing project's ``main``: a bogus
+        "workflow is already running" rejection, another project's block outputs
+        and storage paths reported as this one's, and ``cancel_run`` terminating
+        a live execution in a project the caller had already left (#2362).
+
+        Finished runs are dropped. A still-live run is kept in
+        ``_detached_workflow_runs`` — it must finish writing into its own
+        project, and dropping the last reference to its ``asyncio.Task`` would
+        risk having it garbage-collected mid-flight — but it is no longer
+        reachable by workflow id. :meth:`all_workflow_runs` is how the
+        backend-wide sweeps (shutdown, GUI-disconnect cancel, activity polling)
+        still see it.
+        """
+        # Development references: #2362.
+        carried = [run for run in self._workflow_runs.values() if not run.task.done()]
+        self._workflow_runs.clear()
+        self._detached_workflow_runs = [run for run in self._detached_workflow_runs if not run.task.done()]
+        self._detached_workflow_runs.extend(carried)
+
+    def all_workflow_runs(self) -> list[WorkflowRun]:
+        """Every run this backend still holds, active project's or not.
+
+        ``workflow_runs`` answers "what is running in the project the user is
+        looking at"; this answers "what is running in this process". Shutdown,
+        GUI-disconnect cancellation, and idle-culling activity checks want the
+        second question — a run detached by a project switch is still consuming
+        a worker and still needs cancelling (#2362).
+        """
+        return [*self._workflow_runs.values(), *self._detached_workflow_runs]
 
     def _configure_static_registries(self) -> None:
         self.refresh_type_registry()
