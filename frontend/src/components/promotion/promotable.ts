@@ -35,12 +35,29 @@ export type PromotionSourceRef =
   /** A registered block, read through `GET /api/blocks/{type}/source`. */
   | { from: "block"; blockType: string }
   /** A project-relative file, read through `GET /api/projects/{id}/file`. */
-  | { from: "projectFile"; path: string };
+  | { from: "projectFile"; path: string }
+  /**
+   * A whole panel directory — `{project}/panels/<panel_id>/` (ADR-054 FR-039).
+   *
+   * The odd one out, and deliberately so: a MiniApp is a directory, not a
+   * file, so there is no content for the caller to read and hand back. The
+   * move happens server-side in one call
+   * (`POST /api/user-library/directory?target=panels&name=<panel_id>`, pinned
+   * in the Phase D contract §1.2), which writes the library copy and then
+   * removes the project copy under the same FR-017 rule every file promotion
+   * follows, degrading to a copy when the removal fails.
+   *
+   * It is still a `PromotionSourceRef` rather than a second promotion path so
+   * that FR-025 keeps holding: the entry point builds a `PromotableItem` and
+   * nothing else, and the FR-019 origin rule that hides the action for a
+   * non-project item is the same function for a MiniApp as for a block.
+   */
+  | { from: "panelDirectory"; panelId: string };
 
 export interface PromotableItem {
   /** Which user library directory the copy lands in (FR-006). */
   target: UserLibraryTarget;
-  kind: "block" | "type" | "previewer";
+  kind: "block" | "type" | "previewer" | "miniapp";
   /** Name shown in the confirmation dialog and the success confirmation. */
   label: string;
   /** The resolved origin the FR-019 condition tests. */
@@ -119,6 +136,12 @@ const KIND_FOR_TARGET: Record<UserLibraryTarget, PromotableItem["kind"]> = {
   blocks: "block",
   types: "type",
   previewers: "previewer",
+  // ADR-054 FR-039 — `panels` has no `DROPIN_DIRS` entry on purpose: a MiniApp
+  // is promoted from its card, never from an open editor tab, and treating
+  // `panels/<id>/panel.py` as a promotable drop-in would promote one file out
+  // of a directory that only works whole. The entry exists because this map is
+  // exhaustive over `UserLibraryTarget`.
+  panels: "miniapp",
 };
 
 /**
@@ -174,5 +197,37 @@ export function promotableFileTab(
     label: base.replace(/\.py$/i, ""),
     origin: "project",
     source: { from: "projectFile", path },
+  };
+}
+
+/**
+ * The fields a MiniApp listing entry has to carry to be promotable.
+ *
+ * Structurally the relevant half of `MiniAppSummary`
+ * (`frontend/src/miniapps/types.ts`), declared here rather than imported so
+ * this module keeps its one job — turning what the user is pointing at into a
+ * `PromotableItem` — without taking on a dependency on the MiniApp client.
+ */
+export interface PromotableMiniApp {
+  panel_id: string;
+  name: string;
+  tier: "project" | "user" | "package" | "core";
+}
+
+/**
+ * The promotable record for a MiniApp card (ADR-054 FR-039).
+ *
+ * The tier the listing reports *is* the resolved origin — the backend decides
+ * which of the four roots a panel directory was discovered under — so FR-019
+ * needs no second reading of it here: only a `project` MiniApp is offered the
+ * action, exactly as only a project block is.
+ */
+export function promotableMiniApp(miniapp: PromotableMiniApp): PromotableItem {
+  return {
+    target: "panels",
+    kind: "miniapp",
+    label: miniapp.name,
+    origin: miniapp.tier,
+    source: { from: "panelDirectory", panelId: miniapp.panel_id },
   };
 }

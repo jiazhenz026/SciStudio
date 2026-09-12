@@ -1,5 +1,5 @@
-import { Maximize2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, Maximize2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import type { PanelSnapshot } from "../panels/types";
 
@@ -11,6 +11,8 @@ import type {
   PreviewTarget,
   ResolvedSubworkflowPort,
 } from "../types/api";
+
+import { PreviewerPalette } from "./PreviewerPalette";
 
 import { NodePortPanel } from "./DataPreview.parts/NodePortPanel";
 import { PreviewHost } from "./DataPreview.parts/PreviewHost";
@@ -41,6 +43,71 @@ export type {
   PreviewerInstance,
   PreviewerModule,
 } from "./DataPreview.parts/previewerHostApi";
+
+// ADR-054 FR-033 — All Previewers.
+//
+// The Previewers tab left the sidebar (FR-031). The list itself did not go
+// anywhere: it opens *inside the preview column*, in place of the preview,
+// which is where a list of "how is my data drawn" belongs — next to the
+// drawing it governs. No dialog, and nothing else on screen moves.
+//
+// It is the same `PreviewerPalette` component, mounted unchanged, with its
+// reload action, its registry diagnostics and its per-type choice controls.
+// Two things about it are wrong for this column and both are fixed from
+// outside, by the wrapper below, rather than by editing the pane:
+//
+//   - its root `<aside>` carries left-panel chrome (`border-r`, its own
+//     gradient, `p-4`). In the right-hand column the divider would land on the
+//     wrong edge, the column's own surface would be painted over, and the
+//     padding would be applied twice. The wrapper neutralises all three;
+//     editing the class would change the left panel too.
+//   - it rescans the previewer registries once per mount (#2151: mounting the
+//     pane *is* switching to its section). Conditionally mounting it here would
+//     POST a registry reload on every single open, so it is mounted lazily on
+//     the first open and then kept mounted and hidden. One rescan per session,
+//     and the Reload button inside it is still the way to ask for another.
+//
+// `DataPreview` is one node rendered in two mutually exclusive places — the
+// workbench's right column and, in the AI-host presentation, the sidebar's
+// Preview card — so putting the control here satisfies both halves of FR-033
+// at once.
+
+let allPreviewersToken = 0;
+const allPreviewersListeners = new Set<() => void>();
+
+/**
+ * Open All Previewers from outside the preview column.
+ *
+ * The tutorial route target `previewers` (FR-040) has to reach this list
+ * without a pointer, and FR-033 says the column expands first when it is
+ * collapsed — so this clears `previewCollapsed` on the way, the same two-step
+ * `promotion/revealInLibrary` performs for the left panel (clear the collapse
+ * flag, then publish the instruction). `ProjectWorkspace` owns the panel handle
+ * that turns that flag into an expanded column.
+ *
+ * A module-level channel rather than store state for the instruction itself,
+ * for the same reason `revealInLibrary` is one: it is transient and one-shot,
+ * and a persisted copy would resurrect a stale "show the previewer list" on the
+ * next launch.
+ */
+export function openAllPreviewers(): void {
+  useAppStore.setState({ previewCollapsed: false });
+  allPreviewersToken += 1;
+  for (const listener of allPreviewersListeners) listener();
+}
+
+function subscribeAllPreviewers(listener: () => void): () => void {
+  allPreviewersListeners.add(listener);
+  return () => {
+    allPreviewersListeners.delete(listener);
+  };
+}
+
+/** Test seam — forget any pending request so each test starts clean. */
+export function resetAllPreviewersRequests(): void {
+  allPreviewersToken = 0;
+  for (const listener of allPreviewersListeners) listener();
+}
 
 interface DataPreviewProps {
   selectedNodeId: string | null;
@@ -122,6 +189,26 @@ export function DataPreview({
   // result vs. the selected node's outputs. A fresh Run turns it on; the output
   // pills turn it off; the "Plot artifact" pill turns it back on.
   const [showPlotResult, setShowPlotResult] = useState(false);
+
+  // FR-033 — All Previewers. `listMounted` latches on the first open and never
+  // unlatches: see the module comment for why the pane is hidden rather than
+  // unmounted when the user goes back to the preview.
+  const [showPreviewerList, setShowPreviewerList] = useState(false);
+  const [listMounted, setListMounted] = useState(false);
+  const openRequest = useSyncExternalStore(
+    subscribeAllPreviewers,
+    () => allPreviewersToken,
+    () => 0,
+  );
+  const openPreviewerList = () => {
+    setListMounted(true);
+    setShowPreviewerList(true);
+  };
+  useEffect(() => {
+    if (openRequest === 0) return;
+    setListMounted(true);
+    setShowPreviewerList(true);
+  }, [openRequest]);
 
   useEffect(() => {
     setPickedEntryId(null);
@@ -218,17 +305,45 @@ export function DataPreview({
   return (
     <aside
       className="flex h-full flex-col overflow-hidden border-l border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(245,241,232,0.98))] p-4"
+      data-testid="data-preview-column"
       // ADR-053 (#2057) — tutorial highlight target.
       data-tutorial-target="data_preview"
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
-          <h2 className="mt-2 font-display text-2xl text-ink">
-            {selectedNodeId ? selectedNodeLabel : "Select a block"}
-          </h2>
-        </div>
-        {hasPreviewContent ? (
+        {showPreviewerList ? (
+          // FR-033 — the control that returns to the preview. It replaces the
+          // block title rather than sitting beside it: the pane below is now
+          // the previewer list, which carries its own `Previewers` heading, and
+          // a block name over it would be labelling the wrong thing.
+          <button
+            className="-ml-1 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-stone-600 transition hover:bg-white hover:text-ink"
+            data-testid="all-previewers-back"
+            onClick={() => setShowPreviewerList(false)}
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+            Back to preview
+          </button>
+        ) : (
+          <div>
+            <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Preview</p>
+            <h2 className="mt-2 font-display text-2xl text-ink">
+              {selectedNodeId ? selectedNodeLabel : "Select a block"}
+            </h2>
+          </div>
+        )}
+        {showPreviewerList ? null : (
+          <button
+            className="mt-1 shrink-0 rounded-full border border-stone-300 bg-white/70 px-2.5 py-1 text-[11px] font-medium text-stone-600 transition hover:border-ink hover:text-ink"
+            data-testid="all-previewers-open"
+            onClick={openPreviewerList}
+            title="Every previewer registered, and which one draws each data type"
+            type="button"
+          >
+            All Previewers
+          </button>
+        )}
+        {hasPreviewContent && !showPreviewerList ? (
           <button
             aria-label="Maximize preview"
             className="mt-1 shrink-0 rounded-full p-1.5 text-stone-500 hover:bg-white hover:text-ink"
@@ -266,18 +381,40 @@ export function DataPreview({
         ) : null}
       </div>
 
+      {/* FR-033 — the previewer list, mounted unchanged. The wrapper strips the
+          left-panel chrome the pane carries (`border-r`, its own gradient, its
+          own padding) so it sits inside this column instead of drawing a second
+          divider down the middle of it; `hidden` rather than unmounted keeps
+          the pane's mount-time registry rescan to once per session. */}
+      {listMounted ? (
+        <div
+          className={
+            showPreviewerList
+              ? "mt-4 flex min-h-0 flex-1 flex-col [&>aside]:border-r-0 [&>aside]:bg-none [&>aside]:p-0"
+              : "hidden"
+          }
+          data-testid="all-previewers-pane"
+        >
+          <PreviewerPalette />
+        </div>
+      ) : null}
+
       {/* #1713 — the workflow-wide plot list moved to the dedicated Plots tab
           (BottomPanel). This panel renders preview content: the selected node's
           outputs and/or the persisted plot Run result, toggled by the "Plot
           artifact" pill. The result stays put when switching blocks. */}
-      {!selectedNodeId ? (
-        <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-          Pick a block to inspect its latest outputs and cached previews.
-        </div>
-      ) : (
-        previewSurface
+      {showPreviewerList ? null : (
+        <>
+          {!selectedNodeId ? (
+            <div className="mt-6 rounded-[1.8rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+              Pick a block to inspect its latest outputs and cached previews.
+            </div>
+          ) : (
+            previewSurface
+          )}
+          {portPanel}
+        </>
       )}
-      {portPanel}
     </aside>
   );
 }

@@ -116,6 +116,18 @@ export const PALETTE_TIPS: readonly PaletteTip[] = [
     body: "A block can be interactive — it pauses, opens a window, and resumes with your decisions.",
   },
   {
+    // ADR-054 FR-038 — the MiniApps tab is new, and a tab nobody opens teaches
+    // nothing. This is the one line that says what the thing is for.
+    id: "what-is-a-miniapp",
+    title: "MiniApps",
+    body: "A MiniApp is a small tool of your own for looking at one result: tune it, compare it, decide.",
+  },
+  {
+    id: "miniapps-run-python",
+    title: "MiniApps compute",
+    body: "A MiniApp runs its own Python on your data, so it can recompute while you move a slider.",
+  },
+  {
     id: "one-step-per-block",
     title: "One step per block",
     body: "Give each block one small step, rather than stacking several into one.",
@@ -194,6 +206,11 @@ export const PALETTE_TIPS: readonly PaletteTip[] = [
     id: "agent-writes-previewers",
     title: "Ask for a viewer",
     body: "Ask the agent for a previewer, and look at your own data your own way.",
+  },
+  {
+    id: "agent-writes-miniapps",
+    title: "Ask for a MiniApp",
+    body: "Ask the agent for a MiniApp, and it builds a little app that opens on your own output.",
   },
   {
     id: "agent-imports-existing-work",
@@ -329,6 +346,14 @@ export const PALETTE_TIPS: readonly PaletteTip[] = [
     id: "preview-custom",
     title: "Your own previewer",
     body: "You can write a previewer for your own data type, and the preview panel picks it up.",
+  },
+  {
+    // ADR-054 FR-033/FR-038 — the previewer list moved out of the sidebar, and
+    // a surface that moves without saying so reads as a surface that was
+    // removed. This tip is where a user who is looking for it is told.
+    id: "all-previewers-in-the-preview",
+    title: "All Previewers",
+    body: "All Previewers, above the preview, lists every viewer and lets you pick one per data type.",
   },
   {
     id: "plot-cards",

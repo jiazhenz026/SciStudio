@@ -25,6 +25,24 @@ describe("palette tip pool", () => {
   });
 });
 
+describe("ADR-054 FR-038 — the MiniApps chapter", () => {
+  const ids = new Set(PALETTE_TIPS.map((tip) => tip.id));
+
+  it("says what a MiniApp is", () => {
+    // FR-031 gave MiniApps a permanent sidebar tab. The tip overlay is the only
+    // surface that reaches a user who has never opened it.
+    expect(ids.has("what-is-a-miniapp")).toBe(true);
+  });
+
+  it("says where the previewer list went", () => {
+    // FR-033 moved a surface users already knew out of the sidebar. Without a
+    // tip naming its new home, the move reads as a removal.
+    expect(ids.has("all-previewers-in-the-preview")).toBe(true);
+    const tip = PALETTE_TIPS.find((entry) => entry.id === "all-previewers-in-the-preview")!;
+    expect(tip.body).toContain("All Previewers");
+  });
+});
+
 describe("resolveTip", () => {
   it("resolves an unbounded rotation index against the pool", () => {
     const first = resolveTip(0);
