@@ -47,9 +47,17 @@ break, broke.
 | Adversarial: process lifetime (SC-004) | **holds: false** | 7 (3×P1) |
 | Adversarial: API responsiveness (SC-005) | **holds: false** | 5 (3×P1) |
 | Adversarial: read-only contexts (SC-003) | **holds: false** | 3 (0×P1) |
-| Independent no-context review | did not finish | — |
+| Independent no-context review | **failed to run** | — |
 
-Raw adversarial output: `2026-09-11-adr-054-phase-d-adversarial-verification.json`.
+The no-context reviewer stalled on all six attempts (no progress for 180 s each)
+and produced nothing. **The one audit that was forbidden to read the issue, the
+checklist, the PR and the commit messages — the one that could not inherit this
+session's assumptions — is the one there is no result from.** Anyone picking
+this up should run it before trusting the other five.
+
+Raw output: `2026-09-11-adr-054-phase-d-audit-raw.json` (all five results,
+verbatim) and `2026-09-11-adr-054-phase-d-adversarial-verification.json` (the
+four verifiers alone).
 
 ### The P1s
 
