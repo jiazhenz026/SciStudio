@@ -808,7 +808,8 @@ def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleTy
     assert issubclass(cls, InteractiveMixin)
     assert cls.execution_mode is ExecutionMode.INTERACTIVE
 
-    spec = _spec_from_class(cls, source="custom")
+    with pytest.warns(DeprecationWarning, match="module_url is deprecated"):
+        spec = _spec_from_class(cls, source="custom")
     assert spec.type_name == "review_labels"
     assert spec.execution_mode == "interactive"
     assert spec.panel_manifest is not None

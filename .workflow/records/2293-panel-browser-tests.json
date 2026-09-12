@@ -1,0 +1,88 @@
+{
+  "base_ref": "ffeec67f",
+  "branch": "codex/2293-panel-browser-tests",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/e2e/specs/panel-runtime.spec.ts",
+      "frontend/e2e/helpers/panel-backend.py",
+      "frontend/e2e/helpers/panel-browser-host.tsx",
+      "frontend/e2e/helpers/panel-browser-host.html",
+      "frontend/e2e/helpers/panel-fixtures/**",
+      "frontend/playwright.panels.config.ts",
+      "docs/planning/adr-054-browser-validation.md",
+      ".workflow/records/2293-panel-browser-tests.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-11T16:08:38.536198Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-browser-validation.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:08:38.536354Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "test-only harness implements existing ADR-054 and ADR-055 acceptance; no contract changes",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-11T16:08:38.536359Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "test-only validation artifact; manager owns release-facing changelog",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2293,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build isolated real browser PanelFrame and PreviewHost SDK/backend integration tests per committed manager dispatch; production fixes owned by A1/A2; manager owns final PR/CI.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2293-panel-browser-tests",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "77f9640b-6ba2-4eea-a17b-509ed3a6b0a1",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-11T16:08:38.536362Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/e2e/specs/panel-runtime.spec.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

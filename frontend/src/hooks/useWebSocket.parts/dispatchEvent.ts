@@ -9,6 +9,7 @@
  * because the executionSlice still needs the event to flip
  * ``isRunning``.
  */
+import { receivePanelDecision } from "../../panels/decisions";
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
 import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
@@ -52,6 +53,8 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   if (TUTORIAL_SYNC_EVENT_TYPES.has(payload.type)) {
     void useAppStore.getState().syncActiveTutorialSession();
   }
+
+  if (receivePanelDecision(payload)) return true;
 
   if (payload.type === "interactive_prompt") {
     handleInteractivePrompt(payload, { setInteractivePrompt: deps.setInteractivePrompt });

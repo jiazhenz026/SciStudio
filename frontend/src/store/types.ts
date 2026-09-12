@@ -926,6 +926,9 @@ export interface PreviewTabOpenAs {
 }
 
 export interface PreviewTab {
+  panelId?: string;
+  previewSessionId?: string;
+  viewState?: unknown;
   /** Discriminator. Always "preview". */
   kind: "preview";
   id: string;
@@ -1028,6 +1031,7 @@ export interface TabSlice {
     displayName?: string,
     initialQuery?: Record<string, unknown>,
     openAs?: PreviewTabOpenAs,
+    panelSnapshot?: { panelId?: string; previewSessionId?: string; viewState?: unknown },
   ) => void;
   /**
    * ADR-036 §3.10 — save a file tab's content to disk.

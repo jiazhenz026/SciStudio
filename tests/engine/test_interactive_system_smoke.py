@@ -70,6 +70,7 @@ from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
 pytestmark = pytest.mark.timeout(120)
 

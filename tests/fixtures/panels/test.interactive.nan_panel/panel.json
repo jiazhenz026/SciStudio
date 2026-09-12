@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.nan_panel",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

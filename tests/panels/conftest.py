@@ -1,0 +1,68 @@
+"""Isolated real panel/preview runtime fixture without external package discovery."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+
+from scistudio.api.runtime.models import DataRecord
+from scistudio.core.storage.ref import StorageReference
+from scistudio.engine.events import EventBus
+from scistudio.panels.contexts import get_panel_contexts
+from scistudio.panels.descriptor import parse_descriptor
+from scistudio.panels.registry import PanelRegistry
+from scistudio.previewers.models import OwnerKind, PreviewTarget
+from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.previewers.router import PreviewRouter
+from scistudio.previewers.session import PreviewSessionManager
+
+
+def make_runtime(tmp_path):
+    directory = tmp_path / "lab.text"
+    directory.mkdir()
+    (directory / "panel.json").write_text(
+        '{"id":"lab.text","api_version":"1.0","contexts":["preview","interactive"],"types":["Text"]}'
+    )
+    (directory / "index.html").write_text('<script src="script.js"></script>')
+    (directory / "script.js").write_text("window.loaded=true")
+    (directory / "panel.py").write_text('raise RuntimeError("must never execute")')
+    data = tmp_path / "data.txt"
+    data.write_text("hello panel")
+    panels = PanelRegistry()
+    panels.register(
+        parse_descriptor(directory, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Text"})[0]
+    )
+    registry = PreviewerRegistry()
+    registry.load_core()
+    registry.install_panels(panels)
+    service = SimpleNamespace(
+        registry=registry, router=PreviewRouter(registry), sessions=PreviewSessionManager(registry)
+    )
+    record = DataRecord(
+        "data-a", StorageReference(backend="filesystem", path=str(data)), "Text", {"chars": 11}, ["DataObject", "Text"]
+    )
+    runtime = SimpleNamespace(
+        active_project=SimpleNamespace(id="p", path=str(tmp_path)),
+        data_catalog={"data-a": record},
+        workflow_runs={},
+        event_bus=EventBus(),
+    )
+    runtime.event_bus.runtime = runtime
+    runtime.get_data_record = lambda ref: runtime.data_catalog[ref]
+    runtime.get_preview_service = lambda: service
+    runtime.resolve_session_target = lambda target: PreviewTarget(
+        kind=target.kind,
+        ref=target.ref,
+        recorded_type=runtime.data_catalog[target.ref].type_name,
+        type_chain=tuple(runtime.data_catalog[target.ref].type_chain),
+    )
+    runtime.type_registry = SimpleNamespace(
+        resolve=lambda name: SimpleNamespace(base_type={"Image": "Array", "Array": "DataObject"}.get(name, ""))
+    )
+    return runtime, get_panel_contexts(runtime)
+
+
+@pytest.fixture
+def panel_runtime(tmp_path):
+    return make_runtime(tmp_path)

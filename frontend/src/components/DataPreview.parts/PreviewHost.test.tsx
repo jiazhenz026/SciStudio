@@ -27,15 +27,26 @@ const savePreviewResource = vi.fn();
 const fetchMock = vi.fn();
 let anchorClickSpy: ReturnType<typeof vi.spyOn> | null = null;
 
-vi.mock("../../lib/api", () => ({
-  api: {
-    createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
-    patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
-    getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
-    getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
-    openNativeSaveDialog: (...a: unknown[]) => openNativeSaveDialog(...a),
-    savePreviewResource: (...a: unknown[]) => savePreviewResource(...a),
-  },
+vi.mock("../../lib/api", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    api: {
+      ...(actual.api as Record<string, unknown>),
+      createPreviewSession: (...a: unknown[]) => createPreviewSession(...a),
+      patchPreviewSession: (...a: unknown[]) => patchPreviewSession(...a),
+      getPreviewResource: (...a: unknown[]) => getPreviewResource(...a),
+      getPreviewSession: (...a: unknown[]) => getPreviewSession(...a),
+      openNativeSaveDialog: (...a: unknown[]) => openNativeSaveDialog(...a),
+      savePreviewResource: (...a: unknown[]) => savePreviewResource(...a),
+    },
+  };
+});
+
+vi.mock("../../panels/PanelPreview", () => ({
+  PanelPreview: ({ onFallback }: { onFallback: () => void }) => (
+    <button onClick={onFallback}>Use core preview</button>
+  ),
 }));
 
 import { PreviewHost } from "./PreviewHost";
@@ -566,4 +577,18 @@ describe("PreviewHost — session-envelope cache (FR-021)", () => {
     ).toBe(true);
     expect(keys.every((key) => !key.includes("_storage"))).toBe(true);
   });
+});
+
+it("explicitly reroutes a failed panel to the legacy core envelope in Phase A", async () => {
+  createPreviewSession
+    .mockResolvedValueOnce(
+      envelope({ kind: "panel", panel: { id: "lab.image", api_version: "1.0" } }),
+    )
+    .mockResolvedValueOnce(envelope({ kind: "text", payload: { content: "core preview" } }));
+  render(<PreviewHost target={TARGET} />);
+  fireEvent.click(await screen.findByText("Use core preview"));
+  await waitFor(() =>
+    expect(createPreviewSession).toHaveBeenLastCalledWith(TARGET, { core_only: true }),
+  );
+  expect(await screen.findByText("core preview")).toBeInTheDocument();
 });

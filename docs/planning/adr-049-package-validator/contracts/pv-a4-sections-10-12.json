@@ -617,7 +617,7 @@
       "id": "PV-12-001",
       "section": "12_security_isolation",
       "title": "Preview frontend manifests are same-origin and hide backend asset roots",
-      "contract": "Previewer frontend manifests must use backend-relative same-origin module and CSS URLs; remote http, https, protocol-relative, data, and file URLs are rejected. Backend-only asset_root may be used for serving but must never be serialized to the frontend envelope.",
+      "contract": "Previewer frontend manifests must use backend-relative same-origin module and CSS URLs; remote http, https, protocol-relative, data, and file URLs are rejected. Backend-only asset_root may be used for serving but must never be serialized to the frontend envelope. These legacy manifest restrictions remain unchanged through 0.5.x. HTML panels instead use the ADR-054 opaque-origin sandbox, per-mount noncredentialed static-token path and CDN allowlist; their backend roots also stay absent from catalog serialization. See PV-12-005 and PV-12-006.",
       "status": "implemented",
       "severity": "blocker",
       "environments": [
@@ -665,7 +665,17 @@
         {
           "path": "src/scistudio/previewers/models.py",
           "kind": "contains",
-          "pattern": "Wire shape sent to the frontend. ``asset_root`` is intentionally omitted."
+          "pattern": "Return the wire-shape dict sent to the frontend (``asset_root`` is omitted)."
+        },
+        {
+          "path": "src/scistudio/panels/descriptor.py",
+          "kind": "contains",
+          "pattern": "Return the public catalog descriptor without local paths."
+        },
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "connect-src 'none'"
         }
       ],
       "adr_evidence": [
@@ -698,7 +708,7 @@
         }
       ],
       "adr_alignment": "aligned",
-      "validator_implication": "Production package validation must block previewer frontend manifests with remote URLs or frontend-visible asset roots; development validation should return precise manifest diagnostics."
+      "validator_implication": "Production package validation must block previewer frontend manifests with remote URLs or frontend-visible asset roots; development validation should return precise manifest diagnostics. Apply the distinct ADR-054 panel checks to HTML panels; do not weaken the legacy same-origin manifest rule or treat static-token CORS as global API CORS."
     },
     {
       "id": "PV-12-002",
@@ -933,6 +943,272 @@
       "adr_alignment": "adr_planned",
       "notes": "Code evidence proves the plot-rendering subprocess boundary, not a general package-install isolation runner. The survey draft explicitly leaves package validation isolation policy open.",
       "validator_implication": "ADR-049 should avoid claiming a general plugin-validation sandbox until a concrete isolated runner or per-plugin environment contract is selected; production profiles should error on validators that execute untrusted package code in-process."
+    },
+    {
+      "id": "PV-12-005",
+      "section": "12_security_isolation",
+      "title": "Panel static token serving confines files and preserves the identity seam",
+      "contract": "Only the literal /api/panels/t/ prefix authenticates its own tokens. Static tokens load only their mounted panel assets, SDK and libraries, not artifact bytes or guarded operations. Paths reject traversal, symlink escape and source-code suffixes; URLs preserve the mount prefix. Artifact reads use a distinct context-bound grant. The host consumes artifact grants under a 100 MiB streamed-byte cap and independent 30-second body deadline, transferring ArrayBuffer bytes through the canonical channel; the SDK creates frame-local blob URLs and revokes them on replacement/disposal. The frame cannot fetch grant URLs under connect-src none.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_assets"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "def resolve_panel_file(",
+          "symbol": "resolve_panel_file"
+        },
+        {
+          "path": "src/scistudio/api/routes/panels.py",
+          "kind": "contains",
+          "pattern": "register_self_authenticating_prefix"
+        },
+        {
+          "path": "src/scistudio/panels/contexts.py",
+          "kind": "contains",
+          "pattern": "def grant_artifact("
+        },
+        {
+          "path": "frontend/src/panels/artifact.ts",
+          "kind": "contains",
+          "pattern": "DEFAULT_PANEL_ARTIFACT_LIMIT = 100 * 1024 * 1024"
+        },
+        {
+          "path": "frontend/src/panels/readBody.ts",
+          "kind": "contains",
+          "pattern": "timeoutMs = 30000"
+        },
+        {
+          "path": "src/scistudio/panels/sdk/1/scistudio-panel.js",
+          "kind": "contains",
+          "pattern": "createObjectURL"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-026**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_descriptor.py",
+          "kind": "contains",
+          "pattern": "def test_python_and_traversal_and_symlink_escape_refused"
+        },
+        {
+          "path": "tests/api/test_panel_security.py",
+          "kind": "contains",
+          "pattern": "def test_real_mounted_panel_routes_and_lifecycle"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_text_and_artifact_grant_separated_from_static_token"
+        },
+        {
+          "path": "frontend/src/panels/readBody.test.ts",
+          "kind": "contains",
+          "pattern": "times out and cancels a body that stalls after response headers"
+        },
+        {
+          "path": "frontend/src/panels/sdk.test.ts",
+          "kind": "contains",
+          "pattern": "creates frame-local artifact Blob URLs and revokes on replacement and dispose"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-12-006",
+      "section": "12_security_isolation",
+      "title": "Panel external references and opaque-origin isolation are checked",
+      "contract": "Panel HTML/CSS/JS references must use allowed HTTPS CDN hosts or local resources; off-allowlist references fail and unpinned CDN versions produce diagnostics. CSP retains connect-src none; null-Origin mutations are refused globally and global wildcard/null CORS configuration is rejected.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_assets"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "def validate_external_references(",
+          "symbol": "validate_external_references"
+        },
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "connect-src 'none'"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-038**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_descriptor.py",
+          "kind": "contains",
+          "pattern": "def test_external_reference_allowlist_and_pin_diagnostic"
+        },
+        {
+          "path": "tests/api/test_panel_security.py",
+          "kind": "contains",
+          "pattern": "def test_opaque_mutations_refused_on_every_route"
+        },
+        {
+          "path": "tests/api/test_panel_security.py",
+          "kind": "contains",
+          "pattern": "def test_unsafe_global_cors_refused"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-12-007",
+      "section": "12_security_isolation",
+      "title": "Panel read and decision authority belongs to the backend context",
+      "contract": "Preview contexts authorize backend-owned frozen targets and reachable children only; stale project/catalog/storage state is refused. Interactive contexts receive only the frozen prepare_prompt view, authorize no arbitrary reads and claim one decision on the existing ADR-051 completion path. Closing or expiring a context revokes its grants. Child preview sessions retain independent frozen source and ancestry authority after parent-context close and validate get, patch and resource operations; client private-field patches are refused. The server sends panel_accepted only after a valid one-shot claim and successful completion dispatch, or scoped panel_error with error code/message.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_contexts"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/contexts.py",
+          "kind": "contains",
+          "pattern": "class PanelContexts:"
+        },
+        {
+          "path": "src/scistudio/panels/targets.py",
+          "kind": "contains",
+          "pattern": "class FrozenTarget:"
+        },
+        {
+          "path": "src/scistudio/panels/reads.py",
+          "kind": "contains",
+          "pattern": "def read_context("
+        },
+        {
+          "path": "src/scistudio/panels/contexts.py",
+          "kind": "contains",
+          "pattern": "def open_child("
+        },
+        {
+          "path": "src/scistudio/previewers/session.py",
+          "kind": "contains",
+          "pattern": "Private preview query fields are backend-owned"
+        },
+        {
+          "path": "src/scistudio/api/ws.py",
+          "kind": "contains",
+          "pattern": "outbound_queue.put_nowait({\"type\": \"panel_accepted\", **scope})"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-010**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_unknown_ref_and_miniapp_refused"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_close_revoke_renew_expiry_and_project_change"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_record_replacement_and_file_mutation_revoke"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_interactive_input_is_backend_snapshot_and_writeback_once"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_independent_child_session_validates_every_followup"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_composite_child_panel_maximizes_independently_after_parent_close"
+        },
+        {
+          "path": "tests/api/test_panel_interactive_ws.py",
+          "kind": "contains",
+          "pattern": "def test_ack_waits_for_dispatch_and_allows_close_only_after_acceptance"
+        },
+        {
+          "path": "tests/api/test_panel_interactive_ws.py",
+          "kind": "contains",
+          "pattern": "def test_dispatch_failure_returns_scoped_error_without_accepting"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
     }
   ],
   "omissions": []

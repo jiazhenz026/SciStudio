@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.none_prompt",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

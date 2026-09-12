@@ -1,0 +1,14 @@
+<!doctype html>
+<p id="status">starting</p>
+<button id="read">Read again</button>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script>
+  scistudio.ready().then(async () => {
+    const read = async () => {
+      const value = await scistudio.read("table.page");
+      document.querySelector("#status").textContent = JSON.stringify(value);
+    };
+    document.getElementById("read").onclick = read;
+    await read();
+  });
+</script>

@@ -1,5 +1,7 @@
 import { Maximize2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import type { PanelSnapshot } from "../panels/types";
 
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
@@ -75,6 +77,7 @@ export function DataPreview({
   selectedSchema,
   subworkflowPorts,
 }: DataPreviewProps) {
+  const panelSnapshot = useRef<PanelSnapshot | null>(null);
   // #898 — pill labels become source filenames (with truncated-ref fallback).
   const refEntries: RefEntry[] = useMemo(() => {
     if (!selectedNodeId) return [];
@@ -187,11 +190,18 @@ export function DataPreview({
   // creates its preview session on mount; it adapts to its container, which
   // is also why the maximize action (#2112) can hand a frozen target to a
   // second host in a main-stage tab without any host changes.
+  const selectedTargetRef = (activePlot ?? target)?.ref;
+  useEffect(() => {
+    panelSnapshot.current = null;
+  }, [selectedTargetRef, previewerChoiceVersion]);
   const host = (
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
       routingEpoch={previewerChoiceVersion}
+      onPanelSnapshot={(snapshot) => {
+        panelSnapshot.current = snapshot;
+      }}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
@@ -229,7 +239,7 @@ export function DataPreview({
                * workflow tabs) instead of restyling this panel into an
                * overlay. The tab is dropped as soon as focus moves elsewhere.
                */
-              const expandTarget = activePlot ?? target;
+              const expandTarget = panelSnapshot.current?.target ?? activePlot ?? target;
               if (!expandTarget) return;
               useAppStore
                 .getState()
@@ -237,6 +247,8 @@ export function DataPreview({
                   expandTarget,
                   activePlot ? "Plot artifact" : (activeEntry?.displayName ?? selectedNodeLabel),
                   activePlot ? undefined : activeEntry?.initialQuery,
+                  undefined,
+                  panelSnapshot.current ?? undefined,
                 );
               /*
                * ADR-053 FR-052 (#2057) — `preview_expanded`, one of the two

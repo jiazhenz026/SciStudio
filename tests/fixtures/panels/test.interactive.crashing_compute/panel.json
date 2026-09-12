@@ -1,0 +1,7 @@
+{
+  "id": "test.interactive.crashing_compute",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

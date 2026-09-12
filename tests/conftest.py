@@ -1,10 +1,54 @@
 """Shared test fixtures for the SciStudio test suite."""
 
+import faulthandler
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+# ---------------------------------------------------------------------------
+# Make a hang say where it is
+# ---------------------------------------------------------------------------
+#
+# ``--timeout`` only interrupts what its method can reach: the thread method
+# cannot unwind a thread parked in a C call or waiting on a child, and the
+# signal method does not reach a non-main thread at all. A hang of that kind
+# escapes it, runs into CI's ``timeout 600`` shell guard, and leaves exit code
+# 124 and nothing else — no test name, no stack, in either the workers or the
+# controller.
+#
+# ``faulthandler`` is not bound by any of that: the timer lives in a watchdog
+# thread inside the interpreter and dumps every thread's stack wherever they
+# are parked, in each xdist worker as well as the controller.
+#
+# The value matters. This is a diagnosis aid, not a budget: it must fire late
+# enough that a suite which is merely slow still finishes, and early enough that
+# a genuinely stuck one is dumped while there is still a process to write it.
+# Set well under the phase's own 600s shell guard but not so far under that it
+# shoots a run the shell would have let finish — an earlier 480s turned a run
+# that was going to complete into one that reported a stack trace at 68%, which
+# is a worse answer than the one it replaced.
+#
+# Set ``SCISTUDIO_TEST_HANG_DUMP_SECONDS=0`` to disarm it — for a debugger
+# session, where being killed mid-breakpoint is exactly wrong.
+_HANG_DUMP_SECONDS = int(os.environ.get("SCISTUDIO_TEST_HANG_DUMP_SECONDS", "570"))
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Arm the watchdog that turns a silent hang into a stack trace."""
+    if _HANG_DUMP_SECONDS <= 0:
+        return
+    faulthandler.enable()
+    faulthandler.dump_traceback_later(_HANG_DUMP_SECONDS, exit=True)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Disarm it, so a slow teardown after a healthy run is not shot."""
+    if _HANG_DUMP_SECONDS > 0:
+        faulthandler.cancel_dump_traceback_later()
+
 
 # ---------------------------------------------------------------------------
 # Fixture block-package discovery (issue #1770)

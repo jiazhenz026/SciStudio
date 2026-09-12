@@ -1,0 +1,1 @@
+{ "id": "browser.navigator", "api_version": "1.0", "contexts": ["preview"], "types": ["Composite"] }

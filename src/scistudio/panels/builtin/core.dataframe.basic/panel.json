@@ -1,0 +1,10 @@
+{
+  "id": "core.dataframe.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["DataFrame"],
+  "name": "Table",
+  "description": "Paged, sortable table view of a DataFrame (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

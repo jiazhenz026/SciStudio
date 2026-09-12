@@ -532,7 +532,7 @@
       "id": "PV-09-002",
       "section": "09_previewer_contracts",
       "title": "PreviewerSpec and FrontendManifest define the public previewer declaration shape",
-      "contract": "PreviewerSpec declares previewer_id, owner_kind, owner_name, target_type, supports_collection, priority, capabilities, backend_provider, optional frontend_manifest, and api_version. FrontendManifest declares previewer_id, module_url, export_name, css, version, api_version, and backend-only asset_root. The public wire shape must omit asset_root; value validity is enforced by registry and asset validators rather than dataclass construction.",
+      "contract": "PreviewerSpec declares previewer_id, owner_kind, owner_name, target_type, supports_collection, priority, capabilities, backend_provider, optional frontend_manifest, and api_version. FrontendManifest declares previewer_id, module_url, export_name, css, version, api_version, and backend-only asset_root. The public wire shape must omit asset_root; value validity is enforced by registry and asset validators rather than dataclass construction. Phase A appends optional panel metadata and a panel/legacy renderer discriminator to the registry wire shape; PreviewEnvelope may carry resolved panel identity while legacy frontend manifests still omit asset_root.",
       "status": "implemented",
       "severity": "error",
       "environments": [
@@ -569,7 +569,7 @@
         {
           "path": "src/scistudio/previewers/models.py",
           "kind": "contains",
-          "pattern": "Wire shape sent to the frontend. ``asset_root`` is intentionally omitted.",
+          "pattern": "Return the wire-shape dict sent to the frontend (``asset_root`` is omitted).",
           "notes": "FrontendManifest.to_dict omits backend-only asset_root."
         },
         {
@@ -577,6 +577,16 @@
           "kind": "contains",
           "pattern": "PreviewerSpecList = list[PreviewerSpec]",
           "notes": "Entry-point canonical return shape alias."
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "\"renderer\": \"panel\" if self.panel is not None else \"legacy\""
+        },
+        {
+          "path": "src/scistudio/previewers/models.py",
+          "kind": "contains",
+          "pattern": "Resolved panel identity for the sandbox host."
         }
       ],
       "adr_evidence": [
@@ -954,6 +964,360 @@
       "adr_alignment": "aligned",
       "notes": "Session behavior makes previewer provider failures non-fatal to the API surface even when the underlying router/provider raises typed or unexpected exceptions.",
       "validator_implication": "Validate manifest ownership at the spec/session seam and classify provider exceptions as typed error-envelope behavior rather than process crashes."
+    },
+    {
+      "id": "PV-09-007",
+      "section": "09_previewer_contracts",
+      "title": "Panel descriptor schema and version are validated without running panel Python",
+      "contract": "panel.json requires a directory-matching id, served API major, nonempty distinct known contexts and registered preview types. MiniApp descriptors require one type, but preview/interactive never start panel.py. The core.* prefix is reserved for core; non-core descriptors cannot override a core id. Customized core previews use a new id with a concrete type claim or explicit per-type choice.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_descriptor"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/descriptor.py",
+          "kind": "contains",
+          "pattern": "class PanelDescriptor:",
+          "symbol": "PanelDescriptor"
+        },
+        {
+          "path": "src/scistudio/panels/descriptor.py",
+          "kind": "contains",
+          "pattern": "def parse_descriptor(",
+          "symbol": "parse_descriptor"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-002**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_descriptor.py",
+          "kind": "contains",
+          "pattern": "def test_descriptor_refuses_invalid_contract"
+        },
+        {
+          "path": "tests/panels/test_panel_descriptor.py",
+          "kind": "contains",
+          "pattern": "def test_multi_type_preview_and_miniapp_shape_without_python_execution"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-09-008",
+      "section": "09_previewer_contracts",
+      "title": "Panel discovery validates four tiers and contains package failures",
+      "contract": "Discover core, package, user and project panel directories; project precedes user, package and core for duplicate ids. The scistudio.panels entry-point factory returns a list of directory paths; bad descriptors and entry points produce diagnostics.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_entry_points"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/registry.py",
+          "kind": "contains",
+          "pattern": "class PanelRegistry:",
+          "symbol": "PanelRegistry"
+        },
+        {
+          "path": "src/scistudio/panels/registry.py",
+          "kind": "contains",
+          "pattern": "def discover_panels("
+        },
+        {
+          "path": "src/scistudio/panels/registry.py",
+          "kind": "contains",
+          "pattern": "enumerate_group(\"scistudio.panels\""
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-004**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_routing.py",
+          "kind": "contains",
+          "pattern": "def test_same_tier_panel_shadows_legacy_and_multi_claims_route"
+        },
+        {
+          "path": "tests/panels/test_panel_registry.py",
+          "kind": "contains",
+          "pattern": "def test_discovery_project_user_package_tiers_and_diagnostics"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-09-009",
+      "section": "09_previewer_contracts",
+      "title": "Panel and legacy candidates share preview routing",
+      "contract": "Panel preview type claims enter the existing PreviewRouter ladder, with same-tier panels shadowing legacy ids; exact type matches precede parent matches and unresolved ties remain errors. Interactive/MiniApp-only descriptors do not become preview candidates. Authorized child open returns the shared PreviewEnvelopeModel and routes through panel or legacy renderers while retaining a distinct frozen preview session.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "previewers"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/descriptor.py",
+          "kind": "contains",
+          "pattern": "def candidates("
+        },
+        {
+          "path": "src/scistudio/previewers/registry.py",
+          "kind": "contains",
+          "pattern": "panel"
+        },
+        {
+          "path": "src/scistudio/previewers/router.py",
+          "kind": "contains",
+          "pattern": "class PreviewRouter:"
+        },
+        {
+          "path": "src/scistudio/api/routes/panels.py",
+          "kind": "contains",
+          "pattern": "@router.post(\"/contexts/{context_id}/open\", response_model=PreviewEnvelopeModel"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-006**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_routing.py",
+          "kind": "contains",
+          "pattern": "def test_exact_lower_tier_beats_parent_higher_tier_and_ties_error"
+        },
+        {
+          "path": "tests/panels/test_panel_routing.py",
+          "kind": "contains",
+          "pattern": "def test_preview_envelope_dispatch_never_calls_python"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tampering"
+        },
+        {
+          "path": "frontend/src/panels/PanelPreview.test.tsx",
+          "kind": "contains",
+          "pattern": "opens panel and legacy children through authorized sessions and restores each parent on Back"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-09-010",
+      "section": "09_previewer_contracts",
+      "title": "Interactive declarations resolve compatible panels at discovery and open",
+      "contract": "A block naming a panel must resolve an interactive descriptor at discovery and again at context creation; legacy module_url retains the deprecated loader. Only the two explicit compiled core-window ids retain a temporary missing-descriptor exception until #2294.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "interactive_blocks"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "src/scistudio/panels/validation.py",
+          "kind": "contains",
+          "pattern": "def validate_interactive_panel(",
+          "symbol": "validate_interactive_panel"
+        },
+        {
+          "path": "src/scistudio/panels/contexts.py",
+          "kind": "contains",
+          "pattern": "LEGACY_CORE_PANELS"
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-023**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "tests/panels/test_panel_descriptor.py",
+          "kind": "contains",
+          "pattern": "def test_interactive_validation_preserves_only_known_core_legacy"
+        },
+        {
+          "path": "tests/panels/test_panel_contexts.py",
+          "kind": "contains",
+          "pattern": "def test_interactive_input_is_backend_snapshot_and_writeback_once"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
+    },
+    {
+      "id": "PV-09-011",
+      "section": "09_previewer_contracts",
+      "title": "Panel SDK communicates over one context-bound channel",
+      "contract": "A sandboxed frame has one MessageChannel; preview read/open and interactive one-shot writeBack follow context capabilities. The SDK exposes no call or sync in Phase A; save is host-mediated and standalone sample mode reads panel.sample.json. Initialization is delivered through the retained original-document bootstrap port only after an unpredictable context proof and intended-frame source match; load alone never authorizes input delivery. The interactive host awaits panel_accepted matching context_id, workflow_id and block_id before success-driven close or interaction-memory persistence; scoped panel_error and acknowledgement timeout remain errors.",
+      "status": "partial",
+      "severity": "error",
+      "environments": [
+        "development",
+        "production"
+      ],
+      "validator_profile": {
+        "development": "error",
+        "production": "block"
+      },
+      "applicability": {
+        "candidate_surfaces": [
+          "panels",
+          "panel_sdk"
+        ],
+        "trigger": "when_candidate_declares_panels",
+        "not_applicable_result": "not_applicable"
+      },
+      "code_evidence": [
+        {
+          "path": "frontend/src/panels/bridge.ts",
+          "kind": "contains",
+          "pattern": "export function createPanelBridge("
+        },
+        {
+          "path": "frontend/src/panels/PanelFrame.tsx",
+          "kind": "contains",
+          "pattern": "allow-scripts"
+        },
+        {
+          "path": "src/scistudio/panels/sdk/1/scistudio-panel.js",
+          "kind": "contains",
+          "pattern": "panel.sample.json"
+        },
+        {
+          "path": "src/scistudio/panels/files.py",
+          "kind": "contains",
+          "pattern": "def bootstrap_entry("
+        },
+        {
+          "path": "frontend/src/panels/PanelFrame.tsx",
+          "kind": "contains",
+          "pattern": "bootstrapPort.current.postMessage("
+        },
+        {
+          "path": "frontend/src/panels/decisions.ts",
+          "kind": "contains",
+          "pattern": "export function submitPanelDecision("
+        }
+      ],
+      "adr_evidence": [
+        {
+          "path": "docs/specs/adr-054-panels.md",
+          "kind": "contains",
+          "pattern": "**FR-016**"
+        }
+      ],
+      "tests": [
+        {
+          "path": "frontend/src/panels/sdk.test.ts",
+          "kind": "contains",
+          "pattern": "accepts one parent init and ignores all later window replies"
+        },
+        {
+          "path": "frontend/src/panels/sdk.test.ts",
+          "kind": "contains",
+          "pattern": "loads panel.sample.json and answers read fixtures without any host"
+        },
+        {
+          "path": "frontend/src/panels/PanelFrame.test.tsx",
+          "kind": "contains",
+          "pattern": "never transfers input to a document without the first context-bound bootstrap"
+        },
+        {
+          "path": "tests/api/test_panel_routes.py",
+          "kind": "contains",
+          "pattern": "def test_entry_bootstrap_precedes_author_markup_and_is_document_specific"
+        },
+        {
+          "path": "frontend/src/panels/decisions.test.ts",
+          "kind": "contains",
+          "pattern": "requires matching context, workflow and block before settling"
+        }
+      ],
+      "adr_alignment": "aligned",
+      "notes": "Runtime mechanisms exist; independent ADR-049 development/production package-validation enforcement is not proved by these anchors. Internal Python symbols are evidence, not an author import API.",
+      "validator_implication": "Package validation must apply this contract and report candidate-specific diagnostics; the current table checker verifies evidence anchors and inventory coverage, not execution of an install-time candidate validator. Track remaining validator enforcement under #2293 before Phase A acceptance."
     }
   ]
 }

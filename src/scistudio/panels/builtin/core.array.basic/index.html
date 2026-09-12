@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Array preview</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+    <style>
+      /* Fixed column geometry: the virtualizer reserves width for off-window
+         columns in CSS pixels, so a rendered column must match that constant or
+         the horizontal scrollbar drifts out of sync with the pointer. */
+      .panel-table { table-layout: fixed; }
+      .panel-table td,
+      .panel-table thead th { width: 44px; min-width: 44px; max-width: 44px; overflow: hidden; text-overflow: ellipsis; }
+      .panel-table th.panel-table-corner,
+      .panel-table tbody th { width: 40px; min-width: 40px; max-width: 40px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>
