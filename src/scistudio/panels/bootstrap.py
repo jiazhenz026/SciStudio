@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib.util
+import inspect
 import os
 import sys
 import traceback
@@ -67,14 +68,20 @@ def _import_panel() -> ModuleType:
 def _collect_callables(module: ModuleType) -> dict[str, Any]:
     """Public functions defined in ``panel.py`` itself, other than setup/teardown.
 
+    FR-007 names *functions*: a class defined in ``panel.py`` is callable and
+    carries the module's ``__module__``, but constructing one over the call
+    channel is not what the page was given a function surface for, and the
+    instance it returns is not a result the protocol can send. ``isfunction``
+    keeps the surface to what the author wrote as a function.
+
     A name the module only imports has a different ``__module__`` and is not
-    callable through the panel (FR-007).
+    callable through the panel either.
     """
     result: dict[str, Any] = {}
     for name, value in vars(module).items():
         if name.startswith("_") or name in _RESERVED:
             continue
-        if callable(value) and getattr(value, "__module__", None) == module.__name__:
+        if inspect.isfunction(value) and getattr(value, "__module__", None) == module.__name__:
             result[name] = value
     return result
 

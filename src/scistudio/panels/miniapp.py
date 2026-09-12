@@ -11,6 +11,7 @@ reconstructs into the target data object.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from scistudio.panels.descriptor import PanelDescriptor
@@ -108,10 +109,29 @@ def build_setup_payload(runtime: Any, frozen: FrozenTarget) -> Any:
 
 
 def _wire(frozen: FrozenTarget) -> dict[str, Any]:
+    """One reconstruction dict, as faithful as the catalog can make it (FR-007).
+
+    ``setup`` must receive the target as the engine's own reconstruction builds
+    it, which resolves the concrete class from ``type_chain`` and fills the
+    ``framework``/``meta``/``user`` slots from the same sidecar the worker wrote.
+    The storage reference normally carries that sidecar verbatim, but a record
+    registered by another path can carry it only on the catalog record — so the
+    record's metadata is the floor, the storage reference's the override, and
+    the catalog's own type chain the last word on what the target *is*. Building
+    the dict from the storage metadata alone handed ``setup`` a bare
+    ``DataObject`` whenever those keys were only on the record.
+    """
     storage = frozen.storage
     assert storage is not None
-    metadata = dict(storage.metadata or {})
-    metadata.setdefault("type_chain", list(frozen.target.type_chain))
+    metadata: dict[str, Any] = {}
+    if isinstance(frozen.metadata, dict):
+        metadata.update(deepcopy(frozen.metadata))
+    metadata.update(deepcopy(dict(storage.metadata or {})))
+    chain = [str(name) for name in frozen.target.type_chain]
+    if chain:
+        metadata["type_chain"] = chain
+    elif not metadata.get("type_chain") and frozen.target.recorded_type:
+        metadata["type_chain"] = [frozen.target.recorded_type]
     return {"backend": storage.backend, "path": storage.path, "format": storage.format, "metadata": metadata}
 
 
