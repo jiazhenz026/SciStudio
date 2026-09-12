@@ -3496,6 +3496,18 @@
       "at": "2026-09-12T02:35:20.476644Z",
       "pattern": "tests/contracts/openapi.json",
       "reason": "The SDK asset route gained a {name} parameter so one route serves the panel client, the shared stylesheet and the component set; the committed OpenAPI snapshot is generated from the backend and has to record it."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:51:16.820576Z",
+      "pattern": "tests/e2e/harness.py",
+      "reason": "The end-to-end tutorial run asserts that a block's output is previewable the way the GUI opens it; the GUI mounts a panel and reads table.page, so the assertion follows that path instead of a session payload the product no longer produces."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T02:51:16.820709Z",
+      "pattern": "tests/e2e/test_tutorial_workflows.py",
+      "reason": "The end-to-end tutorial run asserts that a block's output is previewable the way the GUI opens it; the GUI mounts a panel and reads table.page, so the assertion follows that path instead of a session payload the product no longer produces."
     }
   ],
   "session_id": "961ab188-65cd-4521-a314-b023b4f091d4",
