@@ -36,6 +36,7 @@ import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
 import { MiniAppPalette } from "../miniapps/MiniAppPalette";
 import { MiniAppTabLayer, useMiniAppPreviewColumn } from "../miniapps/MiniAppTab";
 import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
+import { miniAppsApi } from "../miniapps/api";
 import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
@@ -91,6 +92,21 @@ export interface MiniAppWiring {
   onOpen: (summary: MiniAppSummary) => void;
   /** FR-023 — the New MiniApp dialog. */
   onCreate: () => void;
+  /**
+   * FR-035 — what a block's context menu may offer.
+   *
+   * The canvas needs the catalogue to decide which MiniApps match a block's
+   * output type, and it needs somewhere to send the choice. These three are
+   * separate from `onOpen`/`onCreate` above because the canvas has ALREADY
+   * resolved the target by the time it calls them: the sidebar card knows only
+   * the MiniApp and has to ask which data, while the context menu knows the
+   * block and is asking which MiniApp.
+   */
+  catalogue: MiniAppSummary[];
+  /** Open `summary` on a target the canvas resolved. */
+  onOpenOnTarget: (summary: MiniAppSummary, target: MiniAppTarget) => void;
+  /** New MiniApp, pre-filled with the block's output (or `null`). */
+  onCreateFor: (target: MiniAppTarget | null) => void;
 }
 
 /**
@@ -367,7 +383,7 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   );
 }
 
-function CanvasOrEditor(props: ProjectWorkspaceProps) {
+function CanvasOrEditor(props: ProjectWorkspaceProps & { miniApps: MiniAppWiring }) {
   const {
     activeFileTab,
     activePreviewTab,
@@ -431,6 +447,9 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
 
   return (
     <WorkflowCanvas
+      miniApps={props.miniApps.catalogue}
+      onOpenMiniApp={props.miniApps.onOpenOnTarget}
+      onNewMiniApp={props.miniApps.onCreateFor}
       blockStates={blockStates}
       blockErrors={blockErrors}
       blockErrorSummaries={blockErrorSummaries}
@@ -513,9 +532,42 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   const [pickerFor, setPickerFor] = useState<MiniAppSummary | null>(null);
   const [convertFor, setConvertFor] = useState<string | null>(null);
   const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
+  // FR-035 — the context menu needs the catalogue to know which MiniApps a
+  // block's output type matches. The palette keeps its own copy because it also
+  // owns search, refresh and diagnostics; this one is read once per project.
+  const [miniAppCatalogue, setMiniAppCatalogue] = useState<MiniAppSummary[]>([]);
+  const [presetTarget, setPresetTarget] = useState<MiniAppTarget | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    miniAppsApi
+      .list()
+      .then((items) => {
+        if (!cancelled) setMiniAppCatalogue(items);
+      })
+      .catch(() => {
+        // A catalogue that cannot be read leaves the context menu offering
+        // New MiniApp and nothing else, which is the correct degradation:
+        // the entry the user learns the feature from is still there.
+        if (!cancelled) setMiniAppCatalogue([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [props.currentProject?.id]);
+
   const miniApps: MiniAppWiring = {
     onOpen: (summary) => setPickerFor(summary),
-    onCreate: () => setCreateOpen(true),
+    onCreate: () => {
+      setPresetTarget(null);
+      setCreateOpen(true);
+    },
+    catalogue: miniAppCatalogue,
+    onOpenOnTarget: (summary, target) =>
+      openMiniAppTab({ panelId: summary.panel_id, name: summary.name, target }),
+    onCreateFor: (target) => {
+      setPresetTarget(target);
+      setCreateOpen(true);
+    },
   };
 
   // #2090 — the store's `paletteCollapsed` (toggled by the activity bar and
@@ -694,7 +746,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
                * one is visible.
                */}
               <div className={activeMiniAppTab ? "hidden" : "h-full min-h-0"}>
-                <CanvasOrEditor {...props} />
+                <CanvasOrEditor {...props} miniApps={miniApps} />
               </div>
               <MiniAppTabLayer
                 tabs={miniAppTabs}
@@ -796,6 +848,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       <CreateMiniAppDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        presetTarget={presetTarget}
         onCreated={(result) => {
           setCreateOpen(false);
           openMiniAppTab({

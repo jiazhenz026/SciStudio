@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from tests.api.helpers import build_linear_workflow
+from tests.api.helpers import build_linear_workflow, ws_hello
 
 
 def test_autosave_echoes_are_source_id_and_version_correlated(
@@ -19,6 +19,7 @@ def test_autosave_echoes_are_source_id_and_version_correlated(
     base_version = created.json()["state_version"]
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         payload["description"] = "autosave snapshot"
         first = client.put(
             "/api/workflows/autosave-race",

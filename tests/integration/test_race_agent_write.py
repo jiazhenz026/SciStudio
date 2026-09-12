@@ -9,7 +9,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from scistudio.ai.agent.mcp import tools_workflow
-from tests.api.helpers import build_linear_workflow
+from tests.api.helpers import build_linear_workflow, ws_hello
 
 
 def test_agent_workflow_write_is_remote_source_tagged_for_conflict_detection(
@@ -22,6 +22,7 @@ def test_agent_workflow_write_is_remote_source_tagged_for_conflict_detection(
     base_version = created.json()["state_version"]
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         payload["description"] = "agent wrote while browser was dirty"
         response = client.put(
             "/api/workflows/agent-write-race",
@@ -68,6 +69,7 @@ def test_mcp_write_workflow_pushes_agent_workflow_changed_before_watcher_echo(
     )
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         result = asyncio.run(tools_workflow.write_workflow(f"workflows/{workflow_id}.yaml", workflow_yaml))
         event = websocket.receive_json()
 
