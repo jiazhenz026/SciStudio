@@ -117,7 +117,7 @@ def safe_cache_segment(value: str) -> str:
 
     Exported because the layout is a contract, not a private detail: a reader of
     the cache has to reconstruct the same directory name from the same id, and
-    reimplementing the rule locally is how the two drift apart (#2362).
+    reimplementing the rule locally is how the two drift apart.
 
     Args:
         value: The raw id to use as one path segment.
@@ -131,6 +131,7 @@ def safe_cache_segment(value: str) -> str:
         >>> safe_cache_segment("../escape")
         '__escape'
     """
+    # Development references: #2362.
     value = (value or "_").replace("\\", "_").replace("/", "_")
     value = value.replace("..", "_")
     return value or "_"
@@ -167,13 +168,14 @@ def _resolve_input(ctx: Any, manifest: PlotManifest, run_id: str | None) -> _Res
     is keyed by it; matching on ``(node_id, output_port)`` across every run fed a
     plot another workflow's output whenever the two workflows shared a node name,
     and — having no ``break`` — picked whichever run came last in dict iteration
-    order, so the wrong answer was not even stable (#2362).
+    order, so the wrong answer was not even stable.
 
     A caller-supplied *run_id* selects one workflow's run explicitly. It is
     honoured only when it names the plot's own workflow; a foreign key is the
     same cross-workflow read by another route, so it resolves to no input rather
     than to another workflow's data.
     """
+    # Development references: #2362.
     node_id = manifest.target.node_id
     port = manifest.target.output_port
     runs = getattr(ctx, "workflow_runs", None)

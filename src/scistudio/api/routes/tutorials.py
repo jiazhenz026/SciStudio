@@ -614,7 +614,7 @@ class _ApiProductState:
         The cache's first path segment is the workflow, and ``plot_rendered``
         selects on node id and port — neither of which is unique across
         workflows — so returning every workflow's figures let a step be
-        satisfied by a plot the reader rendered somewhere else (#2362).
+        satisfied by a plot the reader rendered somewhere else.
         """
         # Development references: #2066, #2362.
         project_dir = self.project_dir
@@ -689,8 +689,9 @@ class _ApiProductState:
         unique across a project — generated ids like ``load_data_1`` repeat in
         every workflow — so asking the question of *any* workflow let a step
         about the workflow the reader is building be satisfied by a node of the
-        same name in one they had already finished (#2362).
+        same name in one they had already finished.
         """
+        # Development references: #2362.
         workflow = self.workflow()
         workflow_id = getattr(workflow, "id", None)
         if not workflow_id:

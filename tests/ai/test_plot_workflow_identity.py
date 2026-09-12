@@ -176,9 +176,7 @@ def _runtime(project: Path, array_path: Path, artifact_path: Path) -> _StubRunti
         block_registry=registry,
         workflow_runs={
             "array_wf": _StubRun({SHARED_NODE_ID: {PORT: _ref(array_path, type_name="Array", fmt="npy")}}),
-            "artifact_wf": _StubRun(
-                {SHARED_NODE_ID: {PORT: _ref(artifact_path, type_name="Artifact", fmt="npy")}}
-            ),
+            "artifact_wf": _StubRun({SHARED_NODE_ID: {PORT: _ref(artifact_path, type_name="Artifact", fmt="npy")}}),
         },
     )
 
@@ -260,9 +258,7 @@ def test_plot_refuses_an_explicit_run_id_from_another_workflow(
 # ---------------------------------------------------------------------------
 
 
-def test_target_discovery_reports_each_workflows_own_run(
-    project: Path, array_path: Path, artifact_path: Path
-) -> None:
+def test_target_discovery_reports_each_workflows_own_run(project: Path, array_path: Path, artifact_path: Path) -> None:
     """``latest_run_id`` names the workflow the target lives in."""
     ctx = _runtime(project, array_path, artifact_path)
     by_workflow = {t.workflow_id: t for t in discover_targets(ctx)}

@@ -118,7 +118,7 @@ def workflow_run_keys(workflow_path: str, workflow_id: str | None) -> tuple[str,
     resolves an id to ``workflows/<id>.yaml``. A node id alone is NOT a key into
     that registry: two workflows may legitimately contain a node with the same
     name, so a lookup that omits the workflow resolves to whichever workflow
-    happens to come last in iteration order (#2362).
+    happens to come last in iteration order.
 
     The file stem is the primary key because it is what
     ``ApiRuntime.start_workflow`` registered the run under. The declared
@@ -160,7 +160,7 @@ def _latest_output_for(
     *workflow_keys* comes from :func:`workflow_run_keys` and confines the lookup
     to the run of the workflow the node actually belongs to. Scanning every run
     and matching on ``(node_id, output_port)`` alone reported another workflow's
-    output for any node name two workflows share (#2362).
+    output for any node name two workflows share.
     """
     runs = getattr(ctx, "workflow_runs", None)
     if not isinstance(runs, dict) or not runs:

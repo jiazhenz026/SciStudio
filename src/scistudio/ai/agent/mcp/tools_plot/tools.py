@@ -298,9 +298,9 @@ async def run_plot_job(
 
     The input comes from the run of the workflow the plot is bound to, and only
     that one. Two workflows may contain a node with the same name; resolving by
-    node id alone fed the plot a namesake's output (#2362).
+    node id alone fed the plot a namesake's output.
     """
-    # Development references: FR-023, FR-025, FR-031.
+    # Development references: FR-023, FR-025, FR-031, #2362.
     return _runtime.run_plot_job(_plot_ctx(), plot_id=plot_id, run_id=run_id, timeout_seconds=timeout_seconds)
 
 

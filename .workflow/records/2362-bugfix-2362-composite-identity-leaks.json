@@ -1,7 +1,140 @@
 {
   "base_ref": null,
   "branch": "bugfix/2362-composite-identity-leaks",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-12T01:13:25.069369Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:abd233ccf1c1e23b78eada75c31960f2c5f98818bc8834e93beaa189fd84c762",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T01:13:25.430125Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/tools_plot/tools.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/api/app.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/seam.py src/scistudio/api/ws.py src/scistudio/plot/runtime.py src/scistudio/plot/targets.py tests/ai/test_mcp_run_error_scope.py tests/ai/test_mcp_tools_plot.py tests/ai/test_plot_workflow_identity.py tests/api/test_plot_preview_wiring.py tests/api/test_preview_plot_jobs.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_tutorial_product_state_workflow_scope.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3e7443cbcbd6145a837770e48c2e00143a83a438cfd72da636a0069b8c4787e7",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-12T01:13:36.304069Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:d091a90a48ba5875512bae8f0591199d37f4eb80bec45298606c2e2925838b81",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T01:13:44.854426Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:5e84a665b977090aa3a2ff026b74a8d54b3f3694d44cd6ac53bf96236e7a1d7b",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T01:13:45.507563Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:db36c3556168787c4471fa9490777eb38673150b348b328b228524a0a28f0925",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T01:13:45.555932Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/tools_plot/tools.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/api/app.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/seam.py src/scistudio/api/ws.py src/scistudio/plot/runtime.py src/scistudio/plot/targets.py tests/ai/test_mcp_run_error_scope.py tests/ai/test_mcp_tools_plot.py tests/ai/test_plot_workflow_identity.py tests/api/test_plot_preview_wiring.py tests/api/test_preview_plot_jobs.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_tutorial_product_state_workflow_scope.py",
+      "covered_surface": "python_lint",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:3ba042f4f9272f3600b51725fbd60c5b4792233cea15b169d735dba851f396b1",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-12T01:18:45.547788Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:67dcd80581702a32cc20ad3f1894988534b4782e642814457484872d6f90c87d",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-12T01:18:53.753841Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_plot/tools.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/api/app.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/seam.py src/scistudio/api/ws.py src/scistudio/plot/runtime.py src/scistudio/plot/targets.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0f0442b77dd44ddca196a8c2b0b58fee9daedbe834d11238d728d12e94c8beeb",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -42,7 +175,96 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-12T01:18:53.859143Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.881726Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.901057Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.921350Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.943991Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.962351Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.978353Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:53.992624Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:54.008548Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:54.022879Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:18:54.043905Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -52,19 +274,111 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "90766a01",
+    "changed_files": [
+      ".workflow/records/2362-bugfix-2362-composite-identity-leaks.json",
+      "docs/specs/adr-053-learning-center.md",
+      "frontend/src/App.parts/InteractiveModals.tsx",
+      "frontend/src/components/DataPreview.test.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/hooks/useRealtime.test.tsx",
+      "frontend/src/store/__tests__/compositeIdentity.test.ts",
+      "frontend/src/store/executionSlice.parts/eventReducer.ts",
+      "frontend/src/store/executionSlice.ts",
+      "frontend/src/store/projectSlice.ts",
+      "frontend/src/store/tabSlice.parts/previewTabActions.ts",
+      "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/workflowSlice.ts",
+      "frontend/src/testUtils.ts",
+      "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_errors.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/api/runtime/__init__.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "src/scistudio/api/seam.py",
+      "src/scistudio/api/ws.py",
+      "src/scistudio/plot/runtime.py",
+      "src/scistudio/plot/targets.py",
+      "tests/ai/test_mcp_run_error_scope.py",
+      "tests/ai/test_mcp_tools_plot.py",
+      "tests/ai/test_plot_workflow_identity.py",
+      "tests/api/test_plot_preview_wiring.py",
+      "tests/api/test_preview_plot_jobs.py",
+      "tests/api/test_runtime_project_scoped_runs.py",
+      "tests/api/test_tutorial_product_state_workflow_scope.py"
+    ],
+    "diff_fingerprint": "sha256:3b20b86e9bca5765fd4e7fb8c5ec1315a5367ba04abef7b01f05d10d44f04b28",
+    "head": "HEAD",
+    "head_sha": "0e8da5d3",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 13,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 23,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 31,
+      "test": 10,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Fix the bug class where a partial identity is used as a lookup key when a composite identity is required: node_id/block_id keyed without workflow_id, so same-named nodes in different workflows overwrite and impersonate each other. Owner broadened scope to sweep for every reachable instance of the class (run-scoped without run_id, project-scoped without project identity, cache keys missing a dimension, scans that fall back on a partial match without break). Carry the full identity; do not fix by renaming or by adding a break. Every fix needs a test that fails before and passes after. Defer anything that does not fit one reviewable PR with a tracked TODO citing an issue.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-12T01:18:54.043947Z",
+      "diff_fingerprint": "sha256:3b20b86e9bca5765fd4e7fb8c5ec1315a5367ba04abef7b01f05d10d44f04b28",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit",
+        "checks.lint_format",
+        "checks.python_tests"
+      ]
+    }
+  ],
   "record_id": "2362-bugfix-2362-composite-identity-leaks",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
@@ -179,7 +493,7 @@
     }
   ],
   "session_id": "5c815939-0edf-429d-8c05-f3e4892ba165",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "bugfix",
   "test_events": [
     {

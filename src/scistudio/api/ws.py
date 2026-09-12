@@ -161,7 +161,7 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
 
 
 def _every_workflow_run(runtime: Any) -> list[Any]:
-    """Every run the runtime holds, active project's or not (#2362).
+    """Every run the runtime holds, active project's or not.
 
     ``workflow_runs`` only exposes the ACTIVE project's runs; a run detached by
     a project switch is still executing and still owns a worker, so the two
@@ -169,6 +169,7 @@ def _every_workflow_run(runtime: Any) -> list[Any]:
     it too. Falls back to the mapping for a runtime stub that predates the
     accessor.
     """
+    # Development references: #2362.
     everything = getattr(runtime, "all_workflow_runs", None)
     if callable(everything):
         return list(everything())

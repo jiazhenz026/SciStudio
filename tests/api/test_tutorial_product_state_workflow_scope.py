@@ -84,9 +84,7 @@ def two_workflows(client: TestClient, runtime: ApiRuntime, project_parent: Path)
     return project
 
 
-def test_port_has_output_ignores_a_namesake_in_another_workflow(
-    runtime: ApiRuntime, two_workflows: Path
-) -> None:
+def test_port_has_output_ignores_a_namesake_in_another_workflow(runtime: ApiRuntime, two_workflows: Path) -> None:
     runtime.active_workflow_id = "current"
     runtime.workflow_runs["finished"] = _StubRun({NODE: {PORT: {"path": "/tmp/x.parquet"}}})
 
@@ -100,9 +98,7 @@ def test_port_has_output_sees_the_readers_own_workflow(runtime: ApiRuntime, two_
     assert _state(runtime).port_has_output(NODE, PORT) is True
 
 
-def test_rendered_plots_only_reports_the_readers_own_workflow(
-    runtime: ApiRuntime, two_workflows: Path
-) -> None:
+def test_rendered_plots_only_reports_the_readers_own_workflow(runtime: ApiRuntime, two_workflows: Path) -> None:
     previews = two_workflows / ".scistudio" / "previews"
     for workflow_id in ("current", "finished"):
         plot_dir = previews / workflow_id / NODE / PORT / f"{workflow_id}_plot"
@@ -116,9 +112,7 @@ def test_rendered_plots_only_reports_the_readers_own_workflow(
     assert rendered == (("current", NODE, PORT, "current_plot"),)
 
 
-def test_rendered_plots_still_ignores_a_record_with_no_figure(
-    runtime: ApiRuntime, two_workflows: Path
-) -> None:
+def test_rendered_plots_still_ignores_a_record_with_no_figure(runtime: ApiRuntime, two_workflows: Path) -> None:
     """A run that produced nothing is not a rendered figure (unchanged)."""
     plot_dir = two_workflows / ".scistudio" / "previews" / "current" / NODE / PORT / "attempted"
     plot_dir.mkdir(parents=True, exist_ok=True)

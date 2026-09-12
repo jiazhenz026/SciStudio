@@ -30,7 +30,7 @@ which returns ``raw_errors`` whatever the run's state. The agent then read a
 error that no longer existed; after a project switch it read a failure from a
 different project entirely, absolute paths and all. :func:`_ensure_error_subscriber`
 now clears a workflow's entries when that workflow starts running, so what is
-in here always belongs to the run being asked about (#2362).
+in here always belongs to the run being asked about.
 """
 
 _error_subscriber_installed: bool = False
@@ -41,7 +41,7 @@ def forget_workflow_errors(workflow_id: str) -> None:
 
     Called when that workflow starts running: the previous run's tracebacks are
     not evidence about the new one, and — because the key carries no project —
-    they may not even be evidence about this project (#2362).
+    they may not even be evidence about this project.
     """
     # Development references: #2362.
     for key in [key for key in _run_block_errors if key[0] == workflow_id]:

@@ -462,7 +462,7 @@ class ApiRuntime:
         project's ``main`` resolved the outgoing project's ``main``: a bogus
         "workflow is already running" rejection, another project's block outputs
         and storage paths reported as this one's, and ``cancel_run`` terminating
-        a live execution in a project the caller had already left (#2362).
+        a live execution in a project the caller had already left.
 
         Finished runs are dropped. A still-live run is kept in
         ``_detached_workflow_runs`` — it must finish writing into its own
@@ -485,8 +485,9 @@ class ApiRuntime:
         looking at"; this answers "what is running in this process". Shutdown,
         GUI-disconnect cancellation, and idle-culling activity checks want the
         second question — a run detached by a project switch is still consuming
-        a worker and still needs cancelling (#2362).
+        a worker and still needs cancelling.
         """
+        # Development references: #2362.
         return [*self._workflow_runs.values(), *self._detached_workflow_runs]
 
     def _configure_static_registries(self) -> None:
