@@ -712,7 +712,7 @@ steps:
   # 这里废话太多了，直接：The last one: your previewer can also be moved to your
   # personal library. 这里让用户直接去previewer选all projects
   #
-  # TODO(#2135): this step is not judged. The Previewers tab's card offers
+  # TODO(#2135): this step is not judged. The All Previewers card offers
   #   Auto / This project / All projects, which records which previewer renders
   #   an Image and at what scope — it does not move the file into the library,
   #   and `library_contains` can only be satisfied by the editor toolbar's
@@ -727,7 +727,7 @@ steps:
       - previewer_palette
     say:
       - "The last one: your previewer can also be moved to your personal library."
-      - In the Previewers tab, find **Image** and choose **All projects**.
+      - In **All Previewers**, find **Image** and choose **All projects**.
 
   # 最后统计表格出来以后，再加一个 histogram 步骤，交给 labmate 看。四句话：
   # 1. 我们最后出一个细胞size的histogram交给labmate去看。这里我们需要用到上一个

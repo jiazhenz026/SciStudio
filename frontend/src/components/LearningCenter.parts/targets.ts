@@ -182,10 +182,19 @@ export const ROUTE_TARGET_LEFT_TABS: Partial<Record<RouteTarget, LeftTab>> = {
   // showing the reader where this project's workflows are kept, which only
   // works if the panel is showing them.
   workflows: "workflows",
-  // The Previewers section (#2113): the cards that say which previewer renders
-  // which kind of data. A step pointing at them has to have the panel showing
-  // them first.
-  previewers: "previewers",
+  /*
+   * `previewers` is deliberately absent (ADR-054 FR-040). The Previewers
+   * section left the left panel when the MiniApps section took its place, and
+   * the list now opens in the preview column instead — so this route is served
+   * by `showAllPreviewers` in `applyStepRoute` below, not by a tab switch.
+   *
+   * Absence is load-bearing and this comment is the reason it is written down:
+   * this map is `Partial`, so a `previewers` entry added back here would
+   * typecheck, switch the left panel to a tab that no longer exists, and leave
+   * the step ringing nothing. `ROUTE_TARGET_BOTTOM_TABS` is exhaustive by type
+   * and still carries `previewers: null`, which is what keeps the route target
+   * itself accounted for.
+   */
 };
 
 /**
@@ -257,6 +266,21 @@ export interface StepRouteHandlers {
   openBottomTab: (tab: BottomTab) => void;
   setLeftTab: (tab: LeftTab) => void;
   /**
+   * Open the All Previewers list in the preview column (ADR-054 FR-033).
+   *
+   * The Previewers list used to be a left-panel tab and a `setLeftTab` call
+   * reached it; it now lives in the preview column, behind that column's All
+   * Previewers control, and the column may be collapsed. Expanding it is the
+   * handler's business, not this module's — the same division as
+   * `openBottomTab`, which exists precisely because selecting a tab behind a
+   * shut panel looks to the reader like a step that did nothing.
+   *
+   * Required rather than optional on purpose. An optional handler that a caller
+   * forgot to pass is a tutorial step that silently points at nothing, which is
+   * the failure this whole module is written to make impossible.
+   */
+  showAllPreviewers: () => void;
+  /**
    * Bring the workflow canvas back to the front of the main area.
    *
    * The main area is a tab strip, and a code editor opened over it hides the
@@ -272,8 +296,9 @@ export interface StepRouteHandlers {
 /**
  * Take the user where the step says to be.
  *
- * `canvas` and `block_palette` are not bottom-panel tabs, so "routing" to them
- * means something different, and this is the choice made for each:
+ * `canvas`, `block_palette` and `previewers` are not bottom-panel tabs, so
+ * "routing" to them means something different, and this is the choice made for
+ * each:
  *
  *   - `block_palette` switches the left panel to its Blocks tab. That is a real
  *     surface switch with the same shape as a bottom-tab one.
@@ -286,6 +311,10 @@ export interface StepRouteHandlers {
  *     not fighting a layout the user chose: it is undoing one the tutorial
  *     chose. Everything else about the layout — the bottom panel's height, its
  *     open tab — is still left exactly as found.
+ *   - `previewers` opens the All Previewers list inside the preview column
+ *     (ADR-054 FR-033/FR-040), expanding that column when it is collapsed. It
+ *     was a left-panel tab switch until the MiniApps section took the
+ *     Previewers section's place in the activity bar.
  *
  * Both then scroll their element into view, which is also all a target does
  * when its surface is already the visible one.
@@ -324,6 +353,15 @@ export function applyStepRoute(route: string, handlers: StepRouteHandlers): void
    * opens exactly that editor one step earlier.
    */
   if (route === "canvas" || route === "block_palette") handlers.showCanvas();
+
+  /*
+   * ADR-054 FR-040: `previewers` opens the All Previewers list in the preview
+   * column. The step's `route_to` and `highlight` are unchanged — the
+   * vocabulary a published tutorial is written against does not move because
+   * the product's furniture did — and `previewer_palette` resolves to the same
+   * list component wherever it is mounted, so the ring follows it.
+   */
+  if (route === "previewers") handlers.showAllPreviewers();
 
   /*
    * After the surface switch, not before: the element a tab was just opened to
