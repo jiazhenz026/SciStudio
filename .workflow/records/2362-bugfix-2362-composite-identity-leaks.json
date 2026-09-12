@@ -464,7 +464,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "906273fc80e7a58cfb35e446148e17b7d13425fc",
+    "shas": [
+      "906273fc80e7a58cfb35e446148e17b7d13425fc"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": []
@@ -1207,6 +1213,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.415356Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.428277Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.440591Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.452513Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.465253Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.478012Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.491402Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.504041Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.518925Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.533277Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:33.556569Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.196576Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.210429Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.222710Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.235688Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.248384Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.259947Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.272095Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.284617Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.331071Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.347136Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T01:46:34.368256Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1255,9 +1437,9 @@
       "tests/api/test_runtime_project_scoped_runs.py",
       "tests/api/test_tutorial_product_state_workflow_scope.py"
     ],
-    "diff_fingerprint": "sha256:f6ca53c86425020a76302b1dfec2e20afd57d61f7697605a84b62a656e69b657",
+    "diff_fingerprint": "sha256:bda2c7c610fbba410a67ae7fd0a635de26bd5f1737f3f902f21cc4049ad3f724",
     "head": "HEAD",
-    "head_sha": "015b7429",
+    "head_sha": "906273fc",
     "surfaces": {
       "docs": 1,
       "frontend": 13,
@@ -1274,7 +1456,14 @@
   },
   "owner_directive": "Fix the bug class where a partial identity is used as a lookup key when a composite identity is required: node_id/block_id keyed without workflow_id, so same-named nodes in different workflows overwrite and impersonate each other. Owner broadened scope to sweep for every reachable instance of the class (run-scoped without run_id, project-scoped without project identity, cache keys missing a dimension, scans that fall back on a partial match without break). Carry the full identity; do not fix by renaming or by adding a break. Every fix needs a test that fails before and passes after. Defer anything that does not fit one reviewable PR with a tracked TODO citing an issue.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2362
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-12T01:18:54.043947Z",
@@ -1352,6 +1541,22 @@
     {
       "at": "2026-09-12T01:46:32.763518Z",
       "diff_fingerprint": "sha256:f6ca53c86425020a76302b1dfec2e20afd57d61f7697605a84b62a656e69b657",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-12T01:46:33.556616Z",
+      "diff_fingerprint": "sha256:bda2c7c610fbba410a67ae7fd0a635de26bd5f1737f3f902f21cc4049ad3f724",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-12T01:46:34.368304Z",
+      "diff_fingerprint": "sha256:bda2c7c610fbba410a67ae7fd0a635de26bd5f1737f3f902f21cc4049ad3f724",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
