@@ -82,6 +82,8 @@ export const HIGHLIGHT_TARGETS = [
   "new_menu_button",
   "plots_new_button",
   "plot_export_button",
+  "git_commit_button",
+  "git_branch_picker",
   "preview_item",
   "view_source_button",
   "history_restore_button",
@@ -97,6 +99,7 @@ export const HIGHLIGHT_TARGETS = [
   "type_palette",
   "palette_block",
   "node",
+  "config_field",
   "plot_card",
   "bottom_tab",
 ] as const;
@@ -121,6 +124,7 @@ export type HighlightTarget = (typeof HIGHLIGHT_TARGETS)[number];
 export const HIGHLIGHT_TARGET_KEYS: Partial<Record<HighlightTarget, string>> = {
   palette_block: "block_type",
   node: "block_type",
+  config_field: "key",
   plot_card: "plot_id",
   preview_item: "index",
   // Spelled the manifest's way, not `BottomTab`'s -- see the module comment on

@@ -289,6 +289,10 @@ UI_EVENT_SPECS: tuple[UiEventSpec, ...] = (
     # looked at the data before being told something about it.
     UiEventSpec(name="preview_item_opened"),
     UiEventSpec(name="run_selected", target_arg="status"),
+    # Bare: a step asks the reader to commit before a branch operation, and the
+    # commit it waits for has no name a manifest could give in advance. The
+    # Commit dialog reports it once the commit has landed (#2082).
+    UiEventSpec(name="git_committed"),
 )
 """Each reportable event with the target argument it may carry."""
 # Development references: #2063, FR-052.
