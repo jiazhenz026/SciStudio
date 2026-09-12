@@ -651,6 +651,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2355] **A custom loader given several files reads them one at a time.**
+  Selecting several files in the Load block makes its `path` a list, and the
+  block's output port already promises a Collection for it. The runtime only
+  delivered one when the loader subclassed `SimpleLoader` *and* left `load`
+  alone; any other loader — including the ordinary `IOBlock` subclass that
+  implements `load`, which is the documented general pattern — was handed the
+  whole list, which got stringified into a path and failed deep inside whatever
+  library the loader called (`FileNotFoundError: ... "['a.jpg', 'b.jpg']"`).
+  Every loader is now called once per path and the results are collected into
+  the Collection the port declared, flat even when a loader answers one path
+  with a Collection of its own. A loader that genuinely consumes a path list as
+  one unit — to order a z-stack, or to align across files — says so with
+  `accepts_path_list = True` on the block class, rather than being detected by
+  which base class it inherits. The same fan-out now also applies when such a
+  loader is executed directly as its own user-facing block, not only when the
+  core Load block delegates to it, so the declaration means the same thing on
+  both routes (#2357).
 - [#2333] **The local MCP socket is owner-only, whatever the umask.** The
   socket is the local MCP transport's only access control. It used to inherit
   the process umask, and when its path was too long it fell back to a
