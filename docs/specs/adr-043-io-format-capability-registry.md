@@ -338,11 +338,13 @@ overridden.
   capabilities as migration scaffolding only. Existing published packages that
   still rely on `supported_extensions` MUST be reported as non-compliant until
   migrated under issue #1204.
-- FR-028: A delegated load with a list `path` MUST call the selected loader once
-  per path and return the results as one flat `Collection`, unless the loader
-  class declares `accepts_path_list = True`, in which case the list MUST be
-  passed through unchanged. The runtime MUST NOT infer either behaviour from the
-  loader's base class or from which methods it overrides (#2355).
+- FR-028: A load with a list `path` MUST call the selected loader once per path
+  and return the results as one flat `Collection`, unless the loader class
+  declares `accepts_path_list = True`, in which case the list MUST be passed
+  through unchanged. This holds on both execution routes: a load delegated
+  through the core Load block and a loader run directly as its own user-facing
+  `IOBlock` (#2355, #2357). The runtime MUST NOT infer either behaviour from
+  the loader's base class or from which methods it overrides.
 
 ### Metadata Fidelity Requirements
 

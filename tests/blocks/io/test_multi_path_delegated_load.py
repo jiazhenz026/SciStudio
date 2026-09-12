@@ -322,3 +322,115 @@ def test_the_load_block_returns_the_collection_its_port_declared(monkeypatch: An
 
     assert isinstance(result, Collection)
     assert len(result) == 2
+
+
+# ---------------------------------------------------------------------------
+# Direct execution: a loader run as its own user-facing block (#2357, P2).
+#
+# The fan-out used to live only in delegate_load, so IOBlock.run() handed the
+# whole list to self.load in one call and a default loader written for one
+# file failed (below: _HandWrittenLoader's TypeError). Both routes now share
+# _collect_load_batch, so accepts_path_list means the same thing either way.
+# ---------------------------------------------------------------------------
+
+
+def test_direct_run_fans_out_a_hand_written_loader(tmp_path: Any) -> None:
+    """``IOBlock.run`` honours the default: one call per path, flat Collection."""
+    _HandWrittenLoader.seen.clear()
+    first, second = tmp_path / "a.slide", tmp_path / "b.slide"
+    block = _HandWrittenLoader(config={"params": {"path": [str(first), str(second)]}})
+
+    result = block.run({}, block.config)
+
+    assert _HandWrittenLoader.seen == [str(first), str(second)], "one path per call, in order"
+    coll = result["data"]
+    assert isinstance(coll, Collection)
+    assert coll.item_type is _Slide
+    assert [item.user["path"] for item in coll] == [str(first), str(second)]
+
+
+def test_direct_run_finds_path_in_engine_style_extras(tmp_path: Any) -> None:
+    """The engine builds ``BlockConfig(**config)``, so ``path`` lands in extras.
+
+    The per-call config must replace ``path`` where it actually sits — a
+    params-only replacement would leave the list visible through
+    ``config.get`` and the loader would still see the batch.
+    """
+    _HandWrittenLoader.seen.clear()
+    first, second = tmp_path / "a.slide", tmp_path / "b.slide"
+    config = BlockConfig(path=[str(first), str(second)])
+    assert "path" not in config.params, "the path arrived as a Pydantic extra"
+    block = _HandWrittenLoader(config={})
+    block.config = config
+
+    result = block.run({}, config)
+
+    assert _HandWrittenLoader.seen == [str(first), str(second)]
+    assert [item.user["path"] for item in result["data"]] == [str(first), str(second)]
+
+
+def test_direct_run_keeps_the_rest_of_the_config(tmp_path: Any) -> None:
+    """Only ``path`` differs per call; block-specific params survive."""
+
+    class _NotingLoader(_HandWrittenLoader):
+        seen_notes: ClassVar[list[Any]] = []
+
+        def load(self, config: BlockConfig, output_dir: str = "") -> DataObject | Collection:
+            type(self).seen_notes.append(config.get("note"))
+            return super().load(config, output_dir)
+
+    _NotingLoader.seen.clear()
+    _NotingLoader.seen_notes.clear()
+    block = _NotingLoader(
+        config={"params": {"path": [str(tmp_path / "a.slide"), str(tmp_path / "b.slide")], "note": "keepme"}}
+    )
+
+    block.run({}, block.config)
+
+    assert _NotingLoader.seen_notes == ["keepme", "keepme"]
+
+
+def test_direct_run_respects_the_opt_out(tmp_path: Any) -> None:
+    """``accepts_path_list = True`` receives the whole list in one call here too."""
+    _WholeBatchLoader.seen.clear()
+    paths = [str(tmp_path / "a.slide"), str(tmp_path / "b.slide")]
+    block = _WholeBatchLoader(config={"params": {"path": paths}})
+
+    result = block.run({}, block.config)
+
+    assert _WholeBatchLoader.seen == [paths], "the loader was called once, with the list intact"
+    assert isinstance(result["data"], Collection)
+    assert len(result["data"]) == 2
+
+
+def test_direct_run_flattens_per_file_collections(tmp_path: Any) -> None:
+    """A loader answering one path with a Collection stays flat on this route too."""
+    first, second = tmp_path / "a.slide", tmp_path / "b.slide"
+    block = _PerFileCollectionLoader(config={"params": {"path": [str(first), str(second)]}})
+
+    result = block.run({}, block.config)
+
+    coll = result["data"]
+    assert isinstance(coll, Collection)
+    assert coll.item_type is _Slide
+    assert [(item.user["path"], item.user["part"]) for item in coll] == [
+        (str(first), "a"),
+        (str(first), "b"),
+        (str(second), "a"),
+        (str(second), "b"),
+    ]
+
+
+def test_direct_run_single_path_is_untouched(tmp_path: Any) -> None:
+    """A lone path still produces the historical single-item Collection wrap."""
+    _HandWrittenLoader.seen.clear()
+    only = tmp_path / "only.slide"
+    block = _HandWrittenLoader(config={"params": {"path": str(only)}})
+
+    result = block.run({}, block.config)
+
+    assert _HandWrittenLoader.seen == [str(only)], "one call, no fan-out"
+    coll = result["data"]
+    assert isinstance(coll, Collection)
+    assert coll.length == 1
+    assert coll[0].user["path"] == str(only)

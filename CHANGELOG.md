@@ -661,7 +661,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   with a Collection of its own. A loader that genuinely consumes a path list as
   one unit — to order a z-stack, or to align across files — says so with
   `accepts_path_list = True` on the block class, rather than being detected by
-  which base class it inherits.
+  which base class it inherits. The same fan-out now also applies when such a
+  loader is executed directly as its own user-facing block, not only when the
+  core Load block delegates to it, so the declaration means the same thing on
+  both routes (#2357).
 - [#2333] **The local MCP socket is owner-only, whatever the umask.** The
   socket is the local MCP transport's only access control. It used to inherit
   the process umask, and when its path was too long it fell back to a

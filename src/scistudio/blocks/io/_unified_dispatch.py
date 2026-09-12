@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.blocks.io.io_block import _collect_load_batch
 from scistudio.core.dropins import (
     project_dir_from_env,
     register_block_scan_dirs,
@@ -406,35 +407,26 @@ def _delegate_load_each(
     which treats a Collection as one file per item on the way out. Import roots
     are activated once around the whole batch rather than per file.
 
-    A loader is free to answer one path with a :class:`Collection` — a loader
-    that already packs its own result, or a format where one file holds several
-    objects. Those are flattened into the batch in the order they were returned,
-    so the caller receives the flat ``Collection`` of data objects that the Load
-    port's ``is_collection=True`` promises, never a Collection of Collections.
-
-    The item type is inferred from what the loader returned rather than declared
-    from the registry. A drop-in type imported by path is a distinct class object
-    with the same ``__name__`` as the registry's, and ``Collection``
-    compares item types by identity — declaring the registry's class here fails
-    with ``item[0] is Image, expected Image``. Only an empty list needs a type
-    stated, and it comes from the capability, whose ``data_type`` is the class
-    the loader itself declared.
+    The loop itself — one call per path, per-path Collections flattened into
+    the batch, the item type inferred from what the loader returned — is shared
+    with the direct-execution route through
+    :func:`~scistudio.blocks.io.io_block._collect_load_batch`, so
+    :attr:`~scistudio.blocks.io.IOBlock.accepts_path_list` has the same
+    semantics whether the core ``Load`` block delegates to the loader or the
+    loader runs as its own user-facing block (#2357). Only an empty batch needs
+    a type stated, and it comes from the capability, whose ``data_type`` is the
+    class the loader itself declared.
     """
-    # Development references: #1950, #2355.
-    items: list[DataObject] = []
+    # Development references: #1950, #2355, #2357.
+
+    def load_one(single_path: str) -> DataObject | Collection:
+        single = dict(params)
+        single["path"] = single_path
+        loader = loader_cls(config={"params": single})
+        return loader.load(BlockConfig(params=single), output_dir)
+
     with _activated_package_import_roots():
-        for single_path in path_list:
-            single = dict(params)
-            single["path"] = str(single_path)
-            loader = loader_cls(config={"params": single})
-            loaded = loader.load(BlockConfig(params=single), output_dir)
-            if isinstance(loaded, Collection):
-                items.extend(loaded)
-            else:
-                items.append(cast(DataObject, loaded))
-    if not items:
-        return Collection(items=[], item_type=empty_item_cls)
-    return Collection(items=items)
+        return _collect_load_batch(path_list, load_one, empty_item_type=empty_item_cls)
 
 
 def delegate_save(
