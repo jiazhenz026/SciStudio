@@ -115,9 +115,23 @@ __all__ = [
 #: ``CLAUDE_CONFIG_DIR`` and ``ANTHROPIC_*`` credentials among them — that the
 #: spawned CLI needs. Only per-session identity and nesting markers belong
 #: here; add a name when a CLI is observed to change behaviour because of it.
+#:
+#: ``TERM_PROGRAM`` / ``TERM_PROGRAM_VERSION`` are **host-terminal identity**
+#: (#2359), not session markers. The embedded terminal is xterm.js, not
+#: whatever terminal launched SciStudio, and leaking the host identity arming
+#: terminal-specific behaviour in the spawned CLI is a lie with teeth: Claude
+#: Code 2.1.x runs an iTerm/Apple-Terminal-only external-clear watchdog
+#: (``probeExternalClear``) that probes the cursor position every 200 ms and
+#: treats ``row=1`` as "the user wiped the screen with Cmd+K". Collapsing
+#: SciStudio's bottom panel shrinks the PTY to a 1-row viewport, the probe
+#: misfires, and the watchdog's double-press flow submits ``/clear``
+#: programmatically — repeatedly — destroying the agent's conversation.
 _PTY_BLOCKED_ENV_VARS = frozenset(
     {
         "ELECTRON_RUN_AS_NODE",
+        # Host-terminal identity (see above) — the PTY is xterm.js.
+        "TERM_PROGRAM",
+        "TERM_PROGRAM_VERSION",
         # Claude Code session identity / nesting markers.
         "CLAUDECODE",
         "CLAUDE_CODE_CHILD_SESSION",
