@@ -9,8 +9,8 @@
 // the collapsed state discoverable.
 
 import {
+  AppWindow,
   Database,
-  Eye,
   ScanEye,
   FolderTree,
   Puzzle,
@@ -32,15 +32,22 @@ interface ActivityBarEntry {
 }
 
 // Top-to-bottom visual order (owner call in the #2119 live review): Blocks,
-// Workflows, Data types, Data, Previewers, Project. `workflows` sits right
-// after the block library; `previewers` (#2113) comes after `data` — the
-// thing being previewed — and before the project tree.
+// Workflows, Data types, Data, MiniApps, Project. `workflows` sits right
+// after the block library; the fifth slot (#2113) comes after `data` — the
+// thing being looked at — and before the project tree.
+//
+// ADR-054 FR-031 — the fifth slot was `previewers`; it is now `miniapps`, in
+// the same ordinal position. The previewer list did not disappear with the
+// tab: it moved into the preview column behind All Previewers (FR-033), which
+// is where a list of *how data is drawn* belongs, next to the drawing. The
+// slot it vacated goes to MiniApps because a MiniApp is a thing the user
+// opens, which is what every other entry on this rail is.
 const ACTIVITY_BAR_ENTRIES: readonly ActivityBarEntry[] = [
   { key: "blocks", label: "Blocks", icon: Puzzle },
   { key: "workflows", label: "Workflows", icon: Waypoints },
   { key: "types", label: "Data types", icon: Shapes },
   { key: "data", label: "Data", icon: Database },
-  { key: "previewers", label: "Previewers", icon: Eye },
+  { key: "miniapps", label: "MiniApps", icon: AppWindow },
   { key: "project", label: "Project", icon: FolderTree },
 ];
 

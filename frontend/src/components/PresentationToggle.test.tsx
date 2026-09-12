@@ -11,7 +11,11 @@ afterEach(() => {
   window.history.replaceState(null, "", "/");
 });
 
-it("switches both ways and exposes distinct Preview and Previewers cards only in AI mode", () => {
+// ADR-054 FR-031 — the sidebar entry beside the AI-only `Preview` card used to
+// be `Previewers`; it is now `MiniApps` (the previewer list moved into the
+// preview column, FR-033). The guard is unchanged: the AI host, and only the
+// AI host, adds a `Preview` entry next to the ordinary sidebar sections.
+it("switches both ways and exposes the AI-only Preview card beside the sidebar sections", () => {
   const select = vi.fn();
   render(
     <TooltipProvider>
@@ -22,7 +26,7 @@ it("switches both ways and exposes distinct Preview and Previewers cards only in
   expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Switch to AI host layout" }));
   expect(window.location.search).toBe("?ui=ai");
-  expect(screen.getByRole("button", { name: "Previewers" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "MiniApps" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Preview" }));
   expect(select).toHaveBeenCalledWith("preview");
   fireEvent.click(screen.getByRole("button", { name: "Switch to full workbench" }));
