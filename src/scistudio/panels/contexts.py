@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
+import logging
 import secrets
 import threading
 import time
@@ -12,9 +15,12 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from scistudio.panels.descriptor import PanelDescriptor
+from scistudio.panels.process_config import teardown_grace
 from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target, project_identity
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import PreviewEnvelope
+
+logger = logging.getLogger(__name__)
 
 TOKEN_TTL = 600
 MAX_CONTEXTS = 128
@@ -34,6 +40,20 @@ def read_access() -> PreviewDataAccess:
         max_dim=READ_DIM,
         text_chars=65536,
     )
+
+
+def _running_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+
+
+def _join_stopping(threads: list[threading.Thread], wait: float) -> None:
+    """Wait once for every process being stopped, never for their sum."""
+    deadline = time.monotonic() + wait
+    for thread in threads:
+        thread.join(timeout=max(0.0, deadline - time.monotonic()))
 
 
 @dataclass
@@ -64,6 +84,7 @@ class PanelContext:
     setup_payload: Any = None
     import_roots: tuple[str, ...] = ()
     ws_client_id: str | None = None
+    watcher: Any = None
 
     def provides(self) -> tuple[list[str], list[str]]:
         """The operations and services this context exposes to its page."""
@@ -85,6 +106,11 @@ class PanelContexts:
         self.prompts: dict[tuple[str, str], dict[str, Any]] = {}
         self.lock = threading.RLock()
         self._project = project_identity(runtime)
+        # The loop a watchdog thread hands a panel.files_changed event to. The
+        # store is first built from the panels lifespan, which runs on the API
+        # event loop; a store built off it (a test, a synchronous host) keeps
+        # None and the watcher dispatches the event itself.
+        self._loop: asyncio.AbstractEventLoop | None = _running_loop()
 
     def _synchronize(self) -> None:
         identity = project_identity(self.runtime)
@@ -96,22 +122,58 @@ class PanelContexts:
                 self.close(context.context_id)
 
     def close_all(self) -> None:
+        """Close every context, ending each process without serialising on them.
+
+        Shutdown and a project switch both come through here with several
+        MiniApps open. ``stop()`` can take the teardown grace plus the kill
+        window per process, so they are ended in parallel and off the store
+        lock, then joined with one bounded wait: a project switch that used to
+        block the caller for the sum of every panel's teardown now costs the
+        slowest one, and the lock a health request needs is never held while a
+        hung ``panel.py`` is being killed (SC-005).
+        """
         with self.lock:
-            for context in list(self.contexts.values()):
-                self._stop(context)
+            stopping = [self._detach(context) for context in self.contexts.values()]
             self.contexts.clear()
             self.prompts.clear()
+        _join_stopping([thread for thread in stopping if thread is not None], teardown_grace() + 5.0)
 
     @staticmethod
-    def _stop(context: PanelContext) -> None:
+    def _detach(context: PanelContext) -> threading.Thread | None:
+        """Take the process off *context* and end it on its own thread."""
         process = getattr(context, "process", None)
-        if process is not None:
-            try:
-                process.stop()
-            finally:
-                context.process = None
+        context.process = None
+        watcher = getattr(context, "watcher", None)
+        context.watcher = None
+        if watcher is not None:
+            with contextlib.suppress(Exception):
+                watcher.stop()
+        if process is None:
+            return None
+        thread = threading.Thread(target=process.stop, name=f"panel-stop-{context.context_id}", daemon=True)
+        thread.start()
+        return thread
+
+    @classmethod
+    def _stop(cls, context: PanelContext) -> None:
+        """End a context's process without waiting for it (FR-013, SC-005).
+
+        ``PanelProcess.stop`` runs teardown, waits out the grace period and then
+        kills the tree — up to ten seconds for a ``panel.py`` that hangs in
+        ``teardown``. Every caller here holds the store lock, and one of them
+        (``_synchronize``) runs on the path of every panel request, so the wait
+        happens on its own thread. The process is detached from the context
+        first, so nothing can reach it again, and the tree is ended either way:
+        by ``stop`` itself, or by the application registry's ``terminate_all``
+        at shutdown.
+        """
+        cls._detach(context)
 
     def on_event(self, event: Any) -> None:
+        # The bus awaits this on the API event loop, so it is also the second
+        # chance to learn the loop a watcher hands its event to when the store
+        # was first built off the loop.
+        self._loop = _running_loop() or self._loop
         with self.lock:
             self._synchronize()
             data = event.data if isinstance(event.data, dict) else {}
@@ -236,6 +298,7 @@ class PanelContexts:
     def _create_miniapp(self, payload: dict[str, Any], *, process_registry: Any) -> PanelContext:
         """Open a miniapp context on a block output and start its process."""
         from scistudio.panels.miniapp import build_setup_payload, miniapp_input, resolve_source
+        from scistudio.panels.process import runtime_import_roots
 
         service = self.runtime.get_preview_service()
         panel_id = payload.get("panel_id")
@@ -250,6 +313,10 @@ class PanelContexts:
             raise PanelError(429, "context_limit", "Close a panel before opening another")
         project_dir = getattr(self.runtime.active_project, "path", None)
         setup_payload = build_setup_payload(self.runtime, frozen)
+        # FR-006: panel.py imports what a block worker imports, from the same
+        # roots, so a MiniApp can use the project's drop-in types and the
+        # packages the user installed through the app.
+        import_roots = runtime_import_roots(project_dir)
         context = PanelContext(
             context_id="pc-" + secrets.token_hex(16),
             panel=panel,
@@ -267,12 +334,34 @@ class PanelContexts:
             source={k: source.get(k) for k in ("workflow_id", "block_id", "port")},
             project_dir=project_dir,
             setup_payload=setup_payload,
+            import_roots=import_roots,
             ws_client_id=payload.get("ws_client_id"),
         )
         self.contexts[context.context_id] = context
         if panel.has_python:
             self._start_process(context, process_registry)
+        self._start_watcher(context)
         return context
+
+    def _start_watcher(self, context: PanelContext) -> None:
+        """Watch the MiniApp's own directory while the context is open (FR-022)."""
+        from scistudio.panels.watcher import PanelDirectoryWatcher, watches
+
+        if not watches(context.panel):
+            return
+        watcher = PanelDirectoryWatcher(
+            panel_id=context.panel.id,
+            directory=context.panel.root,
+            event_bus=self.event_bus,
+            loop=self._loop,
+        )
+        try:
+            if watcher.start():
+                context.watcher = watcher
+        except Exception:
+            # A MiniApp that cannot be watched still opens; it just does not
+            # reload on its own.
+            logger.warning("panel watcher: %s not watched", context.panel.id, exc_info=True)
 
     def _start_process(self, context: PanelContext, process_registry: Any) -> None:
         """Launch the resident subprocess for a miniapp context (FR-006)."""
@@ -292,14 +381,37 @@ class PanelContexts:
         )
 
     def restart(self, context_id: str, process_registry: Any = None) -> PanelContext:
-        """Start a new process for the same context and target (FR-014)."""
+        """Start a new process for the same context and target (FR-014).
+
+        ``get`` re-validates the frozen target first, so a restart after
+        artifact retention reclaimed the run that produced it closes the context
+        and reports that the data is gone rather than starting a process on a
+        file that is not there — the tab then offers the picker. The target
+        itself is not re-resolved: FR-014 restarts "for the same context and
+        target", and re-resolving would silently move an open MiniApp onto a
+        later run's output.
+
+        The setup payload is rebuilt from the revalidated target so the new
+        process reconstructs what the catalog says the target is now, and the
+        context's lease is renewed: a restart is the user working with this
+        MiniApp, and leaving ``expires_at`` untouched let a restart late in the
+        600-second lease be closed by the next ``_synchronize`` moments later.
+        """
+        from scistudio.panels.miniapp import build_setup_payload
+
         with self.lock:
             context = self.get(context_id)
             if context.kind != "miniapp":
                 raise PanelError(400, "unsupported", "Only a MiniApp context has a process to restart")
-            if context.process is not None:
-                context.process.stop()
-                context.process = None
+            previous = context.process
+            context.process = None
+            context.expires_at = self.clock() + TOKEN_TTL
+            if context.root is not None:
+                context.setup_payload = build_setup_payload(self.runtime, context.root)
+        if previous is not None:
+            previous.stop()
+        with self.lock:
+            context = self.get(context_id)
             if context.panel.has_python:
                 self._start_process(context, process_registry)
             return context

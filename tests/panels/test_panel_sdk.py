@@ -63,3 +63,44 @@ def test_sdk_source_gates_call_on_the_miniapp_context() -> None:
     guard = source.index('api.context === "miniapp" && operations.indexOf("call")')
     assignment = source.index("api.call = function")
     assert guard < assignment
+
+
+_CALL_HARNESS = Path(__file__).with_name("_sdk_call_harness.js")
+
+
+def _call(mode: str) -> dict:
+    result = subprocess.run(
+        [_NODE, str(_CALL_HARNESS), str(_SDK), mode],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    return json.loads(result.stdout)
+
+
+def test_call_forwards_the_function_name_and_arguments() -> None:
+    assert _call("result")["sent"] == {"fn": "compute", "args": {"x": 1}}
+
+
+def test_call_resolves_with_an_ordinary_result() -> None:
+    outcome = _call("result")
+    assert outcome["outcome"] == "resolved"
+    assert outcome["value"] == {"total": 42}
+
+
+def test_call_rejects_on_an_error_body() -> None:
+    # FR-011: a raising panel.py function answers HTTP 200 with
+    # {error: {type, message, traceback}} and the process stays alive. The page
+    # asked a question with no answer, so its promise must reject.
+    outcome = _call("error")
+    assert outcome["outcome"] == "rejected"
+    assert outcome["code"] == "ValueError"
+    assert outcome["message"] == "nope"
+    assert outcome["traceback"] == "Traceback..."
+
+
+def test_a_result_that_merely_carries_an_error_field_still_resolves() -> None:
+    outcome = _call("error-like")
+    assert outcome["outcome"] == "resolved"
+    assert outcome["value"]["rows"] == 3

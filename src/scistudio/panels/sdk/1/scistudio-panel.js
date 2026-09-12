@@ -243,7 +243,30 @@
           if (Object.prototype.hasOwnProperty.call(calls, fn)) return Promise.resolve(calls[fn]);
           return Promise.reject(failure("not_found", "No sample call for " + fn));
         }
-        return request("call", { fn: fn, args: args || {} });
+        return request("call", { fn: fn, args: args || {} }).then(function (value) {
+          /*
+           * A panel.py function that raised answers HTTP 200 with a body of
+           * {error: {type, message, traceback}}: the call reached the process
+           * and the process is still alive, so it is not a transport failure.
+           * The page still asked a question that has no answer, so the promise
+           * rejects rather than resolving with the error as though it were the
+           * result. Matched on the exact shape the backend sends — the only key
+           * is ``error`` and it names a type and a message — so a function that
+           * legitimately returns something with an ``error`` field still
+           * resolves.
+           */
+          if (value && typeof value === "object" && !Array.isArray(value)) {
+            var keys = Object.keys(value);
+            var failed = value.error;
+            if (keys.length === 1 && keys[0] === "error" && failed && typeof failed === "object" &&
+                typeof failed.type === "string" && typeof failed.message === "string") {
+              var error = failure(failed.type, failed.message);
+              error.traceback = typeof failed.traceback === "string" ? failed.traceback : "";
+              throw error;
+            }
+          }
+          return value;
+        });
       };
     }
     // sync is deliberately absent in every context in this SDK major.

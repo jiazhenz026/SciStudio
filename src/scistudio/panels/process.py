@@ -128,6 +128,24 @@ class PanelProcessHandle(ProcessHandle):
     def owns_live_process(self) -> bool:
         return self.live_members() > 0
 
+    def tree_processes(self) -> list[Any]:
+        """The root process and its living descendants, for measurement only.
+
+        ``live_members`` answers "is anything still ours?" for termination and
+        pays a full process-table walk for the orphan case. The memory figure
+        the tab refreshes every five seconds (FR-015) asks a cheaper question —
+        what does this tree hold — so it walks the parent/child tree instead,
+        which is the same set for a panel whose children are still attached and
+        costs nothing on the process table.
+        """
+        try:
+            import psutil
+
+            root = psutil.Process(self.pid)
+            return [root, *root.children(recursive=True)]
+        except Exception:
+            return []
+
     def terminate(self, grace_period_sec: float = 5.0) -> ProcessExitInfo:
         self.was_killed_by_framework = True
         detail = self._stop(grace_period_sec)
@@ -264,12 +282,25 @@ class PanelProcess:
             if job is None:  # shutdown sentinel
                 self._graceful_shutdown()
                 return
+            request_id = id(job)
             try:
-                send_frame(self._request, {"type": "call", "id": id(job), "fn": job.fn, "args": job.args})
+                send_frame(self._request, {"type": "call", "id": request_id, "fn": job.fn, "args": job.args})
                 header, payload = recv_frame(self._response, max_payload=max_result_bytes())
             except (OSError, ProtocolError):
                 job.error = PanelCallError("process_exited", "The panel process exited")
                 job.done.set()
+                self._on_exit(unexpected=True)
+                return
+            if header.get("id") != request_id:
+                # The child answered a call other than the one being awaited.
+                # The pipe is strictly serial, so this cannot happen while both
+                # sides keep the protocol; a desynchronised pipe cannot be
+                # trusted to deliver the right bytes to the right caller, so the
+                # process is ended rather than believed.
+                logger.error("panel %s: response id did not match the call; ending the process", self.context_id)
+                job.error = PanelCallError("process_exited", "The panel process answered a different call")
+                job.done.set()
+                self._terminate_tree()
                 self._on_exit(unexpected=True)
                 return
             job.header, job.payload = header, payload
@@ -281,8 +312,11 @@ class PanelProcess:
 
     def _graceful_shutdown(self) -> None:
         # panel.py's teardown runs on the shutdown message; give it the grace
-        # period to exit on its own before the tree is terminated (FR-013).
-        with contextlib.suppress(OSError, ProtocolError):
+        # period to exit on its own before the tree is terminated (FR-013). A
+        # channel that is already gone — the backend's own pipe closed, or the
+        # child exited under us — raises rather than delivering the message, and
+        # the termination below is what ends the tree either way.
+        with contextlib.suppress(OSError, ValueError, ProtocolError):
             send_frame(self._request, {"type": "shutdown"})
         with contextlib.suppress(Exception):
             self._popen.wait(timeout=teardown_grace())
@@ -402,12 +436,24 @@ class PanelProcess:
     # -- observability -----------------------------------------------------
 
     def resident_memory(self) -> int | None:
-        try:
-            import psutil
+        """Resident memory of the whole panel tree, or ``None`` when unknown.
 
-            return int(psutil.Process(self._popen.pid).memory_info().rss)
-        except Exception:
-            return None
+        FR-015 shows "its resident memory", and a ``panel.py`` that starts a
+        child process is an explicit scenario (US7): the root process alone
+        under-reports what the MiniApp actually holds, so the children are
+        summed with it. A process that dies mid-walk contributes nothing rather
+        than failing the whole figure.
+        """
+        members = self.handle.tree_processes()
+        total = 0
+        measured = False
+        for member in members:
+            try:
+                total += int(member.memory_info().rss)
+            except Exception:
+                continue
+            measured = True
+        return total if measured else None
 
     def status(self) -> dict[str, Any]:
         with self._lock:
@@ -441,6 +487,38 @@ def _log_path(project_dir: Path, context_id: str) -> Path:
     directory = project_dir / ".scistudio" / "panels" / "logs"
     directory.mkdir(parents=True, exist_ok=True)
     return directory / f"{context_id}.log"
+
+
+def runtime_import_roots(project_dir: Path | str | None) -> tuple[str, ...]:
+    """The import roots a block worker receives, for a panel process (FR-006).
+
+    A block worker's roots are stamped on its block class at registry-scan time
+    and are, in every tier, the drop-in import roots of the project and user
+    tiers plus the shared user dependency site
+    (:func:`scistudio.core.dropins.dropin_import_roots`), and — for a block that
+    came from a desktop-installed package — that package's own roots
+    (:func:`scistudio.desktop.paths.installed_package_import_roots`). A panel has
+    no block class to read them from, so they are assembled here from the same
+    two sources, in the same order, so a module a block worker can import is a
+    module ``panel.py`` can import.
+
+    Order matters: the drop-in tiers come first, so a project type shadows a
+    user-library type of the same module name as it does everywhere else.
+    """
+    roots: list[str] = []
+    try:
+        from scistudio.core.dropins import dropin_import_roots
+
+        roots.extend(str(path) for path in dropin_import_roots(project_dir))
+    except Exception:  # discovery must never keep a MiniApp from starting
+        logger.warning("panel import roots: drop-in roots unavailable", exc_info=True)
+    try:
+        from scistudio.desktop.paths import installed_package_import_roots
+
+        roots.extend(str(path) for path in installed_package_import_roots())
+    except Exception:
+        logger.warning("panel import roots: installed package roots unavailable", exc_info=True)
+    return tuple(dict.fromkeys(root for root in roots if root))
 
 
 def _process_env(panel_dir: Path, project_dir: Path, import_roots: tuple[str, ...]) -> dict[str, str]:
@@ -525,5 +603,6 @@ __all__ = [
     "PanelCallError",
     "PanelProcess",
     "PanelProcessHandle",
+    "runtime_import_roots",
     "start_panel_process",
 ]

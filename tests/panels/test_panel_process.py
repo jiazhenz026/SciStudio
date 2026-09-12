@@ -260,3 +260,131 @@ def test_child_process_is_killed_on_stop(tmp_path: Path) -> None:
     while time.time() < deadline and psutil.pid_exists(child_pid):
         time.sleep(0.05)
     assert not psutil.pid_exists(child_pid)
+
+
+def test_a_class_defined_in_panel_py_is_not_callable(tmp_path: Path) -> None:
+    # FR-007 names functions. A class defined in panel.py is callable and
+    # carries the module's __module__, but it is not part of the call surface.
+    body = (
+        "class Widget:\n"
+        "    def __init__(self, *args, **kwargs):\n        pass\n"
+        "def setup(data):\n    pass\n"
+        "def mine():\n    return 1\n"
+    )
+    process, _, _ = _launch(tmp_path, body)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        job = process.call("Widget", {})
+        assert job.header["type"] == "error"
+        assert job.header["error"]["type"] == "UnknownFunction"
+        assert process.call("mine", {}).header["result"] == 1
+    finally:
+        process.stop()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="child memory accounting asserted on POSIX")
+def test_resident_memory_counts_the_children_the_panel_started(tmp_path: Path) -> None:
+    # FR-015 shows the MiniApp's resident memory, and US7 has a panel.py that
+    # starts a child process: the root process alone under-reports what the
+    # MiniApp holds.
+    body = (
+        "import subprocess, sys\n"
+        "child = {}\n"
+        "def setup(data):\n"
+        "    p = subprocess.Popen([sys.executable, '-c',"
+        ' \'import time; block = bytearray(96 * 1024 * 1024); block[::4096] = b"x" * len(block[::4096]);'
+        " time.sleep(300)'])\n"
+        "    child['pid'] = p.pid\n"
+        "def child_pid():\n    return child['pid']\n"
+    )
+    process, _, _ = _launch(tmp_path, body)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        child_pid = process.call("child_pid", {}).header["result"]
+        import psutil
+
+        root = psutil.Process(process._popen.pid)
+        child = psutil.Process(child_pid)
+        # The child touches its pages lazily; wait for them to be resident.
+        deadline = time.time() + 30
+        while time.time() < deadline and child.memory_info().rss < 32 * 1024 * 1024:
+            time.sleep(0.1)
+        child_rss = child.memory_info().rss
+        assert child_rss >= 32 * 1024 * 1024
+        total = process.resident_memory()
+        assert total is not None
+        # The figure covers the root AND the child; the root alone cannot reach
+        # this even allowing for the drift between the three readings.
+        assert total >= root.memory_info().rss + child_rss // 2
+        assert process.status()["resident_memory"] == pytest.approx(total, rel=0.5)
+    finally:
+        process.stop()
+
+
+def test_a_response_for_another_call_is_refused(tmp_path: Path, monkeypatch) -> None:
+    # The pipe is strictly serial, so a response whose id is not the call being
+    # awaited means the channel desynchronised. Delivering those bytes to the
+    # waiting caller would answer one question with another's answer, so the
+    # call fails and the process is ended instead.
+    real = process_mod.recv_frame
+
+    def mangled(stream, **kwargs):
+        header, payload = real(stream, **kwargs)
+        if header.get("type") in ("result", "error"):
+            header = dict(header, id=-1)
+        return header, payload
+
+    process, _, _ = _launch(tmp_path, "def setup(data):\n    pass\ndef ping():\n    return 'pong'\n")
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        monkeypatch.setattr(process_mod, "recv_frame", mangled)
+        with pytest.raises(PanelCallError) as exc:
+            process.call("ping", {})
+        assert exc.value.code == "process_exited"
+        assert _await_state(process, CRASHED) == CRASHED
+    finally:
+        monkeypatch.setattr(process_mod, "recv_frame", real)
+        process.stop()
+
+
+def test_the_child_exits_when_the_backend_pipe_closes(tmp_path: Path) -> None:
+    # FR-009: the subprocess must exit when the pipe from the backend closes, so
+    # it cannot outlive a backend that died. Nothing signals or kills it here —
+    # the request pipe is simply closed, as it would be if the backend vanished.
+    process, _, _ = _launch(tmp_path, "def setup(data):\n    pass\ndef ping():\n    return 'pong'\n")
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        process._request.close()
+        # A zombie still answers pid_exists, so wait on the child itself: it
+        # must exit on its own, with nothing signalling or killing it.
+        assert process._popen.wait(timeout=15) is not None
+    finally:
+        process.stop()
+
+
+def test_shutdown_terminate_all_ends_the_panel_tree(tmp_path: Path) -> None:
+    # FR-008/SC-004: the handle lives in the application registry whose
+    # terminate_all runs at shutdown, and it owns a live process for as long as
+    # anything the panel started is alive, so shutdown reaches the whole tree.
+    body = (
+        "import subprocess, sys\n"
+        "child = {}\n"
+        "def setup(data):\n"
+        "    p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'])\n"
+        "    child['pid'] = p.pid\n"
+        "def child_pid():\n    return child['pid']\n"
+    )
+    process, registry, _ = _launch(tmp_path, body)
+    assert _await_state(process, RUNNING) == RUNNING
+    child_pid = process.call("child_pid", {}).header["result"]
+    handle = registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{process.context_id}")
+    assert handle is not None and handle.owns_live_process()
+    registry.terminate_all(grace_period_sec=1.0)
+    import psutil
+
+    deadline = time.time() + 10
+    while time.time() < deadline and (psutil.pid_exists(child_pid) or process._popen.poll() is None):
+        time.sleep(0.05)
+    assert process._popen.poll() is not None
+    assert not psutil.pid_exists(child_pid)
+    process.stop()
