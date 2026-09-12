@@ -107,22 +107,27 @@
    */
   var heightObserver = null;
   var lastHeight = 0;
+  /*
+   * The content's height, measured on the body and never on the root element:
+   * a root element's scrollHeight and offsetHeight are at least the viewport's,
+   * so measuring there reports the frame's current height back to the host as
+   * though it were the content's and the frame never moves off its own
+   * fallback size.
+   */
   function documentHeight() {
     var body = document.body;
-    var root = document.documentElement;
-    return Math.ceil(Math.max(
-      body ? body.scrollHeight : 0,
-      body ? body.offsetHeight : 0,
-      root ? root.scrollHeight : 0,
-      root ? root.offsetHeight : 0
-    ));
+    if (!body) return 0;
+    var box = typeof body.getBoundingClientRect === "function" ? body.getBoundingClientRect().height : 0;
+    return Math.ceil(Math.max(box, body.scrollHeight || 0));
   }
   function reportHeight() {
     if (disposed) return;
     var height = documentHeight();
     if (!height || height === lastHeight) return;
-    lastHeight = height;
-    request("resize", { height: height }).catch(function () {});
+    // Remembered only once the host has taken it: the first measurement happens
+    // before the panel has called ready(), which the host refuses, and treating
+    // a refused report as delivered would suppress the next identical one.
+    request("resize", { height: height }).then(function () { lastHeight = height; }, function () {});
   }
   function startReportingHeight() {
     reportHeight();
