@@ -130,6 +130,29 @@ describe("MarkdownPane", () => {
     expect(open).toHaveBeenCalledWith("https://example.org/paper", "_blank", "noopener,noreferrer");
   });
 
+  it("routes the link through the desktop shell when its bridge is present", () => {
+    vi.useFakeTimers();
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    const openExternal = vi.fn().mockResolvedValue(undefined);
+    window.scistudioDesktop = {
+      openExternal,
+    } as unknown as Window["scistudioDesktop"];
+    try {
+      const { container } = renderPane("See [the paper](https://example.org/paper).\n");
+
+      const anchor = container.querySelector("a[data-md-link='open']") as HTMLAnchorElement;
+      act(() => {
+        anchor.click();
+      });
+      // In the packaged app window.open has no handler; the bridge is the way out.
+      expect(openExternal).toHaveBeenCalledWith("https://example.org/paper");
+      expect(open).not.toHaveBeenCalled();
+    } finally {
+      delete window.scistudioDesktop;
+    }
+  });
+
   it("renders a relative link as its own text, with no anchor and no navigation", () => {
     vi.useFakeTimers();
     const { container } = renderPane("See [the notes](notes/other.md).\n");

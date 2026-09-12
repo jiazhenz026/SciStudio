@@ -47,6 +47,32 @@ ipcMain.handle(backgroundMode.CONNECTION_ACTION_CHANNEL, (event, action, payload
   handleConnectionAction(event, action, payload)
 );
 
+// #2361: a link inside rendered project markdown must reach the user's default
+// browser, not an Electron child window the main window has no handler for.
+// The renderer asks over IPC (window.open is the browser-build fallback); the
+// scheme allowlist here is the validation, so a page can never talk the shell
+// into opening file:, javascript:, or a command-line handler scheme.
+const EXTERNAL_URL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+
+function externalUrlAllowed(raw) {
+  if (typeof raw !== "string") {
+    return false;
+  }
+  try {
+    return EXTERNAL_URL_SCHEMES.has(new URL(raw).protocol);
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle("scistudio:open-external", async (_event, url) => {
+  if (!externalUrlAllowed(url)) {
+    safeLog(`[scistudio] refused to open external URL: ${String(url).slice(0, 200)}`);
+    return;
+  }
+  await shell.openExternal(url);
+});
+
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
 const HTTP_READY_TIMEOUT_MS = 30000;
@@ -1555,6 +1581,17 @@ function createWindow(url) {
       level >= 2 ? process.stderr : process.stdout,
       `[renderer:${tag}] ${message} (${sourceId}:${lineNumber})`
     );
+  });
+
+  // #2361: the workbench never opens child windows. A window.open from the
+  // page (a markdown link in the browser-build fallback, an OAuth-style flow a
+  // plugin adds later) is denied here; an openable scheme goes to the user's
+  // default browser instead of a frameless Electron child.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (externalUrlAllowed(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
   });
 
   // #2179: the shell has proved itself only now -- window created, preload

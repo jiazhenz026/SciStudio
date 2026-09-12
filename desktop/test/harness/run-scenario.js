@@ -341,6 +341,41 @@ const SCENARIOS = {
     }
   },
 
+  "open-external": {
+    title: "#2361: markdown links open through shell.openExternal; window.open is denied and forwarded",
+    async run(h) {
+      const { stub } = h;
+      h.writeJson("launch-mode.json", { version: 1, mode: "desktop", askAtLaunch: false });
+      stub.state.pick = () => Promise.reject(new Error("the picker must not be shown"));
+      h.startMain();
+      await h.until(() => h.mainWin() && h.mainWin().visible, 30000, "main window");
+
+      const openExternal = stub.ipcMain.handlers["scistudio:open-external"];
+      assert.ok(openExternal, "the preload channel has a main-process handler");
+
+      await openExternal({}, "https://example.com/spec");
+      await openExternal({}, "mailto:lab@example.com");
+      assert.deepEqual(stub.state.externals, ["https://example.com/spec", "mailto:lab@example.com"]);
+
+      // A scheme the shell must never execute is refused.
+      await openExternal({}, "file:///etc/passwd");
+      await openExternal({}, "javascript:alert(1)");
+      assert.equal(stub.state.externals.length, 2, "only http/https/mailto leave the app");
+
+      // window.open from the page never spawns a child window: an openable URL
+      // goes to the shell, anything else is denied without reaching it.
+      const handler = h.mainWin().webContents.windowOpenHandler;
+      assert.ok(handler, "the main window denies child windows");
+      assert.deepEqual(handler({ url: "https://example.com/page" }), { action: "deny" });
+      assert.equal(stub.state.externals.at(-1), "https://example.com/page");
+      assert.deepEqual(handler({ url: "file:///etc/passwd" }), { action: "deny" });
+      assert.equal(stub.state.externals.length, 3, "file: is not forwarded");
+
+      h.mainWin().close();
+      assert.equal(stub.app.quitCalled, 1);
+    }
+  },
+
   "desktop-promote": {
     title: "desktop -> external AI on the running backend, startup setting changeable, tray Stop and Quit",
     async run(h) {

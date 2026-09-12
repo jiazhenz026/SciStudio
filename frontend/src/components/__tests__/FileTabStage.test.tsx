@@ -25,11 +25,28 @@ interface StubEditorProps {
   onSave: () => void;
 }
 
+/*
+ * A stable ref callback counts real mounts: React calls it with the node on
+ * mount and null on unmount, never on re-render. The "preview toggle" test
+ * asserts the editor is not remounted — a remount would dispose Monaco's
+ * model, taking the undo stack and view state with it.
+ */
+const editorProbe = vi.hoisted(() => {
+  const probe = {
+    mounts: 0,
+    onRef: (node: unknown) => {
+      if (node) probe.mounts += 1;
+    },
+  };
+  return probe;
+});
+
 vi.mock("../CodeEditor", () => ({
   CodeEditor: ({ tab, onContentChange }: StubEditorProps) => (
     <textarea
       data-testid="code-editor"
       onChange={(event) => onContentChange(event.target.value)}
+      ref={editorProbe.onRef}
       value={tab.content}
     />
   ),
@@ -79,6 +96,7 @@ function renderStage(tab: FileTab) {
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", NoopResizeObserver);
   resetAppStore();
+  editorProbe.mounts = 0;
   vi.useFakeTimers();
 });
 
@@ -158,6 +176,25 @@ describe("FileTabStage", () => {
       vi.advanceTimersByTime(MARKDOWN_PREVIEW_DEBOUNCE_MS + 1);
     });
     expect(screen.getByTestId("markdown-preview")).toBeInTheDocument();
+  });
+
+  it("keeps the editor mounted across a preview hide and show", () => {
+    // A remount here would dispose Monaco's model: undo history and view state
+    // lost to what is only a layout change. The preview panel is conditional;
+    // the editor's ancestor chain is not.
+    renderStage(makeFileTab());
+    expect(editorProbe.mounts).toBe(1);
+
+    act(() => {
+      screen.getByTestId("markdown-preview-hide").click();
+    });
+    act(() => {
+      screen.getByTestId("markdown-preview-show").click();
+      vi.advanceTimersByTime(MARKDOWN_PREVIEW_DEBOUNCE_MS + 1);
+    });
+
+    expect(screen.getByTestId("markdown-preview")).toBeInTheDocument();
+    expect(editorProbe.mounts).toBe(1);
   });
 
   it("records the choice in the store, so it outlives the tab", () => {

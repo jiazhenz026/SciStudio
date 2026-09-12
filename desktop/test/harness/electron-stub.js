@@ -32,6 +32,7 @@ const state = {
   dialogCalls: 0,
   jsCalls: [],
   relaunches: [],
+  externals: [],
   backendAliveProbe: null
 };
 
@@ -284,5 +285,11 @@ module.exports = {
   nativeImage,
   nativeTheme: { shouldUseDarkColors: false },
   session: { defaultSession: { clearCache: async () => {} } },
-  shell: { openPath: async () => "" }
+  shell: {
+    openPath: async () => "",
+    openExternal: async (url) => {
+      state.externals.push(url);
+      return "";
+    }
+  }
 };

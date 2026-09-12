@@ -37,10 +37,35 @@ export function FileTabStage({ tab, onContentChange, onSave }: FileTabStageProps
 
   if (tab.language !== "markdown") return editor;
 
-  if (!markdownPreviewVisible) {
-    return (
-      <div className="relative h-full w-full" data-testid="file-tab-stage">
-        {editor}
+  /*
+   * The editor keeps the same ancestor chain whether the preview is shown or
+   * hidden: group > panel > CodeEditor. Only the preview panel is conditional.
+   * If the toggle swapped the stage root between a <div> and the group, React
+   * would remount CodeEditor, and @monaco-editor/react disposes the model on
+   * unmount (keepCurrentModel defaults to false) — the undo stack and view
+   * state would go with it for what is only a layout change.
+   */
+  return (
+    <div className="relative h-full w-full" data-testid="file-tab-stage">
+      <ResizablePanelGroup className="h-full w-full min-h-0" orientation="horizontal">
+        <ResizablePanel defaultSize="50%" minSize="20%">
+          {editor}
+        </ResizablePanel>
+        {markdownPreviewVisible && (
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize="50%" minSize="20%">
+              {/*
+               * Keyed by tab so a switch between two markdown files starts the
+               * preview on the new file rather than holding the old one on screen
+               * for the length of one debounce.
+               */}
+              <MarkdownPane key={tab.id} onHide={toggleMarkdownPreview} source={tab.content} />
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
+      {!markdownPreviewVisible && (
         <button
           aria-label="Show the markdown preview"
           className="absolute right-3 top-2 z-10 flex items-center gap-1 rounded-full border border-stone-600 bg-stone-800/90 px-2 py-0.5 text-xs text-stone-300 transition hover:border-stone-400 hover:text-white"
@@ -52,29 +77,8 @@ export function FileTabStage({ tab, onContentChange, onSave }: FileTabStageProps
           <PanelRightOpen className="h-3 w-3" />
           Preview
         </button>
-      </div>
-    );
-  }
-
-  return (
-    <ResizablePanelGroup
-      className="h-full w-full min-h-0"
-      data-testid="file-tab-stage"
-      orientation="horizontal"
-    >
-      <ResizablePanel defaultSize="50%" minSize="20%">
-        {editor}
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel defaultSize="50%" minSize="20%">
-        {/*
-         * Keyed by tab so a switch between two markdown files starts the
-         * preview on the new file rather than holding the old one on screen
-         * for the length of one debounce.
-         */}
-        <MarkdownPane key={tab.id} onHide={toggleMarkdownPreview} source={tab.content} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+      )}
+    </div>
   );
 }
 

@@ -241,6 +241,11 @@
       "at": "2026-09-12T00:16:20.496823Z",
       "owner_directive": "Frontend-only split stage for .md tabs. New MarkdownPane (react-markdown + remark-gfm, already dependencies) rendered beside CodeEditor inside a ResizablePanelGroup by a new FileTabStage component; ProjectWorkspace delegates its activeFileTab branch to it. Preview visibility is a persisted UI-store flag following the minimapVisible declaration pattern. No backend route, no new npm dependency, no change to panels/ or previewers/.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-12T03:17:11.154419Z",
+      "owner_directive": "Fix the PR #2363 codex audit comments (record the split-view spec, keep Monaco mounted across preview toggles, open links via the desktop shell) and push one commit.",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
     }
   ],
   "docs_events": [
@@ -282,6 +287,22 @@
       "kind": "na",
       "path": null,
       "rationale": "No new subsystem; one component plus a persisted UI flag.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T03:29:19.879972Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-036.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T03:29:19.880177Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -1078,6 +1099,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.042113Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.077140Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.102902Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.128622Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.158972Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.198044Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.224538Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.246131Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.271735Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.297838Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-12T03:31:06.349531Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1090,8 +1199,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "90766a0132fd03b09ce9351cc8188d038030fa4e",
-    "base_sha": "90766a01",
+    "base": "origin/main",
+    "base_sha": "ae2ed203",
     "changed_files": [
       ".workflow/records/2361-markdown-live-preview.json",
       "CHANGELOG.md",
@@ -1105,9 +1214,9 @@
       "frontend/src/store/uiSlice.ts",
       "frontend/src/testUtils.ts"
     ],
-    "diff_fingerprint": "sha256:6e9000a66c8daa51a267d8d06a0f8d11b9a7569b2074cf8e83cd404baeb63027",
+    "diff_fingerprint": "sha256:eca9098e47079fdcaf03e366d063819780dc64dae5ed9e83854036ff76d0e930",
     "head": "HEAD",
-    "head_sha": "af1e1147",
+    "head_sha": "24966af6",
     "surfaces": {
       "docs": 0,
       "frontend": 9,
@@ -1212,6 +1321,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-12T03:31:06.349597Z",
+      "diff_fingerprint": "sha256:eca9098e47079fdcaf03e366d063819780dc64dae5ed9e83854036ff76d0e930",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2361-markdown-live-preview",
@@ -1264,6 +1381,42 @@
       "at": "2026-09-12T00:24:01.348995Z",
       "pattern": "frontend/src/testUtils.ts",
       "reason": "resetAppStore must clear the new persisted markdownPreviewVisible flag, or a suite that closes the preview leaves the next one starting from closed."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154688Z",
+      "pattern": "desktop/main.js",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154696Z",
+      "pattern": "desktop/preload.js",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154699Z",
+      "pattern": "desktop/test/harness/electron-stub.js",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154700Z",
+      "pattern": "desktop/test/harness/run-scenario.js",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154704Z",
+      "pattern": "frontend/src/types/desktop.d.ts",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:17:11.154705Z",
+      "pattern": "docs/adr/ADR-036.md",
+      "reason": "Codex review on PR #2363 (commit af1e114): P1 spec obligation wrongly N/A, P2 Monaco remounts on preview toggle, P2 markdown links do not open in the packaged desktop shell. Owner directive: fix the codex audit comments and push one commit."
     }
   ],
   "session_id": "c95a9ef7-809c-41d4-86eb-13377f94af91",
@@ -1283,6 +1436,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/__tests__/FileTabStage.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T03:29:19.880183Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/FileTabStage.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T03:29:19.880186Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/MarkdownPane.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-12T03:29:19.880187Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/harness/run-scenario.js",
       "rationale": null,
       "verified_in_diff": null
     }

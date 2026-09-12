@@ -40,6 +40,24 @@ import remarkGfm from "remark-gfm";
 /** Schemes a link may actually open with. */
 const OPENABLE = /^(?:https?:|mailto:)/i;
 
+/**
+ * Open *href* outside the app.
+ *
+ * In the packaged desktop shell `window.open` would ask Electron for a child
+ * BrowserWindow the main window has no handler for, so the link goes nowhere;
+ * the preload bridge routes it through a validated `shell.openExternal` in the
+ * main process instead. The browser build has no bridge and falls back to a
+ * plain new tab.
+ */
+export function openExternally(href: string): void {
+  const bridge = window.scistudioDesktop;
+  if (bridge?.openExternal) {
+    void bridge.openExternal(href);
+    return;
+  }
+  window.open(href, "_blank", "noopener,noreferrer");
+}
+
 /** How long the preview waits after the last keystroke before it reparses. */
 export const MARKDOWN_PREVIEW_DEBOUNCE_MS = 150;
 
@@ -138,7 +156,7 @@ const COMPONENTS = {
         href={policy.href}
         onClick={(event) => {
           event.preventDefault();
-          window.open(policy.href, "_blank", "noopener,noreferrer");
+          openExternally(policy.href);
         }}
         title={policy.href}
       >

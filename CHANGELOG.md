@@ -26,7 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   an image from whatever host a document names. A link to another project file,
   a bare `#heading`, or an unusual scheme renders as its own text with the
   target in a tooltip; an `http(s)` or `mailto:` link is real and opens outside
-  the app. HTML written into the document stays visible as text and never
+  the app — in your default browser from the desktop app, in a new tab from the
+  browser build. HTML written into the document stays visible as text and never
   becomes part of the app's own page.
 - [#2308] **AI apps without WebMCP can use SciStudio through a local MCP
   server.** Claude Desktop, Claude Code, Codex and Cursor can launch local MCP
