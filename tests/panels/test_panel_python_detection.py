@@ -26,13 +26,13 @@ def _panel(directory: Path, descriptor: dict, *, python: str | None = None) -> P
 
 
 def _parse(directory: Path, owner_kind: OwnerKind = OwnerKind.PROJECT):
-    return parse_descriptor(
-        directory, owner_kind=owner_kind, owner_name="project", registered_types=_TYPES
-    )
+    return parse_descriptor(directory, owner_kind=owner_kind, owner_name="project", registered_types=_TYPES)
 
 
 def test_miniapp_context_is_accepted_with_exactly_one_type(tmp_path: Path) -> None:
-    directory = _panel(tmp_path / "lab.viewer", {"id": "lab.viewer", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image"]})
+    directory = _panel(
+        tmp_path / "lab.viewer", {"id": "lab.viewer", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image"]}
+    )
     descriptor, notes = _parse(directory)
     assert descriptor.contexts == ("miniapp",)
     assert descriptor.types == ("Image",)

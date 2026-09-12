@@ -30,15 +30,16 @@ def declared_type(panel: PanelDescriptor) -> tuple[str, bool]:
 def _output_ref(runtime: Any, value: Any) -> str:
     """The catalog/collection ref for a block output, registering a raw ref."""
     if isinstance(value, dict):
-        if isinstance(value.get("data_ref"), str):
-            return value["data_ref"]
-        if isinstance(value.get("collection_ref"), str):
-            return value["collection_ref"]
+        for key in ("data_ref", "collection_ref"):
+            ref = value.get(key)
+            if isinstance(ref, str):
+                return ref
     descriptor = runtime.register_output_payload(value)
     if isinstance(descriptor, dict):
         for key in ("data_ref", "collection_ref"):
-            if isinstance(descriptor.get(key), str):
-                return descriptor[key]
+            ref = descriptor.get(key)
+            if isinstance(ref, str):
+                return ref
     raise PanelError(409, "no_output", "The block output cannot be resolved to a data reference")
 
 

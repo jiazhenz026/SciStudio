@@ -241,7 +241,8 @@ def panel_process_status(context_id: str, request: Request) -> dict[str, Any]:
         context = get_panel_contexts(request.app.state.runtime).get(context_id)
         if context.kind != "miniapp" or getattr(context, "process", None) is None:
             raise PanelError(404, "no_process", "This context has no panel process")
-        return context.process.status()
+        status: dict[str, Any] = context.process.status()
+        return status
     except PanelError as exc:
         raise _failure(exc) from exc
 
