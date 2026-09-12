@@ -4,6 +4,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.testclient import TestClient
 
 from scistudio.api.ws import websocket_handler
+from tests.api.helpers import ws_hello
 from tests.panels.conftest import make_runtime
 from tests.panels.test_panel_contexts import waiting
 
@@ -20,6 +21,7 @@ def test_websocket_claims_context_without_changing_engine_event(tmp_path):
         await websocket_handler(socket, runtime.event_bus)
 
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         websocket.send_json(
             {"type": "interactive_complete", "workflow_id": "wf", "block_id": "block", "data": {"chosen": True}}
         )
@@ -90,6 +92,7 @@ def test_ack_waits_for_dispatch_and_allows_close_only_after_acceptance(tmp_path,
         await websocket_handler(socket, runtime.event_bus)
 
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         websocket.send_json(
             {
                 "type": "interactive_complete",
@@ -135,6 +138,7 @@ def test_dispatch_failure_returns_scoped_error_without_accepting(tmp_path, monke
         await websocket_handler(socket, runtime.event_bus)
 
     with TestClient(app) as client, client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         websocket.send_json(
             {
                 "type": "interactive_complete",
