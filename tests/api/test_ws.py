@@ -21,7 +21,7 @@ from scistudio.engine.events import (
     EngineEvent,
     EventBus,
 )
-from tests.api.helpers import wait_for_condition
+from tests.api.helpers import wait_for_condition, ws_hello
 
 
 def test_workflow_started_in_outbound_events() -> None:
@@ -32,6 +32,7 @@ def test_workflow_started_in_outbound_events() -> None:
 def test_websocket_receives_serialised_engine_events(client: TestClient, runtime: ApiRuntime) -> None:
     """Outbound workflow events should be pushed to connected clients."""
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         asyncio.run(
             runtime.event_bus.emit(
                 EngineEvent(
@@ -75,6 +76,7 @@ def test_websocket_inbound_messages_emit_cancel_events(client: TestClient, runti
 def test_websocket_replies_to_heartbeat_ping(client: TestClient, runtime: ApiRuntime) -> None:
     """#177: browser heartbeat pings receive a pong frame."""
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         websocket.send_json({"type": "ping"})
         message = websocket.receive_json()
 
@@ -91,6 +93,9 @@ def test_websocket_handler_handles_cancelled_error_on_shutdown() -> None:
     async def _run() -> None:
         ws = AsyncMock()
         ws.accept = AsyncMock()
+        # FR-013: a real WebSocket carries query params; the handler reads them
+        # to let a reconnecting workspace keep its client id.
+        ws.query_params = {}
         # Simulate server shutdown: receive_text raises CancelledError
         ws.receive_text = AsyncMock(side_effect=asyncio.CancelledError)
         ws.send_json = AsyncMock(side_effect=asyncio.CancelledError)
@@ -135,6 +140,7 @@ def test_last_gui_disconnect_cancels_active_workflow(monkeypatch: Any) -> None:
 
         ws = AsyncMock()
         ws.accept = AsyncMock()
+        ws.query_params = {}
         ws.receive_text = AsyncMock(side_effect=asyncio.CancelledError)
         ws.send_json = AsyncMock(side_effect=asyncio.CancelledError)
 

@@ -1,0 +1,10 @@
+{
+  "id": "miniapp",
+  "api_version": "1.0",
+  "contexts": ["miniapp"],
+  "types": ["DataObject"],
+  "name": "MiniApp",
+  "description": "A MiniApp the agent is writing.",
+  "version": "0.1",
+  "entry": "index.html"
+}

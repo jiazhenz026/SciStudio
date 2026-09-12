@@ -2050,6 +2050,284 @@
     },
     "type": "object"
    },
+   "MiniAppConvert": {
+    "additionalProperties": false,
+    "properties": {
+     "note": {
+      "anyOf": [
+       {
+        "maxLength": 4000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "outputs": {
+      "items": {
+       "$ref": "#/components/schemas/MiniAppConvertOutput"
+      },
+      "type": "array"
+     },
+     "permission_mode": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "provider": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object"
+   },
+   "MiniAppConvertOutput": {
+    "additionalProperties": false,
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "port": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "name",
+     "type",
+     "port"
+    ],
+    "type": "object"
+   },
+   "MiniAppConverted": {
+    "properties": {
+     "session_tab_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object"
+   },
+   "MiniAppCreate": {
+    "additionalProperties": false,
+    "properties": {
+     "name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "permission_mode": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "provider": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "request": {
+      "maxLength": 4000,
+      "type": "string"
+     },
+     "source": {
+      "$ref": "#/components/schemas/MiniAppTarget"
+     }
+    },
+    "required": [
+     "request",
+     "source"
+    ],
+    "type": "object"
+   },
+   "MiniAppCreated": {
+    "properties": {
+     "directory": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "panel_id": {
+      "type": "string"
+     },
+     "session_tab_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "source": {
+      "$ref": "#/components/schemas/MiniAppTarget"
+     }
+    },
+    "required": [
+     "panel_id",
+     "name",
+     "source",
+     "directory"
+    ],
+    "type": "object"
+   },
+   "MiniAppListResponse": {
+    "properties": {
+     "miniapps": {
+      "items": {
+       "$ref": "#/components/schemas/MiniAppSummary"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "miniapps"
+    ],
+    "type": "object"
+   },
+   "MiniAppSource": {
+    "properties": {
+     "block_id": {
+      "type": "string"
+     },
+     "block_name": {
+      "type": "string"
+     },
+     "port": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     },
+     "workflow_id": {
+      "type": "string"
+     },
+     "workflow_name": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "workflow_id",
+     "workflow_name",
+     "block_id",
+     "block_name",
+     "port",
+     "type"
+    ],
+    "type": "object"
+   },
+   "MiniAppSourcesResponse": {
+    "properties": {
+     "sources": {
+      "items": {
+       "$ref": "#/components/schemas/MiniAppSource"
+      },
+      "type": "array"
+     }
+    },
+    "required": [
+     "sources"
+    ],
+    "type": "object"
+   },
+   "MiniAppSummary": {
+    "properties": {
+     "description": {
+      "type": "string"
+     },
+     "directory": {
+      "type": "string"
+     },
+     "has_python": {
+      "type": "boolean"
+     },
+     "name": {
+      "type": "string"
+     },
+     "panel_id": {
+      "type": "string"
+     },
+     "tier": {
+      "enum": [
+       "project",
+       "user",
+       "package",
+       "core"
+      ],
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "panel_id",
+     "name",
+     "description",
+     "type",
+     "tier",
+     "directory",
+     "has_python"
+    ],
+    "type": "object"
+   },
+   "MiniAppTarget": {
+    "additionalProperties": false,
+    "properties": {
+     "block_id": {
+      "type": "string"
+     },
+     "port": {
+      "type": "string"
+     },
+     "workflow_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "workflow_id",
+     "block_id",
+     "port"
+    ],
+    "type": "object"
+   },
    "MoveSourceRef": {
     "properties": {
      "path": {
@@ -3908,6 +4186,64 @@
     ],
     "type": "object"
    },
+   "UserLibraryDirectoryRequest": {
+    "properties": {
+     "overwrite": {
+      "default": false,
+      "type": "boolean"
+     },
+     "project_dir": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "project_dir"
+    ],
+    "type": "object"
+   },
+   "UserLibraryDirectoryResponse": {
+    "properties": {
+     "move_error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "moved": {
+      "type": "boolean"
+     },
+     "name": {
+      "type": "string"
+     },
+     "path": {
+      "type": "string"
+     },
+     "registries_refreshed": {
+      "type": "boolean"
+     },
+     "target": {
+      "enum": [
+       "blocks",
+       "types",
+       "previewers",
+       "panels"
+      ],
+      "type": "string"
+     }
+    },
+    "required": [
+     "target",
+     "name",
+     "path",
+     "moved",
+     "registries_refreshed"
+    ],
+    "type": "object"
+   },
    "UserLibraryFileResponse": {
     "properties": {
      "content": {
@@ -3933,7 +4269,8 @@
       "enum": [
        "blocks",
        "types",
-       "previewers"
+       "previewers",
+       "panels"
       ],
       "type": "string"
      }
@@ -4017,7 +4354,8 @@
       "enum": [
        "blocks",
        "types",
-       "previewers"
+       "previewers",
+       "panels"
       ],
       "type": "string"
      }
@@ -6259,7 +6597,14 @@
       "content": {
        "application/json": {
         "schema": {
-         "$ref": "#/components/schemas/ReadResult"
+         "anyOf": [
+          {
+           "$ref": "#/components/schemas/ContextCallResult"
+          },
+          {
+           "$ref": "#/components/schemas/ContextCallError"
+          }
+         ]
         }
        },
        "application/octet-stream": {
@@ -6342,6 +6687,15 @@
       }
      },
      "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "504": {
       "content": {
        "application/json": {
         "schema": {
@@ -6873,6 +7227,368 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ContextResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/miniapps": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MiniAppListResponse"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   },
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MiniAppCreate"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MiniAppCreated"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/miniapps/{panel_id}/convert": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "panel_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/MiniAppConvert"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MiniAppConverted"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/miniapps/{panel_id}/sources": {
+   "get": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "panel_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/MiniAppSourcesResponse"
         }
        }
       }
@@ -9122,6 +9838,68 @@
     ]
    }
   },
+  "/api/user-library/directory": {
+   "post": {
+    "parameters": [
+     {
+      "in": "query",
+      "name": "target",
+      "required": true,
+      "schema": {
+       "enum": [
+        "blocks",
+        "types",
+        "previewers",
+        "panels"
+       ],
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "name",
+      "required": false,
+      "schema": {
+       "default": "",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserLibraryDirectoryRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserLibraryDirectoryResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "user-library"
+    ]
+   }
+  },
   "/api/user-library/file": {
    "get": {
     "parameters": [
@@ -9133,7 +9911,8 @@
        "enum": [
         "blocks",
         "types",
-        "previewers"
+        "previewers",
+        "panels"
        ],
        "type": "string"
       }
@@ -9182,7 +9961,8 @@
        "enum": [
         "blocks",
         "types",
-        "previewers"
+        "previewers",
+        "panels"
        ],
        "type": "string"
       }

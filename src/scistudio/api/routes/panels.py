@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -17,9 +19,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from scistudio.api.schemas import PreviewEnvelopeModel
 from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
+from scistudio.panels.process_config import max_result_bytes
 from scistudio.panels.reads import read_context
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/panels", tags=["panels"])
 _STATIC_ROOT = Path(__file__).resolve().parents[2] / "panels"
@@ -87,6 +92,31 @@ class ContextCall(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
 
 
+class ContextCallResult(BaseModel):
+    """A ``panel.py`` function returned; the value is whatever it returned."""
+
+    result: Any = None
+
+
+class ContextCallErrorDetail(BaseModel):
+    """The exception a ``panel.py`` function raised, as the page receives it."""
+
+    type: str
+    message: str
+    traceback: str
+
+
+class ContextCallError(BaseModel):
+    """A call that raised. The HTTP status is still 200 and the process lives.
+
+    FR-011: an exception in a panel function is an answer, not a transport
+    failure — the process keeps running and the next call still works. The
+    client turns this body into a rejected promise.
+    """
+
+    error: ContextCallErrorDetail
+
+
 class ReadResult(BaseModel):
     """Operation-specific bounded payload plus mandatory sampling flags."""
 
@@ -94,6 +124,98 @@ class ReadResult(BaseModel):
     sampled: bool
     truncated: bool
     complete: bool
+
+
+class MiniAppTarget(BaseModel):
+    """The block output a MiniApp opens on (MiniApp FR-004)."""
+
+    model_config = ConfigDict(extra="forbid")
+    workflow_id: str
+    block_id: str
+    port: str
+
+
+class MiniAppSummary(BaseModel):
+    """One MiniApp in the MiniApps tab (MiniApp FR-031/FR-032)."""
+
+    panel_id: str
+    name: str
+    description: str
+    type: str = Field(description="The single declared type, verbatim from panel.json.")
+    tier: Literal["project", "user", "package", "core"]
+    directory: str = Field(description="Absolute path of the MiniApp directory, for the hover popover.")
+    has_python: bool
+
+
+class MiniAppListResponse(BaseModel):
+    miniapps: list[MiniAppSummary]
+
+
+class MiniAppSource(BaseModel):
+    """One openable block output for a MiniApp's declared type (MiniApp FR-034)."""
+
+    workflow_id: str
+    workflow_name: str
+    block_id: str
+    block_name: str
+    port: str
+    type: str
+
+
+class MiniAppSourcesResponse(BaseModel):
+    sources: list[MiniAppSource]
+
+
+class MiniAppCreate(BaseModel):
+    """Request body for ``POST /api/panels/miniapps`` (MiniApp FR-024)."""
+
+    model_config = ConfigDict(extra="forbid")
+    request: str = Field(max_length=4000, description="What the user wants to see or do, in their own words.")
+    source: MiniAppTarget
+    provider: str | None = Field(default=None, description="Agent provider key; the first ready one when omitted.")
+    permission_mode: str | None = Field(
+        default=None,
+        description="'safe' or 'bypass'; the frontend's 'dangerous' is accepted and means 'bypass'. Defaults to safe.",
+    )
+    name: str | None = Field(default=None, description="Display name; derived from the request when omitted.")
+
+
+class MiniAppCreated(BaseModel):
+    """Response body for ``POST /api/panels/miniapps``.
+
+    ``session_tab_id`` is null when the directory was created but the agent
+    session could not be spawned: the template is on disk and the tab opens on
+    it, so the create succeeded and only the agent did not start.
+    """
+
+    panel_id: str
+    name: str
+    source: MiniAppTarget
+    session_tab_id: str | None = None
+    directory: str
+
+
+class MiniAppConvertOutput(BaseModel):
+    """One output the converted interactive block must produce (MiniApp FR-036)."""
+
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    type: str
+    port: str
+
+
+class MiniAppConvert(BaseModel):
+    """Request body for ``POST /api/panels/miniapps/{panel_id}/convert``."""
+
+    model_config = ConfigDict(extra="forbid")
+    outputs: list[MiniAppConvertOutput] = Field(default_factory=list)
+    note: str | None = Field(default=None, max_length=4000)
+    provider: str | None = None
+    permission_mode: str | None = None
+
+
+class MiniAppConverted(BaseModel):
+    session_tab_id: str | None = None
 
 
 class PanelFailureDetail(BaseModel):
@@ -124,6 +246,35 @@ _READ_RESPONSE: dict[int | str, dict[str, Any]] = {
         },
     },
     **_ERRORS,
+}
+# MiniApp FR-010: the call route's own declared contract. It shares the read
+# route's octet-stream branch and dtype/shape headers, but its JSON 200 is
+# ``{result}`` or ``{error}`` — never ``ReadResult``, which carries sampling
+# flags no call ever returns — and it declares the 504 a call timeout produces.
+_CALL_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {
+        "content": {
+            "application/json": {
+                # ``anyOf``, not ``oneOf``: an ``{error}`` body also satisfies
+                # ``ContextCallResult``, whose single field is optional, so an
+                # exclusive union would reject the very body it describes.
+                "schema": {
+                    "anyOf": [
+                        {"$ref": "#/components/schemas/ContextCallResult"},
+                        {"$ref": "#/components/schemas/ContextCallError"},
+                    ]
+                }
+            },
+            "application/octet-stream": {"schema": {"type": "string", "format": "binary"}},
+        },
+        "headers": {
+            "X-Panel-Dtype": {"schema": {"type": "string"}, "description": "Little-endian NumPy dtype"},
+            "X-Panel-Shape": {"schema": {"type": "string"}, "description": "JSON array of dimensions"},
+            "X-Panel-Metadata": {"schema": {"type": "string"}, "description": "JSON metadata with dtype and shape"},
+        },
+    },
+    **_ERRORS,
+    504: {"model": PanelFailureResponse},
 }
 
 
@@ -169,6 +320,298 @@ def catalog(request: Request) -> dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# MiniApps (ADR-054 MiniApp FR-024, FR-026, FR-027, FR-034, FR-036)
+# ---------------------------------------------------------------------------
+
+#: The backend spells permission modes ``safe``/``bypass``; the frontend union
+#: is ``safe``/``dangerous``. Accepting both here means one mapping, at the
+#: request boundary, rather than a 422 for a caller that used the other name.
+_PERMISSION_MODES = {"safe": "safe", "bypass": "bypass", "dangerous": "bypass"}
+
+
+def _miniapps(request: Request) -> dict[str, Any]:
+    registry = request.app.state.runtime.get_preview_service().registry.panels
+    return {panel_id: p for panel_id, p in registry.panels.items() if "miniapp" in p.contexts}
+
+
+def _miniapp(request: Request, panel_id: str) -> Any:
+    panel = _miniapps(request).get(panel_id)
+    if panel is None:
+        raise PanelError(404, "unknown_panel", f"MiniApp {panel_id!r} is not registered")
+    return panel
+
+
+@router.get("/miniapps", response_model=MiniAppListResponse, responses=_ERRORS)
+def list_miniapps(request: Request) -> dict[str, Any]:
+    """Every registered panel declaring ``miniapp``, for the MiniApps tab (FR-031)."""
+    return {
+        "miniapps": [
+            {
+                "panel_id": panel.id,
+                "name": panel.name or panel.id,
+                "description": panel.description,
+                "type": panel.types[0] if panel.types else "",
+                "tier": panel.owner_kind.value,
+                "directory": str(panel.root),
+                "has_python": panel.has_python,
+            }
+            for panel in sorted(_miniapps(request).values(), key=lambda p: (p.name or p.id).lower())
+        ]
+    }
+
+
+@router.get("/miniapps/{panel_id}/sources", response_model=MiniAppSourcesResponse, responses=_ERRORS)
+def list_miniapp_sources(panel_id: str, request: Request) -> dict[str, Any]:
+    """The outputs this MiniApp can open on, for the target picker (FR-034)."""
+    from scistudio.panels.miniapp_create import matching_sources
+
+    try:
+        panel = _miniapp(request, panel_id)
+        return {"sources": matching_sources(request.app.state.runtime, panel)}
+    except PanelError as exc:
+        raise _failure(exc) from exc
+
+
+def _permission_mode(raw: str | None) -> str:
+    mode = _PERMISSION_MODES.get((raw or "safe").strip().lower())
+    if mode is None:
+        raise PanelError(422, "invalid_request", f"Unknown permission mode {raw!r}")
+    return mode
+
+
+def _graded_reason(row: Any, report: Any) -> str:
+    """The availability report's own sentence for why a session cannot start.
+
+    Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
+    which of install, sign in, or "the call failed because …" is the actionable
+    one, and a second wording here would give the user two accounts of one fact.
+    """
+    if row is None:
+        row = next((p for p in report.providers if p.state == report.state), None)
+    if row is None:
+        return "No agent provider is configured, so no MiniApp session can start."
+    for sentence in (row.session_unsupported_reason, row.next_step, row.cause):
+        if sentence:
+            return str(sentence)
+    return f"{row.label} cannot start a session right now."
+
+
+async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
+    """Return the provider and mode a session may start with, or refuse (FR-024).
+
+    This runs FIRST, before anything is written: a MiniApp whose agent never
+    started is a directory the user did not ask for and has to find and delete
+    themselves. ``session_unsupported_reason`` refuses a provider however
+    ``ready`` it is — the opening instruction is a positional argument its CLI
+    cannot take, and no amount of signing in changes that.
+    """
+    from scistudio.ai.agent import availability as agent_availability
+    from scistudio.ai.agent.availability import AvailabilityState
+    from scistudio.api.routes.ai import _status_rows
+
+    def usable(row: Any) -> bool:
+        return row.state is AvailabilityState.READY and not row.session_unsupported_reason
+
+    mode = _permission_mode(permission_mode)
+    report = await agent_availability.probe_availability(_status_rows)
+    if provider is None:
+        ready = next((row for row in report.providers if usable(row)), None)
+        if ready is None:
+            raise PanelError(409, "agent_unavailable", _graded_reason(None, report))
+        return ready.key, mode
+    chosen = next((row for row in report.providers if row.key == provider), None)
+    if chosen is None:
+        raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
+    if not usable(chosen):
+        raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
+    return chosen.key, mode
+
+
+def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permission_mode: str) -> str | None:
+    """Spawn the agent session, or report that it did not start.
+
+    Last, and never fatal: the directory and the brief are already on disk and
+    the tab opens on them, so a provider binary that vanished between the
+    availability probe and this call leaves the user with a MiniApp they can
+    still see and an agent they can start by hand.
+    """
+    from scistudio.panels.miniapp_create import opening_message
+
+    try:
+        from scistudio.api.routes.ai_pty import engine as _engine
+
+        return _engine.open_work_import_tab(
+            provider=provider,
+            cwd=str(project_dir),
+            opening_message=opening_message(brief_relpath),
+            permission_mode=permission_mode,
+        )
+    except (FileNotFoundError, RuntimeError, OSError):
+        logger.warning("MiniApp session did not start for provider %s", provider, exc_info=True)
+        return None
+
+
+def _project_dir(runtime: Any) -> Path:
+    from scistudio.api.routes.ai_pty.validation import _validate_project_dir
+
+    raw = getattr(getattr(runtime, "active_project", None), "path", None)
+    if not raw:
+        raise PanelError(409, "no_project", "Open a project before creating a MiniApp")
+    try:
+        return _validate_project_dir(str(raw))
+    except (RuntimeError, PermissionError, OSError) as exc:
+        raise PanelError(400, "invalid_project", f"Invalid project directory: {exc}") from exc
+
+
+def _display_name(payload: MiniAppCreate) -> str:
+    if payload.name and payload.name.strip():
+        return payload.name.strip()[:80]
+    first = payload.request.strip().splitlines()[0] if payload.request.strip() else ""
+    return (first[:60].strip() or "MiniApp").capitalize()
+
+
+def _refresh_panels(runtime: Any) -> None:
+    """Re-scan so the MiniApp just written is registered before the tab opens."""
+    refresh = getattr(runtime, "refresh_all_registries", None)
+    if refresh is None:
+        return
+    try:
+        refresh()
+    except Exception:
+        logger.exception("MiniApp create: refresh_all_registries() raised")
+
+
+def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: str) -> dict[str, Any]:
+    from scistudio.panels.miniapp_create import (
+        CORE_SENTINEL_TYPES,
+        compose_create_brief,
+        create_from_template,
+        iter_source_candidates,
+        slugify,
+        write_brief,
+    )
+
+    project_dir = _project_dir(runtime)
+    wanted = payload.source.model_dump()
+    target = (payload.source.workflow_id, payload.source.block_id, payload.source.port)
+    candidate = next(
+        (c for c in iter_source_candidates(runtime) if (c.workflow_id, c.block_id, c.port) == target),
+        None,
+    )
+    if candidate is None:
+        raise PanelError(409, "no_output", "That block has no output from a successful run to open on")
+    if not candidate.type or candidate.type in CORE_SENTINEL_TYPES:
+        raise PanelError(
+            409,
+            "unsupported_type",
+            "That output has no registered type, so a MiniApp cannot declare what it opens on",
+        )
+
+    name = _display_name(payload)
+    try:
+        panel_id, directory = create_from_template(
+            project_dir,
+            base_id=slugify(name),
+            name=name,
+            description=payload.request.strip(),
+            type_name=candidate.type,
+        )
+        brief_path = write_brief(
+            project_dir,
+            compose_create_brief(
+                panel_id=panel_id,
+                directory_relpath=directory.relative_to(project_dir).as_posix(),
+                request=payload.request,
+                type_name=candidate.type,
+                source=wanted,
+            ),
+        )
+    except OSError as exc:
+        raise PanelError(500, "write_failed", f"Could not create the MiniApp: {exc}") from exc
+
+    _refresh_panels(runtime)
+    tab_id = _session_tab(
+        provider=provider,
+        project_dir=project_dir,
+        brief_relpath=brief_path.relative_to(project_dir).as_posix(),
+        permission_mode=mode,
+    )
+    return {
+        "panel_id": panel_id,
+        "name": name,
+        "source": wanted,
+        "session_tab_id": tab_id,
+        "directory": str(directory),
+    }
+
+
+@router.post("/miniapps", response_model=MiniAppCreated, status_code=201, responses=_ERRORS)
+async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, Any]:
+    """Create a MiniApp directory and start the agent session that writes it.
+
+    The order is normative (FR-024): the graded availability check comes first
+    and nothing is created when it refuses, then the template directory, then
+    the brief — closed and fsynced — and the agent session last, pointed at a
+    brief that is already complete on disk.
+    """
+    try:
+        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        return await asyncio.to_thread(_create_miniapp, request.app.state.runtime, payload, provider, mode)
+    except PanelError as exc:
+        raise _failure(exc) from exc
+    except (ValueError, TypeError) as exc:
+        raise _failure(PanelError(422, "invalid_request", str(exc))) from exc
+
+
+def _convert_miniapp(runtime: Any, panel: Any, payload: MiniAppConvert, provider: str, mode: str) -> dict[str, Any]:
+    from scistudio.panels.miniapp_create import compose_convert_brief, write_brief
+
+    project_dir = _project_dir(runtime)
+    directory = Path(panel.root)
+    try:
+        relpath = directory.relative_to(project_dir).as_posix()
+    except ValueError:
+        # A user, package, or core MiniApp lives outside the project; the brief
+        # names the absolute path so the agent can still read it.
+        relpath = str(directory)
+    try:
+        brief_path = write_brief(
+            project_dir,
+            compose_convert_brief(
+                panel_id=panel.id,
+                directory_relpath=relpath,
+                outputs=[o.model_dump() for o in payload.outputs],
+                note=payload.note,
+            ),
+        )
+    except OSError as exc:
+        raise PanelError(500, "write_failed", f"Could not write the conversion brief: {exc}") from exc
+    return {
+        "session_tab_id": _session_tab(
+            provider=provider,
+            project_dir=project_dir,
+            brief_relpath=brief_path.relative_to(project_dir).as_posix(),
+            permission_mode=mode,
+        )
+    }
+
+
+@router.post("/miniapps/{panel_id}/convert", response_model=MiniAppConverted, status_code=201, responses=_ERRORS)
+async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Request) -> dict[str, Any]:
+    """Start the agent session that turns a MiniApp into an interactive block (FR-036).
+
+    The MiniApp is read, never written: the user keeps the thing they explored
+    with, and the block is a second artefact beside it.
+    """
+    try:
+        panel = _miniapp(request, panel_id)
+        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        return await asyncio.to_thread(_convert_miniapp, request.app.state.runtime, panel, payload, provider, mode)
+    except PanelError as exc:
+        raise _failure(exc) from exc
+
+
 @router.post("/contexts", response_model=ContextResponse, responses=_ERRORS)
 def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
     try:
@@ -188,7 +631,7 @@ def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
 _CALL_STATUS = {"busy": 429, "timeout": 504, "too_large": 413, "process_exited": 409, "start_failed": 409}
 
 
-@router.post("/contexts/{context_id}/call", responses=_READ_RESPONSE)
+@router.post("/contexts/{context_id}/call", responses=_CALL_RESPONSE)
 def panel_call(context_id: str, payload: ContextCall, request: Request) -> Response:
     """Forward a MiniApp page call to its resident panel.py (session-authenticated).
 
@@ -227,7 +670,13 @@ def panel_call(context_id: str, payload: ContextCall, request: Request) -> Respo
                 },
             )
         result = {"result": header.get("result")}
-        _bounded_json(result)
+        # FR-011: the subprocess is the authority on how large a result may be
+        # (``max_result_bytes``, 64 MiB by default), and it already refused
+        # anything over it with ``too_large``. Measuring again against the
+        # read route's 20 MiB budget turned a legal 30 MiB result into a
+        # ``read_budget`` refusal — one user-visible condition reported under
+        # two different codes, and a limit no configuration could raise.
+        _bounded_json(result, limit=max_result_bytes())
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except PanelError as exc:
         raise _failure(exc) from exc

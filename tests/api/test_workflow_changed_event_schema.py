@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from scistudio.engine.events import WORKFLOW_CHANGED
-from tests.api.helpers import build_linear_workflow
+from tests.api.helpers import build_linear_workflow, ws_hello
 
 
 def test_workflow_changed_websocket_payload_carries_adr045_fields(
@@ -19,6 +19,7 @@ def test_workflow_changed_websocket_payload_carries_adr045_fields(
     client.post("/api/workflows/", json=payload)
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         payload["description"] = "schema check"
         response = client.put(
             "/api/workflows/schema-ws",

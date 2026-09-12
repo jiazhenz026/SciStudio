@@ -33,6 +33,7 @@ _PANEL_PY = (
     "def echo(text):\n    return {'echoed': text}\n"
     "def grid():\n    return np.arange(4, dtype='float64')\n"
     "def boom():\n    raise ValueError('author fault')\n"
+    "def wide(size):\n    return 'x' * size\n"
 )
 
 
@@ -222,5 +223,53 @@ def test_python_file_is_not_served(tmp_path: Path) -> None:
         # index.html is served, proving the route itself works.
         ok = client.get(f"/api/panels/t/{token}/assets/lab.explorer/index.html")
         assert ok.status_code == 200
+    finally:
+        client.delete(f"/api/panels/contexts/{body['context_id']}")
+
+
+def test_call_declares_its_own_result_contract(tmp_path: Path) -> None:
+    """FR-010: the call route's 200 is ``{result}`` or ``{error}``, never ``ReadResult``.
+
+    The declared contract was the read route's, which carries sampled /
+    truncated / complete flags no call has ever returned, and the 504 a call
+    timeout produces was undeclared — so an OpenAPI consumer validating a real
+    call response against the contract rejected it.
+    """
+    schema = _client(tmp_path).app.openapi()
+    call = schema["paths"]["/api/panels/contexts/{context_id}/call"]["post"]
+    json_schema = call["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert [option["$ref"].rsplit("/", 1)[-1] for option in json_schema["anyOf"]] == [
+        "ContextCallResult",
+        "ContextCallError",
+    ]
+    assert "504" in call["responses"]
+    assert "application/octet-stream" in call["responses"]["200"]["content"]
+    assert set(call["responses"]["200"]["headers"]) == {"X-Panel-Dtype", "X-Panel-Shape", "X-Panel-Metadata"}
+
+
+def test_the_call_budget_is_the_process_result_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """FR-011: the call path measures a JSON result against ``max_result_bytes``.
+
+    It used to measure against the read route's ``READ_BYTES`` (20 MiB) while
+    the subprocess allowed ``max_result_bytes`` (64 MiB), so a result between
+    the two was refused route-side as ``read_budget`` — one user-visible
+    condition reported under two codes, and a ceiling no configuration could
+    raise. Proved here by lowering the configurable budget and watching the
+    route follow it: the same call succeeds at the default (see
+    ``test_json_call_returns_result``).
+    """
+    from scistudio.api.routes import panels as panels_route
+
+    monkeypatch.setattr(panels_route, "max_result_bytes", lambda: 32)
+    client = _client(tmp_path)
+    body = _open(client)
+    try:
+        response = client.post(
+            f"/api/panels/contexts/{body['context_id']}/call",
+            json={"fn": "wide", "args": {"size": 256}},
+        )
+        assert response.status_code == 413
+        assert response.json()["detail"]["code"] == "read_budget"
     finally:
         client.delete(f"/api/panels/contexts/{body['context_id']}")
