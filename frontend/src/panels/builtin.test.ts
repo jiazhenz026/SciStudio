@@ -1,168 +1,96 @@
 /**
- * Faithful-display coverage for the core-tier builtin panels (ADR-054 Phase B,
- * #1886). Each panel's HTML+JS is loaded into jsdom with a stubbed
- * ``window.scistudio`` that answers reads from fixtures — the same contract the
- * real host and ``panel.sample.json`` provide — and the rendered DOM is asserted.
+ * Contracts over the *set* of built-in panels rather than over any one of them
+ * (ADR-054 Phase B). Each panel's own behaviour is pinned in its own file —
+ * arrayPanel, collectionPanel, compositePanel, dataframePanel, seriesPanel,
+ * textPanel, artifactPanel, plotPanel, fallbackPanel, dataRouterPanel,
+ * pairEditorPanel — and what belongs here is what has to hold for all of them,
+ * including the ones added later.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 const BUILTIN = resolve(process.cwd(), "../src/scistudio/panels/builtin");
+const HERE = resolve(process.cwd(), "src/panels");
 
-interface MountOptions {
-  input?: Record<string, unknown>;
-  reads?: Record<string, unknown>;
-  services?: string[];
-}
+const panelIds = readdirSync(BUILTIN, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort();
 
-function mount(panelId: string, opts: MountOptions = {}) {
-  const source = readFileSync(resolve(BUILTIN, panelId, "panel.js"), "utf8");
-  document.body.innerHTML = '<div id="root"></div>';
-  const ops: string[] = [];
-  const services = opts.services ?? ["open", "save"];
-  const api: Record<string, unknown> = {
-    input: opts.input ?? { ref: "r" },
-    viewState: undefined,
-    libBaseUrl: undefined,
-    ready: () => Promise.resolve(api),
-    read: (op: string) => {
-      ops.push(op);
-      const reads = opts.reads ?? {};
-      return Object.prototype.hasOwnProperty.call(reads, op)
-        ? Promise.resolve(reads[op])
-        : Promise.reject(Object.assign(new Error("no read " + op), { code: "not_found" }));
-    },
-    setViewState: vi.fn(),
-    reportError: vi.fn(() => Promise.resolve(null)),
-    open: services.includes("open") ? vi.fn(() => Promise.resolve(null)) : undefined,
-    save: services.includes("save") ? vi.fn(() => Promise.resolve(null)) : undefined,
-    // Interactive panels (core.interactive.*) submit their decision here; a
-    // preview panel never calls it, so the stub is harmless for both.
-    writeBack: vi.fn(() => Promise.resolve(null)),
-  };
-  (window as unknown as { scistudio: unknown }).scistudio = api;
-  (0, eval)(source);
-  return { api, ops, root: () => document.getElementById("root") as HTMLElement };
-}
+const entryOf = (id: string) => readFileSync(resolve(BUILTIN, id, "index.html"), "utf8");
+const scriptOf = (id: string) => readFileSync(resolve(BUILTIN, id, "panel.js"), "utf8");
 
-afterEach(() => {
-  document.body.innerHTML = "";
-});
+/** The file each panel's behaviour is pinned in. */
+const COVERAGE: Record<string, string> = {
+  "core.array.basic": "arrayPanel.test.ts",
+  "core.artifact.basic": "artifactPanel.test.ts",
+  "core.base.fallback": "fallbackPanel.test.ts",
+  "core.collection.basic": "collectionPanel.test.ts",
+  "core.composite.basic": "compositePanel.test.ts",
+  "core.dataframe.basic": "dataframePanel.test.ts",
+  "core.interactive.data_router": "dataRouterPanel.test.ts",
+  "core.interactive.pair_editor": "pairEditorPanel.test.ts",
+  "core.plot.basic": "plotPanel.test.ts",
+  "core.series.basic": "seriesPanel.test.ts",
+  "core.text.basic": "textPanel.test.ts",
+};
 
-// core.array.basic and core.collection.basic are ES modules built on the shared
-// component set; they are covered by arrayPanel.test.ts and collectionPanel.test.ts,
-// which load them the way the frame does instead of eval'ing a classic script.
-
-// core.series.basic is an ES module on the shared component set; it is
-// covered by seriesPanel.test.ts.
-
-// core.text.basic is an ES module on the shared component set; it is
-// covered by textPanel.test.ts.
-
-// core.artifact.basic is an ES module on the shared component set; it is
-// covered by artifactPanel.test.ts.
-
-// core.composite.basic is an ES module on the shared component set; it is
-// covered by compositePanel.test.ts.
-
-// core.plot.basic is an ES module on the shared component set; it is
-// covered by plotPanel.test.ts.
-
-function panelHooks() {
-  return (window as unknown as { __panel: Record<string, (...args: unknown[]) => unknown> })
-    .__panel;
-}
-
-describe("core.interactive.data_router — parity with DataRouterModal (FR-041)", () => {
-  const input = {
-    input_ports: ["input_1", "input_2"],
-    items_per_port: {
-      input_1: [
-        { index: 0, port: "input_1", ref: "input_1:0", name: "a.csv", type: "DataFrame" },
-        { index: 1, port: "input_1", ref: "input_1:1", name: "b.csv", type: "DataFrame" },
-      ],
-      input_2: [{ index: 0, port: "input_2", ref: "input_2:0", name: "c.csv", type: "DataFrame" }],
-    },
-    output_ports: ["kept", "discarded"],
-  };
-
-  it("renders one drop zone per output port and one chip per unassigned item", async () => {
-    const { root } = mount("core.interactive.data_router", { input });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=router-status]")).toBeTruthy(),
-    );
-    expect(root().querySelector("[data-testid=router-output-kept]")).toBeTruthy();
-    expect(root().querySelector("[data-testid=router-output-discarded]")).toBeTruthy();
-    expect(root().querySelector('[data-testid="router-item-input_1:0"]')).toBeTruthy();
-    expect(root().querySelector('[data-testid="router-item-input_2:0"]')).toBeTruthy();
+describe("every built-in panel", () => {
+  it("has a file pinning what it renders", () => {
+    // A panel added with no named file fails here, rather than shipping with
+    // the set's contracts as its only coverage.
+    expect(Object.keys(COVERAGE).sort()).toEqual(panelIds);
+    for (const file of Object.values(COVERAGE)) {
+      expect(existsSync(resolve(HERE, file)), file).toBe(true);
+    }
   });
 
-  it("keeps Confirm disabled until every item is assigned, then writes back {assignments}", async () => {
-    const { root, api } = mount("core.interactive.data_router", { input });
-    await vi.waitFor(() =>
-      expect(root().querySelector("[data-testid=router-confirm]")).toBeTruthy(),
-    );
-    const confirm = () => root().querySelector("[data-testid=router-confirm]") as HTMLButtonElement;
-    expect(confirm().disabled).toBe(true);
+  it.each(panelIds)("%s wears the application's look", (id) => {
+    const html = entryOf(id);
+    /*
+     * The shared stylesheet is where the host's theme tokens land. A panel
+     * carrying its own copy of the styling drifts from the product the first
+     * time either changes — and in dark mode it drifts into being unreadable,
+     * which is how the pair editor's fixed pastels were found.
+     */
+    expect(html).toContain('href="../../sdk/1/panel.css"');
+    expect(html).toContain('src="../../sdk/1/scistudio-panel.js"');
+  });
 
-    const panel = panelHooks();
-    panel.assign("input_1:0", "kept");
-    panel.assign("input_1:1", "discarded");
-    panel.assign("input_2:0", "kept");
-    expect(confirm().disabled).toBe(false);
+  it.each(panelIds)("%s is loaded the way it is written", (id) => {
+    const html = entryOf(id);
+    const script = scriptOf(id);
+    // An ES module loaded as a classic script fails at its first `export`, and
+    // the only thing the reader sees is "Script error." in the frame.
+    if (/^\s*(export|import)\s/m.test(script)) {
+      expect(html).toMatch(/<script type="module" src="panel\.js">/);
+    }
+  });
 
-    confirm().click();
-    // The exact interactive_response shape the DataRouter block consumes: every
-    // declared output port is present (empty [] when nothing was routed to it).
-    expect(api.writeBack).toHaveBeenCalledWith({
-      assignments: { kept: ["input_1:0", "input_2:0"], discarded: ["input_1:1"] },
-    });
+  it.each(panelIds)("%s reports a failure instead of rendering nothing", (id) => {
+    // A failed read has to reach the host's error surface; a blank frame leaves
+    // the reader with nothing to act on and no way to tell it apart from a
+    // panel that legitimately has nothing to show.
+    expect(scriptOf(id)).toContain("reportError");
   });
 });
 
-describe("core.interactive.pair_editor — parity with PairEditorModal (FR-041)", () => {
-  const input = {
-    ports: ["input_1", "input_2"],
-    items_per_port: {
-      input_1: [
-        { index: 0, name: "s0", type: "Image" },
-        { index: 1, name: "s1", type: "Image" },
-        { index: 2, name: "s2", type: "Image" },
-      ],
-      input_2: [
-        { index: 0, name: "m0", type: "Image" },
-        { index: 1, name: "m1", type: "Image" },
-        { index: 2, name: "m2", type: "Image" },
-      ],
-    },
-    collection_length: 3,
-  };
+describe("interactive panels leave the way out to the host", () => {
+  const interactive = panelIds.filter((id) => id.startsWith("core.interactive."));
 
-  it("renders one row per pairing index across every port", async () => {
-    const { root } = mount("core.interactive.pair_editor", { input });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=pair-row-0]")).toBeTruthy());
-    expect(root().querySelector("[data-testid=pair-row-2]")).toBeTruthy();
-    expect(root().querySelector("[data-testid=pair-input_1-row-0]")).toBeTruthy();
-    expect(root().querySelector("[data-testid=pair-input_2-row-2]")).toBeTruthy();
+  it("is asserting over the interactive panels that exist", () => {
+    expect(interactive).toEqual(["core.interactive.data_router", "core.interactive.pair_editor"]);
   });
 
-  it("reorders within a port and writes back {reorder} as new original-index orders", async () => {
-    const { root, api } = mount("core.interactive.pair_editor", { input });
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=pair-confirm]")).toBeTruthy());
-
-    const panel = panelHooks();
-    // Move input_1's first item (original index 0) down to row 2 → [1, 2, 0].
-    panel.move("input_1", 0, 2);
-    (root().querySelector("[data-testid=pair-confirm]") as HTMLButtonElement).click();
-
-    // The exact interactive_response shape the PairEditor block consumes: each
-    // port maps to its new order expressed as original item indices.
-    expect(api.writeBack).toHaveBeenCalledWith({
-      reorder: { input_1: [1, 2, 0], input_2: [0, 1, 2] },
-    });
+  it.each(interactive)("%s draws no Cancel of its own", (id) => {
+    /*
+     * The window around an interactive frame offers Cancel and Escape from
+     * outside the frame, so that no panel can fail to provide a way out of a
+     * waiting block or hide the one there is. A panel that needs to withdraw
+     * from code calls `api.cancel()`; one that draws its own button duplicates
+     * a control and implies the guarantee lives somewhere it does not.
+     */
+    expect(scriptOf(id)).not.toMatch(/>\s*Cancel\s*</);
   });
 });
-
-// core.base.fallback is an ES module on the shared component set; it is
-// covered by fallbackPanel.test.ts.

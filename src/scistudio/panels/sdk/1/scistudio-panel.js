@@ -99,10 +99,44 @@
     highlightTick();
   }
 
+  /*
+   * Report this document's height so the window around an interactive frame can
+   * size itself to the panel. Measured from the document rather than from any
+   * element, so a panel that lays itself out however it likes is still measured
+   * correctly, and reported only when it changes.
+   */
+  var heightObserver = null;
+  var lastHeight = 0;
+  function documentHeight() {
+    var body = document.body;
+    var root = document.documentElement;
+    return Math.ceil(Math.max(
+      body ? body.scrollHeight : 0,
+      body ? body.offsetHeight : 0,
+      root ? root.scrollHeight : 0,
+      root ? root.offsetHeight : 0
+    ));
+  }
+  function reportHeight() {
+    if (disposed) return;
+    var height = documentHeight();
+    if (!height || height === lastHeight) return;
+    lastHeight = height;
+    request("resize", { height: height }).catch(function () {});
+  }
+  function startReportingHeight() {
+    reportHeight();
+    if (typeof ResizeObserver !== "function" || !document.documentElement) return;
+    heightObserver = new ResizeObserver(reportHeight);
+    heightObserver.observe(document.documentElement);
+    if (document.body) heightObserver.observe(document.body);
+  }
+
   function dispose() {
     if (disposed) return;
     disposed = true;
     if (highlightFrame) { window.cancelAnimationFrame(highlightFrame); highlightFrame = 0; }
+    if (heightObserver) { heightObserver.disconnect(); heightObserver = null; }
     pending.forEach(function (item) {
       clearTimeout(item.timer);
       item.reject(failure("disposed", "Panel has been disposed"));
@@ -115,6 +149,13 @@
   }
   function configure(payload) {
     api.context = payload.context;
+    /*
+     * Which way the height flows, published to the stylesheet. A preview frame
+     * is given its height by the host and the panel fills it; an interactive
+     * frame opens a window that sizes itself to the panel, so the document must
+     * be free to be as tall as its content.
+     */
+    if (document.documentElement) document.documentElement.dataset.panelContext = payload.context;
     api.input = payload.input;
     api.viewState = payload.viewState;
     api.apiVersion = payload.apiVersion;
@@ -157,6 +198,32 @@
         used = true;
         return sample ? Promise.resolve(value) : request("writeBack", value);
       };
+      /*
+       * Leaving without deciding. The window around this frame already offers
+       * Cancel, and it is outside the frame precisely so that a panel cannot
+       * fail to provide a way out — so do not draw your own; call this if you
+       * need to withdraw from code.
+       *
+       * Escape is forwarded from in here because a key pressed inside a frame
+       * does not reach the document around it: the host listens on its own
+       * window, which only sees the key while focus is outside the panel.
+       */
+      api.cancel = function () {
+        return sample ? Promise.resolve(null) : request("cancel", null);
+      };
+      window.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && !disposed) api.cancel().catch(function () {});
+      });
+      /*
+       * An interactive panel opens in a window that sizes itself to what it
+       * holds, so the frame has to say how tall the panel is — otherwise the
+       * window settles on the frame's fallback height and the panel occupies
+       * part of it with empty space below.
+       *
+       * The opposite of a preview panel, where the host owns the height and the
+       * panel fills it, which is why this is reported only from here.
+       */
+      if (!sample) startReportingHeight();
     }
     // call and sync are deliberately absent in preview/interactive contexts.
     applyTheme(payload.theme);

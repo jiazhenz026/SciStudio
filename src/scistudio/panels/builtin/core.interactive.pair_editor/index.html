@@ -4,40 +4,58 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pair Editor</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
-      }
-      .wrap { padding: 8px; }
-      .head { padding: 2px 2px 8px; }
-      .title { font-weight: 600; }
-      .hint { margin-top: 2px; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
-      .grid { display: grid; gap: 8px; }
-      .port-name { font-weight: 500; color: rgb(var(--ss-ink, 40 33 24) / 0.75); }
-      .port-name .count { color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .cell {
+      .pair-head { padding: 2px 2px 4px; }
+      .pair-title { font-weight: 600; }
+      .pair-hint { margin-top: 2px; color: rgb(var(--ink) / 0.6); }
+      .pair-grid { display: grid; gap: 8px; }
+      .pair-port-name { font-weight: 500; color: rgb(var(--ink) / 0.75); }
+      .pair-count { color: rgb(var(--ink) / 0.45); }
+      .pair-cell {
         display: flex; align-items: center; gap: 6px; cursor: grab;
-        border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.12);
-        border-radius: 6px; padding: 5px 8px;
+        border: 1px solid rgb(var(--ink) / 0.12); border-radius: 6px; padding: 5px 8px;
       }
-      .cell.over { outline: 2px solid rgb(var(--ss-ember, 240 106 68)); }
-      .cell .rownum { font-size: 10px; font-weight: 600; }
-      .cell .cname { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .cell .ctype { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 10px 2px 2px; }
-      button { font: inherit; cursor: pointer; border-radius: 6px; padding: 5px 14px; border: 1px solid transparent; }
-      button.primary { background: rgb(var(--ss-ember, 240 106 68)); color: #fff; }
-      button:disabled { cursor: not-allowed; opacity: 0.5; }
-      .err { color: #b3261e; padding: 8px; }
+      .pair-over { outline: 2px solid rgb(var(--ember)); }
+      .pair-rownum { font-size: 10px; font-weight: 600; opacity: 0.75; }
+      .pair-name {
+        flex: 1; min-width: 0; font-weight: 500;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .pair-type { font-size: 10px; opacity: 0.6; }
+      /* A row where this port has nothing: stated, not left blank. */
+      .pair-missing {
+        cursor: default; border-style: dashed;
+        background: none; color: rgb(var(--ink) / 0.5);
+      }
+      .pair-none { font-size: 10px; font-style: italic; }
+      .pair-foot { padding-top: 4px; }
+
+      /*
+       * The row tint. Only the hue comes from the panel; the lightness is chosen
+       * per theme here, and the text colour is set with it rather than inherited,
+       * because the fixed pastels this replaces were legible only against the
+       * modal's permanently white background — in a frame that follows the
+       * application's theme they became light text on a pale tint.
+       */
+      .pair-cell { background: hsl(var(--pair-hue, 214) 62% 93%); color: #1c211b; }
+      @media (prefers-color-scheme: dark) {
+        .pair-cell { background: hsl(var(--pair-hue, 214) 34% 24%); color: #f3efe8; }
+      }
+      :root[data-theme="dark"] .pair-cell {
+        background: hsl(var(--pair-hue, 214) 34% 24%); color: #f3efe8;
+      }
+      :root[data-theme="light"] .pair-cell {
+        background: hsl(var(--pair-hue, 214) 62% 93%); color: #1c211b;
+      }
+      .pair-missing,
+      :root[data-theme="dark"] .pair-missing,
+      :root[data-theme="light"] .pair-missing { background: none; color: rgb(var(--ink) / 0.5); }
     </style>
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>

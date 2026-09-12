@@ -1,155 +1,206 @@
-/* core.interactive.pair_editor — reorder items within each input port so that
- * same-row items across ports pair up correctly (parity: the compiled
- * PairEditorModal, #594).
+/* core.interactive.pair_editor — line items up across ports so the right ones pair.
  *
- * Interactive context. The panel_payload (api.input) carries:
- *   ports:            [portName, ...]
- *   items_per_port:   { portName: [{ index, name, type }, ...] }
- *   collection_length: shared length of every input Collection
- * Confirm submits the PairEditor block's decision unchanged:
- *   writeBack({ reorder: { inputPort: [originalIndex, ...] } })
- * where each list is the port's new order expressed as original item indices,
- * matching what the compiled modal sent. */
-(function () {
-  "use strict";
-  var api = window.scistudio;
-  var root = document.getElementById("root");
+ * Built with Preact and the shared panel component set. The surface matches the
+ * modal it replaces: the title and its instruction, one column per port, one row
+ * per pairing position with the row's items sharing a colour, and Confirm.
+ * Cancel is the host's — the frame sits in a dialog that offers it, and Escape.
+ *
+ * Interactive context. `api.input` carries:
+ *   ports:             [portName, ...]
+ *   items_per_port:    { portName: [{ index, name, type }, ...] }
+ *   collection_length: the shared length the ports are supposed to have
+ * Confirm submits the block's decision unchanged:
+ *   writeBack({ reorder: { port: [originalIndex, ...] } })
+ * each list being that port's new order as original item indices.
+ *
+ * Faithful display (#1886), in two places the modal got away with and a themed
+ * frame does not:
+ *
+ *   - A port with fewer items than the shared length left a blank cell saying
+ *     nothing. A row where one port has no item is exactly what this editor
+ *     exists to reveal, so the gap is named.
+ *   - Every column was headed with the *shared* length, so a port holding two
+ *     of three items still claimed three. The count is now the port's own.
+ */
+import {
+  html,
+  render,
+  useCallback,
+  useRef,
+  useState,
+} from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+import { Button, ErrorState, Panel, Row, Spacer } from "../../sdk/1/panel-ui.js";
 
-  var payload = (api && api.input) || {};
-  var ports = Array.isArray(payload.ports) ? payload.ports : [];
-  var itemsPerPort = payload.items_per_port && typeof payload.items_per_port === "object" ? payload.items_per_port : {};
-  var length = typeof payload.collection_length === "number" ? payload.collection_length : 0;
+const api = window.scistudio;
 
-  // Pastel row-pairing colours (a same row across ports shares a colour).
-  var PAIR = ["#eaf1fb", "#e9f6ee", "#f2ecfb", "#fdf1e3", "#fdecef", "#e7f6f8", "#eceafb", "#f1f7e6", "#e6f5f2", "#fdefe3"];
+/*
+ * Hues for the row colours. Only the hue is fixed here: the stylesheet turns it
+ * into a tint that suits the current theme, because the modal's fixed pastels
+ * were readable only against its permanently white background and this frame
+ * follows the application's.
+ */
+const ROW_HUES = [214, 146, 265, 32, 344, 190, 250, 88, 168, 12];
 
-  // orders: port -> [originalIndex, ...] giving the current order. Seeded from
-  // each item's declared index (the incoming order).
-  var orders = {};
-  ports.forEach(function (port) {
-    orders[port] = (itemsPerPort[port] || []).map(function (item) { return item.index; });
-  });
-  // Lookup: port -> originalIndex -> item.
-  var itemLookup = {};
-  ports.forEach(function (port) {
-    itemLookup[port] = {};
-    (itemsPerPort[port] || []).forEach(function (item) { itemLookup[port][item.index] = item; });
-  });
+/** Move the item at *from* to *to* within one port's order. */
+export function moveWithin(order, from, to) {
+  if (!Array.isArray(order)) return order;
+  if (from === to || from < 0 || to < 0 || from >= order.length || to >= order.length) return order;
+  const next = [...order];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return next;
+}
 
-  var submitting = false;
-  var drag = { port: null, row: -1 };
-
-  function move(port, fromRow, toRow) {
-    if (fromRow === toRow || fromRow < 0 || toRow < 0) return;
-    var order = orders[port];
-    if (!order || fromRow >= order.length || toRow >= order.length) return;
-    var moved = order.splice(fromRow, 1)[0];
-    order.splice(toRow, 0, moved);
-    render();
+/** Each port's starting order: the order its items arrived in. */
+export function initialOrders(ports, itemsPerPort) {
+  const orders = {};
+  for (const port of ports || []) {
+    orders[port] = (itemsPerPort[port] || []).map((item) => item.index);
   }
+  return orders;
+}
 
-  function el(tag, props, kids) {
-    var node = document.createElement(tag);
-    if (props) Object.keys(props).forEach(function (k) {
-      if (k === "text") node.textContent = props[k];
-      else if (k === "class") node.className = props[k];
-      else if (k === "style") node.style.cssText = props[k];
-      else if (k.indexOf("on") === 0 && typeof props[k] === "function") node[k.toLowerCase()] = props[k];
-      else if (k === "draggable") node.draggable = !!props[k];
-      else if (props[k] === true) node.setAttribute(k, "");
-      else if (props[k] != null && props[k] !== false) node.setAttribute(k, props[k]);
-    });
-    (kids || []).forEach(function (c) { if (c) node.appendChild(c); });
-    return node;
+/** Index each port's items by their original index, for lookup by order entry. */
+export function itemsByIndex(ports, itemsPerPort) {
+  const lookup = {};
+  for (const port of ports || []) {
+    lookup[port] = {};
+    for (const item of itemsPerPort[port] || []) lookup[port][item.index] = item;
   }
+  return lookup;
+}
 
-  function gridStyle() {
-    return "grid-template-columns: repeat(" + Math.max(ports.length, 1) + ", minmax(0, 1fr));";
-  }
+/**
+ * How many rows to show.
+ *
+ * The declared length, but never fewer than a port actually holds: an item that
+ * exists and is not on screen cannot be reordered, and would be submitted in
+ * whatever position it happened to start in.
+ */
+export function rowCount(length, ports, itemsPerPort) {
+  let rows = typeof length === "number" && length > 0 ? length : 0;
+  for (const port of ports || []) rows = Math.max(rows, (itemsPerPort[port] || []).length);
+  return rows;
+}
 
-  function render() {
-    if (!root) return;
-    root.textContent = "";
-    root.appendChild(el("div", { class: "head" }, [
-      el("div", { class: "title", text: "Pair Editor" }),
-      el("div", { class: "hint", text: "Reorder items within each port so same-row items (same colour) are paired. Drag to reorder." }),
-    ]));
+function PairPanel({ ports, itemsPerPort, length }) {
+  const [orders, setOrders] = useState(() => initialOrders(ports, itemsPerPort));
+  /*
+   * Where the drag started. A ref rather than state because the drop handler
+   * has to read the value the dragstart just wrote, and a state update is not
+   * visible to a handler running before the next render — which is exactly the
+   * order a fast drag produces.
+   */
+  const source = useRef({ port: null, row: -1 });
+  const [drag, setDrag] = useState({ port: null, row: -1 });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
 
-    // Header row: one column per port.
-    var header = el("div", { class: "grid", style: gridStyle() },
-      ports.map(function (port) {
-        return el("div", { class: "port-name" }, [
-          document.createTextNode(port + " "),
-          el("span", { class: "count", text: "(" + length + ")" }),
-        ]);
-      }));
-    root.appendChild(header);
+  const lookup = itemsByIndex(ports, itemsPerPort);
+  const rows = rowCount(length, ports, itemsPerPort);
+  const columns = `repeat(${Math.max(ports.length, 1)}, minmax(0, 1fr))`;
 
-    // One grid row per pairing index across all ports.
-    for (var row = 0; row < length; row++) {
-      (function (rowIdx) {
-        var color = PAIR[rowIdx % PAIR.length];
-        var cells = ports.map(function (port) {
-          var originalIndex = orders[port][rowIdx];
-          var item = originalIndex != null ? itemLookup[port][originalIndex] : null;
-          if (!item) return el("div", {});
-          return el("div", {
-            class: "cell" + (drag.port === port && drag.row === rowIdx ? " over" : ""),
-            style: "background: " + color + ";",
-            "data-testid": "pair-" + port + "-row-" + rowIdx,
-            draggable: true,
-            ondragstart: function (e) {
-              drag = { port: port, row: rowIdx };
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", port + ":" + rowIdx);
-            },
-            ondragover: function (e) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; },
-            ondrop: function (e) {
-              e.preventDefault();
-              if (drag.port === port) move(port, drag.row, rowIdx);
-              drag = { port: null, row: -1 };
-            },
-          }, [
-            el("span", { class: "rownum", text: String(rowIdx + 1) }),
-            el("span", { class: "cname", title: item.name, text: item.name }),
-            el("span", { class: "ctype", text: item.type }),
-          ]);
-        });
-        root.appendChild(el("div", { class: "grid", style: gridStyle(), "data-testid": "pair-row-" + rowIdx }, cells));
-      })(row);
-    }
-
-    var confirm = el("button", {
-      class: "primary",
-      "data-testid": "pair-confirm",
-      disabled: submitting,
-      onclick: submit,
-      text: "Confirm",
-    });
-    root.appendChild(el("div", { class: "foot" }, [confirm]));
-  }
-
-  function submit() {
+  const submit = useCallback(() => {
     if (submitting) return;
-    submitting = true;
-    render();
-    api.writeBack({ reorder: orders }).catch(function (err) {
-      submitting = false;
-      render();
-      api.reportError(String((err && err.message) || err));
+    setSubmitting(true);
+    api.writeBack({ reorder: orders }).catch((err) => {
+      setSubmitting(false);
+      const message = err?.message || String(err);
+      setError(message);
+      api.reportError(message);
     });
+  }, [orders, submitting]);
+
+  if (error) {
+    return html`<${Panel}><${ErrorState}>${error}<//><//>`;
   }
 
-  api.ready().then(render).catch(function (err) {
-    if (root) { root.textContent = ""; root.appendChild(el("div", { class: "err", role: "alert", text: String((err && err.message) || err) })); }
-    api.reportError(String((err && err.message) || err));
-  });
+  return html`<${Panel} class="pair">
+    <div class="pair-head">
+      <div class="pair-title">Pair Editor</div>
+      <div class="pair-hint">
+        Reorder items within each port so same-row items (same colour) are paired. Drag to reorder.
+      </div>
+    </div>
+    <div class="pair-grid" style=${`grid-template-columns:${columns}`}>
+      ${ports.map(
+        (port) => html`<div class="pair-port-name" key=${port}>
+          ${port} <span class="pair-count">(${(itemsPerPort[port] || []).length})</span>
+        </div>`,
+      )}
+    </div>
+    ${Array.from({ length: rows }, (_, row) => {
+      const hue = ROW_HUES[row % ROW_HUES.length];
+      return html`<div
+        class="pair-grid"
+        key=${row}
+        style=${`grid-template-columns:${columns}`}
+        data-testid=${`pair-row-${row}`}
+      >
+        ${ports.map((port) => {
+          const originalIndex = (orders[port] || [])[row];
+          const item = originalIndex === undefined ? null : lookup[port][originalIndex];
+          if (!item) {
+            // Naming the gap is the point: a port short of the others is the
+            // mispairing this editor is for.
+            return html`<div class="pair-cell pair-missing" key=${port} data-testid=${`pair-${port}-row-${row}`}>
+              <span class="pair-rownum">${row + 1}</span>
+              <span class="pair-none">no item on this row</span>
+            </div>`;
+          }
+          return html`<div
+            class=${`pair-cell${drag.port === port && drag.row === row ? " pair-over" : ""}`}
+            key=${port}
+            style=${`--pair-hue:${hue}`}
+            data-testid=${`pair-${port}-row-${row}`}
+            draggable="true"
+            onDragStart=${(event) => {
+              source.current = { port, row };
+              setDrag({ port, row });
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", `${port}:${row}`);
+            }}
+            onDragOver=${(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop=${(event) => {
+              event.preventDefault();
+              // Reordering is within one port: an item cannot change which port
+              // it came from, only where in that port's order it sits.
+              const from = source.current;
+              if (from.port === port) {
+                setOrders((prev) => ({ ...prev, [port]: moveWithin(prev[port], from.row, row) }));
+              }
+              source.current = { port: null, row: -1 };
+              setDrag({ port: null, row: -1 });
+            }}
+          >
+            <span class="pair-rownum">${row + 1}</span>
+            <span class="pair-name" title=${item.name}>${item.name}</span>
+            <span class="pair-type">${item.type}</span>
+          </div>`;
+        })}
+      </div>`;
+    })}
+    <${Row} class="pair-foot">
+      <${Spacer} />
+      <${Button} primary data-testid="pair-confirm" disabled=${submitting} onClick=${submit}>
+        Confirm
+      <//>
+    <//>
+  <//>`;
+}
 
-  // Deterministic test surface (jsdom drag-and-drop is unreliable).
-  window.__panel = {
-    move: move,
-    submit: submit,
-    render: render,
-    getOrders: function () { return orders; },
-  };
-})();
+api
+  .ready()
+  .then(() => {
+    const payload = api.input && typeof api.input === "object" ? api.input : {};
+    const ports = Array.isArray(payload.ports) ? payload.ports : [];
+    const itemsPerPort =
+      payload.items_per_port && typeof payload.items_per_port === "object" ? payload.items_per_port : {};
+    render(
+      html`<${PairPanel} ports=${ports} itemsPerPort=${itemsPerPort} length=${payload.collection_length} />`,
+      document.getElementById("root"),
+    );
+  })
+  .catch((err) => api.reportError(String(err?.message || err)));

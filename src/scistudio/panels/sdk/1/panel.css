@@ -34,12 +34,18 @@
 * { box-sizing: border-box; }
 
 /*
- * The frame is given a height by its host, and the document has to pass that
- * height inward or nothing inside can fill it: a panel whose content was meant
- * to take the room — a figure, an image, a plot — would sit at its natural size
- * with the rest of the frame empty below it.
+ * A preview frame is given its height by the host, and the document has to pass
+ * that height inward or nothing inside can fill it: a panel whose content was
+ * meant to take the room — a figure, an image, a plot — would sit at its natural
+ * size with the rest of the frame empty below it.
+ *
+ * An interactive frame is the other way round: it opens a window that sizes
+ * itself to the panel, so the document must be free to be as tall as its
+ * content and is measured rather than stretched. The SDK publishes which of the
+ * two this is; without it, nothing is stretched, which is the safe default.
  */
-html, body { height: 100%; }
+:root[data-panel-context="preview"],
+:root[data-panel-context="preview"] body { height: 100%; }
 
 body {
   margin: 0;
@@ -56,8 +62,9 @@ body {
  */
 .panel {
   display: flex; flex-direction: column; gap: var(--gap); padding: var(--gap);
-  box-sizing: border-box; min-height: 100%;
+  box-sizing: border-box;
 }
+:root[data-panel-context="preview"] .panel { min-height: 100%; }
 .panel-stack { display: flex; flex-direction: column; gap: var(--gap); }
 .panel-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap); }
 .panel-spacer { flex: 1; }

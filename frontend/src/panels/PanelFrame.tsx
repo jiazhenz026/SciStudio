@@ -160,6 +160,10 @@ export function PanelFrame(props: PanelFrameProps) {
       highlightRect: (request, rect) => {
         if (frame.current) reportPanelHighlight(frame.current, request, rect);
       },
+      // The same withdrawal the surrounding window's Cancel performs, reached
+      // from inside the frame — by `api.cancel()`, or by Escape, which cannot
+      // reach the host's own window from in there.
+      cancel: () => callbacks.current.onCancel?.(),
       ready: () => {
         clearTimeout(readyTimer.current);
         setReady(true);

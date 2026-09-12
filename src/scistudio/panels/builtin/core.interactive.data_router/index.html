@@ -4,54 +4,46 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Data Router</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
     <style>
-      :root { color-scheme: light dark; }
-      body {
-        margin: 0;
-        font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
-        color: rgb(var(--ss-ink, 40 33 24));
-        background: rgb(var(--ss-surface, 255 255 255));
+      .router-head { padding: 2px 2px 4px; }
+      .router-title { font-weight: 600; }
+      .router-hint { margin-top: 2px; color: rgb(var(--ink) / 0.6); }
+      .router-body { display: flex; gap: 12px; align-items: stretch; }
+      .router-col { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+      .router-caption {
+        text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px;
+        color: rgb(var(--ink) / 0.45);
       }
-      .wrap { padding: 8px; }
-      .head { padding: 2px 2px 8px; }
-      .title { font-weight: 600; }
-      .hint { margin-top: 2px; color: rgb(var(--ss-ink, 40 33 24) / 0.6); }
-      .body { display: flex; gap: 12px; align-items: stretch; }
-      .col { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
-      .caption { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .arrow { display: flex; align-items: center; color: rgb(var(--ss-ink, 40 33 24) / 0.3); font-size: 18px; }
-      .port {
-        border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1);
-        border-radius: 8px;
-        background: rgb(var(--ss-ink, 40 33 24) / 0.04);
-        padding: 8px;
+      .router-arrow { display: flex; align-items: center; color: rgb(var(--ink) / 0.3); font-size: 18px; }
+      .router-port {
+        border: 1px solid rgb(var(--ink) / 0.1); border-radius: 8px;
+        background: rgb(var(--ink) / 0.04); padding: 8px;
       }
-      .port.drop { border-style: dashed; border-width: 2px; min-height: 52px; }
-      .port.over { border-color: rgb(var(--ss-ember, 240 106 68)); }
-      .port-name { font-weight: 500; margin-bottom: 6px; color: rgb(var(--ss-ink, 40 33 24) / 0.75); }
-      .port-name .count { color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-      .chip {
-        display: inline-flex; align-items: center; gap: 6px;
-        border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.12);
-        border-radius: 6px; padding: 4px 8px; cursor: grab;
-        background: rgb(var(--ss-surface, 255 255 255));
+      .router-drop { border-style: dashed; border-width: 2px; min-height: 52px; }
+      .router-over { border-color: rgb(var(--ember)); }
+      .router-port-name { font-weight: 500; margin-bottom: 6px; color: rgb(var(--ink) / 0.75); }
+      .router-count { color: rgb(var(--ink) / 0.45); }
+      .router-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .router-chip {
+        display: inline-flex; align-items: center; gap: 6px; cursor: grab;
+        border: 1px solid rgb(var(--ink) / 0.12); border-radius: 6px; padding: 4px 8px;
+        background: var(--surface);
       }
-      .chip .cname { font-weight: 500; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .chip .ctype { font-size: 10px; color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .empty { font-size: 10px; font-style: italic; color: rgb(var(--ss-ink, 40 33 24) / 0.45); }
-      .foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 2px 2px; }
-      .status.done { color: rgb(var(--ss-pine, 34 108 78)); }
-      .status.todo { color: #b3600e; }
-      button { font: inherit; cursor: pointer; border-radius: 6px; padding: 5px 14px; border: 1px solid transparent; }
-      button.primary { background: rgb(var(--ss-ember, 240 106 68)); color: #fff; }
-      button:disabled { cursor: not-allowed; opacity: 0.5; }
-      .err { color: #b3261e; padding: 8px; }
+      .router-chip-name {
+        font-weight: 500; max-width: 160px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .router-chip-type { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+      .router-empty { font-size: 10px; font-style: italic; color: rgb(var(--ink) / 0.45); }
+      .router-foot { padding-top: 4px; }
+      .router-done { color: rgb(var(--pine)); }
+      .router-todo { color: #b3600e; }
     </style>
   </head>
   <body>
-    <div class="wrap"><div id="root"></div></div>
+    <div id="root"></div>
     <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script src="panel.js"></script>
+    <script type="module" src="panel.js"></script>
   </body>
 </html>

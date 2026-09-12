@@ -9,6 +9,8 @@ export interface PanelBridgeHandlers {
   save: (payload: unknown) => Promise<unknown>;
   viewState: (state: unknown) => void;
   resize: (height: number) => void;
+  /** The panel asks to withdraw without deciding (interactive context only). */
+  cancel?: () => void;
   /** Where a tutorial step's target sits inside the frame, or `null` if absent. */
   highlightRect?: (
     request: { target: string; key: string | null },
@@ -100,6 +102,17 @@ export function createPanelBridge(
         { target: payload.target, key: typeof payload.key === "string" ? payload.key : null },
         box,
       );
+      return null;
+    }
+    if (type === "cancel" && context.kind === "interactive") {
+      /*
+       * Withdraw without deciding. The window around the frame offers this too,
+       * and does so outside the frame so that a panel cannot fail to provide a
+       * way out; this is for a panel that needs to withdraw from code, and is
+       * what the SDK forwards Escape through — a key pressed inside a frame
+       * never reaches the host's own window.
+       */
+      handlers.cancel?.();
       return null;
     }
     if (type === "save" && context.services.includes("save")) return handlers.save(payload);
