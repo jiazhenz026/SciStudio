@@ -159,6 +159,7 @@ export function BranchPicker(props: BranchPickerProps): JSX.Element {
             size="toolbar"
             type="button"
             data-testid="branch-picker-trigger"
+            data-tutorial-target="git_branch_picker"
             aria-label={`Current branch: ${currentBranch ?? "none"}`}
           >
             <GitBranchIcon className="size-3.5" />

@@ -150,31 +150,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   tutorials are unaffected in how they run — they are simply listed in their own
   source's tab now, alongside every other tutorial.
 
-- [#2082] **Core tutorial 3 — *Two modalities, one answer*.** The multimodal
-  level, and the git level. A scanner and a sequencer looked at the same three
-  tissue sections and neither file can answer alone — the only thing joining
-  them is the `y`/`x` every measured position carries, so the analysis is
-  genuinely joint rather than two analyses in a row. It is also the first level
-  that mostly *reuses*: the `Image` type, the `Segment Cells` block, and the
-  `Image` previewer all arrive from My Library where tutorial 2 put them, and
-  the only new blocks are the two this experiment actually needs. The reader
-  builds the first forked canvas, meets index pairing as a real hazard — the
-  stack's pages are in the scanner's acquisition order (`S05`, `S09`, `S01`)
-  and the workbook's sheets in section-label order (`S01`, `S05`, `S09`), so
-  every pair is wrong, and the Pair Editor's panel is where that is visible at
-  all — then aggregates expression inside imaged regions and clusters them with
-  hand-written NumPy k-means, deliberately in a block rather than in a plot,
-  because a plot is preview-only and overwritten next run. The second half is
-  git: a second, deeper sequencing run needs a different normalisation from the
-  first (total-count loses batch 2 to two runaway housekeeping genes;
-  median-of-ratios loses batch 1 to shallow, zero-heavy counts — both real
-  statistics, both recomputed by the tests), so the reader keeps a `batch-2`
-  branch alive alongside `main`, switches back, meets the stale figure, and
-  lands the lesson that git stores the recipe and not the results because
-  `data/` and `.scistudio/` are not in version control. Every number the steps
-  quote — nine regions per section, twenty-seven in all, and the 9/9/9, 14/8/5
-  and 7/18/2 cluster splits — is recomputed from the shipped stack and
-  workbooks by `tests/tutorials/test_core_tutorial_two_modalities.py`.
+- [#2082] **Core tutorial 4 — *Two modalities, one answer*.** The multimodal
+  level, and the git level, on real data: four breast tumors from the Wu et al.
+  2021 Visium atlas (CC BY 4.0), two ER-positive and two triple-negative, each
+  shipped as an H&E slide, a pathologist's region mask drawn over it, and a
+  2000-gene spot-by-count table. The level lands everything it does not teach —
+  the `HEImage` and `HEMask` types, a slide reader that decodes PNG by hand, a color previewer
+  that says when it shows a sampled overview, and three analysis blocks — so it
+  owes nothing to any other level. The reader receives the workflow built
+  rather than wiring it: they look at the masks, pair the ER masks with count
+  tables exported in the other order in the Pair Editor, and run `Annotate
+  Regions` (which reads each spot's region off the color under it on the mask,
+  the only thing joining the two modalities), `Normalize Expression` and
+  `Compare Regions` (a hand-written Mann-Whitney test with Benjamini-Hochberg
+  correction). Two plots and a conclusion note follow. The second half is git:
+  the reader commits, branches to `tnbc`, and the triple-negative tumors run
+  with one setting changed — the cancer compared against the stroma rather than
+  the rest of the tissue, because these slides also carry DCIS and normal ducts
+  — then commits again and switches back to find the ER recipe and its note
+  where they left them. Every gene the steps and the notes name is recomputed as
+  significant, in the same direction, in both tumors of its batch by
+  `tests/tutorials/test_core_tutorial_two_modalities.py`.
+- [#2082] **Learning Center: the vocabulary a git lesson needs.** A
+  `git_committed` `ui_event`, reported by the Commit dialog once a commit lands,
+  so a step can wait for the reader's own commit; `git_commit_button` and
+  `git_branch_picker` highlight targets in the Git tab; a `config_field`
+  highlight target that rings one field of the selected block's settings by its
+  key; and a `git_commit` prefill that seeds the commit message. The prefill is
+  a default the reader can edit, and a message they already typed is kept.
 - [#2081] **Core tutorial 2 — *What is a type*.** The type-system level. An
   image-analysis task arrives and the reader builds the missing vocabulary one
   real gap at a time: a project-tier `Image` type created through New → New

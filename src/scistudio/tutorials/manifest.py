@@ -278,6 +278,8 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="new_menu_button", points_at="the toolbar's New menu"),
     HighlightSpec(name="plots_new_button", points_at="the Plots tab's new-plot button"),
     HighlightSpec(name="plot_export_button", points_at="the preview's Save button for a rendered plot"),
+    HighlightSpec(name="git_commit_button", points_at="the Git tab's Commit button"),
+    HighlightSpec(name="git_branch_picker", points_at="the Git tab's branch menu"),
     HighlightSpec(name="view_source_button", points_at="the toolbar's View source button"),
     HighlightSpec(name="bring_in_my_work_button", points_at="the toolbar's Bring in my work entry"),
     HighlightSpec(name="history_restore_button", points_at="the Restore button on a run in History"),
@@ -286,6 +288,11 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     # of many of its kind, and which one is the whole content of the guidance.
     HighlightSpec(name="palette_block", points_at="one block's entry in the palette", required=("block_type",)),
     HighlightSpec(name="node", points_at="one node on the canvas", required=("block_type",)),
+    HighlightSpec(
+        name="config_field",
+        points_at="one field of the selected block's settings",
+        required=("key",),
+    ),
     HighlightSpec(name="plot_card", points_at="one plot's card in the Plots tab", required=("plot_id",)),
     HighlightSpec(
         name="preview_item",
@@ -352,6 +359,11 @@ PREFILL_SPECS: tuple[PrefillSpec, ...] = (
         name="new_plot",
         seeds="the new-plot dialog",
         required=("name",),
+    ),
+    PrefillSpec(
+        name="git_commit",
+        seeds="the Git tab's commit dialog",
+        required=("message",),
     ),
     PrefillSpec(
         name="block_config",
