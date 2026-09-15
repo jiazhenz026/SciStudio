@@ -1605,6 +1605,86 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-09-15T03:04:09.243378Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:026b2c5630a070fe57302b691dcf8b37d11ccffc2fe356b3ef66bb1b1e4d4778",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:06:00.089110Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 2,
+      "input_fingerprint": "sha256:a9b3edc4b4ac170bdb0d45a1e3f8612a908ffa17e97ce30aa89fb40bcc2938f0",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 2",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:06:28.574369Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8db3cb4b1b79f89ee3340719de5f577f8ff78bf793c6d12830ec304d83ff3a36",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:06:53.638167Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a511c99152bc25749e0654d87ca752fa1d5e8d3fefc7a343cae661eed45220d",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:08:19.672112Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad068694cbb89361b8fd5686a09764d1c3119524578b2e6b27a49a1655830510",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1714,6 +1794,11 @@
       "at": "2026-09-15T02:47:26.113201Z",
       "owner_directive": "Apply the New MiniApp source label disambiguation to the Open on which data picker so repeated load_data outputs can be distinguished.",
       "reason": "Disambiguate same-name block outputs when opening an existing MiniApp"
+    },
+    {
+      "at": "2026-09-15T03:03:08.671621Z",
+      "owner_directive": "Replace top-right Cancel text with an X icon in all dialogs introduced in this phase, including New MiniApp.",
+      "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
     }
   ],
   "docs_events": [
@@ -1827,6 +1912,14 @@
       "kind": "na",
       "path": null,
       "rationale": "Existing source selection workflow is unchanged; this corrects ambiguous node labels to match the create dialog.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:03:08.673610Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -3745,6 +3838,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.806489Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.825731Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.846729Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.868069Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.894219Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.914725Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.938287Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.959777Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:28.982924Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:29.001262Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:06:29.045305Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.711135Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.723108Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.735631Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.747483Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.760953Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.773808Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.787627Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.801926Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.815387Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.828241Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:08:19.844674Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -3757,77 +4026,32 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "21a5bf0e",
-    "base_sha": "21a5bf0e",
+    "base": "d03d9cdc",
+    "base_sha": "d03d9cdc",
     "changed_files": [
-      ".workflow/records/2354-feat-2354-miniapp-phase-d.json",
       ".workflow/records/2354-guided-miniapp-audit-fixes.json",
-      "docs/adr/ADR-054.md",
-      "docs/audit/2026-09-11-adr-054-phase-d-adversarial-verification.json",
-      "docs/audit/2026-09-11-adr-054-phase-d-audit-raw.json",
-      "docs/audit/2026-09-13-adr-054-phase-d-guided-repairs.md",
-      "docs/planning/adr-054-phase-d-checklist.md",
       "docs/specs/adr-054-miniapp.md",
-      "docs/specs/adr-055-ai-host-presentation.md",
-      "frontend/src/App.parts/ProjectWorkspace.tsx",
-      "frontend/src/App.parts/useWorkspaceSidebar.test.tsx",
-      "frontend/src/App.parts/useWorkspaceSidebar.ts",
-      "frontend/src/components/Toolbar.tsx",
-      "frontend/src/components/WorkflowCanvas.tsx",
-      "frontend/src/components/promotion/UserLibraryDialogs.tsx",
-      "frontend/src/hooks/useWebSocket.test.ts",
-      "frontend/src/hooks/useWebSocket.ts",
       "frontend/src/miniapps/ConvertToBlockDialog.test.tsx",
       "frontend/src/miniapps/ConvertToBlockDialog.tsx",
       "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
       "frontend/src/miniapps/CreateMiniAppDialog.tsx",
-      "frontend/src/miniapps/MiniAppPalette.test.tsx",
-      "frontend/src/miniapps/MiniAppPalette.tsx",
-      "frontend/src/miniapps/MiniAppTab.test.tsx",
-      "frontend/src/miniapps/MiniAppTab.tsx",
       "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
-      "frontend/src/miniapps/MiniAppTargetPicker.tsx",
-      "frontend/src/miniapps/MiniAppToolbar.tsx",
-      "frontend/src/miniapps/api.ts",
-      "frontend/src/miniapps/types.ts",
-      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
-      "src/scistudio/ai/agent/mcp/tools_panels.py",
-      "src/scistudio/ai/agent/system_prompt.py",
-      "src/scistudio/api/routes/panels.py",
-      "src/scistudio/api/routes/user_library.py",
-      "src/scistudio/api/schemas.py",
-      "src/scistudio/api/ws.py",
-      "src/scistudio/engine/gui_presence.py",
-      "src/scistudio/panels/bootstrap.py",
-      "src/scistudio/panels/contexts.py",
-      "src/scistudio/panels/files.py",
-      "src/scistudio/panels/miniapp.py",
-      "src/scistudio/panels/miniapp_create.py",
-      "src/scistudio/panels/process.py",
-      "src/scistudio/panels/process_config.py",
-      "src/scistudio/panels/protocol.py",
-      "src/scistudio/panels/watcher.py",
-      "tests/ai/test_system_prompt.py",
-      "tests/api/test_miniapp_create.py",
-      "tests/api/test_panel_call_route.py",
-      "tests/integration/test_race_external_editor.py",
-      "tests/panels/test_miniapp_context.py",
-      "tests/panels/test_panel_process.py"
+      "frontend/src/miniapps/MiniAppTargetPicker.tsx"
     ],
-    "diff_fingerprint": "sha256:bc54c817e978e46821c0cce5930b68461bb3279671e8c087b16fd45435660a48",
-    "head": "d53fc1772caff6f5424c2241783946cbc7c4ea19",
-    "head_sha": "d53fc177",
+    "diff_fingerprint": "sha256:4710c858a1a49676c1153e60ed0bb14b589f812105b7bd2aee49a637d7c1cb50",
+    "head": "c7ba7986d76f25b45183604e09d0abb5ea4b438b",
+    "head_sha": "c7ba7986",
     "surfaces": {
-      "docs": 7,
-      "frontend": 21,
+      "docs": 1,
+      "frontend": 6,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 38,
+      "implementation": 6,
       "packaging": 0,
       "protected_architecture": 0,
-      "protected_core": 1,
-      "sentrux": 47,
-      "test": 13,
+      "protected_core": 0,
+      "sentrux": 7,
+      "test": 3,
       "workflow_ci": 0
     }
   },
@@ -4013,6 +4237,24 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T03:06:29.045487Z",
+      "diff_fingerprint": "sha256:ed3d820354e8cd71a501c006d699153d008112759e46ede95444e1a4c6022a57",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-15T03:08:19.844768Z",
+      "diff_fingerprint": "sha256:4710c858a1a49676c1153e60ed0bb14b589f812105b7bd2aee49a637d7c1cb50",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2354-guided-miniapp-audit-fixes",
@@ -4027,11 +4269,15 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
+      "commit_hygiene",
       "format_check",
+      "frontend",
       "full_audit",
       "lint_format"
     ],
-    "docs": [],
+    "docs": [
+      "docs_required_or_na"
+    ],
     "guards": [
       "architecture_doc_guard",
       "core_change_guard",
@@ -4045,7 +4291,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "codex",
   "schema_version": 2,
@@ -4133,6 +4381,24 @@
       "at": "2026-09-15T02:47:26.113526Z",
       "pattern": "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
       "reason": "Disambiguate same-name block outputs when opening an existing MiniApp"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:03:08.673585Z",
+      "pattern": "frontend/src/miniapps/*Dialog*",
+      "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:03:08.673600Z",
+      "pattern": "frontend/src/miniapps/MiniAppTargetPicker*",
+      "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:03:08.673602Z",
+      "pattern": "docs/specs/adr-054-miniapp.md",
+      "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -4325,6 +4591,30 @@
     },
     {
       "at": "2026-09-15T02:47:26.113541Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:03:08.673617Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:03:08.673620Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/ConvertToBlockDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:03:08.673626Z",
       "class": null,
       "kind": "path",
       "path": "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",

@@ -164,6 +164,18 @@ afterEach(() => {
 });
 
 describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
+  it("closes from the icon-only header button without submitting", async () => {
+    const harness = renderDialog({ presetTarget: PRESET });
+    await settled();
+
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close.textContent).toBe("");
+    fireEvent.click(close);
+
+    expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+    expect(harness.create).not.toHaveBeenCalled();
+  });
+
   it("opens pre-filled with the block output it was given", async () => {
     // US1 acceptance 1 — the context-menu route.
     const harness = renderDialog({ presetTarget: PRESET });

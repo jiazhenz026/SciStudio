@@ -20,7 +20,7 @@
  * a session, and a session that cannot start should say so here rather than
  * failing inside the route.
  */
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { useCallback, useEffect, useState } from "react";
 
@@ -223,12 +223,14 @@ function ConvertToBlockDialogBody({
             <p className="mt-1 text-sm text-stone-600">Your MiniApp will remain available.</p>
           </div>
           <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
+            aria-label="Close"
+            title="Close"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500"
             data-testid="miniapp-convert-close"
             onClick={close}
             type="button"
           >
-            Cancel
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
 

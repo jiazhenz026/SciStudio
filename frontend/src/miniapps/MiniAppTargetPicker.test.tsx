@@ -80,6 +80,18 @@ afterEach(() => {
 });
 
 describe("MiniAppTargetPicker (ADR-054 FR-034)", () => {
+  it("closes from the icon-only header button without submitting", async () => {
+    const harness = renderPicker();
+    await screen.findByTestId("miniapp-target-row-main-segment1-mask");
+
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close.textContent).toBe("");
+    fireEvent.click(close);
+
+    expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+    expect(harness.onPick).not.toHaveBeenCalled();
+  });
+
   it("lists the outputs the route returned, by workflow, block and port", async () => {
     const harness = renderPicker();
 

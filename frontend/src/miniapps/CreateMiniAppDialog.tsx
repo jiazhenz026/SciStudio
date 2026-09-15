@@ -39,6 +39,7 @@
  * which is why a 409 `agent_unavailable` is rendered here verbatim rather than
  * being treated as impossible.
  */
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import type { PermissionMode } from "../components/AIChat/SetupScreen.parts/types";
@@ -264,12 +265,14 @@ function CreateMiniAppDialogBody({
             </h2>
           </div>
           <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
+            aria-label="Close"
+            title="Close"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500"
             onClick={close}
             type="button"
             data-testid="miniapp-create-close"
           >
-            Cancel
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
 

@@ -67,6 +67,18 @@ afterEach(() => {
 });
 
 describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
+  it("closes from the icon-only header button without submitting", async () => {
+    const harness = renderDialog();
+    await settled();
+
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close.textContent).toBe("");
+    fireEvent.click(close);
+
+    expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+    expect(harness.convert).not.toHaveBeenCalled();
+  });
+
   it("starts a session naming the one output the user asked for", async () => {
     // US8 acceptance 1, verbatim.
     const harness = renderDialog();

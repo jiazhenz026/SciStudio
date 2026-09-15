@@ -21,6 +21,7 @@
  * block the user right-clicked - rather than a second, block-shaped picker that
  * would have to re-derive which of that block's ports match.
  */
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useAppStore } from "../store";
@@ -30,7 +31,6 @@ import type { MiniAppSource, MiniAppSummary, MiniAppTarget } from "./types";
 
 export const PICKER_TITLE = "Open on which data?";
 export const PICKER_LOADING = "Looking for data of this type...";
-export const PICKER_CANCEL = "Cancel";
 
 /** What the picker says when nothing in the project matches the declared type. */
 export function noMatchMessage(type: string): string {
@@ -133,12 +133,14 @@ function MiniAppTargetPickerBody({
             </p>
           </div>
           <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
+            aria-label="Close"
+            title="Close"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stone-500"
             data-testid="miniapp-target-close"
             onClick={close}
             type="button"
           >
-            {PICKER_CANCEL}
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
 

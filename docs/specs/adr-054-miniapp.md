@@ -830,6 +830,9 @@ responses. Creation waits for current backend discovery; cached canvas outputs
 and unvalidated context-menu presets cannot substitute for it. Candidate labels
 identify the node instance, with a display name when available. The MiniApps
 sidebar uses a single-line plus-icon New button, and a single click opens a card.
+The create, open-on-data, and convert dialogs use an icon-only X in the upper
+right corner with an accessible Close label. Clicking it or pressing Escape
+dismisses the dialog without submitting.
 
 
 The owner-approved create-dialog copy is **Data source** with “Select an output
