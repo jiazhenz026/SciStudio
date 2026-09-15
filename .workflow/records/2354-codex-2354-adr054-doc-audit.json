@@ -1,0 +1,74 @@
+{
+  "base_ref": "3c1439d1",
+  "branch": "codex/2354-adr054-doc-audit",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      ".workflow/records/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T02:19:30.934566Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:19:30.934818Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Audit evidence only; no shipped behavior or consumer documentation change.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2354,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Audit all ADR-054 documentation and consumer AI skills against the integration branch, without changing implementation or consumer documentation.",
+  "persona": "audit_reviewer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2354-codex-2354-adr054-doc-audit",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "522a456e-5140-45e1-9fc1-11500d3ea0d5",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-15T02:19:30.934828Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Read-only documentation coverage audit; no behavior changes.",
+      "verified_in_diff": null
+    }
+  ]
+}
