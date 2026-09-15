@@ -185,6 +185,172 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:17.322137Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4de8561cd5d76172d4d7390ca52adbef147a3e97a278a297c3c91243cdd91b93",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:18.366180Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c4dba0f7f30d90480485818d0e54204f991308045d0dd45b94fdcf66f57fa016",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:19.727740Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c8ba5389afb1a59c9770ed0b7abc697539cd68fb857563efb01ad651409335c7",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:19.780666Z",
+      "command": "ruff format scripts/docs/build_panel_reference.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/questionnaire.py src/scistudio/panels/watcher.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_panels_tools.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/cli/test_mcp_bridge.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/panels/test_miniapp_context.py tests/panels/test_questionnaire.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:62391dba9bde34059948c2f4aaa97bbb8cee3eab095dea0059effb4bd99ede19",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T12:11:27.187697Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f8e91837d26b2a172e9e2c86f5cedc4a3e9f209ba525236ec5abda602a6fdfea",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:27.305166Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0551b0d1fc378fb5e03779b792c7e5f89ec11020eede59f300501f761380dabe",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:11:27.328248Z",
+      "command": "ruff check scripts/docs/build_panel_reference.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/questionnaire.py src/scistudio/panels/watcher.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_panels_tools.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/cli/test_mcp_bridge.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/panels/test_miniapp_context.py tests/panels/test_questionnaire.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3aabbb86d1c96895d2d34feefee3adc2f031614b6033bcad790fd8ff2ded8798",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T12:14:20.685343Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_panels_tools.py tests/api/routes tests/api/routes/ai_pty/test_engine.py tests/api/test_accessor_dataflow_guard.py tests/api/test_agent_availability.py tests/api/test_ai_active_context.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_api_docstrings_user_facing.py tests/api/test_app.py tests/api/test_attached_project.py tests/api/test_block_origin_tiers.py tests/api/test_blocks.py tests/api/test_blocks_template.py tests/api/test_blocks_template_skeleton.py tests/api/test_data.py tests/api/test_data_open_as.py tests/api/test_data_register_path.py tests/api/test_deps.py tests/api/test_diagnostics_routes.py tests/api/test_ergonomic_accessors.py tests/api/test_file_endpoints.py tests/api/test_file_endpoints_skeleton.py tests/api/test_file_version_vector.py tests/api/test_filesystem.py tests/api/test_filesystem_browse.py tests/api/test_filesystem_dialog.py tests/api/test_git_endpoints.py tests/api/test_identity_seam.py tests/api/test_interactive_panels.py tests/api/test_known_project_registry.py tests/api/test_legacy_endpoints_gone.py tests/api/test_lineage_set_pending_git_commit.py tests/api/test_lint_endpoint.py tests/api/test_logging_middleware.py tests/api/test_mcp_transport_publish.py tests/api/test_miniapp_create.py tests/api/test_native_dialog.py tests/api/test_open_project_degraded_modes.py tests/api/test_packages.py tests/api/test_panel_call_route.py tests/api/test_panel_collection_authority.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_panel_security.py tests/api/test_plot_preview_wiring.py tests/api/test_plot_render_contract.py tests/api/test_preview_plot_jobs.py tests/api/test_previewer_choice_routes.py tests/api/test_previewer_discovery.py tests/api/test_previewers.py tests/api/test_project_layout.py tests/api/test_projects.py tests/api/test_provider_discovery.py tests/api/test_provider_discovery_agreement.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_public_surface.py tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_reload_on_save.py tests/api/test_root_path.py tests/api/test_runs_routes.py tests/api/test_runtime_active_workflow.py tests/api/test_runtime_artifact_retention.py tests/api/test_runtime_backend_stop.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_bounded_registries.py tests/api/test_runtime_data_registration.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_package_repair.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_runtime_rerun_parent_id.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_runtime_subworkflow_flatten.py tests/api/test_runtime_workflow_validation_gate.py tests/api/test_spa_fallback.py tests/api/test_spa_mount.py tests/api/test_sse.py tests/api/test_stability_decorators.py tests/api/test_system_vertical.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_package_lifecycle.py tests/api/test_tutorial_product_state_workflow_scope.py tests/api/test_tutorial_project_visibility.py tests/api/test_tutorial_replay.py tests/api/test_tutorial_routes.py tests/api/test_types_routes.py tests/api/test_user_docs.py tests/api/test_user_library_panel_promotion.py tests/api/test_user_library_write.py tests/api/test_webmcp.py tests/api/test_work_import_session.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflow_id_conflict.py tests/api/test_workflow_management.py tests/api/test_workflow_run_git.py tests/api/test_workflow_run_identity.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_watcher.py tests/api/test_workflow_watcher_git.py tests/api/test_workflow_watcher_macos.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_mcp_bridge.py tests/contracts/test_block_schema_contract.py tests/contracts/test_eventbus_lifecycle_contract.py tests/contracts/test_io_capability_contract.py tests/contracts/test_lineage_run_recipe_contract.py tests/contracts/test_openapi_snapshot.py tests/contracts/test_runtime_import_contract.py tests/docs/test_panel_reference.py tests/e2e/test_mcp_tools.py tests/e2e/test_mcp_transports.py tests/integration/test_phase2_mcp_end_to_end.py tests/packaging/test_wheel_spa.py tests/panels tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_catalog_refresh.py tests/panels/test_panel_contexts.py tests/panels/test_panel_descriptor.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_read_operations.py tests/panels/test_panel_registry.py tests/panels/test_panel_routing.py tests/panels/test_panel_sdk.py tests/panels/test_panel_skill_examples.py tests/panels/test_panel_watcher.py tests/panels/test_plot_artifact_reads.py tests/panels/test_public_root.py tests/panels/test_questionnaire.py tests/previewers/test_panel_read_extensions.py tests/qa/test_gate_incremental_checks.py tests/scripts/test_ota_publish.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1f92ce239aa4d377274f1b5ffb238e2c101d4e1b170655b2d4b0be3731d6126b",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T12:14:21.387132Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/questionnaire.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8c48b7ab9d474dd419fb01474e5febd50ba67335d0542f3b6336c792b8ab1d68",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -366,6 +532,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.455514Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.466848Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.478262Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.490755Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.503373Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.515993Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.528544Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.540473Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.552858Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.564765Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T12:14:21.586818Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -422,9 +676,9 @@
       "tests/panels/test_miniapp_context.py",
       "tests/panels/test_questionnaire.py"
     ],
-    "diff_fingerprint": "sha256:0dfb16dbdfe96a285f2373d38e9341710b7df5ac5748ca27615e3e3e03b10b19",
+    "diff_fingerprint": "sha256:764b49974794ee1bf31f5ca5e28faa69d33c1ecae2940b8a7a7ebf8dfbdf3e76",
     "head": "HEAD",
-    "head_sha": "842c285d",
+    "head_sha": "41dee0c2",
     "surfaces": {
       "docs": 1,
       "frontend": 6,
@@ -454,6 +708,14 @@
         "checks.full_audit",
         "scope.out-of-scope"
       ]
+    },
+    {
+      "at": "2026-09-15T12:14:21.586853Z",
+      "diff_fingerprint": "sha256:764b49974794ee1bf31f5ca5e28faa69d33c1ecae2940b8a7a7ebf8dfbdf3e76",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2447-miniapp-questionnaire",
