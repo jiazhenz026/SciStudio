@@ -1,0 +1,68 @@
+{
+  "base_ref": null,
+  "branch": "fix/2456-miniapp-preview-and-title",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T13:21:07.596510Z",
+      "owner_directive": "Fix together: MiniApp tab and title don't show the new name after the agent renames it; refresh the name.",
+      "reason": "Owner folded #2457 into this PR"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:21:07.596757Z",
+      "class": "owner-directive",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising docs; no documentation edits in this PR (dispatch constraint). Frontend-only bug fixes with no contract change.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2456,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2457,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Desktop opens with preview column collapsed; investigate and fix (suspected MiniApp auto-collapse persisting previewCollapsed).",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2456-miniapp-preview-and-title",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e4c39189-2642-4337-b6a1-c7c81ea0eaa6",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}
