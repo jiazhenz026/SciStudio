@@ -188,7 +188,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "0ae68e9ce7db27f3fa2228327a57445a3bc9492b",
+    "shas": [
+      "0ae68e9ce7db27f3fa2228327a57445a3bc9492b"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -440,6 +446,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.467564Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.479310Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.491965Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.503823Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.516173Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.528324Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.540796Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.553047Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.565053Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.577606Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:14.596846Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -494,9 +588,9 @@
       "tests/contracts/openapi.json",
       "tests/previewers/test_panel_read_extensions.py"
     ],
-    "diff_fingerprint": "sha256:92c6d32e1c6b9202cf65b53dcadd85ffcc6adfcf7a6d3e1bb7b2c9c5f662d7cc",
+    "diff_fingerprint": "sha256:23c24e31ffe858357d971bcb59a192ca737a4e00c57691b52feb6b8f8cfdb1f5",
     "head": "HEAD",
-    "head_sha": "d5ec0e7e",
+    "head_sha": "0ae68e9c",
     "surfaces": {
       "docs": 1,
       "frontend": 6,
@@ -513,7 +607,14 @@
   },
   "owner_directive": "Every panel, preview, and MiniApp read presents the real, complete data: no sampling, decimation, striding, cropping, or rounding away because data is large, for every data type; large data stays reachable by paging, tiling, or slices with exact values.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2460
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T13:53:49.282829Z",
@@ -528,6 +629,14 @@
     {
       "at": "2026-09-15T13:55:06.552112Z",
       "diff_fingerprint": "sha256:92c6d32e1c6b9202cf65b53dcadd85ffcc6adfcf7a6d3e1bb7b2c9c5f662d7cc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T13:55:14.596886Z",
+      "diff_fingerprint": "sha256:23c24e31ffe858357d971bcb59a192ca737a4e00c57691b52feb6b8f8cfdb1f5",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
