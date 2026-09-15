@@ -12,6 +12,7 @@ import type { AppStore, TabSlice, TabState, WorkflowTab } from "../types";
 import { executionViewKey, projectExecution } from "../executionSlice.parts/eventReducer";
 import {
   EMPTY_TAB_STATE,
+  backingWorkflowTabId,
   captureActiveTab,
   dropInactivePreviewTabs,
   restoreTab,
@@ -168,6 +169,13 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
     const target = state.tabs.find((t) => t.id === tabId);
     if (!target) return;
 
+    // A persistent MiniApp can be revisited from a different workflow tab.
+    // Its data source stays frozen, but the live workflow slice belongs to
+    // the workflow being left, not the MiniApp's original backing tab.
+    const focusedTarget =
+      target.kind === "miniapp" || target.kind === "preview"
+        ? { ...target, backingTabId: backingWorkflowTabId(state) }
+        : target;
     const currentActive = state.tabs.find((t) => t.id === state.activeTabId) ?? null;
     const updatedTabs = currentActive
       ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
@@ -178,7 +186,10 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
       // other tab removes the one left behind. `restoreTab` is a no-op beyond
       // setting `activeTabId` for a preview target, and `captureActiveTab`
       // passes the one being dropped through unchanged.
-      tabs: dropInactivePreviewTabs(updatedTabs, tabId),
+      tabs: dropInactivePreviewTabs(
+        updatedTabs.map((tab) => (tab.id === tabId ? focusedTarget : tab)),
+        tabId,
+      ),
       ...restoreTab(target),
       ...projectForTab(state, target),
     });
@@ -199,6 +210,20 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
     } else if (tab.kind === "file") {
       isDirty = tab.dirty;
       displayLabel = tab.displayName;
+    } else if (tab.kind === "miniapp") {
+      /*
+       * ADR-054 FR-019 — closing a MiniApp tab closes its context, which ends
+       * its `panel.py` process. That teardown is NOT done here: `closeTab` is
+       * synchronous and returns a boolean, and it is not the only way a
+       * MiniApp goes away (closing or switching the project empties the tab
+       * list wholesale, with no per-tab hook at all). It is unmount-driven
+       * instead, in `PanelFrame`'s effect cleanup, so every path that removes
+       * the tab from this list also ends the process. Dropping the tab is all
+       * that is needed here — and a MiniApp holds no unsaved document, so it
+       * never prompts.
+       */
+      isDirty = false;
+      displayLabel = tab.displayName;
     } else {
       // #2112 — preview tabs are read-only snapshots: never dirty, never prompt.
       isDirty = false;
@@ -216,8 +241,12 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
       if (remaining.length > 0) {
         const closedIndex = state.tabs.findIndex((t) => t.id === tabId);
         const nextTab = remaining[Math.min(closedIndex, remaining.length - 1)];
+        const focusedNext =
+          nextTab.kind === "miniapp" || nextTab.kind === "preview"
+            ? { ...nextTab, backingTabId: backingWorkflowTabId(state) }
+            : nextTab;
         set({
-          tabs: remaining,
+          tabs: remaining.map((tab) => (tab.id === focusedNext.id ? focusedNext : tab)),
           ...restoreTab(nextTab),
           ...projectForTab(state, nextTab),
         });
@@ -236,7 +265,7 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
     const state = get();
     if (!state.activeTabId) return;
     const activeTab = state.tabs.find((t) => t.id === state.activeTabId);
-    if (activeTab?.kind === "preview") {
+    if (activeTab?.kind === "preview" || activeTab?.kind === "miniapp") {
       // #2112 — while a preview tab owns focus, the live workflow slice still
       // belongs to the backing workflow tab (restoreTab on a preview only sets
       // activeTabId). Capture into that tab so autosave / WebSocket updates
@@ -244,20 +273,13 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
       // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
       // tab's own id must be preserved explicitly.
       //
-      // #2362: address that tab by its own id. `workflowId` is not unique
-      // across tabs — imported subworkflow copies share an internal id, which
-      // is precisely why `openTab` dedups on `tabKey` instead — so matching on
-      // it wrote this capture into every such tab, clobbering the others'
-      // canvases, which autosave then committed to the wrong files.
-      // `backingTabId` is absent only when the preview was opened while a
-      // non-workflow tab held focus; the `workflowId` match remains for that.
-      const backingTabId = activeTab.backingTabId;
+      // ADR-054 FR-019 and #2362: both views keep the exact
+      // backing workflow identity, including copies sharing a workflow id.
+      const backingTabId = activeTab.backingTabId ?? backingWorkflowTabId(state);
       set({
         tabs: state.tabs.map((t) => {
           if (t.kind !== "workflow") return t;
-          const isBacking = backingTabId
-            ? t.id === backingTabId
-            : t.workflowId === state.workflowId;
+          const isBacking = t.id === backingTabId;
           return isBacking ? { ...captureActiveTab(state, t), id: t.id } : t;
         }),
       });

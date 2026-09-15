@@ -11,12 +11,16 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
+import secrets
+from collections.abc import Coroutine
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE
+from scistudio.engine import gui_presence
 from scistudio.engine.events import (
     BLOCK_CANCELLED,
     BLOCK_DONE,
@@ -39,11 +43,32 @@ from scistudio.engine.events import (
 
 logger = logging.getLogger(__name__)
 
+#: Live FR-013 grace-period tasks. Held so the event loop keeps a strong
+#: reference to each one — a bare ``create_task`` result is garbage-collectable
+#: mid-sleep, which would silently leave a gone workspace's MiniApp processes
+#: running for the rest of the session.
+_panel_close_tasks: dict[str, asyncio.Task[None]] = {}
+
 # ADR-036 §3.5 (I36c): outbound event type emitted after a successful
 # blocks/*.py save passes lint and hot_reload runs. Declared here as a
 # bare string (not a constant in scistudio.engine.events) because the
 # events module is frozen by ADR-035/036 hard-scope rules.
 BLOCKS_RELOADED = "blocks.reloaded"
+
+# ADR-054 MiniApp FR-022: a file under an open MiniApp's panel directory
+# changed and the host should reload that MiniApp. Data: ``{"panel_id": str}``.
+# A bare string for the same reason ``BLOCKS_RELOADED`` is one.
+PANEL_FILES_CHANGED = "panel.files_changed"
+
+# ADR-054 MiniApp FR-030: the agent's ``open_miniapp`` tool asks the workspace
+# to open a MiniApp tab. Data:
+# ``{"panel_id": str, "workflow_id": str, "block_id": str, "port": str}``.
+PANEL_OPEN_MINIAPP = "panel.open_miniapp"
+
+#: FR-013: the shape of a workspace realtime client id. Minted here, sent to
+#: the browser in the ``hello`` frame, and quoted back as ``ws_client_id`` when
+#: the workspace opens a MiniApp context.
+_CLIENT_ID = re.compile(r"ws-[0-9a-f]{16}\Z")
 
 # Event types pushed to the client.
 _OUTBOUND_EVENTS = frozenset(
@@ -66,6 +91,10 @@ _OUTBOUND_EVENTS = frozenset(
         # ADR-036 §3.5: forward blocks.reloaded so the palette can refresh +
         # a passive toast can fire when the user saves a clean blocks/*.py.
         BLOCKS_RELOADED,
+        # ADR-054 MiniApp FR-022/FR-030: an event type absent from this set is
+        # never subscribed, so it silently never reaches the browser.
+        PANEL_FILES_CHANGED,
+        PANEL_OPEN_MINIAPP,
         FILE_CHANGED_EVENT_TYPE,
         # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
         # Git tab invalidate cached log/branch/status state when an
@@ -156,6 +185,85 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
     }
 
 
+def _client_id_for(websocket: WebSocket) -> str:
+    """Return the workspace client id this connection speaks for."""
+    # Return the workspace client id this connection speaks for (FR-013).
+    #
+    # A fresh id per connection is the default, and it is what a browser that
+    # reloaded should get: the page lost its contexts with its JavaScript, and
+    # the ones it left behind are closed after the grace period below.
+    #
+    # A workspace whose socket merely dropped is a different case, and it is the
+    # case the grace period exists for. Such a client reconnects quoting the id
+    # it was given, and gets it back — so its MiniApp processes, which may hold
+    # a large array that took a minute to load, survive a flaky connection
+    # rather than being rebuilt from scratch. The value is accepted only in the
+    # exact minted shape, so a reconnect can restore an identity but cannot
+    # invent one.
+    quoted = websocket.query_params.get("client_id", "")
+    if _CLIENT_ID.fullmatch(quoted):
+        return quoted
+    return "ws-" + secrets.token_hex(8)
+
+
+async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str) -> None:
+    """Close *client_id*'s MiniApp contexts once it has stayed gone."""
+    # Close *client_id*'s MiniApp contexts once it has stayed gone (FR-013).
+    #
+    # A reconnect inside the grace period re-registers the id. This wakes to find
+    # it present, and the MiniApp keeps running.
+    from scistudio.panels.contexts import get_panel_contexts
+    from scistudio.panels.process_config import client_disconnect_grace
+
+    try:
+        await asyncio.sleep(client_disconnect_grace())
+        if client_id in gui_presence.connected():
+            return
+        runtime = getattr(event_bus, "runtime", None)
+        if runtime is None:
+            return
+        get_panel_contexts(runtime).close_for_client(client_id)
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.warning("Failed to close panel contexts for client %s", client_id, exc_info=True)
+
+
+def _cancel_panel_close(client_id: str) -> None:
+    """A reconnect invalidates the previous disconnect's grace timer."""
+    previous = _panel_close_tasks.pop(client_id, None)
+    if previous is not None:
+        previous.cancel()
+
+
+def _schedule_panel_close(event_bus: EventBus, client_id: str) -> None:
+    """Start a fresh grace period only after the client's final socket closes."""
+    if client_id in gui_presence.connected():
+        return
+    _cancel_panel_close(client_id)
+    task = asyncio.create_task(_close_panel_contexts_after_grace(event_bus, client_id))
+    _panel_close_tasks[client_id] = task
+
+    def remove_finished(done: asyncio.Task[None]) -> None:
+        if _panel_close_tasks.get(client_id) is done:
+            _panel_close_tasks.pop(client_id)
+
+    task.add_done_callback(remove_finished)
+
+
+async def _run_socket_pumps(*loops: Coroutine[Any, Any, None]) -> None:
+    """End both socket pumps as soon as either direction disconnects."""
+    tasks = {asyncio.create_task(loop) for loop in loops}
+    try:
+        completed, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in completed:
+            task.result()
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     """Handle a WebSocket connection for real-time workflow updates.
 
@@ -183,7 +291,19 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
 
     await websocket.accept()
 
+    # FR-013: this workspace's identity. Registered before the frame that
+    # announces it is sent, so a send that fails still unwinds through the
+    # ``finally`` below rather than leaving a registration behind.
+    client_id = _client_id_for(websocket)
+    presence_token = gui_presence.register(client_id)
+    _cancel_panel_close(client_id)
+
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    from scistudio.panels.gui_debug import get_gui_debug
+
+    runtime = getattr(event_bus, "runtime", None)
+    debug_broker = get_gui_debug(runtime) if runtime is not None else None
+    debug_connection = debug_broker.connect(client_id, outbound_queue.put_nowait) if debug_broker else ""
 
     def _on_event(event: EngineEvent) -> None:
         """Callback for EventBus — enqueue event for outbound delivery."""
@@ -206,6 +326,10 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                 data = json.loads(raw)
                 msg_type = data.get("type", "")
 
+                if debug_broker and debug_broker.receive(
+                    debug_connection, data, getattr(getattr(event_bus, "runtime", None), "project_dir", None)
+                ):
+                    continue
                 if msg_type == "cancel_block":
                     block_id = data.get("block_id")
                     workflow_id = data.get("workflow_id")
@@ -334,20 +458,22 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         except (WebSocketDisconnect, asyncio.CancelledError):
             pass
 
-    inbound = asyncio.ensure_future(_inbound_loop())
-    outbound = asyncio.ensure_future(_outbound_loop())
     try:
-        # #2327: the socket is finished when either side ends. A client that
-        # left, or a server that is stopping (it closes every socket first),
-        # ends the inbound loop; the outbound loop would otherwise wait on its
-        # queue forever and hold the server's connection drain open.
-        await asyncio.wait({inbound, outbound}, return_when=asyncio.FIRST_COMPLETED)
+        # FR-013: the client id reaches the browser first. Sent directly rather
+        # than through the outbound queue, which an already-running workflow's
+        # events could otherwise get ahead of in the same tick.
+        await websocket.send_json({"type": "hello", "client_id": client_id})
+        await _run_socket_pumps(_inbound_loop(), _outbound_loop())
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     finally:
-        for task in (inbound, outbound):
-            task.cancel()
-        await asyncio.gather(inbound, outbound, return_exceptions=True)
+        if debug_broker and debug_connection:
+            debug_broker.disconnect(debug_connection)
+        gui_presence.unregister(client_id, presence_token)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
+        # FR-013: this workspace's MiniApp processes outlive a dropped socket
+        # for the grace period and no longer. The task holds no reference to
+        # this connection, so it survives the handler returning.
+        _schedule_panel_close(event_bus, client_id)

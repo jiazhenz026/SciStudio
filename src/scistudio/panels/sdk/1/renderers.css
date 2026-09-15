@@ -1,0 +1,240 @@
+/* ArrayView */
+
+/* Fixed column geometry: the virtualizer reserves width for off-window
+         columns in CSS pixels, so a rendered column must match that constant or
+         the horizontal scrollbar drifts out of sync with the pointer. */
+.array-heatmap {
+    table-layout: fixed;
+}
+.array-heatmap td,
+.array-heatmap thead th {
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.array-heatmap th.array-heatmap-corner,
+.array-heatmap tbody th {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+}
+
+/* DataFrameView */
+
+/* A table of values reads left-aligned, unlike the numeric grid. */
+.dataframe-scroll {
+    max-height: 360px;
+}
+/* Fixed column geometry so the virtualizer's padding cells reserve the
+         off-window columns exactly and the scrollbar stays true to the table. */
+.dataframe-table {
+    min-width: 100%;
+    font-size: 11px;
+    text-align: left;
+    table-layout: fixed;
+}
+.dataframe-table th:not(.dataframe-pad),
+.dataframe-table td:not(.dataframe-pad) {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dataframe-table .dataframe-pad {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+.dataframe-table th {
+    top: 0;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgb(var(--ink) / 0.6);
+}
+.dataframe-table td {
+    text-align: left;
+    white-space: nowrap;
+    padding: 3px 10px;
+    font-size: 10px;
+    color: rgb(var(--ink) / 0.8);
+    border-bottom: 1px solid rgb(var(--ink) / 0.06);
+}
+.dataframe-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px 4px 0;
+    font-size: 10px;
+    color: rgb(var(--ink) / 0.55);
+}
+.dataframe-pager {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.dataframe-pager .panel-button {
+    padding: 1px 6px;
+    line-height: 1.4;
+}
+.dataframe-page-input {
+    width: 3.5em;
+    text-align: center;
+}
+
+/* SeriesView */
+
+.series-modes {
+    gap: 4px;
+}
+.series-chart {
+    width: 100%;
+    height: 260px;
+}
+.series-values {
+    min-width: 100%;
+    font-size: 11px;
+    text-align: left;
+}
+.series-values th,
+.series-values td {
+    text-align: left;
+    padding: 3px 10px;
+}
+
+/* TextView */
+
+.text-surface {
+    max-height: 320px;
+}
+.text-content {
+    margin: 0;
+    padding: 16px;
+    font-size: 13px;
+    line-height: 1.5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* ArtifactView */
+
+.artifact-title {
+    font-weight: 600;
+}
+.artifact-path {
+    font-size: 11px;
+    word-break: break-all;
+    color: rgb(var(--ss-ink, 40 33 24) / 0.7);
+}
+.artifact-field {
+    font-size: 11px;
+    color: rgb(var(--ss-ink, 40 33 24) / 0.7);
+}
+.artifact-image {
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+
+/* MetadataView */
+
+.object-title {
+    font-weight: 600;
+}
+.object-field {
+    font-size: 11px;
+    word-break: break-all;
+    color: rgb(var(--ss-ink, 40 33 24) / 0.7);
+}
+.object-image {
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+.object-metadata {
+    margin: 0;
+    max-height: 260px;
+    overflow: auto;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgb(var(--ss-ink, 40 33 24) / 0.05);
+    font:
+        11px/1.5 ui-monospace,
+        Menlo,
+        monospace;
+}
+
+/* PlotView */
+
+/* The figure takes the frame's height and scrolls inside it, so a zoomed-in
+         figure stays reachable by panning rather than being clipped. A viewport
+         cap was wrong here: `vh` measures the frame, so it left a fixed slice of
+         the frame empty no matter how much room the host had given it. */
+.plot-surface {
+    flex: 1;
+    min-height: 12rem;
+    overflow: auto;
+    background: #fff;
+    padding: 6px;
+    border: 1px solid rgb(var(--ss-ink, 40 33 24) / 0.1);
+    border-radius: 8px;
+}
+/* Scale from the top-left so the whole figure stays inside the scrollable
+         extent; scaling from the centre pushes its top and left out of reach. */
+.plot-zoom-layer {
+    transform-origin: top left;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+/* At 100% the figure fits the surface in both directions, which is what
+         makes a focused tab worth opening; above 100% it overflows and the
+         surface's own scrollbars pan over it. */
+.plot-image,
+.plot-zoom-layer canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+.plot-bar,
+.plot-pages {
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.plot-format {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+    color: rgb(var(--ss-ink, 40 33 24) / 0.5);
+}
+.plot-zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.plot-zoom-level {
+    min-width: 3.2em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.plot-note {
+    font-size: 11px;
+    color: rgb(var(--ss-ink, 40 33 24) / 0.6);
+    padding: 8px;
+}

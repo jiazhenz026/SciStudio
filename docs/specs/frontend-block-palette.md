@@ -364,8 +364,10 @@ trigger; it does not change the popover's content or the palette behavior above.
   carried on the node.
 - **Trigger and dwell.** The popover opens after a ~400ms hover dwell — longer
   than the palette's ~150ms so it does not flash while the user wires or drags
-  nodes — and dismisses immediately when the cursor leaves the node. It is
-  display-only and `pointer-events-none`.
+  nodes. Leaving starts a 120ms transit grace period; entering the detail
+  card cancels that close, and leaving the card closes after the same grace.
+  Actions close it after selection; Escape and starting a node drag also close
+  it. The existing node action toolbar stays separate.
 - **Anchor (canvas-specific).** Unlike the palette (fixed left rail, always
   opens right), a canvas node can sit anywhere and the canvas pans/zooms, so the
   anchor is computed from the node's on-screen bounding rect by
@@ -891,3 +893,20 @@ node's flow footprint, so `NODE_SIZE` is the whole offset.
 
 Covered by
 `frontend/src/components/WorkflowCanvas.parts/__tests__/dropPosition.test.ts`.
+
+
+### Canvas action relocation (guided owner directive, #2354)
+
+The canvas node right-click menu is removed. The existing hover detail card now
+contains New MiniApp and compatible Open in MiniApp actions, preserving produced
+output checks, subtype matching, and the multi-port target picker. New MiniApp
+stays disabled with the run-first explanation when the node has no produced
+output. Each action carries the hovered node and its owning workflow.
+
+Project and user blocks offer **Edit block**. The registered block source route
+resolves the real file before opening the existing project or user-library
+editor; the library route must resolve the exact same source path. Missing source
+or a project change produces an error and opens no writable file. Builtin,
+package, and unresolved-origin custom blocks offer **View source**, using the
+existing readonly source tab. Unresolved nodes without a summary expose no edit
+action. This does not add arbitrary filesystem editing or copy-on-edit behavior.

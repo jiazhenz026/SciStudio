@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
 
 import type { BlockSummary } from "../../../../types/api";
+import { POPOVER_CLOSE_DELAY_MS } from "../../../palette/hoverPopover";
 import { NODE_DETAIL_OPEN_DELAY_MS } from "../../BlockNode.parts/nodeDetailAnchor";
 import { makePort, openNativeDialogMock, renderNode } from "./test-utils";
 
@@ -77,6 +78,72 @@ describe("BlockNode — hover detail popover (#1887)", () => {
     expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument();
 
     fireEvent.mouseLeave(shell);
+    act(() => vi.advanceTimersByTime(POPOVER_CLOSE_DELAY_MS));
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("survives pointer transit and dwell inside, then closes after leaving the card", () => {
+    const action = vi.fn();
+    renderNode({
+      summary: makeSummary(),
+      detailActions: <button onClick={action}>New MiniApp</button>,
+    });
+    const shell = screen.getByTestId("block-node-shell");
+    fireEvent.mouseEnter(shell);
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    const popover = screen.getByTestId("block-detail-popover");
+    expect(popover.className).not.toContain("pointer-events-none");
+    fireEvent.mouseLeave(shell);
+    act(() => vi.advanceTimersByTime(POPOVER_CLOSE_DELAY_MS - 1));
+    fireEvent.mouseEnter(popover);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(popover).toBeInTheDocument();
+    fireEvent.mouseLeave(popover);
+    act(() => vi.advanceTimersByTime(POPOVER_CLOSE_DELAY_MS));
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("allows clicking a popover action without starting node drag and closes after selection", () => {
+    const action = vi.fn();
+    renderNode({
+      summary: makeSummary(),
+      detailActions: <button onClick={action}>Edit block</button>,
+    });
+    fireEvent.mouseEnter(screen.getByTestId("block-node-shell"));
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    const button = screen.getByRole("button", { name: "Edit block" });
+    fireEvent.mouseDown(button);
+    expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(action).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("closes on Escape and on node mouse-down before dragging", () => {
+    renderNode({ summary: makeSummary(), detailActions: <button>Edit block</button> });
+    const shell = screen.getByTestId("block-node-shell");
+    fireEvent.mouseEnter(shell);
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+    fireEvent.mouseLeave(shell);
+    fireEvent.mouseEnter(shell);
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    fireEvent.mouseDown(shell);
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+  });
+
+  it("closes when the canvas viewport changes or a pointer starts outside the node", () => {
+    const { flowStore } = renderNode({ summary: makeSummary() });
+    const shell = screen.getByTestId("block-node-shell");
+    fireEvent.mouseEnter(shell);
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    act(() => flowStore().setState({ transform: [20, 30, 1.5] }));
+    expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
+    fireEvent.mouseLeave(shell);
+    fireEvent.mouseEnter(shell);
+    act(() => vi.advanceTimersByTime(NODE_DETAIL_OPEN_DELAY_MS));
+    fireEvent.pointerDown(document.body);
     expect(screen.queryByTestId("block-detail-popover")).not.toBeInTheDocument();
   });
 

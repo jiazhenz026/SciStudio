@@ -332,7 +332,10 @@ export interface TypeSourceResponse {
  * project the backend swaps the library root for the tutorial-scoped one; the
  * target names the tier, never the root.
  */
-export type UserLibraryTarget = "blocks" | "types" | "previewers";
+// ADR-054 FR-039 — `panels` is the one directory target: a MiniApp is a
+// directory, not a file, and it is promoted through
+// `POST /api/user-library/directory`, not the file route the other three use.
+export type UserLibraryTarget = "blocks" | "types" | "previewers" | "panels";
 
 /** Response body of `GET /api/user-library/file` (ADR-053 FR-031). */
 export interface UserLibraryFileResponse {

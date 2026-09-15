@@ -437,12 +437,33 @@ class MCPServer:
                         f"unknown tool '{name}': it is available only through the WebMCP bridge",
                     )
                 try:
+                    if name == "screenshot_gui":
+                        from scistudio.ai.agent.mcp._context import get_context
+
+                        active_project = get_context().project_dir
+                        if active_project is None or active_project.resolve() != self.project_dir.resolve():
+                            raise PermissionError(
+                                "This MCP connection belongs to another project; reconnect in the active project."
+                            )
                     result = await mcp.call_tool(name, arguments)
                 except Exception as exc:
                     return _error_response(
                         req_id,
                         _INVALID_PARAMS,
                         f"call_tool failed for {name}: {type(exc).__name__}: {exc}",
+                    )
+                # Preserve native image blocks for vision-capable local MCP
+                # clients. Existing structured/text tools keep their established
+                # JSON text envelope; images must never become base64 text.
+                content = getattr(result, "content", None)
+                if content and any(getattr(block, "type", None) == "image" for block in content):
+                    return _ok(
+                        req_id,
+                        {
+                            "content": [
+                                block.model_dump(mode="json", by_alias=True, exclude_none=True) for block in content
+                            ]
+                        },
                     )
                 content_text = json.dumps(serialise_result(result), default=str)
                 return _ok(

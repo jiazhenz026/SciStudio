@@ -17,6 +17,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../store";
+import { interactivePromptKey } from "../store/executionSlice.parts/interactivePrompts";
 import type { InteractivePrompt, PanelManifestDescriptor } from "../store/types";
 import { resetAppStore } from "../testUtils";
 import { InteractiveModals } from "./InteractiveModals";
@@ -43,8 +44,18 @@ function seedPrompt(
     data: {},
     ...overrides,
   };
-  useAppStore.setState({ interactivePrompt: prompt });
+  useAppStore.setState((state) => ({
+    interactivePrompts: {
+      ...state.interactivePrompts,
+      [interactivePromptKey(prompt.workflowId, prompt.blockId)]: prompt,
+    },
+  }));
   return prompt;
+}
+
+/** How many prompts are still pending in the store (#2395). */
+function pendingPrompts(): number {
+  return Object.keys(useAppStore.getState().interactivePrompts).length;
 }
 
 beforeEach(() => {
@@ -56,7 +67,7 @@ beforeEach(() => {
   resetAppStore();
   // `resetAppStore` does not own the execution slice's prompt; clear it here so
   // a prompt seeded by one test cannot leak into the next.
-  useAppStore.setState({ interactivePrompt: null });
+  useAppStore.setState({ interactivePrompts: {} });
   vi.mocked(sendWebSocketMessage).mockClear();
 });
 
@@ -87,7 +98,45 @@ describe("<InteractiveModals> panel resolution", () => {
       block_id: "block-1",
       workflow_id: "wf-1",
     });
-    expect(useAppStore.getState().interactivePrompt).toBeNull();
+    expect(pendingPrompts()).toBe(0);
+    warn.mockRestore();
+  });
+
+  it("keeps a second workflow's prompt and shows it once the first is cancelled (#2395)", async () => {
+    const manifest = { panel_id: "myproj.foo", api_version: "1" };
+    seedPrompt(manifest, { workflowId: "wf-1", blockType: "first.block" });
+    seedPrompt(manifest, { workflowId: "wf-2", blockType: "second.block" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(<InteractiveModals />);
+    await screen.findByRole("alert");
+    expect(screen.getByRole("dialog")).toHaveTextContent("first.block");
+
+    fireEvent.click(screen.getAllByText("Cancel")[0]);
+    expect(sendWebSocketMessage).toHaveBeenCalledWith({
+      type: "cancel_block",
+      block_id: "block-1",
+      workflow_id: "wf-1",
+    });
+    expect(pendingPrompts()).toBe(1);
+    await waitFor(() => expect(screen.getByRole("dialog")).toHaveTextContent("second.block"));
+    warn.mockRestore();
+  });
+
+  it("does not swap the open window when another workflow's prompt arrives (#2395)", async () => {
+    const manifest = { panel_id: "myproj.foo", api_version: "1" };
+    useAppStore.setState({ workflowId: "wf-2" });
+    seedPrompt(manifest, { workflowId: "wf-1", blockType: "first.block" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(<InteractiveModals />);
+    await screen.findByRole("alert");
+    // A prompt of the workflow on screen arrives while wf-1's window is open.
+    act(() => {
+      seedPrompt(manifest, { workflowId: "wf-2", blockType: "second.block" });
+    });
+    expect(screen.getByRole("dialog")).toHaveTextContent("first.block");
+    expect(pendingPrompts()).toBe(2);
     warn.mockRestore();
   });
 
@@ -99,7 +148,7 @@ describe("<InteractiveModals> panel resolution", () => {
     await screen.findByRole("alert");
 
     fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(useAppStore.getState().interactivePrompt).toBeNull());
+    await waitFor(() => expect(pendingPrompts()).toBe(0));
     expect(sendWebSocketMessage).toHaveBeenCalledWith({
       type: "cancel_block",
       block_id: "block-1",
@@ -227,7 +276,7 @@ it.each(["accepted", "rejected"])(
       context_id: "pc-interactive",
       data: { selected: [2] },
     });
-    expect(useAppStore.getState().interactivePrompt).not.toBeNull();
+    expect(pendingPrompts()).toBe(1);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(remember).not.toHaveBeenCalled();
     expect(backend.callsTo("DELETE /api/panels/contexts/{context_id}")).toHaveLength(0);
@@ -244,16 +293,16 @@ it.each(["accepted", "rejected"])(
       dispatchWorkflowEvent(accepted, {
         appendLog: vi.fn(),
         setWorkflow: vi.fn(),
-        setInteractivePrompt: vi.fn(),
+        upsertInteractivePrompt: vi.fn(),
       });
     });
     if (outcome === "accepted") {
-      expect(useAppStore.getState().interactivePrompt).toBeNull();
+      expect(pendingPrompts()).toBe(0);
       expect(remember).toHaveBeenCalledWith("block-1", {
         interactive_memory: { enabled: true, decision: { selected: [2] }, signature: {} },
       });
     } else {
-      expect(useAppStore.getState().interactivePrompt).not.toBeNull();
+      expect(pendingPrompts()).toBe(1);
       expect(remember).not.toHaveBeenCalled();
       expect(await screen.findByRole("alert")).toHaveTextContent("Decision rejected");
       expect(screen.getByText("Remount panel")).toBeInTheDocument();

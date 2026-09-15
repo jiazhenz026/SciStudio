@@ -151,6 +151,7 @@
 import { useEffect, useRef, type ReactElement } from "react";
 
 import { useAppStore } from "../../store";
+import { runningWorkflowIds } from "../../store/executionSlice.parts/eventReducer";
 import { MethodsExportDialog } from "./MethodsExportDialog";
 import { RunDetail } from "./RunDetail";
 import { RunsList } from "./RunsList";
@@ -161,11 +162,12 @@ export function LineageTab(): ReactElement {
   const runsError = useAppStore((s) => s.runsError);
   const selectedRunId = useAppStore((s) => s.selectedRunId);
   const fetchRuns = useAppStore((s) => s.fetchRuns);
-  const clearLineage = useAppStore((s) => s.clearLineage);
   const methodsDialogRunId = useAppStore((s) => s.methodsDialogRunId);
   const openMethodsDialog = useAppStore((s) => s.openMethodsDialog);
   const closeMethodsDialog = useAppStore((s) => s.closeMethodsDialog);
-  const isRunning = useAppStore((s) => s.isRunning);
+  // #2395: every running workflow, not just the one on screen — several
+  // different workflows may run at once and the runs list covers all of them.
+  const runningIds = useAppStore((s) => runningWorkflowIds(s.executionByWorkflow).join("\n"));
   const currentProjectId = useAppStore((s) => s.currentProject?.id ?? null);
 
   // First-mount fetch. Empty deps array per the contract.
@@ -174,29 +176,30 @@ export function LineageTab(): ReactElement {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Invalidate the cache on project switch. The slice contract says
-  // projectSlice.setCurrentProject should call clearLineage; doing it
-  // here instead avoids cross-cutting projectSlice (out of scope for
-  // D38-2.4c) while still honouring the contract.
+  // Refetch on project switch. #2395: `projectSlice.setCurrentProject` now
+  // clears the cache itself (and drops in-flight responses), so the tab only
+  // needs to load the incoming project's runs while it is mounted.
   const prevProjectId = useRef(currentProjectId);
   useEffect(() => {
     if (prevProjectId.current !== currentProjectId) {
-      clearLineage();
       void fetchRuns();
     }
     prevProjectId.current = currentProjectId;
-  }, [currentProjectId, clearLineage, fetchRuns]);
+  }, [currentProjectId, fetchRuns]);
 
   // Refresh the list whenever a workflow execution completes.
-  // (No new event-bus type added; reuse the existing executionSlice
-  // isRunning flag which flips on workflow_completed.)
-  const prevIsRunning = useRef(isRunning);
+  // #2395: compare the set of running workflows, so ANY workflow's
+  // `workflow_completed` refreshes, and switching tabs (which changes only the
+  // projected `isRunning`) does not.
+  const prevRunningIds = useRef(runningIds);
   useEffect(() => {
-    if (prevIsRunning.current && !isRunning) {
+    const before = prevRunningIds.current ? prevRunningIds.current.split("\n") : [];
+    const now = new Set(runningIds ? runningIds.split("\n") : []);
+    if (before.some((id) => !now.has(id))) {
       void fetchRuns();
     }
-    prevIsRunning.current = isRunning;
-  }, [isRunning, fetchRuns]);
+    prevRunningIds.current = runningIds;
+  }, [runningIds, fetchRuns]);
 
   // Keyboard shortcut: 'm' opens methods (when a run is selected and focus is
   // not in a text field).

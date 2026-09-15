@@ -6,6 +6,13 @@ export interface PanelBridgeHandlers {
   read: (ref: string, op: string, params: Record<string, unknown>) => Promise<unknown>;
   open: (ref: string) => Promise<unknown>;
   writeBack: (response: Record<string, unknown>) => Promise<unknown>;
+  /**
+   * ADR-054 FR-016 — forward a page call to the context's resident
+   * `panel.py`. Optional so a host that mounts no MiniApp (and every existing
+   * handler literal) keeps compiling; a context that provides `call` without
+   * a handler is refused as `unsupported` rather than crashing.
+   */
+  call?: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
   save: (payload: unknown) => Promise<unknown>;
   viewState: (state: unknown) => void;
   resize: (height: number) => void;
@@ -116,7 +123,14 @@ export function createPanelBridge(
       return null;
     }
     if (type === "save" && context.services.includes("save")) return handlers.save(payload);
-    if (type === "read" && context.kind === "preview" && context.operations.includes("read")) {
+    /*
+     * ADR-054 FR-004 — gated on the operations the backend granted, not on the
+     * kind. `provides()` (src/scistudio/panels/contexts.py) is the one source
+     * of truth: it grants `read` to `preview` AND `miniapp`, and `call` only
+     * to `miniapp`. Gating on the kind here locked a miniapp page out of a
+     * read the backend had already authorised.
+     */
+    if (type === "read" && context.operations.includes("read")) {
       if (
         !isRecord(payload) ||
         typeof payload.op !== "string" ||
@@ -133,6 +147,18 @@ export function createPanelBridge(
       if (!isRecord(payload) || typeof payload.ref !== "string")
         throw new PanelError("invalid_request", "Open requires a child reference");
       return handlers.open(payload.ref); // Backend validates parent-child reachability.
+    }
+    if (type === "call" && context.operations.includes("call")) {
+      if (
+        !isRecord(payload) ||
+        typeof payload.fn !== "string" ||
+        !payload.fn ||
+        !isRecord(payload.args)
+      )
+        throw new PanelError("invalid_request", "A call needs a function name and an args object");
+      if (!handlers.call)
+        throw new PanelError("unsupported", "This host does not forward panel calls");
+      return handlers.call(payload.fn, payload.args);
     }
     if (
       type === "writeBack" &&

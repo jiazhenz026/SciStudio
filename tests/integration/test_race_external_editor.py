@@ -10,6 +10,7 @@ from watchdog.events import FileModifiedEvent
 from scistudio.api.routes.projects import FILE_CHANGED_EVENT_TYPE
 from scistudio.api.routes.workflow_watcher import _ProjectFileHandler
 from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
+from tests.api.helpers import ws_hello
 
 
 def test_external_file_edit_emits_versioned_file_changed(
@@ -96,6 +97,7 @@ def test_file_changed_events_reach_websocket_clients(
     base_version = base.json()["state_version"]
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         response = client.put(
             f"/api/projects/{project_id}/file?path=analysis.py",
             json={"content": "print('saved')\n", "source_id": "tab-save-1"},

@@ -73,12 +73,14 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 import tempfile
 from contextlib import suppress
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from filelock import FileLock, Timeout
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes.projects import (
@@ -89,6 +91,8 @@ from scistudio.api.routes.projects import (
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.schemas import (
     MoveSourceRef,
+    UserLibraryDirectoryRequest,
+    UserLibraryDirectoryResponse,
     UserLibraryFileResponse,
     UserLibraryTarget,
     UserLibraryWriteRequest,
@@ -101,6 +105,8 @@ from scistudio.core.dropins import (
     library_root_for_project,
 )
 from scistudio.engine.events import EngineEvent
+from scistudio.panels.descriptor import _ID as _PANEL_ID_RE
+from scistudio.panels.miniapp_create import PANELS_DIR_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +123,19 @@ _TARGET_DIR_NAMES = {
     # Learning Center FR-070 / #2086: the previewer tier promotes through the
     # same door, and the same library-root swap, as blocks and types.
     "previewers": PREVIEWERS_DIR_NAME,
+    # ADR-054 MiniApp FR-039: the panel tier. Reached only by the directory
+    # route below — ``_validate_filename`` refuses everything a panel is made
+    # of, which is why a panel could not be promoted through the file route.
+    "panels": PANELS_DIR_NAME,
 }
+
+#: FR-039: the only target that names a directory rather than a file. Kept as a
+#: set so a second directory tier is one entry, not a second code path.
+_DIRECTORY_TARGETS = frozenset({"panels"})
+
+#: Files never carried into the library: compiled bytecode a scan would import
+#: in preference to the source, and the temp files a write leaves behind.
+_SKIP_DIR_NAMES = frozenset({"__pycache__", ".git", ".hg", ".svn"})
 
 #: Only Python sources belong in a drop-in tier; both registries scan for
 #: ``.py`` files and nothing else there is loadable.
@@ -283,6 +301,11 @@ def _resolve_user_library_file(target: UserLibraryTarget, filename: str, project
     then decided against whichever root that returned, so the sandbox is as
     tight for a tutorial save as for a real one.
     """
+    if target in _DIRECTORY_TARGETS:
+        # FR-039: a panel is a directory. Saying so here is what stops the file
+        # route creating a stray ``.py`` in the panel tier root, which no scan
+        # would ever load and no palette would ever show.
+        raise _reject(400, f"The {target} tier holds directories; use POST /api/user-library/directory")
     declared_root = _library_root(target, project_dir)
     name = _validate_filename(filename)
 
@@ -565,3 +588,263 @@ def _refresh_registries(runtime: ApiRuntime) -> bool:
         logger.exception("user library write: refresh_all_registries() raised")
         return False
     return True
+
+
+# ---------------------------------------------------------------------------
+# Directory promotion (ADR-054 MiniApp FR-039)
+# ---------------------------------------------------------------------------
+#
+# The file route above promotes one ``.py`` file. A panel is a directory — a
+# manifest, a page, its assets, and optionally ``panel.py`` — so it needs a
+# second door, and the four rules of the module docstring are restated for a
+# tree rather than relaxed for it:
+#
+# 1. The caller names the tier (``target=panels``) and the directory name; the
+#    name must be a panel id, which is the directory's own name by the
+#    descriptor rule, so nothing here can address a path.
+# 2. Both ends are confined on resolved real paths — under the project's
+#    ``panels/`` tier on the way out, under the library's ``panels/`` tier on
+#    the way in — and symlinks are neither followed nor copied, so a link
+#    pointing out of the project cannot drag a file in or a removal out.
+# 3. The project directory is the *open* project's, checked against the
+#    runtime rather than trusted from the body. This route removes a directory
+#    tree; a caller that could name any project could name any tree.
+# 4. The landing is a rename of a fully-copied staging directory, so the
+#    library never holds a half-panel that a scan could pick up.
+#
+# The ordering is ADR-053 FR-017's, for its reason: write the library copy,
+# then remove the project copy, and degrade to a copy when the removal fails.
+# A removal that ran first and a copy that then failed would destroy the
+# user's only copy.
+
+
+def _validate_directory_name(name: str) -> str:
+    """Return *name* if it is a panel id, else raise.
+
+    The descriptor rule is the whole check: a panel id is lowercase dotted
+    segments and must equal its directory name, so an id that parses cannot
+    contain a separator, a drive, a ``..`` segment, or a leading dot. Asking
+    the descriptor's own pattern rather than restating it keeps the two from
+    drifting into different ideas of what a panel is called.
+    """
+    # Development references: ADR-054 MiniApp, FR-039.
+    candidate = name.strip()
+    if not candidate:
+        raise _reject(400, "name query parameter is required")
+    if not _PANEL_ID_RE.fullmatch(candidate):
+        raise _reject(403, "The user library accepts a panel id, not a path")
+    return candidate
+
+
+def _promotion_project_dir(runtime: ApiRuntime, declared: str) -> Path:
+    """Resolve the body's ``project_dir`` against the open project, or refuse."""
+    active = _active_project_dir(runtime)
+    if active is None:
+        raise _reject(400, "Open a project before promoting a directory to the user library")
+    try:
+        resolved = Path(declared).resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise _reject(400, f"Invalid project_dir: {exc}") from exc
+    if not resolved.is_dir():
+        raise _reject(400, "project_dir is not a directory")
+    if os.path.realpath(resolved) != os.path.realpath(active):
+        raise _reject(403, "project_dir must be the open project")
+    return resolved
+
+
+def _resolve_promotion_source(project_dir: Path, target: UserLibraryTarget, name: str) -> Path:
+    """Return the project-tier directory to promote, confined to that tier."""
+    tier = os.path.realpath(str(project_dir / _TARGET_DIR_NAMES[target]))
+    candidate = os.path.realpath(os.path.join(tier, name))
+    try:
+        if os.path.commonpath([tier, candidate]) != tier:
+            raise _reject(403, "Path escapes the project tier directory")
+    except ValueError as exc:
+        raise _reject(403, "Path escapes the project tier directory") from exc
+    source = Path(candidate)
+    if str(source.parent) != tier:
+        raise _reject(403, "A promoted directory must live directly in the project tier directory")
+    if not source.is_dir():
+        raise _reject(404, f"{name} is not a directory in this project's {target} directory")
+    return source
+
+
+def _resolve_library_directory(target: UserLibraryTarget, name: str, project_dir: Path) -> tuple[Path, Path]:
+    """Return ``(library root, destination)``, both confined and real."""
+    declared_root = _library_root(target, project_dir)
+    try:
+        declared_root.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise _reject(500, f"Could not create user library directory: {exc}") from exc
+    root = os.path.realpath(str(declared_root))
+    candidate = os.path.normpath(os.path.join(root, name))
+    try:
+        if os.path.commonpath([root, candidate]) != root:
+            raise _reject(403, "Path escapes the user library root")
+    except ValueError as exc:
+        raise _reject(403, "Path escapes the user library root") from exc
+    destination = Path(candidate)
+    if str(destination.parent) != root:
+        raise _reject(403, "User library directories must live directly in the target directory")
+    return Path(root), destination
+
+
+def _copy_tree_confined(source: Path, staging: Path) -> None:
+    """Copy *source* into *staging*, file by file, confined to *source*.
+
+    ``os.walk`` without ``followlinks`` and an explicit symlink skip, so a link
+    inside the panel neither escapes the project on the way out nor lands in
+    the library as a link into somewhere else. Bytecode and version-control
+    directories are dropped: a ``__pycache__`` copied beside its source is
+    imported in preference to it after an edit.
+    """
+    source_root = os.path.realpath(str(source))
+    for current, dir_names, file_names in os.walk(source, followlinks=False):
+        dir_names[:] = [
+            d for d in dir_names if d not in _SKIP_DIR_NAMES and not os.path.islink(os.path.join(current, d))
+        ]
+        relative = os.path.relpath(current, source)
+        target_dir = staging if relative == "." else staging / relative
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for file_name in file_names:
+            origin = os.path.join(current, file_name)
+            if os.path.islink(origin):
+                continue
+            if os.path.commonpath([source_root, os.path.realpath(origin)]) != source_root:
+                raise _reject(403, "A file in the directory resolves outside the project")
+            if os.path.getsize(origin) > ADR036_FILE_SIZE_CAP_BYTES:
+                raise _reject(413, f"{file_name} exceeds the {ADR036_FILE_SIZE_CAP_BYTES} byte file cap")
+            shutil.copyfile(origin, target_dir / file_name)
+
+
+def _land_directory(staging: Path, destination: Path, *, overwrite: bool, target: UserLibraryTarget) -> None:
+    """Serialize promotions and keep an existing panel recoverable until landing."""
+    lock_path = destination.parent / ".__scistudio_promote.lock"
+    try:
+        with FileLock(lock_path, timeout=0):
+            _swap_directory(staging, destination, overwrite=overwrite, target=target)
+    except Timeout as exc:
+        raise _reject(409, "Another user library promotion is in progress. Retry when it finishes.") from exc
+
+
+def _swap_directory(staging: Path, destination: Path, *, overwrite: bool, target: UserLibraryTarget) -> None:
+    """Land a complete tree; restore the previous tree if the landing fails."""
+    if destination.is_symlink():
+        raise _reject(403, f"{destination.name} in the user library {target} directory is a symbolic link")
+    backup: Path | None = None
+    if destination.exists():
+        if not overwrite:
+            raise HTTPException(
+                409,
+                detail={
+                    "code": "exists",
+                    "message": (
+                        f"{destination.name} already exists in the user library {target} directory. "
+                        "Retry with overwrite=true to replace it, or choose another name."
+                    ),
+                },
+            )
+        if not destination.is_dir():
+            raise _reject(409, f"{destination.name} in the user library is not a directory")
+        backup = Path(tempfile.mkdtemp(prefix=".__scistudio_backup_", dir=destination.parent))
+        try:
+            os.rename(destination, backup / "previous")
+        except OSError:
+            backup.rmdir()
+            raise
+    try:
+        # The file lock serializes API writers. Refuse a destination introduced
+        # by another filesystem writer instead of deleting it during recovery.
+        if os.path.lexists(destination):
+            raise FileExistsError(f"{destination.name} was created by another writer")
+        os.rename(staging, destination)
+    except OSError as exc:
+        if backup is not None:
+            try:
+                if os.path.lexists(destination):
+                    raise FileExistsError("The destination is occupied")
+                os.rename(backup / "previous", destination)
+            except OSError as restore_exc:
+                raise _reject(
+                    500,
+                    f"Promotion failed; the previous panel is preserved in {backup.name}/previous. "
+                    f"Could not restore it: {restore_exc}",
+                ) from exc
+            with suppress(OSError):
+                backup.rmdir()
+        status = 409 if isinstance(exc, FileExistsError) else 500
+        raise _reject(status, f"Could not promote {destination.name}: {exc}") from exc
+    if backup is not None:
+        # Landing has committed. Cleanup failure must not turn a successful
+        # promotion into a failure or remove the newly installed panel.
+        try:
+            shutil.rmtree(backup)
+        except OSError:
+            logger.warning("Promoted %s; could not remove backup %s", destination.name, backup.name, exc_info=True)
+
+
+def _consume_directory(source: Path, written: Path) -> tuple[bool, str | None]:
+    """Remove the project copy, reporting rather than raising."""
+    # Remove the project copy, reporting rather than raising (ADR-053 FR-017).
+    #
+    # The library copy is already on disk, so the promotion succeeded; failing
+    # the request would tell the caller nothing happened when something did. The
+    # outcome degrades to a copy, and the caller says so. The same-path guard is
+    # belt and braces over the containment above: this must never remove what it
+    # just wrote.
+    if os.path.realpath(source) == os.path.realpath(written):
+        return False, "refusing to remove the directory that was just written"
+    try:
+        shutil.rmtree(source)
+    except OSError as exc:
+        return False, f"could not remove {source.name!r} from the project: {exc}"
+    return True, None
+
+
+@router.post("/directory", response_model=UserLibraryDirectoryResponse)
+async def promote_user_library_directory(
+    body: UserLibraryDirectoryRequest,
+    runtime: RuntimeDep,
+    target: UserLibraryTarget,
+    name: str = "",
+) -> UserLibraryDirectoryResponse:
+    """Move a project directory into the user library."""
+    # Move a project directory into the user library (ADR-054 MiniApp FR-039).
+    #
+    # The only directory tier today is ``panels``. Which library it lands in is
+    # decided by the open project, exactly as the file route decides it: a
+    # tutorial project promotes into the tutorial-scoped library, so the write
+    # and the scan agree.
+    # Development references: ADR-053, FR-017; ADR-054 MiniApp, FR-039.
+    if target not in _DIRECTORY_TARGETS:
+        raise _reject(400, f"The {target} tier holds files; use PUT /api/user-library/file")
+    directory_name = _validate_directory_name(name)
+    project_dir = _promotion_project_dir(runtime, body.project_dir)
+    source = _resolve_promotion_source(project_dir, target, directory_name)
+    root, destination = _resolve_library_directory(target, directory_name, project_dir)
+    if os.path.realpath(source) == os.path.realpath(destination):
+        raise _reject(403, "The project directory and the library directory are the same path")
+
+    staging = Path(tempfile.mkdtemp(prefix=".__scistudio_promote_", dir=str(root)))
+    try:
+        _copy_tree_confined(source, staging)
+        _land_directory(staging, destination, overwrite=body.overwrite, target=target)
+    except HTTPException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    except Exception as exc:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise _reject(500, f"promotion failed: {exc}") from exc
+
+    moved, move_error = _consume_directory(source, destination)
+    refreshed = _refresh_registries(runtime)
+    if refreshed:
+        await _announce_reload(runtime, destination)
+    return UserLibraryDirectoryResponse(
+        target=target,
+        name=directory_name,
+        path=str(destination),
+        moved=moved,
+        move_error=move_error,
+        registries_refreshed=refreshed,
+    )

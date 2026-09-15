@@ -9,6 +9,18 @@
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import type { AppStore, FileTab, TabState, WorkflowTab } from "../types";
 
+/** Resolve the workflow snapshot behind the active view without matching copies by name. */
+export function backingWorkflowTabId(state: AppStore): string | undefined {
+  const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (active?.kind === "workflow") return active.id;
+  if ((active?.kind === "miniapp" || active?.kind === "preview") && active.backingTabId)
+    return active.backingTabId;
+  const matches = state.tabs.filter(
+    (tab) => tab.kind === "workflow" && tab.workflowId === state.workflowId,
+  );
+  return matches.length === 1 ? matches[0].id : undefined;
+}
+
 /**
  * Capture the current workflow + UI state into a WorkflowTab snapshot.
  */
@@ -48,8 +60,10 @@ export function captureActiveTab(state: AppStore, tab: TabState): TabState {
       runWorkflowId: tab.runWorkflowId,
     };
   }
-  // File and preview tabs hold no workflow-slice state, so there is nothing to
-  // capture; the tab passes through unchanged.
+  // File, preview and miniapp tabs hold no workflow-slice state, so there is
+  // nothing to capture; the tab passes through unchanged. A MiniApp's own
+  // state lives in its mounted pane and its backend context, never here
+  // (ADR-054 FR-019).
   return tab;
 }
 
@@ -61,6 +75,9 @@ export function captureActiveTab(state: AppStore, tab: TabState): TabState {
  * through this filter so the rule holds no matter which path moved the focus.
  */
 export function dropInactivePreviewTabs(tabs: TabState[], activeId: string | null): TabState[] {
+  // ADR-054 FR-019 — deliberately `kind !== "preview"` and not "is the active
+  // tab": a miniapp tab stays open when focus moves, because removing it from
+  // this list unmounts its pane and ends its `panel.py` process.
   return tabs.filter((t) => t.kind !== "preview" || t.id === activeId);
 }
 
@@ -85,6 +102,8 @@ export function restoreTab(tab: TabState): Partial<AppStore> {
       activeTabId: tab.id,
     };
   }
+  // File, preview and miniapp tabs restore nothing beyond the focus: a
+  // MiniApp's pane is already mounted (FR-019) and picks the change up itself.
   return { activeTabId: tab.id };
 }
 

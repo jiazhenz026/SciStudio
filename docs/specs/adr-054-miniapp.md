@@ -49,6 +49,9 @@ governs:
   contracts: []
   entry_points: []
   files:
+    - src/scistudio/ai/agent/mcp/tools_panels.py
+    - src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md
+    - frontend/src/miniapps/**
     - src/scistudio/panels/**
     - src/scistudio/api/routes/panels.py
     - frontend/src/panels/**
@@ -80,10 +83,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/ai/agent/mcp/tools_panels.py
-    - src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md
-    - frontend/src/miniapps/**
+  files: []
   excludes: []
 tests:
   - tests/panels/test_panel_python_detection.py
@@ -262,7 +262,7 @@ only, and that All Previewers opens today's previewer list.
 
 ### User Story 6 - A MiniApp opens on data of its type (Priority: P2)
 
-The user double-clicks the threshold explorer's card, or right-clicks a block.
+The user clicks the threshold explorer's card, or right-clicks a block.
 
 **Why this priority**: Declaring one type is how a MiniApp is reused on other data.
 
@@ -430,15 +430,20 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   process tree. Shutdown MUST include MiniApp processes in the registry's
   `terminate_all`. A `miniapp` context MUST be bound to the realtime (`/ws`) client
   of the workspace that opened it and MUST close once that client has been
-  disconnected for a grace period (30 seconds by default), debounced as the
-  cancellation of browser-owned runs is in `src/scistudio/api/ws.py`.
+  disconnected for a grace period (30 seconds by default). Each socket MUST own
+  a distinct presence token so an old socket's cleanup cannot unregister a
+  replacement using the same client id. Reconnecting cancels the previous
+  disconnect timer; a fresh grace period begins when the final socket closes.
 - **FR-014**: If the process exits unexpectedly, pending and later calls MUST fail
   with `process_exited`, and the host MUST show the exit code and the last lines of
   the log with Restart. Restart MUST start a new process for the same context and
   target.
 - **FR-015**: The host MUST show the process state — starting, running,
-  unresponsive, stopped, crashed — and its resident memory, refreshed at least every five seconds. Memory
-  is displayed, not reserved.
+  unresponsive, stopped, crashed — refreshed at least every five seconds. The
+  normal MiniApp interface MUST NOT display resident-memory figures or binary
+  memory units. Runtime memory measurements remain available for diagnostics
+  through the process API. This presentation requirement follows the owner
+  directive in the guided #2354 session.
 - **FR-016**: The SDK MUST expose `call(fn, args)`, returning a promise, only where
   the context provides `call`; the panel-to-host message types of `adr-054-panels`
   FR-016 gain `call`.
@@ -453,6 +458,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   id MUST focus it.
 - **FR-019**: A MiniApp tab MUST stay open when another tab becomes active, MUST
   NOT be persisted across restarts, and closing it MUST close its context.
+  While focused, workflow snapshot updates MUST target the exact backing
+  workflow tab, not every tab sharing a workflow id. Revisiting a MiniApp
+  updates that backing identity to the workflow slice currently in memory;
+  the MiniApp's frozen data source and running context remain unchanged.
 - **FR-020**: When a MiniApp tab becomes active the right preview column MUST
   collapse, and when a tab of another kind becomes active the column MUST return to
   the size it had before; a column the user had already collapsed stays collapsed.
@@ -524,9 +533,12 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
 
 - **FR-031**: The activity bar's Previewers entry MUST be replaced by a MiniApps
   entry. The MiniApps tab MUST list every panel declaring `miniapp`, grouped by
-  tier as the Previewers tab groups previewers, with a search box and a New MiniApp
-  button; a card shows the name and declared type, and a double-click opens the
-  MiniApp (FR-034).
+  tier as the Previewers tab groups previewers, with a search box and a plus-icon New
+  button; a card shows the name and declared type, and a single click opens the
+  MiniApp (FR-034). A Reload button MUST re-scan the backend registries before
+  refreshing the full MiniApp catalogue and compatible block actions. Both
+  surfaces MUST refresh after creation, registry invalidation, and promotion without requiring a project switch. Responses from
+  a previous project MUST NOT populate the active project's catalogue.
 - **FR-032**: Each MiniApp card MUST show the shared hover popover
   (`frontend/src/components/palette/DetailPopover.tsx`) with the description,
   declared type, tier, and directory, and, for a project-tier MiniApp only, Promote
@@ -572,6 +584,11 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   to both roots, refuse an existing library id unless the user confirms overwrite,
   and share the frontend promotion implementation (ADR-053 FR-025) through a panel
   source in `frontend/src/components/promotion/promotable.ts`.
+  Overwrite MUST preserve the previous directory in a recoverable backup until
+  the staged replacement lands. A failed landing MUST restore the previous
+  directory, or preserve the backup and report its location if restoration is
+  blocked. Cleanup failure after a successful landing MUST NOT invalidate the
+  replacement. Concurrent API promotions MUST serialize their directory swaps.
 
 **Tutorials**
 
@@ -724,7 +741,8 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 - **Runaway processes.** Each process is registered, killed as a tree, ended with
   its context and at shutdown, and exits when its pipe to the backend closes.
 - **Memory.** An open MiniApp holds its data until it is closed and nothing
-  reserves memory for it; the tab shows its memory so the user can stop it.
+  reserves memory for it. Memory measurements are available for diagnostics;
+  the normal tab shows process state and Stop/Restart controls, without memory figures.
 - **Untrusted Python.** `panel.py` runs as the user, like a block (ADR-054 §10);
   the contexts that must stay read-only never start it.
 - **Agent dependence.** Nothing is created without a working agent; graded
@@ -787,3 +805,143 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 - The owner chose to move the tutorials' `previewers` route with the list and to
   change one sentence of copy lightly; the sentence in FR-040 is proposed for their
   review. (source: owner)
+
+
+## Guided audit repair validation (2026-09-13)
+
+Workspace reconnects reuse their assigned client identity; MiniApp mounts wait
+for that identity. Historical file-change counters do not reload a newly opened
+tab. Create and Convert reveal the spawned AI session immediately. New MiniApp
+source discovery enumerates available outputs across the project.
+
+Context revocation does not join teardown on the store lock or event loop.
+Shutdown grants up to five seconds for cooperative teardown and at most one
+second for termination before killing remaining processes. POSIX cleanup also
+finds detached descendants carrying the launch identity. Windows launches must
+join a Job Object while suspended before any panel code executes. Native Windows
+process-lifecycle validation remains unclaimed until a Windows runner supplies
+evidence (tracked under #2354); local validation is on macOS.
+
+Static assets reject hardlink aliases of panel.py. A MiniApp without Python
+advertises read only, and process controls reject contexts without a process.
+
+MiniApp bootstrap uses the block worker's import ordering: load runtime core
+dependencies first, then add project and installed-package roots. This prevents
+a plugin's incompatible native dependency from replacing the runtime's copy.
+Setup/import exceptions appear in the process status and log. Create and Convert
+responses include the actual session provider and permission mode for UI adoption.
+
+
+### Guided project-isolation clarification (#2354)
+
+MiniApp sources MUST belong to the active project. A retained workflow run from
+another project, or a run without a recorded launch project, cannot supply a
+candidate, create request, or MiniApp context. The runtime retains live workflow
+runs for lifecycle management; MiniApp discovery must check scheduler ownership
+before registering any raw output into the active catalogue.
+
+The create and open pickers reset on project change and ignore superseded
+responses. Creation waits for current backend discovery; cached canvas outputs
+and unvalidated context-menu presets cannot substitute for it. Candidate labels
+identify the node instance, with a display name when available. The MiniApps
+sidebar uses a single-line plus-icon New button, and a single click opens a card.
+The create, open-on-data, and convert dialogs use an icon-only X in the upper
+right corner with an accessible Close label. Clicking it or pressing Escape
+dismisses the dialog without submitting.
+
+
+The owner-approved create-dialog copy is **Data source** with “Select an output
+from a completed block.” and **Instructions** with “Describe what to display and
+which controls you need.” The example is “Show the image with a threshold slider.
+Update the mask as I adjust the threshold.” Instructions continue to populate
+the MiniApp description and agent brief.
+
+
+MiniApp toolbar actions use icon-and-text controls: rotation arrow **Restart**,
+square **Stop**, and blocks **Convert**. Convert retains “Convert to interactive
+block” as its tooltip and accessible name. These controls keep neutral styling.
+
+
+### Guided conversion-dialog simplification (#2354)
+
+The conversion form uses the title **Convert to interactive block** and asks
+for **Outputs** with persistent
+**Name** and **Data type** labels. The type choice uses the current project
+catalogue (native select with keyboard lookup), rather than arbitrary text.
+There is no separate Port field: names normalize to lower-case ASCII identifiers,
+leading digits receive an `output_` prefix, names without ASCII characters use
+`output`, and generated collisions receive numeric suffixes. Duplicate display
+names are rejected case-insensitively; every added row must be completed.
+
+**Add output** uses a plus icon. **Instructions** is marked Optional and uses
+“Use the current threshold as the default.” as its placeholder. Provider and Permission mode remain the existing shared
+components with their original layout, copy and behavior. Conversion still
+creates a separate block through the existing agent route and leaves the source
+MiniApp unchanged; outputs are not inferred or prefilled.
+
+
+The final owner-approved explanation is “Use **{MiniApp display name}** as an
+interactive step in your workflow. Choose which results it should send to the
+next blocks.” The dynamic MiniApp name is bold. A second short paragraph says
+“Your MiniApp will remain available.” Submission says **Convert**. The type
+control is the catalogue-backed native select with keyboard prefix lookup;
+this does not claim a searchable combobox.
+
+
+### Canvas hover actions (guided owner directive, #2354)
+
+The node right-click menu described in FR-035 is replaced by the existing block
+hover detail popover. Its New MiniApp and compatible Open in MiniApp actions
+retain the same produced-output, type and multi-port selection contracts. The
+popover remains open while the pointer is inside, with a 120ms transit grace.
+Project/user block source opens through Edit block in the existing editor;
+builtin/package/custom source uses the existing readonly View source action.
+The authoritative canvas interaction details are in
+[the block palette spec](frontend-block-palette.md#canvas-action-relocation-guided-owner-directive-2354).
+
+
+## Guided extension: visual inspection tool (#2354)
+
+Owner directive, 2026-09-14: agents must be able to inspect real MiniApp GUI
+pixels instead of asking the user to discover every visual problem.
+
+- **FR-044**: Local MCP exposes read-only `screenshot_gui(target, panel_id?,
+  context_id?, client_id?, wait_ms=500)`. `target` is `miniapp` (default) or
+  `workspace`; panel/context selectors apply only to MiniApps. `wait_ms` is
+  an integer from 0 to 5000. A request expires after ten seconds.
+- **FR-045**: The API WebSocket owns a per-connection request/reply broker.
+  Advertised GUI project must match the runtime project. Replies are bound to
+  an unguessable request id and exact socket instance. Disconnects and project
+  changes invalidate pending requests. Ambiguous capable windows require an
+  explicit client id. MiniApp capture requires the selected tab to be visible.
+- **FR-046**: Electron captures only the owning main window through a main-frame
+  preload IPC bridge using compositor `capturePage`. No desktop capture,
+  arbitrary application/window selection, tab focusing, eval or input injection
+  is available. Captures include iframe/canvas/WebGL content. The frontend
+  verifies project and target stability before and after capture.
+- **FR-047**: Success returns native MCP `image/png` image content plus JSON text
+  metadata (project/client/target, panel/context where applicable, pixel size,
+  visible readiness, process state and visible errors). The local socket keeps
+  image blocks intact. PNG bytes, dimensions and integrity are validated and
+  bounded (4 MiB, four million pixels, each axis at most 2560). Image payloads
+  must not be flattened to plain base64 text or inaccessible host paths.
+- **FR-048**: Browser-only GUIs without the native capture bridge and text-only
+  WebMCP hosts return explicit unsupported errors. Missing GUI, hidden target,
+  ambiguous window, project switch and timeout fail without returning pixels.
+  A screenshot and SDK readiness alone do not assert interaction correctness.
+
+Focused regression coverage includes project A to B isolation, forged replies
+from another socket, disconnect/capture races, invalid PNG results, native-image
+MCP transport, visible/hidden MiniApp selection and the desktop IPC boundary.
+
+
+## Guided extension: reusable core renderer components (#2354)
+
+SDK major 1 exposes nine host-independent core presentation components through
+`sdk/1/renderers.js`. Core preview shells and MiniApps reuse the same components
+with value props and controlled callbacks, including MiniApp-computed arrays.
+The [component contract](../reference/miniapp-renderers.md) specifies all exports,
+data shapes, styles and local library dependencies. Data acquisition, bounded
+reads and persistence remain in the caller. This is component composition,
+without an iframe or previewer-id embedding service. Interactive-only writeBack
+panels and domain-specific plugin Image renderers retain their own contracts.
