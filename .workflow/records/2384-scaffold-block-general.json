@@ -1,7 +1,156 @@
 {
   "base_ref": "origin/main",
   "branch": "fix/2384-scaffold-block-general",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T04:32:27.198753Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4f4740d6169c1cf2fb0596fea61ce7e40600244ef66e2bee1f6a38ce5af03723",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:32:34.584433Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d8a8f1612492e8166910aaedb22400ce9896bc79bfbf934b5e4946c144734375",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:32:45.531853Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2e25bb69d7a58f608d691f733b92b28770ceefc61325cad02a72b71bb52cbaad",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:32:46.011897Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/api/routes/blocks.py src/scistudio/blocks/_templates/__init__.py src/scistudio/blocks/_templates/app_block_template.py src/scistudio/blocks/_templates/io_loader_template.py src/scistudio/blocks/_templates/io_saver_template.py src/scistudio/blocks/_templates/process_block_template.py src/scistudio/blocks/_templates/render.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_scaffold_block_categories.py tests/ai/test_scaffold_template_regression.py tests/api/test_blocks_template.py tests/blocks/test_block_templates.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f0e3074e9514106cfd2c1b451223ca015a49d8b545542e1ed45bb86d8a2bc1a3",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T04:33:26.474312Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:609f20287dc4973d2e890912a6be4520796ed02dea13e0aff9cfa9a1bdeaa258",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:33:27.601933Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:44b371c88a4fcaa84bde41ba6d6c6324bd2a3ae9b17ae1f936bd55b8580aac27",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:33:27.753140Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/api/routes/blocks.py src/scistudio/blocks/_templates/__init__.py src/scistudio/blocks/_templates/app_block_template.py src/scistudio/blocks/_templates/io_loader_template.py src/scistudio/blocks/_templates/io_saver_template.py src/scistudio/blocks/_templates/process_block_template.py src/scistudio/blocks/_templates/render.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_scaffold_block_categories.py tests/ai/test_scaffold_template_regression.py tests/api/test_blocks_template.py tests/blocks/test_block_templates.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9036de989dfa7467747292d4862722c180901d2f70c4671fbc3074c10aebedf7",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T04:36:26.848123Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_tools_authoring.py tests/ai/test_scaffold_block_categories.py tests/ai/test_scaffold_template_regression.py tests/api/routes tests/api/test_blocks_template.py tests/blocks tests/blocks/test_block_templates.py",
+      "covered_surface": "python_tests",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:10eea2fd32926963482b3ceb81e70f6608c37f95181f85b1ee48679ebc70a185",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:36:44.095856Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_authoring.py src/scistudio/api/routes/blocks.py src/scistudio/blocks/_templates/__init__.py src/scistudio/blocks/_templates/app_block_template.py src/scistudio/blocks/_templates/io_loader_template.py src/scistudio/blocks/_templates/io_saver_template.py src/scistudio/blocks/_templates/process_block_template.py src/scistudio/blocks/_templates/render.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3f5abe79cc4ecc062cf86602c4b0bc256f21fc165fe1797658fe08d716ef1a44",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -68,7 +217,223 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T04:36:44.225305Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.283671Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/app_block_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/app_block_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/io_loader_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/io_loader_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/io_saver_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/io_saver_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/process_block_template.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/process_block_template.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/_templates/render.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/_templates/render.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.310219Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.358865Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.391827Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.415173Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.440604Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.463027Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.487105Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.509958Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:44.540424Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -84,11 +449,60 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "f70c0087",
+    "changed_files": [
+      ".workflow/records/2384-scaffold-block-general.json",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/api/routes/blocks.py",
+      "src/scistudio/blocks/_templates/__init__.py",
+      "src/scistudio/blocks/_templates/app_block_template.py",
+      "src/scistudio/blocks/_templates/io_loader_template.py",
+      "src/scistudio/blocks/_templates/io_saver_template.py",
+      "src/scistudio/blocks/_templates/process_block_template.py",
+      "src/scistudio/blocks/_templates/render.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_mcp_tools_authoring.py",
+      "tests/ai/test_scaffold_block_categories.py",
+      "tests/ai/test_scaffold_template_regression.py",
+      "tests/api/test_blocks_template.py",
+      "tests/blocks/test_block_templates.py"
+    ],
+    "diff_fingerprint": "sha256:1299b5065205d7ad5128acdd94ab9ebf5751f46d5c44ac8cfa47174d82e0be8f",
+    "head": "HEAD",
+    "head_sha": "d413e796",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 9,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 6,
+      "sentrux": 15,
+      "test": 6,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "scaffold_block should be a real general-purpose block-writing tool for the AI (option A): per-category base-class templates (Block/ProcessBlock/IOBlock/AppBlock/CodeBlock), canonical imports, auto-import port types so the file reloads as-is, name/description/title placeholders for ports and config, one template source shared with the GUI starter template, validate name.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T04:36:44.540966Z",
+      "diff_fingerprint": "sha256:1299b5065205d7ad5128acdd94ab9ebf5751f46d5c44ac8cfa47174d82e0be8f",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.full_audit",
+        "checks.python_tests"
+      ]
+    }
+  ],
   "record_id": "2384-scaffold-block-general",
   "requested_admin_labels": [
     {
@@ -99,17 +513,45 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "c7b81f45-af23-43a2-a4d0-9243d37f182d",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

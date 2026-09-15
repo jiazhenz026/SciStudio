@@ -299,7 +299,8 @@ def _snake_to_label(name: str) -> str:
 
 
 def _validate_block_name(name: str) -> None:
-    """Reject a ``name`` that is not a snake_case module name (#2037)."""
+    """Reject a ``name`` that is not a snake_case module name."""
+    # Development references: #2037.
     if (
         not isinstance(name, str)
         or len(name) > _BLOCK_NAME_MAX
