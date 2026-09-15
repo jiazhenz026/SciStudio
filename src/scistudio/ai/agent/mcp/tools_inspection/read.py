@@ -351,7 +351,8 @@ async def get_block_config(
 
 
 def _capability_views(block_type: str, config: Any) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    """Return the node and port capability views for ``get_block_config`` (#2435)."""
+    """Return the node and port format-capability views for ``get_block_config``."""
+    # Development references: #2435.
     from scistudio.ai.agent.mcp._context import get_optional_context
     from scistudio.ai.agent.mcp._format_capabilities import effective_node_params, node_capability_view
 
