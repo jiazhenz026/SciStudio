@@ -153,9 +153,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "d98feb6eba68719f01e50dd8681ff41da7788c53",
+    "sha": "a656b26cfc3a09363b078fe2f6c87884891e7113",
     "shas": [
-      "d98feb6eba68719f01e50dd8681ff41da7788c53"
+      "a656b26cfc3a09363b078fe2f6c87884891e7113"
     ],
     "trailers": []
   },
@@ -1099,6 +1099,226 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.307269Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.319932Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.332182Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.344300Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.356584Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.368622Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.379557Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.390946Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.402670Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.415052Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:28.449209Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.390989Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.403711Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.417711Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.429769Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.442561Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.455443Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.468775Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.483176Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.499046Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.512098Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:38.549349Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1179,9 +1399,9 @@
       "tests/packaging/test_wheel_skills.py",
       "tests/panels/test_panel_skill_examples.py"
     ],
-    "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+    "diff_fingerprint": "sha256:555216821a93547a80f691fefc7ee39bd75c9e16c78394cfbf870af3251886fa",
     "head": "HEAD",
-    "head_sha": "d98feb6e",
+    "head_sha": "a656b26c",
     "surfaces": {
       "docs": 7,
       "frontend": 0,
@@ -1204,8 +1424,8 @@
       2295,
       2383
     ],
-    "number": null,
-    "url": null
+    "number": 2461,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2461"
   },
   "reconcile_events": [
     {
@@ -1233,6 +1453,22 @@
     {
       "at": "2026-09-15T13:35:18.825395Z",
       "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T13:35:28.449267Z",
+      "diff_fingerprint": "sha256:555216821a93547a80f691fefc7ee39bd75c9e16c78394cfbf870af3251886fa",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T13:35:38.549389Z",
+      "diff_fingerprint": "sha256:555216821a93547a80f691fefc7ee39bd75c9e16c78394cfbf870af3251886fa",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
