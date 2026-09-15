@@ -163,6 +163,19 @@ def test_default_expected_path_is_scoped_by_workflow() -> None:
     assert RunDir._default_expected_path("analyze", port) == "./data/ai_outputs/adhoc/analyze/table.csv"
 
 
+def test_default_expected_path_keeps_sanitized_node_ids_distinct() -> None:
+    """#2424: ids that sanitize to the same text (``a/b`` vs ``a_b``) never share outputs."""
+    port = OutputPort(name="table", accepted_types=[DataFrame])
+    slash = RunDir._default_expected_path("a/b", port, workflow_id="main")
+    underscore = RunDir._default_expected_path("a_b", port, workflow_id="main")
+
+    assert slash != underscore
+    # Ordinary ids stay readable and unchanged.
+    assert underscore == "./data/ai_outputs/main/a_b/table.csv"
+    assert slash.startswith("./data/ai_outputs/main/a_b-")
+    assert slash.count("/") == underscore.count("/")
+
+
 def test_write_manifest_dataframe_default_extension(tmp_path: Path) -> None:
     rd = RunDir(tmp_path, "run5")
     rd.create()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import shutil
 import subprocess
@@ -21,6 +22,7 @@ from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
 from scistudio.stability import provisional
+from scistudio.workflow.flatten import authored_node_id_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -684,17 +686,30 @@ _EXCHANGE_DIR_NAME = "exchange"
 _ADHOC_WORKFLOW = "adhoc"
 
 
-def _path_component(value: str, *, fallback: str) -> str:
-    """Return *value* as one directory name, replacing separators if present.
+_PATH_COMPONENT_HASH_CHARS = 8
+"""Hex digits of the original-value digest appended to a sanitized directory name."""
 
-    Workflow run identities and node ids are already single path
-    segments and are used unchanged; anything that is not is made safe so it
-    cannot escape the exchange root.
+
+def _path_component(value: str, *, fallback: str) -> str:
+    """Return *value* as one directory name that no other value maps to.
+
+    Workflow run identities and node ids are already single path segments and
+    are used unchanged. A value that is not (it contains a separator, is ``.``
+    or ``..``, or has surrounding whitespace) is made safe so it cannot escape
+    the exchange root, and a short digest of the original value is appended so
+    two ids that sanitize to the same text (``a/b`` and ``a_b``) still get
+    distinct folders. An empty value uses *fallback*.
     """
-    cleaned = value.replace("/", "_").replace("\\", "_").strip()
-    if cleaned in ("", ".", ".."):
+    # Development references: #2424.
+    if not value:
         return fallback
-    return cleaned
+    cleaned = value.replace("/", "_").replace("\\", "_").strip()
+    if cleaned == value and cleaned not in (".", ".."):
+        return value
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:_PATH_COMPONENT_HASH_CHARS]
+    if cleaned in ("", ".", ".."):
+        cleaned = fallback
+    return f"{cleaned}-{digest}"
 
 
 def _project_exchange_dir(project_dir: Path, *, workflow_id: str, block_id: str, run_id: str) -> Path:
@@ -732,14 +747,19 @@ def _is_legacy_default_output_dir(output_dir: str, *, project_dir: Any, block_id
     palette) or ``<project>/data/exchange/<node>/outputs`` (add node) into every
     new AppBlock. Those shared folders are exactly what per-run exchange
     folders replace, so they are read as "no output folder chosen".
+
+    ``<node>`` is the id the node was authored with. For a node inlined from a
+    subworkflow the runtime *block_id* carries the subworkflow prefix
+    (``sw1__fiji``) while the saved value names the authored id (``fiji``), so
+    every id the node may have had before flattening is accepted.
     """
-    # Development references: #2424.
+    # Development references: #2424, ADR-044.
     if not project_dir:
         return False
     exchange_root = Path(str(project_dir)) / "data" / _EXCHANGE_DIR_NAME
     candidates = {exchange_root / "outputs"}
     if block_id:
-        candidates.add(exchange_root / block_id / "outputs")
+        candidates.update(exchange_root / node_id / "outputs" for node_id in authored_node_id_candidates(block_id))
     return Path(output_dir) in candidates
 
 

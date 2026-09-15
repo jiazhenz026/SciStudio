@@ -1418,6 +1418,18 @@
       "at": "2026-09-15T08:23:09.442808Z",
       "pattern": "tests/blocks/test_app_block.py",
       "reason": "scope: updated existing AppBlock test; test evidence; docs N/A"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:10:08.803353Z",
+      "pattern": "src/scistudio/workflow/flatten.py",
+      "reason": "Codex P1 review on PR #2429: collision-free sanitized path components and legacy output_dir detection for flattened subworkflow node ids (needs the flattener's id separator)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:10:08.803498Z",
+      "pattern": "tests/workflow/test_flatten_subworkflows.py",
+      "reason": "Codex P1 review on PR #2429: collision-free sanitized path components and legacy output_dir detection for flattened subworkflow node ids (needs the flattener's id separator)"
     }
   ],
   "session_id": "16c9892f-bdc9-4175-ba2b-c84d3cf9b7e1",
@@ -1461,6 +1473,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/blocks/test_app_block.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:10:08.803506Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_flatten_subworkflows.py",
       "rationale": null,
       "verified_in_diff": null
     }

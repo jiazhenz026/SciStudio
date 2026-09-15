@@ -9,6 +9,7 @@ node failed because SaveData refused to overwrite the staged input.
 
 from __future__ import annotations
 
+import json
 import sys
 import threading
 from pathlib import Path
@@ -17,6 +18,8 @@ from scistudio.blocks.app.app_block import AppBlock, _is_legacy_default_output_d
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.core.types.artifact import Artifact
 from scistudio.core.types.collection import Collection
+from scistudio.workflow.flatten import flatten_subworkflows
+from scistudio.workflow.serializer import load_yaml
 
 # Copies the first staged ``src`` input into ``outputs/result.txt``.
 _COPY_APP = """\
@@ -81,9 +84,22 @@ def test_exchange_dir_layout_is_workflow_block_run(tmp_path: Path) -> None:
         project / "data" / "exchange" / "@subworkflows@qc.yaml" / "fiji" / "r1"
     )
     # No workflow → ad-hoc; separators can never escape the exchange root.
-    assert _project_exchange_dir(project, workflow_id="", block_id="../x", run_id="a/b") == (
-        project / "data" / "exchange" / "adhoc" / ".._x" / "a_b"
-    )
+    unsafe = _project_exchange_dir(project, workflow_id="", block_id="../x", run_id="a/b")
+    assert unsafe.parent.parent == project / "data" / "exchange" / "adhoc"
+    assert unsafe.parent.name.startswith(".._x-")
+    assert unsafe.name.startswith("a_b-")
+
+
+def test_sanitized_node_ids_do_not_collide(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+
+    slash = _project_exchange_dir(project, workflow_id="main", block_id="a/b", run_id="r1")
+    underscore = _project_exchange_dir(project, workflow_id="main", block_id="a_b", run_id="r1")
+
+    assert slash != underscore
+    # Ordinary ids stay readable and unchanged.
+    assert underscore == project / "data" / "exchange" / "main" / "a_b" / "r1"
+    assert slash.parent.parent == project / "data" / "exchange" / "main"
 
 
 def test_same_node_in_two_workflows_keeps_separate_outputs(tmp_path: Path) -> None:
@@ -176,3 +192,60 @@ def test_legacy_default_detection_keeps_user_chosen_folders(tmp_path: Path) -> N
         str(exchange / "other" / "outputs"), project_dir=str(project), block_id="fiji"
     )
     assert not _is_legacy_default_output_dir(str(exchange / "outputs"), project_dir=None, block_id="fiji")
+
+
+def test_legacy_default_detection_matches_authored_id_of_flattened_node(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+    exchange = project / "data" / "exchange"
+
+    # ``sw1__fiji`` is the runtime id of node ``fiji`` inlined from subworkflow node ``sw1``.
+    for runtime_id in ("sw1__fiji", "outer__sw1__fiji"):
+        assert _is_legacy_default_output_dir(
+            str(exchange / "fiji" / "outputs"), project_dir=str(project), block_id=runtime_id
+        )
+    assert _is_legacy_default_output_dir(
+        str(exchange / "sw1__fiji" / "outputs"), project_dir=str(project), block_id="sw1__fiji"
+    )
+    assert not _is_legacy_default_output_dir(
+        str(exchange / "sw1" / "outputs"), project_dir=str(project), block_id="sw1__fiji"
+    )
+
+
+def test_appblock_in_inlined_subworkflow_ignores_legacy_output_dir(tmp_path: Path) -> None:
+    project = tmp_path / "proj"
+    project.mkdir()
+    script = _script(tmp_path, "copy_app.py", _COPY_APP)
+    legacy = project / "data" / "exchange" / "fiji" / "outputs"
+    (project / "subworkflows").mkdir()
+    (project / "subworkflows" / "qc.yaml").write_text(
+        "workflow:\n"
+        "  id: qc\n"
+        "  nodes:\n"
+        "    - id: fiji\n"
+        "      block_type: app_block\n"
+        "      config:\n"
+        f"        output_dir: {json.dumps(str(legacy))}\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    (project / "main.yaml").write_text(
+        "workflow:\n"
+        "  id: main\n"
+        "  nodes:\n"
+        "    - id: sw1\n"
+        "      block_type: subworkflow_block\n"
+        "      config:\n"
+        "        ref:\n"
+        "          path: subworkflows/qc.yaml\n"
+        "  edges: []\n",
+        encoding="utf-8",
+    )
+    flat = flatten_subworkflows(load_yaml(project / "main.yaml"), base_dir=project, self_path=project / "main.yaml")
+    (node,) = flat.nodes
+    assert node.id == "sw1__fiji"
+
+    config = _config(project, script, "main", run_id="r1", block_id=node.id, output_dir=node.config["output_dir"])
+    out = _only_file(AppBlock().run(inputs=_inputs(tmp_path, "x", 1), config=config))
+
+    assert out == project / "data" / "exchange" / "main" / "sw1__fiji" / "r1" / "outputs" / "result.txt"
+    assert not legacy.exists()

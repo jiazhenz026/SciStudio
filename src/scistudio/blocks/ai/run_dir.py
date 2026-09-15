@@ -13,6 +13,7 @@ write anywhere else the user can.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -70,12 +71,30 @@ AI_OUTPUTS_ROOT = "data/ai_outputs"
 """Project-relative folder holding AI Block default outputs."""
 
 
+_PATH_COMPONENT_HASH_CHARS = 8
+"""Hex digits of the original-value digest appended to a sanitized directory name."""
+
+
 def _path_component(value: str, *, fallback: str) -> str:
-    """Return *value* as one directory name, replacing separators if present."""
-    cleaned = value.replace("/", "_").replace("\\", "_").strip()
-    if cleaned in ("", ".", ".."):
+    """Return *value* as one directory name that no other value maps to.
+
+    A value that is already a single path segment is used unchanged. A value
+    that is not (it contains a separator, is ``.`` or ``..``, or has
+    surrounding whitespace) is made safe and gets a short digest of the
+    original value appended, so two node ids that sanitize to the same text
+    (``a/b`` and ``a_b``) never share an output folder. An empty value uses
+    *fallback*.
+    """
+    # Development references: #2424.
+    if not value:
         return fallback
-    return cleaned
+    cleaned = value.replace("/", "_").replace("\\", "_").strip()
+    if cleaned == value and cleaned not in (".", ".."):
+        return value
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:_PATH_COMPONENT_HASH_CHARS]
+    if cleaned in ("", ".", ".."):
+        cleaned = fallback
+    return f"{cleaned}-{digest}"
 
 
 def _type_chain(cls: type) -> list[str]:
