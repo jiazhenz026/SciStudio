@@ -1,0 +1,109 @@
+{
+  "base_ref": null,
+  "branch": "fix/2376-core-io-steering-warnings",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_workflow/**",
+      "src/scistudio/ai/agent/mcp/tools_inspection/**",
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "tests/ai/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T02:59:26.122740Z",
+      "owner_directive": "Cover all three cases: package-specific IO block; agent-written/scaffolded custom IO block; core load_data/save_data without core_type.",
+      "reason": "owner directive recorded at dispatch"
+    },
+    {
+      "at": "2026-09-15T02:59:26.285451Z",
+      "owner_directive": "Keep it a non-blocking warning, not an error.",
+      "reason": "owner directive recorded at dispatch"
+    },
+    {
+      "at": "2026-09-15T03:08:16.523097Z",
+      "owner_directive": "Surface non-blocking core-IO steering warnings from write_workflow, edit_workflow, update_block_config, validate_workflow and io-category scaffold_block.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T03:08:16.523384Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "implementation fix of existing #1900 advisory; owner declared no ADR",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:08:16.523402Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no contract change beyond additive default-valued result fields; owner declared no spec",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:08:16.523408Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "no architectural change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2376,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "When the agent drags a bare IO block into a workflow instead of reusing core load, MCP tools must return a warning.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2376-core-io-steering-warnings",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "8c4a1ad6-644e-41ce-b816-5ec0db7feae5",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T03:08:16.523420Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_core_io_steering_warnings.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:08:16.523431Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_workflow_block_type_guard.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
