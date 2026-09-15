@@ -98,7 +98,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "51f9105bf5042adc34ccfbb3099f03fb2930f6c0",
+    "shas": [
+      "51f9105bf5042adc34ccfbb3099f03fb2930f6c0"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -211,6 +217,100 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.668871Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.680198Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.699371Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.712992Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.725794Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.736964Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.748654Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.760334Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.772006Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.783592Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.794704Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:19:10.808407Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -229,9 +329,9 @@
       ".workflow/records/2472-test-2472-concurrent-workflow-e2e.json",
       "tests/e2e/test_concurrent_workflows.py"
     ],
-    "diff_fingerprint": "sha256:6085c4275b813b6dda8e746cb2c90b0217b4e9be5177f045b7845d97bc56abb9",
+    "diff_fingerprint": "sha256:a9e2f913d73e1afe3472bf3d4a12e803a3e78a137e670b4b4b2f63fa1318f2b0",
     "head": "HEAD",
-    "head_sha": "a2dc7adf",
+    "head_sha": "51f9105b",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -249,11 +349,26 @@
   },
   "owner_directive": "Write e2e tests running different workflows concurrently proving no state leaks between runs (lineage, outputs, workflow state, previews, prompts); strict-xfail real bugs citing issues; test-only, no src changes",
   "persona": "test_engineer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2472
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T18:18:44.710128Z",
       "diff_fingerprint": "sha256:6085c4275b813b6dda8e746cb2c90b0217b4e9be5177f045b7845d97bc56abb9",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:19:10.808448Z",
+      "diff_fingerprint": "sha256:a9e2f913d73e1afe3472bf3d4a12e803a3e78a137e670b4b4b2f63fa1318f2b0",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
