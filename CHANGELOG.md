@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2426] **`scistudio.panels` is a public API root.** Panel authors and packages
+  can check panels from Python through `from scistudio.panels import ...`:
+  `discover_panels` and `PanelRegistry` (the discovery the application runs,
+  with shadowing and diagnostics), `parse_descriptor` and `PanelDescriptor`
+  (validate one panel folder), `validate_external_references` (CDN allowlist and
+  version pinning), `validate_interactive_panel` (an interactive block's panel
+  opens in the interactive context), and `PANEL_API_VERSION`. All seven are
+  `provisional` since 0.3.5 and appear in the generated API reference; the rest
+  of the panels package stays internal.
+- [#2426] **Deprecations are recorded on the symbol.**
+  `scistudio.stability.deprecated(since=..., removed_in=..., replacement=...)`
+  marks a public symbol, or a whole module, deprecated without changing its
+  tier; `get_deprecation` reads it back. The generated API reference shows the
+  notice on each deprecated symbol, on the root page, and in the index, and the
+  public-surface snapshot freezes the start and removal versions.
+
 - MiniApps: create interactive tools on project data with optional resident Python,
   reuse them across compatible outputs, and convert them into interactive workflow
   blocks. Includes project-scoped source selection, reusable core data-view UI
@@ -521,6 +537,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   compatibility affordance for packages already published against it. A parity
   test covers all four groups, so a fifth cannot be added divergently without
   failing.
+
+### Deprecated
+
+- [#2426] **The Python previewer API is deprecated.** Every public symbol of
+  `scistudio.previewers.models`, `scistudio.previewers.data_access`, and
+  `scistudio.previewers.helpers` is deprecated since 0.3.5, keeps working through
+  the 0.5 line, and is removed in 0.6.0. Write HTML panels instead and check them
+  with `scistudio.panels`. The symbols keep their `provisional` tier until removal.
 
 ### Changed
 
