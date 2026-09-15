@@ -156,6 +156,8 @@ parts consistently with final A/B/D behavior, without rewriting unaffected copy.
   `3e966a1b5373efd451923c578636047671673252`. Phase D's writable worktree is
   untouched; reconcile with its final delivery before the Phase C PR.
 - Session history branch: `codex/2295-ai-guidance-session`.
+- PR: [#2391](https://github.com/jiazhenz026/SciStudio/pull/2391), draft pending
+  Phase D dependency delivery.
 - PR branch: `codex/2295-panel-gui-guidance-pr`, created from `origin/main` with
   only the session's net Phase C changes. Phase D implementation and the MiniApp
   skill are not carried into this PR. MiniApp registration remains Phase D's work.

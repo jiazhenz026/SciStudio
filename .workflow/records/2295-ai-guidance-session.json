@@ -606,7 +606,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "9c438acb",
+    "shas": [
+      "9c438acb"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -1586,6 +1592,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.678022Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.692405Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.707633Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.722174Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.738017Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.753245Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.766627Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.780056Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.849358Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.877796Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:49:28.944092Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1598,15 +1692,14 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "3e966a1b5373efd451923c578636047671673252",
-    "base_sha": "3e966a1b",
+    "base": "origin/main",
+    "base_sha": "f70c0087",
     "changed_files": [
       ".workflow/records/2295-ai-guidance-session.json",
       "CHANGELOG.md",
       "docs/planning/adr-054-ai-guidance-session.md",
       "docs/specs/adr-054-panels.md",
       "src/scistudio/_skills/scistudio/scistudio-use-gui/SKILL.md",
-      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
       "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
       "src/scistudio/agent_provisioning/_orchestrate.py",
       "src/scistudio/agent_provisioning/skills.py",
@@ -1616,26 +1709,33 @@
       "tests/ai/test_mcp_tools_qa.py",
       "tests/panels/test_panel_skill_examples.py"
     ],
-    "diff_fingerprint": "sha256:f4ea47938e048bbcf7bdc83c8e54a5d549afc360149686f76170accf06e01dae",
+    "diff_fingerprint": "sha256:8a8e831bf3838042618702db2cc72af46bed7402bd6333383d4e6c3745232f1b",
     "head": "HEAD",
-    "head_sha": "18ea62d0",
+    "head_sha": "9c438acb",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 5,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 11,
+      "sentrux": 10,
       "test": 4,
       "workflow_ci": 0
     }
   },
   "owner_directive": "Owner-guided session: comprehensively improve embedded-AI guidance and ADR-054 Phase C documentation; include all tutorials in final migration. First implement a scistudio-use-gui skill limited to panel/MiniApp authoring and repair or explicit GUI requests, with no automatic GUI checks for plots/workflows; record the full session TODO list. Claude prompt unification is delegated independently under #2383.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2013
+    ],
+    "number": 2391,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T03:56:28.660412Z",
@@ -1730,6 +1830,22 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T04:49:28.944185Z",
+      "diff_fingerprint": "sha256:8a8e831bf3838042618702db2cc72af46bed7402bd6333383d4e6c3745232f1b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.commit_hygiene",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check"
+      ]
     }
   ],
   "record_id": "2295-ai-guidance-session",
@@ -1737,9 +1853,13 @@
   "required_obligations": {
     "admin_labels": [],
     "checks": [
+      "commit_hygiene",
       "format_check",
       "full_audit",
-      "lint_format"
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
     ],
     "docs": [
       "docs_required_or_na"
