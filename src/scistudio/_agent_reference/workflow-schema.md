@@ -64,6 +64,13 @@ workflow:                            # REQUIRED top-level key
 - **Prefer core `Load`/`Save`** (`load_data` / `save_data`) with a `core_type` —
   it covers package types (`Spectrum`, `Image`, …) via the `core_type` enum. Use a
   package-specific IO block only when no `core_type` fits.
+- **File format is a `capability_id`.** `get_block_schema` lists the format
+  capabilities a core Load/Save node or a Code/App Block port can pick
+  (`format_capabilities`); `get_block_config` reports the one a node or port will
+  use and whether the choice is ambiguous. Leave `capability_id` unset when the
+  path extension decides it; set it (node config for Load/Save, the port entry
+  for Code/App Block ports) when several formats match. `update_block_config`
+  refuses an id that does not fit the direction, data type, and extension.
 - Fan-out = multiple edges with the same `source`; no "tee" block needed.
 
 ## Canonical tool sequence

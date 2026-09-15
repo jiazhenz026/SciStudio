@@ -670,6 +670,11 @@ async def _supervise(job: _Job) -> None:
         job.exit_code = exit_code
         job.state = "cancelled" if job.cancel_requested else "exited"
         job.finished_at = time.time()
+        # #2407: settle whether anything is left before waking the waiters. A
+        # report taken between the exit and the first leftover check read
+        # "background process still running" for a command that started none.
+        if await asyncio.to_thread(job.handle.live_members) == 0:
+            _release(job)
         job.exited.set()
         logger.info("run_command job=%s outcome=%s exit_code=%s", job.job_id, job.state, exit_code)
         await _release_when_idle(job)
