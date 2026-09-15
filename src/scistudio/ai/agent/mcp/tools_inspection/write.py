@@ -112,8 +112,23 @@ async def update_block_config(
             if not isinstance(config_node, dict):
                 target["config"] = dict(params)
             else:
+                # An explicit ``params`` key still replaces ``config.params`` as a whole.
+                if "params" in params:
+                    config_node["params"] = params["params"]
+                nested = config_node.get("params")
                 for key, value in params.items():
-                    config_node[key] = value
+                    if key == "params":
+                        continue
+                    if isinstance(nested, dict):
+                        # #2403: a GUI-saved node nests its params under
+                        # ``config.params``. Patch them there, and drop a
+                        # same-named top-level key the nested value would
+                        # shadow, so the node keeps one shape.
+                        nested[key] = value
+                        if key in config_node:
+                            del config_node[key]
+                    else:
+                        config_node[key] = value
 
             if version_context is not None:
                 _, runtime = version_context

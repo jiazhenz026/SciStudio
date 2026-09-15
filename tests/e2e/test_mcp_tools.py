@@ -948,15 +948,11 @@ def test_managed_commands_run_report_and_cancel(agent: Agent) -> None:
     assert Path(done["working_directory"]) == agent.project.path
     assert done["label"] == "where"
 
-    # TODO(#2407): the run_command result itself can report a background process
-    #   for a command that started none; only the settled value is asserted.
+    # #2407: a command that started no background process reports none, immediately and later.
+    assert done["background_processes_running"] is False, done
     settled = agent.call("get_command_status", job_id=done["job_id"], wait_seconds=10).ok()
     assert settled["state"] == "exited" and settled["exit_code"] == 0
-    deadline = time.monotonic() + 30
-    while settled["background_processes_running"]:
-        assert time.monotonic() < deadline, settled
-        time.sleep(0.5)
-        settled = agent.call("get_command_status", job_id=done["job_id"]).ok()
+    assert settled["background_processes_running"] is False, settled
 
     failing = agent.call("run_command", command="exit 3")
     assert failing.is_error  # a non-zero exit reaches the host as an error result
@@ -1147,20 +1143,58 @@ def test_finish_ai_block_outside_an_ai_block_reports_it_is_not_in_one(agent: Age
 
 
 # ---------------------------------------------------------------------------
-# Documented contracts the product does not meet yet.
+# Documented contracts fixed in #2413 (#2402-#2406, #2408).
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_run_status reports 'succeeded' for failed and cancelled runs — TODO(#2408)",
-)
 def test_get_run_status_reports_the_outcome_of_failed_and_cancelled_runs(agent: Agent) -> None:
     failed = agent.observed["failed_run_status"]
     cancelled = agent.observed["cancelled_run_status"]
     assert failed["state"] == "failed", failed
     assert cancelled["state"] == "cancelled", cancelled
+
+
+def test_get_lineage_reaches_the_table_the_block_read(agent: Agent) -> None:
+    lineage = agent.observed["lineage"]
+    upstream = agent.observed["loaded_ref"]["metadata"]["framework"]["object_id"]
+    assert upstream in {node["object_id"] for node in lineage["nodes"]}, lineage
+    assert lineage["edges"], lineage
+
+
+def test_gui_saved_node_config_is_read_as_the_block_params(agent: Agent, tutorial_run: dict[str, Any]) -> None:
+    # workflows/main.yaml was saved by the GUI's endpoint, which nests node config
+    # under config.params; both core nodes set core_type there and the run used it.
+    warnings = tutorial_run["validation"]["warnings"]
+    assert not [warning for warning in warnings if "no core_type" in warning], warnings
+    load = agent.call("get_block_config", workflow_path="workflows/main.yaml", block_id="load").ok()
+    assert load["params"].get("core_type") == "DataFrame", load
+
+
+def test_list_plot_targets_offers_only_real_output_ports(agent: Agent) -> None:
+    registered = {row["type_name"] for row in agent.call("list_blocks").ok()["blocks"]}
+    for target in agent.observed["plot_targets"]:
+        assert not any("not registered" in note for note in target["diagnostics"]) or (
+            target["block_type"] not in registered
+        ), target
+        schema = agent.call("get_block_schema", type_name=target["block_type"]).ok()
+        assert target["output_port"] in [port["name"] for port in schema["ports"]["output"]], target
+
+
+def test_reload_blocks_reports_the_type_names_it_added(agent: Agent) -> None:
+    reload = agent.observed["reload"]
+    assert set(reload["new_types"]) <= set(reload["result"]["added"]), reload
+
+
+def test_validate_workflow_is_invalid_when_it_reports_errors(agent: Agent) -> None:
+    unregistered = REVIEW_WORKFLOW.replace("block_type: normalize_fluorescence", "block_type: no_such_block")
+    result = agent.call("validate_workflow", yaml_or_path=unregistered).ok()
+    assert result["errors"], result
+    assert result["valid"] is False, result
+
+
+# ---------------------------------------------------------------------------
+# Documented contracts the product does not meet yet.
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.xfail(
@@ -1187,74 +1221,11 @@ def test_get_project_info_lists_recent_runs(agent: Agent, tutorial_run: dict[str
 @pytest.mark.xfail(
     strict=True,
     raises=AssertionError,
-    reason="get_lineage returns no ancestors for a block output with recorded inputs — TODO(#2402)",
-)
-def test_get_lineage_reaches_the_table_the_block_read(agent: Agent) -> None:
-    lineage = agent.observed["lineage"]
-    upstream = agent.observed["loaded_ref"]["metadata"]["framework"]["object_id"]
-    assert upstream in {node["object_id"] for node in lineage["nodes"]}, lineage
-    assert lineage["edges"], lineage
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="core-IO advisories and get_block_config ignore node config saved under config.params — TODO(#2403)",
-)
-def test_gui_saved_node_config_is_read_as_the_block_params(agent: Agent, tutorial_run: dict[str, Any]) -> None:
-    # workflows/main.yaml was saved by the GUI's endpoint, which nests node config
-    # under config.params; both core nodes set core_type there and the run used it.
-    warnings = tutorial_run["validation"]["warnings"]
-    assert not [warning for warning in warnings if "no core_type" in warning], warnings
-    load = agent.call("get_block_config", workflow_path="workflows/main.yaml", block_id="load").ok()
-    assert load["params"].get("core_type") == "DataFrame", load
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="list_plot_targets lists save_data with an invented port and a false 'not registered' note — TODO(#2404)",
-)
-def test_list_plot_targets_offers_only_real_output_ports(agent: Agent) -> None:
-    registered = {row["type_name"] for row in agent.call("list_blocks").ok()["blocks"]}
-    for target in agent.observed["plot_targets"]:
-        assert not any("not registered" in note for note in target["diagnostics"]) or (
-            target["block_type"] not in registered
-        ), target
-        schema = agent.call("get_block_schema", type_name=target["block_type"]).ok()
-        assert target["output_port"] in [port["name"] for port in schema["ports"]["output"]], target
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="reload_blocks 'added' lists display names, not block type names — TODO(#2405)",
-)
-def test_reload_blocks_reports_the_type_names_it_added(agent: Agent) -> None:
-    reload = agent.observed["reload"]
-    assert set(reload["new_types"]) <= set(reload["result"]["added"]), reload
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
     reason="a validated MiniApp is missing from the MiniApps list until a manual reload — TODO(#2421)",
 )
 def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     before = agent.observed["miniapps_before_reload"]
     assert MINIAPP_ID in [app["panel_id"] for app in before], before
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="validate_workflow returns valid=true with an unregistered block_type listed in errors — TODO(#2406)",
-)
-def test_validate_workflow_is_invalid_when_it_reports_errors(agent: Agent) -> None:
-    unregistered = REVIEW_WORKFLOW.replace("block_type: normalize_fluorescence", "block_type: no_such_block")
-    result = agent.call("validate_workflow", yaml_or_path=unregistered).ok()
-    assert result["errors"], result
-    assert result["valid"] is False, result
 
 
 # ---------------------------------------------------------------------------

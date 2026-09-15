@@ -178,6 +178,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 return self._rt.event_bus
 
             @property
+            def lineage_store(self) -> object:
+                # #2402: ``get_lineage`` walks the run record (block_io) for a
+                # block output's inputs; the MetadataStore shim follows only
+                # ``derived_from``.
+                return getattr(self._rt, "lineage_store", None)
+
+            @property
             def process_registry(self) -> object:
                 # ADR-055 Spec 2 (#2279): the registry this lifespan's shutdown
                 # ``terminate_all`` runs on, so ``run_command`` processes stop

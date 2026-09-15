@@ -5,6 +5,10 @@ advisory, the convention the API layer already applies. The MCP tool computed
 ``valid=not errors``, so any advisory reported ``valid=False`` — telling the
 agent to fix a workflow that run start would dispatch. That became reachable
 when #1988 widened the unregistered-block-type report to nodes with no edges.
+
+#2406: advisories are returned in ``warnings`` so ``errors`` is empty on a valid
+result, and an unregistered ``block_type`` is an error, matching
+``write_workflow``, which refuses to write that workflow.
 """
 
 from __future__ import annotations
@@ -60,6 +64,19 @@ workflow:
   edges: []
 """
 
+_UNKNOWN_PORT_ONLY = """
+workflow:
+  name: unknown-port
+  nodes:
+    - id: load
+      block_type: load_data
+    - id: save
+      block_type: save_data
+  edges:
+    - source: load:no_such_port
+      target: save:data
+"""
+
 _WITH_A_HARD_ERROR = """
 workflow:
   name: duplicate-ids
@@ -72,12 +89,20 @@ workflow:
 """
 
 
-def test_an_unresolved_node_reports_valid_with_the_warning_returned(ctx: _StubRuntime) -> None:
-    result = _run(tools_workflow.validate_workflow(_UNRESOLVED_ONLY))
+def test_an_advisory_reports_valid_with_the_warning_returned(ctx: _StubRuntime) -> None:
+    result = _run(tools_workflow.validate_workflow(_UNKNOWN_PORT_ONLY))
 
     assert result.valid is True, result.errors
-    assert any("srs_baseline_block" in d for d in result.errors)
-    assert all(d.startswith("Warning:") for d in result.errors), result.errors
+    assert result.errors == []
+    assert any(d.startswith("Warning:") and "no_such_port" in d for d in result.warnings), result.warnings
+
+
+def test_an_unresolved_node_reports_invalid_like_write_workflow(ctx: _StubRuntime) -> None:
+    result = _run(tools_workflow.validate_workflow(_UNRESOLVED_ONLY))
+
+    assert result.valid is False
+    assert any("srs_baseline_block" in d for d in result.errors), result.errors
+    assert not any("srs_baseline_block" in d for d in result.warnings), result.warnings
 
 
 def test_a_hard_error_still_reports_invalid(ctx: _StubRuntime) -> None:
