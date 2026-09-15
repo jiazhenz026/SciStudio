@@ -188,7 +188,7 @@ def refresh_all_registries(self: ApiRuntime) -> None:
     The order is the one the project-switch path already used: types, then
     blocks, then the panel service, which rescans the deprecated previewers and
     then applies the panel catalog incrementally: only contexts on a panel that
-    changed are revoked, and a project switch re-arms its watches (#2465).
+    changed are revoked, and a project switch re-arms its watches.
     """
     # Development references: #2009, #2465, ADR-053, ADR-054, FR-010, FR-062, FR-065.
     self.refresh_type_registry()

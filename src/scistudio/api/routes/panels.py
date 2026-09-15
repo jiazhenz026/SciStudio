@@ -546,8 +546,9 @@ def _refresh_panels(runtime: Any) -> None:
     """Rescan the panels so the MiniApp just written is registered before the tab opens.
 
     Only the panel catalog: writing a MiniApp changes no block, type or legacy
-    previewer, and the rescan is incremental, so open panels stay open (#2465).
+    previewer, and the rescan is incremental, so open panels stay open.
     """
+    # Development references: #2465.
     try:
         get_panel_service(runtime).rescan()
     except Exception:

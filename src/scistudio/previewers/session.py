@@ -66,8 +66,9 @@ def _activated_package_import_roots(owner_kind: OwnerKind) -> Iterator[None]:
     A package previewer module is importable at render time only because
     discovery cached it under a scoped ``prepended_sys_paths``; a lazy
     third-party import inside the provider needs the plugin ``src`` and
-    ``site-packages`` again. Package tier only, best effort (#2112).
+    ``site-packages`` again. Package tier only, best effort.
     """
+    # Development references: #2112.
     if owner_kind is not OwnerKind.PACKAGE:
         yield
         return
@@ -280,10 +281,10 @@ class PreviewSessionManager(SessionStore):
 
         A drop-in previewer's ``module:callable`` provider is imported by file
         path from its owning tier root under a synthetic name, so a same-named
-        module in another tier can neither win the import nor be poisoned by it
-        (#2017, #2072, FR-016). Package and core string providers are ordinary
-        installed imports.
+        module in another tier can neither win the import nor be poisoned by it.
+        Package and core string providers are ordinary installed imports.
         """
+        # Development references: #2017, #2072, FR-016.
         if not isinstance(provider, str):
             return _provider_from_decl(provider)
         owning_root = self._owning_previewer_root(spec.owner_kind)

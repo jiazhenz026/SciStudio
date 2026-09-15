@@ -81,7 +81,7 @@ def panel_catalog_spec(panel: PanelDescriptor) -> PreviewerSpec:
 @internal()
 @dataclass(frozen=True)
 class CandidateSet:
-    """Panels and legacy previewers merged into one namespace (FR-007).
+    """Panels and legacy previewers merged into one namespace.
 
     ``routable`` holds every candidate the ladder considers. ``by_id`` holds the
     namespace winner of each id (a panel card or a legacy spec). ``panels`` holds

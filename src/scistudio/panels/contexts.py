@@ -46,8 +46,9 @@ def project_key(runtime: Any) -> tuple[Any, ...]:
     """Which project a context belongs to: the open project's id and folder.
 
     Reopening the project that is already open keeps its contexts; opening
-    another project, or closing it, ends them (MiniApp FR-013).
+    another project, or closing it, ends them.
     """
+    # Development references: MiniApp FR-013, #2465.
     project = getattr(runtime, "active_project", None)
     return (getattr(project, "id", None), str(getattr(project, "path", "")))
 
@@ -144,7 +145,8 @@ class PanelContexts:
             return closed
 
     def close_project(self) -> list[str]:
-        """End every context of the project being left, now (MiniApp FR-013)."""
+        """End every context of the project being left, now."""
+        # Development references: MiniApp FR-013.
         with self.lock:
             closed = self.close_all()
             self._project = project_key(self.runtime)
@@ -392,7 +394,8 @@ class PanelContexts:
         return context
 
     def _watch(self, context: PanelContext) -> None:
-        """Watch the panel's page while the context is open (FR-022, every kind)."""
+        """Watch the panel's page while the context is open, whatever its kind."""
+        # Development references: MiniApp FR-022, #2465.
         watches = getattr(self.service, "file_watches", None)
         if watches is not None:
             context.watched = bool(watches.acquire(context.panel))

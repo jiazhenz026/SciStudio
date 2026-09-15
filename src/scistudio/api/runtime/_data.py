@@ -326,9 +326,9 @@ def get_panel_service(self: ApiRuntime) -> Any:
     """Return this runtime's panel service, built on first use and never rebuilt.
 
     The panel service owns the panel catalog, routing over panels and the
-    deprecated previewers, preview sessions, panel contexts and their processes
-    (ADR-054, #2465).
+    deprecated previewers, preview sessions, panel contexts and their processes.
     """
+    # Development references: #2465, ADR-054.
     from scistudio.panels.service import get_panel_service as _get
 
     return _get(self)

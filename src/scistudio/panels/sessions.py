@@ -410,7 +410,8 @@ def child_target_from_resource(parent: PreviewTarget, resource_id: str, params: 
 
 
 def sibling_for_format(primary: Path, fmt: str) -> Path:
-    """The sibling artifact file for *fmt* next to *primary* (#1918)."""
+    """The sibling artifact file for *fmt* next to *primary*."""
+    # Development references: #1918.
     found = sibling_for(primary, fmt)
     return found if found is not None else primary.parent / f"{primary.stem}.{canonical_format(fmt)}"
 

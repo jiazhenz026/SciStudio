@@ -98,7 +98,7 @@ class _State:
 
 @internal()
 class PanelService:
-    """The runtime-owned panel subsystem (ADR-054 §2)."""
+    """The runtime-owned panel subsystem: one per runtime, never rebuilt."""
 
     def __init__(
         self,
@@ -220,7 +220,8 @@ class PanelService:
         return diff
 
     def ensure_fresh(self) -> RegistryDiff:
-        """Bring the catalog up to date when the panel folders changed on disk (#2421)."""
+        """Bring the catalog up to date when the panel folders changed on disk."""
+        # Development references: #2421.
         return self.rescan()
 
     def rescan(self, *, force: bool = False, legacy: bool = False, reload_choices: bool = False) -> RegistryDiff:
