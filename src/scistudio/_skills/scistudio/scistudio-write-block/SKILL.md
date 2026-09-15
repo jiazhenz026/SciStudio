@@ -74,16 +74,19 @@ genuinely helps the user. See `block-contract.md` for how to author each.
 ```
 mcp__scistudio__list_blocks                    # reuse check — STOP if a match exists
 mcp__scistudio__list_types                     # pick concrete port types
-mcp__scistudio__scaffold_block(name=..., category="process|io|app|code",
-    input_ports={...}, output_ports={...})     # READ every warnings[] entry
-# edit blocks/<name>.py — fill the body per block-contract.md
+mcp__scistudio__scaffold_block(name=..., category="block|process|io|app",
+    input_ports={...}, output_ports={...}, description=...)  # READ every warnings[] entry
+# edit blocks/<name>.py — fill the "EDIT THIS" part and every "Describe ..." label
 mcp__scistudio__reload_blocks                  # re-scan the registry
 mcp__scistudio__list_blocks                    # confirm it appears
 mcp__scistudio__run_block_tests type_name="<registered name>"   # read pytest output verbatim
 ```
 
-`category` → parent: `process`→ProcessBlock, `io`→IOBlock, `app`→AppBlock,
-`code`→CodeBlock. Every write-class tool returns a `next_step` — read and follow.
+`category` → parent: `block`→Block, `process`→ProcessBlock, `io`→SimpleLoader
+(SimpleSaver when only `input_ports` are given), `app`→AppBlock. The file imports
+and registers as written. `code`, `ai` and `subworkflow` are refused: those steps
+are built-in blocks configured as workflow nodes. Every write-class tool returns a
+`next_step` — read and follow.
 
 ## Make it usable — label everything the user sees
 

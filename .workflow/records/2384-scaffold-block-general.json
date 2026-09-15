@@ -1,0 +1,164 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2384-scaffold-block-general",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "src/scistudio/blocks/_templates/**",
+      "src/scistudio/api/routes/blocks.py",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/**",
+      "tests/ai/**",
+      "tests/api/**",
+      "tests/blocks/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T03:48:16.676091Z",
+      "owner_directive": "Protected path changes under src/scistudio/blocks/** are authorised for this PR.",
+      "reason": "owner authorisations recorded at dispatch"
+    },
+    {
+      "at": "2026-09-15T03:48:16.942446Z",
+      "owner_directive": "Also close #2037: validate scaffold_block name and route the target through _safe_under so it stays under blocks/.",
+      "reason": "dispatch"
+    },
+    {
+      "at": "2026-09-15T04:19:49.872183Z",
+      "owner_directive": "Implement per-category starter templates shared with GUI endpoint; refuse code/ai/subworkflow per the CodeBlock config-only contract; validate name (#2037).",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T04:19:49.872673Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872689Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "tool behaviour fix within existing ADR-040 \u00a73.2a / ADR-036 \u00a73.12 contracts; no architectural decision",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872694Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "no spec governs scaffold_block output text; skill text updated",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872697Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "ARCHITECTURE.md scaffold_block row remains accurate",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2384,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2037,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "scaffold_block should be a real general-purpose block-writing tool for the AI (option A): per-category base-class templates (Block/ProcessBlock/IOBlock/AppBlock/CodeBlock), canonical imports, auto-import port types so the file reloads as-is, name/description/title placeholders for ports and config, one template source shared with the GUI starter template, validate name.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2384-scaffold-block-general",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "c7b81f45-af23-43a2-a4d0-9243d37f182d",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T04:19:49.872703Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_scaffold_block_categories.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872706Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_block_templates.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872713Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks_template.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872715Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872716Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_scaffold_template_regression.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:19:49.872717Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_authoring.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
