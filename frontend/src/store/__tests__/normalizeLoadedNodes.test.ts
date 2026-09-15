@@ -80,6 +80,39 @@ describe("interaction memory lives under params (#2412)", () => {
     expect(out.config).toEqual({ params: { mode: "fast", interactive_memory: memory } });
   });
 
+  // PR #2414 review: structural metadata is not a block parameter.
+  it("keeps a canonical config with top-level label metadata untouched", () => {
+    const node = {
+      id: "qc",
+      block_type: "data_router",
+      config: { label: "QC", params: { interactive_memory: memory } },
+    } as unknown as WorkflowNode;
+
+    const [out] = normalizeLoadedNodes([node]);
+    expect(out).toBe(node); // identity preserved: nothing to fold
+    expect(out.config.label).toBe("QC");
+  });
+
+  it("preserves top-level metadata while folding genuine flat parameters", () => {
+    const node = {
+      id: "r",
+      block_type: "data_router",
+      config: {
+        label: "QC",
+        style: { width: 240 },
+        mode: "fast",
+        params: { interactive_memory: memory },
+      },
+    } as unknown as WorkflowNode;
+
+    const [out] = normalizeLoadedNodes([node]);
+    expect(out.config).toEqual({
+      label: "QC",
+      style: { width: 240 },
+      params: { mode: "fast", interactive_memory: memory },
+    });
+  });
+
   it("mergeNodeConfig writes memory into params and drops the top-level copy", () => {
     const node = {
       id: "r",

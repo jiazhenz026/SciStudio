@@ -369,6 +369,208 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:31.615197Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:43029f9f5854a3b5950dee9946776e29fbf60aa6cbdbd405eeeda0e80e9a96cb",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:33.722503Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fead8db938db88119213e4fb2212cf5c85b29f0c3f9e664f9f3acc1d078d811e",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:35.259232Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c812cdd28570dabd5d8af489e829fd9aaa018e99213a4157798805f5d80460f8",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:35.364786Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/blocks/base/interactive.py tests/ai/test_mcp_tools_inspection.py tests/blocks/test_interactive_mixin.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fbc5aa03a7e26517399f0007f8a0f0d923e299247fb8c0384603e28f8b264a3c",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T16:20:46.282303Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 1,
+      "input_fingerprint": "sha256:099328a02ea5ac1e8f07b2279fe9e98776348468798c7ac7a77f1f39293750ce",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:53.172264Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a5700e71a25a6bd151a7bb299bfde574c37ece8caaf7eb747a49f8105b9fc72",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:53.318401Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bb618c226a2f5223ef648c91b0f494df1b61c7440f6668f9924b5e7eb0bb1db6",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:20:53.363896Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/blocks/base/interactive.py tests/ai/test_mcp_tools_inspection.py tests/blocks/test_interactive_mixin.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b3098e41ad4eceace5c63112167175fd190428edccea056645052aa14631043c",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T16:21:09.790317Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/adr052_contract/test_reexports.py tests/ai/agent/mcp tests/ai/test_mcp_tools_inspection.py tests/blocks tests/blocks/io/test_xlsx_io.py tests/blocks/test_data_router.py tests/blocks/test_interactive_adversarial_registry.py tests/blocks/test_interactive_mixin.py tests/blocks/test_interactive_registry_validation.py tests/blocks/test_pair_editor.py tests/engine/test_interactive_system_smoke.py tests/fixtures/test_images.py tests/fixtures/test_noop_block.py tests/panels/test_builtin_panels.py tests/panels/test_panel_descriptor.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:696fa3a3dc4e47383bccf0777a190fd0bb670c4dff8d7334db329a329fcb5313",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:21:10.535945Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/blocks/base/interactive.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6c9152acadaae385b159644c830c2e15d230c2ce5b1c8667e22dd8f9d39383fc",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T16:23:03.840376Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:099328a02ea5ac1e8f07b2279fe9e98776348468798c7ac7a77f1f39293750ce",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -382,11 +584,8 @@
   "declared_scope": {
     "exclude": [],
     "include": [
-      "src/scistudio/blocks/base/interactive.py",
-      "src/scistudio/ai/agent/mcp/tools_inspection/write.py",
-      "frontend/src/**",
-      "tests/blocks/test_interactive_mixin.py",
-      "tests/ai/**"
+      "frontend/src/store/workflowSlice.parts/workflowHelpers.ts",
+      "frontend/src/store/__tests__/normalizeLoadedNodes.test.ts"
     ]
   },
   "directive_events": [
@@ -404,6 +603,11 @@
       "at": "2026-09-15T07:31:28.506292Z",
       "owner_directive": "Fix the dispatchMiniApp.test.ts mock rename (setInteractivePrompt -> upsertInteractivePrompt) left by the #2392/#2397 merge race, which breaks frontend typecheck on main and would block this PR's frontend check.",
       "reason": "tests, docs N/A, and a main-breaking typecheck fix"
+    },
+    {
+      "at": "2026-09-15T16:19:59.389202Z",
+      "owner_directive": "\u53bb PR 2414 \u4fee P2 Badge: Preserve top-level metadata during memory normalization; \u4fdd\u7559\u88ab\u8bc6\u522b\u7684\u9876\u5c42\u5143\u6570\u636e\uff08\u5982 label/style\uff09\u800c\u4e0d\u662f\u628a\u6240\u6709\u975e memory \u952e\u5f53\u6210\u6241\u5e73\u5757\u53c2\u6570\u6298\u53e0\u8fdb params; \u7136\u540e\u63a8\u4e00\u4e2a\u63d0\u4ea4\u4e0a\u53bb",
+      "reason": "Owner directed a follow-up fix on PR 2414: P2 review finding \u2014 normalizeLoadedNodes folds top-level metadata (e.g. label) into params when params holds only interactive_memory, erasing node.config.label read by plot targets."
     }
   ],
   "docs_events": [
@@ -1367,6 +1571,336 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.611141Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.623206Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.635312Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.647738Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.660388Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.672769Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.685015Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.698160Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.710419Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.722248Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:21:10.739694Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:03.959197Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:03.973535Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:03.986281Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:03.999205Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.012297Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.024772Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.037234Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.049763Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.071260Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.089163Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:23:04.110818Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:52.943393Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:52.955780Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:52.967549Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:52.979365Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:52.992571Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.005432Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.017662Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.029790Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.041916Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.053942Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:24:53.071440Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1379,15 +1913,14 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "443a1853c10fdcc32d376c3116a48478326ecaea",
-    "base_sha": "443a1853",
+    "base": "origin/main",
+    "base_sha": "561259fd",
     "changed_files": [
       ".workflow/records/2412-interaction-memory-params.json",
       "frontend/src/App.parts/InteractiveModals.memory.test.tsx",
       "frontend/src/App.parts/InteractiveModals.tsx",
       "frontend/src/components/BottomPanel.parts/ConfigPanel.memory.test.tsx",
       "frontend/src/components/BottomPanel.parts/ConfigPanel.tsx",
-      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
       "frontend/src/lib/interactiveMemory.test.ts",
       "frontend/src/lib/interactiveMemory.ts",
       "frontend/src/store/__tests__/normalizeLoadedNodes.test.ts",
@@ -1397,20 +1930,20 @@
       "tests/ai/test_mcp_tools_inspection.py",
       "tests/blocks/test_interactive_mixin.py"
     ],
-    "diff_fingerprint": "sha256:5b6d6922a00af640e19d9389e54a6e3583560590e235da3715c72e44aafc1c74",
+    "diff_fingerprint": "sha256:0b937c174ccceb08b6a69cdf701d2bf4b586e0e5e4086a4bbe08bb6704e7c1a3",
     "head": "HEAD",
-    "head_sha": "6d2a164a",
+    "head_sha": "5c058a0f",
     "surfaces": {
       "docs": 0,
-      "frontend": 9,
+      "frontend": 8,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 11,
+      "implementation": 10,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 1,
-      "sentrux": 13,
-      "test": 7,
+      "sentrux": 12,
+      "test": 6,
       "workflow_ci": 0
     }
   },
@@ -1500,6 +2033,35 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T16:21:10.739770Z",
+      "diff_fingerprint": "sha256:0b937c174ccceb08b6a69cdf701d2bf4b586e0e5e4086a4bbe08bb6704e7c1a3",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-09-15T16:23:04.110880Z",
+      "diff_fingerprint": "sha256:0b937c174ccceb08b6a69cdf701d2bf4b586e0e5e4086a4bbe08bb6704e7c1a3",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "scope.out-of-scope"
+      ]
+    },
+    {
+      "at": "2026-09-15T16:24:53.071481Z",
+      "diff_fingerprint": "sha256:0b937c174ccceb08b6a69cdf701d2bf4b586e0e5e4086a4bbe08bb6704e7c1a3",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2412-interaction-memory-params",
@@ -1555,6 +2117,48 @@
       "at": "2026-09-15T07:31:28.506462Z",
       "pattern": "frontend/src/**",
       "reason": "tests, docs N/A, and a main-breaking typecheck fix"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:19:59.389395Z",
+      "pattern": "frontend/src/store/workflowSlice.parts/workflowHelpers.ts",
+      "reason": "Owner directed a follow-up fix on PR 2414: P2 review finding \u2014 normalizeLoadedNodes folds top-level metadata (e.g. label) into params when params holds only interactive_memory, erasing node.config.label read by plot targets."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:19:59.389399Z",
+      "pattern": "frontend/src/store/__tests__/normalizeLoadedNodes.test.ts",
+      "reason": "Owner directed a follow-up fix on PR 2414: P2 review finding \u2014 normalizeLoadedNodes folds top-level metadata (e.g. label) into params when params holds only interactive_memory, erasing node.config.label read by plot targets."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:24:38.091670Z",
+      "pattern": "src/scistudio/blocks/base/interactive.py",
+      "reason": "Restore the original PR #2412 declared scope that the follow-up session init overwrote; the backend and test paths were part of the merged PR work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:24:38.091892Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_inspection/write.py",
+      "reason": "Restore the original PR #2412 declared scope that the follow-up session init overwrote; the backend and test paths were part of the merged PR work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:24:38.091895Z",
+      "pattern": "frontend/src/**",
+      "reason": "Restore the original PR #2412 declared scope that the follow-up session init overwrote; the backend and test paths were part of the merged PR work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:24:38.091896Z",
+      "pattern": "tests/blocks/test_interactive_mixin.py",
+      "reason": "Restore the original PR #2412 declared scope that the follow-up session init overwrote; the backend and test paths were part of the merged PR work."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T16:24:38.091897Z",
+      "pattern": "tests/ai/**",
+      "reason": "Restore the original PR #2412 declared scope that the follow-up session init overwrote; the backend and test paths were part of the merged PR work."
     }
   ],
   "session_id": "f3d46b7a-804f-4cbe-ad04-6b74a45cc1bb",
@@ -1590,6 +2194,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/BottomPanel.parts/ConfigPanel.memory.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T16:19:59.389404Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/normalizeLoadedNodes.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }
