@@ -251,8 +251,8 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
     #
     # A reconnect inside the grace period re-registers the id. This wakes to find
     # it present, and the MiniApp keeps running.
-    from scistudio.panels.contexts import get_panel_contexts
     from scistudio.panels.process_config import client_disconnect_grace
+    from scistudio.panels.service import get_panel_contexts
 
     try:
         await asyncio.sleep(client_disconnect_grace())
@@ -396,7 +396,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                 elif msg_type == "interactive_complete":
                     # ADR-054: a new panel must own this exact waiting prompt.
                     # Validation claims once; the event contract below stays unchanged.
-                    from scistudio.panels.contexts import get_panel_contexts
+                    from scistudio.panels.service import get_panel_contexts
                     from scistudio.panels.targets import PanelError
 
                     runtime = getattr(event_bus, "runtime", None)

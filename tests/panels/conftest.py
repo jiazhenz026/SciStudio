@@ -9,10 +9,9 @@ import pytest
 from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
 from scistudio.engine.events import EventBus
-from scistudio.panels.contexts import get_panel_contexts
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.registry import PanelRegistry
-from scistudio.panels.service import PanelService
+from scistudio.panels.service import PanelService, get_panel_contexts
 from scistudio.previewers import PreviewService
 from scistudio.previewers.models import OwnerKind, PreviewTarget
 from scistudio.previewers.registry import PreviewerRegistry

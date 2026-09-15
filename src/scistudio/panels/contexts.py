@@ -650,13 +650,6 @@ def _other_run(prompt: dict[str, Any] | None, run_id: Any) -> bool:
     return prompt_run is not None and run_id is not None and prompt_run != run_id
 
 
-def get_panel_contexts(runtime: Any) -> PanelContexts:
-    """The context store of the runtime's panel service."""
-    from scistudio.panels.service import get_panel_service
-
-    return cast(PanelContexts, get_panel_service(runtime).contexts)
-
-
 PANEL_EVENTS = (
     "interactive_prompt",
     "interactive_complete",

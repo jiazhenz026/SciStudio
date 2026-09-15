@@ -275,7 +275,7 @@ def test_hung_calls_do_not_starve_http_health(tmp_path: Path, monkeypatch: pytes
     import anyio.to_thread
     import httpx
 
-    from scistudio.panels.contexts import get_panel_contexts
+    from scistudio.panels.service import get_panel_contexts
 
     monkeypatch.setenv("SCISTUDIO_PANEL_TEARDOWN_GRACE", "0.1")
     monkeypatch.setenv("SCISTUDIO_PANEL_CALL_TIMEOUT", "10")

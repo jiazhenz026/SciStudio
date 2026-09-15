@@ -18,11 +18,11 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.api.schemas import PreviewEnvelopeModel
-from scistudio.panels.contexts import READ_BYTES, PanelContext, get_panel_contexts
+from scistudio.panels.contexts import READ_BYTES, PanelContext
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.process_config import max_result_bytes
 from scistudio.panels.reads import read_context
-from scistudio.panels.service import get_panel_service
+from scistudio.panels.service import get_panel_contexts, get_panel_service
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
 

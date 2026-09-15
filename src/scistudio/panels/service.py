@@ -572,10 +572,16 @@ def get_panel_service(runtime: Any) -> PanelService:
     return service  # type: ignore[no-any-return]
 
 
+def get_panel_contexts(runtime: Any) -> PanelContexts:
+    """The context store of the runtime's panel service."""
+    return get_panel_service(runtime).contexts
+
+
 __all__ = [
     "PANEL_CHOICES_CHANGED",
     "PANEL_CONTEXTS_REVOKED",
     "REGISTRIES_CHANGED",
     "PanelService",
+    "get_panel_contexts",
     "get_panel_service",
 ]
