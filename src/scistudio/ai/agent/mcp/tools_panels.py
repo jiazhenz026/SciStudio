@@ -18,11 +18,13 @@
 #   notices asynchronously. This tool emits the ``panel.open_miniapp`` event the realtime
 #   layer forwards, which is the one channel from the agent back into the open
 #   workspace.
-# * ``list_miniapps`` lists the MiniApps that already exist (#2441), so the agent
-#   can reuse one — or find one for a block output's type — instead of guessing
-#   from the file tree. It reads the same discovery ``open_miniapp`` reads
-#   (:func:`_discover`), so anything listed opens and anything that opens is
-#   listed. ``GET /api/panels/miniapps`` reads the runtime's cached registry; the
+# * ``list_panels`` lists every panel that already exists (#2441, #2445) — MiniApps,
+#   interactive panels, and preview panels, each with the kinds its descriptor
+#   declares — so the agent can reuse one, or find one for a block output's type,
+#   instead of guessing from the file tree. It reads the same discovery
+#   ``open_miniapp`` reads (:func:`_discover`) and the same registry
+#   ``GET /api/panels/catalog`` serves, so every listed ``miniapp`` panel opens and
+#   anything that opens is listed. The runtime's catalog is a cached registry; the
 #   refresh that keeps that cache in step with disk belongs to the catalog
 #   (#2421), and a fresh discovery here already sees what is on disk.
 #
@@ -56,9 +58,8 @@ from pydantic import BaseModel, Field
 from scistudio.ai.agent.mcp._context import _resolve_project_path, _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.core.dropins import panel_scan_dirs
-from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
+from scistudio.panels.descriptor import PANEL_CONTEXTS, PanelDescriptor, parse_descriptor
 from scistudio.panels.files import validate_external_references
-from scistudio.panels.miniapp import declared_type
 from scistudio.panels.registry import PanelRegistry, discover_panels
 from scistudio.panels.targets import type_chain
 from scistudio.previewers.models import OwnerKind
@@ -78,7 +79,7 @@ BROADCAST_FAILED = "broadcast_failed"
 
 _MINIAPP_CONTEXT = "miniapp"
 
-#: Bounds on the ``invalid`` half of a ``list_miniapps`` result. A panels tier
+#: Bounds on the ``invalid`` half of a ``list_panels`` result. A panels tier
 #: full of half-written directories must not drown the list the agent asked for.
 _MAX_INVALID_DIRECTORIES = 20
 _MAX_DIAGNOSTICS_PER_DIRECTORY = 5
@@ -153,23 +154,42 @@ class OpenMiniAppResult(BaseModel):
     )
 
 
-class MiniAppSummary(BaseModel):
-    """One discovered MiniApp in a ``list_miniapps`` result."""
+class PanelSummary(BaseModel):
+    """One discovered panel in a ``list_panels`` result."""
 
-    panel_id: str = Field(description="The id to pass to open_miniapp — the directory name under panels/.")
+    panel_id: str = Field(
+        description="The panel id — the directory name under panels/; open_miniapp takes it for a 'miniapp' panel."
+    )
     name: str = Field(description="Display name from panel.json (the id when none is declared).")
     description: str = Field(default="", description="Description from panel.json.")
+    kinds: list[str] = Field(
+        description=(
+            "The contexts panel.json declares, in the order 'preview', 'interactive', 'miniapp'. A panel "
+            "may declare several: 'miniapp' opens in a MiniApp tab (open_miniapp), 'interactive' is the "
+            "page of an interactive block, 'preview' is a previewer the workspace routes data outputs to."
+        )
+    )
     tier: str = Field(description="Owner tier: 'project', 'user', 'package', or 'core'.")
     package: str | None = Field(
         default=None,
-        description="Name of the package entry point that ships the MiniApp; None outside the package tier.",
+        description="Name of the package entry point that ships the panel; None outside the package tier.",
     )
     types: list[str] = Field(
-        description="The declared data type (a MiniApp declares exactly one), verbatim, e.g. 'Image' or 'Collection[Image]'."
+        description=(
+            "Declared data types, verbatim, e.g. 'Image' or 'Collection[Image]'. A MiniApp declares exactly "
+            "one; a preview panel at least one; an interactive panel may declare none."
+        )
     )
-    entry: str = Field(description="The page the host loads, relative to the MiniApp directory.")
+    entry: str = Field(description="The page the host loads, relative to the panel directory.")
     has_python: bool = Field(description="True when the directory carries a panel.py.")
-    path: str = Field(description="MiniApp directory: project-relative when inside the project, absolute otherwise.")
+    path: str = Field(description="Panel directory: project-relative when inside the project, absolute otherwise.")
+    priority: int | None = Field(
+        default=None,
+        description=(
+            "Preview routing priority from panel.json (higher wins among previewers for the same type); "
+            "None for a panel that does not declare the 'preview' context."
+        ),
+    )
 
 
 class InvalidPanelDirectory(BaseModel):
@@ -183,22 +203,28 @@ class InvalidPanelDirectory(BaseModel):
     )
 
 
-class ListMiniAppsResult(BaseModel):
-    """Result envelope for ``list_miniapps``."""
+class ListPanelsResult(BaseModel):
+    """Result envelope for ``list_panels``."""
 
-    miniapps: list[MiniAppSummary] = Field(
-        description="Every discovered panel declaring the 'miniapp' context, sorted by name. Each one opens with open_miniapp."
+    panels: list[PanelSummary] = Field(
+        description=(
+            "Every discovered panel matching the filters, sorted by name. Only panels whose kinds include "
+            "'miniapp' open with open_miniapp."
+        )
+    )
+    kind: str | None = Field(
+        default=None,
+        description="The kind filter that was applied, or None when every kind is listed.",
     )
     data_type: str | None = Field(
         default=None,
-        description="The data_type filter that was applied, or None when every MiniApp is listed.",
+        description="The data_type filter that was applied, or None when every type is listed.",
     )
     invalid: list[InvalidPanelDirectory] = Field(
         default_factory=list,
         description=(
             "Directories under the project and user panels tiers that discovery skipped. They are "
-            "not MiniApps until fixed, and may be broken preview panels rather than MiniApps. "
-            "Not filtered by data_type."
+            "not panels of any kind until fixed. Not filtered by kind or data_type."
         ),
     )
     invalid_truncated: int = Field(
@@ -207,16 +233,18 @@ class ListMiniAppsResult(BaseModel):
     )
     next_step: str = Field(
         default=(
-            "To show a listed MiniApp on a block output, call open_miniapp with its panel_id; the output's "
-            "type must match its declared type. To fix an entry in invalid, edit it and run validate_panel "
-            "on its path."
+            "To show a listed panel whose kinds include 'miniapp' on a block output, call open_miniapp with its "
+            "panel_id; the output's type must match its declared type. Interactive and preview panels are not "
+            "opened with open_miniapp: an interactive panel opens from its block, and a preview panel is chosen "
+            "by the workspace when it previews a matching output. To fix an entry in invalid, edit it and run "
+            "validate_panel on its path."
         ),
         description="Suggested next MCP call.",
     )
 
 
 def _discover(ctx: Any) -> PanelRegistry:
-    """The panel discovery ``open_miniapp`` and ``list_miniapps`` share.
+    """The panel discovery ``open_miniapp`` and ``list_panels`` share.
 
     The live type registry rather than a fresh scan: discovery validates each
     panel's declared types against it, and the one the tools already share is
@@ -236,15 +264,21 @@ def _display_path(path: Path, project_root: Path) -> str:
         return str(resolved)
 
 
-def _accepts(ctx: Any, panel: PanelDescriptor, data_type: str) -> bool:
-    """True when a MiniApp opens on an output of ``data_type``.
+def _claim_accepts(ctx: Any, claim: str, data_type: str) -> bool:
+    """True when a declared type ``claim`` accepts an output of ``data_type``.
 
     The rule is ``scistudio.panels.miniapp._check_type``'s, applied to a type
-    name instead of a frozen output: a MiniApp declaring ``T`` opens on ``T`` or
-    a subtype, one declaring ``Collection[T]`` on a collection whose item type is
-    ``T`` or a subtype, and one declaring bare ``Collection`` on any collection.
+    name instead of a frozen output: a claim of ``T`` accepts ``T`` or a subtype,
+    ``Collection[T]`` a collection whose item type is ``T`` or a subtype, and
+    bare ``Collection`` any collection.
     """
-    name, is_collection = declared_type(panel)
+    claim = claim.strip()
+    if claim.startswith("Collection[") and claim.endswith("]"):
+        name, is_collection = claim[11:-1].strip(), True
+    elif claim == "Collection":
+        name, is_collection = "", True
+    else:
+        name, is_collection = claim, False
     requested = data_type.strip()
     if requested == "Collection" or (requested.startswith("Collection[") and requested.endswith("]")):
         if not is_collection:
@@ -255,6 +289,14 @@ def _accepts(ctx: Any, panel: PanelDescriptor, data_type: str) -> bool:
     if is_collection:
         return False
     return name == requested or name in type_chain(ctx, requested)
+
+
+def _accepts(ctx: Any, panel: PanelDescriptor, data_type: str) -> bool:
+    """True when any of the panel's declared types accepts an output of ``data_type``.
+
+    A panel declaring no types (an interactive panel may) matches no data type.
+    """
+    return any(_claim_accepts(ctx, claim, data_type) for claim in panel.types)
 
 
 def _invalid_directories(
@@ -333,7 +375,7 @@ async def validate_panel(
     Do NOT use to:
       - Check a page's JavaScript — this reads ``panel.json`` and scans the page
         files for external references; it never runs the page.
-      - List MiniApps — use ``list_miniapps``.
+      - List MiniApps or other panels — use ``list_panels``.
       - Check a block — use ``run_block_tests``.
 
     Returns the diagnostics rather than raising on an invalid panel: the text of
@@ -387,62 +429,84 @@ async def validate_panel(
     )
 
 
-@mcp.tool(name="list_miniapps", tags={"category:panels", "read"})
-async def list_miniapps(
+@mcp.tool(name="list_panels", tags={"category:panels", "read"})
+async def list_panels(
+    kind: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Only list panels declaring this context: 'miniapp', 'interactive', or 'preview'. Omit to list every kind."
+            )
+        ),
+    ] = None,
     data_type: Annotated[
         str | None,
         Field(
             description=(
-                "Only list MiniApps that open on an output of this type, e.g. 'Image' or "
-                "'Collection[Image]' — a MiniApp declaring a parent type is included. Omit to list all."
+                "Only list panels that accept an output of this type, e.g. 'Image' or 'Collection[Image]' — a "
+                "panel declaring a parent type is included. Panels declaring no types are left out. Omit to list all."
             )
         ),
     ] = None,
-) -> ListMiniAppsResult:
-    """List the MiniApps that already exist, and the panel directories that failed discovery.
+) -> ListPanelsResult:
+    """List the panels that already exist — MiniApps, interactive panels, previewers — and the directories that failed discovery.
 
     Use when:
-      - The user asks what MiniApps they have, or asks to open or change an
-        existing one and you need its ``panel_id``.
-      - Before writing a new MiniApp, to check whether one for that data type
-        already exists — pass the block output's type as ``data_type``.
-      - A MiniApp the user expects is missing: ``invalid`` names the directories
+      - The user asks what MiniApps, interactive panels, or previewers they
+        have, or asks to open or change an existing one and you need its
+        ``panel_id``.
+      - Before writing a new panel, to check whether one for that data type
+        already exists — pass the block output's type as ``data_type`` and the
+        kind you would write as ``kind``.
+      - A panel the user expects is missing: ``invalid`` names the directories
         discovery skipped and why.
 
     Do NOT use to:
       - Check one directory in full — use ``validate_panel``; ``invalid`` only
         carries a bounded excerpt of its diagnostics.
-      - Open a MiniApp — use ``open_miniapp`` with a ``panel_id`` from this list.
-      - Find the block outputs a MiniApp can open on — use ``get_block_output``.
+      - Open a MiniApp — use ``open_miniapp`` with the ``panel_id`` of a listed
+        panel whose ``kinds`` include ``miniapp``. Interactive and preview
+        panels are not opened with ``open_miniapp``.
+      - Find the block outputs a panel can open on — use ``get_block_output``.
 
-    The list covers the project, user, package, and core tiers, reading the same
-    discovery ``open_miniapp`` reads: every listed ``panel_id`` is one
-    ``open_miniapp`` accepts. Where two tiers ship the same id, only the one that
-    wins (project over user over package over core) is listed. Raises
+    Each panel's ``kinds`` are the contexts its ``panel.json`` declares; a panel
+    may declare several. The list covers the project, user, package, and core
+    tiers, reading the same discovery ``open_miniapp`` reads and the same
+    registry the panel catalog serves: every listed panel whose ``kinds``
+    include ``miniapp`` is one ``open_miniapp`` accepts. Where two tiers ship
+    the same id, only the one that wins (project over user over package over
+    core) is listed. Raises ``ValueError`` for an unknown ``kind`` and
     ``RuntimeError`` when no project is open.
     """
+    wanted_kind = kind.strip() if kind and kind.strip() else None
+    if wanted_kind is not None and wanted_kind not in PANEL_CONTEXTS:
+        raise ValueError(f"Unknown panel kind '{kind}'. Pass one of {list(PANEL_CONTEXTS)}, or omit kind.")
     ctx = get_context()
     project_root = _resolve_project_root(ctx)
     registry = _discover(ctx)
     wanted = data_type.strip() if data_type and data_type.strip() else None
 
-    miniapps = [
-        MiniAppSummary(
+    panels = [
+        PanelSummary(
             panel_id=panel.id,
             name=panel.name or panel.id,
             description=panel.description,
+            kinds=[context for context in PANEL_CONTEXTS if context in panel.contexts],
             tier=panel.owner_kind.value,
             package=panel.owner_name if panel.owner_kind is OwnerKind.PACKAGE else None,
             types=list(panel.types),
             entry=panel.entry,
             has_python=panel.has_python,
             path=_display_path(panel.root, project_root),
+            priority=panel.priority if "preview" in panel.contexts else None,
         )
         for panel in sorted(registry.panels.values(), key=lambda p: ((p.name or p.id).lower(), p.id))
-        if _MINIAPP_CONTEXT in panel.contexts and (wanted is None or _accepts(ctx, panel, wanted))
+        if (wanted_kind is None or wanted_kind in panel.contexts) and (wanted is None or _accepts(ctx, panel, wanted))
     ]
     invalid, truncated = _invalid_directories(ctx, registry, project_root)
-    return ListMiniAppsResult(miniapps=miniapps, data_type=wanted, invalid=invalid, invalid_truncated=truncated)
+    return ListPanelsResult(
+        panels=panels, kind=wanted_kind, data_type=wanted, invalid=invalid, invalid_truncated=truncated
+    )
 
 
 @mcp.tool(name="open_miniapp", tags={"category:panels", "write"})
@@ -569,11 +633,11 @@ __all__ = [
     "NO_WORKSPACE",
     "PANEL_OPEN_MINIAPP_EVENT_TYPE",
     "InvalidPanelDirectory",
-    "ListMiniAppsResult",
-    "MiniAppSummary",
+    "ListPanelsResult",
     "OpenMiniAppResult",
+    "PanelSummary",
     "ValidatePanelResult",
-    "list_miniapps",
+    "list_panels",
     "open_miniapp",
     "validate_panel",
 ]

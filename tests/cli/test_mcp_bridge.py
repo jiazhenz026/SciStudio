@@ -155,7 +155,7 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
         f"expected 40 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
         f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947 "
         f"+ promote_to_user_library per ADR-053 FR-011 "
-        f"+ validate_panel and open_miniapp per ADR-054 MiniApp FR-029/FR-030 + list_miniapps #2441), got {len(tools)}"
+        f"+ validate_panel and open_miniapp per ADR-054 MiniApp FR-029/FR-030 + list_panels #2441/#2445), got {len(tools)}"
     )
 
 
