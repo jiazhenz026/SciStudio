@@ -1,48 +1,43 @@
 """Regression tests for #1063 — scaffold template port-spec API drift.
 
-`tools_authoring._render_port_block` was emitting `type=DataObject` /
-`type=<T>` for `InputPort` / `OutputPort` constructor calls, but the
-live `Port` dataclass (`src/scistudio/blocks/base/ports.py:17`) takes
-`accepted_types: list[type]`. Blocks scaffolded via the broken template
-would raise `TypeError` at registry-load time.
+The scaffold once emitted ``type=DataObject`` / ``type=<T>`` for ``InputPort`` /
+``OutputPort`` constructor calls, but the live ``Port`` dataclass takes
+``accepted_types: list[type]``. Blocks scaffolded in that shape raised
+``TypeError`` at registry-load time.
 
-These tests exercise the private helper directly to bypass the
-FastMCP-decorated public tool surface (which has a different call
-shape and is covered by a separate skip in `test_mcp_tools_authoring.py`).
+Since #2384 the ports are rendered by the shared starter-template renderer
+(``scistudio.blocks._templates.render``), so the regression is pinned there.
 """
 
 from __future__ import annotations
 
-from scistudio.ai.agent.mcp import tools_authoring
+from scistudio.blocks._templates.render import PortStub, StarterSpec, render_starter
 
 
-def test_render_port_block_non_empty_uses_accepted_types() -> None:
-    """Non-empty spec_map → accepted_types=[T] (not type=T)."""
-    rendered = tools_authoring._render_port_block(
-        {"in1": {"type": "DataObject"}, "in2": {"type": "Image"}},
-        "InputPort",
+def _render(input_ports: tuple[PortStub, ...], output_ports: tuple[PortStub, ...]) -> str:
+    spec = StarterSpec(
+        class_name="Probe", label="Probe", description="d", input_ports=input_ports, output_ports=output_ports
     )
-    assert "accepted_types=[DataObject]" in rendered, (
-        f"Expected accepted_types=[DataObject] in scaffold output, got:\n{rendered}"
-    )
-    assert "accepted_types=[Image]" in rendered
-    # Old shape MUST be gone — this is the bug #1063 fixes
-    assert "type=DataObject" not in rendered, f"Stale type=DataObject kwarg still in template:\n{rendered}"
-    assert "type=Image" not in rendered
+    return render_starter("basic", spec)
 
 
-def test_render_port_block_empty_placeholder_uses_accepted_types() -> None:
-    """Empty spec_map → placeholder comment also uses accepted_types=[DataObject]."""
-    rendered = tools_authoring._render_port_block(None, "OutputPort")
+def test_rendered_ports_use_accepted_types() -> None:
+    """Declared ports → accepted_types=[T] (not type=T)."""
+    rendered = _render((PortStub("in1", "DataObject", "first"), PortStub("in2", "Array", "second")), ())
     assert "accepted_types=[DataObject]" in rendered
+    assert "accepted_types=[Array]" in rendered
+    assert "type=DataObject" not in rendered
+    assert "type=Array" not in rendered
+
+
+def test_rendered_empty_port_list_is_an_empty_list() -> None:
+    """An explicitly empty side renders ``= []`` rather than a stale commented shape."""
+    rendered = _render((PortStub("in1", "Array", "first"),), ())
+    assert "output_ports: ClassVar[list[OutputPort]] = []" in rendered
     assert "type=DataObject" not in rendered
 
 
-def test_render_port_block_preserves_description_comment() -> None:
-    """Description-bearing specs still emit the trailing `# <desc>` comment."""
-    rendered = tools_authoring._render_port_block(
-        {"in1": {"type": "DataObject", "description": "primary input"}},
-        "InputPort",
-    )
-    assert "accepted_types=[DataObject]" in rendered
-    assert "# primary input" in rendered
+def test_rendered_port_carries_its_description() -> None:
+    """A port description is rendered as the ``description=`` keyword users see in the GUI."""
+    rendered = _render((PortStub("in1", "Array", "primary input"),), ())
+    assert 'description="primary input"' in rendered

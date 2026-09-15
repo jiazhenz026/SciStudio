@@ -17,20 +17,26 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
+import keyword
 import logging
+import re
 import subprocess
 import sys
+from dataclasses import dataclass
+from dataclasses import field as dc_field
 from pathlib import Path
 from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context, invoked_through_bridge
+from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context, invoked_through_bridge
 from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow.read import list_blocks_called
 from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal, list_blocks_refusal
+from scistudio.blocks._templates.render import PortStub, StarterSpec, render_starter
 
 logger = logging.getLogger(__name__)
 
@@ -59,9 +65,9 @@ class BlockExampleEntry(BaseModel):
 class ScaffoldBlockResult(BaseModel):
     """Result envelope for ``scaffold_block``.
 
-    a, includes ``warnings: list[str]`` for soft
-    validation (generic-DataObject port detection, unregistered type
-    detection).
+    Includes ``warnings: list[str]`` for soft validation (generic-DataObject
+    port detection, unregistered or unimportable type detection, ports the
+    chosen base class ignores).
     """
 
     # Development references: ADR-040.
@@ -80,9 +86,11 @@ class ScaffoldBlockResult(BaseModel):
     )
     next_step: str = Field(
         default=(
-            "Edit the scaffolded file to implement the block's run() method, then call "
-            "mcp__scistudio__reload_blocks to register it. If warnings list flagged generic "
-            "DataObject ports, narrow them to concrete types from mcp__scistudio__list_types."
+            "The file already imports and registers. Fill in the part marked '>>> EDIT THIS <<<' "
+            "(run(), process_item(), load_file()/save_file(), or app_command), replace every "
+            "'Describe ...' label, then call mcp__scistudio__reload_blocks to register it. If "
+            "warnings flagged DataObject ports or 'fill in' types, narrow them to concrete types "
+            "from mcp__scistudio__list_types."
         ),
         description="Suggested next MCP call after scaffolding.",
     )
@@ -241,82 +249,192 @@ async def list_block_examples(
 #
 # ADR-040 §3.2a widened the signature to include input_ports + output_ports
 # so the §3.2a soft-validation `warnings` logic has port specs to inspect.
+# #2384 renders the per-kind starter templates in ``scistudio.blocks._templates``
+# (the files GET /api/blocks/template serves) instead of a private template.
 # ---------------------------------------------------------------------------
 
-_SCAFFOLD_TEMPLATE = '''"""Block scaffolded by SciStudio MCP scaffold_block.
+_BLOCK_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+_BLOCK_NAME_MAX = 64
 
-Edit this file then call ``reload_blocks`` to register the change.
-"""
+# category -> template kind; "io" picks io_load or io_save from the ports.
+_SCAFFOLD_KINDS: dict[str, str] = {"block": "basic", "process": "process", "io": "io_load", "app": "app"}
 
-from __future__ import annotations
+# Categories that are not subclassable author bases but map onto one that is.
+_SCAFFOLD_ALIASES: dict[str, tuple[str, str]] = {
+    "code": (
+        "process",
+        "'code' is not a subclassable base class, so a ProcessBlock starter was generated instead: "
+        "put the logic in process_item() (or override run() for several ports). Use category='process' "
+        "next time.",
+    ),
+}
 
-from typing import Any
-
-from scistudio.blocks.base.block import Block
-from scistudio.blocks.base.config import BlockConfig
-from scistudio.blocks.base.ports import InputPort, OutputPort
-from scistudio.core.types.base import DataObject
-
-
-class {class_name}(Block):
-    """TODO: describe what this block does."""
-
-    name = "{class_name}"
-    description = "TODO: one-line description"
-    version = "0.1.0"
-
-    input_ports = [
-{input_ports_block}    ]
-    output_ports = [
-{output_ports_block}    ]
-    config_schema: dict[str, Any] = {{
-        "type": "object",
-        "properties": {{}},
-        "required": [],
-    }}
-
-    def run(self, inputs: dict[str, Any], config: BlockConfig) -> dict[str, Any]:
-        """TODO: implement.
-
-        Return a dict keyed by output port name. See Block.run ABC in
-        ``scistudio.blocks.base.block``.
-        """
-        raise NotImplementedError
-'''
+_SCAFFOLD_REFUSALS: dict[str, ToolRefusal] = {
+    "ai": ToolRefusal(
+        code="ai_block_not_authored",
+        message=(
+            "AIBlock is not an authoring surface. To put an AI step in a workflow, add the built-in "
+            "AI Agent block as a node and configure its prompt and ports."
+        ),
+        use_instead=["get_block_schema", "edit_workflow"],
+    ),
+    "subworkflow": ToolRefusal(
+        code="subworkflow_block_not_authored",
+        message=(
+            "SubWorkflowBlock is not an authoring surface. To reuse a workflow inside another, add the "
+            "built-in sub-workflow block as a node and point it at the child workflow."
+        ),
+        use_instead=["get_block_schema", "edit_workflow"],
+    ),
+}
 
 
 def _snake_to_camel(name: str) -> str:
     return "".join(part.capitalize() for part in name.split("_") if part)
 
 
-def _render_port_block(
-    spec_map: dict[str, dict[str, Any]] | None,
-    port_class: str,
-) -> str:
-    """Render a list-of-ports body for the scaffold template.
+def _snake_to_label(name: str) -> str:
+    return " ".join(part.capitalize() for part in name.split("_") if part)
 
-    Emits the live ``InputPort(name=..., accepted_types=[Type], required=True)``
-    ``OutputPort(name=..., accepted_types=[Type])`` shape per
-    ``scistudio.blocks.base.ports``. Note: scaffolded files
-    do NOT import the specific concrete types — the agent is expected to
-    add the relevant ``from ... import <Type>`` import alongside editing
-    the body. ``DataObject`` is imported by the scaffold template so the
-    empty-spec hint is at least importable as-is.
-    """
-    # Development references: ADR-040.
+
+def _validate_block_name(name: str) -> None:
+    """Reject a ``name`` that is not a snake_case module name."""
+    # Development references: #2037.
+    if (
+        not isinstance(name, str)
+        or len(name) > _BLOCK_NAME_MAX
+        or not _BLOCK_NAME_RE.fullmatch(name)
+        or keyword.iskeyword(name)
+    ):
+        raise ValueError(
+            f"Invalid block name {name!r}: use snake_case letters, digits and underscores, starting with "
+            f"a lowercase letter, at most {_BLOCK_NAME_MAX} characters, and not a Python keyword "
+            "(e.g. 'gaussian_smooth'). The file is written to blocks/<name>.py."
+        )
+
+
+def _normalise_port_specs(spec_map: Any, direction: str) -> dict[str, dict[str, Any]]:
+    """Check the ``{port_name: {'type': ..., 'description': ...}}`` shape."""
     if not spec_map:
-        return f'        # {port_class}(name="...", accepted_types=[DataObject], required=True),\n'
-    lines = []
+        return {}
+    if not isinstance(spec_map, dict):
+        raise ValueError(f"{direction}_ports must be an object mapping port name to its spec")
+    out: dict[str, dict[str, Any]] = {}
     for port_name, spec in spec_map.items():
-        type_name = spec.get("type", "DataObject")
-        desc = spec.get("description", "")
-        required_kw = ", required=True" if port_class == "InputPort" else ""
-        comment = f"  # {desc}" if desc else ""
-        # InputPort and OutputPort take ``accepted_types: list[type]`` per
-        # src/scistudio/blocks/base/ports.py:17 — not a single ``type=`` kwarg.
-        # InputPort additionally takes ``required`` (Port field, default True).
-        lines.append(f"        {port_class}(name={port_name!r}, accepted_types=[{type_name}]{required_kw}),{comment}\n")
-    return "".join(lines)
+        if not isinstance(port_name, str) or not port_name.strip():
+            raise ValueError(f"{direction}_ports has an empty port name")
+        if spec is None:
+            spec = {}
+        if not isinstance(spec, dict):
+            raise ValueError(f"{direction} port {port_name!r}: spec must be an object like {{'type': 'Array'}}")
+        type_name = spec.get("type", "")
+        if not isinstance(type_name, str):
+            raise ValueError(f"{direction} port {port_name!r}: 'type' must be a type name string")
+        description = spec.get("description", "")
+        if not isinstance(description, str):
+            raise ValueError(f"{direction} port {port_name!r}: 'description' must be a string")
+        out[port_name] = spec
+    return out
+
+
+@dataclass
+class _TypeImports:
+    """Imports a rendered starter needs for its port types."""
+
+    core: set[str] = dc_field(default_factory=set)
+    lines: list[str] = dc_field(default_factory=list)
+    unresolved: dict[str, str] = dc_field(default_factory=dict)
+
+
+def _public_core_type(type_name: str) -> type | None:
+    """Return the core data type exported from ``scistudio.core.types`` as *type_name*."""
+    from scistudio.core import types as core_types
+
+    if type_name not in core_types.__all__:
+        return None
+    candidate = getattr(core_types, type_name, None)
+    if isinstance(candidate, type) and issubclass(candidate, core_types.DataObject):
+        return candidate
+    return None
+
+
+def _package_import_line(ctx: Any, type_name: str) -> str | None:
+    """Return ``from <package> import <Type>`` when the package exports the type at its root.
+
+    Package types are public only at their distribution's top level
+    (``_agent_reference/public-api.md``); a type reachable only through a deep
+    or underscore module gets no import line. A project or user-library drop-in
+    type is imported by its file stem.
+    """
+    type_registry = getattr(ctx, "type_registry", None)
+    try:
+        spec = type_registry.all_types().get(type_name) if type_registry is not None else None
+    except Exception:
+        spec = None
+    if spec is None:
+        return None
+    class_name = str(getattr(spec, "class_name", "") or type_name)
+    if getattr(spec, "is_dropin", False):
+        # ADR-053 FR-012: a drop-in block imports a drop-in type by its file stem
+        # (``types/spectrum.py`` -> ``from spectrum import SpectrumData``).
+        stem = Path(str(getattr(spec, "file_path", "") or "")).stem
+        if stem.isidentifier() and class_name.isidentifier():
+            return f"from {stem} import {class_name}"
+        return None
+    module_path = str(getattr(spec, "module_path", "") or "")
+    root = str(getattr(spec, "package_root", "") or "") or module_path.split(".")[0]
+    if not root or root == "scistudio" or not root.isidentifier() or not class_name.isidentifier():
+        return None
+    try:
+        package = importlib.import_module(root)
+        exported = getattr(package, class_name, None)
+        defined = getattr(importlib.import_module(module_path), class_name, None) if module_path else exported
+    except Exception:
+        return None
+    if exported is None or exported is not defined:
+        return None
+    return f"from {root} import {class_name}"
+
+
+def _resolve_port_type(ctx: Any, type_name: str, imports: _TypeImports) -> tuple[str, str]:
+    """Return ``(symbol to render, trailing note)`` for a declared port type.
+
+    A type with a public import is rendered as itself and imported. Anything
+    else is rendered as ``DataObject`` with a note naming the intended type, so
+    the scaffolded file imports and registers unchanged.
+    """
+    if not type_name or type_name == "DataObject":
+        imports.core.add("DataObject")
+        return "DataObject", ""
+    if type_name.isidentifier() and _public_core_type(type_name) is not None:
+        imports.core.add(type_name)
+        return type_name, ""
+    line = _package_import_line(ctx, type_name) if type_name.isidentifier() else None
+    if line is not None:
+        if line not in imports.lines:
+            imports.lines.append(line)
+        return line.rsplit(" ", 1)[-1], ""
+    imports.core.add("DataObject")
+    if type_name not in imports.unresolved:
+        imports.unresolved[type_name] = (
+            f"# from <package> import {type_name}  # fill in: import {type_name} from its package's "
+            "public root, then use it in place of DataObject"
+        )
+    return "DataObject", f"fill in: {type_name}"
+
+
+def _port_stubs(
+    ctx: Any, spec_map: dict[str, dict[str, Any]], direction: str, imports: _TypeImports
+) -> tuple[PortStub, ...]:
+    stubs = []
+    for port_name, spec in spec_map.items():
+        symbol, note = _resolve_port_type(ctx, spec.get("type", "") or "", imports)
+        description = (spec.get("description") or "").strip() or (
+            "Describe what flows into this port." if direction == "input" else "Describe what this port produces."
+        )
+        required = spec.get("required", True) is not False
+        stubs.append(PortStub(name=port_name, type_name=symbol, description=description, required=required, note=note))
+    return tuple(stubs)
 
 
 def _type_registry_has(ctx: Any, type_name: str) -> bool:
@@ -338,8 +456,21 @@ def _type_registry_has(ctx: Any, type_name: str) -> bool:
 
 @mcp.tool(name="scaffold_block", tags={"category:authoring", "write"})
 async def scaffold_block(
-    name: str = Field(description="Block name in snake_case; the file will be blocks/<name>.py."),
-    category: str = Field(description="One of: io, process, code, app, ai, subworkflow."),
+    name: str = Field(
+        description=(
+            "Block module name in snake_case (lowercase letters, digits, underscores; starts with a letter). "
+            "The file is written to blocks/<name>.py; the class is its CamelCase form."
+        ),
+    ),
+    category: str = Field(
+        description=(
+            "Base class to start from: 'block' (Block, write run()), 'process' (ProcessBlock, write "
+            "process_item()), 'io' (SimpleLoader, or SimpleSaver when only input_ports are given), "
+            "'app' (AppBlock, declare the external command). 'code' is not a subclassable base and "
+            "scaffolds a ProcessBlock starter (with a warning). 'ai' and 'subworkflow' are refused: "
+            "those steps use built-in blocks configured as workflow nodes."
+        ),
+    ),
     input_ports: Annotated[
         dict[str, dict[str, Any]] | None,
         Field(
@@ -360,8 +491,19 @@ async def scaffold_block(
             ),
         ),
     ] = None,
+    description: Annotated[
+        str | None,
+        Field(description="Optional one-line description shown in the palette and node header."),
+    ] = None,
 ) -> ScaffoldBlockResult:
-    """Render a new block module from the project's block templates.
+    """Write a starter block module for the chosen base class under ``blocks/``.
+
+    The file comes from the same per-kind starter templates the GUI "New
+    custom block" action uses, filled in with the class name, a readable
+    ``name`` label, the declared ports (each with a description), labelled
+    parameters, canonical ``scistudio.*`` root imports, and an import for every
+    declared port type. It imports and registers as written, so
+    ``reload_blocks`` picks it up before any edit.
 
     Use when:
       You've called ``list_blocks`` and confirmed no existing block
@@ -372,6 +514,9 @@ async def scaffold_block(
     Do NOT use to:
       Modify an existing block — read its source via
         ``read_block_source`` and use ``Edit``/``Write`` directly.
+      Add an AI step or nest a workflow — those categories are refused
+        with what to do instead. ``category='code'`` is not a subclassable
+        base: it scaffolds a ProcessBlock starter and says so in ``warnings``.
       Bypass the block-reuse rule — the
         enforce_list_blocks_before_block_write hook will
         block this tool call unless ``list_blocks`` was called earlier
@@ -380,15 +525,18 @@ async def scaffold_block(
     a, the result envelope's ``warnings`` field flags:
       Ports declared with the generic ``DataObject`` type.
       Ports referencing type names not registered in the active
-        ``TypeRegistry``.
+        ``TypeRegistry``, or with no public import (rendered as
+        ``DataObject`` with a note naming the intended type).
+      Declared ports the chosen base class does not use.
       A ``category='io'`` scaffold when the core ``load_data`` / ``save_data`` block
         with a ``core_type`` already handles the declared data type (or the
         type is not declared yet).
 
-    All warnings are advisory; the file is still written. Raises
-    ``FileExistsError`` if the target path already exists.
+    Warnings are advisory; the file is still written. Raises ``ValueError``
+    for an invalid ``name``, an unknown ``category``, or malformed port specs,
+    and ``FileExistsError`` if the target path already exists.
     """
-    # Development references: #875, ADR-040.
+    # Development references: #875, ADR-040, #2037, #2384.
     # ADR-055 Spec 2 (#2279) hook parity: a WebMCP host runs no provisioned
     # hooks, so the enforce_list_blocks_before_block_write rule is applied
     # server-side for bridge calls. Local-transport calls keep relying on the
@@ -403,22 +551,44 @@ async def scaffold_block(
             next_step="Call list_blocks to confirm no existing block matches your I/O contract, then retry scaffold_block.",
         )
 
+    if category in _SCAFFOLD_REFUSALS:
+        refusal = _SCAFFOLD_REFUSALS[category]
+        logger.info("scaffold_block: outcome=refused code=%s", refusal.code)
+        return ScaffoldBlockResult(
+            path="",
+            bytes_written=0,
+            status="refused",
+            refusal=refusal,
+            next_step=refusal.message,
+        )
+    alias_warning: str | None = None
+    if category in _SCAFFOLD_ALIASES:
+        category, alias_warning = _SCAFFOLD_ALIASES[category]
+    if category not in _SCAFFOLD_KINDS:
+        raise ValueError(
+            f"Unknown block category {category!r}. Scaffold one of: {sorted(_SCAFFOLD_KINDS)}. "
+            f"Refused (use built-in blocks instead): {sorted(_SCAFFOLD_REFUSALS)}."
+        )
+    _validate_block_name(name)
+    inputs_norm = _normalise_port_specs(input_ports, "input")
+    outputs_norm = _normalise_port_specs(output_ports, "output")
+
     ctx = get_context()
     root = _resolve_project_root(ctx)
     blocks_dir = root / "blocks"
     blocks_dir.mkdir(parents=True, exist_ok=True)
-    target = blocks_dir / f"{name}.py"
+    # #2037: confine the write to blocks/ even though the name is already validated.
+    target = _safe_under(blocks_dir, Path(f"{name}.py"))
+    if target.parent != blocks_dir.resolve():
+        raise PermissionError(f"{name!r} does not resolve directly inside {blocks_dir}")
     if target.exists():
         raise FileExistsError(f"{target} already exists")
-
-    inputs_norm = input_ports or {}
-    outputs_norm = output_ports or {}
 
     # ADR-040 §3.2a soft validation.
     # TODO(#1016): hard BlockRegistry-level rejection of generic DataObject
     #   ports + unregistered type names. Out of scope per ADR-040 §3.2a
     #   (Layer 4 only here). Followup: https://github.com/zjzcpj/SciStudio/issues/1016.
-    warnings_list: list[str] = []
+    warnings_list: list[str] = [alias_warning] if alias_warning else []
     for direction, spec_map in (("input", inputs_norm), ("output", outputs_norm)):
         for port_name, spec in spec_map.items():
             type_name = spec.get("type", "")
@@ -449,15 +619,64 @@ async def scaffold_block(
         if io_warning is not None:
             warnings_list.append(io_warning)
 
-    class_name = _snake_to_camel(name) or "MyBlock"
-    text = _SCAFFOLD_TEMPLATE.format(
+    kind = _SCAFFOLD_KINDS[category]
+    # Once either side is declared, the other side is the caller's too: an
+    # omitted side renders as no ports rather than the template's example ports.
+    declared = bool(inputs_norm or outputs_norm)
+    render_inputs: dict[str, dict[str, Any]] | None = inputs_norm if declared else None
+    render_outputs: dict[str, dict[str, Any]] | None = outputs_norm if declared else None
+    if category == "io":
+        # Same direction rule as the core-IO steering warning (#2376): only
+        # input ports -> saver; otherwise loader.
+        is_saver = bool(inputs_norm) and not outputs_norm
+        kind = "io_save" if is_saver else "io_load"
+        data_side, other_side = (inputs_norm, None) if is_saver else (outputs_norm, inputs_norm)
+        if other_side:
+            warnings_list.append(
+                "A loader reads its 'path' parameter and has no data input ports; input_ports were ignored. "
+                "Pass only input_ports to scaffold a saver instead."
+            )
+        if len(data_side) > 1:
+            warnings_list.append(
+                f"A {'saver writes one input' if is_saver else 'loader fills one output'} port; "
+                f"only {next(iter(data_side))!r} was used. Use category='block' for several ports."
+            )
+            data_side = dict([next(iter(data_side.items()))])
+        render_inputs, render_outputs = (data_side or None, None) if is_saver else (None, data_side or None)
+    elif category == "process" and (len(inputs_norm) > 1 or len(outputs_norm) > 1):
+        warnings_list.append(
+            "ProcessBlock reads only the first input port and fills only the first output port. "
+            "Override run() for several ports, or use category='block'."
+        )
+
+    imports = _TypeImports()
+    input_stubs = _port_stubs(ctx, render_inputs, "input", imports) if render_inputs is not None else None
+    output_stubs = _port_stubs(ctx, render_outputs, "output", imports) if render_outputs is not None else None
+    for type_name in imports.unresolved:
+        warnings_list.append(
+            f"Type {type_name!r} has no public import this tool could find, so its port uses DataObject "
+            "with a 'fill in' note. Import the type from its package's public root and put it back."
+        )
+
+    from scistudio.core import types as core_types
+
+    class_name = _snake_to_camel(name)
+    starter = StarterSpec(
         class_name=class_name,
-        input_ports_block=_render_port_block(inputs_norm, "InputPort"),
-        output_ports_block=_render_port_block(outputs_norm, "OutputPort"),
+        label=_snake_to_label(name),
+        description=" ".join((description or "").split()) or "Describe what this block does.",
+        input_ports=input_stubs,
+        output_ports=output_stubs,
+        core_types=frozenset(imports.core),
+        extra_import_lines=(*imports.lines, *imports.unresolved.values()),
+        extension=f".{name}" if kind in {"io_load", "io_save"} else None,
+        format_id=name if kind in {"io_load", "io_save"} else None,
+        known_types=frozenset(core_types.__all__),
     )
+    text = render_starter(kind, starter)
     target.write_text(text, encoding="utf-8")
     bytes_written = len(text.encode("utf-8"))
-    logger.info("scaffold_block: created %s (category=%s)", target, category)
+    logger.info("scaffold_block: created %s (category=%s kind=%s)", target, category, kind)
     return ScaffoldBlockResult(
         path=str(target),
         bytes_written=bytes_written,

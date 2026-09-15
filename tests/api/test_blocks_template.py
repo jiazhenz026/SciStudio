@@ -209,3 +209,38 @@ def test_template_basic_documents_node_visual_hints(client: TestClient) -> None:
     assert "ui_icon" in content
     # #1839 lands them commented-out (opt-in); the served module must still parse.
     ast.parse(content)
+
+
+# #2384 — one template registry backs the GUI endpoint and the agent's
+# scaffold_block tool, with one starter per base class.
+
+
+def test_template_basic_is_served_byte_identical_to_the_packaged_file(client: TestClient) -> None:
+    """``kind=basic`` stays the packaged ``block_base_template.py``, unchanged."""
+    from importlib import resources
+
+    packaged = (resources.files("scistudio.blocks._templates") / "block_base_template.py").read_text(encoding="utf-8")
+    body = client.get("/api/blocks/template?kind=basic").json()
+    assert body["content"] == packaged
+    assert body["suggested_filename"] == "my_block.py"
+
+
+def test_template_serves_every_registered_kind(client: TestClient) -> None:
+    """Each starter kind is served, parses, and defines a block passing the contract harness."""
+    from scistudio.blocks._templates import TEMPLATE_KINDS, read_template
+    from scistudio.testing import BlockTestHarness
+
+    for kind, template in TEMPLATE_KINDS.items():
+        r = client.get(f"/api/blocks/template?kind={kind}")
+        assert r.status_code == 200, (kind, r.text)
+        body = r.json()
+        assert body["kind"] == kind
+        assert body["suggested_filename"] == template.suggested_filename
+        assert body["content"] == read_template(kind)
+        tree = ast.parse(body["content"])
+        (class_def,) = [node for node in tree.body if isinstance(node, ast.ClassDef)]
+        namespace: dict[str, object] = {}
+        exec(compile(body["content"], template.resource, "exec"), namespace)
+        block = namespace[class_def.name]
+        assert [base.__name__ for base in block.__mro__][1] == template.base_class  # type: ignore[attr-defined]
+        assert not BlockTestHarness(block).validate_block(), kind
