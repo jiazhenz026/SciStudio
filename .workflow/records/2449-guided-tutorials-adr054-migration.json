@@ -25,9 +25,31 @@
       "at": "2026-09-15T12:54:43.093389Z",
       "owner_directive": "Follow the original intent: add Move to My Library on project-tier preview panel cards in All Previewers, include panels/ in the tutorial-scoped library, and judge save-the-previewer with library_contains",
       "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "at": "2026-09-15T18:23:35.941902Z",
+      "owner_directive": "Pull latest main and push the PR",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T18:23:35.942259Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Tutorial assets and one promotion entry; the owner is revising docs/specs and asked agents not to edit docs (2026-09-15)",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942265Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner-controlled doc overhaul in progress; no CHANGELOG edits by agents",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -85,10 +107,69 @@
       "at": "2026-09-15T12:56:00.385942Z",
       "pattern": "tests/tutorials/test_scoped_library.py",
       "reason": "The scoped-library change touches the library_entries docstring and the scoped library dir assertion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942232Z",
+      "pattern": "tests/tutorials/**",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942237Z",
+      "pattern": "tests/e2e/test_tutorial_workflows.py",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942241Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
     }
   ],
   "session_id": "cc629f95-d5ad-48f3-b6fe-0a30e15329aa",
   "strictness_tier": null,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T18:23:35.942269Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942276Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942278Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_tutorial_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942279Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942280Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/promotable.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
