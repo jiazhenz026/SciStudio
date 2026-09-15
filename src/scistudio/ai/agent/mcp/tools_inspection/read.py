@@ -7,6 +7,7 @@ Tools: ``get_block_output``, ``inspect_data``, ``preview_data``,
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from pathlib import Path
 from typing import Annotated, Any
@@ -38,6 +39,7 @@ from scistudio.ai.agent.mcp.tools_inspection._preview import (
     _preview_series,
     _preview_text,
 )
+from scistudio.ai.agent.mcp.tools_workflow._run_lookup import find_run, require_run
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +51,9 @@ logger = logging.getLogger(__name__)
 
 @mcp.tool(name="get_block_output", tags={"category:inspection", "read"})
 async def get_block_output(
-    run_id: str = Field(description="Run identifier from run_workflow."),
+    run_id: str = Field(
+        description="Run id returned by run_workflow. A workflow id means that workflow's latest run.",
+    ),
     block_id: str = Field(description="Block id within the workflow."),
     port: str = Field(description="Output port name to resolve."),
 ) -> GetBlockOutputResult:
@@ -67,10 +71,8 @@ async def get_block_output(
     Raises ``KeyError`` if the run, block, or port is unknown.
     """
     ctx = get_context()
-    runs = getattr(ctx, "workflow_runs", None)
-    if not isinstance(runs, dict) or run_id not in runs:
-        raise KeyError(f"Unknown run: {run_id}")
-    run = runs[run_id]
+    # #2401: outputs of the run this id names; a workflow id is its latest run.
+    _workflow_id, run = require_run(getattr(ctx, "workflow_runs", None), run_id)
     outputs = getattr(run.scheduler, "_block_outputs", {})
     block_payload = outputs.get(block_id)
     if block_payload is None:
@@ -422,9 +424,37 @@ def _codeblock_script_logs(project_dir: Path, run_id: str, block_id: str) -> Pat
     return None
 
 
+def _block_log_line_pattern(block_id: str) -> re.Pattern[str]:
+    """Match the run-log lines that belong to exactly *block_id*.
+
+    The engine names a block in two shapes: the event audit line
+    (``block_done block_id=<id> workflow_id=...``) and forwarded worker output
+    (``worker[<id>] ...``). A block id that is a prefix or substring of another
+    (``load`` and ``load_2``) must not match the other's lines.
+    """
+    # Development references: #2401.
+    escaped = re.escape(block_id)
+    return re.compile(rf"(?:\bblock_id={escaped}(?=\s|$)|\bworker\[{escaped}\])")
+
+
+def _log_run_id(ctx: Any, run_id: str) -> str:
+    """The run id whose files hold the logs *run_id* asks for.
+
+    A workflow id stands for that workflow's latest run; anything else is taken
+    as a run id, including a finished run the runtime no longer holds.
+    """
+    # Development references: #2401.
+    found = find_run(getattr(ctx, "workflow_runs", None), run_id)
+    if found is None:
+        return run_id
+    return str(getattr(found[1], "run_id", None) or run_id)
+
+
 @mcp.tool(name="get_block_logs", tags={"category:inspection", "read"})
 async def get_block_logs(
-    run_id: str = Field(description="Run identifier from run_workflow."),
+    run_id: str = Field(
+        description="Run id returned by run_workflow. A workflow id means that workflow's latest run.",
+    ),
     block_id: str = Field(description="Block id within the workflow."),
 ) -> GetBlockLogsResult:
     """Return captured output from a block's execution.
@@ -447,6 +477,7 @@ async def get_block_logs(
     project_dir = ctx.project_dir
     if project_dir is None:
         raise RuntimeError("No project is currently open")
+    run_id = _log_run_id(ctx, run_id)
 
     script_logs = _codeblock_script_logs(project_dir, run_id, block_id)
     if script_logs is not None:
@@ -477,7 +508,10 @@ async def get_block_logs(
             f"for the failure itself."
         )
 
-    lines = [line for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines() if block_id in line]
+    pattern = _block_log_line_pattern(block_id)
+    lines = [
+        line for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines() if pattern.search(line)
+    ]
     if not lines:
         raise KeyError(f"Run '{run_id}' has no log lines for block '{block_id}'")
 

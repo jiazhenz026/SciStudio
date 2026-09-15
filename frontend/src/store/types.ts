@@ -280,6 +280,11 @@ export interface InteractivePrompt {
   blockId: string;
   blockType: string;
   /**
+   * #2433: the run that paused, carried by the prompt event; answers and
+   * cancels are addressed to it. `null` for an emitter without run identity.
+   */
+  runId?: string | null;
+  /**
    * ADR-051: the workflow id the prompt belongs to, carried by the prompt event.
    * Confirm/cancel MUST use this (not the store's active workflow id), so the
    * response is run-scoped to the right run even if the user switches tabs while
@@ -333,6 +338,19 @@ export interface ExecutionSlice {
    * or finishing never flips it.
    */
   isRunning: boolean;
+  /**
+   * #2433 — the run the workflow on screen follows (a projection of its
+   * bucket, like `isRunning`); `null` before any run of it was seen.
+   */
+  runId: string | null;
+  /**
+   * #2433 — runs ended by leaving their project. Their late events (the socket
+   * can deliver them after the switch) are dropped instead of landing on the
+   * next project's same-named workflow. Survives `resetExecution`.
+   */
+  endedRunIds: string[];
+  /** Remember runs that leaving a project ended (see `endedRunIds`). */
+  markRunsEnded: (runIds: string[]) => void;
   /**
    * #591/#594 + #2395: pending interactive prompts from PAUSED blocks, keyed by
    * `interactivePromptKey(workflowId, blockId)` in arrival order. Two workflows
@@ -764,6 +782,12 @@ export interface TerminalTabsSlice {
   /** Create a user shell tab backed by the desktop Python dependency env. */
   addUserTerminalTab: () => string;
   closeTerminalTab: (id: string) => void;
+  /**
+   * #2433 — close every AI terminal tab. A terminal belongs to the project it
+   * was started in, so leaving the project closes them (the backend ends their
+   * processes too).
+   */
+  closeAllTerminalTabs: () => void;
   renameTerminalTab: (id: string, title: string) => void;
   launchTerminalTab: (
     id: string,

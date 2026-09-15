@@ -173,12 +173,16 @@ class PanelContexts:
                 self._close_waiting(key)
                 self.prompts[key] = deepcopy(data)
                 return
+            # #2433: an event of one run never resolves another run's prompt.
+            run_id = data.get("run_id")
             if event.block_id:
+                if _other_run(self.prompts.get(key), run_id):
+                    return
                 self._close_waiting(key)
                 self.prompts.pop(key, None)
             elif workflow_id:
                 for pending in list(self.prompts):
-                    if pending[0] == workflow_id:
+                    if pending[0] == workflow_id and not _other_run(self.prompts.get(pending), run_id):
                         self._close_waiting(pending)
                         self.prompts.pop(pending, None)
 
@@ -192,6 +196,9 @@ class PanelContexts:
             raise PanelError(422, "invalid_request", "workflow_id and block_id are required")
         prompt = self.prompts.get((workflow_id, block_id))
         run = self.runtime.workflow_runs.get(workflow_id)
+        if _other_run(prompt, getattr(run, "run_id", None)):
+            # #2433: the prompt was raised by an earlier run of this workflow.
+            prompt = None
         scheduler = getattr(run, "scheduler", None)
         pending = getattr(scheduler, "_interactive_futures", {}).get(block_id)
         state = getattr(scheduler, "_block_states", {}).get(block_id)
@@ -590,6 +597,16 @@ class PanelContexts:
             if len(encoded.encode()) > READ_BYTES:
                 raise PanelError(413, "read_budget", "Interactive response exceeds 20 MiB")
             self.close(context_id)
+
+
+def _other_run(prompt: dict[str, Any] | None, run_id: Any) -> bool:
+    """Whether *prompt* was raised by a run other than *run_id*.
+
+    Either side without a run identity (a caller that predates it) matches.
+    """
+    # Development references: #2433.
+    prompt_run = (prompt or {}).get("run_id")
+    return prompt_run is not None and run_id is not None and prompt_run != run_id
 
 
 def get_panel_contexts(runtime: Any) -> PanelContexts:

@@ -566,10 +566,11 @@ no main window.
 
 ### 4.6 Workflow Runs Across A Backend Stop (#2327)
 
-A workflow run belongs to the backend, not to a window or a browser. Closing
-either never ends it (ADR-055 section 7), and neither does reopening its project
-or switching to another project. A run ends when it completes, when someone
-cancels it explicitly, or when its backend stops. Its lineage `runs` row must
+A workflow run belongs to the backend and to the project that started it, not
+to a window or a browser. Closing either never ends it (ADR-055 section 7), and
+neither does reopening its project. A run ends when it completes, when someone
+cancels it explicitly, when the user leaves its project, or when its backend
+stops. Its lineage `runs` row must
 reach a terminal status in every case (the #1500 guarantee), and a run that
 finished must be recorded as what it was. `src/scistudio/api/runtime/_run_lifetime.py`
 implements this contract.
@@ -587,11 +588,21 @@ implements this contract.
   (`timeout_graceful_shutdown`, set by `serve` and `gui`) for any connection
   still open after the notice. The desktop force-kills at 25 s (FR-007,
   FR-015).
+- **Leaving a project (#2433).** Opening or creating another project, deleting
+  the open one, or starting a tutorial leaves the open project. When it has
+  live runs (`GET /api/projects/active/runs`), the GUI asks the user first; on
+  confirmation `POST /api/projects/active/end-runs` asks each run to cancel,
+  cancels the task of any run still going after 2 s, and waits 10 s in total.
+  A run still going after that is recorded `cancelled`, as at shutdown, and is
+  left to stop on its own. The switch is refused with HTTP 409
+  (`project_runs_live`) while any run is live, so no run is ever carried into
+  another project. Leaving also closes the project's AI terminal sessions (AI
+  Chat and AI Block), whose working directory is inside it. Every run event
+  carries the run's `run_id`, so the GUI drops late events of a run it ended.
 - **Store lifetime.** Reopening the active project, as a page reload does, keeps
   its lineage store. Switching projects retires the previous store, which is
-  closed only after the last live run writing through it ends. A run of the
-  previous project therefore records its blocks and outcome in its own
-  project. It is listed as running when the user switches back.
+  closed only after the last run writing through it ends; that is only ever a
+  run that ignored the switch's cancellation.
 - **Owner markers.** A run first registers itself as live in its process. It
   then writes `<project>/.scistudio/run-owners/<run_id>.json` (pid, process
   creation time, machine id, host, claim time), and only then inserts its

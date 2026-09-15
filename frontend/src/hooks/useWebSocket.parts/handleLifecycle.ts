@@ -19,6 +19,8 @@ export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: Lif
   // #2395: prompts are held per (workflow, block), so a second workflow pausing
   // adds its own prompt instead of replacing the first one's.
   const data = payload.data ?? {};
+  // #2433: the run that paused; the answer and a cancel are addressed to it.
+  const runId = payload.run_id ?? (data.run_id as string | undefined) ?? null;
   deps.upsertInteractivePrompt({
     blockId: payload.block_id ?? "",
     blockType: (data.block_type as string) ?? "",
@@ -26,6 +28,7 @@ export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: Lif
     // serialise_event, with a fallback to the data envelope). Confirm/cancel use
     // this so the response is scoped to the right run regardless of the active tab.
     workflowId: payload.workflow_id ?? (data.workflow_id as string | undefined) ?? "",
+    ...(runId ? { runId } : {}),
     panelManifest: (data.panel_manifest as PanelManifestDescriptor | null) ?? null,
     panelPayload: (data.panel_payload as Record<string, unknown>) ?? {},
     // ADR-051 interaction memory: the engine's input fingerprint for this run.

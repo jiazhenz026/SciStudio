@@ -15,6 +15,8 @@ async def sse_handler(request: Request) -> StreamingResponse:
     runtime = request.app.state.runtime
     queue = runtime.log_broadcaster.subscribe()
     workflow_filter = request.query_params.get("workflow_id")
+    # #2433: ``run_id`` narrows the stream to one run of a workflow.
+    run_filter = request.query_params.get("run_id")
     block_filter = request.query_params.get("block_id")
     level_filter = request.query_params.get("level")
 
@@ -34,6 +36,8 @@ async def sse_handler(request: Request) -> StreamingResponse:
                     # server's wait for open connections finish (#2327).
                     break
                 if workflow_filter and item.get("workflow_id") != workflow_filter:
+                    continue
+                if run_filter and item.get("run_id") != run_filter:
                     continue
                 if block_filter and item.get("block_id") != block_filter:
                     continue

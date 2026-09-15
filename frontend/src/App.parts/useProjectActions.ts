@@ -16,6 +16,7 @@ import { tutorialPrefillValue } from "../components/LearningCenter.parts/prefill
 import { askFileDestination, type FileDestination } from "../components/promotion/dialogChannel";
 import { ApiError, api } from "../lib/api";
 import { chooseSubworkflowFile } from "../lib/chooseSubworkflowFile";
+import { confirmLeavingProject, isOpenProject } from "../lib/leaveProject";
 import { probeProjectFileExistence, probeUserLibraryFileExistence } from "../lib/fileExistence";
 import { useAppStore } from "../store";
 import { invalidateTypeCatalog } from "../store/useTypeCatalog";
@@ -184,12 +185,22 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
 
   const openProject = useCallback(
     async (projectIdOrPath: string) => {
+      // #2433: leaving the open project ends its runs — ask first.
+      const switching = !isOpenProject(useAppStore.getState().currentProject, projectIdOrPath);
+      try {
+        if (switching && !(await confirmLeavingProject(useAppStore))) return;
+      } catch (error) {
+        setLastError((error as Error).message);
+        return;
+      }
       setBusy(true);
       try {
         const project = await api.openProject(projectIdOrPath);
         // Bug 5: clear current canvas state before loading new project.
         setWorkflow(null);
         resetExecution();
+        // #2433: a terminal belongs to the project it was started in.
+        if (switching) useAppStore.getState().closeAllTerminalTabs();
         // Force-clear all tabs from the store.
         useAppStore.setState({ tabs: [], activeTabId: null });
 
@@ -222,6 +233,15 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   );
 
   const submitProjectDialog = useCallback(async () => {
+    if (projectDialog.mode === "new") {
+      try {
+        // #2433: the new project is opened, which leaves the open one.
+        if (!(await confirmLeavingProject(useAppStore))) return;
+      } catch (error) {
+        setLastError((error as Error).message);
+        return;
+      }
+    }
     setBusy(true);
     try {
       if (projectDialog.mode === "new") {
@@ -234,6 +254,7 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
         // switching to the newly created project (mirror openProject()).
         resetExecution();
         useAppStore.setState({ tabs: [], activeTabId: null });
+        useAppStore.getState().closeAllTerminalTabs();
         setCurrentProject(project);
         openTab(emptyWorkflow("main"));
         await refreshProjects();
@@ -265,11 +286,15 @@ function useProjectLifecycle(deps: ProjectLifecycleDeps) {
   const deleteProject = useCallback(
     async (projectId: string) => {
       try {
+        const deletingOpenProject = currentProject?.id === projectId;
+        // #2433: deleting the open project leaves it, which ends its runs.
+        if (deletingOpenProject && !(await confirmLeavingProject(useAppStore))) return;
         await api.deleteProject(projectId);
-        if (currentProject?.id === projectId) {
+        if (deletingOpenProject) {
           setCurrentProject(null);
           setWorkflow(null);
           resetExecution();
+          useAppStore.getState().closeAllTerminalTabs();
         }
         await refreshProjects();
       } catch (error) {
