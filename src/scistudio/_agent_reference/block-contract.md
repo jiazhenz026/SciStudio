@@ -66,9 +66,9 @@
   `execution_mode = ExecutionMode.INTERACTIVE`, set `interactive_panel`, and
   implement `prepare_prompt`. The registry rejects a block that has only some of
   these.
-- **`prepare_prompt` sends plain JSON only.** It runs in its own worker with the
-  full inputs and must reduce them to a small JSON view; the runtime rejects
-  anything else. A bare dict is shorthand for `InteractivePrompt(panel_payload=...)`,
+- **`prepare_prompt` sends plain JSON of real values.** It runs in its own worker
+  with the full inputs and builds the JSON view the decision needs, never a sampled
+  or downsampled stand-in; the runtime rejects anything that is not plain JSON. A bare dict is shorthand for `InteractivePrompt(panel_payload=...)`,
   and heavy work to reuse after the pause goes in `intermediate`.
 - **Compute outputs from the decision.** After the user confirms, `run` or
   `process_item` reads the decision with `config.get("interactive_response", {})`.

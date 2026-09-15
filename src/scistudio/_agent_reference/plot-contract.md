@@ -1,63 +1,46 @@
-# Plot contract — `render(collection)`
+# Plot contract
 
-A plot is a **preview-only** script bound to a block output port (not a workflow
-node). It is import-free and dual-interpreter (Python + matplotlib/seaborn, or R +
-ggplot2). The harness runs it in a confined subprocess, injects `collection`, and
-collects the return.
+## 1. Where to look
 
-## The entrypoint
-
-Exactly `def render(collection):` (R: `render <- function(collection)`). Any other
-signature — including `render(collection, context)` — is rejected. The script
-**imports nothing from `scistudio`**.
-
-```python
-def render(collection):
-    import matplotlib.pyplot as plt
-    df = collection.items.open_one()        # native object (pandas DataFrame)
-    fig, ax = plt.subplots()
-    ax.bar(df["compound"], df["intensity"])
-    return fig
-```
-
-## Injected `collection` shape
-
-| Access | Yields |
+| You need | Read |
 |---|---|
-| `collection.types` | tuple of type names on the port |
-| `collection.items` | ordered: `len()`, iterate, `[i]`, `[a:b]` |
-| `collection.items.open()` / `.open(max_items=n)` | all items opened, as a list (byte-budget guarded) |
-| `collection.items.open_one()` | first item opened (empty → error) |
-| `item.type` | type name (`"Array"`, `"DataFrame"`, …) |
-| `item.metadata` | read-only mapping (storage/lineage keys stripped) |
-| `item.open()` | native payload by type (below) |
+| How to find a target, scaffold, validate, run, and check a plot | the `scistudio-write-plot` skill |
+| `plot.yaml` fields and the plot tools' arguments and results | the live MCP tool schemas (`scaffold_plot`, `validate_plot`, `run_plot_job`) |
+| What the user sees and does with plots | `user-guide/writing-plots.md` |
+| The data types a plot receives | [data-types.md](data-types.md) |
 
-`item.open()` returns **vanilla objects**, never a `DataObject`:
+## 2. Rules
 
-| `item.type` | `open()` |
-|---|---|
-| `Array` | numpy `ndarray` |
-| `DataFrame` | pandas `DataFrame` |
-| `Series` | pandas `Series` (or `DataFrame` if ≥2 columns, e.g. a spectrum's `lambda`/`intensity`) |
-| `Text` | `str` |
-| `Artifact` | `pathlib.Path` |
-| `CompositeData` | `dict[str, <opened>]` |
-
-## Return contract
-
-Return one of:
-
-- a Matplotlib figure (duck-typed: has `.savefig`),
-- an artifact path (`str` / `pathlib.Path`) that resolves **inside the plot
-  working dir** and exists,
-- a `list`/`tuple` of the above (mixed allowed).
-
-`None` or any other type is rejected.
-
-## Notes
-
-A plot is bound by a discovered `target_id` (a port), never by a block label, and
-never becomes a DAG node. Read only a bounded sample for large data (`open()` is
-budget-guarded). For a saved pipeline output instead of a preview, write a block
-that emits an `Artifact`. The user-facing how-to is
-`../../user-guide/writing-plots.md`.
+- **Define exactly `render(collection)`.** In R write `render <- function(collection)`.
+  Any other signature, including `render(collection, context)`, is rejected.
+- **Import nothing from `scistudio`.** The script receives everything through
+  `collection`. Import only plotting and data libraries such as matplotlib,
+  seaborn, pandas, numpy, or ggplot2.
+- **Read data through `collection`.** Use `collection.types`, `collection.items`
+  (`len`, iterate, index, slice), `items.open_one()`, `items.open(max_items=n)`, and
+  per item `item.type`, `item.metadata`, and `item.open()`. `item.metadata` is
+  read-only and has storage keys removed.
+- **`open()` returns plain objects.** An `Array` opens as a NumPy array, a
+  `DataFrame` as pandas, a `Series` as pandas (a `DataFrame` when it has two or more
+  columns), `Text` as `str`, `Artifact` as `pathlib.Path`, and `CompositeData` as a
+  dict of opened slots. Package types open as their core base type.
+- **Return a figure, a path, or a list of them.** Return a matplotlib figure, a path
+  to an image the script wrote inside its working directory, or a list or tuple of
+  those; in R a ggplot object or a path. Returning `None` or anything else fails the
+  run.
+- **Bind by `target_id`, never by label.** Get the target from `list_plot_targets`
+  and let `scaffold_plot` write `plot.yaml`. A plot never becomes a workflow node,
+  never edits a workflow, and never produces data or lineage.
+- **Plots read whole items under a size limit.** `open()` loads an item fully and
+  refuses inputs above the limit (64 MiB per input by default, 512 MiB at most).
+  For GB-scale data, open fewer items or add a block upstream that reduces the data,
+  and plot that block's output.
+- **Plot two outputs through one composite output.** A plot binds to one port. Combine
+  outputs into a `CompositeData` type with `scistudio-write-type` and a merge block,
+  then plot the merged output.
+- **A figure that must be kept is a block output.** The plot's files are a preview
+  cache that the next run overwrites. For a saved, reproducible figure, write a block
+  that produces an `Artifact`.
+- **Look at the figure before reporting.** Check it for overlapping legends or labels
+  and cut-off or unreadable text. Fix the script and run again until it reads
+  cleanly.

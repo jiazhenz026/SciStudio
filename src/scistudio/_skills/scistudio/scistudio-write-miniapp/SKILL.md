@@ -80,7 +80,8 @@ These are working steps, not separate approval stages.
 - Hand-writing tables, pagers, loading states, or heatmaps that the prebuilt
   components already provide, or importing a component that does not exist
   (there is no `Slider` or image viewer component).
-- Presenting sampled, reduced, or transformed data as the unchanged original.
+- Sampling, downsampling, or decimating data to show it, instead of paging or
+  scrolling through all of it.
 - Overwriting input data or editing workflows as a side effect of exploring.
 - Reading a whole large dataset on every control change; letting an older
   calculation overwrite a newer result.
@@ -92,6 +93,10 @@ These are working steps, not separate approval stages.
 
 **Rules for every MiniApp.**
 
+- **Show the real, complete data.** This is the root rule of every MiniApp: never
+  sample, downsample, decimate, crop, or otherwise show less than the complete
+  original data because it is large. Let the user reach all of it by paging,
+  scrolling, or moving through slices, and show exact values.
 - **Show the data as it is.** Unless the user asks for something else, draw data
   in its own form: an image or 2-D array as an image, a table as a table, a
   series as a line, with its dimensions, orientation, and aspect ratio kept. A
@@ -121,7 +126,7 @@ built for them, and the request gets clearer before you build.
 - Every questionnaire must work before the user sees it: run the questionnaire
   check, fix every error it reports, and repeat until it passes. Never hand the
   user a questionnaire that failed the check or was not checked.
-<!-- TODO(#2295): replace with the component names, submit API, waiting tool,
+<!-- TODO(#2447): replace with the component names, submit API, waiting tool,
      and questionnaire check from the questionnaire PR once it lands. -->
 
 **Files.** A MiniApp is `panels/<panel_id>/`:

@@ -465,6 +465,36 @@
       "at": "2026-09-15T12:52:35.286343Z",
       "owner_directive": "Commit the current work, then continue with the next agent reference page.",
       "reason": "checkpoint commit"
+    },
+    {
+      "at": "2026-09-15T12:54:48.351004Z",
+      "owner_directive": "Next agent reference page: plot-contract.md in the routing + rules structure.",
+      "reason": "plot-contract reference"
+    },
+    {
+      "at": "2026-09-15T13:08:18.041846Z",
+      "owner_directive": "Next agent reference page: gui-debug.md in the routing + rules structure.",
+      "reason": "gui-debug reference"
+    },
+    {
+      "at": "2026-09-15T13:14:46.927528Z",
+      "owner_directive": "Last agent reference page: miniapp-renderers.md (important) in the routing + rules structure.",
+      "reason": "renderers reference"
+    },
+    {
+      "at": "2026-09-15T13:20:37.550302Z",
+      "owner_directive": "The root principle for every panel is presenting the real data: never sample, downsample, decimate, or otherwise show the user anything other than the complete original data because of size; remove the decimated-series rule.",
+      "reason": "faithful data principle"
+    },
+    {
+      "at": "2026-09-15T13:29:09.584696Z",
+      "owner_directive": "Dispatch an agent to remove dishonest data presentation (sampling, downsampling, decimation) from panel reads and core previews for every data type, not only arrays. PR #2450 PTY approval risk: leave as is for now.",
+      "reason": "faithful data code fix dispatch"
+    },
+    {
+      "at": "2026-09-15T13:30:33.574701Z",
+      "owner_directive": "Finish the current documentation changes and open a PR now; the user guide pass comes later.",
+      "reason": "open PR"
     }
   ],
   "docs_events": [],

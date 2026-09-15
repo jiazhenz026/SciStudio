@@ -91,9 +91,11 @@ decision is recorded with the run, so the step stays reproducible. For example, 
 
 The block runs in two phases, each in its own process:
 
-1. **Prepare the view.** `prepare_prompt(inputs, config)` reduces the real inputs
-   to a small plain-JSON view for the window (a downsampled trace, a summary
-   table, a list of choices). The window receives only this view.
+1. **Prepare the view.** `prepare_prompt(inputs, config)` turns the real inputs
+   into the plain-JSON view the window needs for the decision (the candidate
+   items, the table to choose from, the values of the trace). It carries real
+   values, never a downsampled or sampled stand-in; the window receives only this
+   view.
 2. **Compute from the decision.** After the user confirms, `run` (or
    `process_item`) reads the decision from `config["interactive_response"]` and
    computes the declared outputs.

@@ -37,8 +37,8 @@ For an existing panel, preserve its identity and reuse working code.
    plus `index.html`.
 4. **Build the view from SDK reads.** Await `scistudio.ready()`, read the bound
    reference with bounded `read(op, params)` calls, and page or slice large
-   data. Give the data most of the space, keep its dimensions and aspect ratio,
-   and label any sampling. Add loading, empty, and error states.
+   data, never sampling or downsampling it. Give the data most of the space and
+   keep its dimensions and aspect ratio. Add loading, empty, and error states.
 5. **Add a sample.** Write `panel.sample.json` with the reads the page makes, so
    the page can be checked without a host.
 6. **Validate.** Call `validate_panel(path="panels/<panel_id>")` and fix every
@@ -85,7 +85,10 @@ interpretation. Choose reasonable UI defaults for routine implementation details
   components already provide.
 - Writing an interactive panel when `core.interactive.data_router` or
   `core.interactive.pair_editor` already fits.
-- Reading unbounded data, or ignoring `truncated` / `complete` in a read result.
+- Sampling, downsampling, or decimating data to show it, instead of paging or
+  scrolling through all of it.
+- Reading unbounded data in one request, or ignoring `truncated` / `complete` in a
+  read result.
 - Hardcoding a port, server root, mount token, or deployment prefix instead of
   relative SDK paths.
 - Relying on `fetch`, cookies, `localStorage`, project files, or the parent page;
@@ -105,6 +108,10 @@ interpretation. Choose reasonable UI defaults for routine implementation details
 
 **Rules for every panel.**
 
+- **Show the real, complete data.** This is the root rule of every panel: never
+  sample, downsample, decimate, crop, or otherwise show less than the complete
+  original data because it is large. Let the user reach all of it by paging,
+  scrolling, or moving through slices, and show exact values.
 - **Always give an interactive panel a way out.** The user must be able to submit
   the decision from the page, with a clearly labelled button such as **Submit**
   or **Confirm**, enabled as soon as a valid choice exists. Without it the run
