@@ -91,7 +91,8 @@ measured.
 This addendum makes the command incremental as well. Each check keeps its
 whole-repository CI-mirror command and gains a local variant narrowed to the
 observed diff. Local modes run the narrow variant; `ci` mode and an explicit
-`--force-checks` run the mirror.
+`--force-checks` run the mirror, except for the Python test suite, which never
+runs over the whole repository locally (Section 2.2).
 
 The reasoning this rests on is not new to the repository, and that is the point.
 Addendum 6 §7.5 already established that the `workflow-gate` job does not own the
@@ -117,12 +118,16 @@ narrowed. This addendum first deferred it to CI; measurement on PR #2111 then pu
 it at 27m31s in CI, and the owner removed it outright (§2.5). Every check that
 remains either narrows or costs under 20s.
 
-One asymmetry is deliberate and load-bearing: narrowing must never under-select.
-Whenever the selection cannot prove which tests or files an edit affects — a
-changed pytest or coverage configuration, a shared `conftest.py`, a fixture file,
-a module with no mirrored test location — the local run widens to the full
-surface rather than reporting a narrow pass. A slow correct answer is acceptable;
-a fast wrong one is not.
+One rule is deliberate and load-bearing: no local gate invocation runs the Python
+test suite over the whole repository, in any mode or with any flag. Whenever the
+selection cannot prove which tests an edit affects (a changed pytest or coverage
+configuration, the root `conftest.py`, a fixture no test references, a module
+with no mirrored or importing test), the local run executes the bounded
+selection it can derive from the diff, or no tests when nothing is selectable,
+and records that full coverage for the unmapped inputs is deferred to CI. It
+never widens. `ci.yml` runs the full suite on every PR, so the deferred
+coverage is proven before merge; a local narrow pass is labelled as narrow and
+never reads as full-surface proof.
 
 ### 1.1 Problems Addressed
 
@@ -157,6 +162,13 @@ requested but cannot be built safely, the mirror runs instead and the recorded
 event says so: an event always names the command that actually ran, never the one
 that was requested.
 
+The Python test suite is the exception to both fallbacks. Outside CI its mirror
+never runs: `--force-checks` forces re-execution of the diff-derived selection
+and does not widen it to repository scope, and an unbuildable selection is
+recorded as deferred to CI (Section 2.2) instead of falling back to the mirror.
+A single guard in the gate's test execution path refuses any local test-runner
+invocation that names no explicit test target or names the whole test tree.
+
 Every recorded check event carries the scope it ran at. Diff-scoped evidence is a
 valid local signal but is never accepted in place of a CI-mirror obligation, so
 the `ci`-mode contract established in Addendum 6 is unchanged. Events recorded
@@ -176,10 +188,22 @@ on the same PR. Coverage is a repository-level invariant of exactly the kind
 Section 1 assigns to CI: a coverage regression is not caused by the current
 iteration in a way that iterating locally would reveal sooner.
 
-Test selection maps a changed module to the longest mirrored test directory that
-exists, or to a mirrored test file, and includes changed test files directly. A
-changed `conftest.py` selects its whole directory. Every unresolved case widens to
-the full suite.
+Test selection maps a changed module to its nearest mirrored test file, or else
+the longest mirrored test directory that exists, plus the test modules that
+import it; includes changed test files directly; maps a changed non-Python test
+asset to the test modules that reference it and the tests beside it; maps a
+deleted module to its package's mirrored tests and any test still importing it;
+and maps a script to its mirrored test and the tests that reference it. A
+changed `conftest.py` selects its whole directory.
+
+No unresolved case widens to the full suite. Global test inputs (pytest and
+coverage configuration, the root `conftest.py`, CI workflows, the pre-commit
+configuration) and any input that maps to no test are deferred to CI. The check
+event records the deferral and its reason; when nothing is selectable no test
+process starts at all. That event satisfies the local and pre-PR `python_tests`
+obligation, and like every diff-scoped event it is never accepted in place of a
+CI-mirror obligation. `ci.yml` continues to run the full suite and the coverage
+floor on every PR.
 
 ### 2.3 Surfaces Match What Each Check Reads
 
@@ -252,7 +276,8 @@ authorization, label provenance, and the authority of CI are unchanged.
 ## 4. Verification And Tooling Impact
 
 Tests assert the properties that make the change safe rather than the speedup
-itself: that unresolvable selection widens instead of narrowing, that diff-scoped
+itself: that unresolvable selection is deferred to CI and never runs the full
+suite locally in any mode or with `--force-checks`, that diff-scoped
 evidence cannot satisfy a CI-mirror obligation, that events recorded before the
 scope field read as repository-scoped, that a test-only edit no longer
 invalidates type evidence, that the configured coverage floor is unchanged, and
@@ -273,7 +298,7 @@ parity environment:
 
 | Run | Wall clock |
 |---|---:|
-| `check --mode pre-pr --force-checks` (every selected check at repository scope) | 958s |
+| `check --mode pre-pr --force-checks` (every selected check at repository scope, measured before `python_tests` was barred from repository scope locally) | 958s |
 | `check --mode pre-pr` (diff-scoped, `semantic_dup` deferred) | 58.8s |
 
 The ledger confirms the 58.8s run executed all eight selected checks and reused
@@ -303,8 +328,10 @@ iterating on a small number of files, and a formatting deviation stops costing a
 cycle. Agents see explicitly which checks proved only their diff.
 
 A repository-wide invariant broken by a narrow edit now surfaces in CI rather
-than locally. This is the accepted cost, bounded by the widening rule and by
-keeping every iteration-sensitive check local.
+than locally. This is the accepted cost, bounded by the full-suite run in
+`ci.yml` on every PR and by keeping every iteration-sensitive check local. Tests
+whose relevance the diff cannot show are deferred to that run rather than
+executed locally, so a local pass on such a diff is recorded as deferred.
 
 The gate's own change is validated by the gate at Tier 1, since it touches
 `src/scistudio/qa/**`.
@@ -315,6 +342,14 @@ The gate's own change is validated by the gate at Tier 1, since it touches
 guarantee and needs no change. Rejected because the measured cost is paid on
 every iteration while the checks responsible for most of it catch failures that
 do not scale with iteration count.
+
+**Widen the local test run to the full suite when selection cannot be proven.**
+The original form of this addendum. Rejected by owner decision (#2386): common
+diffs such as a regenerated API snapshot, a documentation-only governance change,
+or a frontend-only feature widened every local run to the full suite, which did
+not finish inside the gate's execution timeout and so was re-run on every
+invocation. CI already runs the full suite on the same PR; the local run records
+the deferral instead.
 
 **Drop the slow checks from the local gate entirely.** Simpler than narrowing and
 saves more. Rejected for every check that answers whether the current edit is
@@ -327,8 +362,9 @@ repository; measuring it at 7.5s retired that idea.
 **Adopt an import-graph test-selection dependency.** More precise than mirrored
 paths and would select fewer tests. Rejected for now because it puts a stateful
 database in the gate's execution path, where a stale or broken database would
-under-select — the one failure mode the widening rule exists to prevent. The
-mirrored-path mapping is coarser and fails toward running more.
+under-select silently, without recording what it skipped. The mirrored-path and
+reference mapping is coarser, and whatever it cannot map is recorded as deferred
+to CI, where the full suite runs.
 
 **Relax the coverage floor instead of disabling it per invocation.** Would let
 subset runs pass locally. Rejected because it weakens a merge-blocking threshold

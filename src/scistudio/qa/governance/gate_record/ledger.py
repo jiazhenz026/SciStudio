@@ -184,6 +184,14 @@ class CheckEvent(BaseModel):
     # failures, and ``parity_detail`` names what is missing.
     parity_gap: bool = False
     parity_detail: str | None = None
+    # When True this local event did not prove the check's full surface: some
+    # changed inputs could not be mapped to tests, or nothing was selectable, so
+    # that coverage is deferred to the full-suite run in ci.yml on the same PR.
+    # The local gate never runs the whole Python suite (ADR-042 Addendum 7
+    # §2.2, #2386); such an event still satisfies the local and pre-PR
+    # obligation. ``deferred_reason`` names what was deferred (repo-relative).
+    coverage_deferred_to_ci: bool = False
+    deferred_reason: str | None = None
 
     @model_validator(mode="after")
     def _validate_exit(self) -> CheckEvent:

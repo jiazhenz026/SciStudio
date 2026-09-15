@@ -102,7 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument(
         "--force-checks",
         action="store_true",
-        help="Execute all selected checks even when current passing evidence already exists.",
+        help=(
+            "Execute all selected checks even when current passing evidence already exists. "
+            "python_tests still runs only its diff-derived selection; the full Python suite "
+            "never runs locally (CI runs it)."
+        ),
     )
     # Run checks/guards and report pass/fail WITHOUT persisting the ledger. Used
     # by the pre-commit/commit-msg git hooks: under the pre-commit framework a
@@ -126,7 +130,11 @@ def build_parser() -> argparse.ArgumentParser:
     finalize.add_argument(
         "--force-checks",
         action="store_true",
-        help="Execute tier-selected checks during finalize instead of reusing existing evidence.",
+        help=(
+            "Execute tier-selected checks during finalize instead of reusing existing evidence. "
+            "python_tests still runs only its diff-derived selection; the full Python suite "
+            "never runs locally (CI runs it)."
+        ),
     )
     _add_field_flags(finalize)
 

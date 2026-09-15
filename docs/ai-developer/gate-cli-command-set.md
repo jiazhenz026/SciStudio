@@ -232,7 +232,7 @@ python -m scistudio.qa.governance.gate_record check \
 | `--admin-label` | no | yes | Requested/expected admin label (local records intent only; CI verifies provenance) |
 | `--only` | no | yes | Run only selected missing/stale checks for recovery; reconciliation still reports missing obligations |
 | `--skip-execution` | no | no | Reconcile without running commands; sufficient for final PR readiness only when every required check has current passing evidence |
-| `--force-checks` | no | no | Rerun all selected checks even when current passing evidence already exists |
+| `--force-checks` | no | no | Rerun all selected checks even when current passing evidence already exists; `python_tests` still runs only its diff-derived selection (the full Python suite never runs locally, #2386) |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 `check` automatically: (1) observes the current git diff; (2) infers required
@@ -307,7 +307,7 @@ python -m scistudio.qa.governance.gate_record finalize \
 | `--docs-updated` / `--docs-na` | no | yes | Record docs landing / N/A before final reconciliation |
 | `--test-path` / `--test-na` | no | yes | Record test evidence / N/A before final reconciliation |
 | `--admin-label` | no | yes | Expected admin label (authoritative only when CI observes it) |
-| `--force-checks` | no | no | Execute tier-selected checks during finalize instead of reusing existing evidence |
+| `--force-checks` | no | no | Execute tier-selected checks during finalize instead of reusing existing evidence; never runs the full Python suite |
 | `--record` | no | no | Explicit ledger path; normally auto-discovered |
 
 Pre-PR `finalize` re-observes the diff, validates the intended PR body's issue
@@ -406,7 +406,7 @@ Per-concern tier behavior:
 | `init` | Issue (when known), branch, owner directive, persona, task kind, and initial scope | Branch, owner directive, persona, task kind; issue/scope may be completed later | Branch, owner directive, persona, task kind; issue/scope may be completed later |
 | `plan` | Required before implementation; declare expected docs/tests/checks or N/A | Required before final check; may be partial during debugging | Optional unless the evaluator needs early docs/tests/scope guidance |
 | `amend` | Allowed; every scope/obligation correction needs a `--reason` | Normal way to add discovered scope/tests/docs/issues | Normal way to record live directives and late fields |
-| `check` | Full merge-blocking CI check set selected; run diff-scoped locally; default incremental execution; `--force-checks` reruns all selected checks at repository scope | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
+| `check` | Full merge-blocking CI check set selected; run diff-scoped locally; default incremental execution; `--force-checks` reruns all selected checks at repository scope except `python_tests`, which never runs the full suite locally (unmapped inputs are recorded as coverage deferred to CI) | Governance/lint/audit baseline plus all changed-surface CI checks | Mandatory checks for the observed diff only; sparse planning does not reduce mandatory checks |
 | `finalize` | Fails if any plan/test/docs/check/issue field is missing | Fails if observed diff lacks issue/test/docs/check reconciliation | Fails if observed diff lacks issue/test/docs/check reconciliation |
 | Admin label | Required for protected core, gate bypass, or merge automation | Same | Same |
 
@@ -714,7 +714,10 @@ PR body must close every gate-listed issue with a GitHub closing keyword
 
 - **Default check execution is incremental.** Current passing evidence is reused;
   only missing or stale checks run. `--force-checks` intentionally reruns all
-  selected checks. `--only` runs a subset for recovery and cannot create final
+  selected checks. The full Python test suite never runs locally in any mode or
+  with any flag (#2386): `python_tests` runs its diff-derived selection and
+  records `coverage_deferred_to_ci` for inputs it cannot map, which satisfies the
+  local and pre-PR obligation; `ci.yml` runs the full suite. `--only` runs a subset for recovery and cannot create final
   readiness for the whole candidate. `--skip-execution` runs no commands; in
   `pre-pr` it is final-readiness capable only when all required checks already
   have current passing evidence for the observed diff. If evidence is absent or

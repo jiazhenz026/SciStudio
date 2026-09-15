@@ -25,7 +25,7 @@ import os
 import re
 import shutil
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -44,7 +44,8 @@ class CheckSpec:
     name: str
     # The CI-mirror command: whole-repository, byte-identical in intent to the
     # CI job named by ``ci_job``. This is what CI runs and what ``--force-checks``
-    # runs locally.
+    # runs locally, except for ``python_tests``, which never runs at repository
+    # scope outside CI (#2386).
     command: tuple[str, ...]
     covered_surface: str
     # CI job this mirrors; used for parity-mapping diagnostics.
@@ -148,7 +149,9 @@ CHECK_CATALOG: dict[str, CheckSpec] = {
         # the diff. ``--no-cov`` is not optional: the repository-wide
         # ``--cov-fail-under`` in pyproject.toml makes ANY subset run fail by
         # construction, so without it no incremental test run is possible at all.
-        # CI keeps the floor and the full suite (spec FR-003, FR-004).
+        # CI keeps the floor and the full suite (spec FR-003, FR-004). Locally this
+        # command is never run without explicit targets: unmapped inputs are
+        # deferred to CI instead of widening (#2386).
         local_scope="pytest_select",
         needs_src_import=True,
     ),
@@ -232,79 +235,289 @@ def _changed_python_files(
     return sorted(set(selected))
 
 
-def _mirror_test_targets(repo_root: Path, module_path: str) -> str | None:
-    """Map a changed source module to the test path that covers it.
+# The local gate never runs the Python test suite over the whole repository
+# (#2386, ADR-042 Addendum 7 §2.2). Paths that would name the whole suite are
+# refused as test targets; ``ci.yml`` is the only place the full suite runs.
+_WHOLE_SUITE_TARGETS: frozenset[str] = frozenset({"", ".", "./", "tests", "tests/"})
+# Basenames too generic to identify which tests read a file.
+_GENERIC_BASENAMES: frozenset[str] = frozenset({"__init__.py", "conftest.py", "setup.py", "__main__.py"})
+# A module imported by more test modules than this is effectively global; its
+# importers are not added to the selection.
+_IMPORTER_CAP = 40
+# Deferred-reason entries kept on a check event before the rest are counted off.
+_DEFERRED_REASONS_SHOWN = 5
 
-    Returns the longest mirrored ``tests/`` directory that exists, or a mirrored
-    ``test_<stem>.py`` file, or ``None`` when neither resolves. ``None`` means
-    "cannot prove which tests cover this", which the caller turns into a
-    full-suite run. Under-selection is the one failure mode that would let a
-    real break reach CI, so every unresolved case widens.
+
+class FullPythonSuiteRefusedError(RuntimeError):
+    """Raised when a local invocation would run the whole Python test suite."""
+
+
+def running_in_ci() -> bool:
+    """Return True inside a CI runner (GitHub Actions sets ``CI=true``)."""
+
+    return os.environ.get("CI", "").strip().lower() in {"true", "1", "yes"}
+
+
+@dataclass(frozen=True)
+class PythonTestSelection:
+    """The bounded test selection derived from a diff.
+
+    ``targets`` are the test paths the local gate runs. ``deferred`` names the
+    changed inputs whose effect on the suite could not be mapped to tests; their
+    coverage is deferred to the full-suite run in ``ci.yml``. An empty
+    ``targets`` means no local test run at all, never "run everything".
     """
-    # Development references: FR-003.
+
+    targets: tuple[str, ...] = ()
+    deferred: tuple[str, ...] = ()
+
+    @property
+    def coverage_deferred_to_ci(self) -> bool:
+        return bool(self.deferred) or not self.targets
+
+    def deferred_reason(self) -> str | None:
+        """Return a short, repo-relative reason line, or None when nothing is deferred."""
+
+        if not self.coverage_deferred_to_ci:
+            return None
+        reasons = list(self.deferred) or ["no test target derivable from the diff"]
+        shown = reasons[:_DEFERRED_REASONS_SHOWN]
+        hidden = len(reasons) - len(shown)
+        return "; ".join(shown) + (f"; ... {hidden} more" if hidden > 0 else "")
+
+
+class _TestCorpus:
+    """Lazily read ``tests/**/*.py`` once per selection for reference lookups."""
+
+    def __init__(self, repo_root: Path) -> None:
+        self._repo_root = repo_root
+        self._files: list[tuple[str, str]] | None = None
+
+    def files(self) -> list[tuple[str, str]]:
+        if self._files is None:
+            loaded: list[tuple[str, str]] = []
+            tests_root = self._repo_root / "tests"
+            if tests_root.is_dir():
+                for file in sorted(tests_root.rglob("*.py")):
+                    try:
+                        text = file.read_text(encoding="utf-8", errors="replace")
+                    except OSError:
+                        continue
+                    loaded.append((file.relative_to(self._repo_root).as_posix(), text))
+            self._files = loaded
+        return self._files
+
+    def test_modules_matching(self, predicate: Callable[[str], bool]) -> list[str]:
+        """Return collectable test modules whose text satisfies ``predicate``.
+
+        A matching helper module that pytest does not collect contributes the
+        test modules in its own directory instead.
+        """
+
+        selected: set[str] = set()
+        for rel, text in self.files():
+            if not predicate(text):
+                continue
+            if _is_test_module(rel):
+                selected.add(rel)
+            else:
+                selected.update(_directory_test_modules(self._repo_root, str(Path(rel).parent)))
+        return sorted(selected)
+
+
+def _is_test_module(path: str) -> bool:
+    return Path(path).name.startswith("test_") and path.endswith(".py")
+
+
+def _directory_test_modules(repo_root: Path, directory: str) -> list[str]:
+    """Return the ``test_*.py`` modules directly inside ``directory``."""
+
+    directory = directory.replace("\\", "/").rstrip("/")
+    if directory in _WHOLE_SUITE_TARGETS:
+        return []
+    folder = repo_root / directory
+    if not folder.is_dir():
+        return []
+    return sorted(f"{directory}/{file.name}" for file in folder.glob("test_*.py") if file.is_file())
+
+
+def _mirror_test_targets(repo_root: Path, module_path: str) -> str | None:
+    """Map a source module to its mirrored test file, else its mirrored directory.
+
+    Prefers the nearest mirrored ``test_<stem>.py`` along the package chain, then
+    the longest mirrored ``tests/<package>`` directory that exists. Never returns
+    the ``tests/`` root itself. ``None`` means no mirrored location exists.
+    """
+    # Development references: FR-003, #2386.
 
     prefix = "src/scistudio/"
     if not module_path.startswith(prefix):
         return None
     parts = module_path[len(prefix) :].split("/")
-    package_parts, stem = parts[:-1], parts[-1].removesuffix(".py")
+    package_parts, stem = parts[:-1], parts[-1].removesuffix(".pyi").removesuffix(".py")
+    if stem != "__init__":
+        for depth in range(len(package_parts), -1, -1):
+            mirrored_file = "tests/" + "/".join([*package_parts[:depth], f"test_{stem}.py"])
+            if (repo_root / mirrored_file).is_file():
+                return mirrored_file
     for depth in range(len(package_parts), 0, -1):
         candidate = "tests/" + "/".join(package_parts[:depth])
         if (repo_root / candidate).is_dir():
             return candidate
-    mirrored_file = "tests/" + "/".join([*package_parts, f"test_{stem}.py"])
-    if (repo_root / mirrored_file).is_file():
-        return mirrored_file
     return None
 
 
-def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[str, ...] | None:
-    """Return the test paths affected by the diff, or ``None`` to run everything.
+def _module_name(module_path: str) -> str | None:
+    """Return the dotted name of a ``src/`` module below the top package, or None."""
 
-    ``None`` is the safe answer and is returned whenever the mapping cannot be
-    proven: a changed global input (pytest/coverage config, a CI workflow, a
-    shared ``conftest.py``), a non-Python file under ``tests/`` such as a
-    fixture, or a source module with no mirrored test location.
+    if not module_path.startswith("src/"):
+        return None
+    parts = module_path[len("src/") :].removesuffix(".pyi").removesuffix(".py").split("/")
+    if parts and parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(parts) if len(parts) >= 2 else None
+
+
+def _importers(corpus: _TestCorpus, module_path: str) -> list[str]:
+    """Return test modules importing the module; empty when none or too broadly imported."""
+
+    dotted = _module_name(module_path)
+    if dotted is None:
+        return []
+    package, _, leaf = dotted.rpartition(".")
+    pattern = re.compile(
+        rf"\b{re.escape(dotted)}\b|\bfrom\s+{re.escape(package)}\s+import\s+[^\n]*\b{re.escape(leaf)}\b"
+    )
+    found = corpus.test_modules_matching(lambda text: pattern.search(text) is not None)
+    return found if len(found) <= _IMPORTER_CAP else []
+
+
+def _referencing_tests(corpus: _TestCorpus, path: str) -> list[str]:
+    """Return test modules naming ``path`` by repo path, tests-relative path, or basename."""
+
+    tokens = {path}
+    if path.startswith("tests/"):
+        tokens.add(path[len("tests/") :])
+    name = Path(path).name
+    if name and name not in _GENERIC_BASENAMES:
+        tokens.add(name)
+    return corpus.test_modules_matching(lambda text: any(token in text for token in tokens))
+
+
+def select_python_tests(repo_root: Path, changed_files: Sequence[str]) -> PythonTestSelection:
+    """Return the bounded test selection for the diff; never the whole suite.
+
+    Each changed input either maps to concrete test paths or is recorded as
+    deferred to CI. Nothing widens: a global input (pytest/coverage config, a CI
+    workflow, the root ``conftest.py``), an asset no test references, or a module
+    with no mirrored or importing test is deferred, while the rest of the diff
+    still selects its tests.
     """
+    # Development references: ADR-042 Addendum 7 §2.2, #2386.
 
+    corpus = _TestCorpus(repo_root)
     targets: set[str] = set()
-    saw_python = False
+    deferred: list[str] = []
+
+    def _add(paths: Sequence[str]) -> bool:
+        usable = [p for p in paths if p.rstrip("/") not in _WHOLE_SUITE_TARGETS]
+        targets.update(usable)
+        return bool(usable)
+
     for raw in changed_files:
         path = surfaces.normalize_path(raw)
+        if not path:
+            continue
         if _is_global_test_input(path):
-            return None
+            deferred.append(f"global test input: {path}")
+            continue
+        exists = (repo_root / path).exists()
         if path.startswith("tests/"):
+            parent = str(Path(path).parent).replace("\\", "/")
             if not path.endswith(".py"):
-                # A fixture, golden file, or data asset: cannot tell which tests
-                # read it.
-                return None
-            saw_python = True
-            if not (repo_root / path).exists():
-                # Deleted: nothing to select here, but the deletion may have
-                # moved coverage elsewhere, so do not narrow on its account.
+                # A fixture, golden file, or snapshot: select the tests that read it.
+                found = [*_referencing_tests(corpus, path), *_directory_test_modules(repo_root, parent)]
+                if not _add(found):
+                    deferred.append(f"unreferenced test asset: {path}")
                 continue
             if Path(path).name == "conftest.py":
-                targets.add(str(Path(path).parent).replace("\\", "/"))
-            else:
-                targets.add(path)
+                if not (exists and _add([parent])):
+                    deferred.append(f"conftest without a test package: {path}")
+                continue
+            if exists:
+                _add([path])
+            elif not _add([parent] if (repo_root / parent).is_dir() else []):
+                deferred.append(f"deleted test module: {path}")
             continue
         if not path.endswith(_RUFF_TARGET_SUFFIXES):
             continue
-        saw_python = True
-        if not path.startswith("src/scistudio/"):
-            # ``scripts/**`` and ``packages/**`` have no mirrored test tree.
-            return None
-        if not (repo_root / path).is_file():
-            # A deleted module: its tests were deleted or moved with it, and the
-            # mirror cannot say which. Widen rather than guess.
-            return None
-        mirrored = _mirror_test_targets(repo_root, path)
-        if mirrored is None:
-            return None
-        targets.add(mirrored)
-    if not saw_python or not targets:
-        return None
-    return tuple(sorted(targets))
+        if path.startswith("src/scistudio/"):
+            if exists:
+                mirrored = _mirror_test_targets(repo_root, path)
+                # The mirrored location plus every test that imports the module
+                # (tests do not always live under the mirrored package path).
+                found = [mirrored] if mirrored else []
+                found.extend(_importers(corpus, path))
+            else:
+                # A deleted module: its package's mirrored tests plus any test that
+                # still imports it (those would now fail to import).
+                package_init = str(Path(path).parent / "__init__.py").replace("\\", "/")
+                package_dir = _mirror_test_targets(repo_root, package_init)
+                found = [package_dir] if package_dir else []
+                found.extend(_importers(corpus, path))
+            if not _add(found):
+                deferred.append(f"no mirrored or importing test: {path}")
+            continue
+        # ``scripts/**``, ``packages/**``, and other Python outside the package.
+        found = []
+        if path.startswith("scripts/"):
+            mirrored_script = f"tests/scripts/test_{Path(path).stem}.py"
+            if (repo_root / mirrored_script).is_file():
+                found.append(mirrored_script)
+        found.extend(_referencing_tests(corpus, path))
+        if not _add(found):
+            deferred.append(f"no test references: {path}")
+    return PythonTestSelection(targets=tuple(sorted(targets)), deferred=tuple(deferred))
+
+
+def select_test_targets(repo_root: Path, changed_files: Sequence[str]) -> tuple[str, ...]:
+    """Return the bounded test paths affected by the diff (possibly empty, never everything)."""
+
+    return select_python_tests(repo_root, changed_files).targets
+
+
+def assert_bounded_python_test_argv(argv: Sequence[str]) -> None:
+    """Refuse a test-runner invocation outside CI that names no explicit test target.
+
+    The chokepoint for local Python test execution: a target-less invocation, or
+    one naming the whole ``tests/`` tree or the repository root, runs the full
+    suite, which is forbidden outside CI. Raises
+    :class:`FullPythonSuiteRefusedError`.
+    """
+    # Development references: #2386.
+
+    if running_in_ci():
+        return
+    targets = [arg for arg in argv if _looks_like_test_target(arg)]
+    if not targets:
+        raise FullPythonSuiteRefusedError(
+            "refusing to run the Python test suite without explicit test targets outside CI "
+            "(the full suite runs only in ci.yml; #2386)"
+        )
+    whole = [arg for arg in targets if arg.split("::", 1)[0].rstrip("/") in _WHOLE_SUITE_TARGETS]
+    if whole:
+        raise FullPythonSuiteRefusedError(
+            f"refusing to run the whole Python test tree outside CI: {', '.join(whole)} (#2386)"
+        )
+
+
+def _looks_like_test_target(arg: str) -> bool:
+    """Return True for a positional pytest path argument (not an option or option value)."""
+
+    if arg.startswith("-"):
+        return False
+    head = arg.split("::", 1)[0]
+    return head in _WHOLE_SUITE_TARGETS or head.startswith("tests") or head.endswith(".py") or "/" in head
 
 
 def _is_global_test_input(path: str) -> bool:
@@ -327,6 +540,8 @@ def diff_scoped_command(
 
     ``None`` means this invocation runs the repository-scoped command: either the
     check has no diff-scoped strategy, or the strategy could not narrow safely.
+    ``python_tests`` (``pytest_select``) never returns ``None``; its selection may
+    be empty, which means no local test run with coverage deferred to CI.
     """
 
     if spec.local_scope == "none":
@@ -342,8 +557,10 @@ def diff_scoped_command(
         files = _changed_python_files(changed_files, repo_root=repo_root, under="src/scistudio/")
         return ("mypy", *files, "--ignore-missing-imports") if files else None
     if spec.local_scope == "pytest_select":
+        # Never ``None``: the repository-scoped suite is not a local fallback
+        # (#2386). An empty selection is handled by ``run_check`` as a deferral.
         targets = select_test_targets(repo_root, changed_files)
-        return (*spec.command, "--no-cov", *targets) if targets else None
+        return (*spec.command, "--no-cov", *targets)
     return None
 
 
@@ -611,19 +828,32 @@ def run_check(
 
     ``scope="diff"`` asks for the local variant narrowed to ``changed_files``.
     When the requested check has no diff-scoped strategy, or its strategy cannot
-    narrow safely, this silently falls back to the repository-scoped CI-mirror
-    command and records ``scope="repo"`` — the event always states which command
-    actually ran, never which one was requested.
+    narrow safely, this falls back to the repository-scoped CI-mirror command and
+    records ``scope="repo"`` — the event always states which command actually
+    ran, never which one was requested.
+
+    ``python_tests`` is the exception: outside CI it never runs at repository
+    scope, whatever scope was requested. It runs the bounded diff-derived
+    selection; when that selection is empty no test process starts, and the event
+    passes with ``coverage_deferred_to_ci`` set. Any invocation that still reaches
+    the runner without explicit targets raises
+    :class:`FullPythonSuiteRefusedError`.
     """
     # Maintainer context:
     # Raw stdout/stderr go ONLY to ``.workflow/local/**`` (gitignored). The
     # committed event carries a sanitized one-line summary plus a repo-relative
     # ``raw_log_ref`` (§8).
+    # Development references: #2386.
 
     spec = CHECK_CATALOG[name]
-    scoped_command = (
-        diff_scoped_command(spec, repo_root=repo_root, changed_files=changed_files) if scope == "diff" else None
-    )
+    selection: PythonTestSelection | None = None
+    if spec.local_scope == "pytest_select" and not (scope == "repo" and running_in_ci()):
+        selection = select_python_tests(repo_root, changed_files)
+        scoped_command: tuple[str, ...] | None = (*spec.command, "--no-cov", *selection.targets)
+    else:
+        scoped_command = (
+            diff_scoped_command(spec, repo_root=repo_root, changed_files=changed_files) if scope == "diff" else None
+        )
     effective_command = scoped_command or spec.command
     event_scope: Literal["repo", "diff"] = "diff" if scoped_command is not None else "repo"
     versions = {tool: ver for tool, ver in resolve_ci_tool_versions(repo_root).items() if tool in effective_command}
@@ -631,18 +861,38 @@ def run_check(
     repo_relative_command = command_text if spec.cwd == "." else f"(cd {spec.cwd} && {command_text})"
     covered_paths = [p for p in changed_files if surfaces.normalize_path(p)]
     input_fp = input_fingerprint or (fingerprint_paths(covered_paths) if covered_paths else diff_fingerprint)
+    deferred_reason = selection.deferred_reason() if selection is not None else None
+    common: dict[str, Any] = {
+        "name": name,
+        "command": repo_relative_command,
+        "tool_versions": versions,
+        "covered_surface": spec.covered_surface,
+        "scope": event_scope,
+        "input_fingerprint": input_fp,
+        "coverage_deferred_to_ci": deferred_reason is not None,
+        "deferred_reason": deferred_reason,
+    }
+
+    if selection is not None and not selection.targets:
+        # Nothing selectable: no local test process at all. ci.yml runs the full
+        # suite on the same PR; this event records the deferral and satisfies
+        # the local/pre-PR obligation (ADR-042 Addendum 7 §2.2).
+        return CheckEvent(
+            **{**common, "command": f"{repo_relative_command} (no targets; not executed)"},
+            exit_code=None,
+            status="pass",
+            summary=f"no local tests selected; full coverage deferred to CI: {deferred_reason}",
+        )
+    if spec.local_scope == "pytest_select":
+        # Single chokepoint: a target-less test invocation outside CI is refused.
+        assert_bounded_python_test_argv(effective_command[1:])
 
     argv, env = _resolve_execution(repo_root, spec, effective_command)
     env = _with_check_env(name, env)
 
     if argv is None:
         return CheckEvent(
-            name=name,
-            command=repo_relative_command,
-            tool_versions=versions,
-            covered_surface=spec.covered_surface,
-            scope=event_scope,
-            input_fingerprint=input_fp,
+            **common,
             exit_code=None,
             status="skipped",
             summary=f"tool unavailable: {spec.command[0] if spec.command else '(none)'}",
@@ -661,12 +911,7 @@ def run_check(
         )
     except (subprocess.SubprocessError, OSError) as exc:
         return CheckEvent(
-            name=name,
-            command=repo_relative_command,
-            tool_versions=versions,
-            covered_surface=spec.covered_surface,
-            scope=event_scope,
-            input_fingerprint=input_fp,
+            **common,
             exit_code=None,
             status="unknown",
             summary=f"execution error: {type(exc).__name__}",
@@ -675,15 +920,10 @@ def run_check(
     raw_ref = _write_raw_log(repo_root, name, completed)
     if completed.returncode == 0:
         return CheckEvent(
-            name=name,
-            command=repo_relative_command,
-            tool_versions=versions,
-            covered_surface=spec.covered_surface,
-            scope=event_scope,
-            input_fingerprint=input_fp,
+            **common,
             exit_code=completed.returncode,
             status="pass",
-            summary="clean",
+            summary="clean" if deferred_reason is None else f"clean; coverage deferred to CI for: {deferred_reason}",
             raw_log_ref=raw_ref,
         )
 
@@ -696,12 +936,7 @@ def run_check(
     combined_output = f"{completed.stdout}\n{completed.stderr}"
     parity_detail = detect_parity_cause(combined_output)
     return CheckEvent(
-        name=name,
-        command=repo_relative_command,
-        tool_versions=versions,
-        covered_surface=spec.covered_surface,
-        scope=event_scope,
-        input_fingerprint=input_fp,
+        **common,
         exit_code=completed.returncode,
         status="fail",
         summary=(f"parity gap: {parity_detail}" if parity_detail else f"exit {completed.returncode}"),
