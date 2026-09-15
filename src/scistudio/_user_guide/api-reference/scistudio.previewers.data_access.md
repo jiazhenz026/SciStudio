@@ -133,7 +133,7 @@ Example:
 
 ```python
 class SeriesPoints
-SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, sampled: 'bool' = False, complete: 'bool' = True, decimation: 'str' = 'none', nonfinite_positions: 'list[int]' = <factory>, nonfinite_positions_complete: 'bool' = True) -> None
+SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, sampled: 'bool' = False, complete: 'bool' = True, decimation: 'str' = 'none', nonfinite_positions: 'list[int]' = <factory>, nonfinite_positions_complete: 'bool' = True, source_indices: 'list[int]' = <factory>) -> None
 ```
 
 The complete finite set of (x, y) chart points for a Series preview.

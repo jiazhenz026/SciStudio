@@ -959,7 +959,6 @@ class PreviewDataAccess:
 
     # -- Composite ----------------------------------------------------------
 
-    @provisional(since="0.3.1")
     @staticmethod
     def _slot_type_name(value: Any) -> str:
         """Return the type name a recorded composite slot holds.
@@ -982,6 +981,7 @@ class PreviewDataAccess:
                 return name
         return ""
 
+    @provisional(since="0.3.1")
     def composite_slots(self, metadata: dict[str, Any]) -> CompositeSlots:
         """Return a composite's slot inventory without rendering any child.
 

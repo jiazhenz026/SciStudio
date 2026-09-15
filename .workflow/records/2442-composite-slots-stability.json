@@ -1,0 +1,74 @@
+{
+  "base_ref": null,
+  "branch": "fix/2442-composite-slots-stability",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/previewers/data_access.py",
+      "tests/api/test_stability_decorators.py",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T10:09:13.684360Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2442,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the misplaced @provisional on composite_slots and regenerate the stale data_access API reference in a small separate PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2442-composite-slots-stability",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T10:09:13.684224Z",
+      "pattern": ".workflow/records/2442-composite-slots-stability.json",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "0072254d-d132-4073-a6a5-114b73f6bb40",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T10:09:13.684365Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_stability_decorators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
