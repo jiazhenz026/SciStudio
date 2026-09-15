@@ -430,8 +430,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   process tree. Shutdown MUST include MiniApp processes in the registry's
   `terminate_all`. A `miniapp` context MUST be bound to the realtime (`/ws`) client
   of the workspace that opened it and MUST close once that client has been
-  disconnected for a grace period (30 seconds by default), debounced as the
-  cancellation of browser-owned runs is in `src/scistudio/api/ws.py`.
+  disconnected for a grace period (30 seconds by default). Each socket MUST own
+  a distinct presence token so an old socket's cleanup cannot unregister a
+  replacement using the same client id. Reconnecting cancels the previous
+  disconnect timer; a fresh grace period begins when the final socket closes.
 - **FR-014**: If the process exits unexpectedly, pending and later calls MUST fail
   with `process_exited`, and the host MUST show the exit code and the last lines of
   the log with Restart. Restart MUST start a new process for the same context and
@@ -578,6 +580,11 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   to both roots, refuse an existing library id unless the user confirms overwrite,
   and share the frontend promotion implementation (ADR-053 FR-025) through a panel
   source in `frontend/src/components/promotion/promotable.ts`.
+  Overwrite MUST preserve the previous directory in a recoverable backup until
+  the staged replacement lands. A failed landing MUST restore the previous
+  directory, or preserve the backup and report its location if restoration is
+  blocked. Cleanup failure after a successful landing MUST NOT invalidate the
+  replacement. Concurrent API promotions MUST serialize their directory swaps.
 
 **Tutorials**
 

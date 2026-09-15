@@ -2561,6 +2561,22 @@
       "path": "docs/planning/adr-054-phase-d-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:19:55.987863Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:19:55.987867Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -6573,6 +6589,12 @@
       "at": "2026-09-15T05:14:43.295392Z",
       "pattern": "tests/api/test_user_docs.py",
       "reason": "CI Python 3.11 and 3.13 both fail the published user-guide sidebar expectation because the new MiniApps guide is missing from its fixture."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:19:55.987697Z",
+      "pattern": ".workflow/records/2354-backend-audit-fixes.json",
+      "reason": "Integrate reviewed backend audit repair 03a828f2 with 28 focused regression passes; record FR013/FR039 contracts and combined follow-up evidence without additional full-suite runs."
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -6864,6 +6886,22 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:19:55.987869Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_library_panel_promotion.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:19:55.987871Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ws_client_identity.py",
       "rationale": null,
       "verified_in_diff": null
     }

@@ -274,3 +274,9 @@ CI remains required; no CI checks or thresholds are changed for this exception.
   all 30 user-documentation API tests passed. Frontend type checking and lint
   and formatting checks of the changed frontend files passed. No local full
   test suite was run for this follow-up; final CI remains required.
+- Backend audit repairs use per-socket presence tokens and fresh disconnect
+  grace timers, and a locked, recoverable directory swap for overwrite.
+  All 28 focused promotion and WebSocket identity regressions passed in the
+  worker checkout, including failed landing/rollback, concurrent writers,
+  cleanup failure, and overlapping reconnects. Changed Python files passed
+  Ruff lint and format checks. Integration reviewed the worker implementation.
