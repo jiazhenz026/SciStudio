@@ -333,6 +333,60 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:50:41.314577Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:90c9a81966f55f1ac17c517afa272ac08acb683d938bbefd43547936b9da1016",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:50:42.380331Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5342de5ad82823b5c5fd741534febb5c47796f8b2d7df379b2c2525e7076557f",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:50:48.970810Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0892c2d5f3141e80dd5e9328a63731be85ea47cbc6af0d2f515978b63c416c1b",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1088,6 +1142,116 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.016060Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.026792Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.037954Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.048459Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.058923Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.069096Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.079924Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.090555Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.100993Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.111335Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:50:49.125793Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1100,10 +1264,11 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "347d54fa6fa3ed27bbc2b2f9fa3d28599aae29f3",
-    "base_sha": "347d54fa",
+    "base": "origin/main",
+    "base_sha": "6d982483",
     "changed_files": [
       ".workflow/records/2411-project-panels-dir.json",
+      "docs/specs/adr-053-work-import.md",
       "src/scistudio/ai/work_import/brief_template.md",
       "src/scistudio/api/project_layout.py",
       "src/scistudio/api/routes/tutorials.py",
@@ -1114,11 +1279,11 @@
       "tests/api/test_tutorial_routes.py",
       "tests/tutorials/test_scoped_library.py"
     ],
-    "diff_fingerprint": "sha256:fcfb77f4cd220eda1074ac2869dccb680560c9ee112ee84afbcf43655bfaca4c",
+    "diff_fingerprint": "sha256:88be41debb2eff75f0778e6b84b6c92c39d9597a45e31fa055aaeb6f81697b93",
     "head": "HEAD",
-    "head_sha": "f9eb2e4b",
+    "head_sha": "69ba229f",
     "surfaces": {
-      "docs": 0,
+      "docs": 1,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
@@ -1126,7 +1291,7 @@
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 1,
-      "sentrux": 9,
+      "sentrux": 10,
       "test": 3,
       "workflow_ci": 0
     }
@@ -1200,6 +1365,14 @@
     {
       "at": "2026-09-15T07:38:03.098230Z",
       "diff_fingerprint": "sha256:fcfb77f4cd220eda1074ac2869dccb680560c9ee112ee84afbcf43655bfaca4c",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:50:49.125870Z",
+      "diff_fingerprint": "sha256:88be41debb2eff75f0778e6b84b6c92c39d9597a45e31fa055aaeb6f81697b93",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
