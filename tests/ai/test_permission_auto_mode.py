@@ -45,8 +45,8 @@ def _without_auto(key: str) -> ProviderDescriptor:
 EXPECTED_AUTO_ARGV = {
     # `claude --help` at 2.1.210 lists `auto` among --permission-mode choices.
     "claude-code": ("--permission-mode", "auto"),
-    # `codex --approve-for-me -a on-request --help` exits 0 at 0.154.0.
-    "codex": ("--approve-for-me", "--ask-for-approval", "on-request"),
+    # #2452: `--approve-for-me` alone; clap rejects it beside -a/-s at 0.154.0.
+    "codex": ("--approve-for-me",),
     # kimi 0.42.0: -y/--yolo is "Ask When Needed"; --auto is "Never Ask" (bypass).
     "kimi-code": ("--yolo",),
     # docs.qoder.com/en/cli/permissions: `--permission-mode auto`.

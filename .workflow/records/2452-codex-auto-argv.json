@@ -1,0 +1,75 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2452-codex-auto-argv",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/providers_registry.py",
+      "tests/ai/test_permission_auto_mode.py",
+      "tests/ai/test_permission_argv_cli_conflicts.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:05:45.393951Z",
+      "class": "owner-directive",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising docs and directed no documentation edits for #2452; the stale Codex Auto argv in docs/adr/ADR-034-addendum1.md:87 is reported to the owner instead of edited.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2452,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Codex Auto mode exits the PTY with code 2; fix it.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2452-codex-auto-argv",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "a3c3cf39-ba37-47a4-b8f5-77f17c3c9516",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T13:05:45.394400Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_permission_argv_cli_conflicts.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:05:45.394406Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_permission_auto_mode.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
