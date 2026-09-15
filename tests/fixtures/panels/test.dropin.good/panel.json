@@ -1,0 +1,7 @@
+{
+  "id": "test.dropin.good",
+  "api_version": "1.0",
+  "contexts": [
+    "interactive"
+  ]
+}

@@ -85,7 +85,7 @@ def _register_fake_package_io(registry: BlockRegistry, *, type_name: str, name: 
     registry._aliases[spec.type_name] = spec.name
 
 
-def _wf_yaml(block_type: str) -> str:
+def _wf_yaml(block_type: str, config: str = "{}") -> str:
     return (
         "workflow:\n"
         "  id: guard_test\n"
@@ -93,7 +93,7 @@ def _wf_yaml(block_type: str) -> str:
         "  nodes:\n"
         "    - id: n1\n"
         f"      block_type: {block_type}\n"
-        "      config: {}\n"
+        f"      config: {config}\n"
         "  edges: []\n"
     )
 
@@ -139,7 +139,9 @@ def test_list_blocks_flags_package_io_use_instead(ctx: _StubRuntime) -> None:
 
 
 def test_write_workflow_accepts_canonical_core_type_name(ctx: _StubRuntime) -> None:
-    result = _run(tools_workflow.write_workflow("workflows/guard_test.yaml", _wf_yaml("load_data")))
+    result = _run(
+        tools_workflow.write_workflow("workflows/guard_test.yaml", _wf_yaml("load_data", "{core_type: DataFrame}"))
+    )
     assert result.bytes_written > 0
     assert result.warnings == []
 

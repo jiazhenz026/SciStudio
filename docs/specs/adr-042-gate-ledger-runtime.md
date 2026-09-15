@@ -807,6 +807,19 @@ new events. `schema_version` is bumped to `2`.
       "exit_code": 0,
       "summary": "clean",
       "raw_log_ref": ".workflow/local/logs/lint_format-e5f6a7b8.log"
+    },
+    {
+      "at": "2026-05-29T12:10:04Z",
+      "name": "python_tests",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov (no targets; not executed)",
+      "covered_surface": "python_tests",
+      "scope": "diff",
+      "input_fingerprint": "sha256:1a7d...",
+      "exit_code": null,
+      "status": "pass",
+      "summary": "no local tests selected; full coverage deferred to CI: global test input: pyproject.toml",
+      "coverage_deferred_to_ci": true,
+      "deferred_reason": "global test input: pyproject.toml"
     }
   ],
   "docs_events": [
@@ -846,7 +859,7 @@ Sub-model carry-forward summary:
 | `CommitEvidence` | Carried forward as `commit`. |
 | `PullRequestEvidence` | Carried forward as `pull_request`; gains pre-PR/post-PR distinction. |
 | `AdminLabelEvidence` | Split into `requested_admin_labels` (local, non-authoritative) and `observed_admin_labels` (CI, with actor/permission provenance). |
-| `CheckEvidence` | Reshaped into append-only `check_events` with `covered_surface` + `input_fingerprint`. |
+| `CheckEvidence` | Reshaped into append-only `check_events` with `covered_surface` + `input_fingerprint`. A local `python_tests` event may carry `coverage_deferred_to_ci` + `deferred_reason`: the local gate never runs the full Python suite (#2386), so inputs it cannot map to tests are deferred to `ci.yml`; such an event satisfies the local and pre-PR obligation. |
 | `SentruxEvidence` | Recorded as a `guard_event`/`check_event` variant; `parse_sentrux_result` kept as the evidence normalizer. |
 | `FullAuditEvidence` | Recorded as a `check_event` variant. |
 | `GateStage` enum / fixed stages array | Removed; replaced by the six lifecycle concerns reconciled from events. |

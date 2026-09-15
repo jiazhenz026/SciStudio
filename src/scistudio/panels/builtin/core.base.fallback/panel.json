@@ -1,0 +1,11 @@
+{
+  "id": "core.base.fallback",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["DataObject"],
+  "priority": -100,
+  "name": "Object",
+  "description": "Universal fallback: type chain, shape/dtype, and metadata for any object (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

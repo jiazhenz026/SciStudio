@@ -67,6 +67,8 @@ export function AgentSetup({
   onPermissionModeChange,
 }: AgentSetupProps) {
   const providers = availability?.providers ?? [];
+  // #2379 — Auto is greyed out unless the chosen agent's CLI has an auto mode.
+  const autoSupported = providers.some((p) => p.key === provider && p.supports_auto_mode === true);
 
   return (
     <div className="grid gap-4">
@@ -94,6 +96,7 @@ export function AgentSetup({
         tabId={WORK_IMPORT_PICKER_ID}
         permissionMode={permissionMode}
         onChange={onPermissionModeChange}
+        autoSupported={autoSupported}
       />
     </div>
   );

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { postActiveWorkflowContext } from "../lib/api/ai";
+import { isAttachedProjectView } from "../lib/projectDeepLink";
 
 import { createExecutionSlice } from "./executionSlice";
 import { createGitSlice } from "./gitSlice";
@@ -95,6 +96,9 @@ export const useAppStore = create<AppStore>()(
         previewCollapsed: state.previewCollapsed,
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
+        // #2361 — whether a markdown tab opens split. Persisted so closing the
+        // preview reads as a preference, not as something a tab switch undoes.
+        markdownPreviewVisible: state.markdownPreviewVisible,
         // ADR-034 Phase 1.3: persist terminal tab metadata (NOT subprocess
         // state). On rehydrate, any `running` tab is downgraded to `closed`
         // with synthetic exit code -1 so the user sees the Reopen button.
@@ -184,6 +188,9 @@ export const useAppStore = create<AppStore>()(
 // call (sentinel == undefined) always fires so the backend's
 // freshly-loaded persistence value can be confirmed or replaced.
 function syncActiveWorkflowId(workflowId: string | null): void {
+  // #2385 — an attached `open_gui` view watches the user's session; publishing
+  // its own editor context would overwrite what the user has open.
+  if (isAttachedProjectView()) return;
   if (lastSyncedActiveWorkflowId === workflowId) return;
   lastSyncedActiveWorkflowId = workflowId;
   void postActiveWorkflowContext(workflowId).catch((err) => {

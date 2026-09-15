@@ -82,6 +82,8 @@ export const HIGHLIGHT_TARGETS = [
   "new_menu_button",
   "plots_new_button",
   "plot_export_button",
+  "git_commit_button",
+  "git_branch_picker",
   "preview_item",
   "view_source_button",
   "history_restore_button",
@@ -97,6 +99,7 @@ export const HIGHLIGHT_TARGETS = [
   "type_palette",
   "palette_block",
   "node",
+  "config_field",
   "plot_card",
   "bottom_tab",
 ] as const;
@@ -121,6 +124,7 @@ export type HighlightTarget = (typeof HIGHLIGHT_TARGETS)[number];
 export const HIGHLIGHT_TARGET_KEYS: Partial<Record<HighlightTarget, string>> = {
   palette_block: "block_type",
   node: "block_type",
+  config_field: "key",
   plot_card: "plot_id",
   preview_item: "index",
   // Spelled the manifest's way, not `BottomTab`'s -- see the module comment on
@@ -207,12 +211,29 @@ export function isHighlightTarget(value: string): value is HighlightTarget {
   return (HIGHLIGHT_TARGETS as readonly string[]).includes(value);
 }
 
+/**
+ * The `data-tutorial-target-key` value this step addresses, or `null`.
+ *
+ * A target that annotates many elements — one card per collection item, one node
+ * per block — is told apart by this. A panel frame matches its own element the
+ * same way, so the value has to travel to it rather than being folded into a
+ * selector the frame never sees.
+ */
+export function tutorialTargetKey(
+  target: string,
+  args: Record<string, string> = {},
+): string | null {
+  const keyName = HIGHLIGHT_TARGET_KEYS[target as HighlightTarget];
+  if (keyName === undefined) return null;
+  const key = args[keyName];
+  return key === undefined ? null : key;
+}
+
 /** The selector that finds an annotated element. */
 export function tutorialTargetSelector(target: string, args: Record<string, string> = {}): string {
   const base = `[${TUTORIAL_TARGET_ATTRIBUTE}="${CSS.escape(target)}"]`;
-  const keyName = HIGHLIGHT_TARGET_KEYS[target as HighlightTarget];
-  const key = keyName === undefined ? undefined : args[keyName];
-  if (key === undefined) return base;
+  const key = tutorialTargetKey(target, args);
+  if (key === null) return base;
   return `${base}[${TUTORIAL_TARGET_KEY_ATTRIBUTE}="${CSS.escape(key)}"]`;
 }
 

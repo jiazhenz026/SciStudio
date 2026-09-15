@@ -52,7 +52,10 @@ async def update_block_config(
         protect_workflow_yaml hook will block such calls.
         This tool is the ONLY supported per-block-patch path.
 
-    Uses ruamel.yaml round-trip mode to preserve formatting.
+    Uses ruamel.yaml round-trip mode to preserve formatting. The result's
+    ``warnings`` list flags a patched node that bypasses the core
+    ``load_data`` / ``save_data`` block (for example ``core_type`` cleared on a
+    core Load node); the patch is still written.
     """
     # Development references: ADR-040.
     # TODO(#732): once workflow versioning API ships, share the lock
@@ -65,6 +68,7 @@ async def update_block_config(
     # an agent config patch reaches the GUI's config panel immediately instead of
     # relying solely on the FS watcher (whose event the frontend version-vector
     # gate can drop). Reuse the same private helpers from the workflow write tool.
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _core_io_steering_warnings
     from scistudio.ai.agent.mcp.tools_workflow.write import (
         _emit_agent_workflow_changed,
         _workflow_change_context,
@@ -151,6 +155,10 @@ async def update_block_config(
             version_context=version_context,
         )
 
+    # #2376: re-check the patched node (e.g. core_type cleared on load_data).
+    # Advisory only; the patch is already written.
+    steering_warnings = _core_io_steering_warnings([target])
+
     new = p.read_text(encoding="utf-8")
     diff_summary = f"{len(new.encode('utf-8'))} bytes (was {len(old.encode('utf-8'))})"
     logger.info("update_block_config: %s block=%s (%s)", p, block_id, diff_summary)
@@ -159,6 +167,7 @@ async def update_block_config(
         diff_summary=diff_summary,
         bytes_written=bytes_written,
         workflow_path=str(p),
+        warnings=steering_warnings,
     )
 
 

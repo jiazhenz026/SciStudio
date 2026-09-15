@@ -108,6 +108,12 @@ export interface ProjectResponse {
   current_workflow_id?: string | null;
 }
 
+/** #2385 — `GET /api/projects/active`: the open project, read without re-opening it. */
+export interface ActiveProjectResponse {
+  project: ProjectResponse | null;
+  active_workflow_id: string | null;
+}
+
 /*
  * ADR-053 FR-001 — `RunFirstWorkflowBootstrapRequest` / `...Response` were the
  * wire types of the single hardcoded tutorial's bootstrap route, removed with
@@ -648,10 +654,12 @@ export interface PreviewErrorInfo {
 /** Canonical backend preview response (backend `PreviewEnvelope` /
  *  `PreviewEnvelopeModel`). */
 export interface PreviewEnvelope {
+  /** ADR-054 unified panel routing discriminator. */
+  panel?: { id: string; api_version: string } | null;
   session_id: string | null;
   previewer_id: string;
   target: PreviewTarget;
-  kind: EnvelopeKind;
+  kind: EnvelopeKind | "panel";
   payload: Record<string, unknown>;
   resources: PreviewResource[];
   metadata: PreviewMetadata;
@@ -707,6 +715,16 @@ export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
 
 /** One registered previewer (backend `PreviewerSpecModel`). */
 export interface PreviewerSpecSummary {
+  renderer?: "panel" | "legacy";
+  panel?: {
+    id: string;
+    api_version: string;
+    contexts: string[];
+    types: string[];
+    name?: string;
+    description?: string;
+  };
+  shadowed?: boolean;
   previewer_id: string;
   owner_kind: PreviewerOwnerKind;
   owner_name: string;

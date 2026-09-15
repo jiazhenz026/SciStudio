@@ -41,7 +41,7 @@ import time
 from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from scistudio.api.file_contracts import FILE_ENTITY_CLASS
 from scistudio.blocks.registry import BlockRegistry
@@ -52,7 +52,7 @@ from scistudio.engine.resources import ResourceManager
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 
-from . import _data, _projects, _runs, _workflows
+from . import _data, _projects, _run_lifetime, _runs, _stop_request, _workflows
 from ._file_writes import ProjectFileService
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
@@ -271,8 +271,12 @@ class FirstPartyEntityWrite:
 class LogBroadcaster:
     """Fan-out log events to SSE subscribers."""
 
+    END: ClassVar[dict[str, Any]] = {"event": "end"}
+    """The item a subscriber receives once the broadcaster closes; its stream should end."""
+
     def __init__(self) -> None:
         self._subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
+        self._closed = False
 
     async def publish(
         self,
@@ -294,11 +298,25 @@ class LogBroadcaster:
 
     def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        if self._closed:
+            queue.put_nowait(self.END)
         self._subscribers.add(queue)
         return queue
 
     def unsubscribe(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
         self._subscribers.discard(queue)
+
+    def close(self) -> None:
+        """End every subscriber's stream, including streams opened afterwards.
+
+        A stopping backend calls this so the web server's wait for open
+        connections can finish. Safe to call more than once.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        for queue in list(self._subscribers):
+            queue.put_nowait(self.END)
 
 
 class ApiRuntime:
@@ -342,6 +360,19 @@ class ApiRuntime:
             _WORKFLOW_RUNS_MAX,
             evictable=_run_is_evictable,
         )
+        # #2362: runs carried over from a project that is no longer active.
+        # ``workflow_runs`` is keyed by workflow id alone and ``main`` is the
+        # default workflow name in every project, so a run left in the registry
+        # across a project switch answered as the NEW project's run of that
+        # name — up to and including ``cancel_run`` killing the previous
+        # project's live execution. ``detach_workflow_runs`` moves them here at
+        # the switch, grouped by the project that started them: no longer
+        # addressable by workflow id, still referenced so a live
+        # ``asyncio.Task`` is not orphaned, still visible to the backend-wide
+        # sweeps through ``all_workflow_runs``, and handed back to that project
+        # by ``reattach_workflow_runs`` when the user switches back to it
+        # (#2327: a switch does not end a run, and it is visible again there).
+        self._detached_workflow_runs: dict[str, dict[str, WorkflowRun]] = {}
         # ADR-034: the MCP server's TCP/socket port is published into the
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
         # subprocess can discover it. POSIX transports publish a socket pointer;
@@ -383,6 +414,9 @@ class ApiRuntime:
         # ``open_project`` and closed when switching projects. ``None`` when
         # no project is open or when initialization failed (best-effort).
         self.lineage_store: Any = None
+        # #2327: the database ``lineage_store`` was opened on, so reopening the
+        # same project keeps the store its live runs write through.
+        self._lineage_db_path: Path | None = None
 
         # #827: structured stdlib-logging audit trail for every engine
         # event. Independent of ``_bind_event_logging`` below — that
@@ -442,6 +476,82 @@ class ApiRuntime:
         for key, run in value.items():
             registry[key] = run
         self._workflow_runs = registry
+
+    def detach_workflow_runs(self, project_id: str | None = None) -> None:
+        """Retire the active project's runs so the next project cannot inherit them.
+
+        A run is registered under its workflow id and nothing else, and only
+        while its project is active — so at a project switch every entry belongs
+        to the project being left, *project_id*. Leaving them addressable meant
+        the incoming project's ``main`` resolved the outgoing project's
+        ``main``: another project's block outputs and storage paths reported as
+        this one's, and ``cancel_run`` terminating a live execution in a
+        project the caller had already left.
+
+        Finished runs are dropped. A still-live run is kept under *project_id*
+        — it must finish writing into its own project, and dropping the last
+        reference to its ``asyncio.Task`` would risk having it
+        garbage-collected mid-flight — but it is no longer reachable by workflow
+        id. :meth:`reattach_workflow_runs` hands it back when that project is
+        opened again; :meth:`all_workflow_runs` is how the backend-wide sweeps
+        (shutdown and activity polling) still see it; and
+        :meth:`detached_live_run` keeps the same-id start guard honest.
+        """
+        # Development references: #2362, #2327.
+        carried = {key: run for key, run in self._workflow_runs.items() if not run.task.done()}
+        self._workflow_runs.clear()
+        self._prune_detached_workflow_runs()
+        if carried:
+            self._detached_workflow_runs.setdefault(project_id or "", {}).update(carried)
+
+    def reattach_workflow_runs(self, project_id: str) -> None:
+        """Make *project_id*'s still-live detached runs addressable again.
+
+        Called when that project becomes active. A run keeps executing across a
+        switch, so switching back must show it, report its status, and
+        let it be cancelled — exactly as if the user had never left.
+        """
+        # Development references: #2362, #2327.
+        carried = self._detached_workflow_runs.pop(project_id, {})
+        for key, run in carried.items():
+            if not run.task.done():
+                self._workflow_runs[key] = run
+
+    def detached_live_run(self, workflow_id: str) -> WorkflowRun | None:
+        """A still-live run of *workflow_id* started by a project that is not active.
+
+        Runs with the same workflow id share the event bus and the process
+        registry keyed by ``(workflow_id, block_id)``, so a new run must not
+        start beside one of them even though the detached run is no longer
+        addressable from the active project.
+        """
+        # Development references: #2362, #1525.
+        for runs in self._detached_workflow_runs.values():
+            run = runs.get(workflow_id)
+            if run is not None and not run.task.done():
+                return run
+        return None
+
+    def _prune_detached_workflow_runs(self) -> None:
+        for project_id in list(self._detached_workflow_runs):
+            live = {key: run for key, run in self._detached_workflow_runs[project_id].items() if not run.task.done()}
+            if live:
+                self._detached_workflow_runs[project_id] = live
+            else:
+                del self._detached_workflow_runs[project_id]
+
+    def all_workflow_runs(self) -> list[WorkflowRun]:
+        """Every run this backend still holds, active project's or not.
+
+        ``workflow_runs`` answers "what is running in the project the user is
+        looking at"; this answers "what is running in this process". Shutdown and
+        idle-culling activity checks want the second question — a run detached
+        by a project switch is still consuming a worker and still needs
+        cancelling.
+        """
+        # Development references: #2362.
+        detached = [run for runs in self._detached_workflow_runs.values() for run in runs.values()]
+        return [*self._workflow_runs.values(), *detached]
 
     def _configure_static_registries(self) -> None:
         self.refresh_type_registry()
@@ -826,6 +936,10 @@ class ApiRuntime:
     start_workflow = _runs.start_workflow
     _log_workflow_task_failure = _runs._log_workflow_task_failure
     get_run = _runs.get_run
+    # #2327: runs outlive browser connections; shutdown ends them (_run_lifetime).
+    shutdown_workflow_runs = _run_lifetime.shutdown_workflow_runs
+    # #2327: a stop signal ends the long-lived streams first (_stop_request).
+    begin_shutdown = _stop_request.begin_shutdown
 
 
 # Sorted to satisfy ruff RUF022.

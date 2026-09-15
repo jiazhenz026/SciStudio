@@ -400,7 +400,11 @@ export function ConfigPanel({
               {/* min-w-0 lets each half-row cell shrink to its grid track so a
                   long select option or capability warning cannot widen the
                   column and stretch the neighbouring field. */}
-              <div className={isTextarea ? "min-w-0 md:row-span-2" : "min-w-0"}>
+              <div
+                className={isTextarea ? "min-w-0 md:row-span-2" : "min-w-0"}
+                data-tutorial-target="config_field"
+                data-tutorial-target-key={key}
+              >
                 <ConfigField
                   fieldKey={key}
                   field={value}

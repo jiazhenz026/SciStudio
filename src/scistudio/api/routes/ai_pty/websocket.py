@@ -26,6 +26,8 @@ import threading
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
+from scistudio.ai.agent.providers_registry import PERMISSION_MODES
+from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty import engine as _engine
@@ -52,6 +54,7 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     provider = params.get("provider", "")
     project_dir_raw = params.get("project_dir", "")
     dangerous_raw = params.get("dangerous", "false").lower()
+    permission_mode_raw = params.get("permission_mode")
     initial_cols = _parse_initial_size(params.get("cols"), default=120, min_value=1, max_value=1000)
     initial_rows = _parse_initial_size(params.get("rows"), default=30, min_value=1, max_value=500)
 
@@ -84,7 +87,26 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         await websocket.close()
         return
 
-    dangerous = dangerous_raw in {"true", "1", "yes"}
+    # #2379: ``permission_mode`` (``safe`` | ``auto`` | ``bypass``) states the
+    # mode outright and wins when present. ``dangerous`` is kept for clients
+    # that predate Auto and still maps onto safe / bypass exactly as before.
+    if permission_mode_raw is None:
+        permission_mode = "bypass" if dangerous_raw in {"true", "1", "yes"} else "safe"
+    else:
+        permission_mode = permission_mode_raw
+    if permission_mode not in PERMISSION_MODES:
+        await _send_error(
+            websocket,
+            f"Invalid permission_mode {permission_mode!r}; expected one of {PERMISSION_MODES}.",
+        )
+        await websocket.close()
+        return
+    if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:
+        await _send_error(websocket, f"{get_descriptor(provider).label} has no Auto permission mode.")
+        await websocket.close()
+        return
+    dangerous = permission_mode == "bypass"
+    auto = permission_mode == "auto"
 
     # ---- Pre-spawned tab join (ADR-035 §3.10, ADR-053 FR-022) --------------
     # Audit P1-C (Codex #861-2): if a PTY was already spawned server-side for
@@ -153,6 +175,7 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
                 provider=provider,
                 project_dir=project_dir,
                 dangerous=dangerous,
+                auto=auto,
                 cols=initial_cols,
                 rows=initial_rows,
             )

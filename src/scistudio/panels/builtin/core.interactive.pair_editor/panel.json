@@ -1,0 +1,9 @@
+{
+  "id": "core.interactive.pair_editor",
+  "api_version": "1.0",
+  "contexts": ["interactive"],
+  "name": "Pair Editor",
+  "description": "Reorder items within each input port so same-row items are paired (core interactive window).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

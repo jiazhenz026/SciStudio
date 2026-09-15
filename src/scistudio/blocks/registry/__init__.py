@@ -421,10 +421,14 @@ class BlockRegistry:
             >>> specs = registry.all_specs()  # name -> BlockSpec
         """
         # Development references: ADR-053, FR-061.
-        self._scan_builtins()
-        self._scan_tier1()
-        self._scan_tier2()
-        self._scan_package_src_dirs()
+        from scistudio.panels.validation import panel_scan_scope
+
+        with panel_scan_scope(self._scan_dirs) as panels:
+            self._scan_builtins()
+            self._scan_tier1()
+            self._scan_tier2()
+            self._scan_package_src_dirs()
+            self._entry_point_diagnostics.extend(panels.diagnostics)
 
     def _scan_builtins(self) -> None:
         from scistudio.blocks.registry._scan import _scan_builtins

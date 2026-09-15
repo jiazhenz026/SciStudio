@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.json",
+  "include": [
+    "../../../src",
+    "../panel-browser-host.tsx",
+    "../../specs/panel-runtime.spec.ts",
+    "../../../playwright.panels.config.ts"
+  ]
+}

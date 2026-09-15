@@ -227,18 +227,15 @@ def test_scaffold_block_warns_on_unregistered_type(stub_ctx: _StubRuntime, tmp_p
 
 
 def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx: _StubRuntime, tmp_path: Path) -> None:
-    """F40-integration F2: scaffold template emits the live API shape.
+    """F40-integration F2 + #2384: scaffold emits the live API shape.
 
     The pre-F2 template emitted ``InputPort(name=..., type=Image)`` and
-    ``run(self, inputs)`` — the legacy 1-arg arity + the legacy ``type=``
-    kwarg that no longer exists on the ``Port`` dataclass. A scaffolded
-    block in that shape raised ``TypeError`` at ``reload_blocks``.
-
-    Post-F2 the scaffold template emits
-    ``InputPort(name=..., accepted_types=[Image], required=True)`` and
-    ``run(self, inputs: dict[str, Any], config: BlockConfig)`` — matching
-    ``Block.run`` ABC at ``src/scistudio/blocks/base/block.py`` and the
-    ``InputPort`` dataclass at ``src/scistudio/blocks/base/ports.py``.
+    ``run(self, inputs)`` — the legacy ``type=`` kwarg and 1-arg arity. Since
+    #2384 a ``process`` scaffold subclasses ``ProcessBlock`` with the live
+    ``process_item(self, item, config, state=None)`` hook, imports from the
+    canonical roots, and renders a type it cannot import (here the
+    unregistered ``Image`` / ``Mask``) as ``DataObject`` with a note, so the
+    file still imports at ``reload_blocks``.
     """
     result = _run(
         tools_authoring.scaffold_block(
@@ -251,24 +248,18 @@ def test_scaffold_block_emits_live_port_and_run_shape(stub_ctx: _StubRuntime, tm
     body = Path(result.path).read_text(encoding="utf-8")
 
     # Accepts the live accepted_types= kwarg, NOT the legacy type= kwarg.
-    assert "accepted_types=[Image]" in body, (
-        "scaffold template must emit InputPort(name=..., accepted_types=[Type]) — "
-        "the live Port API has no type= kwarg (F40-integration F2)."
-    )
-    assert "accepted_types=[Mask]" in body
-    assert "type=Image" not in body, (
-        "scaffold template MUST NOT emit the legacy ``type=`` kwarg — "
-        "it will raise TypeError at reload_blocks (F40-integration F2)."
-    )
+    assert "accepted_types=[DataObject]" in body
+    assert "type=Image" not in body
+    assert "# fill in: Image" in body and "# fill in: Mask" in body
 
-    # 2-arg run(self, inputs, config) — matches Block.run ABC.
-    assert "def run(self, inputs: dict[str, Any], config: BlockConfig)" in body, (
-        "scaffold template must emit the 2-arg run(self, inputs, config) signature "
-        "matching Block.run ABC (F40-integration F2). The 1-arg form is invalid."
-    )
+    # The ProcessBlock hook, not a Block.run placeholder.
+    assert "class F2ShapeCheck(ProcessBlock):" in body
+    assert "def process_item(self, item: DataObject, config: BlockConfig, state: Any = None)" in body
 
-    # BlockConfig import is wired so the type annotation resolves.
-    assert "from scistudio.blocks.base.config import BlockConfig" in body
+    # Canonical-root imports only.
+    assert "from scistudio.blocks.base import BlockConfig, InputPort, OutputPort" in body
+    assert "from scistudio.blocks.base.config import" not in body
+    compile(body, result.path, "exec")
 
 
 # ---------------------------------------------------------------------------
@@ -436,22 +427,23 @@ def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch
     ADRs — violating ADR-040 §2.1's dev/prod boundary and leaking
     absolute developer-machine paths.
 
-    Post-fix: with the active project carrying no ``docs/``,
-    ``search_docs`` returns ``[]`` and ``get_doc`` raises
-    ``FileNotFoundError``. The source-tree parents-walk is gone.
+    Post-fix: the docs tools read only the active project directory
+    (#2375). With a project carrying no matching docs, ``search_docs``
+    returns ``[]`` and ``get_doc`` raises ``FileNotFoundError``. The
+    source-tree parents-walk is gone.
     """
     from scistudio.ai.agent.mcp import _context, tools_qa
 
     # Defensive: ensure no stale env override is in play.
     monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
 
-    # A project workspace with no docs/ subdirectory (matches the e2e
+    # A project workspace with no doc files (matches the e2e
     # report: fresh project at ``C:\\temp\\scistudio-e2e-adr-040\\...``).
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
     try:
         results = _run(tools_qa.search_docs("ADR", scope=None))
-        assert results == [], f"search_docs must return [] when the project has no docs/. Got: {results!r}"
+        assert results == [], f"search_docs must return [] when the project has no matching docs. Got: {results!r}"
         with pytest.raises(FileNotFoundError):
             _run(tools_qa.get_doc("adr/ADR-040.md"))
     finally:
@@ -472,14 +464,14 @@ def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeyp
     ``SCISTUDIO_DEV=1`` and silently re-disclose developer source paths.
 
     Regression guard: even with ``SCISTUDIO_DEV=1`` set and the active
-    project carrying no ``docs/``, the MCP docs tools must NOT reach
+    project carrying no doc files, the MCP docs tools must NOT reach
     into the SciStudio source repository.
     """
     from scistudio.ai.agent.mcp import _context, tools_qa
 
     monkeypatch.setenv("SCISTUDIO_DEV", "1")
 
-    runtime = _StubRuntime(_project_dir=tmp_path)  # no docs/ in the project
+    runtime = _StubRuntime(_project_dir=tmp_path)  # no doc files in the project
     _context.set_context(runtime)
     try:
         results = _run(tools_qa.search_docs("ADR-040", scope=None))
@@ -497,17 +489,17 @@ def test_get_doc_path_is_relative_not_absolute(stub_ctx: _StubRuntime, tmp_path:
 
     Pre-fix: ``path=str(resolved)`` exposed e.g.
     ``C:\\Users\\<dev>\\workspace\\SciStudio\\docs\\adr\\ADR-038.md`` to
-    the agent. Post-fix the path is relative to the docs/ tree root.
+    the agent. Post-fix the path is relative to the project directory (#2375).
     """
     from scistudio.ai.agent.mcp import tools_qa
 
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+    guide_dir = tmp_path / "user-guide"
+    guide_dir.mkdir()
+    (guide_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
 
-    result = _run(tools_qa.get_doc("guide.md"))
-    assert result.path == "guide.md", (
-        f"get_doc must return a path relative to docs/ root, not an absolute "
+    result = _run(tools_qa.get_doc("user-guide/guide.md"))
+    assert result.path == "user-guide/guide.md", (
+        f"get_doc must return a path relative to the project directory, not an absolute "
         f"developer-machine path. Got: {result.path!r}"
     )
     # Hard guard: the response must not contain any absolute-path marker

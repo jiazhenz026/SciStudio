@@ -72,6 +72,12 @@ export interface ProviderAvailability {
    * tab, which is why it is reported with a reason rather than hidden.
    */
   session_unsupported_reason: string | null;
+  /**
+   * #2379 — whether the CLI has an Auto permission mode. A fact about the
+   * registry descriptor, independent of `state`; the permission picker greys
+   * Auto out when it is false.
+   */
+  supports_auto_mode?: boolean;
 }
 
 /** The full report returned by `GET /api/ai/availability`. */

@@ -495,6 +495,8 @@ def _spec_model(spec: Any) -> PreviewerSpecModel:
     # not declare; naming the fields explicitly keeps the two from drifting
     # silently if either side gains a key.
     return PreviewerSpecModel(
+        renderer=data.get("renderer", "legacy"),
+        panel=data.get("panel"),
         previewer_id=data["previewer_id"],
         owner_kind=data["owner_kind"],
         owner_name=data["owner_name"],
@@ -529,12 +531,18 @@ async def list_previewers(
     """
     service = runtime.get_preview_service()
     registry = service.registry
-    specs = registry.all_specs()
+    specs = registry.catalog_specs()
     if target_type is not None:
-        specs = [s for s in specs if s.target_type == target_type]
-    specs = sorted(specs, key=lambda s: (_TIER_ORDER.get(s.owner_kind, 99), -s.priority, s.previewer_id))
+        specs = [
+            (s, shadowed)
+            for s, shadowed in specs
+            if s.target_type == target_type or target_type in (s.panel or {}).get("types", [])
+        ]
+    specs = sorted(
+        specs, key=lambda item: (_TIER_ORDER.get(item[0].owner_kind, 99), -item[0].priority, item[0].previewer_id)
+    )
     return PreviewerListResponse(
-        previewers=[_spec_model(s) for s in specs],
+        previewers=[_spec_model(s).model_copy(update={"shadowed": shadowed}) for s, shadowed in specs],
         diagnostics=list(registry.diagnostics),
     )
 
@@ -735,8 +743,19 @@ async def create_preview_session(payload: PreviewSessionCreate, runtime: Runtime
     # target; the backend is the source of truth for its routed kind + type
     # chain, so rebuild it from the catalog when the ref is known.
     target = runtime.resolve_session_target(_build_target(payload))
+    from scistudio.panels.targets import collection_store, freeze_target
+
+    if target.ref in collection_store(runtime):
+        target = freeze_target(runtime, target.ref).target
     service = runtime.get_preview_service()
     query = runtime.enrich_preview_query(target.ref, payload.query)
+    snapshot = collection_store(runtime).get(target.ref)
+    if snapshot is not None:
+        query.update(
+            _collection_items=snapshot["items"],
+            _collection_count=snapshot["count"],
+            _collection_item_type=snapshot.get("item_type"),
+        )
     envelope = service.sessions.create_session(target, query)
     return PreviewEnvelopeModel(**envelope.to_dict())
 
@@ -762,6 +781,8 @@ async def patch_preview_session(
         envelope = service.sessions.patch_session(session_id, payload.query)
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return PreviewEnvelopeModel(**envelope.to_dict())
 
 

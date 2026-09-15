@@ -61,7 +61,6 @@ import {
 } from "./BringInMyWorkDialog.parts/availability";
 import {
   AVAILABILITY_PROBING,
-  CANCEL_LABEL,
   DIALOG_EYEBROW,
   DIALOG_TITLE,
   NEXT_LABEL,
@@ -101,6 +100,7 @@ import {
   useAgentAvailability,
   type AvailabilityFetcher,
 } from "./BringInMyWorkDialog.parts/useAgentAvailability";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 export interface BringInMyWorkDialogProps {
   onClose: () => void;
@@ -115,7 +115,7 @@ export interface BringInMyWorkDialogProps {
     title: string;
     brief_path: string;
     provider: string;
-    permission_mode: "safe" | "bypass";
+    permission_mode: "safe" | "auto" | "bypass";
   }>;
 }
 
@@ -472,14 +472,7 @@ export function BringInMyWorkDialog({
               {DIALOG_TITLE}
             </h2>
           </div>
-          <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
-            onClick={onClose}
-            type="button"
-            data-testid="work-import-close"
-          >
-            {CANCEL_LABEL}
-          </button>
+          <DialogCloseButton onClick={onClose} data-testid="work-import-close" />
         </div>
         <div
           className="min-h-0 flex-1 overflow-y-auto pr-1 sm:min-h-[18rem]"

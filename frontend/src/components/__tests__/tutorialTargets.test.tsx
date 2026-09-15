@@ -20,10 +20,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BlockPalette } from "../BlockPalette";
 import { BottomPanel } from "../BottomPanel";
+import { ConfigPanel } from "../BottomPanel.parts/ConfigPanel";
 import { PlotsTab } from "../BottomPanel.parts/PlotsTab";
 import { CollectionViewer } from "../DataPreview.parts/coreViewers";
 import { PlotViewer } from "../DataPreview.parts/PlotViewer";
 import { DataPreview } from "../DataPreview";
+import { GitTab } from "../Git/GitTab";
 import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
 import { PreviewerPalette } from "../PreviewerPalette";
@@ -144,6 +146,22 @@ async function renderPlotsTabWith(plots: unknown[]): Promise<void> {
   useAppStore.setState({ workflowId: "main" });
   render(<PlotsTab />);
   await screen.findByTestId(`plot-card-${(plots[0] as { plot_id: string }).plot_id}`);
+}
+
+/** Mount the Git tab on an open project, the only state it shows its controls in. */
+function renderGitTab(): void {
+  // The loaders are stubbed rather than answered: the controls are on screen
+  // before any of them resolves, and the targets are about the controls.
+  useAppStore.setState({
+    currentProject: { id: "p1", name: "Project", path: "/p" },
+    branches: [],
+    currentBranch: "main",
+    status: null,
+    loadBranches: async () => {},
+    loadStatus: async () => {},
+    loadLog: async () => {},
+  } as never);
+  render(<GitTab />);
 }
 
 const RENDERERS: Record<HighlightTarget, TargetCase> = {
@@ -490,6 +508,51 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
     },
   },
 
+  // #2082 — one field of the selected block's settings. Two fields, so the
+  // sibling test proves the key picks one rather than whichever comes first.
+  config_field: {
+    args: { key: "against" },
+    render: () => {
+      render(
+        <ConfigPanel
+          onUpdateConfig={vi.fn()}
+          selectedNode={{ id: "compare", block_type: "compare_regions", config: { params: {} } }}
+          schema={
+            {
+              name: "Compare Regions",
+              type_name: "compare_regions",
+              base_category: "process",
+              subcategory: "",
+              description: "",
+              version: "0.1.0",
+              input_ports: [],
+              output_ports: [],
+              config_schema: {
+                properties: {
+                  region: { type: "string", title: "Region" },
+                  against: { type: "string", title: "Compare against" },
+                },
+              },
+              type_hierarchy: [],
+            } as never
+          }
+        />,
+      );
+    },
+  },
+
+  // #2082 — the Git tab's two controls a level walks the reader through
+  // before each branch operation: commit, then create or switch.
+  git_commit_button: {
+    args: {},
+    render: renderGitTab,
+  },
+
+  git_branch_picker: {
+    args: {},
+    render: renderGitTab,
+  },
+
   // #2083 — the AI Chat setup screen. Core tutorial 3 points at both of these
   // before any session is launched, which is the only moment either is on
   // screen: once a tab is running, the setup screen is gone.
@@ -511,7 +574,9 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
   ai_permission_modes: {
     args: {},
     render: () => {
-      render(<PermissionModePicker tabId="t1" permissionMode={null} onChange={vi.fn()} />);
+      render(
+        <PermissionModePicker tabId="t1" permissionMode={null} onChange={vi.fn()} autoSupported />,
+      );
     },
   },
 };
@@ -554,6 +619,7 @@ describe("tutorial highlight targets resolve to rendered elements", () => {
     expect(HIGHLIGHT_TARGET_KEYS).toEqual({
       palette_block: "block_type",
       node: "block_type",
+      config_field: "key",
       plot_card: "plot_id",
       preview_item: "index",
       bottom_tab: "tab",
@@ -576,6 +642,7 @@ describe("tutorial highlight targets resolve to rendered elements", () => {
           block_type: "nope",
           plot_id: "nope",
           tab: "nope",
+          key: "nope",
           // A position, so "nope" is not a value it could ever carry — an index
           // past the end of the batch is.
           index: "99",

@@ -136,6 +136,16 @@ def test_list_previewers_surfaces_a_refused_dropin(client: TestClient, opened_pr
 
 
 def test_reload_picks_up_a_new_dropin_previewer(client: TestClient, opened_project: Path) -> None:
+    # The listing is a discovery surface and the count is a registry fact, and
+    # since every core previewer became a panel (ADR-054 Phase B) the two are no
+    # longer the same number: each core id appears in the listing twice, as the
+    # panel that won the id and as the legacy spec it shadowed, and panels with
+    # no legacy candidate at all still hold their id. So the baseline for the
+    # count comes from a reload of the unchanged tree, which is the only reading
+    # that isolates what adding one drop-in does.
+    baseline = client.post("/api/previews/reload")
+    assert baseline.status_code == 200
+    before_count = baseline.json()["reloaded"]
     before = client.get("/api/previews/previewers").json()
     assert "probe.added" not in {p["previewer_id"] for p in before["previewers"]}
 
@@ -145,10 +155,13 @@ def test_reload_picks_up_a_new_dropin_previewer(client: TestClient, opened_proje
     body = response.json()
     assert "probe.added" in body["added"]
     assert body["removed"] == []
-    assert body["reloaded"] == len(before["previewers"]) + 1
+    assert body["reloaded"] == before_count + 1
 
     after = client.get("/api/previews/previewers").json()
     assert "probe.added" in {p["previewer_id"] for p in after["previewers"]}
+    # The drop-in is a live previewer, not a candidate something else shadowed.
+    entry = next(p for p in after["previewers"] if p["previewer_id"] == "probe.added")
+    assert entry["shadowed"] is False
 
 
 def test_reload_reports_a_removed_dropin(client: TestClient, opened_project: Path) -> None:

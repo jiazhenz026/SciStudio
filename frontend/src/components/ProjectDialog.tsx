@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import type { ProjectResponse } from "../types/api";
 import { ProjectFormFields } from "./ProjectDialog.parts/ProjectFormFields";
 import { RecentProjectsList } from "./ProjectDialog.parts/RecentProjectsList";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 interface ProjectDialogProps {
   open: boolean;
@@ -94,13 +95,7 @@ export function ProjectDialog({
               {mode === "new" ? "Create a new workspace" : "Open an existing workspace"}
             </h2>
           </div>
-          <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
+          <DialogCloseButton onClick={onClose} />
         </div>
 
         <ProjectFormFields

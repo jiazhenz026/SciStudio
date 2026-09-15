@@ -1,0 +1,90 @@
+# The analysis for the triple-negative tumors, which core tutorial 4 writes on
+# the reader's `tnbc` branch. Two changes from analysis.yaml, and nothing else:
+#
+#   the Loads read CID44971 and CID4465 instead of the two ER tumors;
+#   Compare Regions sets the cancer against the stroma, not the rest.
+#
+# The second change is the "slightly different processing" the level branches
+# for. These slides carry DCIS and normal ducts as well as stroma, and lumped
+# into "the rest" they blur what the cancer is being told apart from. The ER
+# recipe on main keeps comparing against the rest, and stays runnable.
+#
+# The tables are in the slides' order this time. Pairing was taught on the ER
+# tumors; here the reader only confirms it.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Which genes does the cancer express differently from the stroma, in the triple-negative tumors?
+  nodes:
+    - id: load-masks
+      block_type: load_data
+      config:
+        params:
+          core_type: HEMask
+          path:
+            - data/raw/CID44971_mask.png
+            - data/raw/CID4465_mask.png
+      layout:
+        x: 140
+        y: 380
+    - id: load-counts
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          path:
+            - data/raw/CID44971_counts.csv
+            - data/raw/CID4465_counts.csv
+      layout:
+        x: 140
+        y: 620
+    - id: pair
+      block_type: paireditor_block
+      config:
+        params:
+          input_ports:
+            - name: masks
+              types: [HEMask]
+            - name: counts
+              types: [DataFrame]
+          output_ports:
+            - name: paired_masks
+              types: [HEMask]
+            - name: paired_counts
+              types: [DataFrame]
+      layout:
+        x: 420
+        y: 500
+    - id: annotate
+      block_type: annotate_regions
+      layout:
+        x: 680
+        y: 500
+    - id: normalize
+      block_type: normalize_expression
+      layout:
+        x: 920
+        y: 500
+    - id: compare
+      block_type: compare_regions
+      config:
+        params:
+          region: Invasive cancer
+          against: Stroma
+          min_expression: 5.0
+      layout:
+        x: 1160
+        y: 500
+  edges:
+    - source: load-masks:data
+      target: pair:masks
+    - source: load-counts:data
+      target: pair:counts
+    - source: pair:paired_masks
+      target: annotate:mask
+    - source: pair:paired_counts
+      target: annotate:counts
+    - source: annotate:annotated
+      target: normalize:counts
+    - source: normalize:normalized
+      target: compare:spots

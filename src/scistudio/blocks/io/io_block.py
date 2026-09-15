@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 import tempfile
 from abc import abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -40,6 +41,48 @@ from scistudio.stability import stable
 _logger = logging.getLogger(__name__)
 
 
+def _collect_load_batch(
+    path_list: list[Any],
+    load_one: Callable[[str], DataObject | Collection],
+    *,
+    empty_item_type: type[DataObject],
+) -> Collection:
+    """Read each path with its own single-path call and collect the results.
+
+    The single loop behind :attr:`IOBlock.accepts_path_list`'s default. Both
+    execution routes share it so the declaration means the same thing
+    everywhere: the core ``Load`` block's delegation
+    (:func:`~scistudio.blocks.io._unified_dispatch.delegate_load`) and a
+    user-facing loader's own :meth:`IOBlock.run`.
+
+    A loader is free to answer one path with a :class:`Collection` — a loader
+    that already packs its own result, or a format where one file holds several
+    objects. Those are flattened into the batch in the order they were
+    returned, so the caller receives the flat ``Collection`` of data objects
+    the port's ``is_collection=True`` promises, never a Collection of
+    Collections.
+
+    The item type is inferred from what the loader returned rather than
+    declared up front: a drop-in type imported by path is a distinct class
+    object with the same ``__name__`` as the registry's, and ``Collection``
+    compares item types by identity. Only an empty list needs a type
+    stated, supplied by the caller (the delegated route passes the capability's
+    declared data type; the direct route passes the loader's own declared
+    output type).
+    """
+    # Development references: #1950, #2355, #2357.
+    items: list[DataObject] = []
+    for one_path in path_list:
+        loaded = load_one(str(one_path))
+        if isinstance(loaded, Collection):
+            items.extend(loaded)
+        else:
+            items.append(loaded)
+    if not items:
+        return Collection(items=[], item_type=empty_item_type)
+    return Collection(items=items)
+
+
 @stable(since="0.3.1")
 class IOBlock(Block):
     """Abstract base for a block that loads data from a file or saves it to one.
@@ -50,6 +93,10 @@ class IOBlock(Block):
     - ``direction = "input"`` (a loader): override :meth:`load` to read the
       configured ``path`` and return a :class:`DataObject` or a
       :class:`Collection`. A loader has no data input port — it is a pure source.
+      Write it for one file: when the user selects several, the runtime calls it
+      once per path and collects the results. Set
+      :attr:`accepts_path_list` to ``True`` to take the whole list in one call
+      instead.
     - ``direction = "output"`` (a saver): override :meth:`save` to write the
       object arriving on the ``data`` input port to the configured ``path``.
 
@@ -99,6 +146,20 @@ class IOBlock(Block):
     """The file formats this block can read or write, as :class:`FormatCapability`
     records. This is the supported way to declare format support; the runtime and
     UI read it for extension-based routing. Empty on the base class."""
+    accepts_path_list: ClassVar[bool] = False
+    """Whether :meth:`load` wants a multi-file ``path`` list handed to it whole.
+
+    ``False`` (the default) means the loader reads one file per call. Whenever
+    a multi-path config reaches this loader — whether the core ``Load`` block
+    dispatches to it or the loader runs as its own user-facing block — the
+    runtime calls :meth:`load` once per path with a single-path config and
+    collects the results into the :class:`Collection` the port declares.
+
+    Set it to ``True`` only when the loader needs the whole batch in one call —
+    to order a z-stack, or to align across files, say. :meth:`load` then
+    receives ``path`` as the list it was configured with and owns the looping,
+    the item ordering, and the returned :class:`Collection`.
+    """
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="data", accepted_types=[DataObject], required=False),
@@ -300,6 +361,46 @@ class IOBlock(Block):
                 return normalized[candidate]
         return None
 
+    def _load_with_path_fanout(self, config: BlockConfig, *, output_dir: str) -> DataObject | Collection:
+        """Call :meth:`load` once — or once per path when ``path`` is a list.
+
+        The fan-out used to live only in
+        :func:`~scistudio.blocks.io._unified_dispatch.delegate_load`, so a
+        loader executed as its own user-facing block still received the whole
+        list despite the default ``accepts_path_list = False`` — the public
+        contract had semantics on the delegated route only. Both routes now
+        share :func:`_collect_load_batch`, so the declaration is honoured
+        wherever the loader runs. A loader that declared
+        ``accepts_path_list = True`` keeps receiving the list intact.
+        """
+        # Development references: #2355, #2357.
+        raw_path = config.get("path")
+        if isinstance(raw_path, list) and not type(self).accepts_path_list:
+            return _collect_load_batch(
+                raw_path,
+                lambda one_path: self.load(
+                    self._config_with_single_path(config, one_path),
+                    output_dir=output_dir,
+                ),
+                empty_item_type=type(self)._legacy_capability_data_type("load"),
+            )
+        return self.load(config, output_dir=output_dir)
+
+    @staticmethod
+    def _config_with_single_path(config: BlockConfig, one_path: str) -> BlockConfig:
+        """Return *config* unchanged except ``path`` carries exactly *one_path*.
+
+        Only ``path`` differs per fanned-out call; every other field — explicit
+        ``params`` and runtime-injected Pydantic extras alike — must still reach
+        the loader. ``path`` sits in ``params`` for a hand-built config and in
+        the extras for an engine-constructed one
+        (:meth:`~scistudio.blocks.base.config.BlockConfig.get` reads both), so
+        replace it where it actually lives.
+        """
+        if "path" in (config.params or {}):
+            return config.model_copy(update={"params": {**config.params, "path": one_path}})
+        return config.model_copy(update={"path": one_path})
+
     # persist_array and persist_table are inherited from Block base class.
     # See Block.persist_array / Block.persist_table (ADR-031 Addendum 1).
 
@@ -336,7 +437,7 @@ class IOBlock(Block):
             from scistudio.core.storage.flush_context import get_output_dir
 
             output_dir = get_output_dir() or tempfile.mkdtemp(prefix="scistudio-io-")
-            result = self.load(config, output_dir=output_dir)
+            result = self._load_with_path_fanout(config, output_dir=output_dir)
             if not isinstance(result, Collection):
                 result = Collection(items=[result], item_type=type(result))
             # ADR-031 D4 safety net: auto-flush any DataObject without

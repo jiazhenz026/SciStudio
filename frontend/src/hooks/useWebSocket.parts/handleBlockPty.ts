@@ -62,8 +62,8 @@ export function handleBlockPtyOpened(payload: WorkflowEventMessage, deps: BlockP
       title: (top.title as string) ?? (src.title as string | undefined),
       status: src.status as "running" | "paused" | "done" | "error" | "cancelled" | undefined,
       permission_mode:
-        (top.permission_mode as "safe" | "bypass" | "dangerous" | undefined) ??
-        (src.permission_mode as "safe" | "bypass" | "dangerous" | undefined),
+        (top.permission_mode as "safe" | "auto" | "bypass" | "dangerous" | undefined) ??
+        (src.permission_mode as "safe" | "auto" | "bypass" | "dangerous" | undefined),
     });
     deps.appendLog({
       timestamp: payload.timestamp,

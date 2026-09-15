@@ -20,7 +20,6 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, Request, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -47,6 +46,7 @@ from scistudio.api.routes import (
 from scistudio.api.routes import (
     git as git_routes,
 )
+from scistudio.api.routes import panels as panel_routes
 from scistudio.api.routes import webmcp as webmcp_routes
 from scistudio.api.routes import workflow_watcher as workflow_watcher_module
 from scistudio.api.runtime import ApiRuntime
@@ -55,6 +55,7 @@ from scistudio.api.spa import SPAStaticFiles
 from scistudio.api.sse import sse_handler
 from scistudio.api.ws import websocket_handler
 from scistudio.engine.runners.process_handle import ProcessRegistry
+from scistudio.panels.security import PanelCORSMiddleware, RefuseOpaqueOriginMiddleware, validate_cors_origins
 from scistudio.stability import provisional
 
 __all__ = ["create_app"]
@@ -75,6 +76,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     runtime = ApiRuntime()
     app.state.runtime = runtime
     app.state.registry = ProcessRegistry()
+
+    # #2327: on Windows the desktop shell asks for a graceful stop by closing
+    # stdin; a no-op unless it set SCISTUDIO_STOP_ON_STDIN_EOF. A stop signal
+    # (SIGTERM, SIGINT, or that request) first ends the log stream and the AI
+    # terminal sessions, so the server's connection drain finishes and the
+    # shutdown below runs.
+    from scistudio.api.runtime import _stop_request
+
+    _stop_request.start_stop_request_watcher()
+    disarm_stop_notice = _stop_request.arm_stop_notice(runtime.begin_shutdown, loop=asyncio.get_running_loop())
 
     # ---- ADR-035 §3.10 IPC token ----
     # Audit P1-B (Codex #861-1): the engine must export
@@ -224,6 +235,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _set_agent_sessions_disabled(declared is not None and declared.ai_chat_disabled)
     try:
         async with AsyncExitStack() as hook_stack:
+            await hook_stack.enter_async_context(panel_routes.panels_lifespan(app))
             for hook in hooks:
                 await hook_stack.enter_async_context(hook(app))
             yield
@@ -241,13 +253,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # D39-3.2 (#968): the standalone git_watcher was deleted — its
         # ``.git/`` surface is now covered by the unified workflow_watcher
         # observer above. No separate teardown required.
-        pending_run_tasks = []
-        for run in runtime.workflow_runs.values():
-            if not run.task.done():
-                run.task.cancel()
-                pending_run_tasks.append(run.task)
-        if pending_run_tasks:
-            await asyncio.gather(*pending_run_tasks, return_exceptions=True)
+        # #2327: browser disconnects no longer end runs, so shutdown does.
+        # Cancel every live run and wait, bounded, until its lineage row is
+        # terminal. The policy lives in ``api/runtime/_run_lifetime.py``. AI
+        # terminal sessions with no socket attached have no other shutdown path.
+        disarm_stop_notice()
+        runtime.begin_shutdown()
+        await runtime.shutdown_workflow_runs()
+        _stop_request.terminate_ai_terminal_sessions(timeout_sec=3.0)
         app.state.registry.terminate_all(grace_period_sec=5.0)
         await stop_project_mcp_server(app, runtime)
         # Clear the global context so a subsequent app instance starts clean.
@@ -451,10 +464,8 @@ def create_app(
     # URL) reads the normalized prefix from. Never re-parse the env var.
     app.state.root_path = root_path
     cors_origins_raw = os.getenv("SCISTUDIO_CORS_ORIGINS", "").strip()
-    if cors_origins_raw == "*":
-        origins: list[str] = ["*"]
-    elif cors_origins_raw:
-        origins = [o.strip() for o in cors_origins_raw.split(",")]
+    if cors_origins_raw:
+        origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
     else:
         origins = [
             "http://localhost:5173",
@@ -462,6 +473,7 @@ def create_app(
             "http://127.0.0.1:5173",
             "http://127.0.0.1:8000",
         ]
+    validate_cors_origins(origins)
     # ADR-055 Spec 1 (FR-006) + identity seam (decision 2a): exactly one
     # guard sits here. By default it is the WebMCP bridge's loopback token
     # middleware scoped to /api/webmcp/*, as before; the per-launch token is
@@ -479,14 +491,24 @@ def create_app(
     app.state.webmcp_session_token = webmcp_session_token
     app.state.lifespan_hooks = hooks
     app.state.capabilities = capabilities
+    # #2385: an attached ``open_gui`` view binds its requests to the project it
+    # attached to; refused once the active project changes. Innermost, so it
+    # runs after the identity guard and only ever sees admitted requests.
+    from scistudio.api._attached_project import AttachedProjectGuardMiddleware
+
+    app.add_middleware(AttachedProjectGuardMiddleware)
     app.add_middleware(GuardDispatchMiddleware, guard=guard, root_path=root_path)
     app.add_middleware(
-        CORSMiddleware,
+        PanelCORSMiddleware,
         allow_origins=origins,
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # ADR-054 FR-030: apply to every route, including edition routers and
+    # self-authenticating token paths, outside CORS and the identity guard.
+    app.add_middleware(RefuseOpaqueOriginMiddleware)
 
     # #1741: request/exception logging with correlation ids. Added after CORS so
     # it sits OUTERMOST (Starlette runs middleware in reverse add order), seeing
@@ -512,6 +534,7 @@ def create_app(
     app.include_router(data.router)
     # ADR-048 SPEC 1: routed previewer session API (additive to data.router).
     app.include_router(data.previews_router)
+    panel_routes.install_panels(app)
     # ADR-048 SPEC 2 / #1606: plot-job run + preview-wiring endpoint. Runs a
     # plot job and registers the produced artifact so the frontend can open a
     # routed plot_artifact preview session (producer -> PlotPreviewer link).

@@ -49,7 +49,8 @@ import time
 import uuid
 from pathlib import Path
 
-from scistudio.ai.agent.providers_registry import agent_keys
+from scistudio.ai.agent.providers_registry import PERMISSION_MODES, agent_keys
+from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
@@ -161,7 +162,8 @@ def _open_prespawned_tab(
     Steps:
 
       1. Reject a ``cwd`` that is not an existing absolute directory, a
-         ``permission_mode`` outside ``safe`` | ``bypass``, and a
+         ``permission_mode`` outside ``safe`` | ``auto`` | ``bypass`` (or
+         ``auto`` for a provider without an auto mode), and a
          ``provider`` outside the registry's agent keys. A bad provider
          key must fail loudly rather than silently fall back to
          claude-code, which is what the deleted argv-basename sniffing
@@ -199,8 +201,10 @@ def _open_prespawned_tab(
     if not cwd_path.is_absolute() or not cwd_path.is_dir():
         raise RuntimeError(f"pre-spawned PTY tab: cwd must be an existing absolute dir, got {cwd!r}")
 
-    if permission_mode not in ("safe", "bypass"):
-        raise RuntimeError(f"pre-spawned PTY tab: permission_mode must be 'safe'|'bypass', got {permission_mode!r}")
+    if permission_mode not in PERMISSION_MODES:
+        raise RuntimeError(
+            f"pre-spawned PTY tab: permission_mode must be one of {PERMISSION_MODES!r}, got {permission_mode!r}"
+        )
 
     accepted = agent_keys()
     if provider not in accepted:
@@ -211,6 +215,11 @@ def _open_prespawned_tab(
     refusal = _pkg.agent_session_refusal(provider)
     if refusal is not None:
         raise _pkg.AgentSessionsDisabledError(refusal)
+
+    # #2379: refuse Auto before reclaiming or spawning anything, with the
+    # registry's own sentence, for a CLI that has no auto mode.
+    if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:
+        raise RuntimeError(f"pre-spawned PTY tab: {get_descriptor(provider).label} has no Auto permission mode")
 
     # Reclaim first: an orphan from an earlier handoff that never happened
     # holds a slot it will never use, and without this a run of failed
@@ -226,6 +235,7 @@ def _open_prespawned_tab(
         provider=provider,
         project_dir=cwd_path,
         dangerous=permission_mode == "bypass",
+        auto=permission_mode == "auto",
         extra_env=extra_env or None,
         prompt=prompt,
     )
@@ -294,8 +304,8 @@ def open_work_import_tab(
         provider: A registry agent key.
         cwd: The project directory, absolute and existing.
         opening_message: The one-line pointer at the brief file.
-        permission_mode: ``"safe"`` or ``"bypass"`` — the backend
-            spelling. The frontend union is ``"safe" | "dangerous"`` and
+        permission_mode: ``"safe"``, ``"auto"`` or ``"bypass"`` — the
+            backend spelling. The frontend union is ``"safe" | "dangerous"`` and
             is mapped at the request boundary, not here.
 
     Returns:

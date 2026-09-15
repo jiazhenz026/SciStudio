@@ -54,8 +54,8 @@ governs:
     - src/scistudio/engine/events.py
     - src/scistudio/api/ws.py
     - frontend/src/App.parts/InteractiveModals.tsx
-    - frontend/src/components/DataRouterModal.tsx
-    - frontend/src/components/PairEditorModal.tsx
+    - src/scistudio/panels/builtin/core.interactive.data_router/**
+    - src/scistudio/panels/builtin/core.interactive.pair_editor/**
     - docs/architecture/ARCHITECTURE.md
   excludes:
     - docs/user/reference/**

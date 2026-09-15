@@ -43,6 +43,7 @@ export function provider(
     cause: null,
     next_step: null,
     session_unsupported_reason: null,
+    supports_auto_mode: true,
     ...overrides,
   };
 }

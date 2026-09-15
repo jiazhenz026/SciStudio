@@ -26,7 +26,7 @@ from scistudio.api.runtime._file_writes import (
     FileWriteConflictError,
     ProjectFileWriteError,
 )
-from scistudio.api.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
+from scistudio.api.schemas import ActiveProjectResponse, ProjectCreate, ProjectResponse, ProjectUpdate
 from scistudio.tutorials.projects import is_tutorial_entry
 
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
@@ -73,6 +73,29 @@ async def list_projects(runtime: RuntimeDep) -> list[ProjectResponse]:
         for project in runtime.list_projects()
         if not is_tutorial_entry(project)
     ]
+
+
+@router.get("/active", response_model=ActiveProjectResponse)
+async def get_active_project(runtime: RuntimeDep) -> ActiveProjectResponse:
+    """Return the project this backend already has open, without re-opening it.
+
+    ``GET /api/projects/{id}`` re-opens a project, which resets the data
+    catalog, rebuilds the registries and stores, and restarts the watcher. A
+    second GUI client (the page ``open_gui`` hands an agent) attaches to the
+    desktop session through this read instead, so it has no side effects.
+    ``project`` is ``null`` when no project is open.
+
+    Declared before the greedy ``/{project_id:path}`` handlers so ``active`` is
+    not taken for a project id.
+    """
+    # Development references: #2385.
+    project = runtime.active_project
+    if project is None:
+        return ActiveProjectResponse(project=None, active_workflow_id=None)
+    return ActiveProjectResponse(
+        project=ProjectResponse(**runtime.project_response(project)),
+        active_workflow_id=runtime.active_workflow_id,
+    )
 
 
 # ---------------------------------------------------------------------------

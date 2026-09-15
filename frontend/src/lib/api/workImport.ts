@@ -23,13 +23,14 @@ export type WorkImportDestinationTier = "project" | "user_library";
 /**
  * Checklist §7.4 — the known boundary trap.
  *
- * The frontend permission-mode union is `"safe" | "dangerous"` (ADR-034,
+ * The frontend permission-mode union is `"safe" | "auto" | "dangerous"` (ADR-034,
  * `AIChat/SetupScreen.parts/types.ts`); the backend PTY spawn spells the same
- * two modes `"safe" | "bypass"`. The mapping happens here, at the request
+ * three modes `"safe" | "auto" | "bypass"`. Only the Yolo/Bypass spelling
+ * differs. The mapping happens here, at the request
  * boundary, exactly once — a second spelling anywhere else is how a session
  * silently launches in the wrong mode.
  */
-export type BackendPermissionMode = "safe" | "bypass";
+export type BackendPermissionMode = "safe" | "auto" | "bypass";
 
 /** C2 — the four questions that may be skipped rather than answered. */
 export type WorkImportSkippableQuestion =
@@ -83,7 +84,8 @@ export interface WorkImportSessionResponse {
 
 /** Checklist §7.4 — frontend spelling → backend spelling. */
 export function toBackendPermissionMode(mode: PermissionMode): BackendPermissionMode {
-  return mode === "dangerous" ? "bypass" : "safe";
+  if (mode === "dangerous") return "bypass";
+  return mode === "auto" ? "auto" : "safe";
 }
 
 /**
@@ -93,7 +95,8 @@ export function toBackendPermissionMode(mode: PermissionMode): BackendPermission
  * actually spawned with, rather than the one the dialog asked for.
  */
 export function fromBackendPermissionMode(mode: BackendPermissionMode): PermissionMode {
-  return mode === "bypass" ? "dangerous" : "safe";
+  if (mode === "bypass") return "dangerous";
+  return mode === "auto" ? "auto" : "safe";
 }
 
 /** C2 — the only four questions the backend accepts in `skipped`. */
@@ -130,7 +133,11 @@ export function validateWorkImportRequest(request: WorkImportSessionRequest): st
   }
 
   // Checklist §7.4 — the backend spelling, not the frontend's.
-  if (request.permission_mode !== "safe" && request.permission_mode !== "bypass") {
+  if (
+    request.permission_mode !== "safe" &&
+    request.permission_mode !== "auto" &&
+    request.permission_mode !== "bypass"
+  ) {
     problems.push(`"${String(request.permission_mode)}" is not a valid permission mode.`);
   }
 

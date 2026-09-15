@@ -1,5 +1,7 @@
 import { Maximize2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import type { PanelSnapshot } from "../panels/types";
 
 import { useAppStore } from "../store";
 import { buildPreviewCacheKey } from "../store/previewSlice";
@@ -75,6 +77,7 @@ export function DataPreview({
   selectedSchema,
   subworkflowPorts,
 }: DataPreviewProps) {
+  const panelSnapshot = useRef<PanelSnapshot | null>(null);
   // #898 — pill labels become source filenames (with truncated-ref fallback).
   const refEntries: RefEntry[] = useMemo(() => {
     if (!selectedNodeId) return [];
@@ -133,8 +136,16 @@ export function DataPreview({
   // that block is selected (never in the "Select a block" empty state, and not
   // while a different block is selected). `activePlot` is derived, so it stays
   // correct regardless of the order in which a Run updates the node + result.
+  // #2362 — and to the workflow that node lives in. A node id is not unique
+  // across a project and `plotPreviewTarget` survives a tab switch, so matching
+  // on the id alone presented a figure rendered in another workflow as this
+  // node's result: the "Plot artifact" pill, the preview, and a working
+  // Maximize. The source carries `workflow_id` — this component stamps it
+  // itself when it builds a target above — so the match now reads it.
   const plotBelongsToSelected =
-    plotPreviewTarget != null && plotPreviewTarget.source?.node_id === selectedNodeId;
+    plotPreviewTarget != null &&
+    plotPreviewTarget.source?.node_id === selectedNodeId &&
+    (plotPreviewTarget.source?.workflow_id ?? null) === workflowId;
   const activePlot = showPlotResult && plotBelongsToSelected ? plotPreviewTarget : null;
 
   // Hotfix 2026-05-23 — the port section reserves ~38% of the right column with
@@ -187,11 +198,18 @@ export function DataPreview({
   // creates its preview session on mount; it adapts to its container, which
   // is also why the maximize action (#2112) can hand a frozen target to a
   // second host in a main-stage tab without any host changes.
+  const selectedTargetRef = (activePlot ?? target)?.ref;
+  useEffect(() => {
+    panelSnapshot.current = null;
+  }, [selectedTargetRef, previewerChoiceVersion]);
   const host = (
     <PreviewHost
       target={activePlot ?? target}
       initialQuery={activePlot ? undefined : activeEntry?.initialQuery}
       routingEpoch={previewerChoiceVersion}
+      onPanelSnapshot={(snapshot) => {
+        panelSnapshot.current = snapshot;
+      }}
       getCachedEnvelope={(key) => previewEnvelopeCache[key]}
       cacheEnvelope={cachePreviewEnvelope}
       buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
@@ -229,7 +247,7 @@ export function DataPreview({
                * workflow tabs) instead of restyling this panel into an
                * overlay. The tab is dropped as soon as focus moves elsewhere.
                */
-              const expandTarget = activePlot ?? target;
+              const expandTarget = panelSnapshot.current?.target ?? activePlot ?? target;
               if (!expandTarget) return;
               useAppStore
                 .getState()
@@ -237,6 +255,8 @@ export function DataPreview({
                   expandTarget,
                   activePlot ? "Plot artifact" : (activeEntry?.displayName ?? selectedNodeLabel),
                   activePlot ? undefined : activeEntry?.initialQuery,
+                  undefined,
+                  panelSnapshot.current ?? undefined,
                 );
               /*
                * ADR-053 FR-052 (#2057) — `preview_expanded`, one of the two

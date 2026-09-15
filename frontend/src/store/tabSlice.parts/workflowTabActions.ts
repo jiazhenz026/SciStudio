@@ -7,7 +7,8 @@
 import type { StoreApi } from "zustand";
 
 import type { VersionedWorkflowResponse } from "../../lib/api";
-import type { AppStore, TabSlice, WorkflowTab } from "../types";
+import type { AppStore, TabSlice, TabState, WorkflowTab } from "../types";
+import { executionViewKey, projectExecution } from "../executionSlice.parts/eventReducer";
 import {
   EMPTY_TAB_STATE,
   captureActiveTab,
@@ -19,6 +20,40 @@ import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
 type StoreGetter = StoreApi<AppStore>["getState"];
+
+/**
+ * #2362 — a monotonic suffix for tab ids.
+ *
+ * The id used to be `tab-<workflowId>-<Date.now()>`, neither component of which
+ * is unique: two imported copies of one subworkflow share the workflow id (that
+ * is why `openTab` dedups on `tabKey` instead), and two opens in the same
+ * millisecond share the timestamp. Two tabs then answered to one id, and every
+ * `t.id === activeTabId` match in this file — switch, close, capture — hit both.
+ *
+ * The counter is process-local, which is all that is needed: workflow tabs are
+ * never persisted (see `partialize` in `store/index.ts`), so no id has to
+ * survive a reload.
+ */
+let tabSerial = 0;
+
+function nextTabSerial(): string {
+  tabSerial += 1;
+  return `${Date.now()}-${tabSerial}`;
+}
+
+/**
+ * #2362 — the execution maps a tab shows once it is focused.
+ *
+ * Execution state is held per workflow and projected onto the one on screen, so
+ * moving focus to another workflow tab must re-project; restoring only the
+ * canvas left the previous tab's statuses and data refs answering for every
+ * node the two workflows name the same. An expanded subworkflow tab projects
+ * its parent run (`runWorkflowId`). Non-workflow tabs leave the maps alone.
+ */
+function projectForTab(state: AppStore, tab: TabState): Partial<AppStore> {
+  if (tab.kind !== "workflow") return {};
+  return projectExecution(state.executionByWorkflow, tab.runWorkflowId || tab.workflowId);
+}
 
 export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["openTab"] {
   return (workflow, displayName, runPrefix, tabKey) => {
@@ -37,12 +72,21 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     const existing = dedupeKey
       ? state.tabs.find((t) => t.kind === "workflow" && (t.tabKey ?? t.workflowId) === dedupeKey)
       : undefined;
+    // #2362 — an expansion (a `runPrefix` is passed) shows the run of the
+    // workflow it was expanded from: the parent canvas's own run key, which is
+    // itself a `runWorkflowId` when the parent is an expanded tab (nesting).
+    const runWorkflowId =
+      runPrefix !== undefined ? (executionViewKey(state) ?? undefined) : undefined;
     if (existing) {
       // ADR-044 — refresh the run-scope prefix when reopening from a (possibly
       // different) parent subworkflow node so the expanded view maps to the
       // current run; leave it untouched when opened directly (no prefix).
       if (runPrefix !== undefined && existing.kind === "workflow") {
-        set({ tabs: state.tabs.map((t) => (t.id === existing.id ? { ...t, runPrefix } : t)) });
+        set({
+          tabs: state.tabs.map((t) =>
+            t.id === existing.id ? { ...t, runPrefix, runWorkflowId } : t,
+          ),
+        });
       }
       state.switchTab(existing.id);
       return;
@@ -59,7 +103,7 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       : [...state.tabs];
 
     const idForTab = workflow.id || displayName || "main";
-    const tabId = `tab-${idForTab}-${Date.now()}`;
+    const tabId = `tab-${idForTab}-${nextTabSerial()}`;
     const baseVersion = workflowStateVersion(workflow as VersionedWorkflowResponse);
     const newTab: WorkflowTab = {
       kind: "workflow",
@@ -84,12 +128,14 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       selectedNodeId: null,
       tabKey: dedupeKey,
       runPrefix,
+      runWorkflowId,
     };
 
     set({
       // #2112 — opening a workflow tab moves focus away from any preview tab.
       tabs: dropInactivePreviewTabs([...updatedTabs, newTab], newTab.id),
       ...restoreTab(newTab),
+      ...projectForTab(state, newTab),
     });
   };
 }
@@ -114,6 +160,7 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
       // passes the one being dropped through unchanged.
       tabs: dropInactivePreviewTabs(updatedTabs, tabId),
       ...restoreTab(target),
+      ...projectForTab(state, target),
     });
   };
 }
@@ -152,6 +199,7 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
         set({
           tabs: remaining,
           ...restoreTab(nextTab),
+          ...projectForTab(state, nextTab),
         });
       } else {
         set(EMPTY_TAB_STATE);
@@ -175,12 +223,23 @@ export function createSyncActiveTab(set: StoreSetter, get: StoreGetter): TabSlic
       // landing during the preview are not lost when switching back restores
       // the snapshot. captureWorkflowTab derives `id` from activeTabId, so the
       // tab's own id must be preserved explicitly.
+      //
+      // #2362: address that tab by its own id. `workflowId` is not unique
+      // across tabs — imported subworkflow copies share an internal id, which
+      // is precisely why `openTab` dedups on `tabKey` instead — so matching on
+      // it wrote this capture into every such tab, clobbering the others'
+      // canvases, which autosave then committed to the wrong files.
+      // `backingTabId` is absent only when the preview was opened while a
+      // non-workflow tab held focus; the `workflowId` match remains for that.
+      const backingTabId = activeTab.backingTabId;
       set({
-        tabs: state.tabs.map((t) =>
-          t.kind === "workflow" && t.workflowId === state.workflowId
-            ? { ...captureActiveTab(state, t), id: t.id }
-            : t,
-        ),
+        tabs: state.tabs.map((t) => {
+          if (t.kind !== "workflow") return t;
+          const isBacking = backingTabId
+            ? t.id === backingTabId
+            : t.workflowId === state.workflowId;
+          return isBacking ? { ...captureActiveTab(state, t), id: t.id } : t;
+        }),
       });
       return;
     }

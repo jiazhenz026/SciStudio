@@ -1,0 +1,28 @@
+<!doctype html>
+<p id="status">starting</p>
+<button id="save">Save bytes</button>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script>
+  (async () => {
+    await scistudio.ready();
+    const metadata = await scistudio.read("metadata");
+    const text = await scistudio.read("text.chunk", { offset: 0, length: 11 });
+    const artifact = await scistudio.read("artifact.file");
+    window.artifactURL = artifact.url;
+    window.result = {
+      text: text.text,
+      artifact: new TextDecoder().decode(artifact.data),
+      types: metadata.type_chain,
+      origin: window.origin,
+      basePath: scistudio.basePath,
+    };
+    document.querySelector("#status").textContent = JSON.stringify(window.result);
+    document.querySelector("#save").onclick = async () => {
+      window.saved = await scistudio.save({
+        name: "panel-download.txt",
+        mime: "text/plain",
+        data: artifact.data.slice(0),
+      });
+    };
+  })();
+</script>

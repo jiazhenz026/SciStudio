@@ -1,0 +1,92 @@
+# The whole analysis, which core tutorial 4 writes over the reader's workflow
+# when the level moves from looking at the data to answering the question.
+#
+# It starts from the mask and count Loads the reader already ran. After them:
+#
+#   Pair Editor       the count tables were exported in the other order, and a
+#                     Collection is paired by position, so the reader lines
+#                     each mask up with its own table by hand;
+#   Annotate Regions  reads the region under every spot off its mask;
+#   Normalize         puts every spot on counts per 10,000, then log1p;
+#   Compare Regions   per tumor, tests every gene in one region against the rest.
+#
+# The slides' own Load is gone. The reader looked at them in read-them-in; the
+# analysis reads regions, and the masks already carry the slide, drained to
+# gray, under them.
+workflow:
+  id: main
+  version: 1.0.0
+  description: Which genes does the cancer express differently from the rest of the tissue?
+  nodes:
+    - id: load-masks
+      block_type: load_data
+      config:
+        params:
+          core_type: HEMask
+          path:
+            - data/raw/CID4535_mask.png
+            - data/raw/CID4290_mask.png
+      layout:
+        x: 140
+        y: 380
+    - id: load-counts
+      block_type: load_data
+      config:
+        params:
+          core_type: DataFrame
+          # The sequencing core's order, not the slides'.
+          path:
+            - data/raw/CID4290_counts.csv
+            - data/raw/CID4535_counts.csv
+      layout:
+        x: 140
+        y: 620
+    - id: pair
+      block_type: paireditor_block
+      config:
+        params:
+          input_ports:
+            - name: masks
+              types: [HEMask]
+            - name: counts
+              types: [DataFrame]
+          output_ports:
+            - name: paired_masks
+              types: [HEMask]
+            - name: paired_counts
+              types: [DataFrame]
+      layout:
+        x: 420
+        y: 500
+    - id: annotate
+      block_type: annotate_regions
+      layout:
+        x: 680
+        y: 500
+    - id: normalize
+      block_type: normalize_expression
+      layout:
+        x: 920
+        y: 500
+    - id: compare
+      block_type: compare_regions
+      config:
+        params:
+          region: Invasive cancer
+          min_expression: 5.0
+      layout:
+        x: 1160
+        y: 500
+  edges:
+    - source: load-masks:data
+      target: pair:masks
+    - source: load-counts:data
+      target: pair:counts
+    - source: pair:paired_masks
+      target: annotate:mask
+    - source: pair:paired_counts
+      target: annotate:counts
+    - source: annotate:annotated
+      target: normalize:counts
+    - source: normalize:normalized
+      target: compare:spots

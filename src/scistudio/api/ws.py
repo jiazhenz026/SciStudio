@@ -39,10 +39,6 @@ from scistudio.engine.events import (
 
 logger = logging.getLogger(__name__)
 
-_GUI_DISCONNECT_GRACE_SEC = 2.0
-_gui_ws_clients: set[int] = set()
-_gui_disconnect_cancel_task: asyncio.Task[None] | None = None
-
 # ADR-036 §3.5 (I36c): outbound event type emitted after a successful
 # blocks/*.py save passes lint and hot_reload runs. Declared here as a
 # bare string (not a constant in scistudio.engine.events) because the
@@ -160,69 +156,6 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
     }
 
 
-async def _cancel_running_workflows_for_gui_disconnect(event_bus: EventBus) -> None:
-    """Cancel active workflows when the GUI session disappears."""
-    runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
-        return
-
-    for workflow_id, run in list(runs.items()):
-        task = getattr(run, "task", None)
-        if task is not None and callable(getattr(task, "done", None)) and task.done():
-            continue
-        scheduler = getattr(run, "scheduler", None)
-        cancel_workflow = getattr(scheduler, "cancel_workflow", None)
-        if not callable(cancel_workflow):
-            continue
-        try:
-            await cancel_workflow()
-            logger.info("Cancelled workflow %s after GUI websocket disconnect", workflow_id)
-        except Exception:
-            logger.warning("Failed to cancel workflow %s after GUI websocket disconnect", workflow_id, exc_info=True)
-            continue
-
-        if task is not None and callable(getattr(task, "done", None)) and not task.done():
-            try:
-                await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
-            except (asyncio.CancelledError, TimeoutError):
-                pass
-            except Exception:
-                logger.debug(
-                    "Workflow %s task finished with exception after GUI disconnect", workflow_id, exc_info=True
-                )
-
-
-def _has_active_workflow_runs(event_bus: EventBus) -> bool:
-    runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
-        return False
-    for run in runs.values():
-        task = getattr(run, "task", None)
-        if task is None:
-            continue
-        if not callable(getattr(task, "done", None)) or not task.done():
-            return True
-    return False
-
-
-async def _cancel_after_gui_disconnect_grace(event_bus: EventBus) -> None:
-    """Debounce transient reconnects before cancelling browser-owned runs."""
-    global _gui_disconnect_cancel_task
-
-    try:
-        await asyncio.sleep(_GUI_DISCONNECT_GRACE_SEC)
-        if _gui_ws_clients:
-            return
-        await _cancel_running_workflows_for_gui_disconnect(event_bus)
-    except asyncio.CancelledError:
-        raise
-    finally:
-        if asyncio.current_task() is _gui_disconnect_cancel_task:
-            _gui_disconnect_cancel_task = None
-
-
 async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     """Handle a WebSocket connection for real-time workflow updates.
 
@@ -234,23 +167,23 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     initiated AI Block tab opens / closes (``block_pty_opened`` /
     ``block_pty_closed``) flow over the same WS without introducing a
     new EngineEvent type.
+
+    Closing a connection only unsubscribes that client. It never cancels a
+    workflow run, however many clients remain: a run ends when it completes
+    or is cancelled explicitly. Backend shutdown, and reconciliation when a
+    project is opened, keep a run's lineage from staying ``running`` (see
+    ``scistudio.api.runtime._run_lifetime``).
     """
-    # Development references: ADR-018, ADR-035.
+    # Development references: ADR-018, ADR-035, ADR-055 section 7, #2327.
     # Imported lazily so the module-level circular import (ai_pty
     # imports nothing from ws, ws imports nothing from ai_pty at module
     # load) is sidestepped — and to keep the ws module's dep surface
     # narrow.
     from scistudio.api.routes import ai_pty as ai_pty_module
 
-    global _gui_disconnect_cancel_task
-
     await websocket.accept()
 
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-    client_token = id(outbound_queue)
-    _gui_ws_clients.add(client_token)
-    if _gui_disconnect_cancel_task is not None and not _gui_disconnect_cancel_task.done():
-        _gui_disconnect_cancel_task.cancel()
 
     def _on_event(event: EngineEvent) -> None:
         """Callback for EventBus — enqueue event for outbound delivery."""
@@ -298,20 +231,67 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                         )
                     )
                 elif msg_type == "interactive_complete":
+                    # ADR-054: a new panel must own this exact waiting prompt.
+                    # Validation claims once; the event contract below stays unchanged.
+                    from scistudio.panels.contexts import get_panel_contexts
+                    from scistudio.panels.targets import PanelError
+
+                    runtime = getattr(event_bus, "runtime", None)
+                    if runtime is not None:
+                        try:
+                            get_panel_contexts(runtime).claim_writeback(
+                                data.get("context_id"),
+                                data.get("workflow_id"),
+                                data.get("block_id"),
+                                data.get("data", {}),
+                            )
+                        except PanelError as exc:
+                            outbound_queue.put_nowait(
+                                {
+                                    "type": "panel_error",
+                                    "workflow_id": data.get("workflow_id"),
+                                    "block_id": data.get("block_id"),
+                                    "context_id": data.get("context_id"),
+                                    "error": {"code": exc.code, "message": exc.message},
+                                }
+                            )
+                            continue
                     # ADR-051 audit P2-1 / #1517: carry workflow_id so the
                     # scheduler can run-scope the response (the decision is
                     # nested under ``response`` and the scoping id is stripped
                     # before it reaches ``interactive_response`` / lineage).
-                    await event_bus.emit(
-                        EngineEvent(
-                            event_type=INTERACTIVE_COMPLETE,
-                            block_id=data.get("block_id"),
-                            data={
-                                "workflow_id": data.get("workflow_id"),
-                                "response": data.get("data", {}),
-                            },
+                    scope = {
+                        "context_id": data.get("context_id"),
+                        "workflow_id": data.get("workflow_id"),
+                        "block_id": data.get("block_id"),
+                    }
+                    try:
+                        await event_bus.emit(
+                            EngineEvent(
+                                event_type=INTERACTIVE_COMPLETE,
+                                block_id=data.get("block_id"),
+                                data={
+                                    "workflow_id": data.get("workflow_id"),
+                                    "response": data.get("data", {}),
+                                },
+                            )
                         )
-                    )
+                    except Exception:
+                        if runtime is None or not scope["context_id"]:
+                            raise
+                        outbound_queue.put_nowait(
+                            {
+                                "type": "panel_error",
+                                **scope,
+                                "error": {
+                                    "code": "completion_failed",
+                                    "message": "Decision dispatch failed; reopen the panel",
+                                },
+                            }
+                        )
+                    else:
+                        if runtime is not None and scope["context_id"]:
+                            outbound_queue.put_nowait({"type": "panel_accepted", **scope})
                 elif msg_type == "ping":
                     outbound_queue.put_nowait({"type": "pong"})
                 elif msg_type == "block_user_marked_done":
@@ -354,14 +334,20 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         except (WebSocketDisconnect, asyncio.CancelledError):
             pass
 
+    inbound = asyncio.ensure_future(_inbound_loop())
+    outbound = asyncio.ensure_future(_outbound_loop())
     try:
-        await asyncio.gather(_inbound_loop(), _outbound_loop())
+        # #2327: the socket is finished when either side ends. A client that
+        # left, or a server that is stopping (it closes every socket first),
+        # ends the inbound loop; the outbound loop would otherwise wait on its
+        # queue forever and hold the server's connection drain open.
+        await asyncio.wait({inbound, outbound}, return_when=asyncio.FIRST_COMPLETED)
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     finally:
-        _gui_ws_clients.discard(client_token)
+        for task in (inbound, outbound):
+            task.cancel()
+        await asyncio.gather(inbound, outbound, return_exceptions=True)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
-        if not _gui_ws_clients and _has_active_workflow_runs(event_bus):
-            _gui_disconnect_cancel_task = asyncio.create_task(_cancel_after_gui_disconnect_grace(event_bus))

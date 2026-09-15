@@ -1,7 +1,8 @@
 import { render, waitFor, screen, fireEvent, cleanup, act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PreviewEnvelope } from "../types/api";
+import type { PanelPreviewProps } from "../panels/PanelPreview";
+import type { PreviewEnvelope, PreviewTarget } from "../types/api";
 
 // Mock only PreviewHost's session methods; keep every other lib/api export
 // intact (the Zustand store imports named helpers at init). #1713 — plot
@@ -23,6 +24,23 @@ vi.mock("../lib/api", async (importOriginal) => {
   };
 });
 
+vi.mock("../panels/PanelPreview", () => ({
+  PanelPreview: (props: PanelPreviewProps) => (
+    <button
+      onClick={() =>
+        props.onSnapshot?.({
+          target: props.target,
+          panelId: props.panelId,
+          previewSessionId: props.previewSessionId ?? undefined,
+          viewState: { zoom: 3 },
+        })
+      }
+    >
+      Report panel state
+    </button>
+  ),
+}));
+
 import { useAppStore } from "../store";
 
 import { DataPreview } from "./DataPreview";
@@ -43,9 +61,10 @@ function textEnvelope(ref: string, text: string): PreviewEnvelope {
 
 beforeEach(() => {
   createPreviewSession.mockReset();
-  createPreviewSession.mockImplementation(async (target: { ref: string }) =>
-    textEnvelope(target.ref, `preview of ${target.ref}`),
-  );
+  createPreviewSession.mockImplementation(async (target: PreviewTarget) => ({
+    ...textEnvelope(target.ref, `preview of ${target.ref}`),
+    target,
+  }));
   // Each test owns a clean envelope cache (the store is a global singleton).
   useAppStore.getState().clearPreviewEnvelopeCache();
   // #1713 — the plot Run result is shared via the store; reset between tests.
@@ -180,6 +199,8 @@ describe("DataPreview", () => {
       type_chain: ["DataObject", "PlotArtifact"],
       source: { workflow_id: "main", node_id: "node-1", output_port: "output" },
     };
+    // #2362 — the result belongs to a node IN a workflow; `main` is open.
+    useAppStore.setState({ workflowId: "main" });
 
     const { rerender } = render(
       <DataPreview blockOutputs={{}} selectedNodeId={null} selectedNodeLabel="" />,
@@ -209,6 +230,37 @@ describe("DataPreview", () => {
       );
     });
     await waitFor(() => expect(screen.getByTestId("preview-host")).toBeInTheDocument());
+  });
+
+  // #2362 — a node id is not unique across a project, and `plotPreviewTarget`
+  // survives a tab switch, so the result must be matched on the workflow too.
+  it("hides a plot result whose node lives in a different workflow (#2362)", async () => {
+    const plotTarget = {
+      kind: "plot_artifact" as const,
+      ref: "data-plot-1",
+      recorded_type: "PlotArtifact",
+      type_chain: ["DataObject", "PlotArtifact"],
+      // Rendered in `array_wf`; the user has since switched to `artifact_wf`,
+      // whose canvas has its own node called `load_one`.
+      source: { workflow_id: "array_wf", node_id: "load_one", output_port: "output" },
+    };
+    useAppStore.setState({ workflowId: "artifact_wf" });
+
+    render(
+      <DataPreview
+        blockOutputs={{ load_one: {} }}
+        selectedNodeId="load_one"
+        selectedNodeLabel="Load One"
+      />,
+    );
+    act(() => useAppStore.getState().setPlotPreviewTarget(plotTarget));
+
+    await waitFor(() => expect(screen.getByText(/Nothing to preview yet/i)).toBeInTheDocument());
+    expect(createPreviewSession).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "plot_artifact" }),
+      expect.anything(),
+    );
+    expect(screen.queryByText(/Plot artifact/i)).not.toBeInTheDocument();
   });
 
   // #898 - pill labels show source filename (independent of the renderer).
@@ -332,4 +384,31 @@ describe("DataPreview", () => {
       reportSpy.mockRestore();
     }
   });
+});
+
+it("maximizes a panel with its frozen resolved id and reported view state", async () => {
+  createPreviewSession.mockImplementation(async (target: { ref: string }) => ({
+    ...textEnvelope(target.ref, ""),
+    kind: "panel",
+    panel: { id: "lab.custom", api_version: "1.0" },
+  }));
+  render(
+    <DataPreview
+      selectedNodeId="n1"
+      selectedNodeLabel="Image"
+      blockOutputs={{ n1: { output: { data_ref: "image-1" } } }}
+    />,
+  );
+  fireEvent.click(await screen.findByText("Report panel state"));
+  fireEvent.click(screen.getByLabelText("Maximize preview"));
+  const tab = useAppStore.getState().tabs.find((entry) => entry.kind === "preview");
+  expect(tab).toMatchObject({
+    kind: "preview",
+    target: { ref: "image-1" },
+    panelId: "lab.custom",
+    previewSessionId: "session-image-1",
+    viewState: { zoom: 3 },
+  });
+  fireEvent.click(screen.getByLabelText("Maximize preview"));
+  expect(useAppStore.getState().tabs.filter((entry) => entry.kind === "preview")).toHaveLength(1);
 });

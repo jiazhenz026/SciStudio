@@ -29,22 +29,22 @@ DestinationTier = Literal["project", "user_library"]
 """Where a session's blocks and types land."""
 # Development references: FR-011.
 
-PermissionMode = Literal["safe", "bypass"]
+PermissionMode = Literal["safe", "auto", "bypass"]
 """The agent permission mode chosen in the dialog.
 
 This is the *backend* spelling used by the PTY spawn. The frontend union is
-``"safe" | "dangerous"`` and is mapped at the request boundary.
+``"safe" | "auto" | "dangerous"`` and is mapped at the request boundary.
 """
 # Maintainer context:
 # This is the *backend* spelling used by the PTY spawn. The frontend union is
-# ``"safe" | "dangerous"`` and is mapped at the request boundary (checklist §7.4).
-# Development references: FR-041.
+# ``"safe" | "auto" | "dangerous"`` and is mapped at the request boundary (checklist §7.4).
+# Development references: #2379, FR-041.
 
 DESTINATION_TIERS: Final[tuple[DestinationTier, ...]] = ("project", "user_library")
 """Valid :attr:`ImportSessionContext.destination_tier` values, in the order the
 two alternatives appear in the brief template's destination substitution point."""
 
-PERMISSION_MODES: Final[tuple[PermissionMode, ...]] = ("safe", "bypass")
+PERMISSION_MODES: Final[tuple[PermissionMode, ...]] = ("safe", "auto", "bypass")
 """Valid :attr:`ImportSessionContext.permission_mode` values."""
 
 SKIPPABLE_QUESTIONS: Final[tuple[str, ...]] = (

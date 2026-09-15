@@ -232,6 +232,28 @@ class Backend:
         )
         return envelope
 
+    def open_panel(self, ref: str, kind: str = "data_ref") -> str:
+        """Open the panel context a mounted panel reads through, as the GUI does.
+
+        A core previewer is a panel now, so what the session envelope used to
+        carry in its payload is fetched by the panel itself. A test asking
+        whether an output is previewable has to follow the same path the frame
+        does, or it is asserting against a shape nothing produces.
+        """
+        context: dict[str, Any] = self.call(
+            "POST", "/api/panels/contexts", json={"kind": "preview", "target": {"kind": kind, "ref": ref}}
+        )
+        return str(context["context_id"])
+
+    def panel_read(self, context_id: str, ref: str, op: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Perform one bounded panel read against an open context."""
+        result: dict[str, Any] = self.call(
+            "POST",
+            f"/api/panels/contexts/{context_id}/read",
+            json={"ref": ref, "op": op, "params": params or {}},
+        )
+        return result
+
 
 class EventStream:
     """One GUI WebSocket session on ``/ws``, read on a background thread."""

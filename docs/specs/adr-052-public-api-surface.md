@@ -667,6 +667,7 @@ File checklist:
 | ✅ | `direction` | ClassVar | Public | stable | 0.3.1 | `"input"` / `"output"` |
 | ✅ | `format_capabilities` | ClassVar | Public | stable | 0.3.1 | `tuple[FormatCapability, ...]` (ADR-043 go-forward declaration) |
 | ⚠️ | `supported_extensions` | ClassVar | Public | deprecated | 0.3.1 | owner 2026-06-27: legacy ext→format scaffolding; **use `format_capabilities`**; removal per §5 (#1817) |
+| ✅ | `accepts_path_list` | ClassVar | Public | stable | 0.3.4 | `bool`, default `False`; `True` = `load` takes a multi-file `path` list whole, otherwise the runtime fans it out one call per path (ADR-043, #2355) |
 | ✅ | `get_format_capabilities()` | classmethod | Public | stable | 0.3.1 | returns explicit or synthesized capabilities; Simple* override |
 | ✅ | `load(config, output_dir="")` | method (abstract) | Public | stable | 0.3.1 | input-direction override |
 | ✅ | `save(obj, config)` | method (abstract) | Public | stable | 0.3.1 | output-direction override |

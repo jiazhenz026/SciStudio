@@ -544,6 +544,7 @@ class PreviewFrontendManifestModel(BaseModel):
 class PreviewEnvelopeModel(BaseModel):
     """Wire shape of a canonical :class:`PreviewEnvelope`."""
 
+    panel: dict[str, Any] | None = None
     session_id: str | None = None
     previewer_id: str
     target: dict[str, Any] = Field(default_factory=dict)
@@ -597,6 +598,9 @@ class PreviewerChoiceRequest(BaseModel):
 class PreviewerSpecModel(BaseModel):
     """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
 
+    renderer: str = "legacy"
+    panel: dict[str, Any] | None = None
+    shadowed: bool = False
     previewer_id: str
     owner_kind: str
     owner_name: str
@@ -840,6 +844,19 @@ class ProjectResponse(BaseModel):
     workflow_count: int = 0
     workflows: list[str] = Field(default_factory=list)
     current_workflow_id: str | None = None
+
+
+class ActiveProjectResponse(BaseModel):
+    """Response body for ``GET /api/projects/active``.
+
+    The project this backend already has open, read without re-opening it, so
+    a second GUI client can attach to the same session.
+    """
+
+    # Development references: #2385.
+
+    project: ProjectResponse | None = None
+    active_workflow_id: str | None = None
 
 
 class CancelBlockRequest(BaseModel):

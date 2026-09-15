@@ -249,8 +249,11 @@ when the obligation is recorded.
 
 - When escalated to Tier 1, `check` selects the full merge-blocking CI set.
   Current passing evidence is reused; missing or stale checks run, narrowed to
-  the diff. `--force-checks` runs the repository-wide mirror locally, and
-  `ci.yml` proves the full surface on the PR regardless (ADR-042 Addendum 7).
+  the diff. `--force-checks` runs the repository-wide mirror locally for every
+  check except `python_tests`: the full Python test suite never runs locally in
+  any case (#2386), and inputs the diff selection cannot map are recorded as
+  coverage deferred to CI. `ci.yml` proves the full surface on the PR regardless
+  (ADR-042 Addendum 7).
 
 - When running at Tier 2 (default for `guided`), `check` runs the common
   governance/lint/audit baseline plus all CI jobs relevant to the observed diff.

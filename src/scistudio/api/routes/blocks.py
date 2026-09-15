@@ -33,6 +33,7 @@ from scistudio.api.schemas import (
     MetadataFidelityResponse,
     TypeHierarchyEntry,
 )
+from scistudio.blocks._templates import TEMPLATE_KINDS
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
 from scistudio.previewers.assets import resolve_asset
@@ -389,13 +390,14 @@ class BlockTemplateResponse(BaseModel):
     suggested_filename: str
 
 
-# ADR-036 §3.12 — only "basic" is recognised in v1. Future kinds
-# (e.g. "io", "ai") add new template files but stay schema-compatible.
-# Kept module-level so tests + future template kinds can extend it
-# without re-defining inside the handler.
+# ADR-036 §3.12 / #2384 — the kinds come from the one template registry that
+# the agent's ``scaffold_block`` tool renders too, so the GUI and the agent
+# start from the same files. Kept module-level so tests can inspect it without
+# re-defining inside the handler.
 _KNOWN_TEMPLATES: dict[str, tuple[str, str]] = {
     # kind -> (resource filename, suggested user-facing filename)
-    "basic": ("block_base_template.py", "my_block.py"),
+    kind: (template.resource, template.suggested_filename)
+    for kind, template in TEMPLATE_KINDS.items()
 }
 
 
@@ -403,9 +405,10 @@ _KNOWN_TEMPLATES: dict[str, tuple[str, str]] = {
 async def get_block_template(kind: str = "basic") -> BlockTemplateResponse:
     """Return the source of a starter template for a new custom block.
 
-    ``kind`` selects which template to return; only ``"basic"`` is available
-    today. The response carries the template ``content`` and a suggested
-    filename, which the editor writes to ``blocks/<name>.py`` in the project.
+    ``kind`` selects which template to return: ``"basic"`` (``Block``, the
+    default), ``"process"``, ``"io_load"``, ``"io_save"``, or ``"app"``. The
+    response carries the template ``content`` and a suggested filename, which
+    the editor writes to ``blocks/<name>.py`` in the project.
 
     Returns HTTP 400 for an unknown ``kind``, and HTTP 500 if the bundled
     template asset is missing from the installation.

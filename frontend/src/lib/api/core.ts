@@ -40,6 +40,24 @@ export function webmcpSessionHeaders(): Record<string, string> {
   return token ? { [WEBMCP_SESSION_HEADER]: token } : {};
 }
 
+/**
+ * #2385 — an attached `open_gui` view binds every request to the project it
+ * attached to. The backend refuses a bound request with 409
+ * `attached_project_changed` once its active project is a different one, so the
+ * page can never read or write another project while still showing this one.
+ */
+export const ATTACHED_PROJECT_HEADER = "X-SciStudio-Attached-Project";
+export const ATTACHED_PROJECT_CHANGED = "attached_project_changed";
+/** Window event fired when the backend refuses a bound request. */
+export const ATTACHED_PROJECT_CHANGED_EVENT = "scistudio:attached-project-changed";
+
+let attachedProjectId: string | null = null;
+
+/** Bind (or, with `null`, unbind) subsequent requests to a project id. */
+export function setAttachedProjectBinding(projectId: string | null): void {
+  attachedProjectId = projectId;
+}
+
 export const JSON_HEADERS = {
   "Content-Type": "application/json",
 };
@@ -85,6 +103,8 @@ export class ApiTimeoutError extends Error {
 }
 
 export interface ApiFetchOptions extends RequestInit {
+  /** Preserve the authenticated transport for binary panel reads. */
+  responseType?: "json" | "response";
   /**
    * #2019: abort the request after this many milliseconds and reject with
    * `ApiTimeoutError`. Omit for no client-side deadline (the default — most
@@ -108,13 +128,16 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
   const requestId = newRequestId();
   const headers = new Headers(init?.headers);
   headers.set("X-Request-ID", requestId);
+  if (attachedProjectId !== null) {
+    headers.set(ATTACHED_PROJECT_HEADER, attachedProjectId);
+  }
   const method = init?.method ?? "GET";
   const started = typeof performance !== "undefined" ? performance.now() : 0;
   logger.debug(`→ ${method} ${url}`, { request_id: requestId });
 
   // #2019: an AbortController rather than a bare Promise.race, so a timed-out
   // request actually releases the connection instead of running on unobserved.
-  const { timeoutMs, ...requestInit } = init ?? {};
+  const { timeoutMs, responseType, ...requestInit } = init ?? {};
   const controller = timeoutMs !== undefined ? new AbortController() : null;
   const timer =
     controller !== null && timeoutMs !== undefined
@@ -160,8 +183,16 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({ detail: response.statusText }))) as {
-      detail?: string | { message?: string; errors?: unknown };
+      detail?: string | { message?: string; errors?: unknown; error?: string };
     };
+    if (
+      response.status === 409 &&
+      typeof payload.detail === "object" &&
+      payload.detail?.error === ATTACHED_PROJECT_CHANGED &&
+      typeof window !== "undefined"
+    ) {
+      window.dispatchEvent(new Event(ATTACHED_PROJECT_CHANGED_EVENT));
+    }
     // ``detail`` can be a plain string (legacy + FastAPI default) OR a
     // structured object like ``{message, errors}`` (used by the workflow
     // GET route when a YAML fails pydantic validation — surfaces the
@@ -185,6 +216,7 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
   }
 
   logger.debug(`← ${method} ${url} ${response.status} ${elapsedMs}ms`, { request_id: requestId });
+  if (responseType === "response") return response as T;
   if (response.status === 204) {
     return undefined as T;
   }

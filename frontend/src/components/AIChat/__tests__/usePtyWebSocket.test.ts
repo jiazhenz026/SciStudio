@@ -92,6 +92,24 @@ describe("buildPtyUrl", () => {
     expect(qs.get("dangerous")).toBe("true");
   });
 
+  it("#2379: states permission_mode for Manual, Auto and Yolo/Bypass", () => {
+    const mode = (dangerous: boolean, auto?: boolean) =>
+      new URL(
+        buildPtyUrl({
+          tabId: "t",
+          projectDir: "/p",
+          provider: "codex",
+          dangerous,
+          auto,
+          baseOrigin: "ws://h",
+        }).replace("ws://", "http://"),
+      ).searchParams;
+    expect(mode(false).get("permission_mode")).toBe("safe");
+    expect(mode(false, true).get("permission_mode")).toBe("auto");
+    expect(mode(false, true).get("dangerous")).toBe("false");
+    expect(mode(true).get("permission_mode")).toBe("bypass");
+  });
+
   it("emits dangerous=false when flag is false", () => {
     const url = buildPtyUrl({
       tabId: "t1",

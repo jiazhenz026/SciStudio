@@ -2,7 +2,7 @@
 //
 // ProjectWorkspace — the three-column ResizablePanelGroup tree shown when a
 // project is open: BlockPalette/ProjectTree on the left, TabBar +
-// (CodeEditor | WorkflowCanvas) + BottomPanel in the middle, DataPreview on
+// (FileTabStage | WorkflowCanvas) + BottomPanel in the middle, DataPreview on
 // the right. This is the bulk of App.tsx's JSX before the refactor; pulling
 // it into a presentation component lets App.tsx focus on lifecycle and
 // state wiring.
@@ -26,9 +26,9 @@ import type {
 import { ActivityBar } from "../components/ActivityBar";
 import { BlockPalette } from "../components/BlockPalette";
 import { BottomPanel } from "../components/BottomPanel";
-import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
+import { FileTabStage } from "../components/FileTabStage";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { PreviewerPalette } from "../components/PreviewerPalette";
 import { ProjectTree } from "../components/ProjectTree";
@@ -291,11 +291,17 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
   const openAs = tab.openAs;
   return (
+    /*
+     * A focused preview is a stage, not a page: the whole point of opening one
+     * is the extra room, so the preview takes the height rather than sitting at
+     * 420px with two thirds of the tab empty below it. The column can still
+     * shrink (`min-h-0`) so a preview that overflows scrolls inside itself.
+     */
     <div
-      className="h-full min-h-0 overflow-y-auto bg-stone-50/60 px-6 py-6 scrollbar-thin sm:px-10 lg:px-16"
+      className="flex h-full min-h-0 flex-col bg-stone-50/60 px-6 py-6 sm:px-10 lg:px-16"
       data-testid="preview-tab-pane"
     >
-      <div className="mx-auto w-full max-w-6xl">
+      <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
         {openAs ? (
           <div
             className="mb-3 flex items-center gap-2 text-xs text-stone-500"
@@ -323,6 +329,9 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
         <PreviewHost
           target={tab.target}
           initialQuery={tab.initialQuery}
+          panelId={tab.panelId}
+          previewSessionId={tab.previewSessionId}
+          initialViewState={tab.viewState}
           routingEpoch={previewerChoiceVersion}
           getCachedEnvelope={(key) => previewEnvelopeCache[key]}
           cacheEnvelope={cachePreviewEnvelope}
@@ -372,9 +381,11 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     return <PreviewTabPane tab={activePreviewTab} projectId={props.currentProject.id} />;
   }
 
+  // #2361 — a markdown tab splits this stage (Monaco + live preview); every
+  // other language is the editor alone. FileTabStage owns that decision.
   if (activeFileTab) {
     return (
-      <CodeEditor
+      <FileTabStage
         tab={activeFileTab}
         onContentChange={(content) => {
           try {

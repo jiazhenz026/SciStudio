@@ -1,0 +1,8 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-plot", "kind": "plot_artifact", "recorded_type": "PlotArtifact" },
+  "reads": {
+    "artifact.info": { "name": "plot.png", "path": "/runs/r1/plot.png", "mime_type": "image/png", "size": 95, "formats": ["png"], "sampled": false, "truncated": false, "complete": true },
+    "artifact.file": { "name": "plot.png", "path": "/runs/r1/plot.png", "mime_type": "image/png", "formats": ["png"], "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "sampled": false, "truncated": false, "complete": true }
+  }
+}
