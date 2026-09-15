@@ -414,10 +414,11 @@ workflow:
     )
     config = _load_node_config(p)
     # The record lands under params and the legacy top-level copy is gone.
-    assert config["params"] == {"backend": "csv", "interactive_memory": _MEMORY}
+    assert config["params"] == {"backend": "csv", "interactive_memory": _MEMORY, "note": "x"}
     assert "interactive_memory" not in config
-    # Other keys keep the existing top-level patch semantics.
-    assert config["note"] == "x"
+    # Other keys follow the node's shape (#2403): this node nests its params, so
+    # they land under params too.
+    assert "note" not in config
 
 
 def test_update_block_config_interactive_memory_on_flat_config(ctx: _StubRuntime, tmp_path: Path) -> None:
