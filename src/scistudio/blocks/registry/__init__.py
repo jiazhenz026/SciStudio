@@ -573,9 +573,6 @@ class BlockRegistry:
         a process restart. A plugin that no longer resolves (uninstalled,
         deleted, or failing to import) disappears from the registry, as does
         its :meth:`packages` entry. Built-in blocks are left untouched.
-
-        The governing contract is FR-062a of the ADR-053 personal tool library
-        spec (``docs/specs/adr-053-personal-tool-library.md``).
         """
         from scistudio.blocks.registry._scan import (
             _scan_package_src_dirs,
