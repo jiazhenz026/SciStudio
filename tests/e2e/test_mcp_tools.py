@@ -501,9 +501,7 @@ def test_lineage_and_logs_trace_the_normalized_table(agent: Agent, tutorial_run:
     assert unresolvable["nodes"] == [] and unresolvable["edges"] == []
     assert unresolvable["note"], unresolvable
 
-    # get_block_logs is exercised with the id the backend's run history records
-    # for this run; with the id run_workflow returned it fails.
-    # TODO(#2401): use the run_workflow run_id here once get_block_logs accepts it.
+    # The id the backend's run history records is the id run_workflow returned.
     lineage_run_id = agent.latest_lineage_run("main")["run"]["run_id"]
     logs = agent.call("get_block_logs", run_id=lineage_run_id, block_id="norm").ok()
     assert logs["source"] == "run_log"
@@ -1245,22 +1243,12 @@ def test_validate_workflow_is_invalid_when_it_reports_errors(agent: Agent) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_block_logs does not accept the run_id run_workflow returned — TODO(#2401)",
-)
 def test_get_block_logs_accepts_the_run_id_run_workflow_returned(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     logs = agent.call("get_block_logs", run_id=tutorial_run["started"]["run_id"], block_id="norm")
     assert not logs.is_error, logs.text
     assert "block_done block_id=norm" in logs.data["stderr"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_project_info.recent_runs stays empty after completed runs — TODO(#2401)",
-)
 def test_get_project_info_lists_recent_runs(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     recent = agent.call("get_project_info").ok()["recent_runs"]
     assert "main" in {row["workflow_id"] for row in recent}, recent
