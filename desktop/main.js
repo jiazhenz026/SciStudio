@@ -22,6 +22,7 @@ const path = require("path");
 const readline = require("readline");
 
 const ota = require("./ota");
+const installer = require("./installer");
 const { MENU_ACTION_CHANNEL, buildMenuTemplate, buildTrayMenuTemplate } = require("./menu");
 const runtimePortModule = require("./runtime-port");
 const backgroundMode = require("./background-mode");
@@ -71,6 +72,41 @@ ipcMain.handle("scistudio:open-external", async (_event, url) => {
     return;
   }
   await shell.openExternal(url);
+});
+
+// #2396: the in-app installer bridge (preload `scistudioDesktop.installer`).
+// The page only asks; main.js owns the manifest, the download and the install,
+// and nothing is installed without the native confirmation in
+// confirmAndInstall.
+const INSTALLER_PROGRESS_CHANNEL = "scistudio:installer-progress";
+
+ipcMain.handle("scistudio:installer-offer", async () => describeOfferForPage(await resolveInstallerOffer()));
+ipcMain.handle("scistudio:installer-download", async (event) => {
+  const sender = event.sender;
+  const offer = await resolveInstallerOffer();
+  const report = (received, total) => {
+    if (!sender.isDestroyed()) {
+      sender.send(INSTALLER_PROGRESS_CHANNEL, { received, total });
+    }
+  };
+  try {
+    await downloadInstaller(offer, report);
+    return { ok: true };
+  } catch (error) {
+    safeError(`[scistudio] installer download failed: ${error.message}`);
+    return { ok: false, error: error.message };
+  }
+});
+ipcMain.handle("scistudio:installer-install", async () => {
+  const offer = await resolveInstallerOffer();
+  return confirmAndInstall(offer, BrowserWindow.getFocusedWindow() || mainWindow || undefined);
+});
+ipcMain.handle("scistudio:installer-open-release-page", async () => {
+  const offer = await resolveInstallerOffer();
+  const page = offer && offer.releasePage;
+  if (page && externalUrlAllowed(page)) {
+    await shell.openExternal(page);
+  }
 });
 
 const READY_EVENT = "scistudio.ready";
@@ -550,12 +586,22 @@ function fetchText(url, timeoutMs) {
   });
 }
 
-function downloadTo(url, destPath, timeoutMs) {
+// #2396: `onProgress(received, total)` is optional; an installer download is a
+// few hundred MB, so the page and the splash report how far along it is.
+function downloadTo(url, destPath, timeoutMs, onProgress = null) {
   return new Promise((resolve, reject) => {
     otaHttpGet(url, timeoutMs, OTA_MAX_REDIRECTS, (err, res) => {
       if (err) {
         reject(err);
         return;
+      }
+      const total = Number(res.headers["content-length"]) || 0;
+      let received = 0;
+      if (onProgress) {
+        res.on("data", (chunk) => {
+          received += chunk.length;
+          onProgress(received, total);
+        });
       }
       const out = fs.createWriteStream(destPath);
       out.on("error", reject);
@@ -664,6 +710,19 @@ async function maybeEnforceMandatoryUpdate() {
 
   if (decision.kind === "incompatible") {
     // Can't hot-patch across a base bump: the only path forward is a reinstall.
+    // #2396: when the manifest names an installer, offer to install it.
+    const installOutcome = await offerInstallerForIncompatible(manifest, {
+      parent: undefined,
+      mandatory: true,
+      onProgress: percentReporter((percent) => splashStatus(`Downloading the new SciStudio… ${percent}%`))
+    });
+    if (installOutcome === "installing") {
+      return false;
+    }
+    if (installOutcome === "declined") {
+      app.quit();
+      return false;
+    }
     await dialog.showMessageBox({
       type: "warning",
       title: "Update required",
@@ -743,6 +802,20 @@ async function maybeCheckForUpdate() {
   );
 
   if (decision.kind === "incompatible") {
+    // #2396: when the manifest names an installer, offer to install it.
+    const progressWindow = mainWindow;
+    const installOutcome = await offerInstallerForIncompatible(manifest, {
+      parent: mainWindow || undefined,
+      mandatory: false,
+      onProgress: percentReporter((percent) => {
+        if (progressWindow && !progressWindow.isDestroyed()) {
+          progressWindow.setProgressBar(percent >= 100 ? -1 : percent / 100);
+        }
+      })
+    });
+    if (installOutcome !== "unavailable") {
+      return;
+    }
     await dialog.showMessageBox(mainWindow || undefined, {
       type: "info",
       title: "Update available",
@@ -795,6 +868,376 @@ async function maybeCheckForUpdate() {
   // instance; it is stopped before the relaunch, which comes back in the same
   // mode.
   await stopRuntimeAndRelaunch();
+}
+
+// --------------------------------------------------------------------------- //
+// #2396: in-app installer (docs/specs/desktop-in-app-installer.md).
+//
+// When the next version needs a new installer, the manifest's optional
+// `installer` field names one per platform. This downloads it into
+// userData/installer, verifies it, and -- once the user confirms -- starts a
+// detached helper script (desktop/installer.js writes it) that waits for this
+// process to exit, swaps the new app in, and opens it. The helper leaves a
+// result file that the next launch reports on (reportInstallOutcome).
+// --------------------------------------------------------------------------- //
+let installerDownload = null;
+
+function installerDir() {
+  return path.join(app.getPath("userData"), "installer");
+}
+
+async function fetchManifest() {
+  const config = loadOtaConfig();
+  if (!config.enabled || !config.manifestUrl) {
+    return null;
+  }
+  return JSON.parse(await fetchText(config.manifestUrl, OTA_MANIFEST_TIMEOUT_MS));
+}
+
+function installTargetWritable(target) {
+  try {
+    if (target.kind === "replace-app") {
+      fs.accessSync(path.dirname(target.appPath), fs.constants.W_OK);
+    } else if (target.kind === "replace-appimage") {
+      fs.accessSync(path.dirname(target.appImagePath), fs.constants.W_OK);
+    }
+    // NSIS installs per user (package.json nsis.perMachine=false), so the
+    // installer itself owns the Windows permissions question.
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// The installer on offer for this machine, with whether it can be installed in
+// place. Pass a manifest already fetched to avoid a second request.
+async function resolveInstallerOffer(manifest = null) {
+  let source = manifest;
+  if (!source) {
+    try {
+      source = await fetchManifest();
+    } catch (error) {
+      safeLog(`[scistudio] installer offer: manifest unavailable: ${error.message}`);
+      return { kind: "none", reason: "manifest-unavailable" };
+    }
+  }
+  if (!source) {
+    return { kind: "none", reason: "ota-disabled" };
+  }
+  const offer = installer.evaluateInstallerOffer({
+    installer: source.installer,
+    baseline: baselineVersion(),
+    effectiveBuild: effectiveBuild(),
+    platformKey: installer.platformKey({
+      platform: process.platform,
+      arch: process.arch,
+      runningUnderArm64Translation: Boolean(app.runningUnderARM64Translation)
+    })
+  });
+  if (offer.kind !== "offer") {
+    return offer;
+  }
+  const target = installer.resolveInstallTarget({
+    platform: process.platform,
+    execPath: process.execPath,
+    env: process.env
+  });
+  let cannotInstall = null;
+  if (!app.isPackaged) {
+    cannotInstall = "not-packaged";
+  } else if (target.kind === "unsupported") {
+    cannotInstall = target.reason;
+  } else if (!installTargetWritable(target)) {
+    cannotInstall = "not-writable";
+  }
+  return { ...offer, target, canInstall: cannotInstall === null, cannotInstall };
+}
+
+function installerLabel(offer) {
+  return ota.displayBuildVersion(offer.base, offer.build);
+}
+
+function describeOfferForPage(offer) {
+  if (!offer || offer.kind !== "offer") {
+    return { available: false, reason: offer ? offer.reason : "no-offer" };
+  }
+  return {
+    available: true,
+    version: offer.version,
+    displayVersion: installerLabel(offer),
+    size: offer.asset.size,
+    releasePage: offer.releasePage,
+    canInstall: offer.canInstall,
+    reason: offer.cannotInstall
+  };
+}
+
+// Download and verify the offered installer. Concurrent callers for the same
+// installer share one download; a file already downloaded and intact is reused.
+function downloadInstaller(offer, onProgress = null) {
+  if (!offer || offer.kind !== "offer") {
+    return Promise.reject(new Error(`no installer is on offer (${offer ? offer.reason : "no-offer"})`));
+  }
+  if (installerDownload && installerDownload.sha256 === offer.asset.sha256) {
+    if (onProgress) {
+      installerDownload.listeners.add(onProgress);
+    }
+    return installerDownload.promise;
+  }
+  const listeners = new Set(onProgress ? [onProgress] : []);
+  const dir = installerDir();
+  const filePath = path.join(dir, installer.installerFileName(offer.asset, offer.platformKey));
+  const promise = (async () => {
+    fs.mkdirSync(dir, { recursive: true });
+    if (fs.existsSync(filePath) && (await sha256File(filePath)) === offer.asset.sha256) {
+      listeners.forEach((listener) => listener(offer.asset.size, offer.asset.size));
+      return filePath;
+    }
+    const partial = `${filePath}.partial`;
+    fs.rmSync(partial, { force: true });
+    safeLog(`[scistudio] downloading installer ${offer.version} from ${offer.asset.url}`);
+    await downloadTo(offer.asset.url, partial, OTA_DOWNLOAD_TIMEOUT_MS, (received, total) => {
+      listeners.forEach((listener) => listener(received, total || offer.asset.size));
+    });
+    const size = fs.statSync(partial).size;
+    if (size !== offer.asset.size) {
+      fs.rmSync(partial, { force: true });
+      throw new Error(`size mismatch (expected ${offer.asset.size} bytes, got ${size})`);
+    }
+    const digest = await sha256File(partial);
+    if (digest !== offer.asset.sha256) {
+      fs.rmSync(partial, { force: true });
+      throw new Error(`sha256 mismatch (expected ${offer.asset.sha256}, got ${digest})`);
+    }
+    fs.renameSync(partial, filePath);
+    safeLog(`[scistudio] installer ${offer.version} downloaded and verified`);
+    return filePath;
+  })();
+  installerDownload = { sha256: offer.asset.sha256, promise, listeners };
+  promise.catch(() => {
+    if (installerDownload && installerDownload.promise === promise) {
+      installerDownload = null;
+    }
+  });
+  return promise;
+}
+
+function spawnDetached(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { detached: true, stdio: "ignore", windowsHide: true });
+    child.once("error", reject);
+    child.once("spawn", () => {
+      child.unref();
+      resolve();
+    });
+  });
+}
+
+// Write the helper script for this platform and start it detached. It waits
+// for this process to exit before touching anything.
+async function startInstallHelper(offer, filePath) {
+  const dir = installerDir();
+  const resultPath = path.join(dir, installer.RESULT_FILE);
+  const pendingPath = path.join(dir, installer.PENDING_FILE);
+  const common = { pid: process.pid, resultPath, logPath: logFilePath() };
+  const target = offer.target;
+  fs.rmSync(resultPath, { force: true });
+  writeJsonAtomic(pendingPath, { version: offer.version, releasePage: offer.releasePage, startedAt: Date.now() });
+  try {
+    if (target.kind === "replace-app") {
+      const scriptPath = path.join(dir, "install.sh");
+      fs.writeFileSync(scriptPath, installer.macInstallScript({ ...common, dmgPath: filePath, appPath: target.appPath }), {
+        mode: 0o700
+      });
+      await spawnDetached("/bin/sh", [scriptPath]);
+    } else if (target.kind === "replace-appimage") {
+      const scriptPath = path.join(dir, "install.sh");
+      fs.writeFileSync(
+        scriptPath,
+        installer.linuxInstallScript({ ...common, sourcePath: filePath, appImagePath: target.appImagePath }),
+        { mode: 0o700 }
+      );
+      await spawnDetached("/bin/sh", [scriptPath]);
+    } else if (target.kind === "run-nsis") {
+      const scriptPath = path.join(dir, "install.ps1");
+      fs.writeFileSync(
+        scriptPath,
+        installer.windowsInstallScript({
+          ...common,
+          exePath: filePath,
+          installDir: target.installDir,
+          appExe: target.appExe
+        })
+      );
+      await spawnDetached("powershell.exe", [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-WindowStyle",
+        "Hidden",
+        "-File",
+        scriptPath
+      ]);
+    } else {
+      throw new Error(`cannot install here (${target.reason || target.kind})`);
+    }
+  } catch (error) {
+    fs.rmSync(pendingPath, { force: true });
+    throw error;
+  }
+  safeLog(`[scistudio] installer helper started for ${offer.version} (${target.kind}); quitting`);
+}
+
+// Ask, then hand over to the helper and quit. Resolves { ok } for the page;
+// on success the app is already quitting.
+async function confirmAndInstall(offer, parent) {
+  if (!offer || offer.kind !== "offer") {
+    return { ok: false, error: `no installer is on offer (${offer ? offer.reason : "no-offer"})` };
+  }
+  if (!offer.canInstall) {
+    return { ok: false, error: `SciStudio cannot install the update here (${offer.cannotInstall})` };
+  }
+  let filePath = null;
+  try {
+    filePath = await downloadInstaller(offer);
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  const choice = await dialog.showMessageBox(parent, {
+    type: "question",
+    title: "Install update",
+    message: `Install SciStudio ${installerLabel(offer)}?`,
+    detail:
+      "SciStudio will quit, install the new version, and open again. " +
+      "Your projects and settings are kept. Save any open work first.",
+    buttons: ["Install and restart", "Cancel"],
+    defaultId: 0,
+    cancelId: 1
+  });
+  if (choice.response !== 0) {
+    return { ok: false, cancelled: true };
+  }
+  try {
+    await startInstallHelper(offer, filePath);
+  } catch (error) {
+    safeError(`[scistudio] could not start the installer helper: ${error.message}`);
+    await showInstallFailure(parent, offer.releasePage, error.message);
+    return { ok: false, error: error.message };
+  }
+  isQuitting = true;
+  app.quit();
+  return { ok: true };
+}
+
+async function showInstallFailure(parent, releasePage, detail) {
+  const buttons = releasePage ? ["Open download page", "OK"] : ["OK"];
+  const choice = await dialog.showMessageBox(parent, {
+    type: "error",
+    title: "Update failed",
+    message: "SciStudio could not install the update.",
+    detail: `${detail}\n\nThe version you have is unchanged.`,
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1
+  });
+  if (releasePage && choice.response === 0 && externalUrlAllowed(releasePage)) {
+    await shell.openExternal(releasePage);
+  }
+}
+
+// The incompatible branch of both update checks, when the manifest names an
+// installer. Returns "installing" (the app is quitting), "declined", or
+// "unavailable" (no installer on offer: the caller keeps its old dialog).
+async function offerInstallerForIncompatible(manifest, { parent, mandatory, onProgress }) {
+  const offer = await resolveInstallerOffer(manifest);
+  if (offer.kind !== "offer") {
+    safeLog(`[scistudio] no installer on offer: ${offer.reason}`);
+    return "unavailable";
+  }
+  const last = mandatory ? "Quit" : "Later";
+  const buttons = offer.canInstall ? ["Download and install"] : [];
+  if (offer.releasePage) {
+    buttons.push("Open download page");
+  }
+  if (buttons.length === 0) {
+    return "unavailable";
+  }
+  buttons.push(last);
+  const megabytes = Math.max(1, Math.round(offer.asset.size / (1024 * 1024)));
+  const choice = await dialog.showMessageBox(parent, {
+    type: mandatory ? "warning" : "info",
+    title: mandatory ? "Update required" : "Update available",
+    message: `SciStudio ${installerLabel(offer)} is available.`,
+    detail: offer.canInstall
+      ? `This version needs a new installer. SciStudio can download it (${megabytes} MB) and install it for you. ` +
+        "Your projects and settings are kept."
+      : "This version needs a new installer. Download it from the release page and install it.",
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1
+  });
+  const picked = buttons[choice.response];
+  if (picked === "Open download page") {
+    await shell.openExternal(offer.releasePage);
+    return "declined";
+  }
+  if (picked !== "Download and install") {
+    return "declined";
+  }
+  try {
+    await downloadInstaller(offer, onProgress);
+  } catch (error) {
+    safeError(`[scistudio] installer download failed: ${error.message}`);
+    await showInstallFailure(parent, offer.releasePage, error.message);
+    return "declined";
+  }
+  const outcome = await confirmAndInstall(offer, parent);
+  return outcome.ok ? "installing" : "declined";
+}
+
+// Throttled progress reporter: calls `apply(percent)` only when the whole
+// percentage changes, so a few hundred MB do not flood the splash or IPC.
+function percentReporter(apply) {
+  let lastPercent = -1;
+  return (received, total) => {
+    const percent = total > 0 ? Math.min(100, Math.floor((received / total) * 100)) : 0;
+    if (percent !== lastPercent) {
+      lastPercent = percent;
+      apply(percent);
+    }
+  };
+}
+
+// The launch after an install attempt: say what happened, then clear the
+// records. Success is judged by the version now running (installer.js).
+async function reportInstallOutcome(parent) {
+  const dir = installerDir();
+  const pendingPath = path.join(dir, installer.PENDING_FILE);
+  const resultPath = path.join(dir, installer.RESULT_FILE);
+  const outcome = installer.describeInstallOutcome({
+    pending: readJsonSafe(pendingPath),
+    result: readJsonSafe(resultPath),
+    baseline: baselineVersion(),
+    now: Date.now()
+  });
+  if (outcome.kind === "none") {
+    return;
+  }
+  if (outcome.kind === "installed") {
+    safeLog(`[scistudio] installed ${outcome.version}`);
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  }
+  safeError(`[scistudio] install of ${outcome.version} failed at stage ${outcome.stage}`);
+  for (const file of [pendingPath, resultPath, path.join(dir, "install.sh"), path.join(dir, "install.ps1")]) {
+    fs.rmSync(file, { force: true });
+  }
+  await showInstallFailure(
+    parent,
+    outcome.releasePage,
+    `SciStudio ${outcome.version || ""} was not installed (stage: ${outcome.stage}).`
+  );
 }
 
 // Start the runtime; if an applied OTA patch fails to boot, roll back and retry
@@ -2458,6 +2901,10 @@ function start(injectedHost) {
         // reports progress until the address can be shown.
         enterExternalAiMode();
         closeSplash();
+        // #2396: report on an install the previous run handed to the helper.
+        reportInstallOutcome(undefined).catch((error) => {
+          safeError(`[scistudio] install outcome report failed: ${error.message}`);
+        });
         await startBackgroundService();
         return;
       }
@@ -2481,6 +2928,10 @@ function start(injectedHost) {
       safeLog(`[scistudio] creating window for ${url}`);
       splashStatus("Loading the interface…");
       createWindow(url);
+      // #2396: report on an install the previous run handed to the helper.
+      reportInstallOutcome(mainWindow || undefined).catch((error) => {
+        safeError(`[scistudio] install outcome report failed: ${error.message}`);
+      });
       // #1775: check for an OTA update after the window is up so startup is never
       // blocked on the network. Fire-and-forget; failures are logged, not fatal.
       maybeCheckForUpdate().catch((error) => {

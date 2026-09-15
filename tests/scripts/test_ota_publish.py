@@ -234,6 +234,7 @@ _SHELL_TEXT_FILES = (
     "ota.js",
     "runtime-port.js",
     "background-mode.js",
+    "installer.js",
     "preload.js",
     "connection-preload.js",
     "splash.html",
@@ -954,3 +955,136 @@ def test_main_no_pypi_uploads_without_dispatching(
 
     assert events == ["ensure", "upload"]
     assert run.dispatched() == []
+
+
+# --------------------------------------------------------------------------- #
+# #2396: the manifest names the next installer
+# --------------------------------------------------------------------------- #
+def _release(**overrides: Any) -> dict[str, Any]:
+    version = "0.3.5-beta-build0035"
+    names = [
+        f"SciStudio-{version}-arm64.dmg",
+        f"SciStudio-{version}-x64.dmg",
+        f"SciStudio-Setup-{version}.exe",
+        f"SciStudio-{version}.AppImage",
+        # Present on real releases and must not be mistaken for an installer.
+        "scistudio-0.3.5b35-py3-none-any.whl",
+        "scistudio-0.3.5b35.tar.gz",
+    ]
+    release: dict[str, Any] = {
+        "tag_name": "v0.3.5-beta",
+        "draft": False,
+        "html_url": "https://github.com/o/r/releases/tag/v0.3.5-beta",
+        "assets": [
+            {
+                "name": name,
+                "size": 1000 + index,
+                "digest": "sha256:" + f"{index:x}" * 64,
+                "browser_download_url": f"https://github.com/o/r/releases/download/v0.3.5-beta/{name}",
+            }
+            for index, name in enumerate(names, start=1)
+        ],
+    }
+    release.update(overrides)
+    return release
+
+
+def test_installer_from_release_maps_every_platform(mod: ModuleType) -> None:
+    installer = mod.installer_from_release(_release())
+    assert installer["version"] == "0.3.5-beta-build0035"
+    assert installer["release_page"] == "https://github.com/o/r/releases/tag/v0.3.5-beta"
+    assert set(installer["assets"]) == {"darwin-arm64", "darwin-x64", "win32-x64", "linux-x64"}
+    arm = installer["assets"]["darwin-arm64"]
+    assert arm == {
+        "url": "https://github.com/o/r/releases/download/v0.3.5-beta/SciStudio-0.3.5-beta-build0035-arm64.dmg",
+        "sha256": "1" * 64,
+        "size": 1001,
+    }
+    assert installer["assets"]["win32-x64"]["url"].endswith("SciStudio-Setup-0.3.5-beta-build0035.exe")
+    assert installer["assets"]["linux-x64"]["url"].endswith("SciStudio-0.3.5-beta-build0035.AppImage")
+
+
+def test_installer_platform_keys_match_the_shell(mod: ModuleType) -> None:
+    # desktop/installer.js PLATFORM_KEYS is what the shell looks the asset up by.
+    source = (_SCRIPT_PATH.parents[1] / "desktop" / "installer.js").read_text()
+    keys = re.search(r"PLATFORM_KEYS = Object\.freeze\(\[([^\]]*)\]\)", source)
+    assert keys is not None
+    assert set(re.findall(r'"([^"]+)"', keys.group(1))) == set(mod.INSTALLER_ASSET_PATTERNS)
+
+
+def test_installer_from_release_refuses_a_draft(mod: ModuleType) -> None:
+    with pytest.raises(ValueError, match="draft"):
+        mod.installer_from_release(_release(draft=True))
+
+
+def test_installer_from_release_refuses_a_missing_platform(mod: ModuleType) -> None:
+    release = _release()
+    release["assets"] = [asset for asset in release["assets"] if not asset["name"].endswith(".AppImage")]
+    with pytest.raises(ValueError, match="no asset for linux-x64"):
+        mod.installer_from_release(release)
+
+
+def test_installer_from_release_refuses_an_asset_without_a_digest(mod: ModuleType) -> None:
+    release = _release()
+    release["assets"][2]["digest"] = None
+    with pytest.raises(ValueError, match="no sha256 digest"):
+        mod.installer_from_release(release)
+
+
+def test_installer_from_release_refuses_assets_of_different_versions(mod: ModuleType) -> None:
+    release = _release()
+    release["assets"][1]["name"] = "SciStudio-0.3.5-beta-build0034-x64.dmg"
+    with pytest.raises(ValueError, match="disagree on the version"):
+        mod.installer_from_release(release)
+
+
+def test_build_manifest_carries_the_installer_only_when_given(mod: ModuleType) -> None:
+    common: dict[str, Any] = {
+        "channel": "alpha",
+        "base": "0.3.5",
+        "build": 33,
+        "url": "https://x/backend-build33.tar.gz",
+        "sha256": "0" * 64,
+        "size": 1,
+        "notes": "",
+        "published_at": "2026-09-15T00:00:00Z",
+    }
+    assert "installer" not in mod.build_manifest(**common)
+    installer = mod.installer_from_release(_release())
+    assert mod.build_manifest(**common, installer=installer)["installer"] == installer
+
+
+def test_main_installer_release_lands_in_the_manifest(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src = _publish_side(mod, monkeypatch, tmp_path, [])
+    monkeypatch.setattr(mod, "_run", _FakeRun())
+    asked: list[tuple[str, str]] = []
+
+    def fake_fetch(repo: str, tag: str) -> dict[str, Any]:
+        asked.append((repo, tag))
+        return _release()
+
+    monkeypatch.setattr(mod, "fetch_release", fake_fetch)
+
+    assert (
+        mod.main(["--channel", "alpha", "--src", str(src), "--dry-run", "--installer-release", "v0.3.5-beta"]) == 0
+    )
+
+    assert asked == [(mod.DEFAULT_REPO, "v0.3.5-beta")]
+    manifest = json.loads((tmp_path / "work" / "manifest.json").read_text())
+    assert manifest["installer"]["version"] == "0.3.5-beta-build0035"
+    assert "Manifest names installer 0.3.5-beta-build0035" in capsys.readouterr().out
+
+
+def test_main_installer_release_that_is_incomplete_stops_the_publish(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+    src = _publish_side(mod, monkeypatch, tmp_path, events)
+    monkeypatch.setattr(mod, "_run", _FakeRun())
+    monkeypatch.setattr(mod, "fetch_release", lambda repo, tag: _release(draft=True))
+
+    with pytest.raises(SystemExit):
+        mod.main(["--channel", "alpha", "--src", str(src), "--yes", "--installer-release", "v0.3.5-beta"])
+    assert events == []

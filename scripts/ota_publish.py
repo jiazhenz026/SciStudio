@@ -80,6 +80,8 @@ SHELL_FILES = (
     "runtime-port.js",
     # #2280: required by main.js and menu.js; a patch without it cannot load.
     "background-mode.js",
+    # #2396: required by main.js; the in-app installer's decisions and helper scripts.
+    "installer.js",
     "preload.js",
     # #2280: the external-AI connection window and its sandboxed preload.
     "connection-preload.js",
@@ -209,6 +211,7 @@ def build_manifest(
     published_at: str,
     min_build: int | None = None,
     min_base: str | None = None,
+    installer: dict | None = None,
 ) -> dict:
     """Assemble the manifest document the desktop client compares against.
 
@@ -223,11 +226,15 @@ def build_manifest(
     incompatible branch never downloads anything, so the notice page is never
     fetched and the user gets the plain native dialog the notice was written to
     avoid. Pass ``min_base`` at or below the target clients' base to reach them.
+
+    #2396: ``installer`` (from ``installer_from_release``) names the next
+    installer per platform. A shell that knows the field offers to download and
+    install it; older shells ignore it.
     """
     requires: dict[str, object] = {"min_base": min_base or base}
     if min_build is not None:
         requires["min_build"] = min_build
-    return {
+    manifest: dict[str, object] = {
         "channel": channel,
         "base": base,
         "build": build,
@@ -238,6 +245,66 @@ def build_manifest(
         "notes": notes,
         "published_at": published_at,
     }
+    if installer is not None:
+        manifest["installer"] = installer
+    return manifest
+
+
+# #2396: the installer asset each platform key maps to, by the file names the
+# desktop build workflows publish (electron-builder artifactName settings in
+# desktop/package.json and the CI rename of the x64 dmg). Every key must be
+# present: the owner scoped the in-app installer to all three platforms, and a
+# manifest that names an installer some users cannot download strands them.
+INSTALLER_ASSET_PATTERNS: dict[str, re.Pattern[str]] = {
+    "darwin-arm64": re.compile(r"^SciStudio-(?P<version>.+)-arm64\.dmg$"),
+    "darwin-x64": re.compile(r"^SciStudio-(?P<version>.+)-x64\.dmg$"),
+    "win32-x64": re.compile(r"^SciStudio-Setup-(?P<version>.+)\.exe$"),
+    "linux-x64": re.compile(r"^SciStudio-(?P<version>.+)\.AppImage$"),
+}
+
+
+def installer_from_release(release: dict[str, Any]) -> dict[str, Any]:
+    """Build the manifest ``installer`` field from a GitHub release (#2396).
+
+    *release* is the ``gh api repos/<repo>/releases/tags/<tag>`` document. Each
+    platform's asset is matched by name; its URL, size and GitHub-computed
+    ``sha256`` digest go into the field, so nothing is downloaded here. Raises
+    ``ValueError`` when the release is a draft (its assets are not public), when
+    a platform has no asset, when an asset has no digest, or when the assets
+    disagree about the version.
+    """
+    tag = release.get("tag_name")
+    if release.get("draft"):
+        raise ValueError(f"release {tag} is a draft; its assets are not downloadable")
+    assets: dict[str, dict[str, Any]] = {}
+    versions: set[str] = set()
+    for key, pattern in INSTALLER_ASSET_PATTERNS.items():
+        matches = [
+            (asset, match)
+            for asset in release.get("assets", [])
+            if (match := pattern.match(str(asset.get("name", "")))) is not None
+        ]
+        if len(matches) != 1:
+            found = "no asset" if not matches else f"{len(matches)} assets"
+            raise ValueError(f"release {tag}: {found} for {key} ({pattern.pattern})")
+        asset, match = matches[0]
+        versions.add(match.group("version"))
+        digest = str(asset.get("digest") or "")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise ValueError(f"asset {asset['name']} has no sha256 digest")
+        url = str(asset.get("browser_download_url") or "")
+        if not url.startswith("https://"):
+            raise ValueError(f"asset {asset['name']} has no https download URL")
+        assets[key] = {"url": url, "sha256": digest.split(":", 1)[1], "size": int(asset["size"])}
+    if len(versions) != 1:
+        raise ValueError(f"release {tag}: installer assets disagree on the version: {sorted(versions)}")
+    version = versions.pop()
+    parse_version(version)
+    installer: dict[str, Any] = {"version": version, "assets": assets}
+    page = str(release.get("html_url") or "")
+    if page.startswith("https://"):
+        installer["release_page"] = page
+    return installer
 
 
 def sha256_file(path: Path) -> str:
@@ -515,6 +582,14 @@ def ensure_release(repo: str, tag: str, channel: str) -> None:
         raise RuntimeError(f"Failed to create release {tag}: {result.stderr.strip()}")
 
 
+def fetch_release(repo: str, tag: str) -> dict[str, Any]:
+    """The GitHub release document for *tag* (#2396). Raises when it cannot be read."""
+    result = _run(["gh", "api", f"repos/{repo}/releases/tags/{tag}"])
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not read release {tag}: {result.stderr.strip()}")
+    return dict(json.loads(result.stdout))
+
+
 def upload_assets(repo: str, tag: str, files: list[Path]) -> None:
     result = _run(["gh", "release", "upload", tag, "--repo", repo, "--clobber", *map(str, files)])
     if result.returncode != 0:
@@ -691,6 +766,17 @@ def main(argv: list[str] | None = None) -> int:
             "that is not on origin/main."
         ),
     )
+    parser.add_argument(
+        "--installer-release",
+        metavar="TAG",
+        default=None,
+        help=(
+            "#2396: name the next installer in the manifest, from the GitHub release TAG "
+            "(e.g. v0.3.5-beta). Shells that know the field offer to download and install it. "
+            "The release must be published with a dmg for arm64 and x64, a Windows setup exe "
+            "and an AppImage."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt before uploading.")
     args = parser.parse_args(argv)
 
@@ -726,6 +812,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
 
+    installer = None
+    if args.installer_release:
+        try:
+            installer = installer_from_release(fetch_release(args.repo, args.installer_release))
+        except (RuntimeError, ValueError) as error:
+            parser.error(f"--installer-release: {error}")
+        print(f"Manifest names installer {installer['version']} from {args.installer_release}")
+
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")
     make_snapshot(src_dir, tarball, reinstall_notice=notice)
 
@@ -742,6 +836,7 @@ def main(argv: list[str] | None = None) -> int:
         published_at=_utc_now_iso(),
         min_build=args.min_build,
         min_base=args.min_base,
+        installer=installer,
     )
     manifest_path = workdir / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

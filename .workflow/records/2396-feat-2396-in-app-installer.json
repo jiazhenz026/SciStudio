@@ -1,0 +1,116 @@
+{
+  "base_ref": null,
+  "branch": "feat/2396-in-app-installer",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "desktop/installer.js",
+      "desktop/main.js",
+      "desktop/ota.js",
+      "desktop/preload.js",
+      "desktop/package.json",
+      "desktop/test/**",
+      "scripts/ota_publish.py",
+      "scripts/templates/reinstall-notice.html",
+      "tests/scripts/test_ota_publish.py",
+      "docs/specs/desktop-in-app-installer.md",
+      "docs/ai-developer/release-runbook.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T06:28:16.552820Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/desktop-in-app-installer.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:28:16.553198Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/release-runbook.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:28:16.553202Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:28:16.553212Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "Extends the shell OTA spec within its design; no new architectural decision beyond the spec",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2396,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Build an in-app installer: download and install the next desktop installer from inside the app on macOS (arm64+x64 dmg), Windows (NSIS exe) and Linux (AppImage). User clicks to download, confirms before install; Rosetta x64 moves to arm64; manifest gains optional installer field filled by ota_publish.py; reinstall notice shows a Download and install button with copy-address fallback; patched shell uses the flow on incompatible. Notice copy decided at release time.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2396-feat-2396-in-app-installer",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "2fd9bf55-2592-4baf-984c-e7bd607de73e",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-15T06:28:16.553219Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/installer.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:28:16.553224Z",
+      "class": null,
+      "kind": "path",
+      "path": "desktop/test/bootstrap.test.js",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:28:16.553225Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/scripts/test_ota_publish.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
