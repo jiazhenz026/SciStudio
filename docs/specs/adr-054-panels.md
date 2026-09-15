@@ -832,6 +832,17 @@ CDNs, and renders.
 - **FR-049**: The Phase C PR MUST prepare the code assets of the "What Is A Type"
   tutorial as panel folders replacing `panel.mjs` and `image_preview.py`; the
   tutorial copy is supplied by the owner.
+- **FR-050**: The panel contract reference MUST be generated from source
+  (ADR-052 Addendum 1): `scripts/docs/build_panel_reference.py` renders
+  `panels-sdk.md` (the SDK, the operations per context, the read operations, the
+  error codes, and the library set), `panels-renderers.md` (the stylesheets and
+  the `panel-ui.js` and `renderers.js` components with their props), and
+  `panel-descriptor.md` (the `panel.json` keys and rules and the
+  `panel.sample.json` shape) into `src/scistudio/_user_guide/api-reference/`,
+  stamped `provisional` with the panel API version, and
+  `tests/docs/test_panel_reference.py` MUST fail when the committed pages are
+  stale. The guides and skills of FR-044 and FR-045 link to these pages for
+  signatures, props, keys, and read parameters instead of restating them.
 
 ### Key Entities
 
@@ -918,6 +929,7 @@ panel page ──GET (token in path)──▶ /api/panels/t/{token}/{assets|sdk|
 | `src/scistudio/_skills/scistudio/SKILL.md`, `scistudio-write-block/SKILL.md`, `scistudio-inspect-data/SKILL.md`, `src/scistudio/_agent_reference/*.md` | modify | Phase C references |
 | `docs/specs/adr-048-preview-system.md`, `docs/specs/adr-051-interactive-blocks.md`, `docs/specs/adr-055-enterprise-support.md` | modify | FR-047 |
 | `src/scistudio/tutorials/core/what-is-a-type/**` | modify | FR-049 code assets |
+| `scripts/docs/build_panel_reference.py`, `scripts/docs/build_reference.py`, `src/scistudio/_user_guide/api-reference/panels-sdk.md`, `panels-renderers.md`, `panel-descriptor.md`, `tests/docs/test_panel_reference.py` | create or generate | FR-050 generated panel contract reference |
 | `tests/panels/**`, `tests/api/test_panel_routes.py`, `tests/api/test_panel_security.py`, `tests/api/test_app.py`, `frontend/src/panels/*.test.*` | create or modify | Coverage for Phases A and B |
 
 ### 4.3 Implementation Sequence

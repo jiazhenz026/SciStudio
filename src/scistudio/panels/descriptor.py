@@ -13,9 +13,14 @@ from scistudio.previewers.models import OwnerKind, PreviewerSpec
 from scistudio.stability import internal
 
 PANEL_API_VERSION = "1.0"
+#: The SDK major this host serves; a panel loads the SDK from ``sdk/<major>/``.
+PANEL_API_MAJOR = PANEL_API_VERSION.split(".")[0]
 _ID = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*\Z")
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
-_KEYS = {"id", "api_version", "contexts", "types", "priority", "name", "description", "version", "entry"}
+#: The contexts a panel may declare, in the order the reference lists them.
+PANEL_CONTEXTS = ("preview", "interactive", "miniapp")
+#: The largest ``panel.json`` the host reads.
+DESCRIPTOR_MAX_BYTES = 65536
 # Core-reserved type names that are not TypeRegistry entries: the catch-all
 # sentinels (``DataObject``/``Collection``) and the synthetic catalog record
 # types the built-in previewers serve (``PlotArtifact``; see
@@ -83,7 +88,7 @@ def parse_descriptor(
     directory = Path(directory)
     try:
         path = resolve_panel_file(directory, "panel.json")
-        if path.stat().st_size > 65536:
+        if path.stat().st_size > DESCRIPTOR_MAX_BYTES:
             raise ValueError("descriptor exceeds 64 KiB")
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -96,13 +101,13 @@ def parse_descriptor(
     if panel_id.startswith("core.") and owner_kind is not OwnerKind.CORE:
         raise ValueError("FR-002: core. ids are reserved for core panels")
     version = data.get("api_version")
-    if not isinstance(version, str) or not _VERSION.fullmatch(version) or version.split(".")[0] != "1":
+    if not isinstance(version, str) or not _VERSION.fullmatch(version) or version.split(".")[0] != PANEL_API_MAJOR:
         raise ValueError("FR-003: unsupported api_version; host serves major 1 (MAJOR.MINOR)")
     contexts = data.get("contexts")
     if (
         not isinstance(contexts, list)
         or not contexts
-        or any(c not in ("preview", "interactive", "miniapp") for c in contexts)
+        or any(c not in PANEL_CONTEXTS for c in contexts)
         or len(set(contexts)) != len(contexts)
     ):
         raise ValueError("FR-002: contexts must be a nonempty distinct list of preview/interactive/miniapp")
@@ -149,6 +154,87 @@ def parse_descriptor(
         entry=entry,
         has_python=has_python,
     ), notes
+
+
+@internal()
+@dataclass(frozen=True)
+class DescriptorField:
+    """One ``panel.json`` key: its JSON type, whether it is required, and its rule.
+
+    The generated panel descriptor reference renders this table, and
+    :func:`parse_descriptor` derives its set of known keys from it, so a key
+    cannot be accepted without also being documented.
+    """
+
+    key: str
+    json_type: str
+    required: bool
+    default: str
+    rule: str
+
+
+DESCRIPTOR_FIELDS: tuple[DescriptorField, ...] = (
+    DescriptorField(
+        "id",
+        "string",
+        True,
+        "",
+        "Lowercase dotted segments, each starting with a letter (`[a-z][a-z0-9_]*`). Must equal the panel "
+        "directory's name. Ids starting with `core.` are reserved for panels shipped with SciStudio.",
+    ),
+    DescriptorField(
+        "api_version",
+        "string",
+        True,
+        "",
+        "`MAJOR.MINOR` with no leading zeros. The major must be the one this host "
+        f"serves (`{PANEL_API_MAJOR}`); the panel loads the SDK from `sdk/{PANEL_API_MAJOR}/`.",
+    ),
+    DescriptorField(
+        "contexts",
+        "array of string",
+        True,
+        "",
+        "Non-empty list of distinct values from " + ", ".join(f"`{c}`" for c in PANEL_CONTEXTS) + ".",
+    ),
+    DescriptorField(
+        "types",
+        "array of string",
+        False,
+        "`[]`",
+        "Distinct registered type names; `Collection[<Type>]` claims a collection of that type. Required "
+        "(non-empty) when `contexts` includes `preview`; exactly one type when it includes `miniapp`. The "
+        "names " + ", ".join(f"`{t}`" for t in _CORE_SENTINEL_TYPES) + " are reserved for built-in panels.",
+    ),
+    DescriptorField(
+        "priority",
+        "integer",
+        False,
+        "`0`",
+        "Orders panels that claim the same type at the same tier; the higher value is chosen. Booleans are refused.",
+    ),
+    DescriptorField("name", "string", False, "the `id`", "Human-readable name for the panel."),
+    DescriptorField("description", "string", False, '`""`', "Human-readable description of what the panel shows."),
+    DescriptorField("version", "string", False, '`""`', "The panel's own version label; not interpreted by the host."),
+    DescriptorField(
+        "entry",
+        "string",
+        False,
+        "`index.html`",
+        "Path of the page to load, relative to the panel directory. Must stay inside the directory and name "
+        "an `.html` file.",
+    ),
+)
+_KEYS = frozenset(field.key for field in DESCRIPTOR_FIELDS)
+
+#: Rules about the panel directory as a whole, rendered with the field table.
+DESCRIPTOR_FILE_RULES: tuple[str, ...] = (
+    f"`panel.json` must be a JSON object no larger than {DESCRIPTOR_MAX_BYTES // 1024} KiB.",
+    "Unknown keys are ignored and reported as a validation note.",
+    "A `panel.py` beside `panel.json` is started only for the `miniapp` context; in any other context it is "
+    "reported as a note and never run.",
+    "Discovering a panel never imports or executes its Python.",
+)
 
 
 __all__ = ["PANEL_API_VERSION", "PanelDescriptor"]
