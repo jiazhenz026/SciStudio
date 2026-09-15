@@ -497,17 +497,17 @@ def test_get_doc_path_is_relative_not_absolute(stub_ctx: _StubRuntime, tmp_path:
 
     Pre-fix: ``path=str(resolved)`` exposed e.g.
     ``C:\\Users\\<dev>\\workspace\\SciStudio\\docs\\adr\\ADR-038.md`` to
-    the agent. Post-fix the path is relative to the docs/ tree root.
+    the agent. Post-fix the path is relative to the project directory (#2375).
     """
     from scistudio.ai.agent.mcp import tools_qa
 
-    docs_dir = tmp_path / "docs"
-    docs_dir.mkdir()
-    (docs_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+    guide_dir = tmp_path / "user-guide"
+    guide_dir.mkdir()
+    (guide_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
 
-    result = _run(tools_qa.get_doc("guide.md"))
-    assert result.path == "guide.md", (
-        f"get_doc must return a path relative to docs/ root, not an absolute "
+    result = _run(tools_qa.get_doc("user-guide/guide.md"))
+    assert result.path == "user-guide/guide.md", (
+        f"get_doc must return a path relative to the project directory, not an absolute "
         f"developer-machine path. Got: {result.path!r}"
     )
     # Hard guard: the response must not contain any absolute-path marker

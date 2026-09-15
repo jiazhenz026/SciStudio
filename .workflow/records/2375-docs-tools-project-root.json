@@ -1,0 +1,110 @@
+{
+  "base_ref": null,
+  "branch": "fix/2375-docs-tools-project-root",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_qa.py",
+      "src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "tests/ai/test_mcp_tools_qa.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T02:56:17.198711Z",
+      "owner_directive": "Only search .md/.rst/.txt files.",
+      "reason": "init"
+    },
+    {
+      "at": "2026-09-15T02:56:17.207817Z",
+      "owner_directive": "This is an implementation fix; do NOT change any ADR or spec.",
+      "reason": "init"
+    },
+    {
+      "at": "2026-09-15T03:00:08.123289Z",
+      "owner_directive": "Implement per issue #2375: project-root docs tools, .md/.rst/.txt only, no ADR/spec change.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T03:00:08.123531Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:00:08.123564Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner: implementation fix, no ADR/spec change",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:00:08.123574Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner: implementation fix, no ADR/spec change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2375,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "search_docs and get_doc must search the whole project directory; projects have no docs/ subdirectory.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2375-docs-tools-project-root",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b22d64d9-722b-4390-80bb-91a1670c5c7f",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T03:00:08.123581Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_qa.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:00:08.123591Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
