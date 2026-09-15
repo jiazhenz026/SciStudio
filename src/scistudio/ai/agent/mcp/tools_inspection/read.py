@@ -13,11 +13,12 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context, get_optional_context
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_inspection._helpers import (
     _BLOCK_LOG_TRUNCATE_BYTES,
     _ref_from_dict,
+    _walk_lineage,
 )
 from scistudio.ai.agent.mcp.tools_inspection._models import (
     GetBlockConfigResult,
@@ -288,6 +289,19 @@ async def get_lineage(
         if not object_id:
             return GetLineageResult(note="could not resolve object_id")
 
+        # #2402: ``MetadataStore.ancestors`` follows only ``derived_from``, which
+        # a block output does not set, so a block's inputs never appeared. Walk
+        # the run record (producing execution -> its input edges) instead when
+        # the project's lineage store is reachable.
+        lineage = getattr(get_optional_context(), "lineage_store", None)
+        if lineage is not None:
+            walked_nodes, walked_edges = _walk_lineage(lineage, str(object_id))
+            if walked_nodes:
+                return GetLineageResult(
+                    nodes=[LineageNode(**node) for node in walked_nodes],
+                    edges=[LineageEdge(source=source, target=target) for source, target in walked_edges],
+                )
+
         ancestors = store.ancestors(object_id)
         nodes = [
             LineageNode(
@@ -325,6 +339,7 @@ async def get_block_config(
 
     Raises ``KeyError`` if the block_id is not in the workflow.
     """
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _effective_node_params
     from scistudio.workflow.serializer import load_yaml
 
     p = _resolve_project_path(workflow_path)
@@ -333,10 +348,12 @@ async def get_block_config(
     definition = load_yaml(p)
     for node in definition.nodes:
         if node.id == block_id:
+            # #2403: the GUI nests node config under ``config.params``; return
+            # the params the block reads whichever shape the file uses.
             return GetBlockConfigResult(
                 block_id=block_id,
                 type=node.block_type,
-                params=dict(node.config),
+                params=_effective_node_params(node.config),
                 workflow_path=str(p),
             )
     raise KeyError(f"Block '{block_id}' not found in workflow {p}")

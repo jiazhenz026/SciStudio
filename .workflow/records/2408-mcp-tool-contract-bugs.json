@@ -1,0 +1,120 @@
+{
+  "base_ref": null,
+  "branch": "fix/mcp-tool-contract-bugs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/**",
+      "src/scistudio/plot/targets.py",
+      "src/scistudio/api/app.py",
+      "tests/ai/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T07:21:59.032298Z",
+      "class": "docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "Tool docstrings and result-field descriptions updated in code (validate_workflow, get_block_config comments, _reload); no spec/ADR/skill wording changes because the fixes restore the already-documented tool contracts.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2408,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2402,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2403,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2404,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2405,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2406,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2407,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix MCP e2e-found bugs #2408, #2406, #2402, #2404, #2405, #2407 and #2403 together in one PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2408-mcp-tool-contract-bugs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "e687a276-c1a6-4bee-b1a4-c0d3472282d7",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T07:21:59.032462Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_mcp_tool_contract_fixes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:21:59.032466Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:21:59.032468Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_execution_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
