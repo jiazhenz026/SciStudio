@@ -98,7 +98,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "fc33bcf923041d3d77c2cd1be7705c614611a6a3",
+    "shas": [
+      "fc33bcf923041d3d77c2cd1be7705c614611a6a3"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -217,6 +223,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.134405Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.146240Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.158198Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.170157Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.182355Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.202029Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.213759Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.225189Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.236077Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.246608Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:11:20.262985Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -260,9 +354,9 @@
       "frontend/src/store/projectSlice.ts",
       "frontend/src/store/types.ts"
     ],
-    "diff_fingerprint": "sha256:1205b11074f3910d1f3e270631a4ffca028543f4dca1fb72213133aad5cb5345",
+    "diff_fingerprint": "sha256:7d3942c9c161c11cff6c494c4873a82ae249edff5328614cada99ed4104c98cd",
     "head": "HEAD",
-    "head_sha": "7f3fbd24",
+    "head_sha": "fc33bcf9",
     "surfaces": {
       "docs": 0,
       "frontend": 26,
@@ -279,11 +373,26 @@
   },
   "owner_directive": "Fix frontend F-group issues (isRunning per workflow, interactive prompts per (workflow, block), plot target/lineage scoped to project, active-context sync dedupe on (project, workflow), PlotsTab post-await selection) as a standalone PR.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2395
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T06:11:12.241015Z",
       "diff_fingerprint": "sha256:1205b11074f3910d1f3e270631a4ffca028543f4dca1fb72213133aad5cb5345",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T06:11:20.263024Z",
+      "diff_fingerprint": "sha256:7d3942c9c161c11cff6c494c4873a82ae249edff5328614cada99ed4104c98cd",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
