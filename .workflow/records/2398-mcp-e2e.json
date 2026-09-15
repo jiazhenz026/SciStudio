@@ -1,0 +1,80 @@
+{
+  "base_ref": "origin/main",
+  "branch": "test/2398-mcp-e2e",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/e2e/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T06:37:24.050054Z",
+      "class": "test-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "adds headless e2e tests and their MCP client helpers under tests/e2e; no product behavior, contract, or user-facing doc changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2398,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Design a full MCP e2e test: create a new project with a workflow from a tutorial, then test every MCP tool; add it to the CI e2e tests.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2398-mcp-e2e",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:37:24.049918Z",
+      "pattern": "tests/e2e/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "2b45d090-847e-42c8-8d3d-c09cf4a9c2dd",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T06:37:24.050059Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:37:24.050062Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_transports.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
