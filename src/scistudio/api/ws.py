@@ -252,20 +252,20 @@ async def _cancel_after_gui_disconnect_grace(event_bus: EventBus) -> None:
 
 
 def _client_id_for(websocket: WebSocket) -> str:
-    """Return the workspace client id this connection speaks for (FR-013).
-
-    A fresh id per connection is the default, and it is what a browser that
-    reloaded should get: the page lost its contexts with its JavaScript, and
-    the ones it left behind are closed after the grace period below.
-
-    A workspace whose socket merely dropped is a different case, and it is the
-    case the grace period exists for. Such a client reconnects quoting the id
-    it was given, and gets it back — so its MiniApp processes, which may hold
-    a large array that took a minute to load, survive a flaky connection
-    rather than being rebuilt from scratch. The value is accepted only in the
-    exact minted shape, so a reconnect can restore an identity but cannot
-    invent one.
-    """
+    """Return the workspace client id this connection speaks for."""
+    # Return the workspace client id this connection speaks for (FR-013).
+    #
+    # A fresh id per connection is the default, and it is what a browser that
+    # reloaded should get: the page lost its contexts with its JavaScript, and
+    # the ones it left behind are closed after the grace period below.
+    #
+    # A workspace whose socket merely dropped is a different case, and it is the
+    # case the grace period exists for. Such a client reconnects quoting the id
+    # it was given, and gets it back — so its MiniApp processes, which may hold
+    # a large array that took a minute to load, survive a flaky connection
+    # rather than being rebuilt from scratch. The value is accepted only in the
+    # exact minted shape, so a reconnect can restore an identity but cannot
+    # invent one.
     quoted = websocket.query_params.get("client_id", "")
     if _CLIENT_ID.fullmatch(quoted):
         return quoted
@@ -273,12 +273,12 @@ def _client_id_for(websocket: WebSocket) -> str:
 
 
 async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str) -> None:
-    """Close *client_id*'s MiniApp contexts once it has stayed gone (FR-013).
-
-    Debounced exactly as the cancellation of browser-owned runs above is: a
-    reconnect inside the grace period re-registers the id, this wakes to find
-    it present, and the MiniApp keeps running.
-    """
+    """Close *client_id*'s MiniApp contexts once it has stayed gone."""
+    # Close *client_id*'s MiniApp contexts once it has stayed gone (FR-013).
+    #
+    # Debounced exactly as the cancellation of browser-owned runs above is: a
+    # reconnect inside the grace period re-registers the id, this wakes to find
+    # it present, and the MiniApp keeps running.
     from scistudio.panels.contexts import get_panel_contexts
     from scistudio.panels.process_config import client_disconnect_grace
 

@@ -1,16 +1,16 @@
-"""Creating a MiniApp: the template directory, the agent's brief, and the sources.
-
-ADR-054 MiniApp FR-024/FR-026/FR-027/FR-034/FR-036. Everything here is the
-filesystem and data half of the two create routes in
-:mod:`scistudio.api.routes.panels`; the availability check and the agent
-session stay in the route, so this module imports nothing from
-:mod:`scistudio.api`.
-
-The order the route runs these in is normative and is stated where it is
-enforced (``create_miniapp`` in the route module). This module's own promise is
-narrower: nothing it writes is half-written, and an id it hands back was free
-at the moment it claimed the directory.
-"""
+"""Creating a MiniApp: the template directory, the agent's brief, and the sources."""
+# Creating a MiniApp: the template directory, the agent's brief, and the sources.
+#
+# ADR-054 MiniApp FR-024/FR-026/FR-027/FR-034/FR-036. Everything here is the
+# filesystem and data half of the two create routes in
+# :mod:`scistudio.api.routes.panels`; the availability check and the agent
+# session stay in the route, so this module imports nothing from
+# :mod:`scistudio.api`.
+#
+# The order the route runs these in is normative and is stated where it is
+# enforced (``create_miniapp`` in the route module). This module's own promise is
+# narrower: nothing it writes is half-written, and an id it hands back was free
+# at the moment it claimed the directory.
 
 from __future__ import annotations
 
@@ -55,7 +55,9 @@ _MAX_ID_ATTEMPTS = 1000
 
 @dataclass(frozen=True)
 class SourceCandidate:
-    """One block output a MiniApp could open on (FR-034)."""
+    """One block output a MiniApp could open on."""
+
+    # One block output a MiniApp could open on (FR-034).
 
     workflow_id: str
     workflow_name: str
@@ -123,8 +125,8 @@ def iter_source_candidates(runtime: Any) -> Iterator[SourceCandidate]:
     The same three dictionaries :func:`scistudio.panels.miniapp.resolve_source`
     reads for one source, walked for all of them. An output that cannot be
     frozen — its run's artifacts were reclaimed, or it never resolved to a data
-    reference — is skipped rather than failing the listing: the picker's job is
-    to offer what is openable now.
+    reference — is skipped rather than failing the listing. The picker offers
+    only outputs that can be opened now.
     """
     for workflow_id, run in list(getattr(runtime, "workflow_runs", {}).items()):
         scheduler = getattr(run, "scheduler", None)
@@ -163,11 +165,11 @@ def _freeze_output(runtime: Any, value: Any) -> FrozenTarget | None:
 
 
 def matching_sources(runtime: Any, panel: PanelDescriptor) -> list[dict[str, str]]:
-    """Return the sources whose type satisfies *panel*'s declared type (FR-034).
-
-    Type matching is not re-derived here: ``_check_type`` is the rule the
-    context create enforces, so a source this listing offers is one that opens.
-    """
+    """Return the sources whose type satisfies *panel*'s declared type."""
+    # Return the sources whose type satisfies *panel*'s declared type (FR-034).
+    #
+    # Type matching is not re-derived here: ``_check_type`` is the rule the
+    # context create enforces, so a source this listing offers is one that opens.
     if not panel.types:
         return []
     result: list[dict[str, str]] = []
@@ -198,12 +200,12 @@ def slugify(text: str, *, fallback: str = "miniapp") -> str:
 
 
 def allocate_panel_id(panels_dir: Path, base: str) -> str:
-    """Return *base*, or the next free ``<base>_<n>`` (FR-024).
-
-    Only the name is decided here; the directory is claimed by
-    :func:`create_from_template`, which creates it exclusively and asks again
-    if another writer won the race.
-    """
+    """Return *base*, or the next free ``<base>_<n>``."""
+    # Return *base*, or the next free ``<base>_<n>`` (FR-024).
+    #
+    # Only the name is decided here; the directory is claimed by
+    # :func:`create_from_template`, which creates it exclusively and asks again
+    # if another writer won the race.
     if not (panels_dir / base).exists():
         return base
     for index in range(2, _MAX_ID_ATTEMPTS):
@@ -304,7 +306,8 @@ def compose_create_brief(
     type_name: str,
     source: dict[str, str],
 ) -> str:
-    """The instructions the MiniApp-writing session is pointed at (FR-027)."""
+    """The instructions the MiniApp-writing session is pointed at."""
+    # The instructions the MiniApp-writing session is pointed at (FR-027).
     return f"""# Write the MiniApp `{panel_id}`
 
 A user asked SciStudio for a small app to look at one piece of their data.
@@ -352,7 +355,8 @@ def compose_convert_brief(
     outputs: list[dict[str, str]],
     note: str | None,
 ) -> str:
-    """The instructions the Convert-to-block session is pointed at (FR-036)."""
+    """The instructions the Convert-to-block session is pointed at."""
+    # The instructions the Convert-to-block session is pointed at (FR-036).
     listed = "\n".join(
         f"- `{o.get('name', '')}` on port `{o.get('port', '')}`, type `{o.get('type', '')}`" for o in outputs
     )

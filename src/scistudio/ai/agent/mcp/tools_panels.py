@@ -144,12 +144,7 @@ def _workspace_connected() -> bool:
     module importable (and therefore every tool in it registered) in a runtime
     that never starts the realtime layer.
     """
-    # TODO(#2354): drop the type: ignore once the realtime slice's
-    #   ``scistudio.engine.gui_presence`` (Phase D contract §2.1) is on the
-    #   integrated branch — this module is written against that pinned surface
-    #   and the ignore only covers its absence here.
-    #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2354.
-    from scistudio.engine import gui_presence  # type: ignore[attr-defined]
+    from scistudio.engine import gui_presence
 
     return bool(gui_presence.any_connected())
 

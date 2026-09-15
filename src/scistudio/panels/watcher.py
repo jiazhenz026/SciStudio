@@ -1,24 +1,24 @@
-"""Watch an open MiniApp's panel directory and announce page changes.
-
-ADR-054 MiniApp FR-022. While a ``miniapp`` context is open on a project- or
-user-tier MiniApp, the backend watches that MiniApp's own directory and emits
-``panel.files_changed`` with the panel id, so the host can reload the MiniApp —
-a new frame, context, and process on the same source.
-
-Three rules make the watch quiet enough to be trusted:
-
-* **Only the page counts.** ``panel.json``, ``panel.py``, and files whose suffix
-  is one the token asset route serves (:data:`scistudio.panels.files.ASSET_SUFFIXES`).
-  ``__pycache__/`` and every other name are ignored, so what ``panel.py`` writes
-  into its own directory never reloads the tab that is running it.
-* **Only the tiers a person edits.** Project and user MiniApps are watched;
-  package and core MiniApps ship inside an installation and are not.
-* **One event per burst.** An editor that writes atomically produces several
-  filesystem events; the 500 ms trailing debounce coalesces them into one.
-
-The watch is owned by the context: it starts when the context opens and stops
-when it closes, so nothing observes a directory no one is looking at.
-"""
+"""Watch an open MiniApp's panel directory and announce page changes."""
+# Watch an open MiniApp's panel directory and announce page changes.
+#
+# ADR-054 MiniApp FR-022. While a ``miniapp`` context is open on a project- or
+# user-tier MiniApp, the backend watches that MiniApp's own directory and emits
+# ``panel.files_changed`` with the panel id, so the host can reload the MiniApp —
+# a new frame, context, and process on the same source.
+#
+# Three rules make the watch quiet enough to be trusted:
+#
+# * **Only the page counts.** ``panel.json``, ``panel.py``, and files whose suffix
+# is one the token asset route serves (:data:`scistudio.panels.files.ASSET_SUFFIXES`).
+# ``__pycache__/`` and every other name are ignored, so what ``panel.py`` writes
+# into its own directory never reloads the tab that is running it.
+# * **Only the tiers a person edits.** Project and user MiniApps are watched;
+# package and core MiniApps ship inside an installation and are not.
+# * **One event per burst.** An editor that writes atomically produces several
+# filesystem events; the 500 ms trailing debounce coalesces them into one.
+#
+# The watch is owned by the context: it starts when the context opens and stops
+# when it closes, so nothing observes a directory no one is looking at.
 
 from __future__ import annotations
 
@@ -59,7 +59,8 @@ def watches(panel: Any) -> bool:
 
 
 def counts(directory: Path, path: Path) -> bool:
-    """Whether a changed path is part of the MiniApp's page (FR-022)."""
+    """Whether a changed path is part of the MiniApp's page."""
+    # Whether a changed path is part of the MiniApp's page (FR-022).
     try:
         relative = path.relative_to(directory)
     except ValueError:

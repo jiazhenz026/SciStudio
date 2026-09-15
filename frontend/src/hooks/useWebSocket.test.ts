@@ -73,6 +73,7 @@ beforeEach(() => {
   global.WebSocket.CLOSED = MockWebSocket.CLOSED;
   // Reset only the bits that matter to this test.
   useAppStore.setState({
+    wsClientId: null,
     activeBottomTab: "ai",
     unreadLogsCount: 0,
     logEntries: [],
@@ -487,4 +488,18 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
       false,
     );
   });
+});
+
+it("reconnects quoting the workspace identity without clearing it", () => {
+  vi.useFakeTimers();
+  useAppStore.setState({ wsClientId: "ws-0123456789abcdef" });
+  const view = renderHook(() => useWorkflowWebSocket(true));
+  expect(createdSockets[0].url).toContain("client_id=ws-0123456789abcdef");
+  act(() => createdSockets[0].close());
+  expect(useAppStore.getState().wsClientId).toBe("ws-0123456789abcdef");
+  act(() => vi.advanceTimersByTime(1000));
+  expect(createdSockets[1].url).toContain("client_id=ws-0123456789abcdef");
+  view.unmount();
+  useAppStore.setState({ wsClientId: null });
+  vi.useRealTimers();
 });

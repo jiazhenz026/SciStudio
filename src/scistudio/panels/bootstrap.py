@@ -1,21 +1,22 @@
-"""The resident panel subprocess: import ``panel.py``, run ``setup``, serve calls.
-
-Run as ``python -m scistudio.panels.bootstrap`` by the process host
-(:mod:`scistudio.panels.process`). ADR-054 MiniApp FR-006/FR-007/FR-009.
-
-Before any author code runs the bootstrap reserves the control channel: the
-process's original stdin/stdout become the request/response pipe, then fd 0/1/2
-are redirected so ``print`` and any early write land in the per-context log the
-host attached to stderr — never on the channel — and a read of stdin returns
-EOF. The channel is a plain OS pipe; no network port is opened, and the process
-exits when the request pipe closes so it cannot outlive a backend that died.
-"""
+"""The resident panel subprocess: import ``panel.py``, run ``setup``, serve calls."""
+# The resident panel subprocess: import ``panel.py``, run ``setup``, serve calls.
+#
+# Run as ``python -m scistudio.panels.bootstrap`` by the process host
+# (:mod:`scistudio.panels.process`). ADR-054 MiniApp FR-006/FR-007/FR-009.
+#
+# Before any author code runs the bootstrap reserves the control channel: the
+# process's original stdin/stdout become the request/response pipe, then fd 0/1/2
+# are redirected so ``print`` and any early write land in the per-context log the
+# host attached to stderr — never on the channel — and a read of stdin returns
+# EOF. The channel is a plain OS pipe; no network port is opened, and the process
+# exits when the request pipe closes so it cannot outlive a backend that died.
 
 from __future__ import annotations
 
 import contextlib
 import importlib.util
 import inspect
+import json
 import os
 import sys
 import traceback
@@ -66,17 +67,17 @@ def _import_panel() -> ModuleType:
 
 
 def _collect_callables(module: ModuleType) -> dict[str, Any]:
-    """Public functions defined in ``panel.py`` itself, other than setup/teardown.
-
-    FR-007 names *functions*: a class defined in ``panel.py`` is callable and
-    carries the module's ``__module__``, but constructing one over the call
-    channel is not what the page was given a function surface for, and the
-    instance it returns is not a result the protocol can send. ``isfunction``
-    keeps the surface to what the author wrote as a function.
-
-    A name the module only imports has a different ``__module__`` and is not
-    callable through the panel either.
-    """
+    """Public functions defined in ``panel.py`` itself, other than setup/teardown."""
+    # Public functions defined in ``panel.py`` itself, other than setup/teardown.
+    #
+    # FR-007 names *functions*: a class defined in ``panel.py`` is callable and
+    # carries the module's ``__module__``, but constructing one over the call
+    # channel is not what the page was given a function surface for, and the
+    # instance it returns is not a result the protocol can send. ``isfunction``
+    # keeps the surface to what the author wrote as a function.
+    #
+    # A name the module only imports has a different ``__module__`` and is not
+    # callable through the panel either.
     result: dict[str, Any] = {}
     for name, value in vars(module).items():
         if name.startswith("_") or name in _RESERVED:
@@ -111,11 +112,11 @@ def _error(exc: BaseException) -> dict[str, Any]:
 
 
 def _result_frame(request_id: Any, value: Any) -> tuple[dict[str, Any], bytes]:
-    """A NumPy array is sent as a raw buffer with dtype and shape; else JSON.
-
-    Enforces the result byte budget on this side so an oversized result fails
-    with ``too_large`` before it crosses the pipe (FR-011).
-    """
+    """A NumPy array is sent as a raw buffer with dtype and shape; else JSON."""
+    # A NumPy array is sent as a raw buffer with dtype and shape; else JSON.
+    #
+    # Enforces the result byte budget on this side so an oversized result fails
+    # with ``too_large`` before it crosses the pipe (FR-011).
     import json
 
     limit = max_result_bytes()
@@ -215,6 +216,9 @@ def main() -> None:
     module: ModuleType | None = None
     callables: dict[str, Any] = {}
     try:
+        from scistudio.engine.runners.worker import _prepend_runtime_import_roots
+
+        _prepend_runtime_import_roots(json.loads(os.environ.get("SCISTUDIO_PANEL_IMPORT_ROOTS", "[]")))
         module = _import_panel()
         data = _reconstruct(header.get("data"))
         callables = _collect_callables(module)
@@ -222,6 +226,7 @@ def main() -> None:
         if callable(setup):
             setup(data)
     except BaseException as exc:  # import/setup failure is start_failed, then exit
+        traceback.print_exception(type(exc), exc, exc.__traceback__)
         with contextlib.suppress(OSError, ProtocolError):
             send_frame(response, {"type": "setup_failed", "error": _error(exc)})
         return

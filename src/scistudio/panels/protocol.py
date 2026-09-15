@@ -1,17 +1,17 @@
-"""Length-prefixed frames for the panel-process control channel (ADR-054 §10).
-
-The backend and a panel's ``panel.py`` subprocess exchange messages over a
-dedicated pipe that user code's ``print`` cannot reach: the bootstrap saves the
-process's original stdin/stdout as the request/response channel and redirects
-fd 0/1/2 to the per-context log before any author code runs (see
-:mod:`scistudio.panels.bootstrap`). No network port is ever opened.
-
-A frame is a 4-byte big-endian header length, that many bytes of UTF-8 JSON,
-and — only when the header carries ``"nbytes"`` — exactly ``nbytes`` raw bytes
-that follow. The raw tail carries a NumPy array's buffer so a call that returns
-an array is delivered to the page as ``application/octet-stream`` with dtype and
-shape, mirroring the binary read path of ``adr-054-panels`` FR-012.
-"""
+"""Length-prefixed frames for the panel-process control channel."""
+# Length-prefixed frames for the panel-process control channel (ADR-054 §10).
+#
+# The backend and a panel's ``panel.py`` subprocess exchange messages over a
+# dedicated pipe that user code's ``print`` cannot reach: the bootstrap saves the
+# process's original stdin/stdout as the request/response channel and redirects
+# fd 0/1/2 to the per-context log before any author code runs (see
+# :mod:`scistudio.panels.bootstrap`). No network port is ever opened.
+#
+# A frame is a 4-byte big-endian header length, that many bytes of UTF-8 JSON,
+# and — only when the header carries ``"nbytes"`` — exactly ``nbytes`` raw bytes
+# that follow. The raw tail carries a NumPy array's buffer so a call that returns
+# an array is delivered to the page as ``application/octet-stream`` with dtype and
+# shape, mirroring the binary read path of ``adr-054-panels`` FR-012.
 
 from __future__ import annotations
 

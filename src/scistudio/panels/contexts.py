@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from scistudio.panels.descriptor import PanelDescriptor
-from scistudio.panels.process_config import teardown_grace
 from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target, project_identity
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import PreviewEnvelope
@@ -47,13 +46,6 @@ def _running_loop() -> asyncio.AbstractEventLoop | None:
         return asyncio.get_running_loop()
     except RuntimeError:
         return None
-
-
-def _join_stopping(threads: list[threading.Thread], wait: float) -> None:
-    """Wait once for every process being stopped, never for their sum."""
-    deadline = time.monotonic() + wait
-    for thread in threads:
-        thread.join(timeout=max(0.0, deadline - time.monotonic()))
 
 
 @dataclass
@@ -89,7 +81,7 @@ class PanelContext:
     def provides(self) -> tuple[list[str], list[str]]:
         """The operations and services this context exposes to its page."""
         if self.kind == "miniapp":
-            return ["read", "call"], ["save"]
+            return (["read", "call"] if self.panel.has_python else ["read"]), ["save"]
         if self.kind == "preview":
             return ["read"], ["open", "save"]
         return ["writeBack"], ["save"]
@@ -122,21 +114,12 @@ class PanelContexts:
                 self.close(context.context_id)
 
     def close_all(self) -> None:
-        """Close every context, ending each process without serialising on them.
-
-        Shutdown and a project switch both come through here with several
-        MiniApps open. ``stop()`` can take the teardown grace plus the kill
-        window per process, so they are ended in parallel and off the store
-        lock, then joined with one bounded wait: a project switch that used to
-        block the caller for the sum of every panel's teardown now costs the
-        slowest one, and the lock a health request needs is never held while a
-        hung ``panel.py`` is being killed (SC-005).
-        """
+        """Revoke all contexts immediately and stop their resources in the background."""
         with self.lock:
-            stopping = [self._detach(context) for context in self.contexts.values()]
+            for context in self.contexts.values():
+                self._detach(context)
             self.contexts.clear()
             self.prompts.clear()
-        _join_stopping([thread for thread in stopping if thread is not None], teardown_grace() + 5.0)
 
     @staticmethod
     def _detach(context: PanelContext) -> threading.Thread | None:
@@ -145,28 +128,33 @@ class PanelContexts:
         context.process = None
         watcher = getattr(context, "watcher", None)
         context.watcher = None
-        if watcher is not None:
-            with contextlib.suppress(Exception):
-                watcher.stop()
-        if process is None:
+        if process is None and watcher is None:
             return None
-        thread = threading.Thread(target=process.stop, name=f"panel-stop-{context.context_id}", daemon=True)
+
+        def stop_resources() -> None:
+            if watcher is not None:
+                with contextlib.suppress(Exception):
+                    watcher.stop()
+            if process is not None:
+                process.stop()
+
+        thread = threading.Thread(target=stop_resources, name=f"panel-stop-{context.context_id}", daemon=True)
         thread.start()
         return thread
 
     @classmethod
     def _stop(cls, context: PanelContext) -> None:
-        """End a context's process without waiting for it (FR-013, SC-005).
-
-        ``PanelProcess.stop`` runs teardown, waits out the grace period and then
-        kills the tree — up to ten seconds for a ``panel.py`` that hangs in
-        ``teardown``. Every caller here holds the store lock, and one of them
-        (``_synchronize``) runs on the path of every panel request, so the wait
-        happens on its own thread. The process is detached from the context
-        first, so nothing can reach it again, and the tree is ended either way:
-        by ``stop`` itself, or by the application registry's ``terminate_all``
-        at shutdown.
-        """
+        """End a context's process without waiting for it."""
+        # End a context's process without waiting for it (FR-013, SC-005).
+        #
+        # ``PanelProcess.stop`` runs teardown, waits out the grace period and then
+        # kills the tree — up to ten seconds for a ``panel.py`` that hangs in
+        # ``teardown``. Every caller here holds the store lock, and one of them
+        # (``_synchronize``) runs on the path of every panel request, so the wait
+        # happens on its own thread. The process is detached from the context
+        # first, so nothing can reach it again, and the tree is ended either way:
+        # by ``stop`` itself, or by the application registry's ``terminate_all``
+        # at shutdown.
         cls._detach(context)
 
     def on_event(self, event: Any) -> None:
@@ -344,7 +332,8 @@ class PanelContexts:
         return context
 
     def _start_watcher(self, context: PanelContext) -> None:
-        """Watch the MiniApp's own directory while the context is open (FR-022)."""
+        """Watch the MiniApp's own directory while the context is open."""
+        # Watch the MiniApp's own directory while the context is open (FR-022).
         from scistudio.panels.watcher import PanelDirectoryWatcher, watches
 
         if not watches(context.panel):
@@ -364,7 +353,8 @@ class PanelContexts:
             logger.warning("panel watcher: %s not watched", context.panel.id, exc_info=True)
 
     def _start_process(self, context: PanelContext, process_registry: Any) -> None:
-        """Launch the resident subprocess for a miniapp context (FR-006)."""
+        """Launch the resident subprocess for a miniapp context."""
+        # Launch the resident subprocess for a miniapp context (FR-006).
         from scistudio.panels.process import start_panel_process
 
         if process_registry is None:
@@ -381,22 +371,22 @@ class PanelContexts:
         )
 
     def restart(self, context_id: str, process_registry: Any = None) -> PanelContext:
-        """Start a new process for the same context and target (FR-014).
-
-        ``get`` re-validates the frozen target first, so a restart after
-        artifact retention reclaimed the run that produced it closes the context
-        and reports that the data is gone rather than starting a process on a
-        file that is not there — the tab then offers the picker. The target
-        itself is not re-resolved: FR-014 restarts "for the same context and
-        target", and re-resolving would silently move an open MiniApp onto a
-        later run's output.
-
-        The setup payload is rebuilt from the revalidated target so the new
-        process reconstructs what the catalog says the target is now, and the
-        context's lease is renewed: a restart is the user working with this
-        MiniApp, and leaving ``expires_at`` untouched let a restart late in the
-        600-second lease be closed by the next ``_synchronize`` moments later.
-        """
+        """Start a new process for the same context and target."""
+        # Start a new process for the same context and target (FR-014).
+        #
+        # ``get`` re-validates the frozen target first, so a restart after
+        # artifact retention reclaimed the run that produced it closes the context
+        # and reports that the data is gone rather than starting a process on a
+        # file that is not there — the tab then offers the picker. The target
+        # itself is not re-resolved: FR-014 restarts "for the same context and
+        # target", and re-resolving would silently move an open MiniApp onto a
+        # later run's output.
+        #
+        # The setup payload is rebuilt from the revalidated target so the new
+        # process reconstructs what the catalog says the target is now, and the
+        # context's lease is renewed: a restart is the user working with this
+        # MiniApp, and leaving ``expires_at`` untouched let a restart late in the
+        # 600-second lease be closed by the next ``_synchronize`` moments later.
         from scistudio.panels.miniapp import build_setup_payload
 
         with self.lock:
@@ -412,7 +402,7 @@ class PanelContexts:
             previous.stop()
         with self.lock:
             context = self.get(context_id)
-            if context.panel.has_python:
+            if context.panel.has_python and context.process is None:
                 self._start_process(context, process_registry)
             return context
 
@@ -420,9 +410,11 @@ class PanelContexts:
         """Stop the process but keep the context so the tab can Restart it."""
         with self.lock:
             context = self.get(context_id)
-            if context.process is not None:
-                context.process.stop()
-            return context
+            if context.kind != "miniapp" or context.process is None:
+                raise PanelError(400, "unsupported", "This context has no panel process to stop")
+            process = context.process
+        process.stop()
+        return context
 
     def _input(self, root: FrozenTarget) -> dict[str, Any]:
         if root.collection is not None:
@@ -467,13 +459,13 @@ class PanelContexts:
                     self.close(child.context_id)
 
     def close_for_client(self, ws_client_id: str) -> None:
-        """Close every miniapp context bound to a gone realtime client (FR-013).
-
-        The 30-second disconnect debounce lives in the realtime layer
-        (``src/scistudio/api/ws.py``), as the cancellation of browser-owned runs
-        does; this call performs the close once that layer decides the client is
-        gone.
-        """
+        """Close every miniapp context bound to a gone realtime client."""
+        # Close every miniapp context bound to a gone realtime client (FR-013).
+        #
+        # The 30-second disconnect debounce lives in the realtime layer
+        # (``src/scistudio/api/ws.py``), as the cancellation of browser-owned runs
+        # does; this call performs the close once that layer decides the client is
+        # gone.
         with self.lock:
             for context in list(self.contexts.values()):
                 if context.kind == "miniapp" and context.ws_client_id == ws_client_id:

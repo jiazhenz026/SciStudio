@@ -84,6 +84,8 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
       permission_mode: "safe",
     });
     expect(harness.onStarted).toHaveBeenCalledWith("tab-9");
+    expect(useAppStore.getState().terminalTabs.some((tab) => tab.id === "tab-9")).toBe(true);
+    expect(useAppStore.getState().activeBottomTab).toBe("ai");
     expect(harness.onOpenChange).toHaveBeenCalledWith(false);
   });
 

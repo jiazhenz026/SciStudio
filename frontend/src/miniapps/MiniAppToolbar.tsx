@@ -1,11 +1,8 @@
 /**
- * ADR-054 FR-021 — the MiniApp tab's toolbar: the process state and its
- * resident memory (FR-015), Restart, Stop, and Convert to interactive block
- * (FR-036).
+ * ADR-054 FR-021 — the MiniApp tab's toolbar: process state, Restart, Stop,
+ * and Convert to interactive block (FR-036).
  */
-import { residentBytes } from "../panels/types";
 import type { PanelProcessStatus } from "../panels/types";
-import { formatResidentMemory } from "./types";
 
 /** The words FR-015 names, in the order a reader meets them. */
 const STATE_LABEL: Record<PanelProcessStatus["state"], string> = {
@@ -41,7 +38,6 @@ export interface MiniAppToolbarProps {
 
 export function MiniAppToolbar(props: MiniAppToolbarProps) {
   const { status, processAbsent, busy } = props;
-  const memory = formatResidentMemory(residentBytes(status));
   return (
     <div
       className="flex items-center gap-3 border-b border-stone-200 px-4 py-2 text-xs"
@@ -59,9 +55,6 @@ export function MiniAppToolbar(props: MiniAppToolbarProps) {
             data-testid="miniapp-process-state"
           >
             {STATE_LABEL[status.state]}
-          </span>
-          <span className="text-stone-500" data-testid="miniapp-process-memory">
-            {memory}
           </span>
           {/* FR-014 — the exit code is what tells a stopped tab from a crash. */}
           {typeof status.exit_code === "number" ? (

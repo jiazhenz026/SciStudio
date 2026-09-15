@@ -34,7 +34,11 @@ import { PreviewerPalette } from "../components/PreviewerPalette";
 import { ConvertToBlockDialog } from "../miniapps/ConvertToBlockDialog";
 import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
 import { MiniAppPalette } from "../miniapps/MiniAppPalette";
-import { MiniAppTabLayer, useMiniAppPreviewColumn } from "../miniapps/MiniAppTab";
+import {
+  MiniAppTabLayer,
+  useMiniAppPreviewColumn,
+  usePreviewColumnState,
+} from "../miniapps/MiniAppTab";
 import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
 import { miniAppsApi } from "../miniapps/api";
 import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
@@ -49,6 +53,11 @@ import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subw
 import { SUBWORKFLOW_BLOCK_TYPES } from "../components/WorkflowCanvas.parts/useFlowNodes";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import {
+  AI_SIDEBAR_WIDTH,
+  DESKTOP_SIDEBAR_WIDTH,
+  useWorkspaceSidebar,
+} from "./useWorkspaceSidebar";
 
 type BottomTabValue = ReturnType<typeof useAppStore.getState>["activeBottomTab"];
 
@@ -574,20 +583,13 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   // Ctrl+B) was disconnected from the actual panel before; this handle is
   // what makes the collapse real.
   const leftPanelRef = useRef<PanelImperativeHandle>(null);
-  useEffect(() => {
-    const panel = leftPanelRef.current;
-    if (!panel) return;
-    if (paletteCollapsed) {
-      panel.collapse();
-    } else {
-      panel.expand();
-    }
-  }, [paletteCollapsed]);
+  const onSidebarResize = useWorkspaceSidebar(leftPanelRef, paletteCollapsed, isAi);
 
   // ADR-054 FR-020 — the right preview column folds away while a MiniApp tab
   // is active and comes back at the width it had. The rules (and why the panel
   // handle rather than `panelSizes.preview` holds the width) are in the hook.
   const previewPanelRef = useRef<PanelImperativeHandle>(null);
+  usePreviewColumnState(previewPanelRef);
   useMiniAppPreviewColumn(previewPanelRef, activeMiniAppTab !== null);
 
   // ADR-044 — preview panels read the same run-scoped, exposed-mapped outputs as
@@ -681,22 +683,12 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       // the app does not flash an open panel before the effect above
       // can collapse it.
       id="workspace-sidebar"
-      defaultSize={paletteCollapsed ? "0%" : isAi ? "28%" : "15%"}
-      minSize={isAi ? "180px" : "10%"}
-      maxSize={isAi ? "50%" : "28%"}
+      defaultSize={paletteCollapsed ? "0%" : isAi ? AI_SIDEBAR_WIDTH : DESKTOP_SIDEBAR_WIDTH}
+      minSize={isAi ? "180px" : "240px"}
+      maxSize={isAi ? "50%" : "40%"}
       collapsible
       collapsedSize="0%"
-      onResize={(size) => {
-        // Codex P2 on #2106 — dragging the separator below `minSize`
-        // collapses the panel internally without touching the store,
-        // leaving the activity bar's click decision stale. Mirror the
-        // panel's collapsed state back into `paletteCollapsed` (the
-        // reverse direction — store → panel — is the effect above).
-        const collapsed = size.asPercentage <= 0.5;
-        if (collapsed !== useAppStore.getState().paletteCollapsed) {
-          useAppStore.setState({ paletteCollapsed: collapsed });
-        }
-      }}
+      onResize={onSidebarResize}
     >
       <PaletteOrProjectPane {...props} previewPane={previewPane} miniApps={miniApps} />
     </ResizablePanel>
@@ -814,12 +806,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           }
         }}
       >
-        {/* Left Sidebar — section content picked by the activity bar.
-            `minSize` is 10% rather than 4%: below roughly that the pane is
-            narrower than a single 80px tile plus the pane's own padding, so
-            the block grid clipped its tiles and the tip card had no room for
-            a title. The pane is still `collapsible` to 0%, so the narrow end
-            of the range is a real collapse instead of an unusable sliver. */}
+        {/* Desktop width is bounded in pixels so labels stay readable on a
+            narrow window. Both presentations can still collapse to zero. */}
         {isAi
           ? [stagePanel, <ResizableHandle key="sidebar-divider" withHandle />, sidebarPanel]
           : [sidebarPanel, <ResizableHandle key="sidebar-divider" withHandle />, stagePanel]}
@@ -829,6 +817,12 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {!isAi && (
           <ResizablePanel
             panelRef={previewPanelRef}
+            onResize={(size) => {
+              const collapsed = size.asPercentage === 0;
+              if (collapsed !== useAppStore.getState().previewCollapsed) {
+                useAppStore.setState({ previewCollapsed: collapsed });
+              }
+            }}
             id="workspace-preview"
             defaultSize="22%"
             minSize="15%"

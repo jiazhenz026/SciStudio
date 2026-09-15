@@ -378,7 +378,7 @@ def test_convert_starts_a_session_and_leaves_the_miniapp_alone(tmp_path: Path, a
         },
     )
     assert response.status_code == 201, response.text
-    assert response.json() == {"session_tab_id": "tab-abc123"}
+    assert response.json() == {"session_tab_id": "tab-abc123", "provider": "claude-code", "permission_mode": "safe"}
 
     written = set((tmp_path / ".scistudio" / "miniapps").glob("*.md")) - briefs_before
     assert len(written) == 1
@@ -419,3 +419,10 @@ def test_a_session_that_does_not_start_leaves_the_template(tmp_path: Path, monke
     body = response.json()
     assert body["session_tab_id"] is None
     assert (Path(body["directory"]) / "index.html").is_file()
+
+
+def test_project_source_listing_does_not_require_an_existing_panel(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    response = client.get("/api/panels/miniapps/sources")
+    assert response.status_code == 200
+    assert {row["type"] for row in response.json()["sources"]} == {"Text", "Table"}

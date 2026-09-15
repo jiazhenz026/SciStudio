@@ -1,6 +1,7 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
 import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
@@ -151,9 +152,9 @@ function BlockContextMenu({ x, y, entries, reason, onClose }: BlockContextMenuPr
     return () => window.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed z-50 min-w-48 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
+      className="fixed z-[60] min-w-48 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
       data-testid="canvas-block-context-menu"
       onMouseDown={(event) => event.stopPropagation()}
       style={{ left: x, top: y }}
@@ -178,7 +179,8 @@ function BlockContextMenu({ x, y, entries, reason, onClose }: BlockContextMenuPr
           {reason}
         </p>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

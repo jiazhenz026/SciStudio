@@ -10,7 +10,6 @@ from watchdog.events import FileModifiedEvent
 from scistudio.api.routes.projects import FILE_CHANGED_EVENT_TYPE
 from scistudio.api.routes.workflow_watcher import _ProjectFileHandler
 from scistudio.api.runtime import FILE_ENTITY_CLASS, ApiRuntime
-
 from tests.api.helpers import ws_hello
 
 

@@ -210,7 +210,7 @@ export function Toolbar(props: ToolbarProps) {
             onSaveAs={onSaveAs}
           />
 
-          {!isFileTab && (
+          {!isFileTab && activeTabKind !== "miniapp" && (
             <WorkflowGroups
               currentProject={currentProject}
               workflowId={workflowId}

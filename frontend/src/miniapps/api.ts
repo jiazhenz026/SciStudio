@@ -6,6 +6,7 @@
  * shares with previews. What lives here is the MiniApp catalogue and the two
  * agent-session routes, plus promotion to the user library.
  */
+import type { BackendPermissionMode } from "../lib/api/workImport";
 import { apiFetch, JSON_HEADERS } from "../lib/api/core";
 import { useAppStore } from "../store";
 import type { MiniAppSource, MiniAppSummary, MiniAppTarget } from "./types";
@@ -16,7 +17,7 @@ export interface MiniAppCreateRequest {
   request: string;
   source: MiniAppTarget;
   provider?: string | null;
-  permission_mode?: string | null;
+  permission_mode?: BackendPermissionMode | null;
   /** Optional display name; the backend names it when this is absent. */
   name?: string | null;
 }
@@ -27,6 +28,8 @@ export interface MiniAppCreated {
   source: MiniAppTarget;
   /** The agent session the backend started, when it started one. */
   session_tab_id: string | null;
+  provider?: string | null;
+  permission_mode?: BackendPermissionMode | null;
   directory: string;
 }
 
@@ -35,10 +38,14 @@ export interface MiniAppConvertRequest {
   outputs: { name: string; type: string; port: string }[];
   note?: string | null;
   provider?: string | null;
-  permission_mode?: string | null;
+  permission_mode?: BackendPermissionMode | null;
 }
 
 export const miniAppsApi = {
+  projectSources: () =>
+    apiFetch<{ sources: MiniAppSource[] }>("/api/panels/miniapps/sources").then(
+      (body) => body.sources,
+    ),
   list: () =>
     apiFetch<{ miniapps: MiniAppSummary[] }>("/api/panels/miniapps", { timeoutMs: 15000 }).then(
       (body) => body.miniapps,
@@ -58,10 +65,16 @@ export const miniAppsApi = {
       timeoutMs: 60000,
     }),
   convert: (panelId: string, body: MiniAppConvertRequest) =>
-    apiFetch<{ session_tab_id: string | null }>(
-      `/api/panels/miniapps/${encodeURIComponent(panelId)}/convert`,
-      { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body), timeoutMs: 60000 },
-    ),
+    apiFetch<{
+      session_tab_id: string | null;
+      provider?: string | null;
+      permission_mode?: BackendPermissionMode | null;
+    }>(`/api/panels/miniapps/${encodeURIComponent(panelId)}/convert`, {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(body),
+      timeoutMs: 60000,
+    }),
   /**
    * FR-032 — promote a project MiniApp to `~/.scistudio/panels/` through the
    * ADR-053 FR-017 directory door. `moved` is false when the project copy

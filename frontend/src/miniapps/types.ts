@@ -44,11 +44,3 @@ export interface MiniAppTarget {
 export function miniAppTabId(panelId: string, target: MiniAppTarget): string {
   return `miniapp:${panelId}:${target.workflow_id}:${target.block_id}:${target.port}`;
 }
-
-/** Human-readable resident memory for the toolbar (FR-015). */
-export function formatResidentMemory(bytes: number | null): string {
-  if (bytes === null || !Number.isFinite(bytes) || bytes < 0) return "—";
-  const mib = bytes / (1024 * 1024);
-  if (mib >= 1024) return `${(mib / 1024).toFixed(1)} GiB`;
-  return `${mib < 10 ? mib.toFixed(1) : Math.round(mib)} MiB`;
-}

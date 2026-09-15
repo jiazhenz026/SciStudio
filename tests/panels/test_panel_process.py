@@ -8,6 +8,7 @@ exercised in full; the process-group assertions are guarded off Windows.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 import time
 from pathlib import Path
@@ -388,3 +389,162 @@ def test_shutdown_terminate_all_ends_the_panel_tree(tmp_path: Path) -> None:
     assert process._popen.poll() is not None
     assert not psutil.pid_exists(child_pid)
     process.stop()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX detached child")
+@pytest.mark.parametrize("crash", [False, True])
+def test_detached_descendant_ends_after_close_or_root_crash(tmp_path: Path, crash: bool) -> None:
+    import psutil
+
+    body = (
+        "import subprocess, sys, os\n"
+        "def setup(data):\n"
+        "    global child\n"
+        "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(300)'], start_new_session=True)\n"
+        "def child_pid():\n    return child.pid\n"
+        "def crash():\n    os._exit(7)\n"
+    )
+    process, registry, _ = _launch(tmp_path, body)
+    child = None
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        child = psutil.Process(process.call("child_pid", {}).header["result"])
+        if crash:
+            with pytest.raises(PanelCallError):
+                process.call("crash", {})
+        else:
+            process.stop()
+        deadline = time.monotonic() + 9
+        while time.monotonic() < deadline and child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+            time.sleep(0.02)
+        assert not child.is_running() or child.status() == psutil.STATUS_ZOMBIE
+        while time.monotonic() < deadline and registry.active_handles():
+            time.sleep(0.02)
+        assert not registry.active_handles()
+    finally:
+        process.stop()
+        if child is not None:
+            with contextlib.suppress(psutil.Error):
+                child.kill()
+
+
+def test_panel_asset_refuses_python_hardlinks(tmp_path: Path) -> None:
+    import os
+
+    from scistudio.panels.files import resolve_panel_file
+
+    root = _panel(tmp_path, "secret = 'private source'\n")
+    os.link(root / "panel.py", root / "alias.js")
+    with pytest.raises(ValueError, match="executable source"):
+        resolve_panel_file(root, "alias.js")
+
+
+@pytest.mark.parametrize("assign_ok,resume_ok", [(False, True), (True, False)])
+def test_windows_launch_refuses_uncontained_process(
+    tmp_path: Path, monkeypatch, assign_ok: bool, resume_ok: bool
+) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    child = SimpleNamespace(pid=123, kill=Mock(), wait=Mock())
+    launch = Mock(return_value=child)
+    ops = SimpleNamespace(
+        create_process_group=lambda kwargs: kwargs,
+        create_job_object=Mock(return_value="job"),
+        assign_to_job=Mock(return_value=assign_ok),
+        resume_process=Mock(return_value=resume_ok),
+        close_job_object=Mock(),
+    )
+    monkeypatch.setattr(process_mod, "sys", SimpleNamespace(platform="win32", executable=sys.executable))
+    monkeypatch.setattr(process_mod, "get_platform_ops", lambda: ops)
+    monkeypatch.setattr(process_mod.subprocess, "Popen", launch)
+    with pytest.raises(RuntimeError, match="contain and resume"):
+        _launch(tmp_path, "def setup(data): pass\n")
+    assert launch.call_args.kwargs["creationflags"] & 0x00000004
+    child.kill.assert_called_once()
+    child.wait.assert_called_once()
+    ops.close_job_object.assert_called_once_with("job")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX signal behavior")
+def test_close_during_inflight_call_kills_tree_within_ten_seconds(tmp_path: Path) -> None:
+    import threading
+
+    body = "import signal, time\nsignal.signal(signal.SIGTERM, signal.SIG_IGN)\ndef slow():\n    time.sleep(300)\n"
+    process, registry, _ = _launch(tmp_path, body)
+    errors = []
+
+    def call():
+        try:
+            process.call("slow", {})
+        except PanelCallError as error:
+            errors.append(error)
+
+    worker = threading.Thread(target=call)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        worker.start()
+        time.sleep(0.2)
+        started = time.monotonic()
+        process.stop()
+        assert time.monotonic() - started < 10
+        assert process._popen.poll() is not None
+        assert not registry.active_handles()
+        worker.join(1)
+        assert not worker.is_alive()
+        assert errors
+    finally:
+        process.stop()
+
+
+def test_plugin_numpy_does_not_replace_worker_core_numpy(tmp_path: Path) -> None:
+    root = tmp_path / "plugin"
+    root.mkdir()
+    (root / "numpy.py").write_text("raise RuntimeError('wrong native architecture')\n")
+    panel = _panel(tmp_path, "import numpy as np\ndef ping():\n    return int(np.arange(3).sum())\n")
+    registry = ProcessRegistry()
+    process = start_panel_process(
+        context_id="architecture-regression",
+        panel_dir=panel,
+        project_dir=tmp_path,
+        registry=registry,
+        setup_payload=None,
+        import_roots=(str(root),),
+    )
+    try:
+        assert _await_state(process, RUNNING) == RUNNING, process.status()
+        assert process.call("ping", {}).header["result"] == 3
+    finally:
+        process.stop()
+
+
+def test_setup_exception_is_visible_in_status_and_log(tmp_path: Path) -> None:
+    process, _, _ = _launch(tmp_path, "raise RuntimeError('startup details for the user')\n")
+    try:
+        assert _await_state(process, START_FAILED) == START_FAILED
+        assert process.status()["error"]["message"] == "startup details for the user"
+        assert "startup details for the user" in process.log_tail()
+    finally:
+        process.stop()
+
+
+def test_old_launch_cleanup_cannot_kill_or_deregister_a_restart(tmp_path: Path) -> None:
+    first, registry, project = _launch(tmp_path, "def ping(): return 'pong'\n")
+    assert _await_state(first, RUNNING) == RUNNING
+    first.stop()
+    second = start_panel_process(
+        context_id=first.context_id,
+        panel_dir=tmp_path / "m.app",
+        project_dir=project,
+        registry=registry,
+        setup_payload=None,
+    )
+    try:
+        assert _await_state(second, RUNNING) == RUNNING
+        # Model a delayed exit monitor from the old process after restart.
+        first.handle.kill()
+        first._deregister()
+        assert second.call("ping", {}).header["result"] == "pong"
+        assert registry.get_handle("panel-context", second.handle.block_id) is second.handle
+    finally:
+        second.stop()

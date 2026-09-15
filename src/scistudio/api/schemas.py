@@ -998,14 +998,15 @@ class UserLibraryWriteResponse(BaseModel):
 
 
 class UserLibraryDirectoryRequest(BaseModel):
-    """Request body for ``POST /api/user-library/directory``.
+    """Request body for ``POST /api/user-library/directory``."""
 
-    ADR-054 MiniApp FR-039. The project side is named by its directory rather
-    than by a project id and a relative path, because the file-level resolver
-    the single-file promotion reuses applies the ADR-036 editor extension
-    allowlist — which has no ``.html``, ``.css``, or ``.js`` — and would refuse
-    a panel's own page.
-    """
+    # Request body for ``POST /api/user-library/directory``.
+    #
+    # ADR-054 MiniApp FR-039. The project side is named by its directory rather
+    # than by a project id and a relative path, because the file-level resolver
+    # the single-file promotion reuses applies the ADR-036 editor extension
+    # allowlist — which has no ``.html``, ``.css``, or ``.js`` — and would refuse
+    # a panel's own page.
 
     # Development references: ADR-053, FR-017; ADR-054 MiniApp, FR-039.
 

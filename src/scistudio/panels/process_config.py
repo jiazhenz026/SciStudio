@@ -1,12 +1,12 @@
-"""Tunable limits for the panel process host (ADR-054 MiniApp FR-011/FR-012).
-
-The startup and call limits, the result budget, the queue depth, and the grace
-periods are spec decisions open to owner revision (adr-054-miniapp §6). Each is
-overridable by an environment variable so tests can drive fast timeouts without
-weakening the defaults the product ships with. Both the backend host and the
-subprocess bootstrap read the result budget from here so they agree on
-``too_large``.
-"""
+"""Tunable limits for the panel process host."""
+# Tunable limits for the panel process host (ADR-054 MiniApp FR-011/FR-012).
+#
+# The startup and call limits, the result budget, the queue depth, and the grace
+# periods are spec decisions open to owner revision (adr-054-miniapp §6). Each is
+# overridable by an environment variable so tests can drive fast timeouts without
+# weakening the defaults the product ships with. Both the backend host and the
+# subprocess bootstrap read the result budget from here so they agree on
+# ``too_large``.
 
 from __future__ import annotations
 

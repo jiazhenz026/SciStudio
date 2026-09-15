@@ -173,3 +173,20 @@ Append only.
 - [ ] PR closes `#2354`.
 - [ ] CI passed.
 - [ ] Checklist final state matches PR and gate record.
+
+
+## Guided audit repair checkpoint (2026-09-13)
+
+Owner-directed continuation fixes the recorded frontend integration, process
+lifetime, API responsiveness and asset-confinement findings. Regression evidence
+is recorded in `.workflow/records/2354-guided-miniapp-audit-fixes.json`.
+The owner located the macOS menu-bar icon hidden by excess status items; no
+desktop code change was required.
+
+- Project-wide source discovery replaces the previous FR-023 listing deferral.
+- Native Windows SC-004 evidence is not claimed on this macOS workstation.
+  TODO(#2354): verify suspended launch, Job Object assignment failure and full
+  process-tree cleanup on a native Windows runner before cross-platform closure.
+  Out of scope per the current macOS guided validation session.
+  Followup: https://github.com/jiazhenz026/SciStudio/issues/2354.
+- This checkpoint is for desktop testing; final PR/CI readiness remains pending.

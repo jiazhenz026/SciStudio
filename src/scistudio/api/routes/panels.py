@@ -107,12 +107,13 @@ class ContextCallErrorDetail(BaseModel):
 
 
 class ContextCallError(BaseModel):
-    """A call that raised. The HTTP status is still 200 and the process lives.
+    """A call that raised. The HTTP status is still 200 and the process lives."""
 
-    FR-011: an exception in a panel function is an answer, not a transport
-    failure — the process keeps running and the next call still works. The
-    client turns this body into a rejected promise.
-    """
+    # A call that raised. The HTTP status is still 200 and the process lives.
+    #
+    # FR-011: an exception in a panel function is an answer, not a transport
+    # failure — the process keeps running and the next call still works. The
+    # client turns this body into a rejected promise.
 
     error: ContextCallErrorDetail
 
@@ -127,7 +128,9 @@ class ReadResult(BaseModel):
 
 
 class MiniAppTarget(BaseModel):
-    """The block output a MiniApp opens on (MiniApp FR-004)."""
+    """The block output a MiniApp opens on."""
+
+    # The block output a MiniApp opens on (MiniApp FR-004).
 
     model_config = ConfigDict(extra="forbid")
     workflow_id: str
@@ -136,7 +139,9 @@ class MiniAppTarget(BaseModel):
 
 
 class MiniAppSummary(BaseModel):
-    """One MiniApp in the MiniApps tab (MiniApp FR-031/FR-032)."""
+    """One MiniApp in the MiniApps tab."""
+
+    # One MiniApp in the MiniApps tab (MiniApp FR-031/FR-032).
 
     panel_id: str
     name: str
@@ -152,7 +157,9 @@ class MiniAppListResponse(BaseModel):
 
 
 class MiniAppSource(BaseModel):
-    """One openable block output for a MiniApp's declared type (MiniApp FR-034)."""
+    """One openable block output for a MiniApp's declared type."""
+
+    # One openable block output for a MiniApp's declared type (MiniApp FR-034).
 
     workflow_id: str
     workflow_name: str
@@ -167,7 +174,9 @@ class MiniAppSourcesResponse(BaseModel):
 
 
 class MiniAppCreate(BaseModel):
-    """Request body for ``POST /api/panels/miniapps`` (MiniApp FR-024)."""
+    """Request body for ``POST /api/panels/miniapps``."""
+
+    # Request body for ``POST /api/panels/miniapps`` (MiniApp FR-024).
 
     model_config = ConfigDict(extra="forbid")
     request: str = Field(max_length=4000, description="What the user wants to see or do, in their own words.")
@@ -192,11 +201,15 @@ class MiniAppCreated(BaseModel):
     name: str
     source: MiniAppTarget
     session_tab_id: str | None = None
+    provider: str | None = None
+    permission_mode: str | None = None
     directory: str
 
 
 class MiniAppConvertOutput(BaseModel):
-    """One output the converted interactive block must produce (MiniApp FR-036)."""
+    """One output the converted interactive block must produce."""
+
+    # One output the converted interactive block must produce (MiniApp FR-036).
 
     model_config = ConfigDict(extra="forbid")
     name: str
@@ -216,6 +229,8 @@ class MiniAppConvert(BaseModel):
 
 class MiniAppConverted(BaseModel):
     session_tab_id: str | None = None
+    provider: str | None = None
+    permission_mode: str | None = None
 
 
 class PanelFailureDetail(BaseModel):
@@ -344,7 +359,8 @@ def _miniapp(request: Request, panel_id: str) -> Any:
 
 @router.get("/miniapps", response_model=MiniAppListResponse, responses=_ERRORS)
 def list_miniapps(request: Request) -> dict[str, Any]:
-    """Every registered panel declaring ``miniapp``, for the MiniApps tab (FR-031)."""
+    """Every registered panel declaring ``miniapp``, for the MiniApps tab."""
+    # Every registered panel declaring ``miniapp``, for the MiniApps tab (FR-031).
     return {
         "miniapps": [
             {
@@ -361,9 +377,18 @@ def list_miniapps(request: Request) -> dict[str, Any]:
     }
 
 
+@router.get("/miniapps/sources", response_model=MiniAppSourcesResponse, responses=_ERRORS)
+def list_project_miniapp_sources(request: Request) -> dict[str, Any]:
+    """List available outputs across the project before a MiniApp exists."""
+    from scistudio.panels.miniapp_create import iter_source_candidates
+
+    return {"sources": [candidate.as_dict() for candidate in iter_source_candidates(request.app.state.runtime)]}
+
+
 @router.get("/miniapps/{panel_id}/sources", response_model=MiniAppSourcesResponse, responses=_ERRORS)
 def list_miniapp_sources(panel_id: str, request: Request) -> dict[str, Any]:
-    """The outputs this MiniApp can open on, for the target picker (FR-034)."""
+    """The outputs this MiniApp can open on, for the target picker."""
+    # The outputs this MiniApp can open on, for the target picker (FR-034).
     from scistudio.panels.miniapp_create import matching_sources
 
     try:
@@ -381,12 +406,12 @@ def _permission_mode(raw: str | None) -> str:
 
 
 def _graded_reason(row: Any, report: Any) -> str:
-    """The availability report's own sentence for why a session cannot start.
-
-    Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
-    which of install, sign in, or "the call failed because …" is the actionable
-    one, and a second wording here would give the user two accounts of one fact.
-    """
+    """The availability report's own sentence for why a session cannot start."""
+    # The availability report's own sentence for why a session cannot start.
+    #
+    # Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
+    # which of install, sign in, or "the call failed because …" is the actionable
+    # one, and a second wording here would give the user two accounts of one fact.
     if row is None:
         row = next((p for p in report.providers if p.state == report.state), None)
     if row is None:
@@ -398,14 +423,14 @@ def _graded_reason(row: Any, report: Any) -> str:
 
 
 async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
-    """Return the provider and mode a session may start with, or refuse (FR-024).
-
-    This runs FIRST, before anything is written: a MiniApp whose agent never
-    started is a directory the user did not ask for and has to find and delete
-    themselves. ``session_unsupported_reason`` refuses a provider however
-    ``ready`` it is — the opening instruction is a positional argument its CLI
-    cannot take, and no amount of signing in changes that.
-    """
+    """Return the provider and mode a session may start with, or refuse."""
+    # Return the provider and mode a session may start with, or refuse (FR-024).
+    #
+    # This runs FIRST, before anything is written: a MiniApp whose agent never
+    # started is a directory the user did not ask for and has to find and delete
+    # themselves. ``session_unsupported_reason`` refuses a provider however
+    # ``ready`` it is — the opening instruction is a positional argument its CLI
+    # cannot take, and no amount of signing in changes that.
     from scistudio.ai.agent import availability as agent_availability
     from scistudio.ai.agent.availability import AvailabilityState
     from scistudio.api.routes.ai import _status_rows
@@ -542,19 +567,21 @@ def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: s
         "name": name,
         "source": wanted,
         "session_tab_id": tab_id,
+        "provider": provider,
+        "permission_mode": mode,
         "directory": str(directory),
     }
 
 
 @router.post("/miniapps", response_model=MiniAppCreated, status_code=201, responses=_ERRORS)
 async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, Any]:
-    """Create a MiniApp directory and start the agent session that writes it.
-
-    The order is normative (FR-024): the graded availability check comes first
-    and nothing is created when it refuses, then the template directory, then
-    the brief — closed and fsynced — and the agent session last, pointed at a
-    brief that is already complete on disk.
-    """
+    """Create a MiniApp directory and start the agent session that writes it."""
+    # Create a MiniApp directory and start the agent session that writes it.
+    #
+    # The order is normative (FR-024): the graded availability check comes first
+    # and nothing is created when it refuses, then the template directory, then
+    # the brief — closed and fsynced — and the agent session last, pointed at a
+    # brief that is already complete on disk.
     try:
         provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_create_miniapp, request.app.state.runtime, payload, provider, mode)
@@ -588,22 +615,24 @@ def _convert_miniapp(runtime: Any, panel: Any, payload: MiniAppConvert, provider
     except OSError as exc:
         raise PanelError(500, "write_failed", f"Could not write the conversion brief: {exc}") from exc
     return {
+        "provider": provider,
+        "permission_mode": mode,
         "session_tab_id": _session_tab(
             provider=provider,
             project_dir=project_dir,
             brief_relpath=brief_path.relative_to(project_dir).as_posix(),
             permission_mode=mode,
-        )
+        ),
     }
 
 
 @router.post("/miniapps/{panel_id}/convert", response_model=MiniAppConverted, status_code=201, responses=_ERRORS)
 async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Request) -> dict[str, Any]:
-    """Start the agent session that turns a MiniApp into an interactive block (FR-036).
-
-    The MiniApp is read, never written: the user keeps the thing they explored
-    with, and the block is a second artefact beside it.
-    """
+    """Start the agent session that turns a MiniApp into an interactive block."""
+    # Start the agent session that turns a MiniApp into an interactive block (FR-036).
+    #
+    # The MiniApp is read, never written: the user keeps the thing they explored
+    # with, and the block is a second artefact beside it.
     try:
         panel = _miniapp(request, panel_id)
         provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
@@ -632,14 +661,13 @@ _CALL_STATUS = {"busy": 429, "timeout": 504, "too_large": 413, "process_exited":
 
 
 @router.post("/contexts/{context_id}/call", responses=_CALL_RESPONSE)
-def panel_call(context_id: str, payload: ContextCall, request: Request) -> Response:
-    """Forward a MiniApp page call to its resident panel.py (session-authenticated).
-
-    Runs off the API event loop (FastAPI executes this sync route in the
-    threadpool). Returns ``{result}`` as JSON, ``application/octet-stream`` with
-    dtype/shape headers for a NumPy array, or ``{error}`` for an author
-    exception, which does not end the process (FR-010/FR-011).
-    """
+async def panel_call(context_id: str, payload: ContextCall, request: Request) -> Response:
+    """Forward a MiniApp page call to its resident panel.py (session-authenticated)."""
+    # Forward a MiniApp page call to its resident panel.py (session-authenticated).
+    #
+    # Runs the blocking pipe call on a dedicated executor off the API event loop. Returns ``{result}`` as JSON, ``application/octet-stream`` with
+    # dtype/shape headers for a NumPy array, or ``{error}`` for an author
+    # exception, which does not end the process (FR-010/FR-011).
     from scistudio.panels.process import PanelCallError
 
     try:
@@ -649,7 +677,7 @@ def panel_call(context_id: str, payload: ContextCall, request: Request) -> Respo
         if context.kind != "miniapp" or getattr(context, "process", None) is None:
             raise PanelError(400, "unsupported", "This context does not provide call")
         try:
-            job = context.process.call(payload.fn, payload.args)
+            job = await asyncio.to_thread(context.process.call, payload.fn, payload.args)
         except PanelCallError as exc:
             raise PanelError(_CALL_STATUS.get(exc.code, 409), exc.code, exc.message) from exc
         # A close/project switch while the call ran must not deliver stale bytes.

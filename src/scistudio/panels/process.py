@@ -1,21 +1,23 @@
-"""The resident panel subprocess host: launcher, registry handle, call pipe.
-
-ADR-054 MiniApp FR-006..FR-015. A context that provides ``call`` for a panel
-with ``panel.py`` starts one subprocess through :func:`start_panel_process`, off
-the API event loop, using the interpreter and import roots block workers get.
-:class:`PanelProcess` owns the control pipe on a single background thread so
-calls run one at a time, in order; a bounded queue, a per-call timeout, a result
-budget, and crash capture keep a faulty ``panel.py`` from taking the app down.
-:class:`PanelProcessHandle` registers in the application process registry and
-ends the whole process tree, modelled on the agent's command handle.
-"""
+"""The resident panel subprocess host: launcher, registry handle, call pipe."""
+# The resident panel subprocess host: launcher, registry handle, call pipe.
+#
+# ADR-054 MiniApp FR-006..FR-015. A context that provides ``call`` for a panel
+# with ``panel.py`` starts one subprocess through :func:`start_panel_process`, off
+# the API event loop, using the interpreter and import roots block workers get.
+# :class:`PanelProcess` owns the control pipe on a single background thread so
+# calls run one at a time, in order; a bounded queue, a per-call timeout, a result
+# budget, and crash capture keep a faulty ``panel.py`` from taking the app down.
+# :class:`PanelProcessHandle` registers in the application process registry and
+# ends the whole process tree, modelled on the agent's command handle.
 
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import queue
+import secrets
 import subprocess
 import sys
 import threading
@@ -60,14 +62,14 @@ class PanelCallError(Exception):
 
 
 def _posix_group_members(pgid: int, started_at: float) -> list[Any]:
-    """Live processes in *pgid* that started no earlier than the process.
-
-    The kernel keeps a process-group id reserved while any member is alive, so
-    the id names only ours; the start-time filter drops an id recycled after we
-    exited (mirrors the agent command handle, #2292 / #1542). Signalling each
-    member's PID individually — rather than ``killpg`` — avoids the EPERM the
-    kernel returns for an orphaned group whose leader has already exited.
-    """
+    """Live processes in *pgid* that started no earlier than the process."""
+    # Live processes in *pgid* that started no earlier than the process.
+    #
+    # The kernel keeps a process-group id reserved while any member is alive, so
+    # the id names only ours; the start-time filter drops an id recycled after we
+    # exited (mirrors the agent command handle, #2292 / #1542). Signalling each
+    # member's PID individually — rather than ``killpg`` — avoids the EPERM the
+    # kernel returns for an orphaned group whose leader has already exited.
     import psutil
 
     getpgid = os.getpgid  # type: ignore[attr-defined]
@@ -87,18 +89,19 @@ def _posix_group_members(pgid: int, started_at: float) -> list[Any]:
 
 
 class PanelProcessHandle(ProcessHandle):
-    """Registry handle that ends a panel process and everything it started.
+    """Registry handle that ends a panel process and everything it started."""
 
-    Registered in the application registry (``app.state.registry``) under the
-    ``panel-context`` namespace keyed by ``context-<context_id>``, so shutdown's
-    ``terminate_all`` reaches it (FR-008). On POSIX the child is its own
-    process-group leader and every live group member is signalled by PID; on
-    Windows the tree is held in a Job Object. ``owns_live_process`` stays true
-    while any process the panel started is alive, so a lingering child is not
-    orphaned by shutdown.
-    """
+    # Registry handle that ends a panel process and everything it started.
+    #
+    # Registered in the application registry (``app.state.registry``) under the
+    # ``panel-context`` namespace keyed by ``context-<context_id>``, so shutdown's
+    # ``terminate_all`` reaches it (FR-008). On POSIX the child is its own
+    # process-group leader and every live group member is signalled by PID; on
+    # Windows the tree is held in a Job Object. ``owns_live_process`` stays true
+    # while any process the panel started is alive, so a lingering child is not
+    # orphaned by shutdown.
 
-    def __init__(self, *, context_id: str, pid: int, started_at: float, job_object: Any) -> None:
+    def __init__(self, *, context_id: str, pid: int, started_at: float, job_object: Any, launch_id: str) -> None:
         from scistudio.engine.resources import ResourceRequest
 
         super().__init__(
@@ -109,18 +112,20 @@ class PanelProcessHandle(ProcessHandle):
             workflow_id=REGISTRY_NAMESPACE,
         )
         self.context_id = context_id
+        self.launch_id = launch_id
         self.job_object = job_object
         self.pgid: int | None = None if sys.platform == "win32" else pid
         self.started_at = started_at
+        self._termination_lock = threading.Lock()
 
     def live_members(self) -> int:
         if self.job_object is not None:
             count = self._platform_ops.job_active_process_count(self.job_object)
             if count is not None:
-                return count
+                return max(count, int(ProcessHandle.owns_live_process(self)))
         if self.pgid is not None:
             try:
-                return len(_posix_group_members(self.pgid, self.started_at))
+                return len(self._owned_members())
             except Exception:
                 return 1 if ProcessHandle.owns_live_process(self) else 0
         return 1 if ProcessHandle.owns_live_process(self) else 0
@@ -129,15 +134,15 @@ class PanelProcessHandle(ProcessHandle):
         return self.live_members() > 0
 
     def tree_processes(self) -> list[Any]:
-        """The root process and its living descendants, for measurement only.
-
-        ``live_members`` answers "is anything still ours?" for termination and
-        pays a full process-table walk for the orphan case. The memory figure
-        the tab refreshes every five seconds (FR-015) asks a cheaper question —
-        what does this tree hold — so it walks the parent/child tree instead,
-        which is the same set for a panel whose children are still attached and
-        costs nothing on the process table.
-        """
+        """The root process and its living descendants, for measurement only."""
+        # The root process and its living descendants, for measurement only.
+        #
+        # ``live_members`` answers "is anything still ours?" for termination and
+        # pays a full process-table walk for the orphan case. The memory figure
+        # the tab refreshes every five seconds (FR-015) asks a cheaper question —
+        # what does this tree hold — so it walks the parent/child tree instead,
+        # which is the same set for a panel whose children are still attached and
+        # costs nothing on the process table.
         try:
             import psutil
 
@@ -146,17 +151,32 @@ class PanelProcessHandle(ProcessHandle):
         except Exception:
             return []
 
+    def _owned_members(self) -> list[Any]:
+        """Find the group and detached descendants carrying this launch's identity."""
+        import psutil
+
+        members = {p.pid: p for p in _posix_group_members(self.pgid, self.started_at)} if self.pgid else {}
+        for proc in psutil.process_iter():
+            try:
+                if (
+                    proc.environ().get("SCISTUDIO_PANEL_LAUNCH_ID") == self.launch_id
+                    and proc.create_time() + _START_TIME_TOLERANCE_SECONDS >= self.started_at
+                    and proc.status() != psutil.STATUS_ZOMBIE
+                ):
+                    members[proc.pid] = proc
+            except (psutil.Error, OSError):
+                continue
+        return list(members.values())
+
     def terminate(self, grace_period_sec: float = 5.0) -> ProcessExitInfo:
-        self.was_killed_by_framework = True
-        detail = self._stop(grace_period_sec)
-        self._close_job()
-        return ProcessExitInfo(exit_code=None, was_killed_by_framework=True, platform_detail=detail)
+        with self._termination_lock:
+            self.was_killed_by_framework = True
+            detail = self._stop(grace_period_sec)
+            self._close_job()
+            return ProcessExitInfo(exit_code=None, was_killed_by_framework=True, platform_detail=detail)
 
     def kill(self) -> ProcessExitInfo:
-        self.was_killed_by_framework = True
-        detail = self._stop(0.0)
-        self._close_job()
-        return ProcessExitInfo(exit_code=None, was_killed_by_framework=True, platform_detail=detail)
+        return self.terminate(0.0)
 
     def _stop(self, grace: float) -> str:
         if self.pgid is None:
@@ -173,7 +193,7 @@ class PanelProcessHandle(ProcessHandle):
 
         import psutil
 
-        members = _posix_group_members(self.pgid, self.started_at) if self.pgid is not None else []
+        members = self._owned_members()
         if not members:
             return "process group already empty"
         for proc in members:
@@ -183,6 +203,11 @@ class PanelProcessHandle(ProcessHandle):
         for proc in alive:
             with contextlib.suppress(psutil.Error, OSError):
                 proc.kill()
+        # Rescan after signalling: a parent may have forked during the grace.
+        for proc in self._owned_members():
+            with contextlib.suppress(psutil.Error, OSError):
+                proc.kill()
+        psutil.wait_procs(alive, timeout=0.5)
         return "process group terminated" if not alive else "process group killed after grace"
 
     def _close_job(self) -> None:
@@ -233,6 +258,7 @@ class PanelProcess:
         self._jobs: queue.Queue[_Call | None] = queue.Queue(maxsize=max_waiting())
         self._setup_error: dict[str, Any] | None = None
         self._closing = False
+        self._deregistered = False
         self._startup_timer: threading.Timer | None = None
         self._worker = threading.Thread(target=self._pump, name=f"panel-{context_id}", daemon=True)
 
@@ -243,6 +269,15 @@ class PanelProcess:
         self._startup_timer.daemon = True
         self._startup_timer.start()
         self._worker.start()
+        threading.Thread(target=self._watch_exit, name=f"panel-exit-{self.context_id}", daemon=True).start()
+
+    def _watch_exit(self) -> None:
+        self._popen.wait()
+        # Let the pipe reader consume a setup_failed frame before classifying
+        # a short-lived child as an unexplained crash.
+        self._ready.wait(timeout=1.0)
+        if not self._closing:
+            self._on_exit(unexpected=True)
 
     def _on_startup_timeout(self) -> None:
         with self._lock:
@@ -278,7 +313,12 @@ class PanelProcess:
 
     def _serve_calls(self) -> None:
         while True:
-            job = self._jobs.get()
+            try:
+                job = self._jobs.get(timeout=0.5)
+            except queue.Empty:
+                if self._popen.poll() is not None:
+                    return
+                continue
             if job is None:  # shutdown sentinel
                 self._graceful_shutdown()
                 return
@@ -335,6 +375,7 @@ class PanelProcess:
             if self.state not in (STOPPED, START_FAILED):
                 self.state = CRASHED if unexpected else STOPPED
         self._cancel_startup_timer()
+        self._terminate_tree()
         self._reap()
         self._ready.set()
         self._fail_pending()
@@ -357,7 +398,8 @@ class PanelProcess:
             job.done.set()
 
     def stop(self) -> None:
-        """Graceful close: teardown, grace, then kill the tree (FR-013)."""
+        """Graceful close: teardown, grace, then kill the tree."""
+        # Graceful close: teardown, grace, then kill the tree (FR-013).
         with self._lock:
             if self._closing:
                 return
@@ -369,9 +411,8 @@ class PanelProcess:
             # it to terminate and reap the tree.
             with contextlib.suppress(queue.Full):
                 self._jobs.put_nowait(None)  # shutdown sentinel
-            self._worker.join(timeout=teardown_grace() + 5.0)
-        if self._popen.poll() is None:
-            self._terminate_tree()
+            self._worker.join(timeout=min(teardown_grace(), 5.0))
+        self._terminate_tree()
         self._reap()
         with self._lock:
             if self.state not in (CRASHED, START_FAILED):
@@ -381,7 +422,7 @@ class PanelProcess:
 
     def _terminate_tree(self) -> None:
         try:
-            self.handle.terminate(teardown_grace())
+            self.handle.terminate(min(teardown_grace(), 1.0))
         except Exception:
             logger.exception("panel %s: terminate failed", self.context_id)
 
@@ -391,7 +432,11 @@ class PanelProcess:
             timer.cancel()
 
     def _deregister(self) -> None:
-        self._registry.deregister(REGISTRY_NAMESPACE, self.handle.block_id)
+        with self._lock:
+            if self._deregistered:
+                return
+            self._registry.deregister(REGISTRY_NAMESPACE, self.handle.block_id)
+            self._deregistered = True
 
     # -- calls -------------------------------------------------------------
 
@@ -404,7 +449,7 @@ class PanelProcess:
         """
         self._ready.wait(startup_timeout())
         with self._lock:
-            state = self.state
+            state = STOPPED if self._closing else self.state
         if state == START_FAILED:
             raise PanelCallError("start_failed", "The panel did not start")
         if state in (STOPPED, CRASHED):
@@ -436,14 +481,14 @@ class PanelProcess:
     # -- observability -----------------------------------------------------
 
     def resident_memory(self) -> int | None:
-        """Resident memory of the whole panel tree, or ``None`` when unknown.
-
-        FR-015 shows "its resident memory", and a ``panel.py`` that starts a
-        child process is an explicit scenario (US7): the root process alone
-        under-reports what the MiniApp actually holds, so the children are
-        summed with it. A process that dies mid-walk contributes nothing rather
-        than failing the whole figure.
-        """
+        """Resident memory of the whole panel tree, or ``None`` when unknown."""
+        # Resident memory of the whole panel tree, or ``None`` when unknown.
+        #
+        # FR-015 shows "its resident memory", and a ``panel.py`` that starts a
+        # child process is an explicit scenario (US7): the root process alone
+        # under-reports what the MiniApp actually holds, so the children are
+        # summed with it. A process that dies mid-walk contributes nothing rather
+        # than failing the whole figure.
         members = self.handle.tree_processes()
         total = 0
         measured = False
@@ -490,21 +535,21 @@ def _log_path(project_dir: Path, context_id: str) -> Path:
 
 
 def runtime_import_roots(project_dir: Path | str | None) -> tuple[str, ...]:
-    """The import roots a block worker receives, for a panel process (FR-006).
-
-    A block worker's roots are stamped on its block class at registry-scan time
-    and are, in every tier, the drop-in import roots of the project and user
-    tiers plus the shared user dependency site
-    (:func:`scistudio.core.dropins.dropin_import_roots`), and — for a block that
-    came from a desktop-installed package — that package's own roots
-    (:func:`scistudio.desktop.paths.installed_package_import_roots`). A panel has
-    no block class to read them from, so they are assembled here from the same
-    two sources, in the same order, so a module a block worker can import is a
-    module ``panel.py`` can import.
-
-    Order matters: the drop-in tiers come first, so a project type shadows a
-    user-library type of the same module name as it does everywhere else.
-    """
+    """The import roots a block worker receives, for a panel process."""
+    # The import roots a block worker receives, for a panel process (FR-006).
+    #
+    # A block worker's roots are stamped on its block class at registry-scan time
+    # and are, in every tier, the drop-in import roots of the project and user
+    # tiers plus the shared user dependency site
+    # (:func:`scistudio.core.dropins.dropin_import_roots`), and — for a block that
+    # came from a desktop-installed package — that package's own roots
+    # (:func:`scistudio.desktop.paths.installed_package_import_roots`). A panel has
+    # no block class to read them from, so they are assembled here from the same
+    # two sources, in the same order, so a module a block worker can import is a
+    # module ``panel.py`` can import.
+    #
+    # Order matters: the drop-in tiers come first, so a project type shadows a
+    # user-library type of the same module name as it does everywhere else.
     roots: list[str] = []
     try:
         from scistudio.core.dropins import dropin_import_roots
@@ -522,18 +567,18 @@ def runtime_import_roots(project_dir: Path | str | None) -> tuple[str, ...]:
 
 
 def _process_env(panel_dir: Path, project_dir: Path, import_roots: tuple[str, ...]) -> dict[str, str]:
-    """The block-worker import surface plus the panel directory and no bytecode.
+    """The block-worker import surface plus the panel directory and no bytecode."""
+    # The block-worker import surface plus the panel directory and no bytecode.
+    #
+    # FR-006: the runtime import roots blocks receive, the panel directory on the
+    # import path, ``PYTHONDONTWRITEBYTECODE=1`` so importing ``panel.py`` writes
+    # nothing into the panel directory, and ``SCISTUDIO_PROJECT_DIR`` as workers
+    # receive it.
+    from scistudio.engine.runners.local import _worker_env
 
-    FR-006: the runtime import roots blocks receive, the panel directory on the
-    import path, ``PYTHONDONTWRITEBYTECODE=1`` so importing ``panel.py`` writes
-    nothing into the panel directory, and ``SCISTUDIO_PROJECT_DIR`` as workers
-    receive it.
-    """
-    env = dict(os.environ)
-    parent_cwd = Path(os.getcwd())
-    existing = [part for part in env.get("PYTHONPATH", "").split(os.pathsep) if part]
-    ordered = [str(parent_cwd), str(parent_cwd / "src"), *import_roots, *existing]
-    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(ordered))
+    # Match block workers: core/native dependencies load before plugin roots.
+    env = _worker_env(worker_cwd=str(project_dir), project_dir=str(project_dir)) or dict(os.environ)
+    env["SCISTUDIO_PANEL_IMPORT_ROOTS"] = json.dumps(import_roots)
     env["SCISTUDIO_PANEL_DIR"] = str(panel_dir.resolve())
     env["SCISTUDIO_PROJECT_DIR"] = str(project_dir.resolve())
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -552,7 +597,8 @@ def start_panel_process(
     import_roots: tuple[str, ...] = (),
     python_executable: str | None = None,
 ) -> PanelProcess:
-    """Launch the panel subprocess and register its handle (FR-006/FR-008)."""
+    """Launch the panel subprocess and register its handle."""
+    # Launch the panel subprocess and register its handle (FR-006/FR-008).
     panel_dir = Path(panel_dir)
     project_dir = Path(project_dir)
     log_path = _log_path(project_dir, context_id)
@@ -568,16 +614,37 @@ def start_panel_process(
     }
     popen_kwargs = platform_ops.create_process_group(popen_kwargs)
     job_object = platform_ops.create_job_object() if sys.platform == "win32" else None
-    popen = subprocess.Popen(
-        [python_executable or sys.executable, "-m", "scistudio.panels.bootstrap"],
-        **popen_kwargs,
-    )
-    # The parent no longer needs its copy of the log write end.
-    with contextlib.suppress(Exception):
+    if sys.platform == "win32":
+        if job_object is None:
+            popen_kwargs["stderr"].close()
+            raise RuntimeError("Cannot start a panel without Windows process containment")
+        popen_kwargs["creationflags"] = popen_kwargs.get("creationflags", 0) | 0x00000004
+    # A restart reuses the context id. Late cleanup of the previous launch
+    # must never match the new process or its detached descendants.
+    launch_id = secrets.token_hex(24)
+    popen_kwargs["env"]["SCISTUDIO_PANEL_LAUNCH_ID"] = launch_id
+    started_at = time.time()
+    try:
+        popen = subprocess.Popen(
+            [python_executable or sys.executable, "-m", "scistudio.panels.bootstrap"],
+            **popen_kwargs,
+        )
+    except BaseException:
+        if job_object is not None:
+            platform_ops.close_job_object(job_object)
+        raise
+    finally:
         popen_kwargs["stderr"].close()
-    if job_object is not None:
-        platform_ops.assign_to_job(job_object, popen.pid)
-    handle = PanelProcessHandle(context_id=context_id, pid=popen.pid, started_at=time.time(), job_object=job_object)
+    if job_object is not None and not (
+        platform_ops.assign_to_job(job_object, popen.pid) and platform_ops.resume_process(popen.pid)
+    ):
+        popen.kill()
+        popen.wait()
+        platform_ops.close_job_object(job_object)
+        raise RuntimeError("Cannot contain and resume the panel process")
+    handle = PanelProcessHandle(
+        context_id=context_id, pid=popen.pid, started_at=started_at, job_object=job_object, launch_id=launch_id
+    )
     handle._popen = popen
     registry.register(handle)
     process = PanelProcess(

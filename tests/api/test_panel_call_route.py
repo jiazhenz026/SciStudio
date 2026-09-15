@@ -5,6 +5,7 @@ guarantee that preview contexts never expose call and that ``.py`` is not served
 
 from __future__ import annotations
 
+import asyncio
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -273,3 +274,82 @@ def test_the_call_budget_is_the_process_result_budget(tmp_path: Path, monkeypatc
         assert response.json()["detail"]["code"] == "read_budget"
     finally:
         client.delete(f"/api/panels/contexts/{body['context_id']}")
+
+
+@pytest.mark.parametrize("ending", ["stop", "crash"])
+def test_hung_calls_do_not_starve_http_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ending: str) -> None:
+    """HTTP health stays responsive with more blocked calls than AnyIO workers."""
+    import anyio.to_thread
+    import httpx
+
+    from scistudio.panels.contexts import get_panel_contexts
+
+    monkeypatch.setenv("SCISTUDIO_PANEL_TEARDOWN_GRACE", "0.1")
+    monkeypatch.setenv("SCISTUDIO_PANEL_CALL_TIMEOUT", "10")
+    app = _client(tmp_path).app
+    panel_dir = tmp_path / "lab.explorer"
+    (panel_dir / "panel.py").write_text(
+        "import os, time\nfrom pathlib import Path\n"
+        "def setup(data): pass\n"
+        "def hang():\n"
+        "    Path(__file__).with_name('entered').touch()\n"
+        "    while not Path(__file__).with_name('release').exists(): time.sleep(.01)\n"
+        "    os._exit(17)\n",
+        encoding="utf-8",
+    )
+
+    @app.get("/health-sync")
+    def health_sync():
+        return {"ok": True}
+
+    async def run():
+        limiter = anyio.to_thread.current_default_thread_limiter()
+        previous_limit = limiter.total_tokens
+        limiter.total_tokens = 2
+        store = get_panel_contexts(app.state.runtime)
+        calls = []
+        process = None
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            try:
+                created = await client.post("/api/panels/contexts", json=_CREATE)
+                assert created.status_code == 200, created.text
+                context_id = created.json()["context_id"]
+                process = store.get(context_id).process
+                deadline = time.monotonic() + 10
+                while process.state == "starting" and time.monotonic() < deadline:
+                    await asyncio.sleep(0.02)
+                assert process.state == "running"
+                calls = [
+                    asyncio.create_task(
+                        client.post(f"/api/panels/contexts/{context_id}/call", json={"fn": "hang", "args": {}})
+                    )
+                    for _ in range(3)
+                ]
+                deadline = time.monotonic() + 2
+                while not (panel_dir / "entered").exists() and time.monotonic() < deadline:
+                    await asyncio.sleep(0.01)
+                assert (panel_dir / "entered").exists()
+                # Let every request enter the endpoint. A sync call route consumes
+                # both AnyIO tokens here, so the unrelated sync route times out.
+                await asyncio.sleep(0.05)
+                assert all(not call.done() for call in calls)
+                for _ in range(3):
+                    response = await asyncio.wait_for(client.get("/health-sync"), timeout=1)
+                    assert response.json() == {"ok": True}
+                if ending == "crash":
+                    (panel_dir / "release").touch()
+                else:
+                    stopped = await client.post(f"/api/panels/contexts/{context_id}/process/stop")
+                    assert stopped.status_code == 200
+                responses = await asyncio.wait_for(asyncio.gather(*calls), timeout=5)
+                assert all(response.status_code >= 400 for response in responses)
+                assert (await asyncio.wait_for(client.get("/health-sync"), timeout=1)).status_code == 200
+            finally:
+                limiter.total_tokens = previous_limit
+                if process is not None:
+                    await asyncio.to_thread(process.stop)
+                store.close_all()
+                if calls:
+                    await asyncio.gather(*calls, return_exceptions=True)
+
+    asyncio.run(run())

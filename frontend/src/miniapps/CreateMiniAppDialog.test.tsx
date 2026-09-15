@@ -203,6 +203,8 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
       session_tab_id: "tab-1",
     });
     expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+    expect(useAppStore.getState().terminalTabs.some((tab) => tab.id === "tab-1")).toBe(true);
+    expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
   it("shows the graded reason verbatim when the route says no agent can start", async () => {

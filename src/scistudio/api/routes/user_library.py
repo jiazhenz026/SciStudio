@@ -749,14 +749,14 @@ def _land_directory(staging: Path, destination: Path, *, overwrite: bool, target
 
 
 def _consume_directory(source: Path, written: Path) -> tuple[bool, str | None]:
-    """Remove the project copy, reporting rather than raising (ADR-053 FR-017).
-
-    The library copy is already on disk, so the promotion succeeded; failing
-    the request would tell the caller nothing happened when something did. The
-    outcome degrades to a copy, and the caller says so. The same-path guard is
-    belt and braces over the containment above: this must never remove what it
-    just wrote.
-    """
+    """Remove the project copy, reporting rather than raising."""
+    # Remove the project copy, reporting rather than raising (ADR-053 FR-017).
+    #
+    # The library copy is already on disk, so the promotion succeeded; failing
+    # the request would tell the caller nothing happened when something did. The
+    # outcome degrades to a copy, and the caller says so. The same-path guard is
+    # belt and braces over the containment above: this must never remove what it
+    # just wrote.
     if os.path.realpath(source) == os.path.realpath(written):
         return False, "refusing to remove the directory that was just written"
     try:
@@ -773,13 +773,13 @@ async def promote_user_library_directory(
     target: UserLibraryTarget,
     name: str = "",
 ) -> UserLibraryDirectoryResponse:
-    """Move a project directory into the user library (ADR-054 MiniApp FR-039).
-
-    The only directory tier today is ``panels``. Which library it lands in is
-    decided by the open project, exactly as the file route decides it: a
-    tutorial project promotes into the tutorial-scoped library, so the write
-    and the scan agree.
-    """
+    """Move a project directory into the user library."""
+    # Move a project directory into the user library (ADR-054 MiniApp FR-039).
+    #
+    # The only directory tier today is ``panels``. Which library it lands in is
+    # decided by the open project, exactly as the file route decides it: a
+    # tutorial project promotes into the tutorial-scoped library, so the write
+    # and the scan agree.
     # Development references: ADR-053, FR-017; ADR-054 MiniApp, FR-039.
     if target not in _DIRECTORY_TARGETS:
         raise _reject(400, f"The {target} tier holds files; use PUT /api/user-library/file")

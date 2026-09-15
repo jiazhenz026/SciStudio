@@ -145,3 +145,10 @@ excluded. The Preview card is distinct from the retained Previewers catalogue.
 Electron is identified by the existing preload bridge and always uses the full
 workbench. It has no presentation switch and ignores `ui=ai`; programmatic
 presentation changes are also ignored in the desktop shell.
+
+During the owner-guided #2354 session, desktop first-open sidebar sizing was
+corrected: a sidebar mounted collapsed opens at 280px, with a 240px readable
+minimum, instead of expanding to the resizer's 10% fallback. AI presentation
+retains its 28% preferred width and 180px minimum. Each presentation remembers
+manual sizing separately during the workspace session; collapse/reopen restores
+that size rather than the other presentation's width.

@@ -49,6 +49,9 @@ governs:
   contracts: []
   entry_points: []
   files:
+    - src/scistudio/ai/agent/mcp/tools_panels.py
+    - src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md
+    - frontend/src/miniapps/**
     - src/scistudio/panels/**
     - src/scistudio/api/routes/panels.py
     - frontend/src/panels/**
@@ -80,10 +83,7 @@ planned_governs:
   modules: []
   contracts: []
   entry_points: []
-  files:
-    - src/scistudio/ai/agent/mcp/tools_panels.py
-    - src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md
-    - frontend/src/miniapps/**
+  files: []
   excludes: []
 tests:
   - tests/panels/test_panel_python_detection.py
@@ -437,8 +437,11 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   the log with Restart. Restart MUST start a new process for the same context and
   target.
 - **FR-015**: The host MUST show the process state — starting, running,
-  unresponsive, stopped, crashed — and its resident memory, refreshed at least every five seconds. Memory
-  is displayed, not reserved.
+  unresponsive, stopped, crashed — refreshed at least every five seconds. The
+  normal MiniApp interface MUST NOT display resident-memory figures or binary
+  memory units. Runtime memory measurements remain available for diagnostics
+  through the process API. This presentation requirement follows the owner
+  directive in the guided #2354 session.
 - **FR-016**: The SDK MUST expose `call(fn, args)`, returning a promise, only where
   the context provides `call`; the panel-to-host message types of `adr-054-panels`
   FR-016 gain `call`.
@@ -787,3 +790,28 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 - The owner chose to move the tutorials' `previewers` route with the list and to
   change one sentence of copy lightly; the sentence in FR-040 is proposed for their
   review. (source: owner)
+
+
+## Guided audit repair validation (2026-09-13)
+
+Workspace reconnects reuse their assigned client identity; MiniApp mounts wait
+for that identity. Historical file-change counters do not reload a newly opened
+tab. Create and Convert reveal the spawned AI session immediately. New MiniApp
+source discovery enumerates available outputs across the project.
+
+Context revocation does not join teardown on the store lock or event loop.
+Shutdown grants up to five seconds for cooperative teardown and at most one
+second for termination before killing remaining processes. POSIX cleanup also
+finds detached descendants carrying the launch identity. Windows launches must
+join a Job Object while suspended before any panel code executes. Native Windows
+process-lifecycle validation remains unclaimed until a Windows runner supplies
+evidence (tracked under #2354); local validation is on macOS.
+
+Static assets reject hardlink aliases of panel.py. A MiniApp without Python
+advertises read only, and process controls reject contexts without a process.
+
+MiniApp bootstrap uses the block worker's import ordering: load runtime core
+dependencies first, then add project and installed-package roots. This prevents
+a plugin's incompatible native dependency from replacing the runtime's copy.
+Setup/import exceptions appear in the process status and log. Create and Convert
+responses include the actual session provider and permission mode for UI adoption.

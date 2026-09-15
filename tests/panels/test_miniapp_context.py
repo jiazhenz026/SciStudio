@@ -154,6 +154,10 @@ def test_close_stops_and_deregisters_the_process(tmp_path: Path) -> None:
     while time.time() < deadline and psutil.pid_exists(pid):
         time.sleep(0.05)
     assert not psutil.pid_exists(pid)
+    while time.time() < deadline and registry.get_handle(
+        process_mod.REGISTRY_NAMESPACE, f"context-{context.context_id}"
+    ):
+        time.sleep(0.02)
     assert registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{context.context_id}") is None
 
 
@@ -177,8 +181,15 @@ def test_close_for_disconnected_client_stops_the_process(tmp_path: Path) -> None
     _runtime, store, registry, _ = _make(tmp_path)
     context = store.create(dict(_SOURCE, ws_client_id="ws-9"), process_registry=registry)
     assert _await_running(context.process) == process_mod.RUNNING
+    pid = context.process._popen.pid
     store.close_for_client("ws-9")
     assert context.context_id not in store.contexts
+    import psutil
+
+    deadline = time.time() + 10
+    while time.time() < deadline and psutil.pid_exists(pid):
+        time.sleep(0.02)
+    assert not psutil.pid_exists(pid)
 
 
 def test_restart_starts_a_fresh_process_for_the_same_target(tmp_path: Path) -> None:
@@ -483,3 +494,60 @@ def test_an_interactive_panel_with_panel_py_starts_nothing(tmp_path: Path) -> No
         assert registry.active_handles() == []
     finally:
         store.close(context.context_id)
+
+
+def test_stop_does_not_hold_context_lock(tmp_path: Path) -> None:
+    import threading
+
+    _runtime, store, registry, _ = _make(tmp_path)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    original = context.process
+    entered, release = threading.Event(), threading.Event()
+
+    def blocked_stop():
+        entered.set()
+        release.wait(3)
+
+    context.process = SimpleNamespace(stop=blocked_stop)
+    worker = threading.Thread(target=store.stop_process, args=(context.context_id,))
+    worker.start()
+    try:
+        assert entered.wait(1)
+        assert store.lock.acquire(timeout=0.2)
+        store.lock.release()
+    finally:
+        release.set()
+        worker.join(3)
+        original.stop()
+        store.close_all()
+
+
+def test_project_switch_does_not_join_teardown_on_event_loop(tmp_path: Path) -> None:
+    import threading
+
+    runtime, store, registry, _ = _make(tmp_path)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    original = context.process
+    release = threading.Event()
+    context.process = SimpleNamespace(stop=lambda: release.wait(3))
+    try:
+        runtime.active_project = SimpleNamespace(id="other", path=str(tmp_path / "other"))
+        start = time.monotonic()
+        with store.lock:
+            store._synchronize()
+        assert time.monotonic() - start < 0.5
+        assert not store.contexts
+    finally:
+        release.set()
+        original.stop()
+
+
+def test_html_only_miniapp_does_not_advertise_call(tmp_path: Path) -> None:
+    _runtime, store, registry, _ = _make(tmp_path, with_python=False)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    try:
+        assert context.provides() == (["read"], ["save"])
+        with pytest.raises(PanelError, match="no panel process"):
+            store.stop_process(context.context_id)
+    finally:
+        store.close_all()

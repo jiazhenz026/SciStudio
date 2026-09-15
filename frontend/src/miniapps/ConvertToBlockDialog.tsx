@@ -33,7 +33,7 @@ import {
   useAgentAvailability,
   type AvailabilityFetcher,
 } from "../components/BringInMyWorkDialog.parts/useAgentAvailability";
-import { toBackendPermissionMode } from "../lib/api/workImport";
+import { fromBackendPermissionMode, toBackendPermissionMode } from "../lib/api/workImport";
 import { useAppStore } from "../store";
 
 import { miniAppsApi } from "./api";
@@ -154,6 +154,18 @@ function ConvertToBlockDialogBody({
         provider,
         permission_mode: toBackendPermissionMode(permissionMode),
       });
+      const sessionProvider = response.provider ?? provider;
+      if (response.session_tab_id && sessionProvider) {
+        useAppStore.getState().addWorkImportTerminalTab({
+          tabId: response.session_tab_id,
+          title: "Convert MiniApp",
+          provider: sessionProvider,
+          permissionMode: fromBackendPermissionMode(
+            response.permission_mode ?? toBackendPermissionMode(permissionMode),
+          ),
+        });
+        useAppStore.getState().openBottomTab("ai");
+      }
       onStarted(response.session_tab_id);
       onOpenChange(false);
     } catch (err) {

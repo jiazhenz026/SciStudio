@@ -52,7 +52,7 @@ import {
   useAgentAvailability,
   type AvailabilityFetcher,
 } from "../components/BringInMyWorkDialog.parts/useAgentAvailability";
-import { toBackendPermissionMode } from "../lib/api/workImport";
+import { fromBackendPermissionMode, toBackendPermissionMode } from "../lib/api/workImport";
 import { useAppStore } from "../store";
 
 import { miniAppsApi } from "./api";
@@ -72,7 +72,7 @@ export const DATA_LABEL = "Which data?";
 export const DATA_HELP =
   "An output of a block that has run. The MiniApp opens on it, and takes its type from it.";
 export const NO_OUTPUTS =
-  "No block in the open workflow has produced an output yet. Run a block first, then come back.";
+  "No block in the project has produced an output yet. Run a block first, then come back.";
 export const NO_PROJECT = "Open a project first.";
 export const PROBING = "Checking which agents can run this...";
 
@@ -92,13 +92,7 @@ export interface OutputChoice {
  * it, never because a schema declares it: a block that has not run has nothing
  * to open a MiniApp on.
  *
- * The scope is the OPEN workflow. FR-023 says "a block output in the open
- * project", and a project-wide list would need a backend route that enumerates
- * every workflow's latest successful run - `GET /api/panels/miniapps/{id}/sources`
- * does exactly that but needs a panel that does not exist yet at this point.
- * TODO(#2288): offer every workflow's outputs here once a panel-independent
- *   source listing exists; the create route's `source` already accepts any
- *   workflow id, so this is a listing gap and not a contract one.
+ * Cached outputs seed the picker while the project-wide source list loads.
  */
 export function outputChoices(
   workflowId: string | null,
@@ -172,7 +166,7 @@ function CreateMiniAppDialogBody({
   const blocks = useAppStore((s) => s.blocks);
   const schemas = useAppStore((s) => s.blockSchemas);
 
-  const choices = useMemo(() => {
+  const cachedChoices = useMemo(() => {
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
     const labelOf = (nodeId: string) => {
       const node = nodeById.get(nodeId);
@@ -188,6 +182,33 @@ function CreateMiniAppDialogBody({
     };
     return outputChoices(workflowId, nodes, blockOutputs, labelOf, typeOf);
   }, [blockOutputs, blocks, nodes, schemas, workflowId]);
+
+  const [projectChoices, setProjectChoices] = useState<OutputChoice[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    miniAppsApi
+      .projectSources()
+      .then((sources) => {
+        if (!cancelled)
+          setProjectChoices(
+            sources.map((source) => ({
+              target: {
+                workflow_id: source.workflow_id,
+                block_id: source.block_id,
+                port: source.port,
+              },
+              label: `${source.workflow_name} / ${source.block_name} - ${source.port} (${source.type})`,
+            })),
+          );
+      })
+      .catch(() => {
+        /* Keep the known canvas outputs available if discovery fails. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const choices = projectChoices ?? cachedChoices;
 
   /*
    * The preset is offered even when it is not in `choices` - it came from a
@@ -206,6 +227,9 @@ function CreateMiniAppDialogBody({
   const [selectedKey, setSelectedKey] = useState<string>(() =>
     presetTarget ? targetKey(presetTarget) : options[0] ? targetKey(options[0].target) : "",
   );
+  useEffect(() => {
+    if (!selectedKey && options[0]) setSelectedKey(targetKey(options[0].target));
+  }, [options, selectedKey]);
   const [request, setRequest] = useState("");
   const [provider, setProvider] = useState<string | null>(null);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("safe");
@@ -253,7 +277,19 @@ function CreateMiniAppDialogBody({
         permission_mode: toBackendPermissionMode(permissionMode),
       });
       // FR-025 - the caller opens the tab and shows the session NOW, before the
-      // agent has written anything. The dialog's job ends with the handoff.
+      // agent has written anything. The dialog then closes as the session opens.
+      const sessionProvider = response.provider ?? provider;
+      if (response.session_tab_id && sessionProvider) {
+        useAppStore.getState().addWorkImportTerminalTab({
+          tabId: response.session_tab_id,
+          title: "Create MiniApp",
+          provider: sessionProvider,
+          permissionMode: fromBackendPermissionMode(
+            response.permission_mode ?? toBackendPermissionMode(permissionMode),
+          ),
+        });
+        useAppStore.getState().openBottomTab("ai");
+      }
       onCreated({
         panel_id: response.panel_id,
         name: response.name,

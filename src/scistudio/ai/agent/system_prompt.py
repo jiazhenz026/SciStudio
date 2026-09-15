@@ -193,6 +193,7 @@ def _render_tool_catalog() -> str:
         # missing here drops its tools from the catalogue silently. A tool the
         # agent is never told about is a tool it never calls.
         "panels": "### (f) MiniApps & panels",
+        "library": "### (g) Personal library",
     }
     grouped: dict[str, list[str]] = {key: [] for key in category_titles}
 

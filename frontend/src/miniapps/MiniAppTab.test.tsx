@@ -31,7 +31,7 @@ import { resetBasePathCacheForTests } from "../lib/api/base-path";
 import { bootstrapFrame } from "../panels/testUtils";
 import { useAppStore } from "../store";
 import type { MiniAppTab as MiniAppTabState } from "../store/types";
-import { MiniAppTabLayer, useMiniAppPreviewColumn } from "./MiniAppTab";
+import { MiniAppTabLayer, useMiniAppPreviewColumn, usePreviewColumnState } from "./MiniAppTab";
 
 const TAB: MiniAppTabState = {
   kind: "miniapp",
@@ -143,14 +143,15 @@ describe("MiniApp tab lifetime (ADR-054 FR-018 / FR-019)", () => {
     expect(closed()[0].path).toBe("/api/panels/contexts/pc-1");
   });
 
-  it("shows the process state and memory, and tolerates a MiniApp with no process", async () => {
+  it("shows usable process state without memory metrics, and tolerates a MiniApp with no process", async () => {
     // FR-015. The 404 `no_process` answer is a legitimate MiniApp (no
     // panel.py), not a failure, so it must not surface as an error.
     render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
     await waitFor(() =>
       expect(screen.getByTestId("miniapp-process-state").textContent).toBe("Running"),
     );
-    expect(screen.getByTestId("miniapp-process-memory").textContent).toBe("12 MiB");
+    expect(screen.queryByTestId("miniapp-process-memory")).toBeNull();
+    expect(screen.queryByText(/MiB|GiB/)).toBeNull();
 
     cleanup();
     processBody = () => reply(404, { detail: { code: "no_process", message: "no process" } });
@@ -355,4 +356,33 @@ describe("the preview column while a MiniApp is active (ADR-054 FR-020)", () => 
     });
     expect(() => view.rerender({ active: true })).not.toThrow();
   });
+});
+
+it("does not reload a newly mounted tab for historical file changes", async () => {
+  useAppStore.setState({ panelFilesChangedSeq: { [TAB.panelId]: 12 } });
+  render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
+  await waitFor(() => expect(created()).toHaveLength(1));
+  await act(() => new Promise((resolve) => setTimeout(resolve, 650)));
+  expect(created()).toHaveLength(1);
+  expect(closed()).toHaveLength(0);
+});
+
+it("waits for a workspace identity before creating a process context", async () => {
+  useAppStore.setState({ wsClientId: null });
+  render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
+  expect(created()).toHaveLength(0);
+  act(() => useAppStore.setState({ wsClientId: "ws-reconnected" }));
+  await waitFor(() => expect(created()).toHaveLength(1));
+  expect(created()[0].body).toMatchObject({ ws_client_id: "ws-reconnected" });
+});
+
+it("expands the actual preview panel when a visibility request opens it", () => {
+  useAppStore.setState({ previewCollapsed: true });
+  const { panel, state } = fakePanel(0, true);
+  const ref = { current: panel };
+  renderHook(() => usePreviewColumnState(ref));
+  expect(state.collapsed).toBe(true);
+  act(() => useAppStore.setState({ previewCollapsed: false }));
+  expect(panel.expand).toHaveBeenCalledTimes(1);
+  expect(panel.isCollapsed()).toBe(false);
 });

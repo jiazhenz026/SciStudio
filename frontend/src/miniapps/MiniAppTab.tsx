@@ -19,7 +19,7 @@
  *    expires after 600 s; `PanelFrame` already heartbeats `renew` every 240 s
  *    for as long as it is mounted, which is what makes staying mounted enough.
  */
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 
 import { PanelFrame } from "../panels/PanelFrame";
@@ -42,11 +42,12 @@ export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
   const wsClientId = useAppStore((s) => s.wsClientId);
   // FR-022 — bumped by the `panel.files_changed` dispatcher for this panel id.
   const changeSeq = useAppStore((s) => s.panelFilesChangedSeq[tab.panelId] ?? 0);
+  const initialChangeSeq = useRef(changeSeq);
   const [reloadKey, setReloadKey] = useState(0);
   const [context, setContext] = useState<PanelContext | null>(null);
 
   useEffect(() => {
-    if (changeSeq === 0) return;
+    if (changeSeq === initialChangeSeq.current) return;
     const timer = setTimeout(() => setReloadKey((value) => value + 1), MINIAPP_RELOAD_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [changeSeq]);
@@ -74,6 +75,11 @@ export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
           {process.error}
         </p>
       ) : null}
+      {process.status?.error ? (
+        <p role="alert" className="px-4 py-1 text-xs text-red-700">
+          {process.status.error.type}: {process.status.error.message}
+        </p>
+      ) : null}
       {/* FR-014 — a crash shows the exit code (toolbar) and the log tail. */}
       {process.status?.log_tail ? (
         <pre
@@ -84,18 +90,22 @@ export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
         </pre>
       ) : null}
       <div className="flex min-h-0 flex-1 flex-col">
-        <PanelFrame
-          key={`${tab.id}:${reloadKey}`}
-          request={{
-            kind: "miniapp",
-            panel_id: tab.panelId,
-            source: tab.source,
-            // FR-013 — binds the context to this workspace connection so the
-            // backend ends the process when the workspace goes away.
-            ...(wsClientId ? { ws_client_id: wsClientId } : {}),
-          }}
-          onContext={setContext}
-        />
+        {wsClientId ? (
+          <PanelFrame
+            key={`${tab.id}:${reloadKey}`}
+            request={{
+              kind: "miniapp",
+              panel_id: tab.panelId,
+              source: tab.source,
+              // FR-013 — binds the context to this workspace connection so the
+              // backend ends the process when the workspace goes away.
+              ...(wsClientId ? { ws_client_id: wsClientId } : {}),
+            }}
+            onContext={setContext}
+          />
+        ) : (
+          <p className="p-4 text-sm text-stone-500">Connecting to the workspace…</p>
+        )}
       </div>
     </div>
   );
@@ -171,4 +181,15 @@ export function useMiniAppPreviewColumn(
     panel.expand();
     panel.resize(`${percentage}%`);
   }, [miniAppActive, panelRef, restoreTo]);
+}
+
+/** Apply explicit preview visibility requests, including the tutorial route. */
+export function usePreviewColumnState(panelRef: RefObject<PanelImperativeHandle | null>): void {
+  const collapsed = useAppStore((s) => s.previewCollapsed);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (collapsed && !panel.isCollapsed()) panel.collapse();
+    if (!collapsed && panel.isCollapsed()) panel.expand();
+  }, [collapsed, panelRef]);
 }

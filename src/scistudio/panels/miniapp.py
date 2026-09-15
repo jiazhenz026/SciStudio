@@ -1,13 +1,13 @@
-"""Resolving a MiniApp source to a target and shaping the process setup payload.
-
-ADR-054 MiniApp FR-004/FR-005/FR-007. A ``miniapp`` context opens from
-``{panel_id, source}`` where ``source`` is ``{workflow_id, block_id, port}``.
-The backend resolves the source to the output reference of that block's latest
-successful run — a preview target, exactly as ``adr-054-panels`` FR-009 does —
-refuses a source with no such output or a type that is neither the MiniApp's
-declared type nor a subtype of it, and builds the wire payload the subprocess
-reconstructs into the target data object.
-"""
+"""Resolving a MiniApp source to a target and shaping the process setup payload."""
+# Resolving a MiniApp source to a target and shaping the process setup payload.
+#
+# ADR-054 MiniApp FR-004/FR-005/FR-007. A ``miniapp`` context opens from
+# ``{panel_id, source}`` where ``source`` is ``{workflow_id, block_id, port}``.
+# The backend resolves the source to the output reference of that block's latest
+# successful run — a preview target, exactly as ``adr-054-panels`` FR-009 does —
+# refuses a source with no such output or a type that is neither the MiniApp's
+# declared type nor a subtype of it, and builds the wire payload the subprocess
+# reconstructs into the target data object.
 
 from __future__ import annotations
 
@@ -109,18 +109,18 @@ def build_setup_payload(runtime: Any, frozen: FrozenTarget) -> Any:
 
 
 def _wire(frozen: FrozenTarget) -> dict[str, Any]:
-    """One reconstruction dict, as faithful as the catalog can make it (FR-007).
-
-    ``setup`` must receive the target as the engine's own reconstruction builds
-    it, which resolves the concrete class from ``type_chain`` and fills the
-    ``framework``/``meta``/``user`` slots from the same sidecar the worker wrote.
-    The storage reference normally carries that sidecar verbatim, but a record
-    registered by another path can carry it only on the catalog record — so the
-    record's metadata is the floor, the storage reference's the override, and
-    the catalog's own type chain the last word on what the target *is*. Building
-    the dict from the storage metadata alone handed ``setup`` a bare
-    ``DataObject`` whenever those keys were only on the record.
-    """
+    """One reconstruction dict, as faithful as the catalog can make it."""
+    # One reconstruction dict, as faithful as the catalog can make it (FR-007).
+    #
+    # ``setup`` must receive the target as the engine's own reconstruction builds
+    # it, which resolves the concrete class from ``type_chain`` and fills the
+    # ``framework``/``meta``/``user`` slots from the same sidecar the worker wrote.
+    # The storage reference normally carries that sidecar verbatim, but a record
+    # registered by another path can carry it only on the catalog record — so the
+    # record's metadata is the floor, the storage reference's the override, and
+    # the catalog's own type chain the last word on what the target *is*. Building
+    # the dict from the storage metadata alone handed ``setup`` a bare
+    # ``DataObject`` whenever those keys were only on the record.
     storage = frozen.storage
     assert storage is not None
     metadata: dict[str, Any] = {}
@@ -136,11 +136,11 @@ def _wire(frozen: FrozenTarget) -> dict[str, Any]:
 
 
 def miniapp_input(frozen: FrozenTarget, panel: PanelDescriptor) -> dict[str, Any]:
-    """The ``init`` payload for a MiniApp: target ref and type, and MiniApp id/name.
-
-    FR-005: the init message carries the target reference, its type, and the
-    MiniApp's id and name.
-    """
+    """The ``init`` payload for a MiniApp: target ref and type, and MiniApp id/name."""
+    # The ``init`` payload for a MiniApp: target ref and type, and MiniApp id/name.
+    #
+    # FR-005: the init message carries the target reference, its type, and the
+    # MiniApp's id and name.
     return {
         "ref": frozen.target.ref,
         "type": frozen.target.recorded_type,
