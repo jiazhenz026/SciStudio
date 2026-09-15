@@ -185,10 +185,180 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:29.161824Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fa88c12c934f599e559af8ba679e16e59c3ea51af1e37860e6dafbe951c059fe",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:30.201574Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:21f760931a36d17ad409a0f6107f5ae42dbe004ab8d16884e5a54a9ff285fe3b",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:31.717479Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7be0c5d5668d3559c6cf72a7d7061dd3c932826028e8b3f8052bbc1c864ce9c0",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:31.759448Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_qa.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/ai/agent/mcp/tools_workflow/_run_lookup.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/ai/agent/mcp/tools_workflow/write.py src/scistudio/api/routes/projects.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/runtime/models.py src/scistudio/api/schemas.py src/scistudio/api/seam.py src/scistudio/api/sse.py src/scistudio/api/ws.py src/scistudio/core/lineage/recorder.py src/scistudio/engine/scheduler/__init__.py src/scistudio/engine/scheduler/_dispatch.py src/scistudio/engine/scheduler/_events.py src/scistudio/engine/scheduler/_lineage.py src/scistudio/panels/contexts.py tests/ai/test_mcp_run_addressing.py tests/api/test_run_identity.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_runtime_run_lifetime.py tests/engine/test_scheduler_run_identity.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e5e14c5b8816687a5480f7fe43c19825685c77f3047f76db9f3de72f8841e3d2",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:49:38.482473Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:419526d1b7b732af0b969cbac32cfadb2a6a905119470f5bafe75150a76518df",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:38.613748Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b8ff8cc480a9d7da929a9176857b645dd396d07c3c6b3cef517cc26ed1dbf7f0",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:49:38.633033Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_qa.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/ai/agent/mcp/tools_workflow/_run_lookup.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/ai/agent/mcp/tools_workflow/write.py src/scistudio/api/routes/projects.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/runtime/models.py src/scistudio/api/schemas.py src/scistudio/api/seam.py src/scistudio/api/sse.py src/scistudio/api/ws.py src/scistudio/core/lineage/recorder.py src/scistudio/engine/scheduler/__init__.py src/scistudio/engine/scheduler/_dispatch.py src/scistudio/engine/scheduler/_events.py src/scistudio/engine/scheduler/_lineage.py src/scistudio/panels/contexts.py tests/ai/test_mcp_run_addressing.py tests/api/test_run_identity.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_runtime_run_lifetime.py tests/engine/test_scheduler_run_identity.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:057975943077b9ce149187dd741aac86b9efaf5f0ca777ceea13680155941475",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:52:19.058444Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/agent/mcp/test_tools_workflow_surface.py tests/ai/test_mcp_active_workflow_context.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_run_addressing.py tests/ai/test_mcp_run_error_scope.py tests/ai/test_mcp_server_skeleton.py tests/ai/test_mcp_tools_qa.py tests/ai/test_mcp_workspace_tools.py tests/api tests/api/routes tests/api/routes/ai_pty/test_public_surface.py tests/api/routes/ai_pty/test_subscribers.py tests/api/test_api_docstrings_user_facing.py tests/api/test_file_endpoints.py tests/api/test_file_endpoints_skeleton.py tests/api/test_file_version_vector.py tests/api/test_git_endpoints.py tests/api/test_known_project_registry.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_projects.py tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_reload_on_save.py tests/api/test_run_identity.py tests/api/test_runtime_artifact_retention.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_data_registration.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_sse.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_product_state_workflow_scope.py tests/api/test_tutorial_routes.py tests/api/test_user_library_write.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/blocks/test_dynamic_ports.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_block_schema_contract.py tests/contracts/test_eventbus_lifecycle_contract.py tests/contracts/test_io_capability_contract.py tests/contracts/test_lineage_run_recipe_contract.py tests/contracts/test_openapi_snapshot.py tests/contracts/test_runtime_import_contract.py tests/core tests/core/test_lineage_retention.py tests/core/test_lineage_store_4table.py tests/engine tests/engine/test_gather_inputs.py tests/engine/test_interactive_adversarial_e2e.py tests/engine/test_interactive_adversarial_timing.py tests/engine/test_interactive_cancellation.py tests/engine/test_interactive_lineage.py tests/engine/test_interactive_run_scoping.py tests/engine/test_interactive_system_smoke.py tests/engine/test_interactive_two_phase.py tests/engine/test_lineage_data_objects_propagation.py tests/engine/test_lineage_recorder.py tests/engine/test_scheduler.py tests/engine/test_scheduler_concurrency.py tests/engine/test_scheduler_interactive.py tests/engine/test_scheduler_package_layout.py tests/engine/test_scheduler_rerun_cancel.py tests/engine/test_scheduler_run_identity.py tests/engine/test_scheduler_state_machine_contract.py tests/engine/test_scheduler_terminal_data.py tests/engine/test_single_value_collection_contract.py tests/integration/test_cancel_scenario.py tests/integration/test_multimodal_workflow.py tests/integration/test_race_external_editor.py tests/integration/test_smoke_workflows.py tests/integration/test_subworkflow_lineage.py tests/panels tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_descriptor.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_registry.py tests/panels/test_panel_routing.py tests/panels/test_panel_sdk.py tests/panels/test_panel_skill_examples.py tests/panels/test_panel_watcher.py tests/panels/test_plot_artifact_reads.py tests/previewers/test_panel_read_extensions.py tests/qa/test_gate_incremental_checks.py tests/test_import_coverage.py tests/utils/test_log_setup.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a03da88501579fbd188f3a3b10df780ae1f95d4aa5bbb470c0351afb7c7dd48",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:52:21.398616Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_qa.py src/scistudio/ai/agent/mcp/tools_workflow/_errors.py src/scistudio/ai/agent/mcp/tools_workflow/_run_lookup.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/ai/agent/mcp/tools_workflow/write.py src/scistudio/api/routes/projects.py src/scistudio/api/routes/tutorials.py src/scistudio/api/runtime/__init__.py src/scistudio/api/runtime/_projects.py src/scistudio/api/runtime/_run_lifetime.py src/scistudio/api/runtime/_runs.py src/scistudio/api/runtime/_stop_request.py src/scistudio/api/runtime/models.py src/scistudio/api/schemas.py src/scistudio/api/seam.py src/scistudio/api/sse.py src/scistudio/api/ws.py src/scistudio/core/lineage/recorder.py src/scistudio/engine/scheduler/__init__.py src/scistudio/engine/scheduler/_dispatch.py src/scistudio/engine/scheduler/_events.py src/scistudio/engine/scheduler/_lineage.py src/scistudio/panels/contexts.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:41af63dfc3a0d2df33465afdde53a753d24f88453e06c8219ca5bd96ab0b2ee1",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [
       "docs/adr/**",
@@ -456,6 +626,394 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.528479Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.544688Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/recorder.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/recorder.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_dispatch.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_dispatch.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_events.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_events.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_lineage.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_lineage.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.556272Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.569900Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.583417Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.596602Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.609654Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.621824Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.633050Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.646498Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:21.670356Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.158010Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.169499Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/lineage/recorder.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/lineage/recorder.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/__init__.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/__init__.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_dispatch.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_dispatch.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_events.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_events.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/scheduler/_lineage.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/scheduler/_lineage.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.180791Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.192124Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.203600Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.215444Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.226930Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.238117Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.249541Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.261146Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:52:46.282392Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -524,9 +1082,9 @@
       "tests/contracts/openapi.json",
       "tests/engine/test_scheduler_run_identity.py"
     ],
-    "diff_fingerprint": "sha256:3e32e67385b6b15651d413967713fbcbf270076af6ac8727e7e1c5ae90a4da7b",
+    "diff_fingerprint": "sha256:0758a863a2cfee60eaa73aa16e0785277c086444e11fc64a36879167f97546fc",
     "head": "HEAD",
-    "head_sha": "9561f469",
+    "head_sha": "00107c88",
     "surfaces": {
       "docs": 1,
       "frontend": 13,
@@ -543,7 +1101,15 @@
   },
   "owner_directive": "Switching projects: if runs are live, confirm first; on confirm cancel all runs of the project and close its agent terminals (AI Chat and AI block PTYs), then switch. GUI disconnect still does not cancel runs.",
   "persona": "live_implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2433,
+      2401
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T09:48:16.503164Z",
@@ -554,6 +1120,22 @@
       "unsatisfied": [
         "checks.full_audit"
       ]
+    },
+    {
+      "at": "2026-09-15T09:52:21.670402Z",
+      "diff_fingerprint": "sha256:0758a863a2cfee60eaa73aa16e0785277c086444e11fc64a36879167f97546fc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T09:52:46.282435Z",
+      "diff_fingerprint": "sha256:0758a863a2cfee60eaa73aa16e0785277c086444e11fc64a36879167f97546fc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2433-2433-run-identity",
