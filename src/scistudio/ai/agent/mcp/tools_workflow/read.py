@@ -25,6 +25,7 @@ from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _ensure_error_subscriber,
 )
 from scistudio.ai.agent.mcp.tools_workflow._helpers import (
+    _core_io_steering_warnings,
     _get_workflow_runtime,
     _io_redirect_hint,
     _looks_like_inline_yaml,
@@ -254,6 +255,10 @@ async def validate_workflow(
     Do NOT use to:
       - Persist a workflow — call ``write_workflow`` (which also validates).
       - Inspect a workflow's structure — call ``get_workflow``.
+
+    ``warnings`` lists non-blocking core-IO advisories (a package or custom IO
+    block the core ``load_data`` / ``save_data`` block already covers, or a core
+    Load/Save node without ``core_type``); they never change ``valid``.
     """
     from scistudio.workflow.schema import WorkflowFileModel
     from scistudio.workflow.validator import validate_workflow as _validate
@@ -286,7 +291,13 @@ async def validate_workflow(
     # workflow is invalid when run start would dispatch it happily. Every
     # diagnostic is still returned, so nothing is hidden from the agent.
     valid = not any(not d.startswith("Warning:") for d in diagnostics)
-    return ValidateWorkflowResult(valid=valid, errors=list(diagnostics))
+    # #2376: core-IO steering advisories never affect ``valid``.
+    steering_warnings = _core_io_steering_warnings(
+        definition.nodes,
+        registry=ctx.block_registry,
+        type_registry=getattr(ctx, "type_registry", None),
+    )
+    return ValidateWorkflowResult(valid=valid, errors=list(diagnostics), warnings=steering_warnings)
 
 
 # ---------------------------------------------------------------------------

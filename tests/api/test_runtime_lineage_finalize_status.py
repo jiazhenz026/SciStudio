@@ -114,3 +114,20 @@ def test_lineage_finalization_warns_on_degraded_provenance(caplog) -> None:  # t
     assert recorder.statuses == ["completed"]
     assert recorder.disposed is True
     assert any("provenance" in rec.message.lower() for rec in caplog.records)
+
+
+class _BrokenScheduler:
+    def block_states(self) -> dict[str, BlockState]:
+        raise RuntimeError("scheduler state unavailable")
+
+
+def test_lineage_finalization_records_failed_when_the_status_cannot_be_derived() -> None:
+    """#2327 audit: this used to raise UnboundLocalError and leave the row running."""
+    runtime = _runtime()
+    recorder = _Recorder()
+
+    status = runtime._finalize_lineage_run(recorder, _Task(), _BrokenScheduler())  # type: ignore[arg-type]
+
+    assert status == "failed"
+    assert recorder.statuses == ["failed"]
+    assert recorder.disposed is True

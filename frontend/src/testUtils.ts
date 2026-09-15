@@ -40,6 +40,9 @@ export function resetAppStore() {
     learningCenterWorkImportOffer: false,
     panelSizes: { palette: 15, preview: 22, bottom: 30 },
     minimapVisible: true,
+    // #2361 — a markdown tab opens split; a suite that closes the preview must
+    // not leave the next one starting from closed.
+    markdownPreviewVisible: true,
     lastError: null,
     // Desktop-menu-reachable dialog state (desktop/menu.js).
     packageManagerOpen: false,

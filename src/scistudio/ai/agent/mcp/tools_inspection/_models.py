@@ -84,6 +84,14 @@ class UpdateBlockConfigResult(BaseModel):
     diff_summary: str
     bytes_written: int
     workflow_path: str
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-blocking core-IO advisories for the patched node, e.g. a core "
+            "load_data/save_data node left without core_type, or a package or custom "
+            "IO block the core Load/Save block already covers. The patch still succeeds."
+        ),
+    )
     next_step: str = Field(
         default=(
             "Call mcp__scistudio__validate_workflow with the workflow_path to confirm the patched config "

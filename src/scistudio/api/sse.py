@@ -29,6 +29,10 @@ async def sse_handler(request: Request) -> StreamingResponse:
                     yield ": keepalive\n\n"
                     continue
 
+                if item is runtime.log_broadcaster.END:
+                    # The backend is stopping. Ending the stream lets the web
+                    # server's wait for open connections finish (#2327).
+                    break
                 if workflow_filter and item.get("workflow_id") != workflow_filter:
                     continue
                 if block_filter and item.get("block_id") != block_filter:

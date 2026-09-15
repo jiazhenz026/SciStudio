@@ -31,10 +31,9 @@ from scistudio.ai.agent.mcp.tools_workflow._errors import (
 from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _LOCK_TIMEOUT_SECONDS,
     _atomic_write_text,
-    _core_io_equivalent,
+    _core_io_steering_warnings,
     _diff_summary,
     _get_workflow_runtime,
-    _is_package_io_block,
 )
 from scistudio.ai.agent.mcp.tools_workflow._models import (
     CancelRunResult,
@@ -86,7 +85,10 @@ async def write_workflow(
         This tool is the ONLY supported write path for workflows.
 
     Returns ``WriteWorkflowResult`` with ``next_step`` pointing at
-    ``validate_workflow`` for canonical post-write verification.
+    ``validate_workflow`` for canonical post-write verification. Its
+    ``warnings`` list flags nodes that bypass the core ``load_data`` /
+    ``save_data`` block (a package or custom IO block it already covers, or a
+    core Load/Save node without ``core_type``); the write still succeeds.
     """
     # Development references: ADR-040.
     from scistudio.workflow.schema import WorkflowFileModel
@@ -266,7 +268,9 @@ async def edit_workflow(
         this is the sanctioned partial-edit path.
 
     Returns ``EditWorkflowResult`` with ``next_step`` pointing at
-    ``validate_workflow`` for canonical post-edit verification.
+    ``validate_workflow`` for canonical post-edit verification. Its
+    ``warnings`` list carries the same non-blocking core-IO advisories as
+    ``write_workflow``.
     """
     # Development references: ADR-040.
     from scistudio.workflow.schema import WorkflowFileModel
@@ -313,9 +317,9 @@ async def edit_workflow(
                     "matches the SciStudio schema. Errors (JSON):\n" + json.dumps(exc.errors(), indent=2, default=str)
                 ) from exc
             # Same block_type reconciliation write_workflow runs: unknown types
-            # hard-fail, package IO blocks are non-blocking (edit_workflow does
-            # not surface warnings, so we discard the return here).
-            _reconcile_node_block_types(wf_file)
+            # hard-fail; core-IO steering advisories are returned to the agent
+            # as non-blocking warnings (#2376).
+            steering_warnings = _reconcile_node_block_types(wf_file)
 
             if version_context is not None:
                 _, runtime = version_context
@@ -354,6 +358,7 @@ async def edit_workflow(
         bytes_written=bytes_written,
         diff_summary=summary,
         edits_applied=len(edits),
+        warnings=steering_warnings,
     )
 
 
@@ -366,9 +371,10 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
       (e.g. ``"imaging.segmentation"``) into ``block_type``. The GUI resolves
       nodes by their canonical ``type_name`` only, so such a node renders as an
       unresolved grey node. We **hard-fail** with the nearest valid ``type_name``.
-    * The agent uses a package-specific IO block the core Load/Save block already
-      covers. That is allowed but inconsistent, so we return a non-blocking
-      **warning** naming the core equivalent.
+    * The agent bypasses the core Load/Save block (a package or custom IO block
+      the core block already covers, or a core Load/Save node without
+      ``core_type``). That is allowed but inconsistent, so we return non-blocking
+      **warnings** from :func:`_core_io_steering_warnings`.
 
     Returns the list of warnings. Raises ``ValueError`` when any node references
     an unregistered ``block_type``.
@@ -392,7 +398,6 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
     valid_type_names = sorted(by_type_name)
 
     errors: list[str] = []
-    warnings: list[str] = []
     for node in wf_file.workflow.nodes:
         block_type = node.block_type
         spec = by_type_name.get(block_type)
@@ -409,27 +414,17 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
                     ("Did you mean: " + ", ".join(repr(c) for c in close) + "? ") if close else ""
                 ) + "Call list_blocks and copy a block's 'type_name'."
             errors.append(f"node '{node.id}': block_type '{block_type}' is not a registered block type. {detail}")
-            continue
-        if _is_package_io_block(spec):
-            core_block, core_type = _core_io_equivalent(spec)
-            core_hint = (
-                f"'{core_block}' with core_type='{core_type}'"
-                if core_type
-                else f"'{core_block}' with the matching core_type"
-            )
-            warnings.append(
-                f"node '{node.id}': block_type '{block_type}' is a package-specific "
-                f"IO block. Prefer the core {core_hint} — it delegates to the same "
-                f"package loader/saver and keeps one consistent GUI node."
-            )
-
     if errors:
         raise ValueError(
             "write_workflow: refusing to write — one or more nodes reference a "
             "block_type the GUI cannot resolve (the GUI resolves nodes by their "
             "canonical type_name):\n- " + "\n- ".join(errors)
         )
-    return warnings
+    return _core_io_steering_warnings(
+        wf_file.workflow.nodes,
+        registry=registry,
+        type_registry=getattr(context, "type_registry", None),
+    )
 
 
 def _workflow_change_context() -> tuple[Any, Any] | None:

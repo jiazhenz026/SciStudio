@@ -433,7 +433,22 @@ def serve(
     # the prefix verbatim. FastAPI's app-level root_path (set from the env var
     # in create_app) is the verbatim-proxy-correct mechanism (FR-001).
     with loopback_token_file(port=port, base_url=local_url):
-        uvicorn.run("scistudio.api.app:create_app", host=host, port=port, factory=True, log_config=None)
+        uvicorn.run(
+            "scistudio.api.app:create_app",
+            host=host,
+            port=port,
+            factory=True,
+            log_config=None,
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT_SEC,
+        )
+
+
+# #2351: how long uvicorn waits for open connections before it runs the
+# application's shutdown. SciStudio ends its own streams on a stop request
+# (#2327); this bounds any other connection a client keeps open. Together with
+# 10 s for workflow runs, 3 s for AI terminal sessions and a 5 s grace for
+# command processes, the stop stays inside the desktop's 25 s force-kill.
+GRACEFUL_SHUTDOWN_TIMEOUT_SEC = 3
 
 
 def _worker_callback_host(bind_host: str) -> str:
@@ -571,6 +586,7 @@ def gui(
             port=bound_port,
             factory=True,
             log_config=None,
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_TIMEOUT_SEC,
         )
 
 

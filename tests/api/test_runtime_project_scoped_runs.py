@@ -13,8 +13,8 @@ These tests fail against the pre-#2362 runtime.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, ClassVar
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,10 +26,9 @@ from scistudio.api.runtime.models import WorkflowRun
 class _FakeTask:
     """Stands in for a run's ``asyncio.Task``.
 
-    The registry only reads ``done()``; the lifespan shutdown additionally
-    cancels and awaits whatever ``all_workflow_runs`` hands it, which these
-    tests deliberately exercise. Left un-dataclassed so it stays hashable —
-    ``asyncio.gather`` requires that.
+    The registry only reads ``done()``. The lifespan shutdown waits on real
+    asyncio tasks, so every fake is marked finished before the client fixture
+    tears the app down (see ``_finish_fake_runs``).
     """
 
     def __init__(self, *, done: bool) -> None:
@@ -45,11 +44,25 @@ class _FakeTask:
         return iter(())
 
 
+_FAKE_TASKS: list[_FakeTask] = []
+
+
+@pytest.fixture(autouse=True)
+def _finish_fake_runs(client: TestClient) -> Iterator[None]:
+    """Finish every fake run before ``client`` runs the lifespan shutdown."""
+    yield
+    for task in _FAKE_TASKS:
+        task.cancel()
+    _FAKE_TASKS.clear()
+
+
 def _fake_run(*, done: bool) -> WorkflowRun:
     """A ``WorkflowRun`` stand-in; only ``task.done()`` is read by the registry."""
+    task = _FakeTask(done=done)
+    _FAKE_TASKS.append(task)
     return WorkflowRun(
         scheduler=object(),  # type: ignore[arg-type]
-        task=_FakeTask(done=done),  # type: ignore[arg-type]
+        task=task,  # type: ignore[arg-type]
         checkpoint_manager=object(),  # type: ignore[arg-type]
     )
 
@@ -96,6 +109,65 @@ def test_a_live_run_survives_the_switch_but_is_no_longer_addressable(
 
     assert "main" not in runtime.workflow_runs
     assert live in runtime.all_workflow_runs()
+
+
+def test_switching_back_hands_a_live_run_back_to_its_project(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path
+) -> None:
+    """#2327: a switch does not end a run, and its project sees it again on return."""
+    alpha = _make_project(client, project_parent, "Alpha")
+    beta = _make_project(client, project_parent, "Beta")
+
+    runtime.open_project(alpha)
+    live = _fake_run(done=False)
+    runtime.workflow_runs["main"] = live
+
+    runtime.open_project(beta)
+    assert "main" not in runtime.workflow_runs
+
+    runtime.open_project(alpha)
+    assert runtime.workflow_runs.get("main") is live
+    assert runtime.all_workflow_runs() == [live]
+
+
+def test_a_finished_detached_run_is_not_handed_back(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path
+) -> None:
+    alpha = _make_project(client, project_parent, "Alpha")
+    beta = _make_project(client, project_parent, "Beta")
+
+    runtime.open_project(alpha)
+    live = _fake_run(done=False)
+    runtime.workflow_runs["main"] = live
+    runtime.open_project(beta)
+    live.task.cancel()  # the worker finished while the user was in Beta
+
+    runtime.open_project(alpha)
+    assert "main" not in runtime.workflow_runs
+
+
+def test_a_detached_live_run_still_blocks_a_same_id_start(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path
+) -> None:
+    """Same-id runs share the event bus and the ``(workflow_id, block_id)`` process registry."""
+    from scistudio.api.runtime._runs import WorkflowAlreadyRunningError, _is_workflow_running
+
+    alpha = _make_project(client, project_parent, "Alpha")
+    beta = _make_project(client, project_parent, "Beta")
+
+    runtime.open_project(alpha)
+    live = _fake_run(done=False)
+    runtime.workflow_runs["main"] = live
+    runtime.open_project(beta)
+
+    assert "main" not in runtime.workflow_runs
+    assert _is_workflow_running(runtime, "main") is True
+    assert _is_workflow_running(runtime, "other") is False
+    with pytest.raises(WorkflowAlreadyRunningError):
+        runtime.start_workflow("main")
+
+    live.task.cancel()  # Alpha's run finished
+    assert _is_workflow_running(runtime, "main") is False
 
 
 def test_reopening_the_active_project_keeps_its_runs(
@@ -168,31 +240,37 @@ def test_activity_poll_still_sees_a_detached_live_run(
     assert workflow_runs_active(client.app) is True  # type: ignore[arg-type]
 
 
-def test_gui_disconnect_sweep_still_sees_a_detached_live_run(
+def test_shutdown_still_cancels_a_detached_live_run(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
-    from scistudio.api.ws import _every_workflow_run
+    """#2327 shutdown finalises every live run; a project switch must not hide one."""
+    import asyncio
 
     alpha = _make_project(client, project_parent, "Alpha")
     beta = _make_project(client, project_parent, "Beta")
 
-    runtime.open_project(alpha)
-    live = _fake_run(done=False)
-    runtime.workflow_runs["main"] = live
-    runtime.open_project(beta)
+    async def scenario() -> bool:
+        started = asyncio.Event()
 
-    assert live in _every_workflow_run(runtime)
+        async def work() -> None:
+            started.set()
+            await asyncio.sleep(3600)
 
+        task = asyncio.create_task(work())
+        await started.wait()
+        runtime.open_project(alpha)
+        runtime.workflow_runs["main"] = WorkflowRun(
+            scheduler=object(),  # type: ignore[arg-type]
+            task=task,
+            checkpoint_manager=object(),  # type: ignore[arg-type]
+        )
+        runtime.open_project(beta)
+        assert "main" not in runtime.workflow_runs
 
-def test_every_workflow_run_tolerates_a_runtime_without_the_accessor() -> None:
-    """``api/ws`` duck-types the runtime; a stub must not break the sweep."""
-    from scistudio.api.ws import _every_workflow_run
+        await runtime.shutdown_workflow_runs(timeout_sec=1.0)
+        return task.cancelled()
 
-    class _Stub:
-        workflow_runs: ClassVar[dict[str, Any]] = {"main": "run"}
-
-    assert _every_workflow_run(_Stub()) == ["run"]
-    assert _every_workflow_run(object()) == []
+    assert asyncio.run(scenario()) is True
 
 
 def test_deleting_the_active_project_retires_its_runs(

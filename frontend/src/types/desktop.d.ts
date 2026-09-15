@@ -20,6 +20,13 @@ export interface ScistudioDesktopBridge {
   /** #1784: relaunch the app so a fresh interpreter loads updated packages. */
   relaunch: () => Promise<void>;
   /**
+   * Open an external URL in the user's default application via the main
+   * process's validated `shell.openExternal` handler. Optional: shells built
+   * before #2361 predate the bridge, and the browser build has none; callers
+   * fall back to `window.open`.
+   */
+  openExternal?: (url: string) => Promise<void>;
+  /**
    * Subscribe to application-menu actions. Returns an unsubscribe function.
    * Only present in the desktop shell; absent in the browser build.
    */

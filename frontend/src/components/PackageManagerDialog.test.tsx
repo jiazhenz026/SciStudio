@@ -79,6 +79,19 @@ describe("PackageManagerDialog (#1784)", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("closes from an icon-only X in the header (#2378)", async () => {
+    listInstalledPackages.mockResolvedValue({ packages: [] });
+    checkPackageUpdates.mockResolvedValue({ core_base: "0.2.1", statuses: [] });
+    const onClose = vi.fn();
+    render(<PackageManagerDialog open onClose={onClose} />);
+
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close.textContent).toBe("");
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(listInstalledPackages).toHaveBeenCalled());
+  });
+
   it("lists installed packages with an available update and applies it", async () => {
     listInstalledPackages.mockResolvedValue({ packages: [installedPackage()] });
     checkPackageUpdates.mockResolvedValue({ core_base: "0.2.1", statuses: [updateStatus()] });

@@ -485,6 +485,11 @@
       "at": "2026-09-15T02:43:01.562562Z",
       "owner_directive": "Sync latest main into PR #2365 and resolve conflicts while retaining new changes. Existing session instruction skips local preflight; run focused conflict regression tests.",
       "reason": "Owner requested resolving PR #2365 conflicts and incorporating latest main; preserve workflow backing identity and ADR-054 panel snapshots together."
+    },
+    {
+      "at": "2026-09-15T04:31:10.299154Z",
+      "owner_directive": "Resolve all problems on PR #2365 (conflicts, CI failures, review findings) until it is mergeable; do not merge.",
+      "reason": "Owner asked to make PR #2365 mergeable: merge origin/main (conflicts in api/app.py, api/ws.py against #2327 run lifetime), fix the Frontend CI failure, and address three Codex review findings."
     }
   ],
   "docs_events": [
@@ -2020,6 +2025,228 @@
       "at": "2026-09-15T02:43:01.562731Z",
       "pattern": "frontend/src/store/__tests__/compositeIdentity.test.ts",
       "reason": "Owner requested resolving PR #2365 conflicts and incorporating latest main; preserve workflow backing identity and ADR-054 panel snapshots together."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:10.304841Z",
+      "pattern": "src/scistudio/api/runtime/_run_lifetime.py",
+      "reason": "Owner asked to make PR #2365 mergeable: merge origin/main (conflicts in api/app.py, api/ws.py against #2327 run lifetime), fix the Frontend CI failure, and address three Codex review findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:10.304850Z",
+      "pattern": "src/scistudio/api/runtime/_runs.py",
+      "reason": "Owner asked to make PR #2365 mergeable: merge origin/main (conflicts in api/app.py, api/ws.py against #2327 run lifetime), fix the Frontend CI failure, and address three Codex review findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:10.304852Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "reason": "Owner asked to make PR #2365 mergeable: merge origin/main (conflicts in api/app.py, api/ws.py against #2327 run lifetime), fix the Frontend CI failure, and address three Codex review findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:10.304922Z",
+      "pattern": "tests/api/test_runtime_project_scoped_runs.py",
+      "reason": "Owner asked to make PR #2365 mergeable: merge origin/main (conflicts in api/app.py, api/ws.py against #2327 run lifetime), fix the Frontend CI failure, and address three Codex review findings."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.346088Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347333Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.tsx",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347336Z",
+      "pattern": "frontend/src/components/DataPreview.test.tsx",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347338Z",
+      "pattern": "frontend/src/components/DataPreview.tsx",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347339Z",
+      "pattern": "frontend/src/hooks/useRealtime.test.tsx",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347341Z",
+      "pattern": "frontend/src/store/__tests__/compositeIdentity.test.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347342Z",
+      "pattern": "frontend/src/store/executionSlice.parts/eventReducer.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347348Z",
+      "pattern": "frontend/src/store/executionSlice.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347350Z",
+      "pattern": "frontend/src/store/projectSlice.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347351Z",
+      "pattern": "frontend/src/store/tabSlice.parts/previewTabActions.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347353Z",
+      "pattern": "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347354Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347355Z",
+      "pattern": "frontend/src/store/workflowSlice.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347356Z",
+      "pattern": "frontend/src/testUtils.ts",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347358Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_plot/tools.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347359Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_workflow/_errors.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347360Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347362Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347363Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347364Z",
+      "pattern": "src/scistudio/api/runtime/_projects.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347365Z",
+      "pattern": "src/scistudio/api/seam.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347370Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347371Z",
+      "pattern": "src/scistudio/plot/runtime.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347372Z",
+      "pattern": "src/scistudio/plot/targets.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347373Z",
+      "pattern": "tests/ai/test_mcp_run_error_scope.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347374Z",
+      "pattern": "tests/ai/test_mcp_tools_plot.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347375Z",
+      "pattern": "tests/ai/test_plot_workflow_identity.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347376Z",
+      "pattern": "tests/api/test_plot_preview_wiring.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347377Z",
+      "pattern": "tests/api/test_preview_plot_jobs.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347379Z",
+      "pattern": "tests/api/test_runtime_project_scoped_runs.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:31:35.347380Z",
+      "pattern": "tests/api/test_tutorial_product_state_workflow_scope.py",
+      "reason": "Declare the PR authored files explicitly so the includes added for the mergeability work do not narrow the original scope."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:42:22.939353Z",
+      "pattern": "tests/api/test_runtime_run_lifetime.py",
+      "reason": "Merge with #2327 run lifetime: its switch-project test asserted the run stays addressable from the other project, which contradicts #2362; detached runs are now handed back on switching back and the test asserts both contracts."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:46:24.849682Z",
+      "pattern": "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+      "reason": "Codex P1 on executionSlice: an expanded subworkflow tab must project its parent run's bucket; the tab's runWorkflowId is preserved through capture in tabHelpers."
     }
   ],
   "session_id": "5c815939-0edf-429d-8c05-f3e4892ba165",

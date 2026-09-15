@@ -2,7 +2,7 @@
 //
 // ProjectWorkspace — the three-column ResizablePanelGroup tree shown when a
 // project is open: BlockPalette/ProjectTree on the left, TabBar +
-// (CodeEditor | WorkflowCanvas) + BottomPanel in the middle, DataPreview on
+// (FileTabStage | WorkflowCanvas) + BottomPanel in the middle, DataPreview on
 // the right. This is the bulk of App.tsx's JSX before the refactor; pulling
 // it into a presentation component lets App.tsx focus on lifecycle and
 // state wiring.
@@ -26,9 +26,9 @@ import type {
 import { ActivityBar } from "../components/ActivityBar";
 import { BlockPalette } from "../components/BlockPalette";
 import { BottomPanel } from "../components/BottomPanel";
-import { CodeEditor } from "../components/CodeEditor";
 import { DataPreview } from "../components/DataPreview";
 import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
+import { FileTabStage } from "../components/FileTabStage";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { PreviewerPalette } from "../components/PreviewerPalette";
 import { ProjectTree } from "../components/ProjectTree";
@@ -381,9 +381,11 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
     return <PreviewTabPane tab={activePreviewTab} projectId={props.currentProject.id} />;
   }
 
+  // #2361 — a markdown tab splits this stage (Monaco + live preview); every
+  // other language is the editor alone. FileTabStage owns that decision.
   if (activeFileTab) {
     return (
-      <CodeEditor
+      <FileTabStage
         tab={activeFileTab}
         onContentChange={(content) => {
           try {

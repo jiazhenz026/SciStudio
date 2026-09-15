@@ -73,7 +73,9 @@ class ScaffoldBlockResult(BaseModel):
         description=(
             "Soft advisory notes the agent should review in its next turn. "
             "Per ADR-040 §3.2a: generic-DataObject port usage or unregistered "
-            "type names trigger warnings here without blocking the scaffold."
+            "type names trigger warnings here without blocking the scaffold. "
+            "An io-category scaffold whose data type the core load_data/save_data "
+            "block covers also warns to use that core block with core_type."
         ),
     )
     next_step: str = Field(
@@ -379,8 +381,11 @@ async def scaffold_block(
       Ports declared with the generic ``DataObject`` type.
       Ports referencing type names not registered in the active
         ``TypeRegistry``.
+      A ``category='io'`` scaffold when the core ``load_data`` / ``save_data`` block
+        with a ``core_type`` already handles the declared data type (or the
+        type is not declared yet).
 
-    Both warnings are advisory; the file is still written. Raises
+    All warnings are advisory; the file is still written. Raises
     ``FileExistsError`` if the target path already exists.
     """
     # Development references: #875, ADR-040.
@@ -430,6 +435,19 @@ async def scaffold_block(
                     f"{type_name!r}. Either pick from list_types() or register the new "
                     "type via the scistudio.types entry-point in this plugin."
                 )
+
+    # #2376: steer away from a custom IO block the core Load/Save block covers.
+    if category == "io":
+        from scistudio.ai.agent.mcp.tools_workflow._helpers import _scaffold_io_steering_warning
+
+        io_warning = _scaffold_io_steering_warning(
+            inputs_norm,
+            outputs_norm,
+            registry=getattr(ctx, "block_registry", None),
+            type_registry=getattr(ctx, "type_registry", None),
+        )
+        if io_warning is not None:
+            warnings_list.append(io_warning)
 
     class_name = _snake_to_camel(name) or "MyBlock"
     text = _SCAFFOLD_TEMPLATE.format(
