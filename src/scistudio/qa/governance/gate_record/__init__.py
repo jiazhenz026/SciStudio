@@ -30,6 +30,7 @@ from scistudio.qa.governance.gate_record.evaluator import (
 from scistudio.qa.governance.gate_record.guards import GUARD_REGISTRY, Guard, GuardInputs
 from scistudio.qa.governance.gate_record.labels import (
     ADMIN_LABELS,
+    AGENT_DOCS_LABEL,
     ARCHITECTURE_DOC_LABEL,
     BYPASS_LABEL,
     CORE_CHANGE_LABEL,
@@ -63,6 +64,7 @@ from scistudio.qa.governance.gate_record.ledger import (
 
 __all__ = [
     "ADMIN_LABELS",
+    "AGENT_DOCS_LABEL",
     "ARCHITECTURE_DOC_LABEL",
     "BYPASS_LABEL",
     "CORE_CHANGE_LABEL",

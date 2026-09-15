@@ -128,6 +128,18 @@ ARCHITECTURE_DOC_PATTERNS: tuple[str, ...] = (
 # directory would gate a regeneration behind an owner label for no benefit.
 PROTECTED_ARCHITECTURE_PATTERNS: tuple[str, ...] = ("docs/architecture/ARCHITECTURE.md",)
 
+# The owner-maintained documents SciStudio provisions into user projects for
+# agents (#2438): the bundled skills, the agent reference, and the AGENTS.md /
+# CLAUDE.md template. Owner decision: the other provisioning templates (the
+# ``hook_*.py`` scripts, the Codex config) and ``src/scistudio/_user_guide/**``
+# are code or human-facing docs and stay ungated, so the template is named as
+# one file rather than its directory.
+PROTECTED_AGENT_DOCS_PATTERNS: tuple[str, ...] = (
+    "src/scistudio/_skills/**",
+    "src/scistudio/_agent_reference/**",
+    "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+)
+
 FRONTEND_PATTERNS: tuple[str, ...] = ("frontend/**",)
 
 PACKAGING_PATTERNS: tuple[str, ...] = (
@@ -280,6 +292,13 @@ def is_protected_architecture_path(path: str) -> bool:
     # Development references: #2054.
 
     return matches_any(path, PROTECTED_ARCHITECTURE_PATTERNS)
+
+
+def is_protected_agent_docs_path(path: str) -> bool:
+    """Return True for owner-maintained documents provisioned to project agents."""
+    # Development references: #2438.
+
+    return matches_any(path, PROTECTED_AGENT_DOCS_PATTERNS)
 
 
 def is_docs_path(path: str) -> bool:
