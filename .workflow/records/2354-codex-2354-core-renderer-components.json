@@ -777,6 +777,106 @@
       "status": "fail",
       "summary": "exit 241",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:53:51.554777Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6a8417c768edca2c754d72491512a86bf9385e5af7f6b9b9e8954fc04f9b2cb9",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:53:51.699498Z",
+      "command": "ruff format src/scistudio/api/routes/panels.py tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ad0c1be5539e7368fe2187925ae3f57079f21073fdff153d092d00be7ff7d5be",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:56:24.651937Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:330749e46c94e454711c480d61155dda4b7f07075cd5af9cb20be663a32506aa",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:56:59.857436Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9162bf8f8d06660ff9721190d740d63142816c59ab129503858328a28f590a1d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:56:59.937556Z",
+      "command": "ruff check src/scistudio/api/routes/panels.py tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cc1686bce489de3c0c674731171ea1b1dd22a642677a12ea9ee3f7015c8caa04",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:59:28.187027Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/routes tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8add669f23c017d705eaf262b06eb6f4126986fa4dd57f787172eaf7ff37b2aa",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1797,6 +1897,94 @@
       ],
       "guard": "weakened_ci_check",
       "status": "fail"
+    },
+    {
+      "at": "2026-09-15T03:59:28.363778Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.404737Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.446575Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.542080Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.643718Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.712782Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.746983Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.806584Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.868169Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.921055Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:59:28.998434Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1812,37 +2000,22 @@
     "base": "f0fcc66e9b14c34d568f268a98a2c77baf306d6b",
     "base_sha": "f0fcc66e",
     "changed_files": [
-      ".github/workflows/ci.yml",
       ".workflow/records/2354-codex-2354-core-renderer-components.json",
-      ".workflow/records/2355-loader-path-list-fanout.json",
-      ".workflow/records/2369-fix-ci-python-shell-timeout.json",
-      "CHANGELOG.md",
-      "docs/adr/ADR-043.md",
       "docs/reference/miniapp-renderers.md",
-      "docs/specs/adr-043-io-format-capability-registry.md",
-      "docs/specs/adr-052-public-api-surface.md",
-      "frontend/src/components/LearningCenter.parts/useHighlightRect.ts",
       "frontend/src/panels/arrayPanel.test.ts",
       "frontend/src/panels/artifactPanel.test.ts",
       "frontend/src/panels/collectionPanel.test.ts",
       "frontend/src/panels/compositePanel.test.ts",
-      "frontend/src/panels/dataRouterPanel.test.ts",
       "frontend/src/panels/dataframePanel.test.ts",
       "frontend/src/panels/fallbackPanel.test.ts",
       "frontend/src/panels/panelHighlights.test.ts",
-      "frontend/src/panels/panelHighlights.ts",
       "frontend/src/panels/plotPanel.test.ts",
       "frontend/src/panels/rendererTestModules.ts",
       "frontend/src/panels/renderers.test.ts",
       "frontend/src/panels/seriesPanel.test.ts",
       "frontend/src/panels/textPanel.test.ts",
       "src/scistudio/_agent_reference/miniapp-renderers.md",
-      "src/scistudio/_user_guide/api-reference/scistudio.blocks.io.md",
       "src/scistudio/api/routes/panels.py",
-      "src/scistudio/blocks/io/_unified_dispatch.py",
-      "src/scistudio/blocks/io/io_block.py",
-      "src/scistudio/blocks/io/loaders/load_data.py",
-      "src/scistudio/blocks/io/simple_io.py",
       "src/scistudio/panels/builtin/core.array.basic/index.html",
       "src/scistudio/panels/builtin/core.array.basic/panel.js",
       "src/scistudio/panels/builtin/core.artifact.basic/index.html",
@@ -1855,7 +2028,6 @@
       "src/scistudio/panels/builtin/core.composite.basic/panel.js",
       "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
       "src/scistudio/panels/builtin/core.dataframe.basic/panel.js",
-      "src/scistudio/panels/builtin/core.interactive.data_router/panel.js",
       "src/scistudio/panels/builtin/core.plot.basic/index.html",
       "src/scistudio/panels/builtin/core.plot.basic/panel.js",
       "src/scistudio/panels/builtin/core.series.basic/index.html",
@@ -1873,30 +2045,24 @@
       "src/scistudio/panels/sdk/1/renderer-text.js",
       "src/scistudio/panels/sdk/1/renderers.css",
       "src/scistudio/panels/sdk/1/renderers.js",
-      "src/scistudio/previewers/_read_series.py",
-      "src/scistudio/previewers/data_access.py",
       "tests/api/test_panel_routes.py",
-      "tests/blocks/io/test_multi_path_delegated_load.py",
-      "tests/blocks/io/test_simple_io.py",
-      "tests/conftest.py",
-      "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
       "tests/panels/test_builtin_panels.py"
     ],
-    "diff_fingerprint": "sha256:ee9e76975b04887d7492f2ac6c5ed59b940cce692b68661d043500f183c958dc",
+    "diff_fingerprint": "sha256:37f6f91d514ece80a361cda99138430b4aa517e68d633ece0581562cfd5b8345",
     "head": "HEAD",
-    "head_sha": "5a0cc503",
+    "head_sha": "ff1f2a25",
     "surfaces": {
-      "docs": 4,
-      "frontend": 15,
-      "governance": 1,
+      "docs": 1,
+      "frontend": 12,
+      "governance": 0,
       "governed_docs": 0,
-      "implementation": 55,
+      "implementation": 43,
       "packaging": 0,
       "protected_architecture": 0,
-      "protected_core": 4,
-      "sentrux": 64,
-      "test": 18,
-      "workflow_ci": 1
+      "protected_core": 0,
+      "sentrux": 45,
+      "test": 13,
+      "workflow_ci": 0
     }
   },
   "owner_directive": "Extract all nine core preview presentation components for MiniApp composition using props, controlled state and callbacks; core preview shells reuse these components.",
@@ -1974,18 +2140,22 @@
         "guard.mod_guard",
         "guard.weakened_ci_check"
       ]
+    },
+    {
+      "at": "2026-09-15T03:59:28.998531Z",
+      "diff_fingerprint": "sha256:37f6f91d514ece80a361cda99138430b4aa517e68d633ece0581562cfd5b8345",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2354-codex-2354-core-renderer-components",
   "requested_admin_labels": [],
   "required_obligations": {
-    "admin_labels": [
-      "admin-approved:core-change"
-    ],
+    "admin_labels": [],
     "checks": [
-      "architecture_tests",
       "commit_hygiene",
-      "deferral_discipline",
       "format_check",
       "frontend",
       "full_audit",
@@ -2061,7 +2231,7 @@
     }
   ],
   "session_id": "5e76beda-2288-4ba1-b766-21ca65965bed",
-  "strictness_tier": 1,
+  "strictness_tier": 2,
   "task_kind": "guided",
   "test_events": [
     {
