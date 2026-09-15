@@ -75,6 +75,26 @@ class GetBlockConfigResult(BaseModel):
     type: str = Field(description="Block type name.")
     params: dict[str, Any] = Field(default_factory=dict, description="Static config params for the block.")
     workflow_path: str = Field(description="Absolute resolved path of the workflow file.")
+    capability: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Core load_data/save_data only: the format capability this node uses. Keys: direction, data_type "
+            "(core_type), extension (from path/filename), selected_capability_id (the stored capability_id or "
+            "null), resolved_capability_id (the capability that will be used, or null), status, and candidates "
+            "(capability ids) when status is ambiguous, invalid, or none. status is 'pinned' (a valid stored "
+            "id), 'resolved' (nothing stored; the registry picks exactly one from data_type and extension), "
+            "'ambiguous' (nothing stored; several match, so pin one), 'invalid' (the stored id does not match), "
+            "or 'none' (nothing matches)."
+        ),
+    )
+    port_capabilities: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "Blocks with file-exchange ports (code_block inputs/outputs, app_block input_ports/output_ports): "
+            "one entry per declared port with port, port_direction, and the same keys as 'capability'. Input "
+            "ports use 'save' capabilities, output ports 'load'. Empty for other blocks."
+        ),
+    )
 
 
 class UpdateBlockConfigResult(BaseModel):

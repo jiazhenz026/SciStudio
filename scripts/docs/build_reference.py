@@ -128,6 +128,14 @@ def _core_version() -> str:
         return "unknown"
 
 
+def _workflow_reference() -> Any:
+    """The workflow YAML file format generator, which lives beside this script."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    return importlib.import_module("build_workflow_reference")
+
+
 def _symbol_kind(obj: object) -> str:
     """Classify a public symbol for its heading label."""
     if inspect.isclass(obj):
@@ -425,6 +433,7 @@ def _sc_render_index(stats: list[tuple[str, int]]) -> str:
         "`scistudio.stability` decorators. Only the public surface (each canonical "
         "root's `__all__`) appears; `internal` symbols are excluded. Import from the "
         "canonical root shown on each page, never a deeper module path.\n",
+        *_workflow_reference().index_lines(),
         "## Stability\n",
         "- `stable` — supported; no incompatible change within a major version "
         "without deprecation.\n"
@@ -445,6 +454,7 @@ def _sc_render_index(stats: list[tuple[str, int]]) -> str:
 def generate_selfcontained() -> list[tuple[str, int]]:
     """Generate the self-contained reference under ``PACKAGE_REFERENCE_DIR`` (#1850)."""
     PACKAGE_REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+    _workflow_reference().generate(PACKAGE_REFERENCE_DIR)
     stats: list[tuple[str, int]] = []
     for root in CANONICAL_ROOTS:
         page, count = _sc_render_root_page(root)
