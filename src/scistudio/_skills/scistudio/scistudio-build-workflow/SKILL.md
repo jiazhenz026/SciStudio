@@ -128,6 +128,8 @@ and re-running.
 
 - Blocks and types from installed packages:
   `.scistudio/agent-reference/package-discovery.md`.
+- For more worked examples (a complete workflow YAML, block examples):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **Related skills.**
 

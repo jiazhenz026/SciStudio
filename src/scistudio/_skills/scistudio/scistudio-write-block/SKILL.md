@@ -166,6 +166,10 @@ with `slice(...)` or `iter_chunks(chunk_size)`, and stream a large output array 
 capabilities. After `reload_blocks`, core `load_data` / `save_data` select it by
 type and file extension or by its `capability_id`, and run its code.
 
+**By default, no extra batch handling is needed.** When you write an IO
+block, inherit SimpleLoader/SimpleSaver and handle the read or write as a
+single-file operation; the core automatically fans in and fans out.
+
 **Tool sequence.**
 
 ```
@@ -203,6 +207,8 @@ fix the cause, and rerun. When the block fails inside a workflow run, load
   `.scistudio/agent-reference/block-contract.md`.
 - Reading and constructing data values: `.scistudio/agent-reference/data-types.md`.
 - Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+- For more worked examples (AppBlock, ProcessBlock, IOBlock, interactive):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **Related skills.**
 

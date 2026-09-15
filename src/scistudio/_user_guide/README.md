@@ -22,24 +22,26 @@ window, follow [Install a provider](ai-assistant.md#before-you-start-install-a-p
 
 | Page | What it covers |
 |---|---|
-| [getting-started.md](getting-started.md) | The five-minute tour: project → workflow → run → preview |
+| [getting-star ted.md](getting-started.md) | The five-minute tour: project → workflow → run → preview |
 | [Using SciStudio in your AI app](using-with-ai-apps.md) | Start External AI mode, connect from an AI app, and manage the background service |
 | [how-scistudio-works.md](how-scistudio-works.md) | The short architecture map: data, blocks, lineage, AI agents, plots, and extensions |
 | [using-the-gui.md](using-the-gui.md) | The canvas in depth: building workflows, running them, previewing data |
+| [use-panels.md](use-panels.md) | The three kinds of panels: previews, interactive decisions, MiniApps |
+| [miniapps.md](miniapps.md) | Using MiniApps for data exploration and interaction |
 | [built-in-blocks.md](built-in-blocks.md) | Every block that ships with SciStudio and what it does |
 | [history-and-branches.md](history-and-branches.md) | Go back to past work; keep pipeline variants on branches |
 | [ai-assistant.md](ai-assistant.md) | External AI apps, the desktop CLI assistant, and AI Agent blocks |
+| [learning-center.md](learning-center.md) | Guided tutorials and the in-app reading tab |
 
 **Making your own**
 
 | Page | What it covers |
 |---|---|
 | [data-types.md](data-types.md) | The data types that flow between blocks, and which one fits your data |
-| [miniapps.md](miniapps.md) | Create, reuse, debug and convert an interactive data explorer |
 | [writing-blocks.md](writing-blocks.md) | Write a custom block from scratch |
 | [custom-types.md](custom-types.md) | Make your own data type when the built-in ones do not fit |
 | [writing-plots.md](writing-plots.md) | Write a quick preview-only plot of a result |
-| [examples/](examples/) | A copy-paste worked example for each kind of block |
+| [examples/](examples/) | Worked, runnable examples for every authoring surface: blocks, types, panels, plots, and workflows |
 
 ## How this guide works
 

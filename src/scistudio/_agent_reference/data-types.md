@@ -50,3 +50,6 @@
   the reference as `Array(axes=[...], shape=shape, dtype=dtype, storage_ref=ref)`.
   `persist_table` writes one Arrow table, so reduce a large table chunk by chunk
   first.
+- **By default, no extra batch handling is needed.** When you write an IO
+  block for a new data type, inherit SimpleLoader/SimpleSaver and handle the read or write as a
+  single-file operation; the core automatically fans in and fans out.

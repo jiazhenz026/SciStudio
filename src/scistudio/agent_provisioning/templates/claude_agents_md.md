@@ -20,6 +20,15 @@ SciStudio from an AI app through WebMCP, call `get_agent_context` first.
   `update_block_config` so every change is validated.
 - **Reuse before you build.** Call `list_blocks` and `list_types` before writing
   a new block, and reuse what already fits.
+- **SciStudio supports batch data natively.** Batch data is wrapped by the
+  core as a `Collection` — a set of items that all share one type. A
+  multi-file Load fans out inside the core Load block and wraps the results
+  into a Collection; every downstream block automatically runs once per item.
+  Save writes each item of a Collection as its own file.
+- **By default, no extra batch handling is needed.** When you need to write
+  an IO block, inherit `SimpleLoader` or `SimpleSaver` and handle the read or
+  write as a single-file operation; the core automatically fans in and fans
+  out.
 - **Ship a complete product.** A MiniApp must actually work on the user's data, a
   workflow must run end to end, and a block must be reusable beyond this one run.
 - **Put the user's experience first.** Give blocks a fitting icon, use an

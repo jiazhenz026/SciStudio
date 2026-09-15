@@ -27,9 +27,15 @@ Writes a data object to disk — the sink at the end of a pipeline.
 - **Settings:** the **type**, the output **path**, an optional **filename**, and
   **overwrite** on/off.
 
+**Several files at once.** SciStudio handles batch data natively — there is
+nothing extra to set up. In the Load block's file picker, select more than one
+file; the `data` port then carries a **Collection** with one item per file, and
+the blocks downstream run once per item. Save mirrors this: wire a Collection
+into it and it writes one file per item, named after each item's source file.
+
 `Load` and `Save` are the bookends of most workflows. To support a file format
 they do not cover, write a custom loader/saver — see
-[examples/io-load-npy/](examples/io-load-npy/).
+[examples/blocks/io-load-tiff/](examples/blocks/io-load-tiff/).
 
 ## Run your own code or tools
 
@@ -44,8 +50,8 @@ script and reads its outputs back as typed data.
 - **Settings:** the **script path**, the **interpreter**, and the declared
   inputs/outputs.
 
-Use it to reuse code that already exists in another language. See the R example
-in [examples/code-accucor-r/](examples/code-accucor-r/).
+Use it to reuse code that already exists in another language — a domain
+package ships a validated script you want to run as-is.
 
 ### App Block
 
@@ -56,7 +62,7 @@ files, and reads them back.
 - **Ports:** you declare them.
 - **Settings:** the **executable** to launch, an optional output directory.
 
-See [examples/app-fiji/](examples/app-fiji/).
+See [examples/blocks/app-fiji/](examples/blocks/app-fiji/).
 
 ### AI Agent
 
@@ -116,6 +122,10 @@ from several inputs to several outputs, deciding by hand where each item goes.
 Use it to split or regroup a batch on a judgement you make at run time.
 
 - **Ports:** you declare the inputs and outputs.
+
+See how an interactive block is declared and how its panel is written in
+[examples/blocks/interactive-data-router/](examples/blocks/interactive-data-router/)
+and [examples/panels/core.interactive.data_router/](examples/panels/core.interactive.data_router/).
 
 ### Pair Editor
 

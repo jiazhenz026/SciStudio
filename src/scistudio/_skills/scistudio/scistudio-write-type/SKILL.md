@@ -96,6 +96,10 @@ give every field a default and a JSON-safe type, and set
 `Meta: ClassVar[type[BaseModel] | None] = MyMeta` on the class. Instances take
 `meta=MyMeta(...)`, and `with_meta(**changes)` returns an updated copy.
 
+**By default, no extra batch handling is needed.** When you write an IO
+block for a new data type, inherit SimpleLoader/SimpleSaver and handle the read or write as a
+single-file operation; the core automatically fans in and fans out.
+
 **Appearance (optional).** `ui_color` (a CSS hex color) and `ui_ring_color` color
 the type's tile and every port that carries it; leaving them unset picks a stable
 color.
@@ -131,6 +135,8 @@ metadata against the `Meta` model.
 
 - Reading, constructing, and streaming values: `.scistudio/agent-reference/data-types.md`.
 - Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+- For more worked examples (an `Array` subclass, a `CompositeData` subclass):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **User guide.**
 

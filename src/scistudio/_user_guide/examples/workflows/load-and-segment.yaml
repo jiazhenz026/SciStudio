@@ -1,0 +1,46 @@
+# The workflow the examples build toward: load two micrographs and segment
+# the cells in each.
+#
+# It uses the example type, loader, and process block from this folder's
+# siblings:
+#   types/image/                     -> the project's Image type (types/image.py)
+#   blocks/io-load-tiff/             -> the load_tiff_image capability (blocks/)
+#   blocks/process-segment-cells/    -> the segment_cells block (blocks/)
+#
+# With those three files in place, this graph runs as-is: the Load node
+# dispatches (Image, .tif) to the custom loader, and each micrograph flows
+# into the segmentation.
+#
+# Paths are project-relative because a run executes with the project root as
+# its working directory (engine/runners/local.py).
+workflow:
+  id: main
+  version: 1.0.0
+  description: Read both micrographs and segment the cells in each.
+  nodes:
+    - id: load-cells
+      block_type: load_data
+      config:
+        params:
+          # No capability_id: a drop-in block's id carries the source file's
+          # mtime, so a value written here would name a capability that does
+          # not exist on another machine. Dispatch resolves (Image, .tif) to
+          # the one loader that claims it.
+          core_type: Image
+          path:
+            - data/raw/cells_01.tif
+            - data/raw/cells_02.tif
+      layout:
+        x: 120
+        y: 200
+    - id: segment
+      block_type: segment_cells
+      config:
+        params:
+          method: threshold
+      layout:
+        x: 440
+        y: 200
+  edges:
+    - source: load-cells:data
+      target: segment:image

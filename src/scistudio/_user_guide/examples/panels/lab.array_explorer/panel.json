@@ -1,0 +1,9 @@
+{
+  "id": "lab.array_explorer",
+  "api_version": "1.0",
+  "name": "Array explorer",
+  "description": "Move a threshold across an array and watch the fraction above it, computed in panel.py against the real data.",
+  "contexts": ["miniapp"],
+  "types": ["Array"],
+  "entry": "index.html"
+}

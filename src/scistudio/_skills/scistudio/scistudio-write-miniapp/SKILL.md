@@ -216,6 +216,8 @@ screenshot_gui(target="miniapp", panel_id="<panel_id>")
 
 - Reading and constructing data values in `panel.py`:
   `.scistudio/agent-reference/data-types.md`.
+- For more worked examples (a complete MiniApp with `panel.py`):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **User guide.**
 
