@@ -282,7 +282,13 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "73de5857b8f97d4a357e7e6d1db967e153e12fda",
+    "shas": [
+      "73de5857b8f97d4a357e7e6d1db967e153e12fda"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -512,6 +518,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.860985Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.872252Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.883600Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.894591Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.905875Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.917420Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.928615Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.939722Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.951798Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.962824Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T06:30:38.974367Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -541,9 +635,9 @@
       "scripts/templates/reinstall-notice.html",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:f9f2c9a9d3766528062aacfc900a926cd538a52fd98d38bebfd1d07deb56dfaf",
+    "diff_fingerprint": "sha256:cc9a4a61a1ba9ffcaf678395e772c8de271b950e5cb652b39041ab0006f88bc4",
     "head": "HEAD",
-    "head_sha": "13f4f001",
+    "head_sha": "73de5857",
     "surfaces": {
       "docs": 2,
       "frontend": 0,
@@ -560,7 +654,14 @@
   },
   "owner_directive": "Build an in-app installer: download and install the next desktop installer from inside the app on macOS (arm64+x64 dmg), Windows (NSIS exe) and Linux (AppImage). User clicks to download, confirms before install; Rosetta x64 moves to arm64; manifest gains optional installer field filled by ota_publish.py; reinstall notice shows a Download and install button with copy-address fallback; patched shell uses the flow on incompatible. Notice copy decided at release time.",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2396
+    ],
+    "number": null,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-15T06:29:26.323588Z",
@@ -573,6 +674,14 @@
     {
       "at": "2026-09-15T06:30:29.271874Z",
       "diff_fingerprint": "sha256:f9f2c9a9d3766528062aacfc900a926cd538a52fd98d38bebfd1d07deb56dfaf",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T06:30:38.974400Z",
+      "diff_fingerprint": "sha256:cc9a4a61a1ba9ffcaf678395e772c8de271b950e5cb652b39041ab0006f88bc4",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
