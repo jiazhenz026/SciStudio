@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2447] **MiniApps can ask before they build.** An AI writing a MiniApp can
+  declare a short questionnaire in `panels/<id>/questionnaire.json` and show it
+  with the new SDK components (`Questionnaire`, `Question`,
+  `SingleChoiceQuestion`, `MultipleChoiceQuestion`, `TextQuestion`,
+  `NumberQuestion`, `SubmitBar` in `sdk/1/panel-ui.js`). Every question is
+  optional and offers "Decide for me". `scistudio.submitAnswers(answers)` saves
+  the answers to `panels/<id>/answers.json` and types a one-line notice into the
+  MiniApp's AI terminal tab when it is open. `validate_panel` now exercises a
+  questionnaire end to end (spec, page wiring, sample submits) and reports
+  actionable errors, and the new MCP tool `wait_for_answers` lets an agent in
+  External AI mode wait for the submit. The MiniApp create brief now asks the
+  agent to look at the data, ask, wait for the submit, then build.
 - [#2415] **The activity bar can be rearranged.** Drag an icon in the left
   rail to move its section, or focus an icon and press Alt+ArrowUp /
   Alt+ArrowDown. The order is remembered in this browser; right-click the rail

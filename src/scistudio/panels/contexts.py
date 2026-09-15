@@ -83,7 +83,9 @@ class PanelContext:
     def provides(self) -> tuple[list[str], list[str]]:
         """The operations and services this context exposes to its page."""
         if self.kind == "miniapp":
-            return (["read", "call"] if self.panel.has_python else ["read"]), ["save"]
+            # MiniApp FR-050: every MiniApp may submit a questionnaire; the
+            # route refuses one with no questionnaire.json.
+            return (["read", "call", "submitAnswers"] if self.panel.has_python else ["read", "submitAnswers"]), ["save"]
         if self.kind == "preview":
             return ["read"], ["open", "save"]
         return ["writeBack"], ["save"]

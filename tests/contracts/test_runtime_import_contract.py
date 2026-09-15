@@ -204,9 +204,9 @@ def test_api_ai_routes_are_registered(app_routes: set[str]) -> None:
 
 # ADR-040 §3.1 + Addendum 5 (#1488) + ADR-048 SPEC 2 + edit_workflow (#1912) + open_gui (#1947)
 # + promote_to_user_library (ADR-053 FR-011) + 2 panel tools (ADR-054 MiniApp FR-029/FR-030)
-# + list_miniapps (#2441, renamed list_panels in #2445)
+# + list_miniapps (#2441, renamed list_panels in #2445) + wait_for_answers (#2447)
 # + 14 external-audience tools (ADR-055 Spec 2,
-# #2279; served by the WebMCP bridge, hidden from the local socket transport): 54 tools total.
+# #2279; served by the WebMCP bridge, hidden from the local socket transport): 55 tools total.
 _MCP_EXPECTED_TOOL_NAMES = {
     # category (a) workflow (11 + 1 addendum5)
     "list_blocks",
@@ -254,6 +254,7 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "validate_panel",
     "open_miniapp",
     "list_panels",  # #2441, #2445
+    "wait_for_answers",  # #2447
     "screenshot_gui",
     # ADR-055 Spec 2 (14) — external audience (#2279)
     "get_agent_context",
@@ -271,11 +272,11 @@ _MCP_EXPECTED_TOOL_NAMES = {
     "get_command_status",
     "cancel_command",
 }
-_MCP_EXPECTED_COUNT = 54
+_MCP_EXPECTED_COUNT = 55
 
 
-def test_mcp_server_exposes_54_tools() -> None:
-    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011 + ADR-054 + #2441 + ADR-055 Spec 2: MCP server must expose 54 tools.
+def test_mcp_server_exposes_55_tools() -> None:
+    """ADR-040 §3.1 + Addendum 5 + ADR-048 SPEC 2 + #1912 + #1947 + ADR-053 FR-011 + ADR-054 + #2441 + #2447 + ADR-055 Spec 2: MCP server must expose 55 tools.
 
     This contract test mirrors the parity check in test_mcp_fastmcp.py but
     lives in the contracts suite so a regression is flagged as an

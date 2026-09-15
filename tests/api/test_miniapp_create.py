@@ -9,6 +9,7 @@ interactive block).
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -19,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.ai.agent import availability as agent_availability
 from scistudio.ai.agent.availability import AvailabilityReport, AvailabilityState, ProviderAvailability
+from scistudio.api.routes.ai_pty import _state as pty_state
 from scistudio.api.routes.ai_pty import engine as pty_engine
 from scistudio.api.routes.panels import router
 from scistudio.api.runtime.models import DataRecord
@@ -201,6 +203,11 @@ def test_create_writes_a_brief_the_session_is_pointed_at(tmp_path: Path, agent: 
     assert f"panels/{panel_id}" in brief
     assert "validate_panel" in brief
     assert "`contexts`" in brief and "`types`" in brief
+    # #2447: look at the data, ask with a questionnaire, wait for the submit, then build.
+    assert "questionnaire.json" in brief and "`Questionnaire`" in brief
+    assert "Decide for me" in brief
+    assert "wait_for_answers" in brief
+    assert f"panels/{panel_id}/answers.json" in brief
     assert "let me drag a threshold across the stack and see the mask" in brief
 
 
@@ -310,7 +317,7 @@ def test_created_miniapp_opens_a_context_on_the_chosen_output(tmp_path: Path, ag
     assert response.status_code == 200, response.text
     context = response.json()
     assert context["kind"] == "miniapp"
-    assert context["operations"] == ["read", "call"]
+    assert context["operations"] == ["read", "call", "submitAnswers"]
     assert context["input"]["type"] == "Text"
     client.delete(f"/api/panels/contexts/{context['context_id']}")
 
@@ -557,3 +564,129 @@ def test_convert_validates_auto_before_writing_brief_or_spawning(
         assert "has no Auto permission mode" in response.json()["detail"]["message"]
         assert "opening_message" not in agent
         assert new_briefs == set()
+
+
+# ---------------------------------------------------------------------------
+# Questionnaire submit (#2447, MiniApp FR-050/FR-051)
+# ---------------------------------------------------------------------------
+
+_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "questionnaire" / "miniapp"
+
+
+class _FakePty:
+    def __init__(self, cwd: Path, *, alive: bool = True) -> None:
+        self._cwd = cwd
+        self.alive = alive
+        self.written: list[bytes] = []
+
+    def is_alive(self) -> bool:
+        return self.alive
+
+    def write(self, data: bytes) -> None:
+        self.written.append(data)
+
+
+def _questionnaire_context(client: TestClient, tmp_path: Path, created: dict[str, Any]) -> str:
+    """Turn the created MiniApp into a questionnaire page with no panel.py, and open it."""
+    directory = tmp_path / "panels" / created["panel_id"]
+    (directory / "panel.py").unlink()
+    shutil.copyfile(_FIXTURE / "questionnaire.json", directory / "questionnaire.json")
+    shutil.copyfile(_FIXTURE / "index.html", directory / "index.html")
+    client.app.state.runtime.refresh_all_registries()  # type: ignore[attr-defined]
+    response = client.post(
+        "/api/panels/contexts", json={"kind": "miniapp", "panel_id": created["panel_id"], "source": _SOURCE}
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["operations"] == ["read", "submitAnswers"]
+    return str(response.json()["context_id"])
+
+
+@pytest.fixture()
+def fast_enter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pty_engine, "TYPE_LINE_ENTER_DELAY_S", 0.0)
+
+
+def test_submit_saves_answers_and_types_one_line_into_the_session(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch, fast_enter: None
+) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    fake = _FakePty(tmp_path)
+    monkeypatch.setitem(pty_state._active_ptys, "tab-abc123", fake)
+    context_id = _questionnaire_context(client, tmp_path, created)
+
+    response = client.post(
+        f"/api/panels/contexts/{context_id}/answers",
+        json={"answers": {"chart": {"status": "answered", "value": "pca"}, "notes": {"status": "decide_for_me"}}},
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    relpath = f"panels/{created['panel_id']}/answers.json"
+    assert result["saved"] is True and result["notified"] is True and result["reason"] is None
+    assert result["path"] == relpath
+    document = json.loads((tmp_path / relpath).read_text(encoding="utf-8"))
+    assert [a["status"] for a in document["answers"]] == ["answered", "skipped", "decide_for_me", "skipped", "skipped"]
+    assert document["submitted_at"] == result["submitted_at"]
+    # The line, then Enter as its own keystroke — never an interrupt.
+    assert len(fake.written) == 2
+    line = fake.written[0].decode()
+    assert created["panel_id"] in line and relpath in line and "\n" not in line and "\r" not in line
+    assert fake.written[1] == b"\r"
+    client.delete(f"/api/panels/contexts/{context_id}")
+
+
+def test_submit_without_a_live_session_only_saves(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch, fast_enter: None
+) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    fake = _FakePty(tmp_path, alive=False)
+    monkeypatch.setitem(pty_state._active_ptys, "tab-abc123", fake)
+    context_id = _questionnaire_context(client, tmp_path, created)
+
+    first = client.post(f"/api/panels/contexts/{context_id}/answers", json={"answers": {}}).json()
+    assert first["saved"] is True and first["notified"] is False and first["reason"] == "session_ended"
+    assert "Go back to your AI chat" in first["message"]
+    assert fake.written == []
+    second = client.post(f"/api/panels/contexts/{context_id}/answers", json={"answers": {}}).json()
+    assert second["reason"] == "no_session"
+    assert (tmp_path / first["path"]).is_file()
+    client.delete(f"/api/panels/contexts/{context_id}")
+
+
+def test_a_session_in_another_directory_is_not_typed_into(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch, fast_enter: None
+) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    fake = _FakePty(tmp_path / "elsewhere")
+    monkeypatch.setitem(pty_state._active_ptys, "tab-abc123", fake)
+    context_id = _questionnaire_context(client, tmp_path, created)
+    result = client.post(f"/api/panels/contexts/{context_id}/answers", json={"answers": {}}).json()
+    assert result["notified"] is False and fake.written == []
+    client.delete(f"/api/panels/contexts/{context_id}")
+
+
+def test_submit_refuses_answers_that_do_not_fit(tmp_path: Path, agent: dict[str, Any]) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    context_id = _questionnaire_context(client, tmp_path, created)
+    response = client.post(
+        f"/api/panels/contexts/{context_id}/answers",
+        json={"answers": {"chart": {"status": "answered", "value": "not-an-option"}}},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "invalid_answers"
+    assert not (tmp_path / "panels" / created["panel_id"] / "answers.json").exists()
+    client.delete(f"/api/panels/contexts/{context_id}")
+
+
+def test_submit_without_a_questionnaire_is_refused(tmp_path: Path, agent: dict[str, Any]) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    context_id = _questionnaire_context(client, tmp_path, created)
+    (tmp_path / "panels" / created["panel_id"] / "questionnaire.json").unlink()
+    response = client.post(f"/api/panels/contexts/{context_id}/answers", json={"answers": {}})
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "no_questionnaire"
+    client.delete(f"/api/panels/contexts/{context_id}")

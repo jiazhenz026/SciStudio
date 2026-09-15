@@ -1,0 +1,68 @@
+{
+  "title": "What should this MiniApp show?",
+  "intro": "Answer what you like; skip the rest.",
+  "submit_label": "Build my MiniApp",
+  "questions": [
+    {
+      "id": "chart",
+      "type": "single",
+      "prompt": "Which view?",
+      "help": "Pick one.",
+      "options": [
+        {
+          "value": "umap",
+          "label": "UMAP",
+          "description": "2-D embedding"
+        },
+        {
+          "value": "pca",
+          "label": "PCA"
+        }
+      ],
+      "allow_other": true
+    },
+    {
+      "id": "colour_by",
+      "type": "multiple",
+      "prompt": "Colour by?",
+      "options": [
+        {
+          "value": "cluster",
+          "label": "Cluster"
+        },
+        {
+          "value": "sample",
+          "label": "Sample"
+        },
+        {
+          "value": "qc",
+          "label": "QC metric"
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "type": "text",
+      "prompt": "Anything else?",
+      "multiline": true,
+      "placeholder": "Free text"
+    },
+    {
+      "id": "top_genes",
+      "type": "number",
+      "prompt": "How many genes?",
+      "min": 1,
+      "max": 100,
+      "step": 1,
+      "unit": "genes"
+    },
+    {
+      "id": "opacity",
+      "type": "range",
+      "prompt": "Point opacity",
+      "min": 0,
+      "max": 1,
+      "step": 0.1
+    }
+  ]
+}

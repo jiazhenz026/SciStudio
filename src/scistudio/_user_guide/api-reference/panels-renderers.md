@@ -71,6 +71,29 @@ Components take plain props and children; nothing here talks to the host —
 data comes from the SDK (`window.scistudio`) in the panel's own code. Props a
 component does not name are passed to its root element.
 
+The questionnaire components ask the user what a MiniApp should do before it
+is built. The questions are data: `panels/<id>/questionnaire.json`, rendered
+by `Questionnaire`, submitted through `scistudio.submitAnswers`, and checked
+by the `validate_panel` agent tool. Every question is optional and every
+question offers "Decide for me"; a spec cannot change either.
+
+```javascript
+import { Questionnaire } from "../../sdk/1/panel-ui.js";
+
+await scistudio.ready();
+const spec = await (await fetch("questionnaire.json")).json();
+render(html`<${Panel}><${Questionnaire} spec=${spec} onSubmit=${scistudio.submitAnswers} /><//>`, root);
+```
+
+`questionnaire.json` is `{title, intro?, submit_label?, questions}`. Each
+question has `id` (lowercase, unique), `type`, `prompt`, and optional `help`:
+`single` and `multiple` take `options` (at least two `{value, label,
+description?}`) and `allow_other`; `text` takes `multiline` and
+`placeholder`; `number` takes `min`, `max`, `step`, `unit`, `placeholder`;
+`range` is a slider and needs `min` and `max`. An answer is `{status:
+"answered", value, other?}`, `{status: "decide_for_me"}`, or `{status:
+"skipped"}`.
+
 ### `Panel`
 
 The panel shell: a padded column with the standard vertical rhythm. Use it as the root of a panel.
@@ -357,6 +380,81 @@ An empty state for a target that genuinely has nothing to show.
 | --- | --- | --- | --- |
 | `class` | `string` | optional | Extra class names added to the root element. |
 | `children` | `any` | optional | The message. |
+
+Other props are passed to the root element.
+
+### `SingleChoiceQuestion`
+
+A single-choice question: one pill per option, plus "Decide for me". Choosing the chosen option again clears it back to skipped.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `question` | `object` | **required** | The question from the spec: `{id, prompt, help?, options, allow_other?}`. |
+| `answer` | `object` | optional | The current answer; skipped when absent. |
+| `onChange` | `function` | optional | Receives the new answer. |
+
+### `MultipleChoiceQuestion`
+
+A multiple-choice question: pills that toggle independently, plus "Decide for me". Clearing every pill returns the question to skipped.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `question` | `object` | **required** | The question from the spec: `{id, prompt, help?, options, allow_other?}`. |
+| `answer` | `object` | optional | The current answer; skipped when absent. |
+| `onChange` | `function` | optional | Receives the new answer. |
+
+### `TextQuestion`
+
+A free-text question, one line or several, plus "Decide for me". Empty text is skipped.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `question` | `object` | **required** | The question from the spec: `{id, prompt, help?, multiline?, placeholder?}`. |
+| `answer` | `object` | optional | The current answer; skipped when absent. |
+| `onChange` | `function` | optional | Receives the new answer. |
+
+### `NumberQuestion`
+
+A number question — a number box, or a slider when the spec's type is `range` — plus "Decide for me". An empty box is skipped.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `question` | `object` | **required** | The question from the spec: `{id, type, prompt, help?, min?, max?, step?, unit?, placeholder?}`. |
+| `answer` | `object` | optional | The current answer; skipped when absent. |
+| `onChange` | `function` | optional | Receives the new answer. |
+
+### `Question`
+
+One question of any type, drawn by the component for its `type`.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `question` | `object` | **required** | The question from the spec. |
+| `answer` | `object` | optional | The current answer; skipped when absent. |
+| `onChange` | `function` | optional | Receives the new answer. |
+
+### `SubmitBar`
+
+The bar under the questions: a Submit button that is enabled with any number of answers, and the message a submit left behind.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `label` | `string` | optional | The button text; defaults to `Submit`. |
+| `busy` | `boolean` | optional | A submit is in flight; the button is disabled only then. |
+| `message` | `string` | optional | Text beside the button, such as the submit result's `message`. |
+| `kind` | `string` | optional | `"done"`, `"return"` (go back to your AI chat), or `"error"`; colours the message. |
+| `onSubmit` | `function` | optional | Called when the button is pressed. |
+
+### `Questionnaire`
+
+A whole questionnaire from its spec: title, intro, every question, and the submit bar. A spec that breaks a rule renders an error state that lists each problem instead of a form. Submitting sends one answer per question — `skipped` for those left alone — to `onSubmit` and shows the message it resolves with; the result's `notified: false` shows as a reminder to return to the AI chat.
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `spec` | `object` | **required** | The parsed `questionnaire.json`. |
+| `onSubmit` | `function` | optional | Receives the answers keyed by question id and returns a promise; pass `scistudio.submitAnswers`. |
+| `initialAnswers` | `object` | optional | Answers to start from, keyed by question id. |
+| `class` | `string` | optional | Extra class names added to the root element. |
 
 Other props are passed to the root element.
 
