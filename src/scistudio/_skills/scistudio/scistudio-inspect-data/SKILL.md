@@ -1,172 +1,150 @@
 ---
 name: scistudio-inspect-data
 description: |
-  Use when the user wants to look at intermediate or output data —
-  preview a slice of an image, peek at the first rows of a DataFrame,
-  check the shape/dtype of an array, or trace where a data ref came
-  from. NOT for debugging failed runs (use scistudio-debug-run).
+  Use when the user wants to look at intermediate or output data — preview a
+  slice of an array, peek at the first rows of a table, check what a data
+  reference holds, or trace where it came from. NOT for debugging failed runs
+  (use scistudio-debug-run) or for building an interactive view (use
+  scistudio-write-miniapp, or scistudio-write-panel for a reusable per-type view).
 ---
 
 # scistudio-inspect-data
 
-SciStudio data flows as references (`StorageReference`), not in-memory
-payloads. This is the reference-only contract: blocks emit
-refs, edges carry refs, and the runtime materialises data inside a
-block's `run()` only when the block itself asks. As an agent you
-inspect refs without materialising them — `inspect_data` returns
-shape / dtype / axes / storage backend, `preview_data` returns a
-thumbnail or first-N-rows view, `get_lineage` walks the producing-block
-graph backwards.
+## 1. What data looks like in SciStudio
 
-This skill teaches when to reach for each tool, how to interpret the
-results faithfully, and when to materialise (rarely — only via a
-block's `run()`, never inside an agent turn).
+Data in a workflow travels as references (`StorageReference`), not as in-memory
+payloads: blocks emit references, edges carry them, and data is loaded only
+inside a block's `run`. Every port carries a `Collection`. As an agent you never
+load data into your own turn; you ask the MCP tools about a reference — what it
+is, a bounded preview of its contents, and the lineage that produced it.
 
-## 1. Reference-only contract
+The user sees the same data in the GUI's preview column, where preview panels
+show the real values of each type. When the user wants to explore a result
+repeatedly — move a threshold, compare settings — offer a MiniApp
+(`scistudio-write-miniapp`) instead of a series of previews.
 
-Data never flows through the agent's memory. The agent sees refs
-(opaque IDs like `rf-001`); MCP tools operate on refs. There is no
-agent-level "load this 50 GB image and look at it" — you ask the
-runtime for a preview, and the runtime returns a thumbnail.
+## 2. Steps to inspect data
 
-Implications:
+1. **Find the reference.** For a block's result, call
+   `get_block_output(run_id, block_id, port)`; for datasets stored by earlier
+   runs, call `list_data`. Files the user added (such as `data/raw/counts.csv`)
+   are not stored data; find them with `list_directory` or `search_files`.
+2. **Learn what it is.** Call `inspect_data(ref)` for its type chain, backend,
+   path, format, and size.
+3. **Look at the contents.** Call `preview_data(ref, fmt)` for a bounded view.
+4. **Trace its origin** when one of the cases in "When to use lineage" applies:
+   call `get_lineage(ref)`.
+5. **Report.** Quote the values the tools returned, say when a preview is
+   truncated, and point the user to the preview column to see it themselves.
 
-- You cannot `cat` a ref via `Bash`.
-- You cannot copy ref bytes into a variable.
-- You can ask MCP tools about a ref: its shape, type, backend,
-  ancestors, a thumbnail.
+## 3. Anti-patterns
 
-## 2. `inspect_data(ref)`
+- Describing a shape, type, or value without having called the tools.
+- Reading a stored reference's files through the shell to load the data.
+- Presenting a truncated or downsampled preview as the full data.
+- Guessing provenance instead of calling `get_lineage`.
+- Claiming to have seen what the GUI shows without GUI evidence
+  (`scistudio-use-gui` or `screenshot_gui`).
 
-Returns shape, dtype, axes, storage backend, size in bytes, and the
-data type (e.g. `Image`, `Mask`, `DataFrame`). Call this first when
-you don't know what a ref is.
+## 4. Defaults, tool sequence, and failure handling
 
-Use the returned fields verbatim when reporting to the user. Do not
-fabricate.
+**`get_block_output(run_id, block_id, port)`** returns a `GetBlockOutputResult`:
+`ref` (the StorageReference wire dict to pass on), `type` (`type_chain` and
+`type_name` when recorded), and `produced_at` (an ISO timestamp, or empty when
+unrecorded). A block that emits a Collection returns the Collection reference;
+inspect it to see its items.
 
-## 3. `preview_data(ref, fmt)`
+**`preview_data(ref, fmt)`** dispatches on the reference's type chain; `fmt` is
+only a preferred format (`table`, `png_base64`, `chart`, `text`, `artifact`).
+Bounds are fixed by the tool: a table's first 100 rows, an array as a PNG
+thumbnail clamped to 256×256, a series' first 200 entries, a text's first 4096
+characters, and an artifact's size with inline image data only under the 8 MiB
+cap. The result's `truncated` flag says whether content was omitted.
 
-Returns a small, bounded view of the ref. The signature is
-`preview_data(ref, fmt)`: `ref` is the StorageReference wire dict and `fmt`
-is an advisory preferred format (`table` / `png_base64` / `chart` / `text` /
-`artifact`). Dispatch is **type-driven** — the tool inspects the ref's
-`type_chain` and picks the right view regardless of `fmt`:
+**When to use lineage.** Lineage records, for every workflow output, which block
+produced it from which inputs, back to the source files. Call `get_lineage(ref)`
+when:
 
-- DataFrame → first ~100 rows (Arrow slice).
-- Array / Image → a PNG thumbnail clamped to 256×256 (chunked read; no OOM).
-- Series / Spectrum → first ~200 entries.
-- Text → first ~4096 chars.
-- Artifact → size and, for small images, a base64 data URI under the 8 MiB cap.
+- the user asks where a result, figure, or number came from;
+- a value looks wrong, to find the upstream step and input that produced it
+  before inspecting those;
+- two outputs that should match differ, to see whether they came from different
+  inputs or steps;
+- you describe how a result was made (a methods summary, a report), so the
+  description matches what actually ran instead of what the workflow file says
+  now.
 
-There are no `max_rows` / `max_dim` arguments — bounds are fixed by the tool to
-keep previews cheap. The preview is for the user's eye. Do NOT report a preview
-as the actual data — it is downsampled or truncated.
+Lineage covers data produced by workflow runs. Files written by a MiniApp, a
+command, or by hand have no lineage; say so instead of guessing. An empty result
+with a `note` means the reference could not be resolved in the lineage store.
 
-For a richer interactive view (slice slider, LUT, custom panels) the GUI's
-preview panel routes through the previewer system; as an agent you use
-`preview_data` for a quick bounded look. To draw a figure from a block output,
-use the `scistudio-write-plot` skill (preview-only plot jobs).
-
-## 4. `get_lineage(ref)`
-
-Returns the producing chain (transitive ancestors of the ref): which
-block produced it, on which run, from which input refs. Useful for
-"where did this come from?" questions.
-
-`get_lineage` returns the recorded lineage; the answers are
-authoritative. Do not guess at provenance.
-
-## 5. `get_block_output(run_id, block_id, port)`
-
-Fetches a ref by addressing the producing block. Use when the user
-asks about the output of a specific block in a specific run.
-
-The tool returns a `GetBlockOutputResult` envelope:
-
-- `ref`: the StorageReference wire dict to pass to `inspect_data` or
-  `preview_data`.
-- `type`: `{type_chain: [...], type_name: "..."}` extracted from the ref
-  metadata when available.
-- `produced_at`: the recorded production timestamp, or an empty string when
-  that timestamp is unavailable.
-
-If the block emits a Collection, `get_block_output` returns the
-Collection wrapper; call `inspect_data` on it to see the per-item
-shape, or iterate via the wrapper's items.
-
-## 6. `list_data`
-
-Enumerates data assets under the project's `data/` directory. Use
-this when the user asks "what data is in this project?" or before
-designing a workflow that consumes a specific file.
-
-## 7. Citing real data
-
-When reporting results to the user, cite the `inspect_data` return
-values verbatim. Never fabricate shapes, dtypes, or axes from memory.
-
-Example phrasing: "The output mask is shape `(512, 512)`, dtype
-`bool`, axes `YX`, backed by Zarr at `data/processed/mask.zarr`."
-
-If you don't yet know a value, call `inspect_data` before reporting.
-
-## 8. Worked example
-
-User: "What's in the output of the threshold step?"
+**Tool sequence.**
 
 ```
-# Step 1: address the ref
-mask_output = get_block_output(run_id="r-abc123", block_id="thr", port="mask")
-# -> {ref: {...}, type: {type_chain: ["DataObject", "Mask"], type_name: "Mask"},
-#     produced_at: ""}
-
-# Step 2: shape/type
-inspect_data(ref=mask_output.ref)
-# → {type: "Mask", shape: [512, 512], dtype: "bool", axes: "YX",
-#    backend: "zarr", size_bytes: 262144}
-
-# Step 3: thumbnail (for the user to see)
-preview_data(ref=mask_output.ref, fmt="png_base64")
-# → {fmt: "png_base64", payload: {...}, truncated: true}  # clamped to 256×256
-
-# Step 4: report
-# "The threshold step's `mask` output is a 512×512 bool Mask (YX,
-# ~262 KB on Zarr). Thumbnail displayed above."
+get_block_output(run_id, block_id, port)   # or list_data for stored datasets
+inspect_data(ref)
+preview_data(ref, fmt="table")             # choose fmt by type
+get_lineage(ref)                           # see "When to use lineage"
 ```
 
-## 9. When to walk lineage
+**When something fails.** A missing path means the data was removed or the run's
+outputs were not kept; check the run with `get_run_status` and rerun the workflow
+if needed. When a block output is absent because the run failed, load
+`scistudio-debug-run`.
 
-User asks "where did this number come from?" or "what produced this
-output?":
+## 5. Contracts and routing
+
+**Contracts (MUST follow).**
+
+- Data types and their access methods:
+  `user-guide/api-reference/scistudio.core.types.md`.
+- Tool result fields: the live MCP tool schemas.
+
+**Agent reference.**
+
+- How each data type is read and constructed:
+  `.scistudio/agent-reference/data-types.md`.
+- Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+
+**User guide.**
+
+- How the GUI previews each type: `user-guide/using-the-gui.md`.
+
+**Related skills.**
+
+- `scistudio-debug-run`: an expected output is missing because a run failed.
+- `scistudio-write-plot`: the user wants a figure of an output.
+- `scistudio-write-miniapp`: the user wants to explore a result interactively.
+- `scistudio-use-gui`: confirming what the GUI shows.
+
+## 6. Examples
+
+**"What's in the output of the normalize step?"**
 
 ```
-get_lineage(ref="rf-099")
-# → [{producer_run: r-abc123, producer_block: thr, producer_port: mask,
-#     inputs: [{port: image, ref: rf-001}]},
-#    {producer_run: r-abc123, producer_block: load, producer_port: images,
-#     inputs: []}]
+out = get_block_output(run_id="<run_id>", block_id="norm", port="table")
+inspect_data(ref=out.ref)
+preview_data(ref=out.ref, fmt="table")
 ```
 
-Report the chain back to the user. Each entry is a producing block in
-the original run.
+Report from the returned fields, for example: "The `table` output is a DataFrame
+stored as Parquet (1.2 MB); the preview shows its first 100 rows."
 
-## Mandatory rules
+**"Where did this come from?"** Call `get_lineage(ref=...)` and describe the
+returned nodes (each data object with the block that produced it) and edges in
+order from the source files to the result.
 
-- Never claim to have "seen" data without inspecting it via these
-  tools.
-- Use `preview_data` for thumbnails / first-rows; never load full
-  arrays into the agent turn.
-- Cite shape / dtype / axes from `inspect_data` results, not from
-  memory.
-- Never fabricate provenance — call `get_lineage` and cite the
-  returned chain.
+## 7. Available tools
 
-## Anti-patterns
+The live MCP tool list is the source of truth; these are the tools this task
+uses.
 
-- Fabricating shapes / dtypes ("it should be 512×512" — call
-  `inspect_data` instead).
-- Materialising a ref into memory via `Bash` and `cat`.
-- Reporting a `preview_data` thumbnail as if it were the actual
-  full-resolution data.
-- Guessing at lineage instead of calling `get_lineage`.
+| Tool | What it does | When to use it |
+|---|---|---|
+| `get_block_output` | Resolves one block port's output from a run. | To get the reference behind a block's result. |
+| `list_data` | Lists datasets stored by runs under `data/zarr/`, `data/parquet/`, and `data/artifacts/`. | When the user asks what results the project holds. |
+| `inspect_data` | Returns a reference's metadata without loading it. | First, to learn what a reference is. |
+| `preview_data` | Returns a bounded preview of stored data. | To look at contents. |
+| `get_lineage` | Returns the lineage ancestors of a reference. | For provenance questions, unexpected values, differing outputs, and methods descriptions. |
+| `get_run_status` | Returns a run's state and errors. | When an expected output is missing. |
+| `open_gui` | Returns the address of the running GUI. | When the user wants to see the data in the preview column. |

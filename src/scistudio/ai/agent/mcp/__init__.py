@@ -38,8 +38,7 @@
 # FastMCP discovers tools by ``@mcp.tool()`` decorator on the module-scope
 # :data:`scistudio.ai.agent.mcp.server.mcp` instance — there is no longer a
 # separate ``TOOL_REGISTRY`` tuple. Consumers that need the tool
-# catalogue call ``await mcp.list_tools()`` directly (see
-# :mod:`scistudio.ai.agent.system_prompt` for the rendering side).
+# catalogue call ``await mcp.list_tools()`` directly.
 #
 # See ``docs/adr/ADR-040.md`` §3.1-§3.3 for the full migration design.
 #

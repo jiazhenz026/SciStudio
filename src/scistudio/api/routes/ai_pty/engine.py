@@ -276,13 +276,8 @@ def open_work_import_tab(
 
     ``opening_message`` is the single line the user sees when the
     session starts. It is delivered exactly as the AI Block's
-    prompt is — a positional CLI argument on the spawned agent — which
-    is what keeps delivery independent of a provider's system-prompt
-    capability. Only ``claude-code`` is ``FLAG_FILE`` in the
-    registry; ``codex``, ``kimi-code`` and both Qoder channels
-    are ``AMBIENT`` and have no per-session prompt channel at all, so
-    routing the brief through a file plus this pointer is what makes
-    that difference invisible.
+    prompt is — a positional CLI argument on the spawned agent. Routing the
+    durable brief through a file plus this pointer keeps delivery uniform.
 
     It does **not** make every provider equivalent. Being a positional
     argument, the pointer cannot reach a CLI that parses its first

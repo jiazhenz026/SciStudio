@@ -27,7 +27,7 @@ scope:
     - Reword the permission-mode picker to plain user language with no CLI flag names.
     - WITHDRAWN 2026-08-06 - Pin the SetupScreen action bar so Launch is reachable at every bottom-panel height without scrolling. See User Story 6 for the measurements that withdrew it.
     - Collapse the three duplicated frontend provider union types into one source.
-    - Fix the orphaned system-prompt temp file leak on the AI Block spawn path.
+    - Remove provider-specific system-prompt files and use provisioned `AGENTS.md` as the common instruction entry.
     - Replace the invalid `scistudio install --target claude-code` hint emitted by AI Block validate-time errors with a message that does not suggest a command incapable of installing the provider CLI.
     - Update ADR-034, the embedded coding agent spec contract note, and the affected skill documentation.
   out:
@@ -56,7 +56,6 @@ governs:
     - scistudio.ai.agent.providers_registry.ProviderKind
     - scistudio.ai.agent.providers_registry.ProviderRegistry
     - scistudio.ai.agent.providers_registry.REGISTRY
-    - scistudio.ai.agent.providers_registry.SystemPromptInjection
     - scistudio.ai.agent.providers_registry.resolve_binary
     - scistudio.ai.agent.terminal.spawn_agent
     - scistudio.ai.agent.terminal.resolve_windows_executable
@@ -139,8 +138,8 @@ This spec adds three providers — **Kimi Code** (`kimi`), **Qoder CLI
 international** (`qodercli`), and **Qoder CLI China** (`qoderclicn`) — and makes
 ADR-034's original claim true by introducing a single **provider registry**.
 After this change, every per-CLI fact (binary candidates, well-known install
-directories, permission-bypass flag spelling, MCP injection strategy,
-system-prompt injection strategy, credential probe) lives in exactly one
+directories, permission-bypass flag spelling, MCP injection strategy, and
+credential probe) lives in exactly one
 descriptor table. Adding a sixth provider becomes a data change plus a discovery
 rule, not a sweep across fifteen call sites.
 
@@ -188,8 +187,7 @@ cannot collapse into one descriptor:
 |---|---|---|---|---|
 | `--mcp-config` flag | yes | no | **no** | **yes** |
 | MCP fallback discovery | `<project>/.mcp.json` | `~/.codex/config.toml`, `<project>/.codex/config.toml` | `<KIMI_CODE_HOME>/mcp.json`, `<project>/.mcp.json`, `<cwd>/.kimi-code/mcp.json` | `<project>/.mcp.json` |
-| System-prompt flag | `--append-system-prompt @<file>` | none | none (`--agent-file <path>`) | `--append-system-prompt <text>` (literal, no `@` indirection) |
-| Skills discovery | `.claude/skills` | `.agents/skills` | `.claude/skills`, `.codex/skills`, `.agents/skills`, `.kimi-code/skills` | `.agents/skills` |
+| Project instructions | `CLAUDE.md` router → `AGENTS.md` | `AGENTS.md` | base skill router → `AGENTS.md` | base skill router → `AGENTS.md` |
 | Bypass-permission flag | `--dangerously-skip-permissions` | `--dangerously-bypass-approvals-and-sandbox` | `--auto` | `--dangerously-skip-permissions` |
 
 Verification note: the `qoder` international CLI was probed directly at version
@@ -996,8 +994,8 @@ Acceptance Scenarios:
 - `KIMI_CODE_HOME` is set to a non-default path. Kimi's own documentation string
   instructs callers to never assume `~/.kimi-code`; discovery and MCP writes
   must honour the environment variable.
-- Qoder's `--append-system-prompt` takes literal text with no `@<file>`
-  indirection, so a long composed prompt would land on the command line.
+- A provider does not natively read `AGENTS.md`. Its provisioned base skill must
+  remain a short router to the common guide.
 - A workflow saved before this change carries `provider: claude-code`. Enum
   widening is backward compatible and such workflows must load unchanged.
 - Two providers are launched concurrently. The existing 16-PTY cap and per-tab
@@ -1027,8 +1025,7 @@ Acceptance Scenarios:
 - FR-002: Each registry descriptor MUST declare provider key, display label,
   binary candidate names, well-known install directories, config-root resolution
   including environment-variable overrides, credential probe, optional auth
-  status command, MCP injection strategy, system-prompt injection strategy, and
-  bypass-permission argv.
+  status command, MCP injection strategy, and bypass-permission argv.
 - FR-003: The registry MUST distinguish agent providers from the non-agent
   `user-terminal` pseudo-provider so status and the Setup dropdown list only
   agent providers.
@@ -1148,9 +1145,8 @@ Acceptance Scenarios:
 |---|---|---|
 | `ProviderKind` | Distinguishes agent CLIs from the shell pseudo-provider | `agent`, `terminal` |
 | `McpInjection` | How a provider learns about the SciStudio MCP server | strategy tag, flag name, project-scope file path template |
-| `SystemPromptInjection` | How a provider receives the composed system prompt | strategy tag, flag name, file-indirection support, ambient-only marker |
 | `CredentialProbe` | How login state is detected | credential file path template, optional auth status argv |
-| `ProviderDescriptor` | One agent CLI channel's complete adapter definition | key, label, kind, binary candidates, well-known dirs, config-root env override, MCP injection, system-prompt injection, credential probe, bypass argv |
+| `ProviderDescriptor` | One agent CLI channel's complete adapter definition | key, label, kind, binary candidates, well-known dirs, config-root env override, MCP injection, credential probe, bypass argv |
 | `ProviderRegistry` | Ordered descriptor collection | lookup by key, agent-only view, key tuple for whitelists and enums |
 
 ## 4. Implementation Plan
@@ -1199,14 +1195,10 @@ merge-preserving pattern already exists in `cli/install.py`, which edits
 user-owned `~/.claude.json` and `.codex/config.toml` without clobbering them —
 that is the precedent to follow, not `_ensure_mcp_config`.
 
-System-prompt injection has two
-observed shapes: a flag that accepts file indirection (`claude-code`), and
-ambient discovery through the already-provisioned skills trees (`codex`,
-`kimi-code`, `qoder`, `qoder-cn`). The Qoder channels' literal-text
-`--append-system-prompt` is deliberately not used, because the composed prompt
-is unbounded and would land on the command line; both channels receive the
-prompt through `.agents/skills` like Codex does. This decision is recorded as an
-assumption to revisit if Qoder gains `@<file>` support.
+Project instructions are provisioned once in `<project>/AGENTS.md`. Claude's
+`CLAUDE.md` and the provider-discovered base skill are short routers to that
+file. Runtime project facts and exact tool schemas are queried from the live MCP
+server, so no launch-time prompt snapshot or fixed tool catalogue is needed.
 
 On the AI Block side, `_build_spawn_argv` is deleted. `PtyTabSpec` gains
 `provider: str` and keeps `spawn_argv` only if a consumer still needs it; the
@@ -1408,11 +1400,9 @@ and `TerminalTabs.tsx` are not modified by this change.
   removal changes when the MCP config file is written. Mitigation: sequence
   T-007 before T-008 so the explicit-provider path is proven before the argv
   builder is removed, and keep AI Block run tests green at each step.
-- **Qoder's system prompt arrives only through skills.** If ambient skill
-  discovery proves insufficient in the smoke launch, the fallback is literal
-  `--append-system-prompt`, which risks command-line length limits on Windows.
-  Mitigation: measure the composed prompt length during the smoke launch before
-  committing to either mechanism.
+- **A provider may not read `AGENTS.md` natively.** The provisioned base skill
+  routes such providers to the common file. Provisioning tests keep the router
+  short and verify the common guide carries the required navigation.
 - ~~**Touching the CSS-hiding wrappers risks unmounting live PTYs.**~~ Retired
   with T-011c. The wrappers are not touched, so the risk does not arise. The
   underlying fact remains true and is worth carrying forward for anyone who
@@ -1577,9 +1567,8 @@ say so, because the change reads as a stylistic regression and will otherwise be
   backward compatible. The historical note calling that entry shape locked is in
   a Deprecated spec, existing consumers read fields by name, and this change adds
   rather than renames or removes.
-- Qoder CLI's `--append-system-prompt` is assumed to accept literal text only,
-  based on its argument handling reading the value directly with no file
-  indirection. The design therefore does not depend on that flag.
+- Provider prompt flags are outside this design. Every provider starts in the
+  project root and uses the provisioned common guide and routers.
 - `KIMI_CODE_HOME` is assumed to be the only environment override for Kimi's
   config root, per the CLI's own instruction never to assume `~/.kimi-code`.
 - Both Qoder channels are assumed to expose no machine-readable auth status

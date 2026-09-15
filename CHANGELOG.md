@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2295] **A `scistudio-write-type` skill teaches the AI to define a data type.**
+  Every new project provisions it beside the other task skills. It covers reuse
+  through `list_types`, choosing the core base, axis and slot rules, typed
+  metadata, and the required loader, so a new type can always be read into a
+  workflow through core `load_data`.
 - [#2447] **MiniApps can ask before they build.** An AI writing a MiniApp can
   declare a short questionnaire in `panels/<id>/questionnaire.json` and show it
   with the new SDK components (`Questionnaire`, `Question`,
@@ -565,6 +570,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   with `scistudio.panels`. The symbols keep their `provisional` tier until removal.
 
 ### Changed
+
+- [#2383] Use each project's provisioned `AGENTS.md` as the common instruction
+  and navigation entry for every embedded AI provider. Claude launch no longer
+  creates a composed prompt tempfile or passes `--append-system-prompt`;
+  provider routers stay short, while current project facts and exact tool
+  contracts come from the live MCP server.
 
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say

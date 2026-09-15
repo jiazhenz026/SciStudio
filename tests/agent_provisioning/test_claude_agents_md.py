@@ -84,7 +84,7 @@ def test_template_indexes_all_registered_task_skills(tmp_project_dir: Path) -> N
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
-    index = body.split("## Skills available", 1)[1].split("\n## ", 1)[0]
+    index = body.split("### Skills — how to do a task", 1)[1].split("\n### ", 1)[0]
     for task_skill in _SKILL_NAMES:
         if task_skill != "scistudio":
             assert f"`{task_skill}`" in index, f"AGENTS.md skill index must reference {task_skill}."
@@ -100,16 +100,13 @@ def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
-    # MCP is the only interface; the doc states there is no command-line tool
-    # (positive framing, #1850) rather than denying CLI use.
+    # SciStudio is driven through its MCP tools, never from the shell.
     assert "mcp__scistudio__" in body
-    assert "command-line tool" in body.lower()
-    # Block-reuse rule (#875)
+    assert "never drive SciStudio from the shell" in " ".join(body.split())
+    # Block-reuse rule (#875); port-type detail lives in scistudio-write-block.
     assert "list_blocks" in body
-    assert "#875" in body or "reuse" in body.lower()
-    # Port-type rule (ADR-040 §3.2a)
+    assert "reuse" in body.lower()
     assert "list_types" in body
-    assert "DataObject" in body
     # Workflow YAML protection
     assert "workflows/" in body
     assert "write_workflow" in body
@@ -126,8 +123,8 @@ def test_template_hook_safety_is_provider_neutral(tmp_project_dir: Path) -> None
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
     body_lower = body.lower()
-    # A hook-safety section is present.
-    assert "hook safety net" in body_lower
+    # The hook safety-net rule is present.
+    assert "hooks are a safety net" in body_lower
     # No provider is named anywhere in the guide body.
     for provider in ("claude code", "codex", "kimi", "qoder"):
         assert provider not in body_lower, f"provider name {provider!r} in AGENTS.md template"
@@ -136,7 +133,7 @@ def test_template_hook_safety_is_provider_neutral(tmp_project_dir: Path) -> None
     assert "self-police" not in body_lower
     # The user's data/ is protected and the no-internal-citation rule is present.
     assert "data/" in body
-    assert "per scistudio's requirements" in body_lower or "rule-citation" in body_lower
+    assert "do not cite internal rules" in " ".join(body_lower.split())
 
 
 def test_template_does_not_hardcode_the_gui_address(tmp_project_dir: Path) -> None:
@@ -153,3 +150,15 @@ def test_template_does_not_hardcode_the_gui_address(tmp_project_dir: Path) -> No
     assert re.search(r"(localhost|127\.0\.0\.1)(:\d+)?", body) is None
     assert "open_gui" in body
     assert "do not start a second backend" in body.lower()
+
+
+def test_template_is_the_common_live_instruction_entry(tmp_project_dir: Path) -> None:
+    """All providers get durable guidance without a frozen prompt snapshot."""
+    write_claude_agents_md(tmp_project_dir, force=False)
+    # Compare against whitespace-normalised text: the template wraps prose lines.
+    body = " ".join((tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8").split())
+
+    assert "Tools — what you can do" in body
+    assert "get_project_info" in body
+    assert "Live MCP tool schemas are the contract for tool names and arguments" in body
+    assert "The skills you can actually load, and their own descriptions, are the source of truth" in body

@@ -18,13 +18,18 @@ unsupported, and liable to move or vanish without notice.
 | `scistudio.blocks.io` | `IOBlock`, `SimpleLoader`, `SimpleSaver`, `FormatCapability`, `MetadataFidelity` |
 | `scistudio.blocks.app` | `AppBlock`, `FileExchangeBridge`, `FileWatcher`, `validate_app_command` |
 | `scistudio.blocks.code` | `CodeBlock`, `CodeBlockConfig`, `PortFileConfig` |
-| `scistudio.previewers.models` | **deprecated** (removed in 0.6.0; use panels): `PreviewerSpec`, `FrontendManifest`, owner-kind / API-version constants |
-| `scistudio.previewers.data_access` | **deprecated** (removed in 0.6.0; use panels): bounded preview-read helpers |
 | `scistudio.tutorials` | tutorial authoring: `TutorialDriver`, `DriverContext`, `StepView`, the action and condition vocabulary |
 | `scistudio.api.app` | `create_app`, the backend factory an edition composes on (server composition, not block authoring) |
 | `scistudio.api.seam` | guard, lifespan-hook and capability types, the self-authenticating path registry, `workflow_runs_active`, the shared MCP registry (server composition, not block authoring) |
 | `scistudio.panels` | panel checks: `discover_panels`, `PanelRegistry`, `parse_descriptor`, `PanelDescriptor`, `validate_external_references`, `validate_interactive_panel`, `PANEL_API_VERSION` |
 | `scistudio.stability` | `stable`, `provisional`, `internal`, `deprecated` decorators |
+
+A panel or MiniApp is a folder with a `panel.json` and a page that reads data
+through the panel SDK; a MiniApp may add a `panel.py` for Python functions. See
+`scistudio-write-panel` and `scistudio-write-miniapp`. `scistudio.panels` only
+discovers and checks those folders. An
+interactive block still declares its panel with `PanelManifest(panel_id=...)` from
+`scistudio.blocks.base`.
 
 ```python
 # CORRECT — canonical roots

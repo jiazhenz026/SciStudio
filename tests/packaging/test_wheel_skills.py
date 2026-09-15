@@ -5,10 +5,9 @@ These tests assert that the multi-skill source tree under
 in **both** editable installs and wheel installs (per the
 ``[tool.setuptools.package-data]`` entry in ``pyproject.toml``).
 
-Skill bodies authored by I40b in Phase 2c (ADR-040). The base SKILL.md
-carries the agent identity + skill index + the ``<!-- project_context -->``
-and ``<!-- tool_catalog -->`` splice markers; task skills carry
-the task-scoped teaching surfaces.
+Skill bodies authored by I40b in Phase 2c (ADR-040). The base SKILL.md is a
+short router to the project AGENTS.md; task skills carry the detailed teaching
+surfaces.
 """
 
 from __future__ import annotations
@@ -17,7 +16,7 @@ from importlib.resources import files
 
 from scistudio.agent_provisioning.skills import _SKILL_NAMES
 
-# Every registered task skill must ship and be discoverable through the base index.
+# Every registered task skill must ship and be discoverable through AGENTS.md.
 _TASK_SKILLS = tuple(name for name in _SKILL_NAMES if name != "scistudio")
 
 
@@ -35,11 +34,9 @@ def test_base_skill_loadable_via_importlib_resources() -> None:
     assert "name: scistudio" in content, "Base skill frontmatter must declare name: scistudio."
     # Body authored (not a skeleton stub).
     assert "Body content deferred" not in content, "Base SKILL.md body must be authored in Phase 2c (I40b)."
-    # Splice markers preserved (target of _render_project_context + _render_tool_catalog).
-    assert "<!-- project_context:begin -->" in content
-    assert "<!-- project_context:end -->" in content
-    assert "<!-- tool_catalog:begin -->" in content
-    assert "<!-- tool_catalog:end -->" in content
+    assert "AGENTS.md" in content
+    assert "<!-- project_context:" not in content
+    assert "<!-- tool_catalog:" not in content
 
 
 def test_all_task_skills_loadable_via_importlib_resources() -> None:
@@ -55,18 +52,16 @@ def test_all_task_skills_loadable_via_importlib_resources() -> None:
         )
 
 
-def test_base_skill_indexes_all_task_skills() -> None:
-    """The base ``SKILL.md`` must reference all registered task skills by name.
+def test_agents_md_indexes_all_task_skills() -> None:
+    """The common project guide must reference every task skill by name.
 
-    Discoverability check: the agent reads the base first and uses its
-    skill index to find the relevant task skill. If a task skill is
-    not indexed, the agent will never load it.
+    Discoverability check: the agent reads AGENTS.md and uses its skill index
+    to find the relevant task skill.
     """
-    base = files("scistudio") / "_skills" / "scistudio" / "SKILL.md"
-    content = base.read_text(encoding="utf-8")
-    index = content.split("## Skills available", 1)[1].split("\n## ", 1)[0]
+    guide = files("scistudio.agent_provisioning.templates") / "claude_agents_md.md"
+    content = guide.read_text(encoding="utf-8")
     for task_skill in _TASK_SKILLS:
-        assert f"`{task_skill}`" in index, f"Base SKILL.md must reference {task_skill} in its skill index."
+        assert task_skill in content, f"AGENTS.md must reference {task_skill} in its skill index."
 
 
 # --- Codex P1/P2 reconcile regression pins ---------------------------------
@@ -162,41 +157,23 @@ def test_write_block_skill_frontmatter_disambiguates_add_block_to_workflow() -> 
     """
     skill = files("scistudio") / "_skills" / "scistudio" / "scistudio-write-block" / "SKILL.md"
     content = skill.read_text(encoding="utf-8")
-    # New disambiguator phrasing — capitalised so an agent skimming the
-    # frontmatter cannot miss it.
-    assert "NEW BLOCK FILE" in content or "blocks/<name>.py" in content, (
-        "scistudio-write-block frontmatter must name the file-path target "
+    # The description names the file it creates and routes the add-a-node case away.
+    assert "blocks/<name>.py" in content, (
+        "scistudio-write-block description must name the file-path target "
         "to disambiguate against scistudio-build-workflow (F40-integration F5)."
     )
-    assert "EXISTING BLOCK TYPE" in content or "ADDING AN EXISTING" in content, (
-        "scistudio-write-block frontmatter must reject the 'add an existing "
-        "block as a workflow node' use case (F40-integration F5)."
+    assert "Not for adding an existing block to a workflow" in content, (
+        "scistudio-write-block description must route 'add an existing block "
+        "as a workflow node' to scistudio-build-workflow (F40-integration F5)."
     )
 
 
-def test_base_skill_carries_static_tool_catalog_fallback_for_codex() -> None:
-    """F40-integration F6: base SKILL.md has non-empty static content between
-    ``<!-- tool_catalog:begin -->`` / ``<!-- tool_catalog:end -->`` markers.
-
-    On Claude Code, ``compose_system_prompt`` splices the live FastMCP
-    catalog over the static content (``_splice`` replaces ALL content
-    between markers). On Codex, the splice does not run and the file is
-    read verbatim; pre-F6 the markers wrapped empty space and Codex saw
-    nothing. Post-F6 the static fallback enumerates all 4 categories.
-    """
+def test_base_skill_is_a_short_router_to_agents_md() -> None:
+    """The base skill routes providers to the one common guide (#2383)."""
     base = files("scistudio") / "_skills" / "scistudio" / "SKILL.md"
     content = base.read_text(encoding="utf-8")
-    begin = content.find("<!-- tool_catalog:begin -->")
-    end = content.find("<!-- tool_catalog:end -->")
-    assert begin >= 0 and end > begin, "tool_catalog markers missing"
-    between = content[begin + len("<!-- tool_catalog:begin -->") : end].strip()
-    assert between, (
-        "Static tool catalog fallback must be non-empty so Codex agents "
-        "(who read the file verbatim, no splice) see something (F40-integration F6)."
-    )
-    # The 4 category labels are pinned so a future refactor that drops a
-    # category by accident gets flagged.
-    for category in ("Workflow", "Authoring", "Inspection"):
-        assert category in between, (
-            f"Static tool catalog must list the {category} category for Codex (F40-integration F6)."
-        )
+    assert "AGENTS.md" in content
+    assert "authoritative" in content
+    assert "<!-- tool_catalog:" not in content
+    assert "Non-negotiable rules" not in content
+    assert len(content.splitlines()) < 25

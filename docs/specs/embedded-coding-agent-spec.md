@@ -73,12 +73,15 @@ date: 2026-05-12
 >       `{type:"error",message}`
 > * Resource cap: max 16 concurrent PTY tabs per backend. Unchanged and
 >   provider-agnostic.
+> * Project instructions: every provider uses the provisioned project
+>   `AGENTS.md` as the common entry. `CLAUDE.md` and the base `scistudio` skill
+>   are short routers. Launch does not inject a provider-specific system prompt;
+>   MCP schemas and current project facts are read live.
 >
 > Implementation: `src/scistudio/ai/agent/providers_registry.py` (the single
 > source of truth for every per-CLI fact),
 > `src/scistudio/ai/agent/terminal.py` (one descriptor-driven `spawn_agent`;
 > the former `spawn_claude` / `spawn_codex` factories are removed),
-> `src/scistudio/ai/agent/system_prompt.py`,
 > `src/scistudio/api/routes/ai_pty/` (sub-package split per issue #1432),
 > `src/scistudio/api/routes/ai.py` (`provider_status`).
 >

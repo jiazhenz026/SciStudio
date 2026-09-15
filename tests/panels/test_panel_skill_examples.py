@@ -70,7 +70,7 @@ vm.runInThisContext(request.sdk);
 def test_panel_skill_example_runs_with_sdk_sample(tmp_path: Path, context: str) -> None:
     root = files("scistudio")
     body = (root / "_skills/scistudio/scistudio-write-panel/SKILL.md").read_text(encoding="utf-8")
-    example = body.split("## Example: ")[1 if context == "preview" else 2].split("\n## ")[0]
+    example = body.split("### Example: ")[1 if context == "preview" else 2].split("\n## ")[0].split("\n### ")[0]
     descriptor_json, sample_json = re.findall(r"```json\n(.*?)\n```", example, re.DOTALL)
     html = re.findall(r"```html\n(.*?)\n```", example, re.DOTALL)[0]
     descriptor = json.loads(descriptor_json)
