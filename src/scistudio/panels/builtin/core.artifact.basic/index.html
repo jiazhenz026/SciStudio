@@ -1,23 +1,15 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Artifact preview</title>
-    <link rel="stylesheet" href="../../sdk/1/panel.css" />
-    <style>
-      .artifact-title { font-weight: 600; }
-      .artifact-path {
-        font-size: 11px; word-break: break-all;
-        color: rgb(var(--ss-ink, 40 33 24) / 0.7);
-      }
-      .artifact-field { font-size: 11px; color: rgb(var(--ss-ink, 40 33 24) / 0.7); }
-      .artifact-image { max-width: 100%; max-height: 320px; border-radius: 6px; margin-top: 6px; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script type="module" src="panel.js"></script>
-  </body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Artifact preview</title>
+        <link rel="stylesheet" href="../../sdk/1/panel.css" />
+        <link rel="stylesheet" href="../../sdk/1/renderers.css" />
+    </head>
+    <body>
+        <div id="root"></div>
+        <script src="../../sdk/1/scistudio-panel.js"></script>
+        <script type="module" src="panel.js"></script>
+    </body>
 </html>

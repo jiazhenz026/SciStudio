@@ -8,6 +8,7 @@
 // fake. It is also the one place that knows a 409 is the collision signal
 // (FR-008): the action asks `isCollision`, never a status code.
 
+import { miniAppsApi } from "../../miniapps/api";
 import { ApiError, api } from "../../lib/api";
 import { useAppStore } from "../../store";
 import { invalidateTypeCatalog, loadTypeCatalog } from "../../store/useTypeCatalog";
@@ -57,6 +58,18 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
           projectPath: response.origin === "project" ? `blocks/${file}` : null,
         };
       }
+      if (ref.from === "panelDirectory") {
+        // ADR-054 FR-039 — a MiniApp has no single file to read. The promotion
+        // is one server-side move of the whole directory, so there is nothing
+        // to carry through the caller: this answers with the directory's own
+        // name and the project-relative path FR-017's removal consumes, and
+        // `writeDirectory` below does the work `write` does for a file.
+        return {
+          filename: ref.panelId,
+          content: "",
+          projectPath: `panels/${ref.panelId}`,
+        };
+      }
       return readProjectFile(ref.path);
     },
     readTypeSource: async (type: TypeSummary): Promise<string> => {
@@ -103,6 +116,21 @@ export function createPromotionIo(projectId: string | null): PromotionIo {
     // FR-008: the endpoint reports an existing file as a 409 rather than
     // overwriting it, so the FR-018 prompt is driven by the server's answer
     // and not by a client-side guess that could race another writer.
+    writeDirectory: async (panelId: string, options: { overwrite: boolean }) => {
+      const result = await miniAppsApi.promote(panelId, { overwrite: options.overwrite });
+      return {
+        path: result.path,
+        kind: options.overwrite ? ("modified" as const) : ("created" as const),
+        // FR-017 — `moved` false means the library copy landed and the project
+        // copy could not be removed, so the promotion degraded to a copy. The
+        // route reports the fact; it does not report a reason, so the message
+        // here is the whole of what is known.
+        movedFrom: result.moved ? `panels/${panelId}` : null,
+        moveError: result.moved
+          ? null
+          : "The library copy was written, but the project copy could not be removed.",
+      };
+    },
     isCollision: (error: unknown) => error instanceof ApiError && error.status === 409,
   };
 }

@@ -62,3 +62,9 @@ icons, keep the connection window available or reopen it by launching SciStudio.
      docs/specs/adr-055-ai-host-presentation.md; desktop/background-mode.js;
      desktop/connection.html; desktop/menu.js; frontend/src/webmcp/register.ts.
      Source paths are relative to the SciStudio repository; issue #2290. -->
+
+## Explore with MiniApps
+
+See [MiniApps](miniapps.md) to create an interactive result explorer, reuse it on
+other data, manage its session, or convert it into a workflow block. The guide
+also explains when an AI can inspect the rendered interface with a screenshot.

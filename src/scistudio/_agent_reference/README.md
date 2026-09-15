@@ -12,6 +12,8 @@ guessing.
 | [block-contract.md](block-contract.md) | writing a block class |
 | [workflow-schema.md](workflow-schema.md) | writing or editing a workflow YAML |
 | [plot-contract.md](plot-contract.md) | writing a `render(collection)` plot |
+| [miniapp-renderers.md](miniapp-renderers.md) | composing core preview UI in a MiniApp |
+| [gui-debug.md](gui-debug.md) | inspecting rendered desktop GUI images through MCP |
 | [package-discovery.md](package-discovery.md) | using types/blocks from an installed package |
 
 For exact symbol signatures, see the generated **API reference** under the

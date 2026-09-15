@@ -35,6 +35,7 @@ window, follow [Install a provider](ai-assistant.md#before-you-start-install-a-p
 | Page | What it covers |
 |---|---|
 | [data-types.md](data-types.md) | The data types that flow between blocks, and which one fits your data |
+| [miniapps.md](miniapps.md) | Create, reuse, debug and convert an interactive data explorer |
 | [writing-blocks.md](writing-blocks.md) | Write a custom block from scratch |
 | [custom-types.md](custom-types.md) | Make your own data type when the built-in ones do not fit |
 | [writing-plots.md](writing-plots.md) | Write a quick preview-only plot of a result |

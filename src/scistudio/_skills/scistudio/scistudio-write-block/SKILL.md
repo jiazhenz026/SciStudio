@@ -4,7 +4,7 @@ description: |
   Use when the user wants to author a NEW BLOCK FILE — Python source
   code (a class subclassing Block / ProcessBlock / IOBlock / AppBlock /
   CodeBlock with typed ports and a config_schema) that goes in
-  ``<project>/blocks/<name>.py``. ALWAYS check if an existing block
+  the project-local ``blocks/name.py`` file. ALWAYS check if an existing block
   satisfies the contract first (call list_blocks first and reuse a match).
 
   NOT for ADDING AN EXISTING BLOCK TYPE AS A NODE in a workflow YAML —
@@ -65,9 +65,17 @@ genuinely helps the user. See `block-contract.md` for how to author each.
 - **interactive (optional)** — a block can pause and let the user make a
   data-dependent decision in the GUI (route items, mark a region). Reuse a
   built-in panel (`core.interactive.data_router`, `core.interactive.pair_editor`)
-  or ship a small custom panel.
+  or ship a small custom panel. Use a discovered `panels/<id>/panel.json`
+  folder with `contexts: ["interactive"]` and the HTML frame SDK. Read the
+  interactive recipe in `block-contract.md`; new panels do not use the legacy
+  ES-module `mount` API.
 - **AppBlock / CodeBlock** — hand the step to an external GUI/CLI tool, or to a
   project-local script.
+
+When converting a MiniApp, preserve the original app. Create a separate block
+and interactive panel, prepare the display data in `prepare_prompt`, return one
+JSON decision through `scistudio.writeBack`, and compute typed workflow outputs
+in `run`. The interactive page cannot retain the MiniApp's Python calls.
 
 ## Tool-call sequence
 

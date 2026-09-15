@@ -20,6 +20,13 @@ export function emptyWorkflow(id = "main"): WorkflowResponse {
  * Close the active project: clear the project, reset the canvas/execution, and
  * drop the previous project's open workflow tabs (bug #5). Defaults to the
  * store's own actions so call sites don't have to thread them through.
+ *
+ * ADR-054 FR-013 — emptying the tab list is a wholesale wipe with no per-tab
+ * hook, and deliberately stays that way. A MiniApp tab's backend context (and
+ * its `panel.py` process) is ended by its pane's unmount, in `PanelFrame`'s
+ * effect cleanup, so this wipe ends every MiniApp open at the switch without
+ * needing to know they were there. Adding a per-tab teardown here would only
+ * cover this one path and miss the others.
  */
 export function closeCurrentProject(actions?: {
   setCurrentProject: (project: ProjectResponse | null) => void;

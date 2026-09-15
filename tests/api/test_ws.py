@@ -20,7 +20,7 @@ from scistudio.engine.events import (
     EngineEvent,
     EventBus,
 )
-from tests.api.helpers import wait_for_condition
+from tests.api.helpers import wait_for_condition, ws_hello
 
 
 def test_workflow_started_in_outbound_events() -> None:
@@ -31,6 +31,7 @@ def test_workflow_started_in_outbound_events() -> None:
 def test_websocket_receives_serialised_engine_events(client: TestClient, runtime: ApiRuntime) -> None:
     """Outbound workflow events should be pushed to connected clients."""
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         asyncio.run(
             runtime.event_bus.emit(
                 EngineEvent(
@@ -74,6 +75,7 @@ def test_websocket_inbound_messages_emit_cancel_events(client: TestClient, runti
 def test_websocket_replies_to_heartbeat_ping(client: TestClient, runtime: ApiRuntime) -> None:
     """#177: browser heartbeat pings receive a pong frame."""
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         websocket.send_json({"type": "ping"})
         message = websocket.receive_json()
 
@@ -90,6 +92,9 @@ def test_websocket_handler_handles_cancelled_error_on_shutdown() -> None:
     async def _run() -> None:
         ws = AsyncMock()
         ws.accept = AsyncMock()
+        # FR-013: a real WebSocket carries query params; the handler reads them
+        # to let a reconnecting workspace keep its client id.
+        ws.query_params = {}
         # Simulate server shutdown: receive_text raises CancelledError
         ws.receive_text = AsyncMock(side_effect=asyncio.CancelledError)
         ws.send_json = AsyncMock(side_effect=asyncio.CancelledError)
@@ -128,6 +133,7 @@ def test_last_gui_disconnect_leaves_active_workflow_running() -> None:
 
         ws = AsyncMock()
         ws.accept = AsyncMock()
+        ws.query_params = {}
         ws.receive_text = AsyncMock(side_effect=asyncio.CancelledError)
         ws.send_json = AsyncMock(side_effect=asyncio.CancelledError)
 
@@ -145,6 +151,40 @@ def test_last_gui_disconnect_leaves_active_workflow_running() -> None:
             await task
 
     asyncio.run(_run())
+
+
+def test_debug_connection_is_removed_when_idle_socket_disconnects(tmp_path) -> None:
+    """An inbound disconnect must not leave an idle outbound pump registered."""
+    from fastapi import WebSocketDisconnect
+
+    from scistudio.panels.gui_debug import get_gui_debug
+
+    async def scenario() -> None:
+        runtime = SimpleNamespace(project_dir=tmp_path, workflow_runs={})
+        bus = EventBus()
+        bus.runtime = runtime
+        socket = AsyncMock()
+        socket.query_params = {}
+        socket.receive_text.side_effect = WebSocketDisconnect()
+        await asyncio.wait_for(websocket_handler(socket, bus), timeout=1)
+        assert not get_gui_debug(runtime).connections
+
+    asyncio.run(scenario())
+
+
+def test_lifespan_mcp_adapter_and_websocket_share_gui_broker(client, runtime) -> None:
+    """Use the production lifespan adapter, not a runtime-shaped MCP stub."""
+    from scistudio.ai.agent.mcp._context import get_context
+    from scistudio.panels.gui_debug import get_gui_debug, resolve_gui_runtime
+
+    context = get_context()
+    assert context is not runtime
+    assert resolve_gui_runtime(context) is runtime
+    with client.websocket_connect("/ws") as socket:
+        ws_hello(socket)
+        assert get_gui_debug(context) is get_gui_debug(runtime)
+        assert len(get_gui_debug(context).connections) == 1
+    wait_for_condition(lambda: not get_gui_debug(runtime).connections, timeout=2)
 
 
 def test_ws_module_no_longer_tracks_gui_clients_for_cancellation() -> None:

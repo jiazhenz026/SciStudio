@@ -2,7 +2,7 @@
  * LineageTab.test.tsx — D38-2.4c IMPL tests.
  */
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../../../store";
@@ -70,6 +70,33 @@ describe("LineageTab", () => {
   afterEach(() => {
     cleanup();
     resetLineage();
+  });
+
+  it("refreshes when any workflow finishes, not when the projected flag flips (#2395)", async () => {
+    useAppStore.getState().resetExecution();
+    useAppStore.setState({ workflowId: "main", tabs: [], activeTabId: null });
+    render(<LineageTab />);
+    await waitFor(() => expect(getRunsMock).toHaveBeenCalledTimes(1));
+
+    const lifecycle = (type: string, workflowId: string) =>
+      useAppStore
+        .getState()
+        .consumeEvent({ type, block_id: null, workflow_id: workflowId, data: {}, timestamp: "" });
+
+    // A workflow that is not on screen finishing still refreshes the list.
+    act(() => lifecycle("workflow_started", "long_wf"));
+    act(() => lifecycle("workflow_started", "short_wf"));
+    act(() => lifecycle("workflow_completed", "short_wf"));
+    await waitFor(() => expect(getRunsMock).toHaveBeenCalledTimes(2));
+
+    // Changing which workflow is on screen alone does not refetch.
+    act(() => useAppStore.setState({ isRunning: true }));
+    act(() => useAppStore.setState({ isRunning: false }));
+    expect(getRunsMock).toHaveBeenCalledTimes(2);
+
+    act(() => lifecycle("workflow_completed", "long_wf"));
+    await waitFor(() => expect(getRunsMock).toHaveBeenCalledTimes(3));
+    useAppStore.getState().resetExecution();
   });
 
   it("renders the two-pane layout", () => {

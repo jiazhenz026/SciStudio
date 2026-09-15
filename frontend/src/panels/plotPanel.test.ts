@@ -13,6 +13,7 @@
  * URL before the panel ever sees it — so `data` is always present here.
  */
 import { readFileSync } from "node:fs";
+import { rewriteRendererImports } from "./rendererTestModules";
 import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +35,11 @@ async function loadPanelModule() {
       JSON.stringify(preactUrl),
     ),
   );
-  const src = readFileSync(resolve(PANEL, "panel.js"), "utf8")
+  const src = rewriteRendererImports(
+    readFileSync(resolve(PANEL, "panel.js"), "utf8"),
+    preactUrl,
+    uiUrl,
+  )
     .replace(/"[^"]*preact-standalone\.module\.js"/g, JSON.stringify(preactUrl))
     .replace(/"[^"]*panel-ui\.js"/g, JSON.stringify(uiUrl));
   loadCount += 1;

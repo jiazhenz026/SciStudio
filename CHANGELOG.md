@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- MiniApps: create interactive tools on project data with optional resident Python,
+  reuse them across compatible outputs, and convert them into interactive workflow
+  blocks. Includes project-scoped source selection, reusable core data-view UI
+  components, and AI-accessible desktop GUI screenshots. (#2354)
+
 - [#2361] **A markdown file shows what it says while you write it.** Opening a
   `.md` file splits the centre stage: the editor on the left, a live preview on
   the right, resizable and roughly half each. The preview reads the tab's own

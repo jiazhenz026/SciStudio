@@ -42,28 +42,56 @@ Two panel options:
   frontend code: `PanelManifest(panel_id="core.interactive.data_router")` (drag
   items from N inputs to M outputs) or `"core.interactive.pair_editor"` (reorder
   items to fix pairing across collections).
-- **Ship your own panel** for anything data-specific (pick a baseline region on
-  a trace, click a peak, set a threshold against a preview). A panel is one
-  self-contained ES module — plain JS, no React, no build step — served from
-  beside the block:
+- **Ship your own panel** for a data-specific decision. Create a discovered
+  folder at `<project>/panels/myproj.pick_baseline/` containing `panel.json`,
+  `index.html`, and any local JavaScript/CSS. Point the block at its ID:
 
   ```python
-  from pathlib import Path
-  interactive_panel = PanelManifest(
-      panel_id="myproj.pick_baseline",
-      module_url="/api/blocks/panels/myproj.pick_baseline/index.js",
-      asset_root=str(Path(__file__).parent / "pick_baseline"),  # dir holding index.js
-      version="1",
-  )
+  interactive_panel = PanelManifest(panel_id="myproj.pick_baseline")
   ```
 
-  `asset_root` is the on-disk directory (next to the block `.py`) holding the
-  panel files; it is served path-confined and never sent to the browser.
-  `module_url` is always `/api/blocks/panels/<panel_id>/<file>`. The module
-  exports `{ apiVersion: "1", mount(container, host) }`; `host.panelPayload` is
-  what `prepare_prompt` returned, `host.confirm(decision)` sends the JSON that
-  becomes `config["interactive_response"]`, and `host.cancel()` cancels the
-  block. `mount` returns `{ unmount() {...} }`.
+  The descriptor's ID must match its folder name:
+
+  ```json
+  {
+    "id": "myproj.pick_baseline",
+    "api_version": "1.0",
+    "contexts": ["interactive"],
+    "name": "Choose baseline",
+    "entry": "index.html"
+  }
+  ```
+
+  Load `../../sdk/1/panel.css` and `../../sdk/1/scistudio-panel.js` from
+  `index.html`. After `await window.scistudio.ready()`, `scistudio.input` is
+  the JSON payload from `prepare_prompt`. Render that payload, collect the
+  user's decision, and call `scistudio.writeBack(decision)` once on confirmation.
+  The decision becomes `config["interactive_response"]`. Use
+  `scistudio.cancel()` to dismiss without confirming. Show validation or SDK
+  failures in the page; prevent duplicate confirmation while write-back is pending.
+
+  The page runs in a sandboxed iframe. Interactive contexts have no data-read
+  or resident Python-call operation: prepare the displayed data in
+  `prepare_prompt`, and compute the declared outputs in `run` after the decision.
+  Reuse the bundled `panel-ui.js` and `renderers.js` components with the prepared
+  payload. Load `renderers.css` when using data-view components. Do not open a
+  MiniApp context from the interactive page to circumvent this contract.
+
+  New panels use this HTML/SDK contract. The older `module_url` and
+  `mount(container, host)` form is a compatibility path, not the recipe for new
+  interactive blocks.
+
+### Converting a MiniApp
+
+Keep the original MiniApp intact. Create a new block file and a separate
+interactive panel folder. Reuse its display and interaction code, then adapt
+its data source to the `prepare_prompt` payload. Replace exploratory Python
+calls with one explicit confirmation and reproducible computation in `run`.
+Values needed to reproduce the result belong in configuration or the confirmed
+JSON decision; do not depend on the MiniApp's process memory. Declare the user's
+requested typed output ports, validate the panel with `validate_panel`, reload
+the block registry, and run its block tests. Verify a real pause, confirmation,
+and resulting outputs before describing the conversion as working.
 
 The registry rejects an interactive block that declares the mixin without the
 mode (or vice versa), omits `prepare_prompt`, or has no valid `interactive_panel`.

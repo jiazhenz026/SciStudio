@@ -257,3 +257,10 @@ def test_tool_catalog_excludes_external_audience_tools(tmp_path: Path) -> None:
         assert "`search_docs`" in prompt
     finally:
         mcp.local_provider.remove_tool("prompt_audience_fixture_external")
+
+
+def test_library_promotion_is_present_in_live_tool_catalog(tmp_path: Path) -> None:
+    from scistudio.ai.agent.system_prompt import compose_system_prompt
+
+    prompt = compose_system_prompt(tmp_path)
+    assert "promote_to_user_library" in prompt

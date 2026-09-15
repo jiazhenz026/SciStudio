@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.ws import _OUTBOUND_EVENTS
 from scistudio.engine.events import GIT_HEAD_CHANGED, EngineEvent
+from tests.api.helpers import ws_hello
 
 
 def test_git_head_changed_in_outbound_events() -> None:
@@ -27,6 +28,7 @@ def test_websocket_receives_git_head_changed_frame(client: TestClient, runtime: 
     """A ``GIT_HEAD_CHANGED`` engine event is forwarded to connected clients."""
     sha = "f" * 40
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         asyncio.run(
             runtime.event_bus.emit(
                 EngineEvent(
@@ -56,6 +58,7 @@ def test_websocket_forwards_head_event_with_null_sha(client: TestClient, runtime
     drop the frame.
     """
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         asyncio.run(
             runtime.event_bus.emit(
                 EngineEvent(

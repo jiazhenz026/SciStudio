@@ -46,6 +46,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     WorkflowDefinitionEnvelope,
 )
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema
+from scistudio.workflow.identity import project_relative_path_for_identity
 
 logger = logging.getLogger(__name__)
 
@@ -446,7 +447,10 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
 
     Do NOT use to:
       - Load a workflow's full structure — call ``get_workflow`` with
-        the returned id (``workflows/<id>.yaml``).
+        the file the returned id names: ``workflows/<id>.yaml``, or for an
+        id starting with ``@`` (a subworkflow) the path whose components
+        follow each ``@``, e.g. ``@subworkflows@qc.yaml`` is
+        ``subworkflows/qc.yaml``.
       - List every workflow in the project — call ``list_workflows``
         via the runtime instead.
 
@@ -469,7 +473,9 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
     # the right key to ``get_workflow`` for the authoritative load.
     workflow_name: str | None = workflow_id
     try:
-        path = _resolve_project_path(f"workflows/{workflow_id}.yaml")
+        # #2394: the editor publishes the run identity of the open file, which
+        # names a subworkflow by its path (``@subworkflows@qc.yaml``).
+        path = _resolve_project_path(str(project_relative_path_for_identity(workflow_id)))
         if path.exists():
             raw = yaml_module.safe_load(path.read_text(encoding="utf-8")) or {}
             metadata = raw.get("metadata") if isinstance(raw, dict) else None

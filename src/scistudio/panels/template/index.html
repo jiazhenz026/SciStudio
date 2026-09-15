@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MiniApp</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+    <style>
+      .miniapp-intro { max-width: 44rem; margin: 0 auto; padding: 24px 20px; }
+      .miniapp-intro h1 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+      .miniapp-intro p { margin: 0 0 12px; font-size: 13px; line-height: 1.6; }
+      .miniapp-request {
+        margin: 4px 0 16px; padding: 12px 14px; font-size: 13px; line-height: 1.6;
+        white-space: pre-wrap; word-break: break-word;
+      }
+      .miniapp-steps { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.7; }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <div class="miniapp-intro">
+        <p class="panel-label">MiniApp</p>
+        <h1 data-testid="miniapp-template-title">{{scistudio:name}}</h1>
+        <p>
+          A MiniApp is a small app built for one job on one piece of your data. It opens
+          on the output you picked, it can run its own Python next to the data, and it
+          belongs to this project — nobody else has to want it for it to be worth having.
+        </p>
+
+        <p class="panel-label">What you asked for</p>
+        <blockquote class="panel-card miniapp-request" data-testid="miniapp-template-request">{{scistudio:request}}</blockquote>
+
+        <p>
+          The agent is writing it now, in the AI tab below this one. You can watch it work
+          there, and you can talk to it: correct it, add to what you asked for, or ask what
+          it is doing.
+        </p>
+        <ul class="miniapp-steps">
+          <li>This page is the starting point the agent was given. It is not your MiniApp yet.</li>
+          <li>Every time the agent saves a file, this tab reloads on its own.</li>
+          <li>Your data is already attached, so the first working version arrives with it loaded.</li>
+        </ul>
+      </div>
+    </div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script>
+      // Tell the host the page is up. The frame is torn down when no page says
+      // so within ten seconds, and this page has nothing to wait for: it reads
+      // no data and calls no Python, so it renders whatever panel.py does.
+      window.scistudio.ready().catch(function (error) {
+        window.scistudio.reportError(String((error && error.message) || error));
+      });
+    </script>
+  </body>
+</html>
