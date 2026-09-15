@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import pytest
+import yaml
 
 from scistudio.ai.agent.mcp import _context
 from scistudio.ai.agent.mcp.tools_plot import run_plot_job, scaffold_plot
@@ -176,6 +177,43 @@ def test_writes_current_svg_and_json_at_fr026_layout(setup: tuple[Path, _StubRun
     assert record["run_id"] == _WORKFLOW_ID
     assert any(o["filename"] == "current.svg" for o in record["outputs"])
     assert record["cache_key"] == res.cache_key
+
+
+def test_plot_on_a_subworkflow_is_filed_under_its_path_identity(
+    setup: tuple[Path, _StubRuntime, Path],
+) -> None:
+    """#2394: a plot bound to ``subworkflows/copy.yaml`` declaring ``id: main`` belongs to that file.
+
+    Its target, manifest, preview cache and source metadata all use the file's
+    run identity, so neither the run lookup nor the cache is attributed to the
+    top-level ``main`` workflow.
+    """
+    project, runtime, wf = setup
+    identity = "@subworkflows@copy.yaml"
+    (project / "subworkflows").mkdir()
+    (project / "subworkflows" / "copy.yaml").write_text(wf.read_text(encoding="utf-8"), encoding="utf-8")
+    runtime.workflow_runs = {identity: runtime.workflow_runs.pop(_WORKFLOW_ID)}
+
+    [target] = discover_targets(runtime, workflow_path="subworkflows/copy.yaml")
+    assert target.workflow_id == identity
+    assert target.latest_output_available is True
+    # A manifest that recorded the declared id still files its preview under the file.
+    manifest = yaml.safe_load((project / "plots" / "p1" / "plot.yaml").read_text(encoding="utf-8"))
+    manifest["id"] = "p_sub"
+    manifest["target"] = {**manifest["target"], "workflow_path": "subworkflows/copy.yaml", "workflow_id": "main"}
+    (project / "plots" / "p_sub").mkdir()
+    (project / "plots" / "p_sub" / "plot.yaml").write_text(yaml.safe_dump(manifest), encoding="utf-8")
+    (project / "plots" / "p_sub" / "render.py").write_text(
+        (project / "plots" / "p1" / "render.py").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    res = _run(run_plot_job(plot_id="p_sub"))
+    assert res.status == "succeeded", res.errors
+    cache_dir = preview_cache_dir(project, identity, "node_a", "measurements", "p_sub")
+    assert (cache_dir / "current.svg").is_file()
+    assert not preview_cache_dir(project, "main", "node_a", "measurements", "p_sub").exists()
+    record = json.loads((cache_dir / "current.json").read_text(encoding="utf-8"))
+    assert record["run_id"] == identity
 
 
 def test_rerun_overwrites_current(setup: tuple[Path, _StubRuntime, Path]) -> None:
