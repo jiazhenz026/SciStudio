@@ -1,9 +1,164 @@
 {
   "base_ref": null,
   "branch": "guided/2295-phase-c-docs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T13:31:16.550064Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:50b509f64362fa37894b73914b4f426e501b397bbfe267cb1d0be490071f4e3d",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T13:31:16.899509Z",
+      "command": "ruff format src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/claude_agents_md.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/__init__.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/work_import.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_providers_registry.py tests/ai/test_windows_executable_resolution.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_provider_registry_extensibility.py tests/api/test_work_import_session.py tests/blocks/ai/test_ai_block_skeleton.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py tests/panels/test_panel_skill_examples.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dca0af10302b8481886a6689d9c4a825ba490730595bad13de01856033e420f1",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T13:31:23.858210Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5c3325e21e964f6965ce1a9661c4caebc0d33c544d2591a8350a368372513642",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T13:31:24.383142Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:dfaaa7ee01ad56cc726a4c2c4ba6d021b75f253643075e4015be51f2e172e2dc",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T13:31:24.397575Z",
+      "command": "ruff check src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/claude_agents_md.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/__init__.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/work_import.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_providers_registry.py tests/ai/test_windows_executable_resolution.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_provider_registry_extensibility.py tests/api/test_work_import_session.py tests/blocks/ai/test_ai_block_skeleton.py tests/cli/test_install.py tests/packaging/test_wheel_skills.py tests/panels/test_panel_skill_examples.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:279a1aedf614466a83483cb1192f549baa7ca8014c00f8070297b72469f3bd32",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T13:32:13.708734Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/agent_provisioning tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_refresh.py tests/agent_provisioning/test_skills.py tests/ai tests/ai/agent tests/ai/agent/mcp tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_live_findings_1994.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_mcp_server_skeleton.py tests/ai/test_mcp_server_stop.py tests/ai/test_mcp_socket_permissions.py tests/ai/test_mcp_workspace_tools.py tests/ai/test_permission_auto_mode.py tests/ai/test_provider_mcp_write_atomicity.py tests/ai/test_providers_registry.py tests/ai/test_terminal.py tests/ai/test_terminal_codex_overrides.py tests/ai/test_terminal_extra_env.py tests/ai/test_terminal_macos_smoke.py tests/ai/test_windows_executable_resolution.py tests/api/routes tests/api/routes/ai_pty/test_engine.py tests/api/test_agent_availability.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_identity_seam.py tests/api/test_miniapp_create.py tests/api/test_provider_discovery.py tests/api/test_provider_discovery_agreement.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_webmcp.py tests/api/test_work_import_session.py tests/architecture/test_adr_034_provider_single_source.py tests/architecture/test_packaging.py tests/blocks/ai/test_ai_block_skeleton.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/cli/test_webmcp_adapter.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/packaging/test_wheel_skills.py tests/panels/test_panel_skill_examples.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 1,
+      "input_fingerprint": "sha256:836a0ef9ca4bc7bc86bfc9f200bf7f7d3072c36ec0a827187d5996ce86154763",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T13:32:20.434549Z",
+      "command": "mypy src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/claude_agents_md.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/__init__.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/work_import.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d74f58f8d8933c4ae6afaa3a7e76b2252ee6355b9adc3a427c253b96d05917ec",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T13:34:46.715166Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/agent_provisioning tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_refresh.py tests/agent_provisioning/test_skills.py tests/ai tests/ai/agent tests/ai/agent/mcp tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_live_findings_1994.py tests/ai/test_mcp_agent_context.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_mcp_server_skeleton.py tests/ai/test_mcp_server_stop.py tests/ai/test_mcp_socket_permissions.py tests/ai/test_mcp_workspace_tools.py tests/ai/test_permission_auto_mode.py tests/ai/test_provider_mcp_write_atomicity.py tests/ai/test_providers_registry.py tests/ai/test_terminal.py tests/ai/test_terminal_codex_overrides.py tests/ai/test_terminal_extra_env.py tests/ai/test_terminal_macos_smoke.py tests/ai/test_windows_executable_resolution.py tests/api/routes tests/api/routes/ai_pty/test_engine.py tests/api/test_agent_availability.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_identity_seam.py tests/api/test_miniapp_create.py tests/api/test_provider_discovery.py tests/api/test_provider_discovery_agreement.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_webmcp.py tests/api/test_work_import_session.py tests/architecture/test_adr_034_provider_single_source.py tests/architecture/test_packaging.py tests/blocks/ai/test_ai_block_skeleton.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/cli/test_webmcp_adapter.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/packaging/test_wheel_skills.py tests/panels/test_panel_skill_examples.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:836a0ef9ca4bc7bc86bfc9f200bf7f7d3072c36ec0a827187d5996ce86154763",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "d98feb6eba68719f01e50dd8681ff41da7788c53",
+    "shas": [
+      "d98feb6eba68719f01e50dd8681ff41da7788c53"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -497,9 +652,455 @@
       "reason": "open PR"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:33:16.647346Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/architecture/ARCHITECTURE.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:16.800769Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:16.948109Z",
+      "class": null,
+      "kind": "path",
+      "path": "README.zh-CN.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.088119Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.222802Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/agent-provisioning.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.360302Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/cli-integration.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.528955Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T13:32:20.595170Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.609506Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.623920Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/_agent_reference/README.md",
+              "src/scistudio/_agent_reference/block-contract.md",
+              "src/scistudio/_agent_reference/data-types.md",
+              "src/scistudio/_agent_reference/gui-debug.md",
+              "src/scistudio/_agent_reference/miniapp-renderers.md",
+              "src/scistudio/_agent_reference/package-discovery.md",
+              "src/scistudio/_agent_reference/plot-contract.md",
+              "src/scistudio/_agent_reference/public-api.md",
+              "src/scistudio/_agent_reference/workflow-schema.md",
+              "src/scistudio/_skills/scistudio/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-use-gui/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+              "src/scistudio/_skills/scistudio/scistudio-write-type/SKILL.md",
+              "src/scistudio/agent_provisioning/_orchestrate.py",
+              "src/scistudio/agent_provisioning/claude_agents_md.py",
+              "src/scistudio/agent_provisioning/skills.py",
+              "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+              "src/scistudio/agent_provisioning/templates/legacy_content_hashes.json",
+              "src/scistudio/ai/agent/__init__.py",
+              "src/scistudio/ai/agent/mcp/__init__.py",
+              "src/scistudio/ai/agent/mcp/server.py",
+              "src/scistudio/ai/agent/providers_registry.py",
+              "src/scistudio/ai/agent/system_prompt.py",
+              "src/scistudio/ai/agent/terminal.py",
+              "src/scistudio/api/routes/ai_pty/engine.py",
+              "src/scistudio/api/routes/work_import.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T13:32:20.637810Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.651375Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.664067Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.675935Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.688050Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.699870Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.711566Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:32:20.744647Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.870427Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.884115Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.897038Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.910629Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.923880Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.936232Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.948438Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.960696Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.973583Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:46.986285Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:34:47.050030Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.684607Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "docs/architecture/ARCHITECTURE.md",
+          "finding_class": "architecture_doc_guard",
+          "git_evidence": null,
+          "id": "architecture_doc_guard.missing-owner-approval",
+          "line": null,
+          "message": "the architecture document is owner-controlled and this change has no owner approval: apply admin-approved:architecture-doc as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "docs/architecture/ARCHITECTURE.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "architecture_doc_guard.missing-owner-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.696917Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.708938Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.720574Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.732497Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.744036Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.755396Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.767263Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.779900Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.791874Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:35:18.825368Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -515,11 +1116,129 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "8d2d3a5be99edfae4ca66694197748088fa220d1",
+    "base_sha": "8d2d3a5b",
+    "changed_files": [
+      ".workflow/records/2295-phase-c-docs.json",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "README.md",
+      "README.zh-CN.md",
+      "docs/adr/ADR-034.md",
+      "docs/adr/ADR-040.md",
+      "docs/agent-provisioning.md",
+      "docs/architecture/ARCHITECTURE.md",
+      "docs/cli-integration.md",
+      "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "docs/specs/embedded-coding-agent-spec.md",
+      "src/scistudio/_agent_reference/README.md",
+      "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/_agent_reference/data-types.md",
+      "src/scistudio/_agent_reference/gui-debug.md",
+      "src/scistudio/_agent_reference/miniapp-renderers.md",
+      "src/scistudio/_agent_reference/package-discovery.md",
+      "src/scistudio/_agent_reference/plot-contract.md",
+      "src/scistudio/_agent_reference/public-api.md",
+      "src/scistudio/_agent_reference/workflow-schema.md",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-debug-run/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-project-qa/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-use-gui/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-type/SKILL.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/claude_agents_md.py",
+      "src/scistudio/agent_provisioning/skills.py",
+      "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "src/scistudio/agent_provisioning/templates/legacy_content_hashes.json",
+      "src/scistudio/ai/agent/__init__.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "src/scistudio/ai/agent/mcp/server.py",
+      "src/scistudio/ai/agent/providers_registry.py",
+      "src/scistudio/ai/agent/system_prompt.py",
+      "src/scistudio/ai/agent/terminal.py",
+      "src/scistudio/api/routes/ai_pty/engine.py",
+      "src/scistudio/api/routes/work_import.py",
+      "tests/agent_provisioning/test_claude_agents_md.py",
+      "tests/agent_provisioning/test_orchestrate.py",
+      "tests/agent_provisioning/test_skills.py",
+      "tests/ai/test_providers_registry.py",
+      "tests/ai/test_system_prompt.py",
+      "tests/ai/test_windows_executable_resolution.py",
+      "tests/api/test_ai_pty_audit_fixes.py",
+      "tests/api/test_provider_registry_extensibility.py",
+      "tests/api/test_work_import_session.py",
+      "tests/blocks/ai/test_ai_block_skeleton.py",
+      "tests/cli/test_install.py",
+      "tests/packaging/test_wheel_skills.py",
+      "tests/panels/test_panel_skill_examples.py"
+    ],
+    "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+    "head": "HEAD",
+    "head_sha": "d98feb6e",
+    "surfaces": {
+      "docs": 7,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 33,
+      "packaging": 0,
+      "protected_architecture": 1,
+      "protected_core": 0,
+      "sentrux": 51,
+      "test": 13,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Unified ADR-054 Phase C documentation revision session; owner directly authorized editing ARCHITECTURE.md live (admin-approved:architecture-doc). First: revise the ARCHITECTURE.md introduction to match the latest README.md.",
   "persona": "live_implementer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2295,
+      2383
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T13:32:20.744711Z",
+      "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.python_tests",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-15T13:34:47.050081Z",
+      "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T13:35:18.825395Z",
+      "diff_fingerprint": "sha256:6cd26045fe62dbb12cf67d658e052ead73c66c0c2eb1266d811d627997456d23",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2295-phase-c-docs",
   "requested_admin_labels": [
     {
@@ -530,11 +1249,37 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:architecture-doc"
+    ],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -640,10 +1385,65 @@
       "at": "2026-09-15T08:42:27.139749Z",
       "pattern": "CHANGELOG.md",
       "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T13:33:16.478168Z",
+      "pattern": "docs/cli-integration.md",
+      "reason": "docs/cli-integration.md lists the provisioned skills and gained scistudio-write-type"
     }
   ],
   "session_id": "1d22997b-42d5-4465-90a0-51273cdb4455",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T13:33:17.680067Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_skills.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.830640Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_orchestrate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:17.989267Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_claude_agents_md.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:18.137034Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_wheel_skills.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:18.297862Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/cli/test_install.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:33:18.458370Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_skill_examples.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
