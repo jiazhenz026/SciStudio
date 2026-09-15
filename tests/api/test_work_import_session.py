@@ -585,6 +585,24 @@ def test_auto_is_refused_for_a_provider_without_an_auto_mode(
     assert not brief_dir.exists() or not list(brief_dir.iterdir())
 
 
+def test_submit_makes_no_live_availability_call(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2454: the dialog probes on open; starting the session never does."""
+    from scistudio.ai.agent import availability
+
+    def live(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("Bring In My Work made a live availability call on submit")
+
+    for name in ("probe_availability", "resolve_availability", "_live_call_cause", "_run_minimal_call"):
+        monkeypatch.setattr(availability, name, live)
+
+    _body, data = _start(client, opened_project)
+
+    assert data["provider"] == "claude-code"
+    assert len(spawn.calls) == 1
+
+
 def test_frontend_permission_spelling_is_rejected(
     client: TestClient, opened_project: Path, spawn: _SpawnRecorder
 ) -> None:

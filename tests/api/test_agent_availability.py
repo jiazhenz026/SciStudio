@@ -1192,3 +1192,81 @@ def test_no_install_hint_says_cli_twice() -> None:
         hint = availability_module.install_hint(descriptor)
         assert "CLI CLI" not in hint, f"{descriptor.key}: {hint}"
         assert hint.count("CLI") <= 1, f"{descriptor.key} says CLI more than once: {hint}"
+
+
+# ---------------------------------------------------------------------------
+# Static session-start check (#2454)
+# ---------------------------------------------------------------------------
+
+
+def _status(key: str, *, available: bool = True, logged_in: bool = True, version: str | None = "9.9.9") -> dict[str, Any]:
+    return {"name": key, "available": available, "version": version, "logged_in": logged_in, "label": key}
+
+
+@pytest.fixture()
+def _no_live_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    def live(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("the session-start check made a live call")
+
+    monkeypatch.setattr(availability_module, "_live_call_cause", live)
+    monkeypatch.setattr(availability_module, "_run_minimal_call", live)
+
+
+@pytest.mark.usefixtures("_no_live_calls")
+@pytest.mark.parametrize(
+    ("row", "refusal"),
+    [
+        (_status("claude-code", available=False), availability_module.SessionRefusal.NOT_INSTALLED),
+        (_status("claude-code", logged_in=False), availability_module.SessionRefusal.NOT_AUTHENTICATED),
+        (_status("kimi-code"), availability_module.SessionRefusal.SESSION_UNSUPPORTED),
+    ],
+)
+def test_session_start_refuses_a_named_provider_from_presence_alone(row: dict[str, Any], refusal: Any) -> None:
+    check = availability_module.check_session_start([row], row["name"], "safe")
+
+    assert check.refusal is refusal
+    assert check.message
+
+
+@pytest.mark.usefixtures("_no_live_calls")
+def test_session_start_refuses_an_unknown_provider() -> None:
+    check = availability_module.check_session_start([_status("claude-code")], "nope", "safe")
+
+    assert check.refusal is availability_module.SessionRefusal.UNKNOWN_PROVIDER
+
+
+@pytest.mark.usefixtures("_no_live_calls")
+def test_session_start_checks_auto_against_the_installed_version() -> None:
+    old = availability_module.check_session_start([_status("claude-code", version="1.0.0")], "claude-code", "auto")
+    new = availability_module.check_session_start([_status("claude-code")], "claude-code", "auto")
+
+    assert old.refusal is availability_module.SessionRefusal.AUTO_UNSUPPORTED
+    assert new.ok and new.key == "claude-code"
+
+
+@pytest.mark.usefixtures("_no_live_calls")
+def test_session_start_default_prefers_named_providers_then_registry_order() -> None:
+    rows = [_status("claude-code", logged_in=False), _status("codex"), _status("qoder")]
+
+    assert availability_module.check_session_start(rows, None, "safe").key == "codex"
+    assert availability_module.check_session_start(rows, None, "safe", prefer=["qoder"]).key == "qoder"
+
+
+@pytest.mark.usefixtures("_no_live_calls")
+def test_session_start_with_nothing_usable_names_the_most_actionable_step() -> None:
+    rows = [_status("claude-code", available=False), _status("codex", logged_in=False)]
+
+    check = availability_module.check_session_start(rows, None, "safe")
+
+    assert check.refusal is availability_module.SessionRefusal.NO_PROVIDER
+    assert check.message == availability_module.login_hint(providers_registry.get("codex"))
+
+
+def test_cached_availability_never_computes_and_expires() -> None:
+    report = availability_module.AvailabilityReport(state=AvailabilityState.READY, providers=())
+
+    assert availability_module.cached_availability() is None
+    availability_module._cached_report = (time.monotonic() + 60, report)
+    assert availability_module.cached_availability() is report
+    availability_module._cached_report = (time.monotonic() - 1, report)
+    assert availability_module.cached_availability() is None

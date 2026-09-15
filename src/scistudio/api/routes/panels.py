@@ -412,23 +412,6 @@ def _permission_mode(raw: str | None) -> str:
     return mode
 
 
-def _graded_reason(row: Any, report: Any) -> str:
-    """The availability report's own sentence for why a session cannot start."""
-    # The availability report's own sentence for why a session cannot start.
-    #
-    # Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
-    # which of install, sign in, or "the call failed because …" is the actionable
-    # one, and a second wording here would give the user two accounts of one fact.
-    if row is None:
-        row = next((p for p in report.providers if p.state == report.state), None)
-    if row is None:
-        return "No agent provider is configured, so no MiniApp session can start."
-    for sentence in (row.session_unsupported_reason, row.next_step, row.cause):
-        if sentence:
-            return str(sentence)
-    return f"{row.label} cannot start a session right now."
-
-
 async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
     """Return the provider and mode a session may start with, or refuse."""
     # Return the provider and mode a session may start with, or refuse (FR-024).
@@ -436,37 +419,29 @@ async def _agent_for_session(provider: str | None, permission_mode: str | None) 
     # This runs FIRST, before anything is written: a MiniApp whose agent never
     # started is a directory the user did not ask for and has to find and delete
     # themselves. ``session_unsupported_reason`` refuses a provider however
-    # ``ready`` it is — the opening instruction is a positional argument its CLI
+    # ready it is — the opening instruction is a positional argument its CLI
     # cannot take, and no amount of signing in changes that.
+    #
+    # #2454: the check is static. The dialog already ran the graded probe when it
+    # opened; a live, billed call per provider here held "Creating…" for seconds.
+    # The status rows (installed, signed in, ``--version``) and the registry
+    # decide; a still-fresh cached report only orders the default choice.
     from scistudio.ai.agent import availability as agent_availability
-    from scistudio.ai.agent.availability import AvailabilityState
-    from scistudio.ai.agent.providers_registry import get as get_descriptor
+    from scistudio.ai.agent.availability import AvailabilityState, SessionRefusal
     from scistudio.api.routes.ai import _status_rows
 
-    def usable(row: Any) -> bool:
-        return row.state is AvailabilityState.READY and not row.session_unsupported_reason
-
     mode = _permission_mode(permission_mode)
-    report = await agent_availability.probe_availability(_status_rows)
-    if provider is None:
-        chosen = next((row for row in report.providers if usable(row)), None)
-        if chosen is None:
-            raise PanelError(409, "agent_unavailable", _graded_reason(None, report))
-    else:
-        chosen = next((row for row in report.providers if row.key == provider), None)
-        if chosen is None:
-            raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
-        if not usable(chosen):
-            raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
-    if mode == "auto":
-        descriptor = get_descriptor(chosen.key)
-        if not descriptor.supports_auto_mode:
-            raise PanelError(
-                400,
-                "invalid_request",
-                f"{descriptor.label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
-            )
-    return chosen.key, mode
+    cached = agent_availability.cached_availability()
+    prefer = [p.key for p in cached.providers if p.state is AvailabilityState.READY] if cached else []
+    check = agent_availability.check_session_start(await _status_rows(), provider, mode, prefer=prefer)
+    if check.ok and check.key is not None:
+        return check.key, mode
+    message = check.message or "No agent provider can start a MiniApp session right now."
+    if check.refusal is SessionRefusal.UNKNOWN_PROVIDER:
+        raise PanelError(422, "invalid_request", message)
+    if check.refusal is SessionRefusal.AUTO_UNSUPPORTED:
+        raise PanelError(400, "invalid_request", message)
+    raise PanelError(409, "agent_unavailable", message)
 
 
 def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permission_mode: str) -> str | None:
@@ -474,7 +449,7 @@ def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permis
 
     Last, and never fatal: the directory and the brief are already on disk and
     the tab opens on them, so a provider binary that vanished between the
-    availability probe and this call leaves the user with a MiniApp they can
+    static session check and this call leaves the user with a MiniApp they can
     still see and an agent they can start by hand.
     """
     from scistudio.panels.miniapp_create import opening_message
@@ -594,7 +569,7 @@ async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, 
     """Create a MiniApp directory and start the agent session that writes it."""
     # Create a MiniApp directory and start the agent session that writes it.
     #
-    # The order is normative (FR-024): the graded availability check comes first
+    # The order is normative (FR-024): the static agent check (#2454) comes first
     # and nothing is created when it refuses, then the template directory, then
     # the brief — closed and fsynced — and the agent session last, pointed at a
     # brief that is already complete on disk.

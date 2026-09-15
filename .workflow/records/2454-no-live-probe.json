@@ -1,0 +1,86 @@
+{
+  "base_ref": null,
+  "branch": "fix/2454-no-live-probe-on-session-start",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/availability.py",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/work_import.py",
+      "tests/api/test_miniapp_create.py",
+      "tests/api/test_work_import_session.py",
+      "tests/api/test_agent_availability.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:21:27.061028Z",
+      "class": "owner-directive",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising the docs and directed no documentation edits in this task; stale spec/ADR mentions (docs/specs/adr-054-miniapp.md FR-024, US1 AS4, SC-001; docs/adr/ADR-054.md session paragraph) are listed in the PR body for the owner's revision.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2454,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Session start (MiniApp create, MiniApp convert, Bring in my work) must not run live availability checks; use static checks only.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2454-no-live-probe",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0d53d43a-70ef-4da6-80bb-54e16bd6f8fd",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T13:21:27.061197Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_miniapp_create.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:21:27.061201Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:21:27.061203Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_agent_availability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

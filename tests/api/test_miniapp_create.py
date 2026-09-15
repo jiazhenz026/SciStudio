@@ -9,6 +9,7 @@ interactive block).
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -18,7 +19,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from scistudio.ai.agent import availability as agent_availability
+from scistudio.ai.agent import providers_registry
 from scistudio.ai.agent.availability import AvailabilityReport, AvailabilityState, ProviderAvailability
+from scistudio.api.routes import ai as ai_routes
 from scistudio.api.routes.ai_pty import engine as pty_engine
 from scistudio.api.routes.panels import router
 from scistudio.api.runtime.models import DataRecord
@@ -120,35 +123,55 @@ def _client(tmp_path: Path) -> TestClient:
     return TestClient(app)
 
 
-def _report(*providers: ProviderAvailability) -> AvailabilityReport:
-    state = next((p.state for p in providers if p.state is AvailabilityState.READY), AvailabilityState.NOT_INSTALLED)
-    return AvailabilityReport(state=state, providers=tuple(providers))
+def _row(key: str, *, available: bool = True, logged_in: bool = True, version: str | None = "9.9.9") -> dict[str, Any]:
+    """One ``GET /api/ai/status`` row, as the session check reads it."""
+    return {
+        "name": key,
+        "available": available,
+        "version": version if available else None,
+        "logged_in": logged_in,
+        "label": providers_registry.get(key).label,
+    }
 
 
-_READY = ProviderAvailability(key="claude-code", label="Claude Code", state=AvailabilityState.READY)
-_MISSING = ProviderAvailability(
-    key="claude-code",
-    label="Claude Code",
-    state=AvailabilityState.NOT_INSTALLED,
-    next_step="Install Claude Code with npm install -g @anthropic-ai/claude-code.",
-)
+_READY = _row("claude-code")
+_MISSING = _row("claude-code", available=False)
+
+
+def _forbid_live_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2454: starting a session must never make a live availability call."""
+
+    def live(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("a session-start route made a live availability call")
+
+    agent_availability.clear_availability_cache()
+    monkeypatch.setattr(agent_availability, "probe_availability", live)
+    monkeypatch.setattr(agent_availability, "resolve_availability", live)
+    monkeypatch.setattr(agent_availability, "_live_call_cause", live)
+    monkeypatch.setattr(agent_availability, "_run_minimal_call", live)
+
+
+def _use_rows(monkeypatch: pytest.MonkeyPatch, *rows: dict[str, Any]) -> None:
+    async def status_rows() -> list[dict[str, Any]]:
+        return list(rows)
+
+    monkeypatch.setattr(ai_routes, "_status_rows", status_rows)
 
 
 @pytest.fixture()
-def agent(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    """A ready provider and a recorded pre-spawned session."""
+def agent(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, Any]]:
+    """A statically ready provider, no live calls, and a recorded pre-spawned session."""
     spawned: dict[str, Any] = {}
-
-    async def probe(_loader: Any, *, refresh: bool = False) -> AvailabilityReport:
-        return _report(*spawned.get("providers", (_READY,)))
 
     def open_tab(*, provider: str, cwd: str, opening_message: str, permission_mode: str) -> str:
         spawned.update(provider=provider, cwd=cwd, opening_message=opening_message, permission_mode=permission_mode)
         return "tab-abc123"
 
-    monkeypatch.setattr(agent_availability, "probe_availability", probe)
+    _forbid_live_calls(monkeypatch)
+    _use_rows(monkeypatch, _READY)
     monkeypatch.setattr(pty_engine, "open_work_import_tab", open_tab)
-    return spawned
+    yield spawned
+    agent_availability.clear_availability_cache()
 
 
 _SOURCE = {"workflow_id": "wf", "block_id": "seg", "port": "out"}
@@ -207,46 +230,120 @@ def test_create_writes_a_brief_the_session_is_pointed_at(tmp_path: Path, agent: 
 def test_create_refuses_and_writes_nothing_when_no_agent_can_start(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """US1 AS4: no directory is created and the graded reason is returned verbatim."""
-
-    async def probe(_loader: Any, *, refresh: bool = False) -> AvailabilityReport:
-        return _report(_MISSING)
+    """US1 AS4: no directory is created and the static reason is returned."""
 
     def refuse(**_kwargs: Any) -> str:
         raise AssertionError("the session must not be spawned when no agent is available")
 
-    monkeypatch.setattr(agent_availability, "probe_availability", probe)
+    _forbid_live_calls(monkeypatch)
+    _use_rows(monkeypatch, _MISSING)
     monkeypatch.setattr(pty_engine, "open_work_import_tab", refuse)
 
     client = _client(tmp_path)
     response = _create(client)
 
     assert response.status_code == 409
-    assert response.json()["detail"] == {"code": "agent_unavailable", "message": _MISSING.next_step}
+    assert response.json()["detail"] == {
+        "code": "agent_unavailable",
+        "message": agent_availability.install_hint(providers_registry.get("claude-code")),
+    }
     assert not (tmp_path / "panels").exists()
     assert not (tmp_path / ".scistudio" / "miniapps").exists()
+
+
+@pytest.mark.parametrize("provider", [None, "claude-code"])
+def test_create_refuses_a_signed_out_provider_without_a_live_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, provider: str | None
+) -> None:
+    """#2454: not signed in is decided from the status row."""
+    _forbid_live_calls(monkeypatch)
+    _use_rows(monkeypatch, _row("claude-code", logged_in=False))
+
+    response = _create(_client(tmp_path), provider=provider)
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == {
+        "code": "agent_unavailable",
+        "message": agent_availability.login_hint(providers_registry.get("claude-code")),
+    }
+    assert not (tmp_path / "panels").exists()
 
 
 def test_create_refuses_a_provider_that_cannot_be_handed_a_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """FR-024: ``session_unsupported_reason`` refuses a provider however ready it is."""
-    unsupported = ProviderAvailability(
-        key="kimi-code",
-        label="Kimi Code",
-        state=AvailabilityState.READY,
-        session_unsupported_reason="Kimi Code parses its first positional argument as a subcommand.",
-    )
-
-    async def probe(_loader: Any, *, refresh: bool = False) -> AvailabilityReport:
-        return AvailabilityReport(state=AvailabilityState.READY, providers=(unsupported,))
-
-    monkeypatch.setattr(agent_availability, "probe_availability", probe)
+    _forbid_live_calls(monkeypatch)
+    _use_rows(monkeypatch, _row("kimi-code"))
     client = _client(tmp_path)
     response = _create(client, provider="kimi-code")
 
     assert response.status_code == 409
-    assert response.json()["detail"]["message"] == unsupported.session_unsupported_reason
+    assert response.json()["detail"]["message"] == agent_availability.session_unsupported_reason(
+        providers_registry.get("kimi-code")
+    )
+    assert not (tmp_path / "panels").exists()
+
+
+def test_create_refuses_an_unknown_provider(tmp_path: Path, agent: dict[str, Any]) -> None:
+    response = _create(_client(tmp_path), provider="no-such-agent")
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "invalid_request"
+    assert "opening_message" not in agent
+    assert not (tmp_path / "panels").exists()
+
+
+def test_create_default_provider_skips_statically_unusable_rows(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2454: with no provider named, the first statically usable row is chosen."""
+    _use_rows(
+        monkeypatch,
+        _row("claude-code", available=False),
+        _row("kimi-code"),
+        _row("codex", logged_in=False),
+        _row("qoder"),
+    )
+
+    response = _create(_client(tmp_path))
+
+    assert response.status_code == 201, response.text
+    assert response.json()["provider"] == "qoder"
+    assert agent["provider"] == "qoder"
+
+
+def test_create_default_provider_prefers_a_fresh_cached_ready_report(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dialog's still-valid report orders the default; it is never recomputed."""
+    _use_rows(monkeypatch, _row("claude-code"), _row("codex"))
+    report = AvailabilityReport(
+        state=AvailabilityState.READY,
+        providers=(
+            ProviderAvailability(key="claude-code", label="Claude Code", state=AvailabilityState.CALL_FAILED),
+            ProviderAvailability(key="codex", label="Codex", state=AvailabilityState.READY),
+        ),
+    )
+    monkeypatch.setattr(agent_availability, "_cached_report", (float("inf"), report))
+
+    response = _create(_client(tmp_path))
+
+    assert response.status_code == 201, response.text
+    assert agent["provider"] == "codex"
+
+
+def test_create_refuses_auto_below_the_installed_version_floor(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2379/#2454: Auto is checked against the status row's ``--version``."""
+    _use_rows(monkeypatch, _row("claude-code", version="1.0.0 (Claude Code)"))
+
+    response = _create(_client(tmp_path), provider="claude-code", permission_mode="auto")
+
+    assert response.status_code == 400
+    assert "Auto permission mode" in response.json()["detail"]["message"]
+    assert "opening_message" not in agent
     assert not (tmp_path / "panels").exists()
 
 
@@ -394,6 +491,27 @@ def test_convert_starts_a_session_and_leaves_the_miniapp_alone(tmp_path: Path, a
     assert {p.name: p.read_bytes() for p in directory.iterdir()} == before
 
 
+def test_convert_refuses_a_signed_out_provider_before_writing_a_brief(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2454: convert uses the same static check, with no live call."""
+    client = _client(tmp_path)
+    created = _create(client).json()
+    briefs_before = set((tmp_path / ".scistudio" / "miniapps").glob("*.md"))
+    agent.clear()
+    _use_rows(monkeypatch, _row("claude-code", logged_in=False))
+
+    response = client.post(
+        f"/api/panels/miniapps/{created['panel_id']}/convert",
+        json={"outputs": [{"name": "mask", "type": "Mask", "port": "out"}], "provider": "claude-code"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "agent_unavailable"
+    assert "opening_message" not in agent
+    assert set((tmp_path / ".scistudio" / "miniapps").glob("*.md")) == briefs_before
+
+
 def test_convert_of_an_unknown_miniapp_is_a_404(tmp_path: Path, agent: dict[str, Any]) -> None:
     client = _client(tmp_path)
     response = client.post("/api/panels/miniapps/lab.nothing/convert", json={"outputs": []})
@@ -404,13 +522,11 @@ def test_convert_of_an_unknown_miniapp_is_a_404(tmp_path: Path, agent: dict[str,
 def test_a_session_that_does_not_start_leaves_the_template(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Edge case: the agent fails to start after the directory was created."""
 
-    async def probe(_loader: Any, *, refresh: bool = False) -> AvailabilityReport:
-        return _report(_READY)
-
     def fail(**_kwargs: Any) -> str:
         raise FileNotFoundError("claude binary vanished")
 
-    monkeypatch.setattr(agent_availability, "probe_availability", probe)
+    _forbid_live_calls(monkeypatch)
+    _use_rows(monkeypatch, _READY)
     monkeypatch.setattr(pty_engine, "open_work_import_tab", fail)
 
     client = _client(tmp_path)

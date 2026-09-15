@@ -30,7 +30,7 @@
 # ``prompt_argv_prefix is None``. FR-029 removes the *system-prompt*
 # difference between providers; it does not remove that one. Such a
 # provider is refused up front by
-# :func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+# :func:`~scistudio.ai.agent.availability.session_capability_refusal`,
 # with the registry's own explanation and before anything is written, so a
 # session that cannot start leaves nothing behind.
 #
@@ -56,7 +56,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.availability import session_unsupported_reason
+from scistudio.ai.agent.availability import SessionRefusal, session_capability_refusal
 from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.work_import.brief import compose_brief
@@ -252,20 +252,20 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
     # user should never get here — this is the guard for a caller that is not
     # the dialog, and for a future provider whose limitation nobody carried
     # through to the frontend.
-    unsupported = session_unsupported_reason(get_descriptor(request.provider))
-    if unsupported is not None:
+    #
+    # #2379: the dialog greys Auto out for providers without an Auto mode; the
+    # same helper refuses it for any other caller, before a brief is written.
+    #
+    # #2454: these are the only provider checks on submit, and both are static —
+    # registry facts, no live availability call. The dialog probes when it opens.
+    refusal = session_capability_refusal(get_descriptor(request.provider), request.permission_mode)
+    if refusal is not None and refusal.refusal is SessionRefusal.SESSION_UNSUPPORTED:
         raise HTTPException(
             status_code=400,
-            detail=(f"Provider {request.provider!r} cannot run a Bring In My Work session. {unsupported}"),
+            detail=(f"Provider {request.provider!r} cannot run a Bring In My Work session. {refusal.message}"),
         )
-
-    # #2379: the dialog greys Auto out for these providers; this is the guard
-    # for any other caller, refused before a brief is written.
-    if request.permission_mode == "auto" and not get_descriptor(request.provider).supports_auto_mode:
-        raise HTTPException(
-            status_code=400,
-            detail=f"{get_descriptor(request.provider).label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
-        )
+    if refusal is not None:
+        raise HTTPException(status_code=400, detail=refusal.message)
 
     # ``ImportSessionContext`` owns the answer-shape rules (contract C2): a
     # source location supplied alongside "I don't have a codebase", neither

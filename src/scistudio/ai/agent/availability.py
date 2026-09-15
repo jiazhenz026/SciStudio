@@ -133,13 +133,18 @@ __all__ = [
     "MinimalCall",
     "ProbeFile",
     "ProviderAvailability",
+    "SessionRefusal",
+    "SessionStartCheck",
     "StatusRow",
     "aggregate_state",
+    "cached_availability",
+    "check_session_start",
     "clear_availability_cache",
     "install_hint",
     "login_hint",
     "probe_availability",
     "resolve_availability",
+    "session_capability_refusal",
     "session_unsupported_reason",
 ]
 
@@ -931,6 +936,167 @@ def _consume_late_result(task: asyncio.Task[str | None]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Static session-start validation (#2454)
+# ---------------------------------------------------------------------------
+#
+# Starting a session is not the place for a live call. The dialogs that start
+# one (MiniApp create and convert, Bring In My Work) already probe when they
+# open and on an explicit retry; re-probing on submit made the button wait for a
+# billed request to every configured provider, usually after the 60 s cache had
+# expired. A session-start route therefore decides from presence facts only —
+# the status row's ``available``/``logged_in``/``version`` and the registry
+# descriptor — and a provider whose call would fail is reported by the spawned
+# session itself, which is already non-fatal on every route.
+
+
+class SessionRefusal(StrEnum):
+    """Why a session cannot start with a provider, decided without a live call."""
+
+    UNKNOWN_PROVIDER = "unknown_provider"
+    NO_PROVIDER = "no_provider"
+    NOT_INSTALLED = "not_installed"
+    NOT_AUTHENTICATED = "not_authenticated"
+    SESSION_UNSUPPORTED = "session_unsupported"
+    AUTO_UNSUPPORTED = "auto_unsupported"
+
+
+@dataclass(frozen=True)
+class SessionStartCheck:
+    """The outcome of :func:`check_session_start`."""
+
+    key: str | None
+    """The provider the session may start with, or the one that was refused."""
+
+    refusal: SessionRefusal | None = None
+    message: str | None = None
+    """A user-facing sentence when :attr:`refusal` is set."""
+
+    @property
+    def ok(self) -> bool:
+        """Whether the session may start."""
+        return self.refusal is None
+
+
+#: Order a "nothing can start" answer picks its sentence from, most actionable
+#: first — the static counterpart of :data:`_ACTIONABILITY_ORDER`.
+_STATIC_REFUSAL_ORDER: tuple[SessionRefusal, ...] = (
+    SessionRefusal.SESSION_UNSUPPORTED,
+    SessionRefusal.NOT_AUTHENTICATED,
+    SessionRefusal.NOT_INSTALLED,
+)
+
+
+def session_capability_refusal(
+    descriptor: ProviderDescriptor,
+    permission_mode: str,
+    *,
+    version: str | None = None,
+    version_known: bool = False,
+) -> SessionStartCheck | None:
+    """Refuse *descriptor* for facts about its CLI, or return ``None``.
+
+    Two facts, both independent of the user's setup: the CLI cannot be handed an
+    opening instruction (:func:`session_unsupported_reason`), or *permission_mode*
+    is ``auto`` and the CLI has no Auto mode. With ``version_known`` the Auto
+    check also applies the descriptor's version floor to *version*, the status
+    row's ``--version`` banner; without it only the descriptor is consulted.
+    """
+    unsupported = session_unsupported_reason(descriptor)
+    if unsupported is not None:
+        return SessionStartCheck(descriptor.key, SessionRefusal.SESSION_UNSUPPORTED, unsupported)
+    if permission_mode != "auto":
+        return None
+    if not descriptor.supports_auto_mode:
+        return SessionStartCheck(
+            descriptor.key,
+            SessionRefusal.AUTO_UNSUPPORTED,
+            f"{descriptor.label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
+        )
+    if version_known and not descriptor.supports_auto_mode_at(version):
+        return SessionStartCheck(
+            descriptor.key,
+            SessionRefusal.AUTO_UNSUPPORTED,
+            f"The installed {descriptor.label} predates its Auto permission mode; "
+            "update it, or choose Manual or Yolo/Bypass.",
+        )
+    return None
+
+
+def _static_refusal(row: StatusRow, descriptor: ProviderDescriptor) -> SessionStartCheck | None:
+    """Refuse a row for presence or session capability, ignoring the mode."""
+    presence = _presence_state(row)
+    if presence is AvailabilityState.NOT_INSTALLED:
+        return SessionStartCheck(descriptor.key, SessionRefusal.NOT_INSTALLED, install_hint(descriptor))
+    if presence is AvailabilityState.NOT_AUTHENTICATED:
+        return SessionStartCheck(descriptor.key, SessionRefusal.NOT_AUTHENTICATED, login_hint(descriptor))
+    unsupported = session_unsupported_reason(descriptor)
+    if unsupported is not None:
+        return SessionStartCheck(descriptor.key, SessionRefusal.SESSION_UNSUPPORTED, unsupported)
+    return None
+
+
+def check_session_start(
+    status_rows: Sequence[StatusRow],
+    provider: str | None,
+    permission_mode: str,
+    *,
+    prefer: Sequence[str] = (),
+) -> SessionStartCheck:
+    """Decide whether a session may start, from the status rows alone.
+
+    Makes no live call. A named *provider* is refused when it is unknown, not
+    installed, not signed in, cannot take an opening instruction, or cannot run
+    *permission_mode*. With no provider the first statically usable row is
+    chosen — those named in *prefer* first, in that order, then registry order —
+    and the mode is checked against it; when none is usable the most actionable
+    row's sentence is returned.
+    """
+    # Development references: #2454, FR-024.
+    from scistudio.ai.agent import providers_registry
+
+    def descriptor_for(row: StatusRow) -> ProviderDescriptor | None:
+        try:
+            return providers_registry.get(str(row.get("name", "")))
+        except KeyError:
+            return None
+
+    def finish(row: StatusRow, descriptor: ProviderDescriptor) -> SessionStartCheck:
+        capability = session_capability_refusal(
+            descriptor, permission_mode, version=_row_version(row), version_known=True
+        )
+        return capability or SessionStartCheck(descriptor.key)
+
+    if provider is not None:
+        row = next((r for r in status_rows if str(r.get("name", "")) == provider), None)
+        descriptor = descriptor_for(row) if row is not None else None
+        if row is None or descriptor is None:
+            return SessionStartCheck(provider, SessionRefusal.UNKNOWN_PROVIDER, f"Unknown agent provider {provider!r}")
+        return _static_refusal(row, descriptor) or finish(row, descriptor)
+
+    rank = {key: index for index, key in enumerate(prefer)}
+    ordered = sorted(
+        enumerate(status_rows),
+        key=lambda item: (rank.get(str(item[1].get("name", "")), len(rank)), item[0]),
+    )
+    refusals: list[SessionStartCheck] = []
+    for _index, row in ordered:
+        descriptor = descriptor_for(row)
+        if descriptor is None:
+            continue
+        refused = _static_refusal(row, descriptor)
+        if refused is None:
+            return finish(row, descriptor)
+        refusals.append(refused)
+    for kind in _STATIC_REFUSAL_ORDER:
+        chosen = next((r for r in refusals if r.refusal is kind), None)
+        if chosen is not None:
+            return SessionStartCheck(None, SessionRefusal.NO_PROVIDER, chosen.message)
+    return SessionStartCheck(
+        None, SessionRefusal.NO_PROVIDER, "No agent provider is configured, so no session can start."
+    )
+
+
+# ---------------------------------------------------------------------------
 # Shared cached entry point
 # ---------------------------------------------------------------------------
 
@@ -943,6 +1109,19 @@ def clear_availability_cache() -> None:
     """Drop the memoised report. Exposed for tests and for explicit invalidation."""
     global _cached_report
     _cached_report = None
+
+
+def cached_availability() -> AvailabilityReport | None:
+    """Return the memoised report while it is still fresh, else ``None``.
+
+    Never computes anything: no status probe and no live call. A session-start
+    route uses it only as a hint for which provider to prefer when the caller
+    named none (#2454).
+    """
+    cached = _cached_report
+    if cached is None or cached[0] <= time.monotonic():
+        return None
+    return cached[1]
 
 
 async def probe_availability(
