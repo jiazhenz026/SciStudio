@@ -6,7 +6,7 @@ Asserts the FastMCP-backed MCP server matches the ADR-040 contract:
   (26 from ADR-040 §3.1 + 1 from Addendum 5 / #1488 + 6 plot tools
   from ADR-048 SPEC 2 + 1 qa tool ``open_gui`` from #1947 + 1 library
   tool ``promote_to_user_library`` from ADR-053 FR-011 + 2 panel tools
-  from ADR-054 MiniApp FR-029/FR-030 + ``list_miniapps`` from #2441 + 14
+  from ADR-054 MiniApp FR-029/FR-030 + ``list_panels`` from #2441/#2445 + 14
   external-audience tools from ADR-055 Spec 2 / #2279, which the local
   socket transport hides).
 * Every write-class tool's result model has ``next_step: str``.
@@ -86,7 +86,7 @@ _EXPECTED_TOOL_NAMES = {
     # category (g) panels (ADR-054 MiniApp FR-029/FR-030)
     "validate_panel",
     "open_miniapp",
-    "list_miniapps",  # #2441
+    "list_panels",  # #2441, #2445
     "screenshot_gui",
     # ADR-055 Spec 2 / #2279 — external audience (WebMCP bridge only)
     "get_agent_context",

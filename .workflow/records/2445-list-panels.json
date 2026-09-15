@@ -1,0 +1,61 @@
+{
+  "base_ref": "origin/main",
+  "branch": "feat/2445-list-panels",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "tests/ai/test_mcp_panels_tools.py",
+      "tests/e2e/test_mcp_tools.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_finish_ai_block_skeleton.py",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/cli/test_mcp_bridge.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T11:19:27.723764Z",
+      "owner_directive": "Do not change any documentation - no architecture docs or any other docs; the owner is revising docs separately.",
+      "reason": "second owner directive: no documentation changes"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2445,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Rename list_miniapps to list_panels; list panel kinds (miniapp, interactive panel, previewer) and panel description etc.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2445-list-panels",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0f36a1d8-158f-4fce-bb99-c351f7feffbf",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
