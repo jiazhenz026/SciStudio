@@ -69,9 +69,9 @@ launched exactly as before, and `safe` stays the default.
 
 | Problem | Risk | ADR response | Detailed section |
 |---|---|---|---|
-| Every supported agent CLI now ships an Auto mode that the picker cannot reach | Users choose between approving every step and approving nothing | Add `auto` as a third mode, wired end to end | §2 |
-| The picker's two options carried multi-sentence explanations | The setup screen reads as a warning page, and the copy drifts from what each CLI does | Three short labels, no descriptive copy | §3 |
-| Auto flags differ per CLI, and not every CLI is guaranteed to have one | A hard-coded flag launches the wrong mode or fails to launch | Auto argv per descriptor; disabled when absent | §2 |
+| Every supported agent CLI now ships an Auto mode that the picker cannot reach | Users choose between approving every step and approving nothing | Add `auto` as a third mode, wired end to end | Section 2 |
+| The picker's two options carried multi-sentence explanations | The setup screen reads as a warning page, and the copy drifts from what each CLI does | Three short labels, no descriptive copy | Section 3 |
+| Auto flags differ per CLI, and not every CLI is guaranteed to have one | A hard-coded flag launches the wrong mode or fails to launch | Auto argv per descriptor; disabled when absent | Section 2 |
 
 ## 2. Decision: A Third Mode, Owned By The Registry
 

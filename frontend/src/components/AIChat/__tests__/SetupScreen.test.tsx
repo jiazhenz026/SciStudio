@@ -341,7 +341,7 @@ describe("SetupScreen permission picker (ADR-034 Addendum 1 / FR-021f)", () => {
 
     const group = await screen.findByTestId("setup-permission-group");
     const radios = within(group).getAllByRole("radio");
-    expect(radios.map((r) => (r as HTMLInputElement).value)).toEqual(["safe", "auto", "dangerous"]);
+    expect(radios.map((r) => r.getAttribute("data-value"))).toEqual(["safe", "auto", "dangerous"]);
     // The labels are the whole text: legend plus the three names, nothing more.
     expect(group.textContent).toBe("Permission modeManualAutoYolo/Bypass");
 
@@ -356,7 +356,7 @@ describe("SetupScreen permission picker (ADR-034 Addendum 1 / FR-021f)", () => {
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
     await screen.findByTestId("setup-provider-select");
 
-    const auto = screen.getByTestId("setup-permission-auto") as HTMLInputElement;
+    const auto = screen.getByTestId("setup-permission-auto");
     expect(auto).toBeDisabled();
 
     // qoder-cn's status row omits supports_auto_mode, which reads as unsupported.
@@ -403,10 +403,10 @@ describe("SetupScreen permission picker (ADR-034 Addendum 1 / FR-021f)", () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
 
-    const safe = (await screen.findByTestId("setup-permission-safe")) as HTMLInputElement;
-    const dangerous = screen.getByTestId("setup-permission-dangerous") as HTMLInputElement;
-    expect(safe.value).toBe("safe");
-    expect(dangerous.value).toBe("dangerous");
+    const safe = await screen.findByTestId("setup-permission-safe");
+    const dangerous = screen.getByTestId("setup-permission-dangerous");
+    expect(safe.getAttribute("data-value")).toBe("safe");
+    expect(dangerous.getAttribute("data-value")).toBe("dangerous");
   });
 });
 

@@ -777,7 +777,7 @@ def spawn_agent(
         appends ``descriptor.manual_argv``. Must be a deliberate user opt-in
         upstream.
     auto
-        When ``True`` appends ``descriptor.auto_argv`` (#2379). Exclusive with
+        When ``True`` appends ``descriptor.auto_argv``. Exclusive with
         ``dangerous``; raises ``ValueError`` when both are set or when the
         provider has no auto mode.
     cols, rows
@@ -794,7 +794,7 @@ def spawn_agent(
         the provider needs regardless of argv — the system-prompt temp file and
         the MCP config write — still run, matching the previous behaviour.
     """
-    # Development references: #1789, #1994, FR-007.
+    # Development references: #1789, #1994, #2379, FR-007.
     if descriptor.kind is not ProviderKind.AGENT:
         raise ValueError(f"spawn_agent requires an agent provider; {descriptor.key!r} is {descriptor.kind.value}")
 

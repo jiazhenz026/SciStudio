@@ -110,7 +110,7 @@ async def provider_status() -> dict[str, Any]:
         }
 
     ``label`` is additive: display names come from the backend so
-    adding a provider needs no frontend edit. ``supports_auto_mode`` (#2379) is
+    adding a provider needs no frontend edit. ``supports_auto_mode`` is
     additive too: whether the CLI has an Auto permission mode, read off the
     registry descriptor. The other four fields keep their original names,
     types, and meaning.

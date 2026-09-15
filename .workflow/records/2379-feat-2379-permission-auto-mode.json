@@ -1,7 +1,172 @@
 {
   "base_ref": null,
   "branch": "feat/2379-permission-auto-mode",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T03:53:30.930344Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:351231184c7481e84e26cde181cb8378b83b6591fd447f8d58a324d1c51ec930",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:53:32.800198Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7a844f0a73e3be8a5b7ade968d31b280dce320f18a147cf57b0ba558bd6f1c80",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:53:35.299338Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:06d45130bb229329bfab2235b558bf2785e694bb270f988e8739374519bbe8c0",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:53:35.740712Z",
+      "command": "ruff format src/scistudio/ai/agent/availability.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/ai/work_import/context.py src/scistudio/api/routes/ai.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/work_import.py src/scistudio/blocks/ai/ai_block.py src/scistudio/engine/pty_control.py tests/ai/test_live_findings_1994.py tests/ai/test_permission_auto_mode.py tests/api/routes/ai_pty/test_public_surface.py tests/api/test_agent_availability.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_provider_discovery.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_work_import_session.py tests/blocks/ai/test_ai_block_skeleton.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4a42dbf604e1fd7d76e05df2273b0274c05d5c2f3b79f632ad2a3a0a88886e19",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:55:42.078175Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:8edad6dcae30b18eeda32bc764ba0e88decfa63923699623e8ce6121c0005111",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:56:06.997751Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:40da7bcf1d1d00aef0a0ceab6a3aa8d1a51a241eaa3a745e94b6f2f7558569c4",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:56:08.149283Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:da3ef8a544b26e187ce937c0a57b4c20efb7191fe17f1fed894e6d5fc610aeed",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:56:08.337321Z",
+      "command": "ruff check src/scistudio/ai/agent/availability.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/ai/work_import/context.py src/scistudio/api/routes/ai.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/work_import.py src/scistudio/blocks/ai/ai_block.py src/scistudio/engine/pty_control.py tests/ai/test_live_findings_1994.py tests/ai/test_permission_auto_mode.py tests/api/routes/ai_pty/test_public_surface.py tests/api/test_agent_availability.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_provider_discovery.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_work_import_session.py tests/blocks/ai/test_ai_block_skeleton.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:75eb44e226968425f093c4c12af1c21ae4b9ab93d070a6101c55f486f9ea725a",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T04:06:08.453372Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:61816377f92dc6450f43b761cfa554f66e55adde021f2623931ea5c8a686d1c1",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:06:55.306372Z",
+      "command": "mypy src/scistudio/ai/agent/availability.py src/scistudio/ai/agent/providers_registry.py src/scistudio/ai/agent/terminal.py src/scistudio/ai/work_import/context.py src/scistudio/api/routes/ai.py src/scistudio/api/routes/ai_pty/__init__.py src/scistudio/api/routes/ai_pty/_state.py src/scistudio/api/routes/ai_pty/engine.py src/scistudio/api/routes/ai_pty/websocket.py src/scistudio/api/routes/work_import.py src/scistudio/blocks/ai/ai_block.py src/scistudio/engine/pty_control.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:143fe1e33bef93337de55e4bd15f20cb9ddf206c247c3ea3a94de8ce4d626f65",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -62,7 +227,139 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T04:06:55.662541Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.752573Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/ai/ai_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/ai/ai_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/pty_control.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/pty_control.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.783323Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.816196Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.848634Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.879029Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.906764Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.930300Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.956679Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:55.988372Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:06:56.073580Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -72,11 +369,96 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "8d9426df",
+    "changed_files": [
+      ".workflow/records/2379-feat-2379-permission-auto-mode.json",
+      "docs/adr/ADR-034-addendum1.md",
+      "frontend/src/components/AIChat/SetupScreen.parts/PermissionModePicker.tsx",
+      "frontend/src/components/AIChat/SetupScreen.parts/types.ts",
+      "frontend/src/components/AIChat/SetupScreen.tsx",
+      "frontend/src/components/AIChat/TerminalTab.tsx",
+      "frontend/src/components/AIChat/TerminalView.tsx",
+      "frontend/src/components/AIChat/__tests__/ProviderExtensibility.test.tsx",
+      "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "frontend/src/components/AIChat/__tests__/usePtyWebSocket.test.ts",
+      "frontend/src/components/AIChat/blockPtyHandlers.ts",
+      "frontend/src/components/AIChat/hooks/usePtyWebSocket.ts",
+      "frontend/src/components/BringInMyWorkDialog.parts/AgentSetup.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/availability.ts",
+      "frontend/src/components/BringInMyWorkDialog.tsx",
+      "frontend/src/components/__tests__/BringInMyWorkDialog.harness.tsx",
+      "frontend/src/components/__tests__/BringInMyWorkDialogPermissionMode.test.tsx",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "frontend/src/components/__tests__/workImport.test.ts",
+      "frontend/src/hooks/useWebSocket.parts/handleBlockPty.ts",
+      "frontend/src/hooks/useWebSocket.test.ts",
+      "frontend/src/lib/api/agentAvailability.ts",
+      "frontend/src/lib/api/workImport.ts",
+      "frontend/src/store/types.ts",
+      "src/scistudio/_user_guide/ai-assistant.md",
+      "src/scistudio/_user_guide/built-in-blocks.md",
+      "src/scistudio/ai/agent/availability.py",
+      "src/scistudio/ai/agent/providers_registry.py",
+      "src/scistudio/ai/agent/terminal.py",
+      "src/scistudio/ai/work_import/context.py",
+      "src/scistudio/api/routes/ai.py",
+      "src/scistudio/api/routes/ai_pty/__init__.py",
+      "src/scistudio/api/routes/ai_pty/_state.py",
+      "src/scistudio/api/routes/ai_pty/engine.py",
+      "src/scistudio/api/routes/ai_pty/websocket.py",
+      "src/scistudio/api/routes/work_import.py",
+      "src/scistudio/blocks/ai/ai_block.py",
+      "src/scistudio/engine/pty_control.py",
+      "src/scistudio/tutorials/core/what-ai-can-do/tutorial.yaml",
+      "tests/ai/test_live_findings_1994.py",
+      "tests/ai/test_permission_auto_mode.py",
+      "tests/api/routes/ai_pty/test_public_surface.py",
+      "tests/api/test_agent_availability.py",
+      "tests/api/test_ai_pty.py",
+      "tests/api/test_ai_pty_audit_fixes.py",
+      "tests/api/test_ai_pty_engine_spawn.py",
+      "tests/api/test_provider_discovery.py",
+      "tests/api/test_provider_propagation_chain.py",
+      "tests/api/test_provider_registry_extensibility.py",
+      "tests/api/test_work_import_session.py",
+      "tests/blocks/ai/test_ai_block_skeleton.py",
+      "tests/contracts/openapi.json"
+    ],
+    "diff_fingerprint": "sha256:6ee13589d2f208f9ddfd756155d371be3652a9ba1b534b7b0f8c149b13304b51",
+    "head": "HEAD",
+    "head_sha": "1c17e97f",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 22,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 37,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 2,
+      "sentrux": 51,
+      "test": 21,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Permission mode picker in AI chat and Bring in my work: one row of 3 buttons Manual / Auto / Yolo/Bypass, no explanatory text. Auto mode was recently added by all AI providers; research each CLI's auto-mode flag and wire it.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T04:06:56.073946Z",
+      "diff_fingerprint": "sha256:6ee13589d2f208f9ddfd756155d371be3652a9ba1b534b7b0f8c149b13304b51",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend",
+        "checks.full_audit"
+      ]
+    }
+  ],
   "record_id": "2379-feat-2379-permission-auto-mode",
   "requested_admin_labels": [
     {
@@ -87,11 +469,40 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -236,7 +647,7 @@
     }
   ],
   "session_id": "52b7c259-274f-4c63-8f45-d7110ab47e8d",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

@@ -107,10 +107,10 @@ PermissionMode = Literal["safe", "auto", "bypass"]
 """How a spawned agent session starts: ask first, auto-review, or never ask.
 
 ``safe`` is the picker's **Manual**, ``auto`` its **Auto**, and ``bypass`` its
-**Yolo/Bypass** (ADR-034 Addendum 1). The frontend spells ``bypass`` as
-``dangerous`` and maps it at the request boundary.
+**Yolo/Bypass**. The frontend spells ``bypass`` as ``dangerous`` and maps it at
+the request boundary.
 """
-# Development references: #2379, ADR-034.
+# Development references: #2379, ADR-034 Addendum 1.
 
 PERMISSION_MODES: Final[tuple[PermissionMode, ...]] = ("safe", "auto", "bypass")
 """Every accepted :data:`PermissionMode` value, most restrictive first."""
