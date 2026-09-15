@@ -1,0 +1,80 @@
+{
+  "base_ref": "origin/main",
+  "branch": "test/2420-mcp-e2e-miniapp-tools",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/e2e/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T08:00:07.632401Z",
+      "class": "test-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "adds headless e2e tests for three MCP tools under tests/e2e; no product behavior, contract, or user-facing doc changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2420,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the red E2E job by adding e2e coverage for open_miniapp, screenshot_gui and validate_panel.",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2420-mcp-e2e-miniapp",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:00:07.632265Z",
+      "pattern": "tests/e2e/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "31cf0feb-f053-48d0-b5bc-c9fe2ff924f4",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T08:00:07.632407Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:00:07.632409Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_transports.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
