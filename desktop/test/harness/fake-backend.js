@@ -36,8 +36,31 @@ const plan = (process.env.HARNESS_BACKEND_PLAN || "serve").split(",");
 const mode = plan[Math.min(launchIndex, plan.length - 1)];
 fs.appendFileSync(pidFile, `${process.pid}\n`);
 
+// #2327: a graceful stop, standing in for the real backend's lifespan
+// shutdown. SIGTERM asks for it on POSIX; on Windows the shell closes stdin
+// instead (SCISTUDIO_STOP_ON_STDIN_EOF=1). HARNESS_GRACEFUL_STOP_MS delays the
+// exit the way shutdown_workflow_runs does, HARNESS_STOP_LOG records how the
+// stop was asked for, and HARNESS_IGNORE_STOP_REQUEST ignores a closed stdin.
+let stopping = false;
+function gracefulStop(how) {
+  if (stopping) {
+    return;
+  }
+  stopping = true;
+  if (process.env.HARNESS_STOP_LOG) {
+    fs.appendFileSync(process.env.HARNESS_STOP_LOG, `${process.pid} ${how}\n`);
+  }
+  setTimeout(() => process.exit(0), Number(process.env.HARNESS_GRACEFUL_STOP_MS || 0));
+}
+
 if (process.env.HARNESS_IGNORE_SIGTERM === "1") {
   process.on("SIGTERM", () => {});
+} else {
+  process.on("SIGTERM", () => gracefulStop("sigterm"));
+}
+if (process.env.SCISTUDIO_STOP_ON_STDIN_EOF === "1" && process.env.HARNESS_IGNORE_STOP_REQUEST !== "1") {
+  process.stdin.on("end", () => gracefulStop("stdin-eof"));
+  process.stdin.resume();
 }
 
 // Never outlive the harness: on POSIX an orphan is reparented, so exit when

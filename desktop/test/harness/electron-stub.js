@@ -119,14 +119,24 @@ class App extends EventEmitter {
     this.exited = code;
   }
   // Like Electron: before-quit, then every window closes without a
-  // window-all-closed event.
+  // window-all-closed event. A before-quit listener can prevent the quit
+  // (#2327: main.js does while the backend stops), and a later quit() emits
+  // before-quit again. `quitting` turns true only once a quit goes through.
   quit() {
     this.quitCalled += 1;
     if (this.quitting) {
       return;
     }
+    let prevented = false;
+    this.emit("before-quit", {
+      preventDefault() {
+        prevented = true;
+      }
+    });
+    if (prevented) {
+      return;
+    }
     this.quitting = true;
-    this.emit("before-quit");
     for (const window of BrowserWindow.getAllWindows()) {
       window.close();
     }
@@ -193,6 +203,9 @@ class BrowserWindow extends EventEmitter {
   }
   show() {
     this.visible = true;
+  }
+  hide() {
+    this.visible = false;
   }
   focus() {}
   restore() {}

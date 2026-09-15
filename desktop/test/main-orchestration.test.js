@@ -40,7 +40,10 @@ function runScenario(name) {
 }
 
 for (const [name, spec] of Object.entries(SCENARIOS)) {
-  test(`main.js: ${spec.title}`, { timeout: 90000 }, async () => {
+  // A scenario that needs the real platform (the Windows taskkill path) runs
+  // only there; the others override process.platform as they need.
+  const skip = spec.onlyOn && spec.onlyOn !== process.platform ? `${spec.onlyOn} only` : false;
+  test(`main.js: ${spec.title}`, { timeout: 90000, skip }, async () => {
     const { code, output } = await runScenario(name);
     const tail = output.split(/\r?\n/).slice(-40).join("\n");
     assert.equal(code, 0, `scenario "${name}" failed:\n${tail}`);
