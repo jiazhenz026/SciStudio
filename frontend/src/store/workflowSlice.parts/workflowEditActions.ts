@@ -98,12 +98,9 @@ export function createAddNode(set: Setter): WorkflowSlice["addNode"] {
         defaultParams,
       );
 
-      // Auto-fill output_dir for AppBlock-category blocks with the
-      // project exchange directory so users see the default path.
-      const projectPath = (state as AppStore).currentProject?.path;
-      if (projectPath && block.base_category === "app" && !params.output_dir) {
-        params.output_dir = `${projectPath}/data/exchange/${nodeId}/outputs`;
-      }
+      // #2424: AppBlock output_dir is left empty so each run writes into its
+      // own data/exchange/<workflow>/<block>/<run>/outputs folder; a shared
+      // pre-filled folder made runs overwrite each other.
 
       return {
         ...pushHistory(state),

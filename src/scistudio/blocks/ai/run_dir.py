@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 #   "block": {
 #     "name": "extract_metadata",
 #     "type": "AIBlock",
+#     "workflow_id": "main",   # workflow run identity (#2394, #2424)
 #     "run_id": "20260513-220045-extract_metadata-abc1234"
 #                # ^ kept as ``run_id`` to preserve the ADR-035 §3.4
 #                # public schema; the Python identifier was renamed to
@@ -62,6 +63,18 @@ logger = logging.getLogger(__name__)
 #   }
 # }
 # ---------------------------------------------------------------------------
+
+
+AI_OUTPUTS_ROOT = "data/ai_outputs"
+"""Project-relative folder holding AI Block default outputs (#2424)."""
+
+
+def _path_component(value: str, *, fallback: str) -> str:
+    """Return *value* as one directory name, replacing separators if present."""
+    cleaned = value.replace("/", "_").replace("\\", "_").strip()
+    if cleaned in ("", ".", ".."):
+        return fallback
+    return cleaned
 
 
 def _type_chain(cls: type) -> list[str]:
@@ -150,6 +163,7 @@ class RunDir:
         outputs: list[OutputPort],
         deadline_iso: str | None = None,
         output_paths: dict[str, str] | None = None,
+        workflow_id: str = "",
     ) -> Path:
         """Write ``manifest.json`` describing this run's inputs and outputs.
 
@@ -172,7 +186,10 @@ class RunDir:
                 which records ``"deadline": null``.
             output_paths: Optional ``{port_name: expected_path}`` overrides from
                 the port-editor entries. When missing, defaults to
-                ``./{block_name}_outputs/{port}.{ext}``.
+                ``./data/ai_outputs/{workflow}/{block_name}/{port}.{ext}``.
+            workflow_id: Run identity of the workflow the block runs in, or
+                ``""`` for an ad-hoc run. Recorded as ``block.workflow_id`` and
+                used in the default output paths.
 
         Returns:
             Absolute path to the written manifest, suitable for handing to the
@@ -222,7 +239,9 @@ class RunDir:
         outputs_section: dict[str, dict[str, Any]] = {}
         output_paths = output_paths or {}
         for port in outputs:
-            expected_path = output_paths.get(port.name) or self._default_expected_path(block_name, port)
+            expected_path = output_paths.get(port.name) or self._default_expected_path(
+                block_name, port, workflow_id=workflow_id
+            )
             # First accepted type is the "expected" type; default to DataObject.
             if port.accepted_types:
                 cls = port.accepted_types[0]
@@ -242,6 +261,7 @@ class RunDir:
             "block": {
                 "name": block_name,
                 "type": block_type,
+                "workflow_id": workflow_id,
                 # ADR-038 §5.2: the JSON key is kept as ``run_id`` to
                 # preserve the ADR-035 §3.4 agent-facing schema. The
                 # Python identifier is ``block_execution_id``.
@@ -280,6 +300,7 @@ class RunDir:
         block_name: str,
         block_type: str,
         outputs: dict[str, str],
+        workflow_id: str = "",
     ) -> Path:
         """Write ``reuse.json`` recording a reuse-last-output hit.
 
@@ -292,7 +313,7 @@ class RunDir:
         # Development references: #1898, ADR-035, Addendum 1.
         marker = {
             "reused_last_output": True,
-            "block": {"name": block_name, "type": block_type},
+            "block": {"name": block_name, "type": block_type, "workflow_id": workflow_id},
             "outputs": outputs,
         }
         marker_path = self.path / "reuse.json"
@@ -310,8 +331,12 @@ class RunDir:
         return marker_path
 
     @staticmethod
-    def _default_expected_path(block_name: str, port: OutputPort) -> str:
-        """Compute ``./{block_name}_outputs/{port.name}.{ext}``.
+    def _default_expected_path(block_name: str, port: OutputPort, *, workflow_id: str = "") -> str:
+        """Compute ``./data/ai_outputs/{workflow}/{block_name}/{port.name}.{ext}``.
+
+        The workflow run identity (#2394) is part of the path so same-named
+        nodes in different workflows never share, clear, or reuse each other's
+        outputs (#2424). An ad-hoc run (no workflow) uses ``adhoc``.
 
         Picks an extension based on the first accepted type:
             DataFrame  -> .csv
@@ -331,7 +356,9 @@ class RunDir:
             "CompositeData": "json",
         }
         ext = ext_map.get(port.accepted_types[0].__name__, "dat") if port.accepted_types else "dat"
-        return f"./{block_name}_outputs/{port.name}.{ext}"
+        workflow_dir = _path_component(workflow_id, fallback="adhoc")
+        block_dir = _path_component(block_name, fallback="block")
+        return f"./{AI_OUTPUTS_ROOT}/{workflow_dir}/{block_dir}/{port.name}.{ext}"
 
     def mcp_signal_path(self) -> Path:
         """Path the agent's ``finish`` tool writes to when it completes a run."""

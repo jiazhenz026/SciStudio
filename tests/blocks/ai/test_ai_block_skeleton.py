@@ -589,33 +589,97 @@ def test_reuse_last_output_enabled_reads_flag() -> None:
 
 
 def test_run_reuses_last_output_and_skips_agent(project_dir: Path, stub_agent: StubAgent) -> None:
-    """Toggle on + prior output present → re-emit it without spawning the agent."""
+    """Toggle on + this node's prior output present → re-emit it without spawning the agent."""
+    stub_agent.outputs = {"out": ("out.csv", "a,b\n1,2\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    base = {
+        "user_prompt": "hi",
+        "provider": "claude-code",
+        "project_dir": str(project_dir),
+        "workflow_id": "main",
+        "block_id": "analyze",
+    }
+    block.run(inputs={}, config=_config(**base))
+    assert len(stub_agent.request_calls) == 1
     prior = project_dir / "out.csv"
-    prior.write_text("a,b\n1,2\n", encoding="utf-8")
+
+    result = block.run(inputs={}, config=_config(**base, reuse_last_output=True))
+
+    assert "out" in result
+    # No second PTY tab requested: the agent did not run again.
+    assert len(stub_agent.request_calls) == 1
+    # The prior output file was NOT cleared (reuse must leave it intact).
+    assert prior.exists()
+    # Durable audit marker: the reuse execution's run dir carries reuse.json (and
+    # NOT a manifest.json), so an audit can tell a reuse from a genuine agent run.
+    runs_root = project_dir / ".scistudio" / "ai-block-runs"
+    reuse_dirs = [d for d in runs_root.iterdir() if (d / "reuse.json").exists()]
+    assert len(reuse_dirs) == 1
+    marker = json.loads((reuse_dirs[0] / "reuse.json").read_text(encoding="utf-8"))
+    assert marker["reused_last_output"] is True
+    assert marker["outputs"] == {"out": "./out.csv"}
+    assert marker["block"]["workflow_id"] == "main"
+    assert not (reuse_dirs[0] / "manifest.json").exists()
+
+
+def test_run_reuse_ignores_file_with_no_run_record(project_dir: Path, stub_agent: StubAgent) -> None:
+    """#2424: a file nobody recorded producing is not this node's output."""
+    (project_dir / "out.csv").write_text("a,b\n1,2\n", encoding="utf-8")
+    stub_agent.outputs = {"out": ("out.csv", "a\n1\n")}
     block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
     cfg = _config(
         user_prompt="hi",
         provider="claude-code",
         project_dir=str(project_dir),
+        workflow_id="main",
+        block_id="analyze",
         reuse_last_output=True,
     )
 
-    result = block.run(inputs={}, config=cfg)
+    block.run(inputs={}, config=cfg)
 
-    assert "out" in result
-    # No PTY tab requested: the agent never ran.
-    assert stub_agent.request_calls == []
-    # The prior output file was NOT cleared (reuse must leave it intact).
-    assert prior.exists()
-    # Durable audit marker: the execution's run dir carries reuse.json (and NOT
-    # a manifest.json), so an audit can tell a reuse from a genuine agent run.
-    runs_root = project_dir / ".scistudio" / "ai-block-runs"
-    run_dirs = list(runs_root.iterdir())
-    assert len(run_dirs) == 1
-    marker = json.loads((run_dirs[0] / "reuse.json").read_text(encoding="utf-8"))
-    assert marker["reused_last_output"] is True
-    assert marker["outputs"] == {"out": "./out.csv"}
-    assert not (run_dirs[0] / "manifest.json").exists()
+    assert len(stub_agent.request_calls) == 1
+
+
+def test_run_default_outputs_are_scoped_per_workflow(project_dir: Path, stub_agent: StubAgent) -> None:
+    """#2424: workflow B's same-named node neither reuses nor clears workflow A's outputs."""
+    port = [{"name": "table", "types": ["DataFrame"]}]
+    a_rel = "data/ai_outputs/wf_a/analyze/table.csv"
+    b_rel = "data/ai_outputs/wf_b/analyze/table.csv"
+    base = {"user_prompt": "hi", "provider": "claude-code", "project_dir": str(project_dir), "block_id": "analyze"}
+
+    stub_agent.outputs = {"table": (a_rel, "a\n1\n")}
+    _prepared_block(output_ports=port).run(inputs={}, config=_config(**base, workflow_id="wf_a"))
+    assert (project_dir / a_rel).read_text(encoding="utf-8") == "a\n1\n"
+
+    stub_agent.outputs = {"table": (b_rel, "b\n2\n")}
+    result = _prepared_block(output_ports=port).run(
+        inputs={}, config=_config(**base, workflow_id="wf_b", reuse_last_output=True)
+    )
+
+    assert "table" in result
+    # Workflow B's first run ran its agent instead of reusing workflow A's output.
+    assert len(stub_agent.request_calls) == 2
+    # Workflow A's recorded output is untouched.
+    assert (project_dir / a_rel).read_text(encoding="utf-8") == "a\n1\n"
+    assert (project_dir / b_rel).read_text(encoding="utf-8") == "b\n2\n"
+
+
+def test_run_reuse_misses_when_another_node_wrote_the_shared_path(project_dir: Path, stub_agent: StubAgent) -> None:
+    """#2424: a configured path last written by another workflow's node is not reused."""
+    port = [{"name": "out", "types": ["DataFrame"], "expected_path": "./shared.csv"}]
+    base = {"user_prompt": "hi", "provider": "claude-code", "project_dir": str(project_dir), "block_id": "analyze"}
+    stub_agent.outputs = {"out": ("shared.csv", "a\n1\n")}
+    _prepared_block(output_ports=port).run(inputs={}, config=_config(**base, workflow_id="wf_a"))
+    stub_agent.outputs = {"out": ("shared.csv", "b\n2\n")}
+    _prepared_block(output_ports=port).run(inputs={}, config=_config(**base, workflow_id="wf_b"))
+    assert len(stub_agent.request_calls) == 2
+
+    _prepared_block(output_ports=port).run(
+        inputs={}, config=_config(**base, workflow_id="wf_a", reuse_last_output=True)
+    )
+
+    assert len(stub_agent.request_calls) == 3
 
 
 def test_run_reuse_falls_back_when_no_prior_output(project_dir: Path, stub_agent: StubAgent) -> None:

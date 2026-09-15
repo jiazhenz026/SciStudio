@@ -6,6 +6,7 @@ import logging
 import shutil
 import subprocess
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
@@ -99,6 +100,11 @@ class AppBlock(Block):
         - The ``app_command`` config field (the path to the executable) is
           required; the optional ``output_dir`` field chooses where results are
           saved.
+        - Inside a project each run gets its own exchange folder,
+          ``data/exchange/<workflow>/<block>/<run>/`` (inputs in ``inputs/``,
+          results in ``outputs/`` unless ``output_dir`` is set), so re-running
+          the node or running a same-named node in another workflow never
+          reuses or overwrites an earlier run's files.
 
     Example:
         >>> class FijiBlock(AppBlock):
@@ -154,6 +160,10 @@ class AppBlock(Block):
                 "type": ["string", "null"],
                 "default": None,
                 "title": "Save Outputs At",
+                "description": (
+                    "Folder the app writes its results into. Leave empty to use a "
+                    "fresh folder for every run: data/exchange/<workflow>/<block>/<run>/outputs."
+                ),
                 "ui_widget": "directory_browser",
                 "ui_priority": 1,
             },
@@ -521,22 +531,31 @@ class AppBlock(Block):
         patterns = config.get("output_patterns") or self.output_patterns
 
         # Create exchange directory.
-        # Prefer project workspace for reboot-survivable exchange dirs.
+        # Prefer project workspace for reboot-survivable exchange dirs. #2424:
+        # the project exchange folder is scoped per (workflow, block, run) —
+        # ``data/exchange/<workflow>/<block>/<run>/`` — so two workflows with a
+        # same-named node, or two runs of one node, never stage inputs into or
+        # collect outputs from each other's folder. Folders of earlier runs are
+        # left in place because lineage records paths inside them.
         explicit_dir = config.get("exchange_dir")
+        project_dir = config.get("project_dir")
+        block_id = str(config.get("block_id") or "")
         if explicit_dir:
             exchange_dir = Path(explicit_dir)
+        elif project_dir and block_id:
+            exchange_dir = _project_exchange_dir(
+                Path(project_dir),
+                workflow_id=str(config.get("workflow_id") or ""),
+                block_id=block_id,
+                run_id=str(config.get("run_id") or uuid.uuid4().hex),
+            )
         else:
-            project_dir = config.get("project_dir")
-            block_id = config.get("block_id", "")
-            if project_dir and block_id:
-                exchange_dir = Path(project_dir) / "data" / "exchange" / block_id
-            else:
-                exchange_dir = Path(tempfile.mkdtemp(prefix="scistudio_app_"))
+            exchange_dir = Path(tempfile.mkdtemp(prefix="scistudio_app_"))
         exchange_dir.mkdir(parents=True, exist_ok=True)
 
         # #339: Determine whether exchange_dir is a temp directory that we own.
         # Project-dir and explicit exchange dirs are intentionally persistent.
-        is_temp_dir = not explicit_dir and not (config.get("project_dir") and config.get("block_id"))
+        is_temp_dir = not explicit_dir and not (project_dir and block_id)
 
         # ADR-020 §5: AppBlocks receive whole collections and decide their own
         # exchange format. The file-exchange bridge materialises one file per
@@ -585,6 +604,13 @@ class AppBlock(Block):
             from scistudio.blocks.app.watcher import FileWatcher, ProcessExitedWithoutOutputError
 
             custom_output_dir = config.get("output_dir")
+            if custom_output_dir and _is_legacy_default_output_dir(
+                str(custom_output_dir), project_dir=project_dir, block_id=block_id
+            ):
+                # #2424: the editor used to pre-fill ``output_dir`` with a
+                # shared exchange folder; treat that value as "use the default"
+                # so saved workflows also get the per-run output folder.
+                custom_output_dir = None
             output_dir = Path(custom_output_dir) if custom_output_dir else exchange_dir / "outputs"
             output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -650,6 +676,70 @@ class AppBlock(Block):
             # #339: Remove temp exchange directory (not project-dir).
             if is_temp_dir and exchange_dir.exists():
                 shutil.rmtree(exchange_dir, ignore_errors=True)
+
+
+_EXCHANGE_DIR_NAME = "exchange"
+"""Name of the project data folder that holds AppBlock exchange folders."""
+
+_ADHOC_WORKFLOW = "adhoc"
+
+
+def _path_component(value: str, *, fallback: str) -> str:
+    """Return *value* as one directory name, replacing separators if present.
+
+    Workflow run identities (#2394) and node ids are already single path
+    segments and are used unchanged; anything that is not is made safe so it
+    cannot escape the exchange root.
+    """
+    cleaned = value.replace("/", "_").replace("\\", "_").strip()
+    if cleaned in ("", ".", ".."):
+        return fallback
+    return cleaned
+
+
+def _project_exchange_dir(project_dir: Path, *, workflow_id: str, block_id: str, run_id: str) -> Path:
+    """Return the exchange folder of one AppBlock run inside *project_dir*.
+
+    The layout is ``<project>/data/exchange/<workflow>/<block>/<run>/`` with
+    ``inputs/``, ``outputs/`` and ``manifest.json`` inside. *workflow_id* is the
+    workflow's run identity (``adhoc`` when the block runs outside a
+    workflow), *block_id* the node id and *run_id* a per-run identifier.
+
+    Args:
+        project_dir: Project root.
+        workflow_id: Workflow run identity; empty means an ad-hoc run.
+        block_id: Node id of the AppBlock.
+        run_id: Identifier of this run of the node.
+
+    Returns:
+        The (not yet created) per-run exchange folder.
+    """
+    # Development references: #2424, #2394.
+    return (
+        project_dir
+        / "data"
+        / _EXCHANGE_DIR_NAME
+        / _path_component(workflow_id, fallback=_ADHOC_WORKFLOW)
+        / _path_component(block_id, fallback="block")
+        / _path_component(run_id, fallback="run")
+    )
+
+
+def _is_legacy_default_output_dir(output_dir: str, *, project_dir: Any, block_id: str) -> bool:
+    """Whether *output_dir* is a value the workflow editor used to pre-fill.
+
+    Before #2424 the editor stamped ``<project>/data/exchange/outputs`` (block
+    palette) or ``<project>/data/exchange/<node>/outputs`` (add node) into every
+    new AppBlock. Those shared folders are exactly what per-run exchange
+    folders replace, so they are read as "no output folder chosen".
+    """
+    if not project_dir:
+        return False
+    exchange_root = Path(str(project_dir)) / "data" / _EXCHANGE_DIR_NAME
+    candidates = {exchange_root / "outputs"}
+    if block_id:
+        candidates.add(exchange_root / block_id / "outputs")
+    return Path(output_dir) in candidates
 
 
 def _cleanup_process(

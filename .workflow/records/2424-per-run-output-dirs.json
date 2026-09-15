@@ -1,0 +1,77 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2424-per-run-output-dirs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/blocks/app/**",
+      "src/scistudio/blocks/ai/**",
+      "src/scistudio/engine/runners/local.py",
+      "tests/blocks/app/**",
+      "tests/blocks/ai/**",
+      "tests/engine/**",
+      "frontend/src/store/workflowSlice.parts/**",
+      "frontend/src/App.parts/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T08:12:15.865624Z",
+      "owner_directive": "AI block default output path includes the workflow; reuse_last_output only reuses outputs from the same workflow node.",
+      "reason": "owner directive 2"
+    },
+    {
+      "at": "2026-09-15T08:12:15.982585Z",
+      "owner_directive": "block_id[:40] zarr directory truncation gets a short hash suffix; ids <=40 chars keep today's paths.",
+      "reason": "owner directive 3"
+    },
+    {
+      "at": "2026-09-15T08:12:16.102769Z",
+      "owner_directive": "Protected-path changes under src/scistudio/blocks/** and src/scistudio/engine/** are authorised for this PR.",
+      "reason": "owner directive 4: protected core paths"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2424,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "AppBlock exchange directory per workflow/block/run, consistent with CodeBlock; re-running a node must not trip the overwrite guard.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2424-per-run-output-dirs",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "16c9892f-bdc9-4175-ba2b-c84d3cf9b7e1",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
