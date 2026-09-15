@@ -126,3 +126,28 @@ def test_interactive_validation_requires_a_registered_interactive_panel(panel_ru
         validate_interactive_panel(PanelManifest(panel_id="core.interactive.data_router"), registry)
     with pytest.raises(ValueError, match="interactive context required"):
         validate_interactive_panel(PanelManifest(panel_id="pkg.missing"), registry)
+
+
+def test_every_documented_descriptor_key_is_accepted_without_a_note(tmp_path):
+    from scistudio.panels.descriptor import DESCRIPTOR_FIELDS
+
+    optional = {"priority": 3, "name": "Lab", "description": "Shows lab data", "version": "0.1", "entry": "index.html"}
+    assert {f.key for f in DESCRIPTOR_FIELDS if not f.required} - {"types"} == set(optional)
+    panel, notes = parse(tmp_path, **optional)
+    assert notes == []
+    assert (panel.priority, panel.name, panel.description, panel.version) == (3, "Lab", "Shows lab data", "0.1")
+
+
+@pytest.mark.parametrize("key", ["id", "api_version", "contexts"])
+def test_documented_required_descriptor_keys_are_required(tmp_path, key):
+    from scistudio.panels.descriptor import DESCRIPTOR_FIELDS
+
+    assert key in {f.key for f in DESCRIPTOR_FIELDS if f.required}
+    folder = tmp_path / "lab.test"
+    folder.mkdir()
+    (folder / "index.html").write_text("<p>Panel</p>")
+    data = {"id": "lab.test", "contexts": ["preview"], "types": ["Image"], "api_version": "1.0"}
+    del data[key]
+    (folder / "panel.json").write_text(json.dumps(data))
+    with pytest.raises(ValueError):
+        parse_descriptor(folder, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Image"})

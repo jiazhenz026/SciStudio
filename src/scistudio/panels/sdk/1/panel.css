@@ -1,4 +1,6 @@
-/* SciStudio panel stylesheet (SDK major 1).
+/**
+ * @overview
+ * SciStudio panel stylesheet (SDK major 1).
  *
  * One shared sheet so every panel — built-in, packaged, or agent-written —
  * looks like the rest of the application without re-deriving its styling. The
@@ -8,7 +10,10 @@
  * example from its panel.sample.json.
  *
  * Link it from a panel document:
- *   <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ *
+ * ```html
+ * <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ * ```
  *
  * Classes are semantic, not utilities: describe what a thing IS (a card, a
  * toolbar, a field) rather than how it looks, so the look can change centrally.
