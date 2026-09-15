@@ -426,10 +426,10 @@ def test_deprecated_symbols_keep_a_public_tier() -> None:
 
 
 def test_every_previewer_root_symbol_is_deprecated() -> None:
-    """ADR-054 §8: the whole public previewer surface is deprecated, removed in 0.6.0."""
+    """ADR-054 §8: the whole public previewer surface is deprecated, removed in 0.3.6."""
     for root in ("scistudio.previewers.models", "scistudio.previewers.data_access"):
         module = _import_root(root)
         deprecations = _live_deprecations_for(root)
         missing = sorted(set(module.__all__) - set(deprecations))
         assert not missing, f"{root}: public symbols not deprecated: {missing}"
-        assert {d["removed_in"] for d in deprecations.values()} == {"0.6.0"}
+        assert {d["removed_in"] for d in deprecations.values()} == {"0.3.6"}

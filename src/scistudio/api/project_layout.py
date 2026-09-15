@@ -57,8 +57,8 @@ DATA_SUBDIRS: tuple[str, ...] = (
 #: the scaffold and the scanners share one spelling.
 #:
 #: ``panels/`` is the current extension folder (ADR-054). ``previewers/`` is not
-#: created for new projects: Python previewer drop-ins are deprecated through
-#: 0.5.x and removed in 0.6 (ADR-054 §8). An existing project's ``previewers/``
+#: created for new projects: Python previewer drop-ins are deprecated since
+#: 0.3.5 and removed in 0.3.6 (ADR-054 §8). An existing project's ``previewers/``
 #: is still scanned by :func:`scistudio.core.dropins.previewer_scan_dirs` (#2411).
 DROPIN_SUBDIRS: tuple[str, ...] = (
     BLOCKS_DIR_NAME,

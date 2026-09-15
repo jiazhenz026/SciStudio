@@ -8,7 +8,7 @@ Today it exposes a single helper, :func:`sanitize_svg`, which a package SVG/plot
 previewer uses to scrub SVG text before returning it.
 
 **Deprecated** with the rest of the previewer surface: deprecated since 0.3.5,
-removed in 0.6.0, replaced by HTML panels (see :mod:`scistudio.panels`).
+removed in 0.3.6, replaced by HTML panels (see :mod:`scistudio.panels`).
 
 Note: the authoritative security boundary for rendered SVG is the frontend's
 sandboxed ``<iframe>`` (no scripts, no same-origin access). This regex pass is a

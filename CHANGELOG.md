@@ -566,7 +566,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [#2426] **The Python previewer API is deprecated.** Every public symbol of
   `scistudio.previewers.models`, `scistudio.previewers.data_access`, and
   `scistudio.previewers.helpers` is deprecated since 0.3.5, keeps working through
-  the 0.5 line, and is removed in 0.6.0. Write HTML panels instead and check them
+  0.3.5, and is removed in 0.3.6. Write HTML panels instead and check them
   with `scistudio.panels`. The symbols keep their `provisional` tier until removal.
 
 ### Changed

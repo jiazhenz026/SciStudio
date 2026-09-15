@@ -20,7 +20,7 @@ existing `PreviewRouter`. Interactive/MiniApp-only descriptors occupy the shared
 namespace but never enter preview routing. Same-tier panels shadow legacy ids;
 project, user, package and core precedence applies across ids and tiers. The
 catalog reports renderer, descriptor, shadowing and diagnostics. Both legacy
-provider forms remain functional through 0.5.x. The sidebar entry stays unchanged
+provider forms remain functional until 0.3.6. The sidebar entry stays unchanged
 until Phase D.
 
 `POST /api/panels/contexts` takes `{kind, target: {kind, ref}, panel_id?,

@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 13 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}, plus deprecated {since, removed_in} when the symbol or its root is deprecated. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080). scistudio.api.app and scistudio.api.seam entered the contract at 0.3.5 (#2304, ADR-055 identity seam). scistudio.panels entered the contract at 0.3.5 and the two scistudio.previewers roots were deprecated at 0.3.5 for removal in 0.6.0 (#2426, ADR-054 section 8).",
+    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 13 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}, plus deprecated {since, removed_in} when the symbol or its root is deprecated. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080). scistudio.api.app and scistudio.api.seam entered the contract at 0.3.5 (#2304, ADR-055 identity seam). scistudio.panels entered the contract at 0.3.5 and the two scistudio.previewers roots were deprecated at 0.3.5 for removal in 0.3.6 (#2426, ADR-054 section 8).",
     "spec": "docs/specs/adr-052-public-api-surface.md",
     "adr": "docs/adr/ADR-052.md",
     "issue": "1833 (umbrella #1817)"
@@ -449,7 +449,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "FrontendManifest": {
@@ -457,7 +457,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "OwnerKind": {
@@ -465,7 +465,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PREVIEWER_API_VERSION": {
@@ -473,7 +473,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewEnvelope": {
@@ -481,7 +481,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewError": {
@@ -489,7 +489,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewErrorCode": {
@@ -497,7 +497,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewErrorInfo": {
@@ -505,7 +505,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewLimits": {
@@ -513,7 +513,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewMetadata": {
@@ -521,7 +521,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewProvider": {
@@ -529,7 +529,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewRequest": {
@@ -537,7 +537,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewResource": {
@@ -545,7 +545,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewResourceProvider": {
@@ -553,7 +553,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewSource": {
@@ -561,7 +561,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewTarget": {
@@ -569,7 +569,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewerEntryPoint": {
@@ -577,7 +577,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewerSpec": {
@@ -585,7 +585,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewerSpecList": {
@@ -593,7 +593,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "ProviderError": {
@@ -601,7 +601,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "TargetKind": {
@@ -609,7 +609,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     }
   },
@@ -619,7 +619,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "ArrayTile": {
@@ -627,7 +627,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "ArtifactInfo": {
@@ -635,7 +635,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "CollectionSample": {
@@ -643,7 +643,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "CompositeSlots": {
@@ -651,7 +651,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "DataFramePage": {
@@ -659,7 +659,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "PreviewDataAccess": {
@@ -667,7 +667,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "SeriesPoints": {
@@ -675,7 +675,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "SliceAxis": {
@@ -683,7 +683,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "TableXYPoints": {
@@ -691,7 +691,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     },
     "TextChunk": {
@@ -699,7 +699,7 @@
       "since": "0.3.1",
       "deprecated": {
         "since": "0.3.5",
-        "removed_in": "0.6.0"
+        "removed_in": "0.3.6"
       }
     }
   },

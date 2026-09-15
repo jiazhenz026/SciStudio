@@ -42,13 +42,13 @@ def test_every_previewer_symbol_renders_deprecated(build_reference: ModuleType, 
 
     assert count == len(module.__all__)
     for page in (selfcontained, mkdocs_page):
-        assert "Every symbol on this page is deprecated since `0.3.5` and is removed in `0.6.0`" in page
+        assert "Every symbol on this page is deprecated since `0.3.5` and is removed in `0.3.6`" in page
         assert "`scistudio.panels`" in page
         for name in module.__all__:
             assert f"## `{name}` — " in page
         # Non-markable constants and aliases are covered by the module-wide marker too.
         assert page.count(" · deprecated\n") == len(module.__all__)
-        assert page.count("**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`.") == len(
+        assert page.count("**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`.") == len(
             module.__all__
         )
 

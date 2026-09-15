@@ -8,7 +8,7 @@ on each request) and :mod:`scistudio.previewers.helpers` (``sanitize_svg``).
 Import the public types from here, not from the package top level.
 
 **Deprecated.** Every public symbol of this module is deprecated since 0.3.5,
-stays supported until it is removed in 0.6.0, and is replaced by HTML panels: a
+stays supported until it is removed in 0.3.6, and is replaced by HTML panels: a
 folder with a ``panel.json`` descriptor and an HTML page, discovered and
 validated through :mod:`scistudio.panels`. Until removal the surface keeps its
 **provisional** tier. Each public symbol carries ``scistudio.stability`` markers

@@ -116,7 +116,7 @@ class PreviewerRegistry:
         if spec.backend_provider is not None or spec.frontend_manifest is not None:
             import warnings
 
-            message = f"previewer {spec.previewer_id!r} is deprecated through 0.5.x; replace it with panel.json and an HTML panel (ADR-054)"
+            message = f"previewer {spec.previewer_id!r} is deprecated and removed in 0.3.6; replace it with panel.json and an HTML panel (ADR-054)"
             self._diagnostics.append(message)
             if spec.frontend_manifest is not None:
                 warnings.warn(message, DeprecationWarning, stacklevel=2)

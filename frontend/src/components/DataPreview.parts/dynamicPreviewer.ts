@@ -150,7 +150,7 @@ export async function mountDynamicPreviewer(
     if (!warnedLegacyModules.has(manifest.module_url)) {
       warnedLegacyModules.add(manifest.module_url);
       console.warn(
-        `Legacy panel module ${manifest.module_url} is deprecated through 0.5.x; migrate to a panel folder before 0.6 (#2288).`,
+        `Legacy panel module ${manifest.module_url} is deprecated and removed in 0.3.6; migrate to a panel folder (#2288).`,
       );
     }
     mod = await importer(apiUrl(manifest.module_url));

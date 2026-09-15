@@ -5,7 +5,7 @@
 Canonical import root: `from scistudio.previewers.data_access import ...`
 
 !!! warning "Deprecated"
-    Every symbol on this page is deprecated since `0.3.5` and is removed in `0.6.0`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+    Every symbol on this page is deprecated since `0.3.5` and is removed in `0.3.6`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 Public surface — every symbol below is declared in this module's `__all__` (11 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators.
 
@@ -13,7 +13,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.ArrayPlane
     options:
@@ -28,7 +28,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.ArrayTile
     options:
@@ -43,7 +43,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.ArtifactInfo
     options:
@@ -58,7 +58,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.CollectionSample
     options:
@@ -73,7 +73,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.CompositeSlots
     options:
@@ -88,7 +88,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.DataFramePage
     options:
@@ -103,7 +103,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.PreviewDataAccess
     options:
@@ -118,7 +118,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.SeriesPoints
     options:
@@ -133,7 +133,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.SliceAxis
     options:
@@ -148,7 +148,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.TableXYPoints
     options:
@@ -163,7 +163,7 @@ Public surface — every symbol below is declared in this module's `__all__` (11
 
 > **Stability:** `provisional` · **Since:** `0.3.1`
 >
-> **Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ::: scistudio.previewers.data_access.TextChunk
     options:
