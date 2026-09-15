@@ -9,15 +9,17 @@ import type { InteractivePrompt, PanelManifestDescriptor } from "../../store/typ
 import type { WorkflowEventMessage } from "../../types/api";
 
 export interface LifecycleDeps {
-  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
+  upsertInteractivePrompt: (prompt: InteractivePrompt) => void;
 }
 
 export function handleInteractivePrompt(payload: WorkflowEventMessage, deps: LifecycleDeps): void {
   // #591/#594 + ADR-051: surface backend interactive_prompt events. The panel
   // is resolved from the block's manifest (FR-007); the window-sized view lives
   // nested under panel_payload (not spread, so it cannot clobber identity).
+  // #2395: prompts are held per (workflow, block), so a second workflow pausing
+  // adds its own prompt instead of replacing the first one's.
   const data = payload.data ?? {};
-  deps.setInteractivePrompt({
+  deps.upsertInteractivePrompt({
     blockId: payload.block_id ?? "",
     blockType: (data.block_type as string) ?? "",
     // The prompt's own workflow id (hoisted to the top-level frame by

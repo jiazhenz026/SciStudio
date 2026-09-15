@@ -189,6 +189,52 @@ describe("PlotsTab", () => {
     await waitFor(() => expect(useAppStore.getState().selectedNodeId).toBe("node-1"));
   });
 
+  it("does not select a same-named node after the user switched workflows mid-run (#2395)", async () => {
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    let finishRun!: (value: PlotRunResponse) => void;
+    runPlotJob.mockReturnValue(
+      new Promise<PlotRunResponse>((resolve) => {
+        finishRun = resolve;
+      }),
+    );
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+    await waitFor(() => expect(runPlotJob).toHaveBeenCalledWith({ plot_id: "p1" }));
+    // The user moves to another workflow that also has a `node-1`.
+    useAppStore.setState({ workflowId: "other_wf" });
+    finishRun(plotRunResponse());
+
+    await waitFor(() =>
+      expect(useAppStore.getState().plotPreviewTarget).toMatchObject({ ref: "data-plot-1" }),
+    );
+    expect(useAppStore.getState().selectedNodeId).toBeNull();
+  });
+
+  it("drops a plot result that lands after a project switch (#2395)", async () => {
+    useAppStore.setState({ currentProject: { id: "A" } as never });
+    listPlots.mockResolvedValue({ plots: [makePlot()], count: 1, warnings: [] });
+    let finishRun!: (value: PlotRunResponse) => void;
+    runPlotJob.mockReturnValue(
+      new Promise<PlotRunResponse>((resolve) => {
+        finishRun = resolve;
+      }),
+    );
+    render(<PlotsTab />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Run plot My Plot" }));
+    await waitFor(() => expect(runPlotJob).toHaveBeenCalledWith({ plot_id: "p1" }));
+    useAppStore.setState({ currentProject: { id: "B" } as never });
+    finishRun(plotRunResponse());
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Run plot My Plot" })).not.toBeDisabled(),
+    );
+    expect(useAppStore.getState().plotPreviewTarget).toBeNull();
+    expect(useAppStore.getState().selectedNodeId).toBeNull();
+    useAppStore.setState({ currentProject: null });
+  });
+
   it("does not select a node when running a broken plot", async () => {
     listPlots.mockResolvedValue({ plots: [makePlot({ broken: true })], count: 1, warnings: [] });
     runPlotJob.mockResolvedValue(plotRunResponse());

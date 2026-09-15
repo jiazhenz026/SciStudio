@@ -12,7 +12,7 @@ import { handleInteractivePrompt } from "./handleLifecycle";
 function capture(payload: WorkflowEventMessage): InteractivePrompt | null {
   let captured: InteractivePrompt | null = null;
   handleInteractivePrompt(payload, {
-    setInteractivePrompt: (p) => {
+    upsertInteractivePrompt: (p) => {
       captured = p;
     },
   });

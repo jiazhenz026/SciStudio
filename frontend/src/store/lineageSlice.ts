@@ -177,8 +177,7 @@
  *   4. clearLineage MUST NOT trigger any in-flight fetches' resolve()
  *      callbacks to clobber the cleared state — IMPL should track a
  *      generation counter or AbortController and ignore stale responses.
- *      (Acceptable simplification for v1: ignore — the race window is tiny
- *      and the symptom is benign. Document in IMPL PR.)
+ *      #2395 implements this with a generation counter (see the slice body).
  *
  * Accessibility / keyboard
  * ------------------------
@@ -232,77 +231,96 @@ const INITIAL_LINEAGE_STATE = {
   methodsDialogRunId: null as string | null,
 };
 
-export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (set, get) => ({
-  ...INITIAL_LINEAGE_STATE,
+export const createLineageSlice: StateCreator<AppStore, [], [], LineageSlice> = (set, get) => {
+  /*
+   * #2395 — edge case 4 above, no longer ignored. `clearLineage` runs on every
+   * project switch, and a `/api/runs` response for the outgoing project that
+   * lands after it would otherwise repopulate the list — showing project A's
+   * runs inside project B, with Restore aimed at A's run. Each fetch captures
+   * the generation it started in and drops its result if a clear happened
+   * since.
+   */
+  let generation = 0;
 
-  fetchRuns: async (opts) => {
-    set({ runsLoading: true, runsError: null });
-    try {
-      const { runs } = await api.lineage.getRuns(opts);
-      set({ runs, runsLoading: false });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load runs";
-      // Keep previously-loaded runs visible; only flip loading + error.
-      set({ runsLoading: false, runsError: message });
-    }
-  },
+  return {
+    ...INITIAL_LINEAGE_STATE,
 
-  fetchRunDetail: async (runId) => {
-    set((s) => ({
-      runDetailLoading: { ...s.runDetailLoading, [runId]: true },
-      runDetailError: { ...s.runDetailError, [runId]: null },
-    }));
-    try {
-      const detail = await api.lineage.getRun(runId);
+    fetchRuns: async (opts) => {
+      const startedIn = generation;
+      set({ runsLoading: true, runsError: null });
+      try {
+        const { runs } = await api.lineage.getRuns(opts);
+        if (startedIn !== generation) return;
+        set({ runs, runsLoading: false });
+      } catch (err) {
+        if (startedIn !== generation) return;
+        const message = err instanceof Error ? err.message : "Failed to load runs";
+        // Keep previously-loaded runs visible; only flip loading + error.
+        set({ runsLoading: false, runsError: message });
+      }
+    },
+
+    fetchRunDetail: async (runId) => {
+      const startedIn = generation;
       set((s) => ({
-        runDetails: { ...s.runDetails, [runId]: detail },
-        runDetailLoading: { ...s.runDetailLoading, [runId]: false },
+        runDetailLoading: { ...s.runDetailLoading, [runId]: true },
         runDetailError: { ...s.runDetailError, [runId]: null },
       }));
-    } catch (err) {
-      const isNotFound = err instanceof ApiError && err.status === 404 ? "Run not found" : null;
-      const message =
-        isNotFound ?? (err instanceof Error ? err.message : "Failed to load run detail");
-      set((s) => ({
-        runDetailLoading: { ...s.runDetailLoading, [runId]: false },
-        runDetailError: { ...s.runDetailError, [runId]: message },
-      }));
-    }
-  },
+      try {
+        const detail = await api.lineage.getRun(runId);
+        if (startedIn !== generation) return;
+        set((s) => ({
+          runDetails: { ...s.runDetails, [runId]: detail },
+          runDetailLoading: { ...s.runDetailLoading, [runId]: false },
+          runDetailError: { ...s.runDetailError, [runId]: null },
+        }));
+      } catch (err) {
+        if (startedIn !== generation) return;
+        const isNotFound = err instanceof ApiError && err.status === 404 ? "Run not found" : null;
+        const message =
+          isNotFound ?? (err instanceof Error ? err.message : "Failed to load run detail");
+        set((s) => ({
+          runDetailLoading: { ...s.runDetailLoading, [runId]: false },
+          runDetailError: { ...s.runDetailError, [runId]: message },
+        }));
+      }
+    },
 
-  selectRun: (runId) => {
-    set({ selectedRunId: runId });
-    if (runId === null) return;
-    const state = get();
-    if (state.runDetails[runId] === undefined) {
-      void state.fetchRunDetail(runId);
-    }
-  },
+    selectRun: (runId) => {
+      set({ selectedRunId: runId });
+      if (runId === null) return;
+      const state = get();
+      if (state.runDetails[runId] === undefined) {
+        void state.fetchRunDetail(runId);
+      }
+    },
 
-  toggleBlockExecutionExpanded: (blockExecutionId) => {
-    set((s) => {
-      const present = s.expandedBlockExecutionIds.includes(blockExecutionId);
-      return {
-        expandedBlockExecutionIds: present
-          ? s.expandedBlockExecutionIds.filter((id) => id !== blockExecutionId)
-          : [...s.expandedBlockExecutionIds, blockExecutionId],
-      };
-    });
-  },
+    toggleBlockExecutionExpanded: (blockExecutionId) => {
+      set((s) => {
+        const present = s.expandedBlockExecutionIds.includes(blockExecutionId);
+        return {
+          expandedBlockExecutionIds: present
+            ? s.expandedBlockExecutionIds.filter((id) => id !== blockExecutionId)
+            : [...s.expandedBlockExecutionIds, blockExecutionId],
+        };
+      });
+    },
 
-  openMethodsDialog: (runId) => {
-    set({ methodsDialogRunId: runId });
-    const state = get();
-    if (state.runDetails[runId] === undefined) {
-      void state.fetchRunDetail(runId);
-    }
-  },
+    openMethodsDialog: (runId) => {
+      set({ methodsDialogRunId: runId });
+      const state = get();
+      if (state.runDetails[runId] === undefined) {
+        void state.fetchRunDetail(runId);
+      }
+    },
 
-  closeMethodsDialog: () => {
-    set({ methodsDialogRunId: null });
-  },
+    closeMethodsDialog: () => {
+      set({ methodsDialogRunId: null });
+    },
 
-  clearLineage: () => {
-    set({ ...INITIAL_LINEAGE_STATE });
-  },
-});
+    clearLineage: () => {
+      generation += 1;
+      set({ ...INITIAL_LINEAGE_STATE });
+    },
+  };
+};

@@ -9,7 +9,7 @@ const defaultDialog: ProjectDialogState = {
   path: "",
 };
 
-export const createProjectSlice: StateCreator<AppStore, [], [], ProjectSlice> = (set) => ({
+export const createProjectSlice: StateCreator<AppStore, [], [], ProjectSlice> = (set, get) => ({
   currentProject: null,
   recentProjects: [],
   projectDialogOpen: false,
@@ -29,20 +29,31 @@ export const createProjectSlice: StateCreator<AppStore, [], [], ProjectSlice> = 
    * The sibling fields `branches` and `status` were already patched per
    * component with a `currentProjectId` effect. Doing it here instead makes the
    * boundary structural, so a later git cache cannot quietly miss it.
+   *
+   * #2395 — the same boundary covers the plot result and the Lineage tab.
+   * `plotPreviewTarget` names its node only by `(workflow_id, node_id)`, which
+   * the next project can repeat (`main`, `load_one`), so it rendered the
+   * previous project's plot. Lineage selection and cached run details survived
+   * until LineageTab happened to mount, and `clearLineage` also drops any
+   * `/api/runs` response still in flight for the outgoing project.
    */
-  setCurrentProject: (project) =>
-    set((state) => {
-      if (state.currentProject?.id === project?.id) return { currentProject: project };
-      return {
-        currentProject: project,
-        logCache: {},
-        logLoading: {},
-        logFailed: {},
-        branches: null,
-        currentBranch: null,
-        status: null,
-      };
-    }),
+  setCurrentProject: (project) => {
+    if (get().currentProject?.id === project?.id) {
+      set({ currentProject: project });
+      return;
+    }
+    get().clearLineage();
+    set({
+      currentProject: project,
+      logCache: {},
+      logLoading: {},
+      logFailed: {},
+      branches: null,
+      currentBranch: null,
+      status: null,
+      plotPreviewTarget: null,
+    });
+  },
   openProjectDialog: (mode, partial) =>
     set({
       projectDialogOpen: true,

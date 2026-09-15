@@ -6,8 +6,8 @@
  * Returning ``true`` from a handler call indicates the message was
  * fully consumed; the caller MUST NOT also forward it to
  * ``consumeEvent``. The ``workflow_started`` branch returns ``false``
- * because the executionSlice still needs the event to flip
- * ``isRunning``.
+ * because the executionSlice still needs the event to flip the
+ * workflow's running flag.
  */
 import { receivePanelDecision } from "../../panels/decisions";
 import type { VersionedWorkflowResponse } from "../../lib/api";
@@ -30,7 +30,7 @@ import { handleWorkflowChanged } from "./handleWorkflowChanged";
 
 export interface DispatchDeps {
   appendLog: (entry: LogEntry) => void;
-  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
+  upsertInteractivePrompt: (prompt: InteractivePrompt) => void;
   setWorkflow: (workflow: VersionedWorkflowResponse | null) => void;
 }
 
@@ -72,12 +72,12 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   if (receivePanelDecision(payload)) return true;
 
   if (payload.type === "interactive_prompt") {
-    handleInteractivePrompt(payload, { setInteractivePrompt: deps.setInteractivePrompt });
+    handleInteractivePrompt(payload, { upsertInteractivePrompt: deps.upsertInteractivePrompt });
     return true;
   }
   if (payload.type === "workflow_started") {
     handleWorkflowStartedAutoOpen(payload);
-    // Fall through so executionSlice still gets the event for isRunning.
+    // Fall through so executionSlice still gets the event for the workflow's running flag.
     return false;
   }
   if (payload.type === "workflow.changed") {
