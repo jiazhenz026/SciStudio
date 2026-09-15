@@ -1,0 +1,118 @@
+{
+  "base_ref": null,
+  "branch": "docs/2434-workflow-yaml-reference",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "scripts/docs/build_workflow_reference.py",
+      "scripts/docs/build_reference.py",
+      "src/scistudio/workflow/schema.py",
+      "src/scistudio/_user_guide/api-reference/workflow-yaml.md",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "tests/docs/test_workflow_reference.py",
+      "tests/api/test_user_docs.py",
+      "docs/adr/ADR-052.md",
+      "docs/adr/ADR-052-addendum2.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:18:12.124562Z",
+      "owner_directive": "Plan: new generator scripts/docs/build_workflow_reference.py renders workflow-yaml.md from WorkflowFileModel.model_json_schema(), model docstrings, Field descriptions, validate_workflow's documented checks, the workflow identity rules, and a serializer-produced example; build_reference.py calls it with minimal non-overlapping hooks (merge-clean with PR 2431 and PR 2432); schema.py gains Field descriptions and docstrings only; freshness test compares a fresh render; ADR-052 addendum 2 records the workflow YAML contract beside the panel-contract addendum 1 (PR 2432). SpecKit/spec N/A: documentation generation of an existing contract, no behavior change.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T09:18:12.124692Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/workflow-yaml.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:18:12.124697Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-052-addendum2.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:18:12.124698Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2434,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Generate a provisional workflow YAML schema reference page from the workflow models (pydantic JSON Schema plus serializer/validator/write_workflow file-shape rules) in its own generator module, publish it in the packaged API reference with a freshness test, complete missing field descriptions in the models (descriptions only), record the decision against ADR-052 section 7 reconciled with the panel-contract addendum, and do not rewrite skills, user guide, or agent reference prose.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2434-docs-2434-workflow-yaml-reference",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T09:23:12.624068Z",
+      "pattern": "src/scistudio/workflow/validator.py",
+      "reason": "The validate_workflow docstring feeds the generated Validation section but lists 8 of its 12 checks and refers to unlisted check numbers; complete it (docstring only, no behavior change)."
+    }
+  ],
+  "session_id": "4087d902-0259-4d1e-b902-94b4dfd7a723",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-15T09:18:12.124702Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_workflow_reference.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:18:12.124707Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
