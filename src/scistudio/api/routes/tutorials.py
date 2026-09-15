@@ -537,16 +537,16 @@ class _ApiProductState:
     def _workflow_scope_id(self) -> str | None:
         """The id the edited workflow's runs and preview cache are filed under.
 
-        ``WorkflowDefinition.id`` defaults to ``""`` for a YAML that omits it;
-        the run registry, the lineage rows, and the plot preview cache then use
-        the workflow's filename stem, so an empty id falls back to that rather
-        than reading as "no workflow".
+        Runs are filed under the workflow file's run identity, never the ``id:``
+        the YAML declares (which may be empty, or copied from another file).
         """
-        # Development references: #2362.
-        workflow = self.workflow()
-        if workflow is None:
+        # Development references: #2362, #2394.
+        if self.workflow() is None:
             return None
-        return getattr(workflow, "id", None) or self._workflow_ref()
+        ref = self._workflow_ref()
+        if ref is None:
+            return None
+        return _read_or(lambda: self.runtime.canonical_workflow_identity(ref), ref)
 
     # -- the three registries --------------------------------------------
 

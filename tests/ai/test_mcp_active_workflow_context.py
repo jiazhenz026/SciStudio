@@ -112,3 +112,20 @@ def test_blank_or_none_id_returns_none_envelope(tmp_path: Path, blank: str | Non
         result = asyncio.run(get_active_workflow_context())
     assert result.workflow_id is None
     assert result.workflow_name is None
+
+
+def test_resolves_name_of_an_open_subworkflow_by_its_path_identity(tmp_path: Path) -> None:
+    """#2394: an expanded subworkflow tab publishes its path identity; the name comes from that file."""
+    (tmp_path / "workflows").mkdir()
+    (tmp_path / "workflows" / "main.yaml").write_text(
+        "id: main\nmetadata:\n  title: Top-level main\nnodes: []\nedges: []\n", encoding="utf-8"
+    )
+    (tmp_path / "subworkflows").mkdir()
+    (tmp_path / "subworkflows" / "main.yaml").write_text(
+        "id: main\nmetadata:\n  title: Imported QC\nnodes: []\nedges: []\n", encoding="utf-8"
+    )
+    ctx = _StubContext(active_workflow_id="@subworkflows@main.yaml", _project_dir=tmp_path)
+    with _install_context(ctx):
+        result = asyncio.run(get_active_workflow_context())
+    assert result.workflow_id == "@subworkflows@main.yaml"
+    assert result.workflow_name == "Imported QC"

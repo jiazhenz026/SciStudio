@@ -18,6 +18,12 @@ import yaml
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
+from scistudio.workflow.identity import (
+    declared_id_for_file_name,
+    is_path_identity,
+    project_relative_path_for_identity,
+    workflow_identity_for_path,
+)
 from scistudio.workflow.serializer import absolutify_paths, load_yaml, relativify_paths, save_yaml
 
 if TYPE_CHECKING:
@@ -75,8 +81,53 @@ def _read_declared_workflow_id(path: Path) -> str | None:
 
 
 def workflow_path(self: ApiRuntime, workflow_id: str) -> Path:
+    """Return the file a workflow run identity names.
+
+    A stem names ``workflows/<stem>.yaml``; the path form (``@subworkflows@qc.yaml``)
+    names that project-relative file. See :mod:`scistudio.workflow.identity`.
+    The path form is confined to the project root.
+    """
+    # Development references: #2394.
     project = self.require_active_project()
-    return Path(project.path) / "workflows" / f"{workflow_id}.yaml"
+    root = Path(project.path)
+    relative = project_relative_path_for_identity(workflow_id)
+    if not is_path_identity(workflow_id):
+        return root / relative
+    candidate = (root / relative).resolve()
+    resolved_root = root.resolve()
+    if resolved_root not in candidate.parents:
+        raise ValueError(f"Workflow path escapes the project: {relative}")
+    return root / relative
+
+
+def workflow_identity_for_file(self: ApiRuntime, path: str | Path) -> str:
+    """Return the run identity of a workflow file inside the active project.
+
+    *path* may be absolute or project-relative. Raises ``ValueError`` when it is
+    outside the project.
+    """
+    # Development references: #2394.
+    project = self.require_active_project()
+    return workflow_identity_for_path(project.path, path)
+
+
+def canonical_workflow_identity(self: ApiRuntime, workflow_id: str) -> str:
+    """Return the canonical spelling of a run identity.
+
+    Two spellings can name one file (``@workflows@main.yaml`` and ``main``);
+    the run guard, lineage and events must all see the same one.
+    """
+    # Development references: #2394.
+    try:
+        return self.workflow_identity_for_file(self.workflow_path(workflow_id))
+    except ValueError:
+        return workflow_id
+
+
+def workflow_relative_path(self: ApiRuntime, workflow_id: str) -> str:
+    """Return the project-relative POSIX path a run identity names."""
+    # Development references: #2394.
+    return str(project_relative_path_for_identity(workflow_id))
 
 
 def find_workflow_id_conflict(self: ApiRuntime, workflow_id: str) -> Path | None:
@@ -88,9 +139,11 @@ def find_workflow_id_conflict(self: ApiRuntime, workflow_id: str) -> Path | None
     *.yaml`` whose internal ``id`` equals *workflow_id* is a duplicate-id
     collision and is returned so the caller can reject the save/import.
     """
-    # Development references: #1836.
+    # Development references: #1836, #2394.
     project = self.active_project
-    if project is None:
+    if project is None or is_path_identity(workflow_id):
+        # A file outside ``workflows/<stem>.yaml`` is addressed by its path,
+        # so its declared id cannot collide with a top-level workflow.
         return None
     workflows_dir = Path(project.path) / "workflows"
     if not workflows_dir.is_dir():
@@ -112,11 +165,29 @@ def find_workflow_id_conflict(self: ApiRuntime, workflow_id: str) -> Path | None
 
 
 def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefinition:
+    """Validate and write a workflow addressed by the run identity ``payload["id"]``.
+
+    A top-level workflow is written to ``workflows/<id>.yaml`` declaring that id.
+    A file addressed by its path form keeps the ``id:`` it already declares (the
+    file name when it declares none), so saving an expanded subworkflow tab
+    never renames the subworkflow or writes ``workflows/<declared id>.yaml``.
+    The returned definition carries the declared id that was written.
+    """
+    # Development references: #506, #2394.
     # #506: relativify paths in node configs before persisting YAML.
     project_dir = self.active_project.path if self.active_project else None
+    identity = str(payload["id"])
+    path = self.workflow_path(identity)
+    declared_id = identity
+    if is_path_identity(identity):
+        # The path form only addresses files that already exist (an opened
+        # subworkflow); new workflows are created under ``workflows/``.
+        if not path.is_file():
+            raise FileNotFoundError(f"Workflow file not found: {self.workflow_relative_path(identity)}")
+        declared_id = _read_declared_workflow_id(path) or declared_id_for_file_name(path.name)
 
     definition = WorkflowDefinition(
-        id=payload["id"],
+        id=declared_id,
         version=payload.get("version", "1.0.0"),
         description=payload.get("description", ""),
         metadata=payload.get("metadata", {}),
@@ -165,11 +236,10 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
         raise ValueError("Workflow validation failed: " + "; ".join(str(e) for e in hard_errors))
 
     # #1836: enforce per-project unique workflow id at save time.
-    conflict = find_workflow_id_conflict(self, definition.id)
+    conflict = find_workflow_id_conflict(self, identity)
     if conflict is not None:
         raise WorkflowIdConflictError(definition.id, conflict)
 
-    path = self.workflow_path(definition.id)
     # #1953: register a *pending* first-party write signature BEFORE the atomic
     # rename inside ``save_yaml``. ``save_yaml`` writes a tempfile then
     # ``os.replace``s it onto ``path``; on Linux/inotify that rename surfaces to
@@ -189,8 +259,8 @@ def save_workflow(self: ApiRuntime, payload: dict[str, Any]) -> WorkflowDefiniti
 
     self.mark_entity_first_party_write(
         WORKFLOW_ENTITY_CLASS,
-        definition.id,
-        self.current_workflow_version(definition.id),
+        identity,
+        self.current_workflow_version(identity),
         path=path,
         kind=kind,
         pending=True,

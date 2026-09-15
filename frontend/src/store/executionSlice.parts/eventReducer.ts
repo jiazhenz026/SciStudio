@@ -46,8 +46,14 @@ export function extractBlockError(event: ExecutionEvent): BlockErrorExtraction {
 }
 
 /**
- * Compute the next ``isRunning`` flag from a workflow-lifecycle event.
- * Returns ``current`` unchanged when the event is not a lifecycle event.
+ * #2395 — the next running flag of ONE workflow from a lifecycle event.
+ *
+ * Several different workflows may run at the same time (the same workflow may
+ * not run twice), so the flag lives in that workflow's execution bucket and is
+ * only ever flipped by that workflow's own `workflow_started` /
+ * `workflow_completed`. The engine emits `workflow_completed` for every
+ * terminal outcome (success, failure, cancellation). Returns ``current``
+ * unchanged for any other event.
  */
 export function nextIsRunning(event: ExecutionEvent, current: boolean): boolean {
   if (event.type === "workflow_started") return true;
@@ -146,6 +152,13 @@ export interface WorkflowExecutionState {
   blockOutputs: Record<string, Record<string, unknown>>;
   blockErrors: Record<string, string>;
   blockErrorSummaries: Record<string, string>;
+  /**
+   * #2395 — true between this workflow's `workflow_started` and its
+   * `workflow_completed`. Held per workflow so one run finishing cannot
+   * re-enable Run for another workflow that is still running. A later run
+   * identity (run_id) can sit beside this flag without reshaping the bucket.
+   */
+  isRunning: boolean;
 }
 
 export type ExecutionByWorkflow = Record<string, WorkflowExecutionState>;
@@ -158,6 +171,7 @@ export function emptyWorkflowExecution(): WorkflowExecutionState {
     blockOutputs: {},
     blockErrors: {},
     blockErrorSummaries: {},
+    isRunning: false,
   };
 }
 
@@ -190,7 +204,7 @@ export function nextExecutionByWorkflow(
   activeWorkflowId: string | null,
   now: number = Date.now(),
 ): ExecutionByWorkflow {
-  if (!event.block_id) return current;
+  if (!event.block_id) return nextLifecycleByWorkflow(event, current, activeWorkflowId);
   const key = executionWorkflowKey(event, activeWorkflowId);
   const bucket = current[key] ?? emptyWorkflowExecution();
   const extraction = extractBlockError(event);
@@ -208,8 +222,36 @@ export function nextExecutionByWorkflow(
       blockOutputs: nextBlockOutputs(event, bucket.blockOutputs),
       blockErrors: nextErrors,
       blockErrorSummaries: nextSummaries,
+      isRunning: bucket.isRunning,
     },
   };
+}
+
+/**
+ * #2395 — fold a workflow lifecycle event into its own workflow's bucket.
+ * Every other workflow's entry is carried through by reference.
+ */
+function nextLifecycleByWorkflow(
+  event: ExecutionEvent,
+  current: ExecutionByWorkflow,
+  activeWorkflowId: string | null,
+): ExecutionByWorkflow {
+  if (event.type !== "workflow_started" && event.type !== "workflow_completed") return current;
+  const key = executionWorkflowKey(event, activeWorkflowId);
+  const bucket = current[key] ?? emptyWorkflowExecution();
+  const isRunning = nextIsRunning(event, bucket.isRunning);
+  if (current[key] && bucket.isRunning === isRunning) return current;
+  return { ...current, [key]: { ...bucket, isRunning } };
+}
+
+/**
+ * #2395 — the ids of every workflow currently running, in a stable order.
+ * Lets a consumer notice any run ending, not only the one on screen.
+ */
+export function runningWorkflowIds(byWorkflow: ExecutionByWorkflow): string[] {
+  return Object.keys(byWorkflow)
+    .filter((key) => byWorkflow[key].isRunning)
+    .sort();
 }
 
 /**

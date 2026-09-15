@@ -52,7 +52,7 @@ export interface WorkflowWebSocketState {
 export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
   const consumeEvent = useAppStore((state) => state.consumeEvent);
   const appendLog = useAppStore((state) => state.appendLog);
-  const setInteractivePrompt = useAppStore((state) => state.setInteractivePrompt);
+  const upsertInteractivePrompt = useAppStore((state) => state.upsertInteractivePrompt);
   const setWorkflow = useAppStore((state) => state.setWorkflow);
   const [status, setStatus] = useState<ConnectionStatus>("disconnected");
 
@@ -181,7 +181,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
         }
         const consumed = dispatchWorkflowEvent(payload, {
           appendLog,
-          setInteractivePrompt,
+          upsertInteractivePrompt,
           setWorkflow,
         });
         if (consumed) return;
@@ -214,7 +214,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
       socket = null;
       setStatus("disconnected");
     };
-  }, [appendLog, consumeEvent, enabled, setInteractivePrompt, setWorkflow]);
+  }, [appendLog, consumeEvent, enabled, upsertInteractivePrompt, setWorkflow]);
 
   return { connected: status === "connected", status };
 }

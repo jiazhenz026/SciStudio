@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import { postActiveWorkflowContext } from "../lib/api/ai";
 import { isAttachedProjectView } from "../lib/projectDeepLink";
 
+import { createActiveWorkflowSync } from "./activeWorkflowSync";
 import { createExecutionSlice } from "./executionSlice";
 import { createGitSlice } from "./gitSlice";
 import { createLearningCenterSlice } from "./learningCenterSlice";
@@ -57,14 +58,6 @@ function partializeTabs(tabs: TabState[]): TabState[] {
       .map((tab) => (tab.kind === "file" ? partializeFileTab(tab) : tab))
   );
 }
-
-// ADR-040 Addendum 5 / #1488: sentinel for the active-workflow sync
-// subscriber. Tracks the workflowId last POSTed to ``/api/ai/active-context``
-// so an unrelated slice change does not re-emit the same id, and so the
-// first call (after store creation + rehydration) always fires exactly one
-// POST. ``undefined`` is used as the "never synced" marker because the
-// store value itself is ``string | null`` — neither of which collides.
-let lastSyncedActiveWorkflowId: string | null | undefined;
 
 export const useAppStore = create<AppStore>()(
   persist(
@@ -181,32 +174,24 @@ export const useAppStore = create<AppStore>()(
   ),
 );
 
-// ADR-040 Addendum 5 / #1488: surface the editor's active workflow id to
-// the backend so the chat agent's ``get_active_workflow_context`` MCP
-// tool reflects the same workflow the GUI is showing. We subscribe to
-// the workflowId selector and POST whenever it transitions. The first
-// call (sentinel == undefined) always fires so the backend's
-// freshly-loaded persistence value can be confirmed or replaced.
-function syncActiveWorkflowId(workflowId: string | null): void {
-  // #2385 — an attached `open_gui` view watches the user's session; publishing
-  // its own editor context would overwrite what the user has open.
-  if (isAttachedProjectView()) return;
-  if (lastSyncedActiveWorkflowId === workflowId) return;
-  lastSyncedActiveWorkflowId = workflowId;
-  void postActiveWorkflowContext(workflowId).catch((err) => {
-    // Best-effort: a failed sync MUST NOT block the editor. The chat
-    // agent simply won't see the latest id this turn — the next
-    // workflowId change re-emits.
-    console.warn("[ai-context] active workflow sync failed", err);
-  });
-}
+// ADR-040 Addendum 5 / #1488: surface the editor's active workflow to the
+// backend so the chat agent's ``get_active_workflow_context`` MCP tool reflects
+// the same workflow the GUI is showing. #2395: seeded with the page's starting
+// context, so store initialisation publishes nothing (a fresh page used to POST
+// ``null`` and clear the agent's context); only a real change of the
+// ``(project, workflow)`` shown in this page publishes. See
+// ``activeWorkflowSync.ts``.
+const syncActiveWorkflow = createActiveWorkflowSync(
+  {
+    projectId: useAppStore.getState().currentProject?.id ?? null,
+    workflowId: useAppStore.getState().workflowId,
+  },
+  { post: postActiveWorkflowContext, isAttached: isAttachedProjectView },
+);
 
 useAppStore.subscribe((state) => {
-  syncActiveWorkflowId(state.workflowId);
+  syncActiveWorkflow({
+    projectId: state.currentProject?.id ?? null,
+    workflowId: state.workflowId,
+  });
 });
-
-// Fire once at module load so the backend's persisted value is
-// compared against (or replaced by) whatever the freshly-hydrated
-// frontend has. Without this, the very first sync waits until the user
-// opens or switches a workflow.
-syncActiveWorkflowId(useAppStore.getState().workflowId);

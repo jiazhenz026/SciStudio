@@ -2,6 +2,7 @@ import type { StateCreator } from "zustand";
 
 import { setWorkflowWriteStartedListener } from "../lib/api";
 import type { VersionedWorkflowResponse } from "../lib/api";
+import { workflowIdentityLabel } from "../lib/workflowIdentity";
 import type { AppStore, WorkflowSlice } from "./types";
 import { executionViewKey, projectExecution } from "./executionSlice.parts/eventReducer";
 import {
@@ -68,7 +69,8 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
           // schema. A workflow YAML that omits the `id:` field round-trips through
           // the API as ``id: ""`` and would render a blank top-left title here.
           // Fall back to "Untitled" so the user always sees a label.
-          workflowName: workflow?.id || "Untitled",
+          // #2394: an opened subworkflow's id is its path identity; label it by file name.
+          workflowName: workflowIdentityLabel(workflow?.id) || "Untitled",
           workflowDescription: workflow?.description ?? "",
           workflowVersion: workflow?.version ?? "1.0.0",
           workflowMetadata: workflow?.metadata ?? {},

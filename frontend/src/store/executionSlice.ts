@@ -6,10 +6,15 @@ import {
   executionViewKey,
   extractBlockError,
   maybeAppendErrorLog,
+  executionWorkflowKey,
   nextExecutionByWorkflow,
-  nextIsRunning,
   projectExecution,
 } from "./executionSlice.parts/eventReducer";
+import {
+  removePrompt,
+  removeWorkflowPrompts,
+  upsertPrompt,
+} from "./executionSlice.parts/interactivePrompts";
 
 export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice> = (set) => ({
   executionByWorkflow: {},
@@ -21,7 +26,7 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
   executionMessages: [],
   logEntries: [],
   isRunning: false,
-  interactivePrompt: null,
+  interactivePrompts: {},
   consumeEvent: (event) =>
     set((state) => {
       const extraction = extractBlockError(event);
@@ -44,13 +49,24 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
         state.workflowId,
       );
 
+      // #2395: a workflow whose run ended can no longer be waiting on an
+      // interactive block, so its pending prompts (and only its) are dropped.
+      const interactivePrompts =
+        event.type === "workflow_completed"
+          ? removeWorkflowPrompts(
+              state.interactivePrompts,
+              executionWorkflowKey(event, state.workflowId),
+            )
+          : state.interactivePrompts;
+
       return {
         executionByWorkflow,
         // An expanded subworkflow tab shows its parent run's bucket, not the
-        // child file's own id (see `executionViewKey`).
+        // child file's own id (see `executionViewKey`). #2395: the projection
+        // carries the running flag of the workflow on screen too.
         ...projectExecution(executionByWorkflow, executionViewKey(state)),
+        interactivePrompts,
         logEntries: nextLogs,
-        isRunning: nextIsRunning(event, state.isRunning),
         executionMessages: [
           ...state.executionMessages,
           `${event.type}:${event.block_id ?? "workflow"}`,
@@ -76,8 +92,12 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
       ...emptyWorkflowExecution(),
       executionMessages: [],
       logEntries: [],
-      isRunning: false,
-      interactivePrompt: null,
+      interactivePrompts: {},
     }),
-  setInteractivePrompt: (prompt) => set({ interactivePrompt: prompt }),
+  upsertInteractivePrompt: (prompt) =>
+    set((state) => ({ interactivePrompts: upsertPrompt(state.interactivePrompts, prompt) })),
+  removeInteractivePrompt: (workflowId, blockId) =>
+    set((state) => ({
+      interactivePrompts: removePrompt(state.interactivePrompts, workflowId, blockId),
+    })),
 });

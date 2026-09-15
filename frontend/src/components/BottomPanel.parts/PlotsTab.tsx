@@ -106,11 +106,19 @@ export function PlotsTab() {
   }, [workflowId, refreshToken]);
 
   async function handleRun(plot: PlotListItem) {
+    // #2395: the run is awaited, and the user may switch workflow tabs meanwhile.
+    // Node ids repeat across workflows, so selecting `plot.node_id` after the
+    // switch would select a same-named node in the other workflow.
+    // The same holds for the project: a result landing after a project switch
+    // belongs to the project that was closed, so it is dropped.
+    const originWorkflowId = workflowId;
+    const originProjectId = useAppStore.getState().currentProject?.id ?? null;
     setRunningId(plot.plot_id);
     setRunStartedAt(Date.now());
     setCardError(null);
     try {
       const result = await api.runPlotJob({ plot_id: plot.plot_id });
+      if ((useAppStore.getState().currentProject?.id ?? null) !== originProjectId) return;
       const nextTarget = plotTargetFromRunResponse(result);
       if (!nextTarget) {
         setCardError({
@@ -132,7 +140,7 @@ export function PlotsTab() {
       // #1713 followup — select the plot's linked block so the Preview header
       // shows the block name (not "Select a block") and the result sits beside
       // its source. Skip broken plots: the bound node no longer exists.
-      if (!plot.broken) {
+      if (!plot.broken && useAppStore.getState().workflowId === originWorkflowId) {
         setSelectedNodeId(plot.node_id);
       }
     } catch (error) {
