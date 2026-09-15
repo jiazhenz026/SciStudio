@@ -315,7 +315,7 @@ def scoped_library_dirs() -> tuple[Path, ...]:
     ``panels/`` joins them because :func:`scistudio.core.dropins.panel_scan_dirs`
     applies the same swap, so a panel saved to the library during a tutorial
     lands in a directory that exists. ``previewers/`` stays while tutorials
-    still write previewer drop-ins (#2411).
+    still write previewer drop-ins.
     """
     # Development references: #2086, #2411, FR-070.
     root = tutorial_library_dir()
