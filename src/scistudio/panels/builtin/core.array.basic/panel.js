@@ -132,6 +132,77 @@ function planeMeta(plane) {
  * between index stops; the index it resolves to loads live, and releasing snaps
  * the handle onto that index.
  */
+/**
+ * Fill in every non-displayed axis, from the reader's choices and the read's echo.
+ *
+ * The backend defaults the first non-displayed axis from ``slice_index`` when
+ * ``axis_indices`` omits it, so an omission is not "leave it alone" — it is
+ * "put it wherever the other slider is".
+ */
+export function resolveAxisIndices(sliceAxes, chosen) {
+  const resolved = {};
+  for (const axis of sliceAxes || []) {
+    const picked = (chosen || {})[axis.axis];
+    resolved[axis.axis] = typeof picked === "number" ? picked : axis.index;
+  }
+  return resolved;
+}
+
+/**
+ * The first non-displayed axis's selection, in the backend's own axis order.
+ *
+ * ``Object.keys`` order is not that order once an axis is missing, and this is
+ * the value the backend applies when it has to default one.
+ */
+export function firstAxisIndex(sliceAxes, resolved) {
+  const first = (sliceAxes || [])[0];
+  if (!first) return 0;
+  const picked = (resolved || {})[first.axis];
+  return typeof picked === "number" ? picked : first.index;
+}
+
+/**
+ * Run one job at a time, keeping only the latest of those that arrive meanwhile.
+ *
+ * A range input emits an event per pointer move and each plane read is
+ * expensive, so a drag must not become a queue of reads for positions the
+ * pointer has already left. A failed job releases the queue like a successful
+ * one: a read that errors must not freeze every later move.
+ */
+export function coalescingQueue(run) {
+  let busy = false;
+  let queued = null;
+  const start = (value) => {
+    busy = true;
+    // Started now, not on the next microtask: the first move of a drag should
+    // reach the reader immediately, and only what follows it needs collapsing.
+    let running;
+    try {
+      running = run(value);
+    } catch {
+      running = undefined;
+    }
+    Promise.resolve(running)
+      .then(
+        () => undefined,
+        () => undefined,
+      )
+      .then(() => {
+        const next = queued;
+        queued = null;
+        if (next !== null) start(next);
+        else busy = false;
+      });
+  };
+  return (value) => {
+    if (busy) {
+      queued = value;
+      return;
+    }
+    start(value);
+  };
+}
+
 function SliceAxes({ sliceAxes, indices, onChange }) {
   // While the pointer is down the handle is left alone: re-rendering with the
   // committed index as its value would yank it to the snapped position for a
@@ -304,35 +375,56 @@ function ArrayPanel({ initialView }) {
 
   const scrollRef = useRef(null);
   const scrollPos = useRef({ top: initialView.scrollTop || 0, left: initialView.scrollLeft || 0 });
-  // Only the newest response is applied, and at most one read of each kind is in
-  // flight, so dragging an axis tracks the pointer instead of queueing a
-  // round-trip per intermediate index.
-  const planeReq = useRef(0);
+  // A tile read is cheap and scroll-driven, so only the newest response is
+  // applied. A plane read is not; see `readPlane` for why it is serialised.
   const tileReq = useRef(0);
 
   const meta = useMemo(() => (plane ? planeMeta(plane) : null), [plane]);
   const sliceAxes = plane?.slice_axes ?? [];
-  const firstIndex = useMemo(() => {
-    const keys = Object.keys(indices);
-    return keys.length ? indices[keys[0]] : 0;
-  }, [indices]);
+  // The queue outlives any one render, so the axis order it resolves against is
+  // read through a ref rather than captured when the queue was built.
+  const sliceAxesRef = useRef(sliceAxes);
+  sliceAxesRef.current = sliceAxes;
+  /*
+   * Every non-displayed axis, with the reader's choice where they made one and
+   * the read's own echo where they did not. Sending a partial set left the
+   * backend to fill the first non-displayed axis from `slice_index`, so moving
+   * any *other* axis moved that one to the same position and showed a different
+   * plane — real values from somewhere the reader had not asked for.
+   */
+  const axisIndices = useMemo(() => resolveAxisIndices(sliceAxes, indices), [sliceAxes, indices]);
+  const firstIndex = useMemo(() => firstAxisIndex(sliceAxes, axisIndices), [sliceAxes, axisIndices]);
 
+  /*
+   * One plane read at a time, and only the latest position still wanted.
+   *
+   * Reading a plane is not cheap: the backend scans it to find the real extrema
+   * for the legend, which for a large array is the whole plane. A range input
+   * emits an event per pointer move, so a read per event put dozens of
+   * whole-plane scans in flight at once — enough to saturate the reader and, on
+   * a large enough array, to exhaust memory. Dropping stale *responses* did not
+   * help: the work had already been started.
+   */
+  const planeQueue = useRef(null);
   const readPlane = useCallback(
-    (axisIndices) => {
-      const req = ++planeReq.current;
-      const keys = Object.keys(axisIndices);
-      const slice = keys.length ? axisIndices[keys[0]] : 0;
-      api
-        .read("array.plane", { slice_index: slice, axis_indices: axisIndices })
-        .then((p) => {
-          if (req === planeReq.current) {
-            setPlane(p);
-            setError(null);
-          }
-        })
-        .catch((err) => {
-          if (req === planeReq.current) fail(err);
-        });
+    (selection) => {
+      if (!planeQueue.current) {
+        planeQueue.current = coalescingQueue((wanted) =>
+          api
+            .read("array.plane", {
+              slice_index: firstAxisIndex(sliceAxesRef.current, wanted),
+              axis_indices: wanted,
+            })
+            .then(
+              (p) => {
+                setPlane(p);
+                setError(null);
+              },
+              (err) => fail(err),
+            ),
+        );
+      }
+      planeQueue.current(selection);
     },
     [fail],
   );
@@ -374,7 +466,7 @@ function ArrayPanel({ initialView }) {
 
   // First read, and a re-read whenever the selected slice changes.
   useEffect(() => {
-    readPlane(indices);
+    readPlane(axisIndices);
   }, [indices, readPlane]);
 
   // The plane defines the geometry; load the window it exposes. A 0-D source has
@@ -384,7 +476,7 @@ function ArrayPanel({ initialView }) {
     if (meta.scalar) {
       const req = ++tileReq.current;
       api
-        .read("array.tile", { y0: 0, x0: 0, height: 1, width: 1, slice_index: firstIndex, axis_indices: indices })
+        .read("array.tile", { y0: 0, x0: 0, height: 1, width: 1, slice_index: firstIndex, axis_indices: axisIndices })
         .then((t) => {
           if (req === tileReq.current) setTile(t);
         })

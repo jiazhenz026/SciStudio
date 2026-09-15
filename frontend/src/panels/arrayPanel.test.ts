@@ -113,6 +113,103 @@ afterEach(() => {
   vi.resetModules();
 });
 
+/** Let every queued microtask and timer callback run. */
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+describe("core.array.basic — one plane read at a time (#2294)", () => {
+  it("collapses the positions a drag passes through into one further read", async () => {
+    /*
+     * The backend scans the plane to find the legend's real extrema, so a plane
+     * read is expensive. A range input emits an event per pointer move; issuing
+     * a read for each put dozens of whole-plane scans in flight at once, which
+     * on a large array is enough to exhaust memory. Dropping stale responses
+     * did not help — the work had already been started.
+     */
+    const { coalescingQueue } = await loadPanelModule();
+    const served: number[] = [];
+    let release: (() => void) | null = null;
+    const enqueue = coalescingQueue((value: number) => {
+      served.push(value);
+      return new Promise<void>((resolve) => {
+        release = () => resolve();
+      });
+    });
+
+    enqueue(1);
+    expect(served).toEqual([1]);
+
+    // Everything the pointer passes through while the first read is in flight.
+    enqueue(2);
+    enqueue(3);
+    enqueue(4);
+    expect(served).toEqual([1]);
+
+    release!();
+    // Only where the drag got to, not every position it crossed.
+    await vi.waitFor(() => expect(served).toEqual([1, 4]));
+
+    release!();
+    await flush();
+    expect(served).toEqual([1, 4]);
+
+    // The queue is idle again, so the next move starts immediately.
+    enqueue(5);
+    expect(served).toEqual([1, 4, 5]);
+  });
+
+  it("keeps running after a read fails, rather than wedging shut", async () => {
+    const { coalescingQueue } = await loadPanelModule();
+    const served: number[] = [];
+    const enqueue = coalescingQueue((value: number) => {
+      served.push(value);
+      return Promise.reject(new Error("read failed"));
+    });
+
+    enqueue(1);
+    await flush();
+    // A failed read that left the queue busy would freeze every later move.
+    enqueue(2);
+    await flush();
+    expect(served).toEqual([1, 2]);
+  });
+});
+
+describe("core.array.basic — addressing every sliced axis (#2294)", () => {
+  /*
+   * The backend fills the first non-displayed axis from `slice_index` whenever
+   * `axis_indices` omits it. A panel that sends only the axis the reader just
+   * moved therefore moves the first axis to the same position, and shows a
+   * plane nobody asked for — real values from the wrong place, which is harder
+   * to notice than a blank.
+   */
+  const SLICE_AXES = [
+    { axis: 0, name: "t", size: 10, index: 0 },
+    { axis: 1, name: "z", size: 10, index: 0 },
+  ];
+
+  it("fills in every axis the read echoed, not just the one that moved", async () => {
+    const { resolveAxisIndices } = await loadPanelModule();
+    expect(resolveAxisIndices(SLICE_AXES, { 1: 7 })).toEqual({ 0: 0, 1: 7 });
+    // A reader's choice always wins over the echo.
+    expect(resolveAxisIndices(SLICE_AXES, { 0: 3, 1: 7 })).toEqual({ 0: 3, 1: 7 });
+    // With no choices at all the echo is the whole answer.
+    expect(resolveAxisIndices(SLICE_AXES, {})).toEqual({ 0: 0, 1: 0 });
+    expect(resolveAxisIndices([], { 1: 7 })).toEqual({});
+  });
+
+  it("takes slice_index from the backend's first axis, not from key order", async () => {
+    const { firstAxisIndex, resolveAxisIndices } = await loadPanelModule();
+    const resolved = resolveAxisIndices(SLICE_AXES, { 1: 7 });
+    /*
+     * Object key order would have answered 7 here — the value of the only axis
+     * present — and the backend would have applied it to axis 0.
+     */
+    expect(firstAxisIndex(SLICE_AXES, resolved)).toBe(0);
+    expect(firstAxisIndex(SLICE_AXES, { 0: 4, 1: 7 })).toBe(4);
+    expect(firstAxisIndex([], {})).toBe(0);
+  });
+});
+
 describe("core.array.basic — pure helpers keep the viewer's behaviour", () => {
   it("heatmapColor maps signed data to a diverging scale — negatives are NOT black", async () => {
     const { heatmapColor } = await loadPanelModule();

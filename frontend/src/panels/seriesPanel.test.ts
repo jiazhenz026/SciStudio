@@ -206,6 +206,7 @@ describe("core.series.basic — the plotted line", () => {
         { x: 3, y: 3 },
       ],
       [1],
+      [0, 2, 3],
     );
     expect(xs).toEqual([0, null, 2, 3]);
     expect(ys).toEqual([0, null, 2, 3]);
@@ -213,9 +214,41 @@ describe("core.series.basic — the plotted line", () => {
 
   it("plots a complete series unbroken", async () => {
     const { lineData } = await loadPanelModule();
-    const { xs, ys } = lineData(POINTS, []);
+    const { xs, ys } = lineData(POINTS, [], [0, 1, 2]);
     expect(xs).toEqual([0, 1, 2]);
     expect(ys).toEqual([1, 4, 9]);
+  });
+
+  it("places a gap by its source position, not by how many points came back", async () => {
+    const { lineData } = await loadPanelModule();
+    /*
+     * A series longer than the read's budget comes back decimated, while the
+     * dropped positions stay in source coordinates. Counting returned points
+     * put the break in the wrong place — or, for a gap late in a long series,
+     * never reached it at all and drew the curve continuous across missing
+     * data, which is the failure the gap notice exists to prevent.
+     */
+    const sampled = [
+      { x: 0, y: 0 },
+      { x: 100, y: 1 },
+      { x: 200, y: 2 },
+    ];
+    const { xs } = lineData(sampled, [150], [0, 100, 200]);
+    expect(xs).toEqual([0, 100, null, 200]);
+
+    // A drop that falls outside every returned interval breaks nothing.
+    expect(lineData(sampled, [300], [0, 100, 200]).xs).toEqual([0, 100, 200]);
+    // Several drops between the same pair of points are one break.
+    expect(lineData(sampled, [10, 20, 30], [0, 100, 200]).xs).toEqual([0, null, 100, 200]);
+  });
+
+  it("works out the source positions itself for a complete read", async () => {
+    const { inferSourceIndices } = await loadPanelModule();
+    // Three finite points with source index 1 dropped: 0, 2, 3.
+    expect(inferSourceIndices(3, [1])).toEqual([0, 2, 3]);
+    // Consecutive drops at the start push everything along.
+    expect(inferSourceIndices(2, [0, 1])).toEqual([2, 3]);
+    expect(inferSourceIndices(3, [])).toEqual([0, 1, 2]);
   });
 });
 

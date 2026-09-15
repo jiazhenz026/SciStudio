@@ -64,6 +64,10 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
     selected = {i * (total - 1) // (limit - 1) for i in range(limit)} if limit > 1 else {0} if limit else set()
     points, nonnumeric = [], 0
     nonfinite_positions: list[int] = []
+    # Where each returned point sat in the source. A decimated read reports the
+    # dropped positions in source coordinates, so a consumer that counted
+    # returned points instead would put every gap in the wrong place.
+    source_indices: list[int] = []
     for index, (raw_x, raw_y) in enumerate(pairs):
         x, y = _finite(raw_x), _finite(raw_y)
         if x is None or y is None:
@@ -72,6 +76,7 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
                 nonfinite_positions.append(index)
         elif index in selected:
             points.append({"x": x, "y": y})
+            source_indices.append(index)
     sampled = total > max_points
     return {
         "points": points,
@@ -83,4 +88,5 @@ def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size:
         "decimation": "uniform-index" if sampled else "none",
         "nonfinite_positions": nonfinite_positions,
         "nonfinite_positions_complete": len(nonfinite_positions) == nonnumeric,
+        "source_indices": source_indices,
     }

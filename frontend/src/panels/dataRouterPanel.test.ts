@@ -174,6 +174,31 @@ describe("core.interactive.data_router — the surface", () => {
   });
 });
 
+describe("core.interactive.data_router — nothing to route", () => {
+  it("can be confirmed when every input arrived empty", async () => {
+    const api = stubHost({
+      input_ports: ["input_1"],
+      items_per_port: { input_1: [] },
+      output_ports: ["kept", "discarded"],
+    });
+    await loadPanelModule();
+    await vi.waitFor(() => expect(confirm()).toBeTruthy());
+
+    /*
+     * Nothing to assign is not the same as work left to do. Requiring at least
+     * one item left the run paused on a Confirm nobody could press, with cancel
+     * as the only way out of a block that had nothing to decide.
+     */
+    expect(confirm().disabled).toBe(false);
+    expect(testid("router-status")?.textContent).toBe("All items assigned");
+
+    confirm().click();
+    // Every declared output port is still present, so the block produces the
+    // empty collections it declared rather than nothing at all.
+    expect(api.writeBack).toHaveBeenCalledWith({ assignments: { kept: [], discarded: [] } });
+  });
+});
+
 describe("core.interactive.data_router — leaving without deciding", () => {
   it("draws no Cancel of its own", async () => {
     stubHost();
