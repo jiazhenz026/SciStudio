@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("scistudioDesktop", {
   // the main process to relaunch, so a fresh Python interpreter imports the new
   // package code (already-imported modules are not re-imported in-process).
   relaunch: () => ipcRenderer.invoke("scistudio:relaunch"),
+  captureGui: (request) => ipcRenderer.invoke("scistudio:capture-gui", request),
   // Application-menu actions (desktop/menu.js). Subscribe with a callback that
   // receives the action id; returns an unsubscribe function. The frontend
   // dispatches these in App.parts/useDesktopMenuActions.ts.

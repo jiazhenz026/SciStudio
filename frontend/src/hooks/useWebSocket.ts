@@ -9,6 +9,7 @@ import {
   type ConnectionStatus,
 } from "./connectionState";
 import { dispatchWorkflowEvent } from "./useWebSocket.parts/dispatchEvent";
+import { guiDebugHello, handleGuiDebugRequest } from "../panels/guiDebug";
 
 /** Heartbeat interval (#177): ping the server to detect stale sockets. */
 const HEARTBEAT_INTERVAL_MS = 30000;
@@ -68,6 +69,12 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
     let heartbeatTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
     let delay = RECONNECT_INITIAL_DELAY_MS;
     let lastInboundAt = 0;
+    const advertiseGui = () => {
+      if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(guiDebugHello()));
+    };
+    const stopProjectWatch = useAppStore.subscribe((state, previous) => {
+      if (state.currentProject?.path !== previous.currentProject?.path) advertiseGui();
+    });
 
     // ADR-055 Spec 0 (FR-005): the WS URL comes from the single base-path
     // source of truth so a prefixed mount dials `<prefix>/ws`.
@@ -148,6 +155,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
         delay = RECONNECT_INITIAL_DELAY_MS;
         lastInboundAt = Date.now();
         setStatus("connected");
+        advertiseGui();
         startHeartbeat();
       };
       socket.onclose = handleClosed;
@@ -163,6 +171,14 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
         const payload = JSON.parse(event.data) as WorkflowEventMessage;
         lastInboundAt = Date.now();
         if (payload.type === "pong") return;
+        if (payload.type === "gui.debug.request") {
+          const requestingSocket = socket;
+          void handleGuiDebugRequest(payload, (message) => {
+            if (requestingSocket?.readyState === WebSocket.OPEN)
+              requestingSocket.send(JSON.stringify(message));
+          });
+          return;
+        }
         const consumed = dispatchWorkflowEvent(payload, {
           appendLog,
           setInteractivePrompt,
@@ -185,6 +201,7 @@ export function useWorkflowWebSocket(enabled: boolean): WorkflowWebSocketState {
 
     return () => {
       cancelled = true;
+      stopProjectWatch();
       if (retryTimer) clearTimeout(retryTimer);
       clearHeartbeat();
       if (socket) {

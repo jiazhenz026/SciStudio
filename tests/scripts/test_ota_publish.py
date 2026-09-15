@@ -234,6 +234,7 @@ _SHELL_TEXT_FILES = (
     "ota.js",
     "runtime-port.js",
     "background-mode.js",
+    "gui-capture.js",
     "preload.js",
     "connection-preload.js",
     "splash.html",

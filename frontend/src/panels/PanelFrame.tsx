@@ -231,7 +231,11 @@ export function PanelFrame(props: PanelFrameProps) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="panel-host">
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      data-testid="panel-host"
+      data-panel-ready={ready && !error}
+    >
       {error ? (
         <div role="alert" className="rounded border border-red-300 p-3 text-sm">
           <p>

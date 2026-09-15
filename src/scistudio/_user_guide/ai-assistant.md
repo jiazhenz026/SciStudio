@@ -240,3 +240,9 @@ inference; the workflow stays typed and reproducible around it.
 - [using-the-gui.md](using-the-gui.md) — where the chat and the AI Agent block fit
 - [built-in-blocks.md](built-in-blocks.md) — the AI Agent block alongside the
   other built-ins
+
+## Explore with MiniApps
+
+See [MiniApps](miniapps.md) to create an interactive result explorer, reuse it on
+other data, manage its session, or convert it into a workflow block. The guide
+also explains when an AI can inspect the rendered interface with a screenshot.

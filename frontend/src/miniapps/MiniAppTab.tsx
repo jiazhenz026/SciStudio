@@ -60,7 +60,14 @@ export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
   const process = useMiniAppProcess(context?.context_id ?? null, initial);
 
   return (
-    <div className="flex h-full min-h-0 flex-col" data-testid="miniapp-tab-pane">
+    <div
+      className="flex h-full min-h-0 flex-col"
+      data-testid="miniapp-tab-pane"
+      data-gui-miniapp
+      data-panel-id={tab.panelId}
+      data-context-id={context?.context_id}
+      data-process-state={process.status?.state ?? "absent"}
+    >
       <MiniAppToolbar
         name={tab.displayName}
         status={process.status}

@@ -155,3 +155,37 @@ def test_last_gui_disconnect_cancels_active_workflow(monkeypatch: Any) -> None:
         assert task.cancelled()
 
     asyncio.run(_run())
+
+
+def test_debug_connection_is_removed_when_idle_socket_disconnects(tmp_path) -> None:
+    """An inbound disconnect must not leave an idle outbound pump registered."""
+    from fastapi import WebSocketDisconnect
+
+    from scistudio.panels.gui_debug import get_gui_debug
+
+    async def scenario() -> None:
+        runtime = SimpleNamespace(project_dir=tmp_path, workflow_runs={})
+        bus = EventBus()
+        bus.runtime = runtime
+        socket = AsyncMock()
+        socket.query_params = {}
+        socket.receive_text.side_effect = WebSocketDisconnect()
+        await asyncio.wait_for(websocket_handler(socket, bus), timeout=1)
+        assert not get_gui_debug(runtime).connections
+
+    asyncio.run(scenario())
+
+
+def test_lifespan_mcp_adapter_and_websocket_share_gui_broker(client, runtime) -> None:
+    """Use the production lifespan adapter, not a runtime-shaped MCP stub."""
+    from scistudio.ai.agent.mcp._context import get_context
+    from scistudio.panels.gui_debug import get_gui_debug, resolve_gui_runtime
+
+    context = get_context()
+    assert context is not runtime
+    assert resolve_gui_runtime(context) is runtime
+    with client.websocket_connect("/ws") as socket:
+        ws_hello(socket)
+        assert get_gui_debug(context) is get_gui_debug(runtime)
+        assert len(get_gui_debug(context).connections) == 1
+    wait_for_condition(lambda: not get_gui_debug(runtime).connections, timeout=2)

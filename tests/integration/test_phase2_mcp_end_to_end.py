@@ -88,7 +88,7 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         # the 14 external-audience tools of ADR-055 Spec 2 are hidden here).
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
-        assert len(tools) == 38
+        assert len(tools) == 39
         names = {t["name"] for t in tools}
         assert "list_blocks" in names and "preview_data" in names and "search_docs" in names
         assert "edit_workflow" in names

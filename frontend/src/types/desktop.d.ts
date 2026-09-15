@@ -19,6 +19,14 @@ export interface ScistudioDesktopBridge {
   versions: { electron: string; chrome: string };
   /** #1784: relaunch the app so a fresh interpreter loads updated packages. */
   relaunch: () => Promise<void>;
+  /** Capture only the owning SciStudio window, including iframe compositor pixels. */
+  captureGui?: (request: {
+    rect: { x: number; y: number; width: number; height: number };
+  }) => Promise<{
+    png_base64: string;
+    width: number;
+    height: number;
+  }>;
   /**
    * Subscribe to application-menu actions. Returns an unsubscribe function.
    * Only present in the desktop shell; absent in the browser build.

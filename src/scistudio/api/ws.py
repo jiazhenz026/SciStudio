@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import secrets
+from collections.abc import Coroutine
 from datetime import UTC, datetime
 from typing import Any
 
@@ -296,6 +297,19 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
         logger.warning("Failed to close panel contexts for client %s", client_id, exc_info=True)
 
 
+async def _run_socket_pumps(*loops: Coroutine[Any, Any, None]) -> None:
+    """End both socket pumps as soon as either direction disconnects."""
+    tasks = {asyncio.create_task(loop) for loop in loops}
+    try:
+        completed, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in completed:
+            task.result()
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     """Handle a WebSocket connection for real-time workflow updates.
 
@@ -326,6 +340,11 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     gui_presence.register(client_id)
 
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    from scistudio.panels.gui_debug import get_gui_debug
+
+    runtime = getattr(event_bus, "runtime", None)
+    debug_broker = get_gui_debug(runtime) if runtime is not None else None
+    debug_connection = debug_broker.connect(client_id, outbound_queue.put_nowait) if debug_broker else ""
     client_token = id(outbound_queue)
     _gui_ws_clients.add(client_token)
     if _gui_disconnect_cancel_task is not None and not _gui_disconnect_cancel_task.done():
@@ -352,6 +371,10 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                 data = json.loads(raw)
                 msg_type = data.get("type", "")
 
+                if debug_broker and debug_broker.receive(
+                    debug_connection, data, getattr(getattr(event_bus, "runtime", None), "project_dir", None)
+                ):
+                    continue
                 if msg_type == "cancel_block":
                     block_id = data.get("block_id")
                     workflow_id = data.get("workflow_id")
@@ -485,10 +508,12 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
         # than through the outbound queue, which an already-running workflow's
         # events could otherwise get ahead of in the same tick.
         await websocket.send_json({"type": "hello", "client_id": client_id})
-        await asyncio.gather(_inbound_loop(), _outbound_loop())
+        await _run_socket_pumps(_inbound_loop(), _outbound_loop())
     except (WebSocketDisconnect, asyncio.CancelledError):
         pass
     finally:
+        if debug_broker and debug_connection:
+            debug_broker.disconnect(debug_connection)
         _gui_ws_clients.discard(client_token)
         gui_presence.unregister(client_id)
         for event_type in _OUTBOUND_EVENTS:

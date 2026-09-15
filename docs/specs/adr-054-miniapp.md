@@ -884,3 +884,50 @@ Project/user block source opens through Edit block in the existing editor;
 builtin/package/custom source uses the existing readonly View source action.
 The authoritative canvas interaction details are in
 [the block palette spec](frontend-block-palette.md#canvas-action-relocation-guided-owner-directive-2354).
+
+
+## Guided extension: visual inspection tool (#2354)
+
+Owner directive, 2026-09-14: agents must be able to inspect real MiniApp GUI
+pixels instead of asking the user to discover every visual problem.
+
+- **FR-044**: Local MCP exposes read-only `screenshot_gui(target, panel_id?,
+  context_id?, client_id?, wait_ms=500)`. `target` is `miniapp` (default) or
+  `workspace`; panel/context selectors apply only to MiniApps. `wait_ms` is
+  an integer from 0 to 5000. A request expires after ten seconds.
+- **FR-045**: The API WebSocket owns a per-connection request/reply broker.
+  Advertised GUI project must match the runtime project. Replies are bound to
+  an unguessable request id and exact socket instance. Disconnects and project
+  changes invalidate pending requests. Ambiguous capable windows require an
+  explicit client id. MiniApp capture requires the selected tab to be visible.
+- **FR-046**: Electron captures only the owning main window through a main-frame
+  preload IPC bridge using compositor `capturePage`. No desktop capture,
+  arbitrary application/window selection, tab focusing, eval or input injection
+  is available. Captures include iframe/canvas/WebGL content. The frontend
+  verifies project and target stability before and after capture.
+- **FR-047**: Success returns native MCP `image/png` image content plus JSON text
+  metadata (project/client/target, panel/context where applicable, pixel size,
+  visible readiness, process state and visible errors). The local socket keeps
+  image blocks intact. PNG bytes, dimensions and integrity are validated and
+  bounded (4 MiB, four million pixels, each axis at most 2560). Image payloads
+  must not be flattened to plain base64 text or inaccessible host paths.
+- **FR-048**: Browser-only GUIs without the native capture bridge and text-only
+  WebMCP hosts return explicit unsupported errors. Missing GUI, hidden target,
+  ambiguous window, project switch and timeout fail without returning pixels.
+  A screenshot and SDK readiness alone do not assert interaction correctness.
+
+Focused regression coverage includes project A to B isolation, forged replies
+from another socket, disconnect/capture races, invalid PNG results, native-image
+MCP transport, visible/hidden MiniApp selection and the desktop IPC boundary.
+
+
+## Guided extension: reusable core renderer components (#2354)
+
+SDK major 1 exposes nine host-independent core presentation components through
+`sdk/1/renderers.js`. Core preview shells and MiniApps reuse the same components
+with value props and controlled callbacks, including MiniApp-computed arrays.
+The [component contract](../reference/miniapp-renderers.md) specifies all exports,
+data shapes, styles and local library dependencies. Data acquisition, bounded
+reads and persistence remain in the caller. This is component composition,
+without an iframe or previewer-id embedding service. Interactive-only writeBack
+panels and domain-specific plugin Image renderers retain their own contracts.
