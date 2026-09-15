@@ -354,8 +354,9 @@ canonical follow-up is documented here.) When `valid=False`:
 carries `next_step` pointing at `validate_workflow`. Always follow it.
 It rejects any write whose file-name stem differs from the workflow's
 internal `id`: always write to `workflows/{id}.yaml`. A divergent pair
-(e.g. `foo_bar.yaml` holding `id: foo-bar`) breaks `run_workflow`,
-save, and import, because the runtime resolves a workflow by its id.
+(e.g. `foo_bar.yaml` holding `id: foo-bar`) collides with the file that
+id names on save and import. `run_workflow(path)` runs exactly the file at
+`path`.
 
 ## 6. When a run fails
 
