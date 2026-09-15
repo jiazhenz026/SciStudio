@@ -1,4 +1,23 @@
 /* SciStudio Panel SDK 1.0 — dependency-free, ADR-054. */
+/**
+ * @overview
+ * The panel SDK is one dependency-free script that defines `window.scistudio`,
+ * the only way a panel page talks to SciStudio. Load it from the SDK major the
+ * panel's `api_version` names, before the page's own code:
+ *
+ * ```html
+ * <script src="../../sdk/1/scistudio-panel.js"></script>
+ * ```
+ *
+ * Await `scistudio.ready()` first. Every operation returns a promise. Which
+ * operations exist depends on the context the host opened the page in (see
+ * the context table below): an operation the context does not provide is
+ * absent from `window.scistudio`, so test for it rather than calling it.
+ *
+ * Opened directly (not inside a SciStudio frame), the SDK runs in sample
+ * mode: it reads `panel.sample.json` beside the page and answers from it, so a
+ * page can be checked without a running host.
+ */
 (function () {
   "use strict";
   var port = null;
@@ -18,6 +37,22 @@
   });
   // A page need not call ready if it crashes during startup.
   initialized.catch(function () {});
+  /**
+   * @errors
+   * A rejected promise carries an `Error` whose `code` names the failure. The
+   * host adds its own codes for refused requests (for example
+   * `invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`); a
+   * failed `call` uses the Python exception's type name as its code.
+   *
+   * @error disposed The host disposed the panel; pending operations reject with this.
+   * @error not_ready An operation was attempted before the host initialised the frame.
+   * @error timeout The host did not answer within 60 seconds.
+   * @error not_found Sample mode has no `reads` or `calls` entry for the request.
+   * @error unsupported Sample mode cannot perform the request (no host `save` or `open`), or the sample's `context` is not a panel context.
+   * @error already_used `writeBack` was already called once for this decision.
+   * @error invalid_request `call` was given no function name.
+   * @error sample_missing Sample mode could not load `panel.sample.json`.
+   */
   function failure(code, message) {
     var error = new Error(message);
     error.code = code;
@@ -37,6 +72,13 @@
       catch (error) { clearTimeout(timer); pending.delete(id); reject(error); }
     });
   }
+  /**
+   * @member theme
+   * @group View state and theme
+   * @type {object}
+   * The current theme, `{mode: "light" | "dark", tokens: {"--ss-*": value}}`.
+   * Kept current by the SDK; use `onTheme` to be told when it changes.
+   */
   function applyTheme(theme) {
     if (!theme || typeof theme !== "object") return;
     var tokens = theme.tokens || {};
@@ -153,6 +195,15 @@
     if (port) { port.onmessage = null; port.close(); }
   }
   function configure(payload) {
+    /**
+     * @member context
+     * @group Context properties
+     * @type {"preview" | "interactive" | "miniapp"}
+     * The context the host opened this page in. Also published on the root
+     * element as `data-panel-context`, so a stylesheet can tell a preview frame
+     * (whose height the host sets) from an interactive window (which sizes
+     * itself to the panel).
+     */
     api.context = payload.context;
     /*
      * Which way the height flows, published to the stylesheet. A preview frame
@@ -161,14 +212,65 @@
      * be free to be as tall as its content.
      */
     if (document.documentElement) document.documentElement.dataset.panelContext = payload.context;
+    /**
+     * @member input
+     * @group Context properties
+     * @type {object}
+     * What the host opened the context with. In `preview` and `miniapp` it
+     * carries `ref`, the target that `read` uses when no `params.ref` is given.
+     */
     api.input = payload.input;
+    /**
+     * @member viewState
+     * @group Context properties
+     * @type {any}
+     * The view state last stored with `setViewState` for this view, or
+     * `undefined` when none was stored.
+     */
     api.viewState = payload.viewState;
+    /**
+     * @member apiVersion
+     * @group Context properties
+     * @type {string}
+     * The `MAJOR.MINOR` panel API version the host serves.
+     */
     api.apiVersion = payload.apiVersion;
+    /**
+     * @member basePath
+     * @group Context properties
+     * @type {string}
+     * The host's URL base path; empty in sample mode.
+     */
     api.basePath = payload.basePath;
+    /**
+     * @member libBaseUrl
+     * @group Context properties
+     * @type {string}
+     * Base URL of the pinned shared libraries (see the library table below).
+     * Pass it to components that load a library on demand, such as `PlotView`
+     * for PDF figures.
+     */
     api.libBaseUrl = payload.libBaseUrl;
     var operations = payload.operations || [];
     var services = payload.services || [];
     if ((api.context === "preview" || api.context === "miniapp") && operations.indexOf("read") >= 0) {
+      /**
+       * @member read
+       * @group Data
+       * @context preview, miniapp
+       * @param {string} op One of the read operations listed below.
+       * @param {object} [params] The operation's parameters. `params.ref` reads a different authorised target than `input.ref`, such as a collection item or composite slot.
+       * @returns {Promise<object>} The operation's result.
+       * Read a bounded part of a target. The host checks that the target is
+       * reachable from this context before reading.
+       *
+       * An `artifact.file` result whose bytes the host transferred gains a
+       * `url` (a `blob:` URL) that the SDK revokes on dispose or on the next
+       * `artifact.file` read of the same target.
+       *
+       * In sample mode the answer comes from the sample's `reads` map: first
+       * the key `JSON.stringify({ref, op, params})`, then the key `op`.
+       */
       api.read = function (op, params) {
         params = params || {};
         var ref = params.ref || api.input.ref;
@@ -192,17 +294,46 @@
       };
     }
     if (api.context === "preview" && services.indexOf("open") >= 0) {
+      /**
+       * @member open
+       * @group Data
+       * @context preview
+       * @param {string} ref A child of the previewed target: a collection item or composite slot `ref` returned by a read.
+       * @returns {Promise<any>}
+       * Open a child target in the host's own preview of it. The host checks
+       * that the child belongs to the previewed target. Not available in sample
+       * mode.
+       */
       api.open = function (ref) {
         return sample ? Promise.reject(failure("unsupported", "Sample mode has no child router")) : request("open", { ref: ref });
       };
     }
     if (api.context === "interactive" && operations.indexOf("writeBack") >= 0) {
       var used = false;
+      /**
+       * @member writeBack
+       * @group Decisions
+       * @context interactive
+       * @param {object} value The decision, a JSON-safe object in the shape the block expects.
+       * @returns {Promise<any>}
+       * Submit the decision the interactive block is waiting for. A decision is
+       * submitted once; a second call rejects with `already_used`. In sample
+       * mode it resolves with `value`.
+       */
       api.writeBack = function (value) {
         if (used) return Promise.reject(failure("already_used", "Decision already submitted"));
         used = true;
         return sample ? Promise.resolve(value) : request("writeBack", value);
       };
+      /**
+       * @member cancel
+       * @group Decisions
+       * @context interactive
+       * @returns {Promise<null>}
+       * Withdraw without deciding. The window around the frame already offers
+       * Cancel, so a panel does not draw its own; call this to withdraw from
+       * code. Pressing Escape inside the frame calls it.
+       */
       /*
        * Leaving without deciding. The window around this frame already offers
        * Cancel, and it is outside the frame precisely so that a panel cannot
@@ -234,6 +365,21 @@
     // is the only one whose host and backend accept it; it is deliberately
     // absent in preview and interactive.
     if (api.context === "miniapp" && operations.indexOf("call") >= 0) {
+      /**
+       * @member call
+       * @group Python
+       * @context miniapp
+       * @param {string} fn Name of a function defined in the panel's `panel.py`.
+       * @param {object} [args] Keyword arguments, a JSON-safe object.
+       * @returns {Promise<any>} The function's JSON-safe return value.
+       * Call a function in the MiniApp's Python process. Present only when the
+       * panel directory has a `panel.py`. A function that raised rejects with an
+       * `Error` whose `code` is the exception type and whose `traceback` is the
+       * Python traceback.
+       *
+       * In sample mode the answer comes from the sample's `calls` map: first
+       * the key `JSON.stringify({fn, args})`, then the key `fn`.
+       */
       api.call = function (fn, args) {
         if (typeof fn !== "string" || !fn) return Promise.reject(failure("invalid_request", "call needs a function name"));
         if (sample) {
@@ -274,29 +420,83 @@
     initializedResolve(api);
   }
   var api = {
+    /**
+     * @member ready
+     * @group Lifecycle
+     * @returns {Promise<object>} `window.scistudio`, with its context properties set.
+     * Wait for the host to initialise the frame and tell it the page is
+     * ready. Call it before anything else; other operations reject with
+     * `not_ready` until it resolves. In sample mode it resolves once
+     * `panel.sample.json` has loaded.
+     */
     ready: function () {
       return initialized.then(function () {
         return sample ? api : request("ready", null).then(function () { return api; });
       });
     },
+    /**
+     * @member save
+     * @group Services
+     * @param {object} value `{name, mime, data}`: a file name, a MIME type, and the content as a string, `ArrayBuffer`, or typed array.
+     * @returns {Promise<object>} The host's report of where the file went.
+     * Save a file for the user through the host. An `ArrayBuffer` in
+     * `value.data` is transferred, not copied. Not available in sample mode.
+     */
     save: function (value) {
       if (sample) return Promise.reject(failure("unsupported", "Sample mode has no host save service"));
       var transfers = value && value.data instanceof ArrayBuffer ? [value.data] : [];
       return request("save", value, transfers);
     },
+    /**
+     * @member setViewState
+     * @group View state and theme
+     * @param {any} state JSON-safe state to keep for this view.
+     * @returns {Promise<null>}
+     * Store view state (a zoom level, a selected tab) that the host passes
+     * back as `viewState` the next time this view opens. Updates
+     * `scistudio.viewState` immediately.
+     */
     setViewState: function (state) {
       api.viewState = state;
       return sample ? Promise.resolve(null) : request("viewState", state);
     },
+    /**
+     * @member onTheme
+     * @group View state and theme
+     * @param {function} callback Receives the theme `{mode, tokens}`.
+     * @returns {function} Call it to unsubscribe.
+     * Follow the application's theme. The callback runs at once when a theme
+     * is known and again on every change. The SDK has already applied the
+     * `--ss-*` tokens to the root element and set its `data-theme` attribute
+     * to `light` or `dark`, so a page styled with `panel.css` needs no
+     * callback.
+     */
     onTheme: function (callback) {
       themeCallbacks.add(callback);
       if (api.theme) callback(api.theme);
       return function () { themeCallbacks.delete(callback); };
     },
+    /**
+     * @member onDispose
+     * @group Lifecycle
+     * @param {function} callback Runs once when the host disposes the panel.
+     * @returns {function} Call it to unsubscribe.
+     * Release what the page holds when the host closes it. By then pending
+     * operations have rejected with `disposed` and artifact URLs are revoked.
+     */
     onDispose: function (callback) {
       disposeCallbacks.add(callback);
       return function () { disposeCallbacks.delete(callback); };
     },
+    /**
+     * @member reportError
+     * @group Lifecycle
+     * @param {string} message What went wrong.
+     * @returns {Promise<null>}
+     * Show an error in the host's panel diagnostics. Uncaught errors and
+     * unhandled rejections are reported automatically. A message reported
+     * before the host initialises the frame is sent once it does.
+     */
     reportError: function (message) {
       if (!port) { errorBeforeInit = String(message); return Promise.resolve(null); }
       return request("reportError", String(message));
@@ -328,19 +528,34 @@
   window.addEventListener("message", initialize);
   window.addEventListener("error", function (event) { api.reportError(event.message || "Panel error").catch(function () {}); });
   window.addEventListener("unhandledrejection", function (event) { api.reportError(String(event.reason)).catch(function () {}); });
+  /**
+   * @sample
+   * `panel.sample.json` sits beside the panel page and stands in for the host
+   * when the page is opened directly. The SDK gives the sample context the
+   * operations and services of a real context of that kind, with `call`
+   * always present for `miniapp`; without a host, `open` and `save` reject
+   * with `unsupported`.
+   *
+   * @property {"preview" | "interactive" | "miniapp"} context Required. The context to simulate.
+   * @property {object} [input] Becomes `scistudio.input`; give `ref` for `preview` and `miniapp`. Defaults to `{}`.
+   * @property {any} [viewState] Becomes `scistudio.viewState`.
+   * @property {object} [theme] Becomes `scistudio.theme`. Defaults to `{mode: "light", tokens: {}}`.
+   * @property {object} [reads] Answers for `read`, keyed by `JSON.stringify({ref, op, params})` or by the operation name.
+   * @property {object} [calls] Answers for `call`, keyed by `JSON.stringify({fn, args})` or by the function name.
+   */
   if (window.parent === window) {
     fetch(new URL("panel.sample.json", window.location.href)).then(function (response) {
       if (!response.ok) throw failure("sample_missing", "Could not load panel.sample.json");
       return response.json();
-    }).then(function (value) {
-      sample = value;
-      var kind = value.context;
+    }).then(function (loaded) {
+      sample = loaded;
+      var kind = loaded.context;
       var ops = { preview: ["read"], interactive: ["writeBack"], miniapp: ["read", "call"] };
       var svc = { preview: ["open", "save"], interactive: ["save"], miniapp: ["save"] };
       if (!ops[kind]) throw failure("unsupported", "Sample context must be preview, interactive or miniapp");
-      configure({ context: kind, input: value.input || {}, viewState: value.viewState,
+      configure({ context: kind, input: loaded.input || {}, viewState: loaded.viewState,
         operations: ops[kind], services: svc[kind],
-        apiVersion: "1.0", basePath: "", theme: value.theme || { mode: "light", tokens: {} } });
+        apiVersion: "1.0", basePath: "", theme: loaded.theme || { mode: "light", tokens: {} } });
     }).catch(initializedReject);
   }
 }());

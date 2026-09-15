@@ -188,6 +188,15 @@ function SeriesTable({ points }) {
   <//>`;
 }
 
+/**
+ * A series as a line chart or a table of points. Gaps where values were missing are drawn as breaks and summarised in a notice.
+ *
+ * @param {object} [props.data] A `series.points` result `{values, index?, nonnumeric?, nonfinite_positions?, nonfinite_positions_complete?, source_indices?}`, or computed `values` and `index` arrays.
+ * @param {"chart" | "table"} [props.mode] Which view to show.
+ * @param {function} [props.onModeChange] `(mode)` when the reader switches view.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {object} [props.plotly] The Plotly library for chart mode; load `plotly@2.35.3` from the shared libraries. Table mode needs none.
+ */
 export function SeriesView({
   data,
   mode = "chart",

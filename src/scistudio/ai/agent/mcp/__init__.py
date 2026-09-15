@@ -32,7 +32,8 @@
 # * :mod:`scistudio.ai.agent.mcp.tools_library` — category (f): promotion
 #   into the personal tool library (1 tool, ADR-053 FR-011).
 # * :mod:`scistudio.ai.agent.mcp.tools_panels` — category (g): panel and
-#   MiniApp checking and opening (2 tools, ADR-054 MiniApp FR-029/FR-030).
+#   MiniApp listing, checking, and opening (3 tools, ADR-054 MiniApp
+#   FR-029/FR-030 and #2441).
 #
 # FastMCP discovers tools by ``@mcp.tool()`` decorator on the module-scope
 # :data:`scistudio.ai.agent.mcp.server.mcp` instance — there is no longer a

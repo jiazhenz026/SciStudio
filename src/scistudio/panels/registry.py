@@ -14,18 +14,30 @@ from scistudio.core.entry_points import (
 )
 from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
 from scistudio.previewers.models import OwnerKind
+from scistudio.stability import internal, provisional
 
 TIER_ORDER = {OwnerKind.PROJECT: 0, OwnerKind.USER: 1, OwnerKind.PACKAGE: 2, OwnerKind.CORE: 3}
 
 
+@provisional(since="0.3.5")
 class PanelRegistry:
-    """Descriptor-only registry. Context authority never comes from a manifest."""
+    """The panels one discovery pass found, keyed by panel id.
+
+    ``panels`` maps each id to the winning :class:`PanelDescriptor`; when two
+    tiers ship the same id, the project wins over the user library, the user
+    library over a package, and a package over core. ``shadowed`` lists the
+    descriptors that lost, and ``diagnostics`` holds one message per refused
+    folder, shadowed panel, or failed entry point. A registry holds descriptors
+    only: what a panel may do is decided by the context it opens in, never by
+    its descriptor.
+    """
 
     def __init__(self) -> None:
         self.panels: dict[str, PanelDescriptor] = {}
         self.shadowed: list[PanelDescriptor] = []
         self.diagnostics: list[str] = []
 
+    @internal()
     def register(self, panel: PanelDescriptor) -> None:
         previous = self.panels.get(panel.id)
         if previous is not None:
@@ -42,8 +54,10 @@ class PanelRegistry:
         self.panels[panel.id] = panel
 
     def get(self, panel_id: str) -> PanelDescriptor | None:
+        """Return the winning descriptor for ``panel_id``, or ``None``."""
         return self.panels.get(panel_id)
 
+    @internal()
     def load(self, path: Path, owner: OwnerKind, types: Collection[str], owner_name: str = "") -> None:
         try:
             panel, notes = parse_descriptor(
@@ -58,10 +72,19 @@ class PanelRegistry:
             self.diagnostics.append(f"{path}: {exc}")
 
 
+@provisional(since="0.3.5")
 def discover_panels(
     project_dir: Path | None = None, *, registered_types: Collection[str] | None = None
 ) -> PanelRegistry:
-    """Discover directory and package entry-point panels with contained failures."""
+    """Discover every panel the application would see and return the registry.
+
+    Scans the project's panel folder when ``project_dir`` is given, the user
+    library, every package's ``scistudio.panels`` entry point, and the built-in
+    panels. A package entry point is a callable returning a list of panel folder
+    paths. ``registered_types`` defaults to the types registered for the project.
+    A failure in one folder or entry point becomes a diagnostic on the returned
+    :class:`PanelRegistry` and never stops discovery.
+    """
     if registered_types is None:
         from scistudio.core.types.registry import TypeRegistry
 

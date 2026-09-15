@@ -61,13 +61,24 @@ def _run(coro: Coroutine[Any, Any, _T]) -> _T:
 
 
 class _StubTypeRegistry:
-    """The one method the panel tools ask of a type registry."""
+    """The two methods the panel tools ask of a type registry.
 
-    def __init__(self, names: tuple[str, ...]) -> None:
+    ``bases`` maps a type name to its parent, the ancestry ``list_miniapps``
+    follows (through ``scistudio.panels.targets.type_chain``) to match a
+    MiniApp declaring a parent type.
+    """
+
+    def __init__(self, names: tuple[str, ...], bases: dict[str, str] | None = None) -> None:
         self._names = {name: object() for name in names}
+        self._bases = dict(bases or {})
 
     def all_types(self) -> dict[str, Any]:
         return dict(self._names)
+
+    def resolve(self, name: str) -> Any:
+        if name not in self._names:
+            raise KeyError(name)
+        return pytypes.SimpleNamespace(name=name, base_type=self._bases.get(name, ""))
 
 
 class _RecordingEventBus:
@@ -395,11 +406,149 @@ def test_open_miniapp_reports_a_runtime_with_no_event_bus(project: Path, runtime
 
 
 # ---------------------------------------------------------------------------
+# list_miniapps (#2441) — the MiniApps that exist, and why a directory is not one.
+# ---------------------------------------------------------------------------
+
+
+def _descriptor(panel_id: str, type_name: str, *, contexts: tuple[str, ...] = ("miniapp",)) -> dict[str, Any]:
+    return {
+        "id": panel_id,
+        "api_version": "1.0",
+        "contexts": list(contexts),
+        "types": [type_name],
+        "name": panel_id.replace("_", " ").title(),
+        "entry": "index.html",
+    }
+
+
+def _user_panels() -> Path:
+    return Path.home() / ".scistudio" / "panels"
+
+
+def test_list_miniapps_lists_project_and_user_tiers(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(project, "plate_preview", descriptor=_descriptor("plate_preview", "Image", contexts=("preview",)))
+    user_dir = _write_miniapp(_user_panels().parent, "mine", descriptor=_descriptor("mine", "Image"), python=None)
+
+    result = _run(tools_panels.list_miniapps())
+
+    by_id = {app.panel_id: app for app in result.miniapps}
+    # A preview-only panel is discovered but is not a MiniApp.
+    assert set(by_id) == {"demo.threshold", "mine"}
+    project_app = by_id["demo.threshold"]
+    assert project_app.tier == "project"
+    assert project_app.package is None
+    assert project_app.name == "Threshold explorer"
+    assert project_app.types == ["Image"]
+    assert project_app.entry == "index.html"
+    assert project_app.has_python is True
+    assert project_app.path == "panels/demo.threshold"
+    user_app = by_id["mine"]
+    assert user_app.tier == "user"
+    assert user_app.has_python is False
+    # Outside the project, the path stays absolute.
+    assert user_app.path == str(user_dir.resolve())
+    assert result.data_type is None
+    assert result.invalid == []
+    assert [app.name for app in result.miniapps] == sorted(app.name for app in result.miniapps)
+
+
+def test_list_miniapps_reports_directories_discovery_skipped(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(
+        project,
+        "two_types",
+        descriptor={"id": "two_types", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image", "DataFrame"]},
+    )
+    (project / "panels" / "empty_dir").mkdir()
+
+    result = _run(tools_panels.list_miniapps())
+
+    assert [app.panel_id for app in result.miniapps] == ["demo.threshold"]
+    invalid = {entry.panel_id: entry for entry in result.invalid}
+    assert set(invalid) == {"two_types", "empty_dir"}
+    assert invalid["two_types"].tier == "project"
+    assert invalid["two_types"].path == "panels/two_types"
+    assert any("miniapp requires exactly one type" in note for note in invalid["two_types"].diagnostics)
+    assert invalid["empty_dir"].diagnostics
+    # The same text validate_panel gives for that directory.
+    validated = _run(tools_panels.validate_panel(path="panels/two_types"))
+    assert validated.errors[0].endswith(invalid["two_types"].diagnostics[0])
+    assert result.invalid_truncated == 0
+
+
+def test_list_miniapps_bounds_the_invalid_directories(project: Path, runtime: Any) -> None:
+    for index in range(tools_panels._MAX_INVALID_DIRECTORIES + 5):
+        (project / "panels" / f"broken_{index:02d}").mkdir(parents=True)
+
+    result = _run(tools_panels.list_miniapps())
+
+    assert len(result.invalid) == tools_panels._MAX_INVALID_DIRECTORIES
+    assert result.invalid_truncated == 5
+
+
+def test_list_miniapps_filters_by_the_type_a_miniapp_opens_on(project: Path, runtime: Any) -> None:
+    runtime.type_registry = _StubTypeRegistry(("Image", "Microscopy", "DataFrame"), bases={"Microscopy": "Image"})
+    _write_miniapp(project, "image_app", descriptor=_descriptor("image_app", "Image"))
+    _write_miniapp(project, "image_set_app", descriptor=_descriptor("image_set_app", "Collection[Image]"))
+    _write_miniapp(project, "microscopy_app", descriptor=_descriptor("microscopy_app", "Microscopy"))
+    _write_miniapp(project, "table_app", descriptor=_descriptor("table_app", "DataFrame"))
+
+    def ids(data_type: str | None) -> set[str]:
+        return {app.panel_id for app in _run(tools_panels.list_miniapps(data_type=data_type)).miniapps}
+
+    assert ids(None) == {"image_app", "image_set_app", "microscopy_app", "table_app"}
+    assert ids("Image") == {"image_app"}
+    # A MiniApp declaring a parent type opens on the subtype, not the reverse.
+    assert ids("Microscopy") == {"image_app", "microscopy_app"}
+    assert ids("Collection[Microscopy]") == {"image_set_app"}
+    assert ids("Collection[Image]") == {"image_set_app"}
+    assert ids("Collection") == set()
+    assert ids("DataFrame") == {"table_app"}
+    assert ids("Unregistered") == set()
+    assert _run(tools_panels.list_miniapps(data_type=" Image ")).data_type == "Image"
+    assert _run(tools_panels.list_miniapps(data_type="  ")).data_type is None
+
+
+def test_every_listed_miniapp_is_one_open_miniapp_accepts(project: Path, runtime: Any, workspace: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(project, "second", descriptor=_descriptor("second", "Image"), python=None)
+    _write_miniapp(project, "plate_preview", descriptor=_descriptor("plate_preview", "Image", contexts=("preview",)))
+    _write_miniapp(
+        project,
+        "two_types",
+        descriptor={"id": "two_types", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image", "DataFrame"]},
+    )
+    workspace(False)
+    target = {"workflow_id": "wf-1", "block_id": "segment", "port": "mask"}
+
+    result = _run(tools_panels.list_miniapps())
+
+    assert {app.panel_id for app in result.miniapps} == {"demo.threshold", "second"}
+    for app in result.miniapps:
+        opened = _run(tools_panels.open_miniapp(panel_id=app.panel_id, **target))
+        assert opened.reason == tools_panels.NO_WORKSPACE
+    with pytest.raises(KeyError):
+        _run(tools_panels.open_miniapp(panel_id="two_types", **target))
+    with pytest.raises(ValueError):
+        _run(tools_panels.open_miniapp(panel_id="plate_preview", **target))
+
+
+def test_list_miniapps_refuses_without_an_open_project(project: Path) -> None:
+    _context.set_context(_StubRuntime(_project_dir=None))
+    try:
+        with pytest.raises(RuntimeError, match="No project is currently open"):
+            _run(tools_panels.list_miniapps())
+    finally:
+        _context.set_context(None)
+
+
+# ---------------------------------------------------------------------------
 # Registration.
 # ---------------------------------------------------------------------------
 
 
-def test_both_tools_are_registered_on_the_local_transport() -> None:
+def test_the_panel_tools_are_registered_on_the_local_transport() -> None:
     """The module must be in the eager-import tuple, and neither tool external-only.
 
     A tool module missing from ``mcp/__init__.py`` registers nothing while every
@@ -409,7 +558,7 @@ def test_both_tools_are_registered_on_the_local_transport() -> None:
     from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 
     by_name = {tool.name: tool for tool in _run(mcp.list_tools())}
-    for name, mutation in (("validate_panel", "read"), ("open_miniapp", "write")):
+    for name, mutation in (("validate_panel", "read"), ("open_miniapp", "write"), ("list_miniapps", "read")):
         tool = by_name[name]
         tags = set(tool.tags or set())
         assert "category:panels" in tags
