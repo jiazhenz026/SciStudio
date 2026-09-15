@@ -445,6 +445,11 @@
       "at": "2026-09-15T19:23:04.312563Z",
       "owner_directive": "user guide \u7684\u5199\u6cd5\u5e94\u8be5\u9762\u5411\u7528\u6237:\u544a\u8bc9\u7528\u6237 SciStudio \u652f\u6301\u6279\u5904\u7406\u6570\u636e,\u53ea\u9700\u8981\u5728 gui \u91cc\u9762\u591a\u9009\u6587\u4ef6\u5c31\u884c\u4e86;\u5148\u5199 user guide",
       "reason": "Owner scoped the batch-data doc work: user guide gets a short user-facing note first (SciStudio supports batch data via multi-select in the GUI); agents.md/skills/reference changes come after"
+    },
+    {
+      "at": "2026-09-15T19:26:07.402216Z",
+      "owner_directive": "\u4e0b\u4e00\u4e2a\u662f agents.md\u3002\u8fd9\u91cc\u8981\u544a\u8bc9 ai \u7684\u662f SciStudio \u53ef\u4ee5\u6279\u5904\u7406\u6570\u636e\u3002",
+      "reason": "Owner approved the user-facing batch note and moved to the AI-facing docs; agents.md gets the basic concept: SciStudio batch-processes data"
     }
   ],
   "docs_events": [
@@ -2668,6 +2673,12 @@
       "at": "2026-09-15T18:57:48.597305Z",
       "pattern": "tests/api/test_user_docs.py",
       "reason": "The nav/sidebar test file itself is edited to match the rewritten examples tree (the PR's failing test fix)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T19:26:07.402538Z",
+      "pattern": "src/scistudio/agent_provisioning/templates/**",
+      "reason": "Owner approved the user-facing batch note and moved to the AI-facing docs; agents.md gets the basic concept: SciStudio batch-processes data"
     }
   ],
   "session_id": "2c05ba84-a154-4875-a9e8-7bdf3685a0e2",
