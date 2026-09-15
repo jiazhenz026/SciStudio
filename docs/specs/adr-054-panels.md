@@ -453,8 +453,9 @@ CDNs, and renders.
 - No panel matches the previewed type: `core.base.fallback` is mounted.
 - Two panels tie on tier, type specificity, and `priority`: routing returns the
   existing ambiguity error, shown in place of a panel.
-- A read exceeds its budget: the result is truncated or sampled and says so
-  (ADR-048 §7).
+- Data is larger than one read: the read returns one page, window, or chunk of
+  exact values and says more remains (`truncated`, with a cursor, offset, or
+  tile position to continue); it never returns a sample (FR-011a).
 - A panel reads a reference outside its context: the backend answers 403 and the
   SDK rejects the promise with `forbidden`.
 - A panel calls `open` on something that is not a child of the target: the host
@@ -552,25 +553,44 @@ CDNs, and renders.
   |---|---|
   | `metadata` | type chain, metadata, and shape and dtype where applicable |
   | `table.page` | columns, rows, total, page, sort |
-  | `table.xy` | x and y columns as numbers |
-  | `array.plane` | values, dtype, shape, axes, slice axes, vmin and vmax of the full plane |
-  | `array.tile` | values, dtype, tile bounds |
-  | `series.points` | decimated index and values, with the decimation method |
+  | `table.xy` | one page of exact x and y rows (`offset`, `limit`), total, next offset |
+  | `array.plane` | geometry (shape, dtype, axes, slice axes, height, width, tile size) and vmin and vmax over every cell of the plane; the plane's values when it fits one read, otherwise none |
+  | `array.tile` | the exact values of one window, dtype, tile bounds |
+  | `series.points` | one page of exact index and values rows (`offset`, `limit`), total, next offset |
   | `text.chunk` | text, encoding, offset, next offset |
   | `artifact.info` | name, MIME type, size |
   | `artifact.file` | backend: a distinct context-target grant URL, including preview-cache plot artifacts; SDK: artifact metadata, an `ArrayBuffer` in `data`, and a frame-local blob URL in `url` |
-  | `composite.slots` | slot names, types, and child references |
+  | `composite.slots` | a page of slot names, types, and child references, and the next cursor |
   | `collection.items` | a page of item references with types, and the next cursor |
 
-  Every result MUST carry the sampled, truncated, and complete flags of ADR-048
-  §7 and respect the panel read budgets, which the Phase A PR sets and records.
+  Every result MUST carry the `truncated` and `complete` flags and respect the
+  panel read budgets, which the Phase A PR sets and records. `truncated` means
+  more pages, windows, or chunks remain to be read; `complete` means the read
+  reached the end. Panel reads carry no `sampled` flag, because no panel read
+  samples (FR-011a).
+- **FR-011a** (#2460): Panel reads MUST present the real, complete data. No read
+  may sample, downsample, decimate, stride, crop, round, or drop values because
+  the data is large, for any data type (Array, DataFrame, Series, Text,
+  Artifact, CompositeData, Collection, plots, and package types). Budgets are
+  kept by paging: `table.page` by page, `table.xy` and `series.points` by
+  `offset`/`limit` (at most 100000 rows a page, row `i` is source row
+  `offset + i`, a non-finite or missing value in place as NaN or its JSON
+  sentinel), `array.plane` values by `array.tile` windows, `text.chunk` by
+  `next_offset`, and `collection.items` and `composite.slots` by cursor. The
+  core panels MUST reach every value through these reads: series and composite
+  panels read every page, the text panel reads in batches with a Read more
+  control, the array panel scrolls over tiles, and table cells show exact
+  values. The AI-facing MCP `preview_data` tool is a bounded model preview, not
+  a panel read, and is outside this requirement. The deprecated legacy provider
+  API (`PreviewDataAccess.array_plane` downsampling, `collection_sample`
+  without a cursor) is tracked in #2462.
 - **FR-012**: `array.plane`, `array.tile`, and `series.points` MUST support
   `format: "binary"`, answering `application/octet-stream` with little-endian
   values and dtype, shape, and flags in response headers; the host MUST hand the
   body to the panel as a transferred `ArrayBuffer`. JSON remains available.
 - **FR-013**: Read handlers MUST run off the API event loop (ADR-048 §8).
 - **FR-014**: `PreviewDataAccess` MUST gain what FR-011 needs and it lacks today:
-  decimation for `series_points` (which returns every point), an offset for
+  offset/limit paging for series and table point reads, an offset for
   `text_chunk` (which reads only the head), a cursor for `collection_sample`
   (which stops at `max_items`), file access for artifacts over the inline limit,
   and binary output for array reads (tiles are JSON float lists today).
@@ -757,7 +777,7 @@ CDNs, and renders.
   |---|---|---|
   | `core.dataframe.basic` | `DataFrameViewer` (`TableViewer.tsx`) | paging, sort, column display, truncation notice |
   | `core.array.basic` | `ArrayViewer` | plane display, slice axes, contrast and LUT over values, tiles, metadata |
-  | `core.series.basic` | `SeriesViewer` | decimated line plot, axis labels |
+  | `core.series.basic` | `SeriesViewer` | line plot of every point (paged reads), axis labels, table of every row |
   | `core.text.basic` | `TextViewer` | paged text, encoding, truncation notice |
   | `core.artifact.basic` | `ArtifactViewer` | name, MIME type, size, safe display through `artifact.file` |
   | `core.composite.basic` | `CompositeViewer` | slot list; `open` into a slot |

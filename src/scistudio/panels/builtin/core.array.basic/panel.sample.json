@@ -9,9 +9,11 @@
       "shape": [4, 4],
       "axes": ["y", "x"],
       "slice_axes": [],
+      "height": 4,
+      "width": 4,
+      "tile_size": 512,
       "vmin": -1.0,
       "vmax": 3.0,
-      "sampled": false,
       "truncated": false,
       "complete": true,
       "values": [
@@ -32,7 +34,6 @@
       "x0": 0,
       "height": 4,
       "width": 4,
-      "sampled": false,
       "truncated": false,
       "complete": true,
       "values": [

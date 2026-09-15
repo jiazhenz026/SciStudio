@@ -119,10 +119,13 @@ class ContextCallError(BaseModel):
 
 
 class ReadResult(BaseModel):
-    """Operation-specific bounded payload plus mandatory sampling flags."""
+    """Operation-specific payload plus mandatory paging flags.
+
+    A panel read is never sampled: ``truncated`` means more pages, windows, or
+    chunks remain to be read, and ``complete`` means this read reached the end.
+    """
 
     model_config = ConfigDict(extra="allow")
-    sampled: bool
     truncated: bool
     complete: bool
 
@@ -256,7 +259,7 @@ _READ_RESPONSE: dict[int | str, dict[str, Any]] = {
             "X-Panel-Shape": {"schema": {"type": "string"}, "description": "JSON array of dimensions"},
             "X-Panel-Metadata": {
                 "schema": {"type": "string"},
-                "description": "JSON metadata including sampled, truncated, complete flags",
+                "description": "JSON metadata including truncated and complete flags",
             },
         },
     },
@@ -814,7 +817,7 @@ def panel_read(context_id: str, payload: ContextRead, request: Request) -> Respo
                 result.update(index=[row[0] for row in pairs], values=[row[1] for row in pairs])
         elif payload.params.get("format") == "binary":
             raise PanelError(400, "unsupported", "Binary is supported only for array and series reads")
-        result = {"sampled": False, "truncated": False, "complete": True, **result}
+        result = {"truncated": False, "complete": True, **result}
         if payload.op == "artifact.file":
             result["url"] = _base(request) + result["url"]
         _bounded_json(result)

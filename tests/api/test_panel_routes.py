@@ -87,11 +87,8 @@ def test_renew_and_guarded_read_metadata(panel_client):
     )
     assert result.status_code == 200, result.text
     assert result.json()["type_chain"] == ["DataObject", "Text"]
-    assert {k: result.json()[k] for k in ("sampled", "truncated", "complete")} == {
-        "sampled": False,
-        "truncated": False,
-        "complete": True,
-    }
+    assert {k: result.json()[k] for k in ("truncated", "complete")} == {"truncated": False, "complete": True}
+    assert "sampled" not in result.json()
     rejected = client.post(
         prefix + "/api/panels/contexts/" + context["context_id"] + "/read",
         json={"ref": "another-data", "op": "metadata"},
@@ -360,11 +357,56 @@ def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
     shape = json.loads(response.headers["x-panel-shape"])
     assert np.array_equal(np.frombuffer(response.content, dtype="<i4").reshape(shape), data)
     flags = json.loads(response.headers["x-panel-metadata"])
-    assert flags["complete"] and not flags["sampled"]
+    assert flags["complete"] and "sampled" not in flags
     invalid = client.post(
         url, json={"ref": "array", "op": "array.plane", "params": {"_storage": {"path": "/etc/passwd"}}}
     )
     assert invalid.status_code == 422
+
+
+def test_series_points_route_pages_exact_rows(panel_client, tmp_path):
+    """#2460: series.points pages every exact row; nothing is decimated or dropped."""
+    from dataclasses import replace
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from scistudio.api.runtime.models import DataRecord
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels.registry import PanelRegistry
+
+    client, prefix, runtime, _store, _guard = panel_client
+    values = [float(i) for i in range(5)]
+    values[2] = float("nan")
+    path = tmp_path / "series.parquet"
+    pq.write_table(pa.table({"t": [0.5 * i for i in range(5)], "v": values}), path)
+    runtime.data_catalog["series"] = DataRecord(
+        "series",
+        StorageReference(backend="arrow", path=str(path)),
+        "Series",
+        {"index_name": "t", "value_name": "v"},
+        ["DataObject", "Series"],
+    )
+    panels = PanelRegistry()
+    panels.register(replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Series",)))
+    runtime.get_preview_service().registry.install_panels(panels)
+    created = client.post(prefix + "/api/panels/contexts", json={"kind": "preview", "target": {"ref": "series"}})
+    assert created.status_code == 200, created.text
+    url = prefix + "/api/panels/contexts/" + created.json()["context_id"] + "/read"
+    index, ys, offset = [], [], 0
+    while offset is not None:
+        page = client.post(url, json={"ref": "series", "op": "series.points", "params": {"offset": offset, "limit": 2}})
+        assert page.status_code == 200, page.text
+        body = page.json()
+        assert body["offset"] == offset and body["total"] == 5
+        assert body["truncated"] is (body["next_offset"] is not None)
+        index += body["index"]
+        ys += body["values"]
+        offset = body["next_offset"]
+    assert index == [0.0, 0.5, 1.0, 1.5, 2.0]
+    assert ys == [0.0, 1.0, "NaN", 3.0, 4.0]
+    refused = client.post(url, json={"ref": "series", "op": "series.points", "params": {"max_points": 10}})
+    assert refused.status_code == 422
 
 
 def test_reads_execute_off_event_loop(panel_client, monkeypatch):
@@ -468,3 +510,54 @@ def test_shared_renderer_assets_are_served_under_context_authority(panel_client)
     client.delete(prefix + "/api/panels/contexts/" + context["context_id"])
     client.cookies.clear()
     assert client.get(f"{sdk}/renderers.js").status_code == 403
+
+
+def test_composite_slots_page_past_the_item_budget(panel_client, tmp_path, monkeypatch):
+    """#2460: a composite with more slots than one read carries is paged, not refused."""
+    from dataclasses import replace
+
+    import pyarrow as pa
+
+    from scistudio.api.runtime.models import DataRecord
+    from scistudio.core.storage.composite_store import CompositeStore
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels import contexts
+    from scistudio.panels.registry import PanelRegistry
+
+    monkeypatch.setattr(contexts, "READ_ITEMS", 2)
+    client, prefix, runtime, store, _ = panel_client
+    names = [f"s{i}" for i in range(5)]
+    storage = CompositeStore().write(
+        {name: ("arrow", pa.table({"a": [i]})) for i, name in enumerate(names)},
+        StorageReference(backend="composite", path=str(tmp_path / "composite")),
+    )
+    runtime.data_catalog["comp"] = DataRecord(
+        "comp", storage, "Composite", {"slots": dict.fromkeys(names, "DataFrame")}, ["DataObject", "Composite"]
+    )
+    panels = PanelRegistry()
+    panels.register(
+        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Composite", "DataFrame"))
+    )
+    runtime.get_preview_service().registry.install_panels(panels)
+    context = store.create({"kind": "preview", "target": {"ref": "comp"}})
+    url = prefix + "/api/panels/contexts/" + context.context_id + "/read"
+    seen, cursor = [], None
+    while True:
+        params = {"cursor": cursor} if cursor else {}
+        page = client.post(url, json={"ref": "comp", "op": "composite.slots", "params": params})
+        assert page.status_code == 200, page.text
+        body = page.json()
+        assert len(body["slots"]) <= 2 and body["count"] == 5
+        assert body["truncated"] is (body["next_cursor"] is not None)
+        seen += [slot["name"] for slot in body["slots"]]
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+    assert seen == names
+    # A slot on the last page is authorized before any page listed it.
+    fresh = store.create({"kind": "preview", "target": {"ref": "comp"}})
+    last = client.post(
+        prefix + "/api/panels/contexts/" + fresh.context_id + "/read", json={"ref": "comp#s4", "op": "table.page"}
+    )
+    assert last.status_code == 200, last.text
+    assert last.json()["rows"] == [{"a": 4}]

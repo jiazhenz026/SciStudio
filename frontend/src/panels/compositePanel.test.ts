@@ -98,6 +98,34 @@ afterEach(() => {
 });
 
 describe("core.composite.basic — the slot inventory", () => {
+  it("reads every page of a composite with more slots than one read carries (#2460)", async () => {
+    const { api, ops } = stubHost();
+    api.read = (op: string, params: Record<string, unknown> = {}) => {
+      ops.push({ op, params });
+      return Promise.resolve(
+        params.cursor === "p2"
+          ? {
+              slots: [SLOTS.slots[2]],
+              count: 3,
+              next_cursor: null,
+              truncated: false,
+              complete: true,
+            }
+          : {
+              slots: SLOTS.slots.slice(0, 2),
+              count: 3,
+              next_cursor: "p2",
+              truncated: true,
+              complete: false,
+            },
+      );
+    };
+    await loadPanelModule();
+    await vi.waitFor(() => expect(slot("notes")).toBeTruthy());
+    expect(root().querySelectorAll("[data-testid^=composite-slot-]").length).toBe(3);
+    expect(ops.map((o) => o.params)).toEqual([{}, { cursor: "p2" }]);
+  });
+
   it("lists one row per slot with its name and the type it holds", async () => {
     stubHost({ reads: { "composite.slots": SLOTS } });
     await loadPanelModule();

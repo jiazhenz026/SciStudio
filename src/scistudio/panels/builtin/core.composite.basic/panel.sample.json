@@ -7,7 +7,8 @@
         { "name": "raster", "type_name": "Array", "ref": "sample-composite#raster" },
         { "name": "labels", "type_name": "DataFrame", "ref": "sample-composite#labels" }
       ],
-      "sampled": false,
+      "count": 2,
+      "next_cursor": null,
       "truncated": false,
       "complete": true
     }

@@ -3663,15 +3663,11 @@
      "complete": {
       "type": "boolean"
      },
-     "sampled": {
-      "type": "boolean"
-     },
      "truncated": {
       "type": "boolean"
      }
     },
     "required": [
-     "sampled",
      "truncated",
      "complete"
     ],

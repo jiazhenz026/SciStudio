@@ -754,6 +754,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2460] **Previews and MiniApps show the complete data, never a sample.** A
+  series longer than 2000 points was drawn from an evenly spaced sample, and a
+  large array plane arrived striding over its pixels. Panel reads now page
+  instead: `series.points` and `table.xy` take `offset`/`limit` (up to 100000
+  rows a page) and return every row in place, NaN and infinities included;
+  `array.plane` returns the whole plane only when it fits one read and otherwise
+  its geometry and extent, with the values read exactly through `array.tile`;
+  `composite.slots` pages by cursor instead of refusing a composite with more
+  than 200 slots. The core series preview reads every page and its table
+  scrolls over every row, the text preview offers Read more after a large
+  batch instead of stopping silently, and table cells show exact values rather
+  than four decimal places. `max_points`, `sampled`, `decimation`, `strides`,
+  and `source_indices` are gone from panel reads, and
+  `PreviewDataAccess.series_points` loses its `max_points` argument.
+
 - [#2421] **A new MiniApp shows up in the MiniApps tab on its own.** A MiniApp
   written into the project's `panels/` folder, by an agent, the editor, or any
   other program, used to stay missing from the MiniApps list and the panel

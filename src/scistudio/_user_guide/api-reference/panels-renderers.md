@@ -423,11 +423,12 @@ A paged, sortable table. The caller reads each page (for example with `table.pag
 
 Module: `sdk/1/renderer-series.js`
 
-A series as a line chart or a table of points. Gaps where values were missing are drawn as breaks and summarised in a notice.
+A series as a line chart or a table of every row. Rows without a finite value are drawn as breaks in the line, listed in a notice, and shown as they are in the table.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `data` | `object` | optional | A `series.points` result `{values, index?, nonnumeric?, nonfinite_positions?, nonfinite_positions_complete?, source_indices?}`, or computed `values` and `index` arrays. |
+| `data` | `object` | optional | A `series.points` result `{index, values, offset?, total?}`, several pages with their `index` and `values` joined in order, or computed `values` and `index` arrays. Every row is shown; nothing is sampled. |
+| `loading` | `boolean` | `false` | Set while further pages are still being read; the view says how many rows of `data.total` it holds. |
 | `mode` | `"chart" \| "table"` | `"chart"` | Which view to show. |
 | `onModeChange` | `function` | `() => {}` | `(mode)` when the reader switches view. |
 | `error` | `string` | optional | A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current. |
@@ -442,8 +443,10 @@ A text document, shown literally in a scrolling surface.
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `text` | `string` | `""` | The text read so far. |
-| `meta` | `object` | `{}` | `{total_bytes?, encoding?}`; `null` shows the loading state. |
+| `meta` | `object` | `{}` | The latest `text.chunk` result, or `{total_bytes?, encoding?, next_offset?}`; `null` shows the loading state. |
 | `done` | `boolean` | `true` | `false` while more text is still being read. |
+| `hasMore` | `boolean` | `false` | More of the document remains and is not being read right now; shows how much is on screen and a Read more control. |
+| `onReadMore` | `function` | optional | Called by Read more; read the next chunks and append them to `text`. |
 | `error` | `string` | optional | A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current. |
 
 ### `ArtifactView`

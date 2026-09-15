@@ -1,92 +1,125 @@
-"""Bounded-memory, explicit uniform-index decimation for panel series."""
+"""Paged, exact x/y reads for panel series and table point reads."""
+# Development references: ADR-054, #1886, #2460.
+#
+# A panel never sees a sample of a series. A read names a window of source rows
+# (``offset``, ``limit``) and receives every row in it, in source order, with its
+# value as stored: a NaN, an infinity, or a missing cell comes back in place as
+# NaN (or the distinct JSON sentinels) rather than being dropped. The row at
+# position ``i`` of a window is source row ``offset + i``, so a consumer never
+# has to reconstruct where a point came from, and the whole source is reached by
+# following ``next_offset`` until it is ``None``.
 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 
-def _finite(value: Any) -> float | None:
+
+def _number(value: Any) -> float:
+    """The value as a float, or NaN when it is not a number at all."""
+    if value is None or isinstance(value, (str, bytes)):
+        return math.nan
     try:
-        number = float(value)
-        return number if math.isfinite(number) else None
+        return float(value)
     except (ValueError, TypeError, OverflowError):
-        return None
+        return math.nan
 
 
-def _pairs(path: Path, metadata: dict[str, Any], batch_size: int) -> tuple[int, Iterable[tuple[Any, Any]]]:
-    values = metadata.get("values")
-    if isinstance(values, list) and values:
-        return len(values), enumerate(values)
-    if not path.exists() or path.suffix.lower() != ".parquet":
-        return 0, iter(())
+def _validate_window(offset: int, limit: int) -> None:
+    if offset < 0:
+        raise ValueError("offset must be nonnegative")
+    if limit < 1:
+        raise ValueError("limit must be positive")
+
+
+def _parquet_window(path: Path, columns: list[str], offset: int, stop: int) -> list[list[Any]]:
+    """Read source rows ``[offset, stop)`` of *columns*, touching only their row groups."""
     import pyarrow.parquet as pq
 
     parquet = pq.ParquetFile(path)
-    names = parquet.schema_arrow.names
-    if not names:
-        return 0, iter(())
-    index, value = metadata.get("index_name"), metadata.get("value_name")
-    columns = [index, value] if index in names and value in names else names[:2]
-
-    def rows() -> Iterable[tuple[Any, Any]]:
-        offset = 0
-        for batch in parquet.iter_batches(batch_size=batch_size, columns=list(dict.fromkeys(columns))):
-            if len(columns) == 1:
-                for item in batch.column(0).to_pylist():
-                    yield offset, item
-                    offset += 1
-            else:
-                yield from zip(batch.column(columns[0]).to_pylist(), batch.column(columns[1]).to_pylist(), strict=True)
-
-    return int(parquet.metadata.num_rows), rows()
+    out: list[list[Any]] = [[] for _ in columns]
+    start = 0
+    for group in range(parquet.metadata.num_row_groups):
+        rows = parquet.metadata.row_group(group).num_rows
+        end = start + rows
+        if end > offset and start < stop:
+            table = parquet.read_row_group(group, columns=columns)
+            lo, hi = max(offset, start) - start, min(stop, end) - start
+            for position, name in enumerate(columns):
+                out[position].extend(table.column(name).slice(lo, hi - lo).to_pylist())
+        if end >= stop:
+            break
+        start = end
+    return out
 
 
-def decimate(ref: Any, metadata: dict[str, Any], *, max_points: int, batch_size: int) -> dict[str, Any]:
-    """Select evenly spaced source indices, retaining endpoints when budget > 1.
+def read_xy_window(
+    path: Path,
+    metadata: dict[str, Any],
+    *,
+    x_column: str | None,
+    y_column: str | None,
+    offset: int,
+    limit: int,
+) -> dict[str, Any]:
+    """Return the exact x/y rows of one source window.
 
-    Nonfinite rows are omitted, never replaced with zeros. Their count covers
-    the entire source, which is streamed in bounded batches, not collected. The
-    0-based source positions of the omitted rows are also reported in
-    ``nonfinite_positions`` so the frontend can mark the gaps rather than let
-    them silently vanish; that list is bounded to ``max_points`` entries to stay
-    within the streaming budget, and ``nonfinite_positions_complete`` states
-    whether it lists every omitted row (the ``nonnumeric`` count is always the
-    complete tally).
+    With two named columns (or at least two columns in the file) the x values
+    come from the first and the y values from the second. A single-column table,
+    or in-memory ``metadata['values']``, is plotted against its source position.
     """
-    path = Path(ref.path)
-    if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
-        raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")
-    total, pairs = _pairs(path, metadata, batch_size)
-    limit = min(total, max_points)
-    selected = {i * (total - 1) // (limit - 1) for i in range(limit)} if limit > 1 else {0} if limit else set()
-    points, nonnumeric = [], 0
-    nonfinite_positions: list[int] = []
-    # Where each returned point sat in the source. A decimated read reports the
-    # dropped positions in source coordinates, so a consumer that counted
-    # returned points instead would put every gap in the wrong place.
-    source_indices: list[int] = []
-    for index, (raw_x, raw_y) in enumerate(pairs):
-        x, y = _finite(raw_x), _finite(raw_y)
-        if x is None or y is None:
-            nonnumeric += 1
-            if len(nonfinite_positions) < max_points:
-                nonfinite_positions.append(index)
-        elif index in selected:
-            points.append({"x": x, "y": y})
-            source_indices.append(index)
-    sampled = total > max_points
+    _validate_window(offset, limit)
+    values = metadata.get("values") if isinstance(metadata, dict) else None
+    if isinstance(values, list) and values:
+        total = len(values)
+        stop = min(total, offset + limit)
+        window = values[offset:stop]
+        xs = [float(offset + i) for i in range(len(window))]
+        ys = [_number(v) for v in window]
+        columns: list[str] = []
+        x_name = y_name = None
+    elif path.exists() and path.suffix.lower() == ".parquet":
+        import pyarrow.parquet as pq
+
+        parquet = pq.ParquetFile(path)
+        columns = list(parquet.schema_arrow.names)
+        total = int(parquet.metadata.num_rows)
+        stop = min(total, offset + limit)
+        if not columns:
+            xs, ys, x_name, y_name = [], [], None, None
+        elif len(columns) == 1:
+            x_name, y_name = None, columns[0]
+            (raw,) = _parquet_window(path, [y_name], offset, stop) if stop > offset else ([],)
+            xs = [float(offset + i) for i in range(len(raw))]
+            ys = [_number(v) for v in raw]
+        else:
+            x_name = x_column if x_column in columns else columns[0]
+            y_name = y_column if y_column in columns else columns[1]
+            wanted = list(dict.fromkeys([x_name, y_name]))
+            raw_columns = _parquet_window(path, wanted, offset, stop) if stop > offset else [[] for _ in wanted]
+            by_name = dict(zip(wanted, raw_columns, strict=True))
+            xs = [_number(v) for v in by_name[x_name]]
+            ys = [_number(v) for v in by_name[y_name]]
+    else:
+        total, stop, xs, ys, columns, x_name, y_name = 0, 0, [], [], [], None, None
+    if offset > total:
+        raise ValueError("offset is beyond the end of the source")
+    pairs = np.column_stack([np.asarray(xs, dtype="<f8"), np.asarray(ys, dtype="<f8")]) if xs else np.empty((0, 2))
+    next_offset = stop if stop < total else None
+    nonnumeric = int((~np.isfinite(pairs)).any(axis=1).sum()) if len(pairs) else 0
     return {
-        "points": points,
+        "values": pairs.astype("<f8"),
+        "offset": offset,
+        "limit": limit,
+        "next_offset": next_offset,
         "total": total,
         "nonnumeric": nonnumeric,
-        "sampled": sampled,
-        "truncated": sampled,
-        "complete": not sampled,
-        "decimation": "uniform-index" if sampled else "none",
-        "nonfinite_positions": nonfinite_positions,
-        "nonfinite_positions_complete": len(nonfinite_positions) == nonnumeric,
-        "source_indices": source_indices,
+        "columns": columns,
+        "x_column": x_name,
+        "y_column": y_name,
+        "truncated": next_offset is not None,
+        "complete": next_offset is None,
     }

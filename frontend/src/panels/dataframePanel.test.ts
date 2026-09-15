@@ -121,10 +121,13 @@ afterEach(() => {
 });
 
 describe("core.dataframe.basic — cell formatting", () => {
-  it("keeps integers exact, fixes decimals, and renders a missing value as empty", async () => {
+  it("keeps every number exact and renders a missing value as empty", async () => {
     const { formatCell } = await loadPanelModule();
     expect(formatCell(42)).toBe("42");
-    expect(formatCell(3.25)).toBe("3.2500");
+    // Exact: a table shows the stored value, never a rounded one (#2460).
+    expect(formatCell(3.25)).toBe("3.25");
+    expect(formatCell(0.123456789012)).toBe("0.123456789012");
+    expect(formatCell(1e-9)).toBe("1e-9");
     expect(formatCell("text")).toBe("text");
     expect(formatCell(null)).toBe("");
     expect(formatCell(undefined)).toBe("");
@@ -160,7 +163,7 @@ describe("core.dataframe.basic — the rendered table", () => {
     );
 
     expect(headers().map((th) => th.textContent)).toEqual(COLUMNS);
-    expect(cells()).toEqual(["1", "9.5000", "a", "2", "3.2500", "b"]);
+    expect(cells()).toEqual(["1", "9.5", "a", "2", "3.25", "b"]);
   });
 
   it("summarises the table by rows and columns", async () => {
@@ -196,17 +199,17 @@ describe("core.dataframe.basic — paging reaches every row", () => {
     await vi.waitFor(() => expect(cells().length).toBe(6));
 
     (byLabel("Next page") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.1250", "d"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.125", "d"]));
 
     (byLabel("Last page") as HTMLButtonElement).click();
     // The final page of five rows at two per page holds the fifth row alone.
     await vi.waitFor(() => expect(cells()).toEqual(["5", "5", "e"]));
 
     (byLabel("Previous page") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.1250", "d"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.125", "d"]));
 
     (byLabel("First page") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5000", "a", "2", "3.2500", "b"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5", "a", "2", "3.25", "b"]));
   });
 
   it("disables the ends of the range", async () => {
@@ -259,17 +262,17 @@ describe("core.dataframe.basic — sorting", () => {
 
     const scoreHeader = () => headers()[1];
     scoreHeader().click();
-    await vi.waitFor(() => expect(cells()).toEqual(["4", "1.1250", "d", "2", "3.2500", "b"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["4", "1.125", "d", "2", "3.25", "b"]));
     expect(scoreHeader().getAttribute("aria-sort")).toBe("ascending");
     expect(scoreHeader().textContent).toContain("▲");
 
     scoreHeader().click();
-    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5000", "a", "3", "7", "c"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5", "a", "3", "7", "c"]));
     expect(scoreHeader().getAttribute("aria-sort")).toBe("descending");
     expect(scoreHeader().textContent).toContain("▼");
 
     scoreHeader().click();
-    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5000", "a", "2", "3.2500", "b"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["1", "9.5", "a", "2", "3.25", "b"]));
     expect(scoreHeader().getAttribute("aria-sort")).toBe("none");
 
     // Sorting is done by the backend over the whole table, not in the page.
@@ -283,7 +286,7 @@ describe("core.dataframe.basic — sorting", () => {
     await vi.waitFor(() => expect(headers().length).toBe(3));
 
     (byLabel("Next page") as HTMLButtonElement).click();
-    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.1250", "d"]));
+    await vi.waitFor(() => expect(cells()).toEqual(["3", "7", "c", "4", "1.125", "d"]));
 
     headers()[1].click();
     await vi.waitFor(() => {
