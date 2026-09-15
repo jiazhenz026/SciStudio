@@ -362,6 +362,10 @@ class ApiRuntime:
             _WORKFLOW_RUNS_MAX,
             evictable=_run_is_evictable,
         )
+        # #2433: runs a project switch ended whose task ignored cancellation,
+        # keyed by workflow id and held until the task stops (see
+        # ``_run_lifetime.end_project_runs``).
+        self._stopping_runs: dict[str, WorkflowRun] = {}
         # ADR-034: the MCP server's TCP/socket port is published into the
         # active project's ``.scistudio/`` so the per-project ``mcp-bridge``
         # subprocess can discover it. POSIX transports publish a socket pointer;

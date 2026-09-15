@@ -280,7 +280,7 @@ def test_switching_projects_mid_run_ends_the_run_in_its_own_project(
     assert run.run_id == run_id
 
     listed = client.get("/api/projects/active/runs").json()
-    assert listed == {"runs": [{"run_id": run_id, "workflow_id": "switch-flow"}]}
+    assert listed == {"project_id": first_id, "runs": [{"run_id": run_id, "workflow_id": "switch-flow"}]}
     refused = client.post(
         "/api/projects/", json={"name": "Other Project", "description": "", "path": str(project_parent)}
     )
@@ -289,7 +289,20 @@ def test_switching_projects_mid_run_ends_the_run_in_its_own_project(
     assert runtime.active_project.id == first_id
     assert not run.task.done(), "a refused switch leaves the run alone"
 
-    ended = client.post("/api/projects/active/end-runs")
+    # Codex review on #2439: the request is bound to what the user confirmed.
+    stale_project = client.post("/api/projects/active/end-runs", json={"project_id": "another-project"})
+    assert stale_project.status_code == 409
+    assert stale_project.json()["detail"]["code"] == "project_changed"
+    unconfirmed = client.post("/api/projects/active/end-runs", json={"project_id": first_id, "run_ids": []})
+    assert unconfirmed.status_code == 409
+    assert unconfirmed.json()["detail"] == {
+        "code": "project_runs_changed",
+        "message": "A run started after you confirmed; nothing was cancelled.",
+        "run_ids": [run_id],
+    }
+    assert not run.task.done(), "a refused end-runs cancels nothing"
+
+    ended = client.post("/api/projects/active/end-runs", json={"project_id": first_id, "run_ids": [run_id]})
     assert ended.status_code == 200
     assert ended.json() == {"ended_run_ids": [run_id]}
     assert run.task.done()
@@ -345,10 +358,11 @@ def test_ending_a_run_that_ignores_cancellation_is_bounded(
     store = runtime.lineage_store
 
     started = time.monotonic()
-    assert client.post("/api/projects/active/end-runs").status_code == 200
+    project_id = runtime.active_project.id
+    assert client.post("/api/projects/active/end-runs", json={"project_id": project_id}).status_code == 200
     assert time.monotonic() - started < 10
     assert store.get_run(run_id)["status"] == "cancelled"
-    assert client.get("/api/projects/active/runs").json() == {"runs": []}
+    assert client.get("/api/projects/active/runs").json() == {"project_id": project_id, "runs": []}
     assert (
         client.post(
             "/api/projects/", json={"name": "Elsewhere", "description": "", "path": str(project_parent)}

@@ -7,6 +7,7 @@
 
 import type {
   ActiveProjectResponse,
+  EndProjectRunsRequest,
   EndProjectRunsResponse,
   ProjectResponse,
   ProjectRunsResponse,
@@ -41,12 +42,15 @@ export const projectsApi = {
   getActiveProjectRuns: () => apiFetch<ProjectRunsResponse>("/api/projects/active/runs"),
   /**
    * #2433 — cancel every live run of the active project and wait until each has
-   * ended. Bounded server-side; a run that ignores cancellation is recorded as
-   * cancelled and left behind.
+   * ended. Bound to what the user confirmed: refused (409) when the active
+   * project is another one or a run they were not shown has started. Bounded
+   * server-side; a run that ignores cancellation is recorded as cancelled.
    */
-  endActiveProjectRuns: () =>
+  endActiveProjectRuns: (body: EndProjectRunsRequest) =>
     apiFetch<EndProjectRunsResponse>("/api/projects/active/end-runs", {
       method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(body),
       timeoutMs: PROJECT_SWITCH_TIMEOUT_MS,
     }),
   createProject: (body: { name: string; description: string; path: string }) =>

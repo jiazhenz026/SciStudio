@@ -51,15 +51,31 @@ export async function confirmLeavingProject(
   const project = store.getState().currentProject;
   if (!project) return true;
   let runs: LiveRunResponse[];
+  let activeProjectId: string | null;
   try {
-    runs = (await api.getActiveProjectRuns()).runs;
+    const answer = await api.getActiveProjectRuns();
+    runs = answer.runs;
+    activeProjectId = answer.project_id;
   } catch {
     return true;
   }
   if (runs.length === 0) return true;
+  if (activeProjectId !== project.id) {
+    // Another window opened a different project on this backend. Its runs are
+    // not this page's to cancel, and this page is stale.
+    throw new Error(
+      `Another window opened a different project, so "${project.name}" is no longer the open ` +
+        "project. Reload the window before switching; no run was cancelled.",
+    );
+  }
   const ask = options.confirm ?? ((message: string) => window.confirm(message));
   if (!ask(leaveProjectMessage(project.name, runs))) return false;
-  const ended = await api.endActiveProjectRuns();
+  // Bound to what the user confirmed: the backend refuses if the project or the
+  // set of live runs changed in between.
+  const ended = await api.endActiveProjectRuns({
+    project_id: project.id,
+    run_ids: runs.map((run) => run.run_id).filter((id): id is string => Boolean(id)),
+  });
   // Their late socket events must not land on the next project's workflows.
   store.getState().markRunsEnded(ended.ended_run_ids);
   return true;

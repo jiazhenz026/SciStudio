@@ -442,6 +442,14 @@ def list_projects(self: ApiRuntime) -> list[KnownProject]:
 
 
 def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProject:
+    entry = _read_project_from_path(project_path)
+    self.known_projects[entry.id] = entry
+    self._save_known_projects()
+    return entry
+
+
+def _read_project_from_path(project_path: Path) -> KnownProject:
+    """Read the project at *project_path* without registering it."""
     from .models import KnownProject
 
     project_file = project_path / "project.yaml"
@@ -465,20 +473,22 @@ def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProjec
         tutorial_source_id=tutorial.get("source_id"),
         tutorial_id=tutorial.get("id"),
     )
-    self.known_projects[entry.id] = entry
-    self._save_known_projects()
     return entry
 
 
 def _resolve_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
-    """Return the known project *project_id_or_path* names, without opening it."""
+    """Return the project *project_id_or_path* names, without opening or registering it.
+
+    A path not yet in the registry is read, not registered: the caller registers
+    it once the operation is allowed, so a refused open leaves no trace.
+    """
     candidate = self.known_projects.get(project_id_or_path)
     if candidate is None:
         decoded = Path(unquote(project_id_or_path)).expanduser()
         resolved = decoded.resolve()
         if not (resolved / "project.yaml").is_file():
             raise FileNotFoundError(f"Not a valid SciStudio project (no project.yaml): {resolved}")
-        candidate = self._load_project_from_path(resolved)
+        candidate = _read_project_from_path(resolved)
     return candidate
 
 

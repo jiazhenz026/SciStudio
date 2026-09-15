@@ -24,7 +24,7 @@ from scistudio.engine.scheduler import DAGScheduler
 from scistudio.workflow.definition import WorkflowDefinition
 
 from ._helpers import _now_iso
-from ._run_lifetime import abandon_run, attach_task, claim_run, consume_forced, release_run
+from ._run_lifetime import abandon_run, attach_task, claim_run, consume_forced, release_run, stopping_run
 
 if TYPE_CHECKING:
     from . import ApiRuntime, WorkflowRun
@@ -77,11 +77,15 @@ def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
 
     Module-level helper (not a bound ``ApiRuntime`` method) so the guard works
     without touching the runtime ``__init__`` method-binding table. A project
-    switch ends every run of the project it leaves, so the registry of
-    the active project is the whole answer.
+    switch ends every run of the project it leaves, so the registry of the
+    active project answers, together with any run a switch ended whose task
+    ignored cancellation and has not stopped yet: worker process handles are
+    keyed by workflow and block, so a new run of that id must wait for it.
     """
     run = runtime.workflow_runs.get(workflow_id)
-    return run is not None and not run.task.done()
+    if run is not None and not run.task.done():
+        return True
+    return stopping_run(runtime, workflow_id) is not None
 
 
 def live_workflow_runs(self: ApiRuntime) -> list[WorkflowRun]:

@@ -1449,6 +1449,30 @@
     ],
     "type": "object"
    },
+   "EndProjectRunsRequest": {
+    "properties": {
+     "project_id": {
+      "type": "string"
+     },
+     "run_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "project_id"
+    ],
+    "type": "object"
+   },
    "EndProjectRunsResponse": {
     "properties": {
      "ended_run_ids": {
@@ -3589,6 +3613,16 @@
    },
    "ProjectRunsResponse": {
     "properties": {
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "runs": {
       "items": {
        "$ref": "#/components/schemas/LiveRunResponse"
@@ -8912,12 +8946,31 @@
   },
   "/api/projects/active/end-runs": {
    "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EndProjectRunsRequest"
+       }
+      }
+     },
+     "required": true
+    },
     "responses": {
      "200": {
       "content": {
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/EndProjectRunsResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }

@@ -121,7 +121,15 @@ export interface LiveRunResponse {
 }
 
 export interface ProjectRunsResponse {
+  /** The project these runs belong to: the backend's active project. */
+  project_id: string | null;
   runs: LiveRunResponse[];
+}
+
+/** #2433 — what the user confirmed ending: the project and the runs shown. */
+export interface EndProjectRunsRequest {
+  project_id: string;
+  run_ids?: string[] | null;
 }
 
 /** #2433 — `POST /api/projects/active/end-runs`. */

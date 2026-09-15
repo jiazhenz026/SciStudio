@@ -882,7 +882,22 @@ class ProjectRunsResponse(BaseModel):
 
     # Development references: #2433.
 
+    project_id: str | None = None
     runs: list[LiveRunResponse] = Field(default_factory=list)
+
+
+class EndProjectRunsRequest(BaseModel):
+    """Request body for ``POST /api/projects/active/end-runs``.
+
+    Names what the user confirmed: the project, and the runs they were shown.
+    The request is refused when the active project is another one, or when a
+    run the user was not shown has started since.
+    """
+
+    # Development references: #2433.
+
+    project_id: str
+    run_ids: list[str] | None = None
 
 
 class EndProjectRunsResponse(BaseModel):

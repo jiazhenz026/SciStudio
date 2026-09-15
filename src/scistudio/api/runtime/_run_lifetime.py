@@ -149,8 +149,6 @@ _LIVE_RUNS: dict[str, _LiveRun] = {}
 _RETIRED_STORES: list[Any] = []
 # Runs whose lineage shutdown finalised while their task was still going.
 _FORCED_RUN_IDS: set[str] = set()
-# Tasks of runs that ignored a project switch's cancellation; held until they stop.
-_ABANDONED_TASKS: set[asyncio.Task[None]] = set()
 # Orders a run's claim, finalise-then-release and the store bookkeeping against
 # reconciliation's check-then-finalise and the marker sweep. Under the lock,
 # reconciliation sees a run either as live or as already terminal, never as
@@ -564,7 +562,8 @@ async def shutdown_workflow_runs(self: ApiRuntime, *, timeout_sec: float | None 
         finish within the bound.
     """
     bound = _SHUTDOWN_RUN_TIMEOUT_SEC if timeout_sec is None else timeout_sec
-    pending = [run.task for run in list(self.workflow_runs.values()) if not run.task.done()]
+    runs = [*self.workflow_runs.values(), *_stopping_runs(self).values()]
+    pending = [run.task for run in runs if not run.task.done()]
     if not pending:
         return []
     for task in pending:
@@ -615,12 +614,40 @@ async def end_project_runs(self: ApiRuntime, *, timeout_sec: float | None = None
     for key, run in list(self.workflow_runs.items()):
         if run in live and not run.task.done():
             # Its lineage is already recorded as cancelled. It leaves the
-            # registry so the project can be left, and stays referenced here so
-            # its task is not garbage-collected while it finally stops.
+            # project's registry so the project can be left, and moves to the
+            # backend-wide set of runs still stopping: the task stays
+            # referenced, shutdown still cancels it, and no run of the same
+            # workflow id may start (in any project) until it has stopped,
+            # because worker process handles are keyed by workflow and block.
             del self.workflow_runs[key]
-            _ABANDONED_TASKS.add(run.task)
-            run.task.add_done_callback(_ABANDONED_TASKS.discard)
+            hold_stopping_run(self, key, run)
     return ended
+
+
+def hold_stopping_run(self: ApiRuntime, workflow_id: str, run: Any) -> None:
+    """Keep a run that ignored cancellation until its task stops."""
+    stopping = _stopping_runs(self)
+    stopping[workflow_id] = run
+
+    def _release(_task: asyncio.Task[None]) -> None:
+        if stopping.get(workflow_id) is run:
+            del stopping[workflow_id]
+
+    run.task.add_done_callback(_release)
+
+
+def stopping_run(self: ApiRuntime, workflow_id: str) -> Any | None:
+    """A run of *workflow_id* a project switch ended that has not stopped yet."""
+    run = _stopping_runs(self).get(workflow_id)
+    return run if run is not None and not run.task.done() else None
+
+
+def _stopping_runs(runtime: Any) -> dict[str, Any]:
+    stopping = getattr(runtime, "_stopping_runs", None)
+    if stopping is None:
+        stopping = {}
+        runtime._stopping_runs = stopping
+    return stopping
 
 
 async def _await_or_force(tasks: list[asyncio.Task[None]], *, bound: float, reason: str) -> list[str]:
@@ -915,6 +942,7 @@ __all__ = [
     "claim_run",
     "consume_forced",
     "end_project_runs",
+    "hold_stopping_run",
     "is_same_path",
     "lineage_db_path",
     "live_run_ids",
@@ -924,4 +952,5 @@ __all__ = [
     "release_run",
     "retire_store",
     "shutdown_workflow_runs",
+    "stopping_run",
 ]

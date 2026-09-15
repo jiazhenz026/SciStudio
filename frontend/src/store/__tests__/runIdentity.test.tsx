@@ -26,6 +26,8 @@ type LiveRun = { run_id: string; workflow_id: string };
 /** What the fake backend answers; each test sets what it needs. */
 let liveRuns: LiveRun[] = [];
 let endedRunIds: string[] = [];
+/** The backend's active project, which another window may have changed. */
+let activeProjectId: string | null = null;
 let backend: MockBackend;
 
 function event(overrides: Partial<WorkflowEventMessage> = {}): WorkflowEventMessage {
@@ -72,8 +74,12 @@ beforeEach(() => {
   useAppStore.setState({ endedRunIds: [], terminalTabs: [], activeTerminalTabId: null });
   liveRuns = [];
   endedRunIds = [];
+  activeProjectId = null;
   backend = mockBackend({
-    "GET /api/projects/active/runs": () => ({ runs: liveRuns }),
+    "GET /api/projects/active/runs": () => ({
+      project_id: activeProjectId ?? useAppStore.getState().currentProject?.id ?? null,
+      runs: liveRuns,
+    }),
     "POST /api/projects/active/end-runs": () => {
       liveRuns = [];
       return { ended_run_ids: endedRunIds };
@@ -181,6 +187,32 @@ describe("leaving a project with live runs", () => {
     liveRuns = [{ run_id: "r1", workflow_id: "main" }];
 
     expect(await confirmLeavingProject(useAppStore, { confirm: () => false })).toBe(false);
+    expect(backend.callsTo("POST /api/projects/active/end-runs")).toHaveLength(0);
+  });
+
+  it("is bound to the project and runs the user confirmed (Codex review on #2439)", async () => {
+    useAppStore.setState({ currentProject: project("A") });
+    liveRuns = [
+      { run_id: "r1", workflow_id: "main" },
+      { run_id: "r2", workflow_id: "qc" },
+    ];
+    endedRunIds = ["r1", "r2"];
+
+    expect(await confirmLeavingProject(useAppStore, { confirm: () => true })).toBe(true);
+    const [call] = backend.callsTo("POST /api/projects/active/end-runs");
+    expect(call.body).toEqual({ project_id: "A", run_ids: ["r1", "r2"] });
+  });
+
+  it("cancels nothing when another window opened a different project", async () => {
+    useAppStore.setState({ currentProject: project("A") });
+    activeProjectId = "B";
+    liveRuns = [{ run_id: "b-run", workflow_id: "main" }];
+    const confirm = vi.fn(() => true);
+
+    await expect(confirmLeavingProject(useAppStore, { confirm })).rejects.toThrow(
+      "Another window opened a different project",
+    );
+    expect(confirm).not.toHaveBeenCalled();
     expect(backend.callsTo("POST /api/projects/active/end-runs")).toHaveLength(0);
   });
 

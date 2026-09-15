@@ -128,7 +128,7 @@ def test_the_projects_route_refuses_the_switch_with_the_live_run_ids(
 
     listed = client.get("/api/projects/active/runs")
     assert listed.status_code == 200
-    assert listed.json() == {"runs": [{"run_id": "run-alpha", "workflow_id": "main"}]}
+    assert listed.json() == {"project_id": alpha, "runs": [{"run_id": "run-alpha", "workflow_id": "main"}]}
 
     for response in (
         client.get(f"/api/projects/{beta}"),
@@ -149,7 +149,7 @@ def test_ended_runs_let_the_switch_proceed(client: TestClient, runtime: ApiRunti
     runtime.workflow_runs["main"] = live
 
     live.task.cancel()  # what end_project_runs achieves
-    assert client.get("/api/projects/active/runs").json() == {"runs": []}
+    assert client.get("/api/projects/active/runs").json() == {"project_id": alpha, "runs": []}
     assert client.get(f"/api/projects/{beta}").status_code == 200
     assert runtime.workflow_runs == {}
 
@@ -224,3 +224,80 @@ def test_deleting_the_active_project_retires_its_runs(
     runtime.delete_project(alpha)
 
     assert runtime.workflow_runs == {}
+
+
+def test_opening_a_path_refused_for_live_runs_registers_nothing(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path, tmp_path: Path
+) -> None:
+    """Codex review on #2439: a refused open by path must not add the project to the registry."""
+    from scistudio.api.runtime._runs import ProjectRunsLiveError
+
+    alpha = _make_project(client, project_parent, "Alpha")
+    runtime.open_project(alpha)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "project.yaml").write_text("project:\n  id: elsewhere\n  name: Elsewhere\n", encoding="utf-8")
+    runtime.workflow_runs["main"] = _fake_run(done=False)
+    registry_before = runtime.known_projects_path.read_text(encoding="utf-8")
+
+    with pytest.raises(ProjectRunsLiveError):
+        runtime.open_project(str(elsewhere))
+
+    assert "elsewhere" not in runtime.known_projects
+    assert runtime.known_projects_path.read_text(encoding="utf-8") == registry_before
+
+
+def test_a_run_that_ignored_the_switch_keeps_its_workflow_id_reserved(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Codex review on #2439: worker handles are keyed by (workflow_id, block_id), so a run a
+    switch could not stop keeps that workflow id from starting again, in any project, until it stops."""
+    import asyncio
+
+    from scistudio.api.runtime import _run_lifetime
+    from scistudio.api.runtime._runs import WorkflowAlreadyRunningError, _is_workflow_running
+    from scistudio.api.seam import workflow_runs_active
+
+    monkeypatch.setattr(_run_lifetime, "_PROJECT_LEAVE_RUN_TIMEOUT_SEC", 0.3)
+    monkeypatch.setattr(_run_lifetime, "_PROJECT_LEAVE_CANCEL_GRACE_SEC", 0.1)
+    alpha = _make_project(client, project_parent, "Alpha")
+    beta = _make_project(client, project_parent, "Beta")
+    runtime.open_project(alpha)
+
+    async def scenario() -> None:
+        release = asyncio.Event()
+
+        async def stubborn() -> None:
+            while not release.is_set():
+                try:
+                    await asyncio.sleep(0.01)
+                except asyncio.CancelledError:
+                    continue
+
+        task = asyncio.create_task(stubborn())
+        run = WorkflowRun(
+            scheduler=object(),  # type: ignore[arg-type]
+            task=task,
+            checkpoint_manager=object(),  # type: ignore[arg-type]
+            run_id="run-stuck",
+        )
+        runtime.workflow_runs["main"] = run
+
+        await runtime.end_project_runs()
+        assert not task.done()
+        assert "main" not in runtime.workflow_runs
+        runtime.open_project(beta)
+
+        assert _is_workflow_running(runtime, "main") is True
+        assert _is_workflow_running(runtime, "other") is False
+        with pytest.raises(WorkflowAlreadyRunningError):
+            runtime.start_workflow("main")
+        assert workflow_runs_active(client.app) is True  # type: ignore[arg-type]
+
+        release.set()
+        await asyncio.wait_for(task, timeout=5)
+        await asyncio.sleep(0)
+        assert _is_workflow_running(runtime, "main") is False
+        assert runtime._stopping_runs == {}
+
+    asyncio.run(scenario())

@@ -386,6 +386,10 @@ def workflow_runs_active(app: FastAPI) -> bool:
     if runtime is None:
         return False
     # #2433: leaving a project ends its runs, so the active project's registry
-    # holds every run this backend is executing.
-    runs = list(getattr(runtime, "workflow_runs", {}).values())
+    # holds every run this backend is executing, apart from a run a switch
+    # ended whose task ignored cancellation and is still stopping.
+    runs = [
+        *getattr(runtime, "workflow_runs", {}).values(),
+        *(getattr(runtime, "_stopping_runs", None) or {}).values(),
+    ]
     return any(not run.task.done() for run in runs)
