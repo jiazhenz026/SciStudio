@@ -1,0 +1,98 @@
+{
+  "base_ref": null,
+  "branch": "feat/2435-mcp-capability-id",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/**",
+      "tests/ai/**",
+      "tests/e2e/test_mcp_tools.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:28:46.702969Z",
+      "owner_directive": "Expose capabilities through get_block_schema; no new MCP tool.",
+      "reason": "owner decision on tool surface"
+    },
+    {
+      "at": "2026-09-15T09:28:46.846239Z",
+      "owner_directive": "get_block_config shows the selected/resolved capability for core Load/Save (and ports).",
+      "reason": "owner decision on config view"
+    },
+    {
+      "at": "2026-09-15T09:39:17.086666Z",
+      "owner_directive": "MCP must directly expose reading and setting capability_id.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T09:39:17.086904Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/workflow-schema.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2435,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "MCP must directly expose reading and setting capability_id.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2435-mcp-capability-id",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T09:39:17.086881Z",
+      "pattern": "src/scistudio/_agent_reference/workflow-schema.md",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4cd6918e-36ec-4e26-b054-4bb14a858ebb",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T09:39:17.086915Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/agent/mcp/test_format_capability_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:39:17.086919Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

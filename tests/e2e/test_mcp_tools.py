@@ -358,7 +358,20 @@ def test_agent_orients_itself_in_the_tutorial_project(agent: Agent) -> None:
     assert [port["name"] for port in schema["ports"]["input"]] == ["table"]
     assert [port["name"] for port in schema["ports"]["output"]] == ["normalized"]
     assert set(schema["config_schema"]["required"]) == {"negative_control", "positive_control"}
+    # #2435: only IO-capable blocks list format capabilities.
+    assert schema["format_capabilities"] == [] and schema["format_capability_usage"] is None
     agent.call("get_block_schema", type_name="no_such_block").raised()
+
+    # Core Save lists the save formats it can pick by capability_id; a Code Block
+    # port can pick either direction.
+    save_schema = agent.call("get_block_schema", type_name="save_data").ok()
+    save_formats = {entry["capability_id"]: entry for entry in save_schema["format_capabilities"]}
+    assert save_formats["core.dataframe.csv.save"]["extensions"] == [".csv"]
+    assert save_formats["core.dataframe.csv.save"]["data_type"] == "DataFrame"
+    assert {entry["direction"] for entry in save_formats.values()} == {"save"}
+    assert "capability_id" in save_schema["format_capability_usage"]
+    code_schema = agent.call("get_block_schema", type_name="code_block").ok()
+    assert {entry["direction"] for entry in code_schema["format_capabilities"]} == {"load", "save"}
 
     examples = agent.call("list_block_examples", category="process").ok()
     assert examples, "no curated process examples"
@@ -534,11 +547,39 @@ def test_agent_writes_edits_and_reruns_a_workflow(agent: Agent) -> None:
     assert patched["block_id"] == "save"
     assert patched["bytes_written"] == agent.path("workflows/review.yaml").stat().st_size
     assert "validate_workflow" in patched["next_step"]
-    assert agent.call("get_block_config", workflow_path="workflows/review.yaml", block_id="save").ok()["params"] == {
+    save_config = agent.call("get_block_config", workflow_path="workflows/review.yaml", block_id="save").ok()
+    assert save_config["params"] == {
         "core_type": "DataFrame",
         "path": "data/processed",
         "filename": "review2.csv",
     }
+    # #2435: nothing is pinned, so the filename's extension decides the format.
+    assert save_config["capability"] == {
+        "direction": "save",
+        "data_type": "DataFrame",
+        "extension": ".csv",
+        "selected_capability_id": None,
+        "resolved_capability_id": "core.dataframe.csv.save",
+        "status": "resolved",
+    }
+    assert save_config["port_capabilities"] == []
+    # A capability that contradicts the .csv filename is refused and not written;
+    # the matching one is pinned and the re-run below honours it.
+    agent.call(
+        "update_block_config",
+        workflow_path="workflows/review.yaml",
+        block_id="save",
+        params={"capability_id": "core.dataframe.parquet.save"},
+    ).raised()
+    assert "capability_id" not in agent.path("workflows/review.yaml").read_text(encoding="utf-8")
+    agent.call(
+        "update_block_config",
+        workflow_path="workflows/review.yaml",
+        block_id="save",
+        params={"capability_id": "core.dataframe.csv.save"},
+    ).ok()
+    pinned = agent.call("get_block_config", workflow_path="workflows/review.yaml", block_id="save").ok()["capability"]
+    assert (pinned["status"], pinned["resolved_capability_id"]) == ("pinned", "core.dataframe.csv.save")
 
     edited = agent.call(
         "edit_workflow",
@@ -620,6 +661,13 @@ def test_workflow_tools_refuse_what_their_contracts_rule_out(agent: Agent) -> No
     agent.call("get_block_config", workflow_path="workflows/main.yaml", block_id="no_such_node").raised()
     agent.call(
         "update_block_config", workflow_path="workflows/main.yaml", block_id="no_such_node", params={"x": 1}
+    ).raised()
+    # #2435: an unknown capability_id is refused before anything is written.
+    agent.call(
+        "update_block_config",
+        workflow_path="workflows/main.yaml",
+        block_id="save",
+        params={"capability_id": "no.such.capability.save"},
     ).raised()
     assert agent.path("workflows/main.yaml").read_text(encoding="utf-8") == before
 

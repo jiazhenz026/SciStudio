@@ -110,6 +110,21 @@ class BlockSchemaResult(BaseModel):
         default_factory=dict,
         description="Block metadata: description, version, base_category, subcategory.",
     )
+    format_capabilities: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "IO format capabilities this block can pick by capability_id, the same choices the GUI Format "
+            "dropdowns offer. Each entry: capability_id, direction ('load' or 'save'), data_type, format_id, "
+            "extensions, label, package, priority, is_default, pinnable. Set for core load_data/save_data "
+            "(their direction; every Artifact capability folded into one display-only 'Any' entry with "
+            "pinnable=false) and for blocks with file-exchange ports such as code_block and app_block (both "
+            "directions: input ports use 'save', output ports use 'load'). Empty for other blocks."
+        ),
+    )
+    format_capability_usage: str | None = Field(
+        default=None,
+        description="Where this block stores capability_id and how to pick one; null when format_capabilities is empty.",
+    )
 
 
 class TypeEntry(BaseModel):
