@@ -54,11 +54,7 @@ export interface PageNavProps {
   onBack: (() => void) | null;
   /** Present only on a page whose question may be skipped (FR-020). */
   skip: { testId: string; onSkip: () => void } | null;
-  /**
-   * `Next`, or `Start session` on the last page. Null when there is no forward
-   * move at all — the last page with no usable agent, where FR-005 puts the
-   * availability guidance in place of a start action.
-   */
+  /** `Next`, or `Start session` on the last page. Null when there is no forward move. */
   action: PageNavAction | null;
 }
 
