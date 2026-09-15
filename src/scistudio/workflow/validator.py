@@ -196,32 +196,38 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
 ) -> list[str]:
     """Validate a workflow definition and return a list of diagnostic messages.
 
-    Checks include:
+    Checks, in order:
 
-    1. **Structural** -- duplicate node IDs, empty workflow.
-    2. **Edge format** -- ``node_id:port_name`` colon-separated format.
-    3. **Edge node references** -- source / target nodes exist.
-    4. **Cycle detection** -- delegates to :func:`~scistudio.engine.dag.build_dag`
-       and :func:`~scistudio.engine.dag.topological_sort`.
-    4.5. **Unregistered block types, per node** -- every node whose
-       ``block_type`` is absent from *registry* is reported once, as a
-       ``Warning:``. Check 5 notices the same thing but walks edges, and a node
-       that does not resolve has no ports and therefore no edges, so such nodes
-       used to produce no diagnostic at all (only a run-time failure). Only
-       when *registry* is provided.
-    5. **Type compatibility** -- port type matching via
-       :func:`~scistudio.blocks.base.ports.validate_connection` (only when
-       *registry* is provided).
-    6. **Dangling required input ports** -- required ``InputPort`` instances
-       without an incoming edge (only when *registry* is provided).
-    7. **Variadic port cardinality** -- effective port count within
-       ``min_input_ports`` / ``max_input_ports`` / ``min_output_ports`` /
-       ``max_output_ports`` limits declared on the ``BlockSpec`` (only when
-       *registry* is provided).
-    8. **AppBlock duplicate output-port extensions** -- two output ports on
-       a single variadic-output block declaring the same file extension
-       (case-insensitive) would make extension-based binning ambiguous, so
-       such configurations are rejected at workflow save time.
+    1. **Duplicate node ids** -- two nodes share an ``id``. A workflow with no
+       nodes is valid and skips the remaining checks.
+    2. **Unresolved subworkflow references** -- a subworkflow node whose
+       referenced file could not be read when the graph was expanded for a run.
+       Strict mode only.
+    3. **Edge format** -- each edge end is ``node_id:port_name``.
+    4. **Edge node references** -- both ends of an edge name a node in the
+       workflow.
+    5. **Cycles** -- the edges must not form a cycle.
+    6. **Unregistered block types** -- each node whose ``block_type`` the
+       registry does not know is reported once, as a warning.
+    7. **Ports and types** -- both ends of an edge name a port the block has
+       (a missing port is reported as a warning), and the input port accepts the
+       type the output port produces.
+    8. **Unconnected required inputs** -- a required input port has no incoming
+       edge. Strict mode only.
+    9. **Port counts** -- a block with a variable number of ports stays within
+       the minimum and maximum its block type declares.
+    10. **Duplicate output extensions** -- two output ports of one block with
+        variable outputs declare the same file extension (case-insensitive),
+        which would make matching output files to ports ambiguous.
+    11. **Code block configuration** -- a code block's saved configuration,
+        such as a required ``script_path``, is complete and valid. Strict mode
+        only.
+    12. **Boundary file formats** -- each file extension and data type declared
+        on an app or code block port can be written (input ports) or read
+        (output ports) by a registered capability. Strict mode only.
+
+    Checks 6 to 12 run only when a block registry is given. Callers treat a message
+    that begins with ``Warning:`` as advisory; every other message is an error.
 
     Parameters
     ----------
@@ -231,16 +237,14 @@ def validate_workflow(  # noqa: C901 — grandfathered (#1602): mccabe 60 > 30; 
         An optional ``BlockRegistry`` used for type-compatibility and
         dangling-port checks.  When ``None``, those checks are skipped.
     mode:
-        ``"strict"`` (default) runs every check. ``"draft"`` skips the
-        config/connection-completeness checks — dangling required input ports
-        (Check 6) and CodeBlock config such as a required ``script_path``
-        (Check 9) — so the editor can autosave a work-in-progress graph without
-        spurious errors. Structural, edge, cycle, type, cardinality, extension,
-        and boundary checks still run. Run start re-validates in strict mode,
-        so an incomplete graph still cannot execute.
+        ``"strict"`` (default) runs every check. ``"draft"`` skips the checks
+        marked strict mode only, so the editor can save a graph that is still
+        being built without errors about unresolved references, unconnected
+        inputs, or unfinished configuration. Run start validates in strict
+        mode, so an incomplete graph still cannot run.
     project_dir:
         Project root used to resolve project-relative config paths (currently
-        the CodeBlock ``script_path`` of Check 9). Callers that know the active
+        a code block's ``script_path``). Callers that know the active
         project MUST pass it; node/workflow ``project_dir`` metadata still wins
         when present, and the process working directory remains the last-resort
         fallback for callers with no project context.

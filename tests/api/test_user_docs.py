@@ -61,6 +61,7 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (1, "page", "Scistudio.previewers.data access"),
     (1, "page", "Scistudio.previewers.models"),
     (1, "page", "Scistudio.tutorials"),
+    (1, "page", "Workflow yaml"),
     (0, "section", "Examples"),
     (1, "page", "Examples"),
     (1, "section", "App fiji"),

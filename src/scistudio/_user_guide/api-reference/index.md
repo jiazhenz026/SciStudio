@@ -6,6 +6,8 @@
 
 The public API you may rely on, generated from the code's docstrings and `scistudio.stability` decorators. Only the public surface (each canonical root's `__all__`) appears; `internal` symbols are excluded. Import from the canonical root shown on each page, never a deeper module path.
 
+The workflow file format has its own generated page: [Workflow YAML file format](workflow-yaml.md) (`provisional`) — the keys, rules, and JSON Schema of a workflow YAML file.
+
 ## Stability
 
 - `stable` — supported; no incompatible change within a major version without deprecation.
