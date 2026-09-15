@@ -1,0 +1,110 @@
+# TEMPORARY — DO NOT MERGE.
+#
+# One-off experiment: measure how long the Python suite takes fully serial
+# (`pytest -n 0`, one pass over everything) versus the two-phase parallel run
+# CI uses today (`pytest -n auto -m "not serial"` then `pytest -n 0 -m serial`).
+#
+# Both modes run on the same runner image with the same install step and the
+# same coverage settings per Python version as `.github/workflows/ci.yml`, so
+# the wall-clock numbers are comparable. Test failures do NOT fail these jobs:
+# the deliverable is a duration, and a red job would hide it.
+#
+# Delete this file once the numbers are recorded.
+name: TMP pytest serial-vs-parallel
+
+on:
+  push:
+    branches:
+      - 'claude/ci-pytest-perf-test-**'
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    name: ${{ matrix.mode }} (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+        mode: [parallel, serial]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          cache: true
+          cache-dependency-path: pyproject.toml
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv pip install --system -e ".[dev]" pytest-timeout
+
+      - name: Run suite (${{ matrix.mode }})
+        shell: bash {0}
+        env:
+          MODE: ${{ matrix.mode }}
+          PY: ${{ matrix.python-version }}
+        run: |
+          # Same coverage split as ci.yml: 3.13 collects coverage, 3.11 does not.
+          if [ "$PY" = "3.13" ]; then
+            nocov=""
+            cov_parallel="--cov-fail-under=0"
+            cov_serial="--cov-append"
+            cov_single="--cov-fail-under=0"
+          else
+            nocov="--no-cov"
+            cov_parallel=""
+            cov_serial=""
+            cov_single=""
+          fi
+
+          # A per-test timeout well above ci.yml's 60s: this run is a
+          # measurement, and a test that is merely slow serially must not be
+          # killed and skew the total.
+          tmo="--timeout=600 --timeout-method=thread"
+
+          start=$SECONDS
+          if [ "$MODE" = "parallel" ]; then
+            timeout 5400 pytest -n auto -m "not serial" $nocov $tmo $cov_parallel
+            rc_a=$?
+            split=$((SECONDS - start))
+            timeout 5400 pytest -n 0 -m serial $nocov $tmo $cov_serial
+            rc_b=$?
+            phase1=$split
+            phase2=$((SECONDS - start - split))
+          else
+            # Everything in one in-process pass, no marker split.
+            timeout 5400 pytest -n 0 $nocov $tmo $cov_single
+            rc_a=$?
+            rc_b=0
+            phase1=$((SECONDS - start))
+            phase2=0
+          fi
+          total=$((SECONDS - start))
+
+          {
+            echo "### ${MODE} / Python ${PY}"
+            echo ""
+            echo "| metric | value |"
+            echo "| --- | --- |"
+            echo "| total pytest wall-clock | ${total}s |"
+            echo "| phase 1 | ${phase1}s |"
+            echo "| phase 2 (serial marker) | ${phase2}s |"
+            echo "| exit codes | ${rc_a} / ${rc_b} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "TMP-PERF ${MODE} py${PY} total=${total}s phase1=${phase1}s phase2=${phase2}s rc=${rc_a}/${rc_b}"
+
+          # Never fail on test outcome — only on a shell-level timeout, which
+          # would mean the number is not a real completion time.
+          if [ $rc_a -eq 124 ] || [ $rc_b -eq 124 ]; then
+            echo "::error::pytest exceeded the 5400s shell timeout; the measurement is invalid"
+            exit 1
+          fi
+          exit 0
