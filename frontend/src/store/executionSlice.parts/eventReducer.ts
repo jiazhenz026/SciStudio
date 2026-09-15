@@ -155,10 +155,15 @@ export interface WorkflowExecutionState {
   /**
    * #2395 — true between this workflow's `workflow_started` and its
    * `workflow_completed`. Held per workflow so one run finishing cannot
-   * re-enable Run for another workflow that is still running. A later run
-   * identity (run_id) can sit beside this flag without reshaping the bucket.
+   * re-enable Run for another workflow that is still running.
    */
   isRunning: boolean;
+  /**
+   * #2433 — the run this bucket follows: the run of the latest event accepted
+   * for the workflow. While it is running, an event of any other run of the
+   * workflow is stale and leaves the bucket alone (see `isStaleRunEvent`).
+   */
+  runId: string | null;
 }
 
 export type ExecutionByWorkflow = Record<string, WorkflowExecutionState>;
@@ -172,6 +177,7 @@ export function emptyWorkflowExecution(): WorkflowExecutionState {
     blockErrors: {},
     blockErrorSummaries: {},
     isRunning: false,
+    runId: null,
   };
 }
 
@@ -192,20 +198,46 @@ export function executionWorkflowKey(
 }
 
 /**
+ * #2433 — whether an event belongs to a run other than the one its workflow's
+ * bucket is following while that run is still going, or to a run that was
+ * ended by leaving its project.
+ *
+ * An event without a `run_id` (an emitter that predates run identity) is never
+ * stale. A `workflow_started` starts a new run, so it replaces the run a bucket
+ * follows rather than being judged against it; so does any event of a new run
+ * once the followed run has finished (a page that reconnected mid-run missed
+ * that run's `workflow_started`).
+ */
+export function isStaleRunEvent(
+  event: ExecutionEvent,
+  bucket: WorkflowExecutionState | undefined,
+  endedRunIds: readonly string[] = [],
+): boolean {
+  const runId = event.run_id ?? null;
+  if (runId === null) return false;
+  if (endedRunIds.includes(runId)) return true;
+  if (event.type === "workflow_started" || !bucket?.isRunning) return false;
+  return Boolean(bucket.runId) && bucket.runId !== runId;
+}
+
+/**
  * Fold one event into the per-workflow execution state.
  *
  * Only the bucket of the event's own workflow is rebuilt; every other
  * workflow's entry is carried through by reference, so a run of workflow B
- * cannot disturb what workflow A recorded.
+ * cannot disturb what workflow A recorded. #2433: an event of a stale run
+ * (see `isStaleRunEvent`) changes nothing.
  */
 export function nextExecutionByWorkflow(
   event: ExecutionEvent,
   current: ExecutionByWorkflow,
   activeWorkflowId: string | null,
   now: number = Date.now(),
+  endedRunIds: readonly string[] = [],
 ): ExecutionByWorkflow {
-  if (!event.block_id) return nextLifecycleByWorkflow(event, current, activeWorkflowId);
   const key = executionWorkflowKey(event, activeWorkflowId);
+  if (isStaleRunEvent(event, current[key], endedRunIds)) return current;
+  if (!event.block_id) return nextLifecycleByWorkflow(event, current, activeWorkflowId);
   const bucket = current[key] ?? emptyWorkflowExecution();
   const extraction = extractBlockError(event);
   const { nextErrors, nextSummaries } = nextErrorMaps(
@@ -223,6 +255,7 @@ export function nextExecutionByWorkflow(
       blockErrors: nextErrors,
       blockErrorSummaries: nextSummaries,
       isRunning: bucket.isRunning,
+      runId: event.run_id ?? bucket.runId,
     },
   };
 }
@@ -240,8 +273,9 @@ function nextLifecycleByWorkflow(
   const key = executionWorkflowKey(event, activeWorkflowId);
   const bucket = current[key] ?? emptyWorkflowExecution();
   const isRunning = nextIsRunning(event, bucket.isRunning);
-  if (current[key] && bucket.isRunning === isRunning) return current;
-  return { ...current, [key]: { ...bucket, isRunning } };
+  const runId = event.run_id ?? bucket.runId;
+  if (current[key] && bucket.isRunning === isRunning && bucket.runId === runId) return current;
+  return { ...current, [key]: { ...bucket, isRunning, runId } };
 }
 
 /**
@@ -332,6 +366,7 @@ export function maybeAppendErrorLog(
     message: summaryText ?? errorText ?? "Block failed.",
     details: errorText !== undefined && errorText !== summaryText ? errorText : undefined,
     workflow_id: event.workflow_id ?? null,
+    run_id: event.run_id ?? null,
     block_id: event.block_id ?? null,
   };
   return { logEntries: [...current, next].slice(-400), appended: true };

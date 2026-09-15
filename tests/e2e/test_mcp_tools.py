@@ -501,9 +501,7 @@ def test_lineage_and_logs_trace_the_normalized_table(agent: Agent, tutorial_run:
     assert unresolvable["nodes"] == [] and unresolvable["edges"] == []
     assert unresolvable["note"], unresolvable
 
-    # get_block_logs is exercised with the id the backend's run history records
-    # for this run; with the id run_workflow returned it fails.
-    # TODO(#2401): use the run_workflow run_id here once get_block_logs accepts it.
+    # The id the backend's run history records is the id run_workflow returned.
     lineage_run_id = agent.latest_lineage_run("main")["run"]["run_id"]
     logs = agent.call("get_block_logs", run_id=lineage_run_id, block_id="norm").ok()
     assert logs["source"] == "run_log"
@@ -1163,45 +1161,75 @@ def test_open_miniapp_reaches_a_connected_workspace_and_says_so_when_none_is(
     agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
 
 
-def test_list_miniapps_lists_what_open_miniapp_opens(agent: Agent) -> None:
+def test_list_panels_lists_every_kind_and_what_open_miniapp_opens(agent: Agent) -> None:
     write_panel(agent, f"panels/{MINIAPP_ID}", MINIAPP_DESCRIPTOR)
     write_panel(
         agent,
         "panels/plate_preview",
-        dict(MINIAPP_DESCRIPTOR, id="plate_preview", contexts=["preview"], name="Plate preview"),
+        dict(
+            MINIAPP_DESCRIPTOR,
+            id="plate_preview",
+            contexts=["preview"],
+            name="Plate preview",
+            description="Wells as a grid.",
+            priority=5,
+        ),
     )
     agent.call("write_file", path="panels/half_written/panel.json", content="{not json", create_parents=True).ok()
 
     # No registry reload: the tool reads discovery afresh, as open_miniapp does.
-    listed = agent.call("list_miniapps").ok()
-    apps = {app["panel_id"]: app for app in listed["miniapps"]}
-    assert MINIAPP_ID in apps, listed
-    assert "plate_preview" not in apps, listed
-    app = apps[MINIAPP_ID]
+    listed = agent.call("list_panels").ok()
+    panels = {panel["panel_id"]: panel for panel in listed["panels"]}
+    assert MINIAPP_ID in panels, listed
+    app = panels[MINIAPP_ID]
+    assert app["kinds"] == ["miniapp"]
     assert app["name"] == "Table explorer"
+    assert app["description"] == "Page through the normalized plate table."
     assert app["tier"] == "project" and app["package"] is None
     assert app["types"] == ["DataFrame"]
     assert app["entry"] == "index.html"
     assert app["has_python"] is False
     assert app["path"] == f"panels/{MINIAPP_ID}"
-    assert listed["data_type"] is None
+    assert app["priority"] is None
+    preview = panels["plate_preview"]
+    assert preview["kinds"] == ["preview"]
+    assert preview["description"] == "Wells as a grid."
+    assert preview["priority"] == 5
+    # The core tier's interactive and preview panels are listed alongside.
+    core = [panel for panel in listed["panels"] if panel["tier"] == "core"]
+    assert any("interactive" in panel["kinds"] for panel in core), core
+    assert any("preview" in panel["kinds"] for panel in core), core
+    assert listed["kind"] is None and listed["data_type"] is None
     invalid = {entry["panel_id"]: entry for entry in listed["invalid"]}
     assert "half_written" in invalid, listed["invalid"]
     assert invalid["half_written"]["path"] == "panels/half_written"
     assert invalid["half_written"]["diagnostics"], invalid
 
-    # Filtered by the type of the block output a MiniApp would open on.
-    tables = agent.call("list_miniapps", data_type="DataFrame").ok()
-    assert MINIAPP_ID in {app["panel_id"] for app in tables["miniapps"]}, tables
-    assert tables["data_type"] == "DataFrame"
-    collections = agent.call("list_miniapps", data_type="Collection[DataFrame]").ok()
-    assert MINIAPP_ID not in {app["panel_id"] for app in collections["miniapps"]}, collections
+    # Filtered by kind.
+    miniapps = agent.call("list_panels", kind="miniapp").ok()
+    assert miniapps["kind"] == "miniapp"
+    assert MINIAPP_ID in {panel["panel_id"] for panel in miniapps["panels"]}, miniapps
+    assert all("miniapp" in panel["kinds"] for panel in miniapps["panels"]), miniapps
+    interactive = agent.call("list_panels", kind="interactive").ok()
+    assert interactive["panels"] and all("interactive" in panel["kinds"] for panel in interactive["panels"])
+    agent.call("list_panels", kind="previewer").raised()
 
-    # Every listed MiniApp is one open_miniapp accepts (no workspace is connected here).
+    # Filtered by the type of a block output.
+    tables = agent.call("list_panels", data_type="DataFrame").ok()
+    table_ids = {panel["panel_id"] for panel in tables["panels"]}
+    assert {MINIAPP_ID, "plate_preview"} <= table_ids, tables
+    assert tables["data_type"] == "DataFrame"
+    collections = agent.call("list_panels", kind="miniapp", data_type="Collection[DataFrame]").ok()
+    assert MINIAPP_ID not in {panel["panel_id"] for panel in collections["panels"]}, collections
+
+    # Every listed MiniApp is one open_miniapp accepts (no workspace is connected
+    # here); a listed panel of another kind is refused.
     target = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
-    for panel_id in apps:
-        opened = agent.call("open_miniapp", dict(target, panel_id=panel_id)).ok()
-        assert opened["panel_id"] == panel_id, opened
+    for panel in listed["panels"]:
+        if "miniapp" in panel["kinds"]:
+            opened = agent.call("open_miniapp", dict(target, panel_id=panel["panel_id"])).ok()
+            assert opened["panel_id"] == panel["panel_id"], opened
+    agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
 
 
 def test_screenshot_gui_is_refused_over_the_text_only_webmcp_bridge(agent: Agent) -> None:
@@ -1286,22 +1314,12 @@ def test_validate_workflow_is_invalid_when_it_reports_errors(agent: Agent) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_block_logs does not accept the run_id run_workflow returned — TODO(#2401)",
-)
 def test_get_block_logs_accepts_the_run_id_run_workflow_returned(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     logs = agent.call("get_block_logs", run_id=tutorial_run["started"]["run_id"], block_id="norm")
     assert not logs.is_error, logs.text
     assert "block_done block_id=norm" in logs.data["stderr"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_project_info.recent_runs stays empty after completed runs — TODO(#2401)",
-)
 def test_get_project_info_lists_recent_runs(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     recent = agent.call("get_project_info").ok()["recent_runs"]
     assert "main" in {row["workflow_id"] for row in recent}, recent

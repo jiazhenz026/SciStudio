@@ -85,7 +85,7 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         # + 6 plot tools from ADR-048 SPEC 2 + edit_workflow from #1912
         # + open_gui from #1947 + promote_to_user_library from ADR-053 FR-011
         # + validate_panel and open_miniapp from ADR-054 MiniApp FR-029/FR-030
-        # + list_miniapps from #2441 + wait_for_answers from #2447;
+        # + list_panels from #2441/#2445 + wait_for_answers from #2447;
         # the 14 external-audience tools of ADR-055 Spec 2 are hidden here).
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
