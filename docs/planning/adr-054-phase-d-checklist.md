@@ -190,3 +190,46 @@ desktop code change was required.
   Out of scope per the current macOS guided validation session.
   Followup: https://github.com/jiazhenz026/SciStudio/issues/2354.
 - This checkpoint is for desktop testing; final PR/CI readiness remains pending.
+
+
+## Guided final integration (2026-09-14)
+
+The owner's guided directives extend the original Phase D scope with GUI screenshot
+access for AI, reusable presentation components extracted from all nine core
+previewers, production MiniApp authoring instructions and runtime reference docs,
+and canvas hover actions replacing the block context menu. The shared provider and
+permission controls retain their existing behavior. Broader Phase C migration and
+Phase E tutorials remain tracked separately; this PR includes documentation needed
+for its delivered features.
+
+- Task kind/persona: `guided` / `live_implementer`.
+- Active integration ledger: `.workflow/records/2354-guided-miniapp-audit-fixes.json`.
+- Final base: `origin/main`; Phases A+B and subsequent upstream fixes are merged.
+- Owner authorization: push and open one PR after all ongoing changes complete;
+  merging is not authorized.
+- Independent worker ledgers remain provenance for their dedicated branches. The
+  active integration ledger reconciles the final combined diff.
+
+| Work | Owner | Status / evidence |
+| --- | --- | --- |
+| Audit fixes, project isolation, initial desktop UX | Integration | Implemented; original checkpoint and integration ledger |
+| MiniApp skill rewrite and unambiguous source labels | Integration | `d03d9cdc`; frontend tests passed |
+| Icon-only dialog close buttons | Integration | `3c1439d1`; frontend tests passed |
+| Nine reusable core UI components | Component worker | Implementation complete; upstream parity integration and final review in progress |
+| Desktop GUI screenshot and image transport | GUI worker | Implementation and validation in progress |
+| Hover actions and source editor entry | Canvas worker | Integrated as `048ab10a`; worker frontend 2625 tests and build passed |
+| ADR documentation completeness review | Documentation reviewer | Review in progress; final report required |
+| Production skill/reference consistency | Integration and GUI worker | In progress |
+| Combined desktop smoke, local gate, PR and CI | Integration | Pending completed worker commits |
+
+
+### Desktop hover smoke
+
+On the running development desktop after `048ab10a`, the owner test workflow's
+Load node displayed View source, both compatible MiniApps, and New MiniApp in
+its detail card. Moving into and clicking the card text kept its actions
+available. New MiniApp opened the creation dialog with the selected node instance
+`load_all` and its `data` port preselected. Clicking the X closed that dialog
+without creating an app. No workflow configuration or output was changed.
+Source-path editing and Escape/viewport invalidation are covered by the worker's
+focused frontend tests; this smoke does not claim a native edit/save test.

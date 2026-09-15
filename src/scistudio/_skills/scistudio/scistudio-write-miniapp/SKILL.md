@@ -92,12 +92,19 @@ failure.
 
 ### Step 5 — Inspect the view and try the main interaction
 
-- Use `screenshot_gui` to inspect the rendered app. Check that
+- Use `screenshot_gui(target="miniapp", panel_id="<panel_id>")` to inspect
+  the rendered app in its visible tab. Check that
   real data is visible, its representation is appropriate, and the main
   controls fit the available space.
-- Exercise the primary interaction once and inspect its result and relevant
-  errors. For the threshold tool, change the threshold and verify that the
-  mask updates on the image; a changing number alone is insufficient.
+- Use your available computer use tools to exercise the primary interaction
+  once: move the slider, click the button, or manipulate the data view. Take
+  another screenshot and check the visible result and any errors reported by
+  the app or available logs. For the threshold tool, change the threshold and
+  verify that the mask updates on the image; a changing number alone is
+  insufficient. `screenshot_gui` captures the view; it does not operate controls.
+- If computer use is unavailable or cannot reach the MiniApp, complete the
+  visual and computation checks you can perform and state which interaction
+  remains unverified. Do not describe a screenshot as an interaction test.
 - Fix observed failures and repeat the affected check. Add a computation check
   or an edge case only when a specific risk warrants it. Small representative
   inputs are sufficient for focused computation checks.
@@ -193,6 +200,41 @@ import { Panel, Card, Field, Input, Button } from "../../sdk/1/panel-ui.js";
 `Field` accepts `name` and an optional `readout`. There is no separate Slider
 or ImageViewer component in this set: compose native controls and a data
 renderer rather than inventing component imports.
+
+Use the core data-view components for the main display before building a
+custom renderer. Import from `../../sdk/1/renderers.js` and also load
+`../../sdk/1/renderers.css`. They use the same bundled Preact instance as
+`panel-ui.js`. They accept data, controlled state, and callbacks; they do not
+read the SDK or open a previewer themselves. You own data reads, computation,
+and the state updates triggered by callbacks.
+
+| Data | Component | Main inputs and interaction |
+| --- | --- | --- |
+| Numeric arrays | `ArrayView` | `data` as a scalar, nested array, or typed array; optional `shape`, `axes`, `dtype`; `indices` and `onSliceChange(axis, index)` |
+| Tables | `DataFrameView` | `data` with `columns` and row objects; `query` and `onQueryChange(nextQuery)` for caller-owned paging/sorting |
+| Series | `SeriesView` | `data` with `values`, optional `index`, and `source_indices` for decimated samples; preserve gaps; `mode` and `onModeChange`; chart mode needs bundled Plotly |
+| Text | `TextView` | `text`, optional `meta`; `done=false` while more text is arriving |
+| Files | `ArtifactView` | `info` and an authorized file or caller-created Blob URL in `url` |
+| Saved figures | `PlotView` | `info`, `file`; controlled zoom/page/format callbacks; `onSave(format)`; PDF rendering needs `libBaseUrl` |
+| Collections | `CollectionView` | `items`, optional `count`, `itemType`; `onOpen(ref, item)`; `hasMore` and `onLoadMore()` for paging, `loading` during the page request |
+| Composite data | `CompositeView` | `slots`; `onOpen(ref, slot)` |
+| General metadata | `MetadataView` | `meta` and optional `file` |
+
+For example, an app can pass a computed two-dimensional result directly to
+`ArrayView` and place its own controls beside it:
+
+```js
+import { ArrayView } from "../../sdk/1/renderers.js";
+// result is the actual rectangular array returned by the app's computation.
+render(html`<${ArrayView} data=${result} />`, document.getElementById("result"));
+```
+
+Keep original dimensions when supplying a flat array with `shape`. The numeric
+`ArrayView` is not a domain-specific Image viewer: do not claim image channel,
+mask overlay, or microscopy controls it does not provide. Use the appropriate
+image renderer for those tasks. Read each component's exported props before
+adding controls; do not invent callback names. Keep original data and computed
+results in separate component instances when comparison helps the task.
 
 Bundled libraries are served beneath `scistudio.libBaseUrl` after `ready()`:
 

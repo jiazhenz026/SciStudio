@@ -727,7 +727,8 @@ Phase D lands as one PR, like each of Phases A to C, after Phase A has merged.
 - **Runaway processes.** Each process is registered, killed as a tree, ended with
   its context and at shutdown, and exits when its pipe to the backend closes.
 - **Memory.** An open MiniApp holds its data until it is closed and nothing
-  reserves memory for it; the tab shows its memory so the user can stop it.
+  reserves memory for it. Memory measurements are available for diagnostics;
+  the normal tab shows process state and Stop/Restart controls, without memory figures.
 - **Untrusted Python.** `panel.py` runs as the user, like a block (ADR-054 §10);
   the contexts that must stay read-only never start it.
 - **Agent dependence.** Nothing is created without a working agent; graded

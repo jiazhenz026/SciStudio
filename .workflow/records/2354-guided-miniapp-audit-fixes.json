@@ -1,6 +1,6 @@
 {
-  "base_ref": "21a5bf0e",
-  "branch": "feat/2354-miniapp-phase-d",
+  "base_ref": "origin/main",
+  "branch": "codex/2354-miniapp-guided-final",
   "check_events": [
     {
       "at": "2026-09-13T16:19:40.110699Z",
@@ -1685,6 +1685,74 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:52:11.086668Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e3ab5dbe6c2b3f88811f1f9624ea03a141c34e39bb12acd0a089bafd69e1c604",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:52:11.388835Z",
+      "command": "ruff format --check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:29b18177ed1e8fa714ffa4e39cc2f5328b0cf10e4af92b1ef1753c04c9828920",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:52:57.630407Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0426e3fdbcf65ed2bf84c4240416359cc51993baac62b704f078e32126ddaeeb",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:52:57.747321Z",
+      "command": "ruff check .",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5ad7d5273eed5fab2b97e794b35046dd6ae9e0221dbe2c27240b93c98f1f279e",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
     }
   ],
   "check_na": [],
@@ -1799,6 +1867,56 @@
       "at": "2026-09-15T03:03:08.671621Z",
       "owner_directive": "Replace top-right Cancel text with an X icon in all dialogs introduced in this phase, including New MiniApp.",
       "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
+    },
+    {
+      "at": "2026-09-15T03:12:04.615363Z",
+      "owner_directive": "MiniApps should import prebuilt UI components extracted from all core previewers and compose them with their own data and interactions.",
+      "reason": "Document the implemented reusable renderer component contract in the MiniApp authoring skill"
+    },
+    {
+      "at": "2026-09-15T03:13:59.373205Z",
+      "owner_directive": "Extract the UI from all existing core previewers into prebuilt components MiniApps can import and control; reuse those same components in core preview pages.",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "at": "2026-09-15T03:18:41.216181Z",
+      "owner_directive": "After all ongoing changes are complete, push the branch and create a PR. Complete local validation and monitor CI; do not merge.",
+      "reason": "Owner authorizes final integration, push and one PR after ongoing work is complete"
+    },
+    {
+      "at": "2026-09-15T03:19:40.177603Z",
+      "owner_directive": "Finish all changes, validate the integrated branch against current main, and submit one PR.",
+      "reason": "Prepare final PR against current main and retain upstream fixes"
+    },
+    {
+      "at": "2026-09-15T03:22:17.828480Z",
+      "owner_directive": "Finish all ongoing MiniApp work, validate it together, and submit one PR.",
+      "reason": "Prepare release notes and integrated guided-session readiness record for final PR"
+    },
+    {
+      "at": "2026-09-15T03:23:54.914556Z",
+      "owner_directive": "Complete production MiniApp skills and required documentation before submitting the combined PR; the UI must not show process memory figures.",
+      "reason": "Close documentation audit findings affecting MiniApp conversion and memory presentation"
+    },
+    {
+      "at": "2026-09-15T03:25:47.417091Z",
+      "owner_directive": "Remove the block right-click menu, move MiniApp creation/opening into an interactive hover detail window, keep it open while hovered, and add an entry opening the block source editor.",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "at": "2026-09-15T03:28:07.302677Z",
+      "owner_directive": "Investigate all ADR-054 documentation, AI skills and user guides and include the required completed work in the final PR.",
+      "reason": "Integrate the requested ADR-054 documentation coverage audit as PR evidence"
+    },
+    {
+      "at": "2026-09-15T03:38:51.591106Z",
+      "owner_directive": "Provide screenshot_gui only. Teach MiniApp authors to use their available computer use tools for interactions and report any unverified behavior accurately.",
+      "reason": "Owner selected screenshots plus existing agent computer use instead of additional MiniApp interaction MCP tools"
+    },
+    {
+      "at": "2026-09-15T03:51:40.254343Z",
+      "owner_directive": "Complete the changes, push them and open the final PR; do not merge.",
+      "reason": "Use one final integration branch with unambiguous active ledger while preserving original Phase D provenance"
     }
   ],
   "docs_events": [
@@ -1919,6 +2037,102 @@
       "class": null,
       "kind": "path",
       "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:12:04.615538Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:13:59.373566Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/reference/miniapp-renderers.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:22:17.828736Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:22:17.828739Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:23:54.914753Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:23:54.914757Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/block-contract.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:23:54.914762Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:23:54.914764Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:25:47.417497Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/frontend-block-palette.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:25:47.417501Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:28:07.303901Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:38:51.591551Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -4014,6 +4228,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.855395Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.876247Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.896469Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.914623Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.963932Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.021959Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.054112Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.068826Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.091610Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.106763Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.126737Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -4026,32 +4328,31 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "d03d9cdc",
-    "base_sha": "d03d9cdc",
+    "base": "HEAD",
+    "base_sha": "84715c2e",
     "changed_files": [
-      ".workflow/records/2354-guided-miniapp-audit-fixes.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-054.md",
+      "docs/planning/adr-054-phase-d-checklist.md",
       "docs/specs/adr-054-miniapp.md",
-      "frontend/src/miniapps/ConvertToBlockDialog.test.tsx",
-      "frontend/src/miniapps/ConvertToBlockDialog.tsx",
-      "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
-      "frontend/src/miniapps/CreateMiniAppDialog.tsx",
-      "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
-      "frontend/src/miniapps/MiniAppTargetPicker.tsx"
+      "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md"
     ],
-    "diff_fingerprint": "sha256:4710c858a1a49676c1153e60ed0bb14b589f812105b7bd2aee49a637d7c1cb50",
-    "head": "c7ba7986d76f25b45183604e09d0abb5ea4b438b",
-    "head_sha": "c7ba7986",
+    "diff_fingerprint": "sha256:6a73c6a64f0568d1f612083fbbd4cbc315d62ac3f6a91c4d94568e0b51fc0911",
+    "head": "f4a5a7abf7b205dd24685762d14cb8e7939b3183",
+    "head_sha": "f4a5a7ab",
     "surfaces": {
-      "docs": 1,
-      "frontend": 6,
+      "docs": 3,
+      "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 6,
+      "implementation": 3,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 7,
-      "test": 3,
+      "sentrux": 5,
+      "test": 0,
       "workflow_ci": 0
     }
   },
@@ -4255,6 +4556,16 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T03:52:58.126922Z",
+      "diff_fingerprint": "sha256:6a73c6a64f0568d1f612083fbbd4cbc315d62ac3f6a91c4d94568e0b51fc0911",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "tests.changed_test_required"
+      ]
     }
   ],
   "record_id": "2354-guided-miniapp-audit-fixes",
@@ -4271,7 +4582,6 @@
     "checks": [
       "commit_hygiene",
       "format_check",
-      "frontend",
       "full_audit",
       "lint_format"
     ],
@@ -4399,6 +4709,432 @@
       "at": "2026-09-15T03:03:08.673602Z",
       "pattern": "docs/specs/adr-054-miniapp.md",
       "reason": "Use icon-only top-right close buttons throughout Phase D dialogs"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:12:04.615531Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "reason": "Document the implemented reusable renderer component contract in the MiniApp authoring skill"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373416Z",
+      "pattern": ".workflow/records/2354-codex-2354-core-renderer-components.json",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373427Z",
+      "pattern": "docs/reference/miniapp-renderers.md",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373430Z",
+      "pattern": "frontend/src/panels/arrayPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373433Z",
+      "pattern": "frontend/src/panels/artifactPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373436Z",
+      "pattern": "frontend/src/panels/collectionPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373439Z",
+      "pattern": "frontend/src/panels/compositePanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373448Z",
+      "pattern": "frontend/src/panels/dataframePanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373451Z",
+      "pattern": "frontend/src/panels/fallbackPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373454Z",
+      "pattern": "frontend/src/panels/panelHighlights.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373457Z",
+      "pattern": "frontend/src/panels/plotPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373460Z",
+      "pattern": "frontend/src/panels/rendererTestModules.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373463Z",
+      "pattern": "frontend/src/panels/renderers.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373465Z",
+      "pattern": "frontend/src/panels/seriesPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373468Z",
+      "pattern": "frontend/src/panels/textPanel.test.ts",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373471Z",
+      "pattern": "src/scistudio/api/routes/panels.py",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373474Z",
+      "pattern": "src/scistudio/panels/builtin/core.array.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373476Z",
+      "pattern": "src/scistudio/panels/builtin/core.array.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373479Z",
+      "pattern": "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373482Z",
+      "pattern": "src/scistudio/panels/builtin/core.artifact.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373484Z",
+      "pattern": "src/scistudio/panels/builtin/core.base.fallback/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373487Z",
+      "pattern": "src/scistudio/panels/builtin/core.base.fallback/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373490Z",
+      "pattern": "src/scistudio/panels/builtin/core.collection.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373492Z",
+      "pattern": "src/scistudio/panels/builtin/core.collection.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373495Z",
+      "pattern": "src/scistudio/panels/builtin/core.composite.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373498Z",
+      "pattern": "src/scistudio/panels/builtin/core.composite.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373501Z",
+      "pattern": "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373507Z",
+      "pattern": "src/scistudio/panels/builtin/core.dataframe.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373510Z",
+      "pattern": "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373512Z",
+      "pattern": "src/scistudio/panels/builtin/core.plot.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373515Z",
+      "pattern": "src/scistudio/panels/builtin/core.series.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373517Z",
+      "pattern": "src/scistudio/panels/builtin/core.series.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373520Z",
+      "pattern": "src/scistudio/panels/builtin/core.text.basic/index.html",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373523Z",
+      "pattern": "src/scistudio/panels/builtin/core.text.basic/panel.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373525Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-array.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373528Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-artifact.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373531Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-base.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373534Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-collection.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373536Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-composite.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373539Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-dataframe.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373541Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-plot.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373544Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-series.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373546Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderer-text.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373549Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderers.css",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373551Z",
+      "pattern": "src/scistudio/panels/sdk/1/renderers.js",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373554Z",
+      "pattern": "tests/api/test_panel_routes.py",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:13:59.373556Z",
+      "pattern": "tests/panels/test_builtin_panels.py",
+      "reason": "Integrate reusable core renderer UI components from the dedicated agent worktree"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:22:17.828726Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Prepare release notes and integrated guided-session readiness record for final PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:22:17.828731Z",
+      "pattern": "docs/planning/adr-054-phase-d-checklist.md",
+      "reason": "Prepare release notes and integrated guided-session readiness record for final PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:23:54.914735Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "reason": "Close documentation audit findings affecting MiniApp conversion and memory presentation"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:23:54.914743Z",
+      "pattern": "src/scistudio/_agent_reference/block-contract.md",
+      "reason": "Close documentation audit findings affecting MiniApp conversion and memory presentation"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:23:54.914745Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "Close documentation audit findings affecting MiniApp conversion and memory presentation"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:23:54.914746Z",
+      "pattern": "docs/specs/adr-054-miniapp.md",
+      "reason": "Close documentation audit findings affecting MiniApp conversion and memory presentation"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417462Z",
+      "pattern": ".workflow/records/2354-codex-2354-canvas-hover-actions.json",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417470Z",
+      "pattern": "docs/specs/adr-054-miniapp.md",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417472Z",
+      "pattern": "docs/specs/frontend-block-palette.md",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417473Z",
+      "pattern": "frontend/src/components/BlockDetailPopover.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417474Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/__tests__/blockSourceEditor.test.ts",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417476Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/blockSourceEditor.ts",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417482Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417483Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417484Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.test.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417485Z",
+      "pattern": "frontend/src/components/WorkflowCanvas.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417486Z",
+      "pattern": "frontend/src/components/nodes/BlockNode.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417487Z",
+      "pattern": "frontend/src/components/nodes/__tests__/BlockNode/hoverDetail.test.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417488Z",
+      "pattern": "frontend/src/components/nodes/__tests__/BlockNode/test-utils.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417490Z",
+      "pattern": "frontend/src/components/palette/DetailPopover.tsx",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:25:47.417491Z",
+      "pattern": "frontend/src/types/ui.ts",
+      "reason": "Integrate owner-requested persistent canvas hover actions and block source editor entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:28:07.303883Z",
+      "pattern": ".workflow/records/2354-codex-2354-adr054-doc-audit.json",
+      "reason": "Integrate the requested ADR-054 documentation coverage audit as PR evidence"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:28:07.303893Z",
+      "pattern": "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      "reason": "Integrate the requested ADR-054 documentation coverage audit as PR evidence"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:38:51.591530Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "reason": "Owner selected screenshots plus existing agent computer use instead of additional MiniApp interaction MCP tools"
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -4618,6 +5354,54 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:13:59.373576Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/renderers.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:13:59.373581Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:13:59.373583Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_builtin_panels.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:25:47.417504Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:25:47.417506Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/nodes/__tests__/BlockNode/hoverDetail.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:25:47.417508Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/blockSourceEditor.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

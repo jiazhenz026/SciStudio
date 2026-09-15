@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- MiniApps: create interactive tools on project data with optional resident Python,
+  reuse them across compatible outputs, and convert them into interactive workflow
+  blocks. Includes project-scoped source selection, reusable core data-view UI
+  components, and AI-accessible desktop GUI screenshots. (#2354)
+
 - [#2293] **Panels share a sandboxed host and a standalone SDK.** Preview and
   interactive pages communicate through a private MessageChannel, retain view
   state, and expose explicit remount/fallback recovery. Requests preserve the
