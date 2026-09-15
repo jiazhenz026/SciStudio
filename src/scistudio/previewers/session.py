@@ -1,6 +1,6 @@
 """PreviewSessionManager — the deprecated Python previewer renderer."""
 # Maintainer context (kept outside generated API documentation):
-# The legacy (deprecated through 0.5.x, removed in 0.6) renderer for
+# The legacy (deprecated, removed in 0.3.6) renderer for
 # :class:`PreviewerSpec` providers. Routing is not decided here: the panel
 # service routes every preview through ``scistudio.panels.router`` over panels
 # and legacy previewers together, and hands this manager the legacy spec that

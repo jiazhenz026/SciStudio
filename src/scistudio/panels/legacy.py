@@ -1,11 +1,11 @@
 """The deprecated Python previewers, as the panel service's fallback renderer."""
 # Maintainer context (kept outside generated API documentation):
 # ADR-054 §8: the Python previewer forms stay as deprecated compatibility
-# through 0.5.x and are removed in 0.6. This module is the single call path
+# and are removed in 0.3.6. This module is the single call path
 # from the panel subsystem into that code. It contributes candidates (and
 # project default declarations) to the one routing ladder, renders the preview
 # when a legacy candidate wins, and holds the legacy sessions. It never holds,
-# installs or rebuilds a panel. Removing the legacy previewers in 0.6 is
+# installs or rebuilds a panel. Removing the legacy previewers in 0.3.6 is
 # removing this module and its uses in :mod:`scistudio.panels.service`.
 # Development references: #2465, ADR-048, ADR-054.
 

@@ -4,7 +4,7 @@
 # over panels and legacy previewers together (#2465). This class keeps the
 # deprecated operational name importable for code that routes over a bare
 # :class:`PreviewerRegistry`; it holds no ladder of its own and is removed with
-# the rest of ``scistudio.previewers`` in 0.6.
+# the rest of ``scistudio.previewers`` in 0.3.6.
 # Development references: #2465, ADR-048, ADR-054.
 
 from __future__ import annotations
