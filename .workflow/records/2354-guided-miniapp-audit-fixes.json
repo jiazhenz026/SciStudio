@@ -2303,6 +2303,11 @@
       "at": "2026-09-15T05:14:43.294932Z",
       "owner_directive": "Also fix the CI Python test failures.",
       "reason": "CI Python 3.11 and 3.13 both fail the published user-guide sidebar expectation because the new MiniApps guide is missing from its fixture."
+    },
+    {
+      "at": "2026-09-15T05:44:39.690821Z",
+      "owner_directive": "Merge latest main into the MiniApp PR branch, resolve conflicts preserving both sets of intended behavior, and push. Retain the restriction against local full-suite tests.",
+      "reason": "Owner requested resolution of conflicts with latest main for PR 2392."
     }
   ],
   "docs_events": [
