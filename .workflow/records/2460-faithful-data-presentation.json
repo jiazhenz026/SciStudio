@@ -189,9 +189,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "0ae68e9ce7db27f3fa2228327a57445a3bc9492b",
+    "sha": "009c2df9c7e104bafda7a7b804a304796d48891d",
     "shas": [
-      "0ae68e9ce7db27f3fa2228327a57445a3bc9492b"
+      "009c2df9c7e104bafda7a7b804a304796d48891d"
     ],
     "trailers": []
   },
@@ -710,6 +710,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.023816Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.034283Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.044893Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.055565Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.066015Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.076963Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.087998Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.098388Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.108897Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.119664Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T13:55:33.137465Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -722,7 +810,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "8d2d3a5be99edfae4ca66694197748088fa220d1",
     "base_sha": "8d2d3a5b",
     "changed_files": [
       ".workflow/records/2460-faithful-data-presentation.json",
@@ -764,9 +852,9 @@
       "tests/contracts/openapi.json",
       "tests/previewers/test_panel_read_extensions.py"
     ],
-    "diff_fingerprint": "sha256:57292b0ea64c8aee889f137e44b2f16936cf8d3796d03a23e064fa7230395518",
+    "diff_fingerprint": "sha256:e019c12e64a25fa09c24305cfb6ccdc7947c1fd38f6c17300119a0919b0e165a",
     "head": "HEAD",
-    "head_sha": "ce313a29",
+    "head_sha": "009c2df9",
     "surfaces": {
       "docs": 1,
       "frontend": 6,
@@ -788,7 +876,7 @@
     "closes": [
       2460
     ],
-    "number": null,
+    "number": 2464,
     "url": null
   },
   "reconcile_events": [
@@ -829,6 +917,14 @@
     {
       "at": "2026-09-15T13:55:24.650735Z",
       "diff_fingerprint": "sha256:57292b0ea64c8aee889f137e44b2f16936cf8d3796d03a23e064fa7230395518",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T13:55:33.137497Z",
+      "diff_fingerprint": "sha256:e019c12e64a25fa09c24305cfb6ccdc7947c1fd38f6c17300119a0919b0e165a",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
