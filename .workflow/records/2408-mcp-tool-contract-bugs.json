@@ -1,9 +1,146 @@
 {
   "base_ref": null,
   "branch": "fix/mcp-tool-contract-bugs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T07:23:03.712917Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:66451c9cb8fbc5d2ad98db3a7f0a889793b744ead3e231ba4a225fd6726922a4",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:23:04.126532Z",
+      "command": "ruff format src/scistudio/ai/agent/mcp/_reload.py src/scistudio/ai/agent/mcp/tools_execution.py src/scistudio/ai/agent/mcp/tools_inspection/_helpers.py src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py src/scistudio/ai/agent/mcp/tools_workflow/_models.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/api/app.py src/scistudio/plot/targets.py tests/ai/agent/mcp/test_mcp_tool_contract_fixes.py tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py tests/ai/test_mcp_execution_tools.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:82866c380bf9c60c5791522d98de490f38e47c5754dc7158da0ca09d6a05d864",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T07:23:21.580487Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:76694044261d0b2c01d4db135e4a552b0fb29bdb318943d2606ac82a96b989be",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:23:22.373162Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:33a39c73385b4fb3526c2c3f91b3d1b66b5825e7d6e074f37ec859afeb4c0fff",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:23:22.466124Z",
+      "command": "ruff check src/scistudio/ai/agent/mcp/_reload.py src/scistudio/ai/agent/mcp/tools_execution.py src/scistudio/ai/agent/mcp/tools_inspection/_helpers.py src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py src/scistudio/ai/agent/mcp/tools_workflow/_models.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/api/app.py src/scistudio/plot/targets.py tests/ai/agent/mcp/test_mcp_tool_contract_fixes.py tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py tests/ai/test_mcp_execution_tools.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f8f0ac5e926bd403cb355f6c4317061fe58fbd260852325f4d1d5174cdfa729b",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T07:24:17.246844Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent/mcp tests/ai/agent/mcp/test_core_io_steering_warnings.py tests/ai/agent/mcp/test_mcp_tool_contract_fixes.py tests/ai/agent/mcp/test_tools_workflow_surface.py tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py tests/ai/test_mcp_active_workflow_context.py tests/ai/test_mcp_execution_tools.py tests/ai/test_mcp_tools_workflow.py tests/ai/test_mcp_workspace_tools.py tests/ai/test_plot_workflow_identity.py tests/api/test_app.py tests/api/test_preview_plot_jobs.py tests/engine/test_single_value_collection_consumers.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b1878bf2303c6fb5377aff1787c618ecf56af3cc9debdabd9ec18c096d41b5a0",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:24:24.279534Z",
+      "command": "mypy src/scistudio/ai/agent/mcp/_reload.py src/scistudio/ai/agent/mcp/tools_execution.py src/scistudio/ai/agent/mcp/tools_inspection/_helpers.py src/scistudio/ai/agent/mcp/tools_inspection/read.py src/scistudio/ai/agent/mcp/tools_inspection/write.py src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py src/scistudio/ai/agent/mcp/tools_workflow/_models.py src/scistudio/ai/agent/mcp/tools_workflow/read.py src/scistudio/api/app.py src/scistudio/plot/targets.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1232f79545b1586c03f7a13a0de1d2ca8b3b758a7a0b3c4f336deb7d2289d2d9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "a0102490f9a1dbb5012a20877a2e9b9759608ba2",
+    "shas": [
+      "a0102490f9a1dbb5012a20877a2e9b9759608ba2"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -25,7 +162,184 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T07:24:24.331593Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.343143Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.354092Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.364763Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.376456Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.387280Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.398357Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.409928Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.421114Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.432295Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:24.476573Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.510928Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.522433Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.533960Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.544703Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.555881Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.567152Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.578692Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.589831Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.600214Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.610848Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:24:33.623613Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -71,25 +385,114 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "443a1853",
+    "changed_files": [
+      ".workflow/records/2408-mcp-tool-contract-bugs.json",
+      "src/scistudio/ai/agent/mcp/_reload.py",
+      "src/scistudio/ai/agent/mcp/tools_execution.py",
+      "src/scistudio/ai/agent/mcp/tools_inspection/_helpers.py",
+      "src/scistudio/ai/agent/mcp/tools_inspection/read.py",
+      "src/scistudio/ai/agent/mcp/tools_inspection/write.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_helpers.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/_models.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/read.py",
+      "src/scistudio/api/app.py",
+      "src/scistudio/plot/targets.py",
+      "tests/ai/agent/mcp/test_mcp_tool_contract_fixes.py",
+      "tests/ai/agent/mcp/test_validate_workflow_warning_prefix.py",
+      "tests/ai/test_mcp_execution_tools.py"
+    ],
+    "diff_fingerprint": "sha256:baff7e20d89e8de54576e9082a8dd68d83709399eddc6054452cd522fd5750cd",
+    "head": "HEAD",
+    "head_sha": "a0102490",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 10,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 13,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Fix MCP e2e-found bugs #2408, #2406, #2402, #2404, #2405, #2407 and #2403 together in one PR.",
   "persona": "live_implementer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2402,
+      2403,
+      2404,
+      2405,
+      2406,
+      2407,
+      2408
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T07:24:24.476612Z",
+      "diff_fingerprint": "sha256:baff7e20d89e8de54576e9082a8dd68d83709399eddc6054452cd522fd5750cd",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:24:33.623648Z",
+      "diff_fingerprint": "sha256:baff7e20d89e8de54576e9082a8dd68d83709399eddc6054452cd522fd5750cd",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2408-mcp-tool-contract-bugs",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "e687a276-c1a6-4bee-b1a4-c0d3472282d7",
-  "strictness_tier": null,
+  "strictness_tier": 2,
   "task_kind": "guided",
   "test_events": [
     {
