@@ -5,7 +5,7 @@
  * record that the parent `api` object spreads in.
  */
 
-import type { ProjectResponse, TreeResponse } from "../../types/api";
+import type { ActiveProjectResponse, ProjectResponse, TreeResponse } from "../../types/api";
 import { apiFetch, JSON_HEADERS } from "./core";
 
 /**
@@ -23,6 +23,11 @@ const PROJECT_SWITCH_TIMEOUT_MS = 60_000;
 
 export const projectsApi = {
   listProjects: () => apiFetch<ProjectResponse[]>("/api/projects/"),
+  /**
+   * #2385 — the project the backend already has open, read without re-opening
+   * it. Used by an attached view; `openProject` would reset the session.
+   */
+  getActiveProject: () => apiFetch<ActiveProjectResponse>("/api/projects/active"),
   createProject: (body: { name: string; description: string; path: string }) =>
     apiFetch<ProjectResponse>("/api/projects/", {
       method: "POST",

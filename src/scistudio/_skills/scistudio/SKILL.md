@@ -135,9 +135,10 @@ re-spliced at compose time).**
   block configuration, and lineage without materialising arrays.
 - **QA / project (5)** — `get_project_info`, `list_data`,
   `search_docs`, `get_doc`, `open_gui`. Project structure, raw-asset
-  listing, doc search; `open_gui` returns the running GUI's URL so you
-  can open the live frontend in a browser and self-debug plots,
-  previewers, and interactive block panels.
+  listing, doc search; `open_gui` returns a URL that opens the user's
+  current project view (loopback-only: use a browser on the same
+  machine) so you can self-debug plots, previewers, and interactive
+  block panels.
 - **Plot (6)** — `list_plot_targets`, `scaffold_plot`,
   `list_plot_examples`, `read_plot_source`, `validate_plot`,
   `run_plot_job`. Author and run PREVIEW-ONLY plots (matplotlib /

@@ -846,6 +846,19 @@ class ProjectResponse(BaseModel):
     current_workflow_id: str | None = None
 
 
+class ActiveProjectResponse(BaseModel):
+    """Response body for ``GET /api/projects/active``.
+
+    The project this backend already has open, read without re-opening it, so
+    a second GUI client can attach to the same session.
+    """
+
+    # Development references: #2385.
+
+    project: ProjectResponse | None = None
+    active_workflow_id: str | None = None
+
+
 class CancelBlockRequest(BaseModel):
     """Request body for cancelling a single block."""
 

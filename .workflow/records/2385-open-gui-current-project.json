@@ -1,0 +1,101 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2385-open-gui-current-project",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_qa.py",
+      "src/scistudio/api/routes/projects.py",
+      "src/scistudio/api/schemas.py",
+      "frontend/src/**",
+      "src/scistudio/_skills/scistudio/SKILL.md",
+      "tests/ai/test_mcp_tools_qa.py",
+      "tests/api/test_projects.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T04:38:19.253210Z",
+      "owner_directive": "Make open_gui open the interface the user sees for the current project directly; do not open the welcome page.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T04:38:19.253680Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2385,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Make open_gui open the interface the user sees for the current project directly; do not open the welcome page.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2385-open-gui-current-project",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "39f4943f-e768-4438-8d90-448bd6e3e75b",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T04:38:19.253714Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_qa.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:38:19.253721Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_projects.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:38:19.253724Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.deepLink.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:38:19.253728Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/projectDeepLink.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
