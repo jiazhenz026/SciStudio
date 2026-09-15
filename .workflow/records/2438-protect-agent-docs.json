@@ -1,7 +1,174 @@
 {
   "base_ref": "origin/main",
   "branch": "feat/2438-protect-agent-docs",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T09:55:35.994183Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:378758df0b21d5a2128ff1c0d9df4299c1bc119aaa879ecd9f6100eaad912d09",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:55:37.234973Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6d3707b4cc7ecc76725bbed4e72bf3bb717871d48d188aa496b1eb32fd292cc7",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:55:38.588021Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:037d6bac3069335649a158e305b7e7e1036e254789e1f89cda9e5883bca345f5",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:55:38.912399Z",
+      "command": "ruff format src/scistudio/qa/governance/gate_record/__init__.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/guards/__init__.py src/scistudio/qa/governance/gate_record/guards/agent_docs_guard.py src/scistudio/qa/governance/gate_record/labels.py src/scistudio/qa/governance/gate_record/surfaces.py tests/qa/governance/test_gate_record_package.py tests/qa/test_gate_evaluator.py tests/qa/test_gate_record.py tests/qa/test_gate_record_hooks.py tests/qa/test_governance_paths.py tests/qa/test_guard_calculators.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0f2ecec53a6dbd708adf41c265589c5b7906c4b7cb49d0776e62b595ae7b4a3b",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:55:44.870194Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8b132a58e481f40150cb4547dfa2f8efefc5cdaa4496984b37813782d28157dd",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:55:45.412452Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:beaeed87f4de21b5fbb21b1de281d3f4f8318077747d8ccd60c24b2a829108e1",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:55:45.423412Z",
+      "command": "ruff check src/scistudio/qa/governance/gate_record/__init__.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/guards/__init__.py src/scistudio/qa/governance/gate_record/guards/agent_docs_guard.py src/scistudio/qa/governance/gate_record/labels.py src/scistudio/qa/governance/gate_record/surfaces.py tests/qa/governance/test_gate_record_package.py tests/qa/test_gate_evaluator.py tests/qa/test_gate_record.py tests/qa/test_gate_record_hooks.py tests/qa/test_governance_paths.py tests/qa/test_guard_calculators.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:715b03c76db81716b7107f57cdc7b79331316dd96a2c14b863012cba2517dfdc",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:56:26.815063Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/qa/governance tests/qa/governance/test_gate_record_package.py tests/qa/test_architecture_drift.py tests/qa/test_audit_closure.py tests/qa/test_audit_doc_drift.py tests/qa/test_audit_docstrings.py tests/qa/test_audit_fact_drift.py tests/qa/test_audit_frontmatter_lint.py tests/qa/test_audit_full_audit.py tests/qa/test_audit_signature_contracts.py tests/qa/test_audit_signature_drift.py tests/qa/test_audit_vulture.py tests/qa/test_commit_msg_hook_wiring.py tests/qa/test_gate_commit_checks.py tests/qa/test_gate_evaluator.py tests/qa/test_gate_incremental_checks.py tests/qa/test_gate_ledger.py tests/qa/test_gate_parity_provision.py tests/qa/test_gate_record.py tests/qa/test_gate_record_bugfixes.py tests/qa/test_gate_record_ci.py tests/qa/test_gate_record_hooks.py tests/qa/test_generate_facts_cli.py tests/qa/test_governance_paths.py tests/qa/test_griffe_facts.py tests/qa/test_guard_calculators.py tests/qa/test_parity_venv_pins.py tests/qa/test_schemas_maintainers.py tests/qa/test_schemas_report.py tests/qa/test_schemas_signatures.py tests/qa/test_workflow_expressions.py tests/qa/test_worktree_write_guard.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:28b1b5a152069d147dd39fd6076bbb7bbc7535d26fca25c0ccdca9f4357c9ba7",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:56:30.231426Z",
+      "command": "mypy src/scistudio/qa/governance/gate_record/__init__.py src/scistudio/qa/governance/gate_record/evaluator.py src/scistudio/qa/governance/gate_record/guards/__init__.py src/scistudio/qa/governance/gate_record/guards/agent_docs_guard.py src/scistudio/qa/governance/gate_record/labels.py src/scistudio/qa/governance/gate_record/surfaces.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:99e90a8f41d86ab970c15f4baee872149e344e51c53dd071779534f8aab692de",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -33,9 +200,180 @@
       "reason": "plan"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T09:56:39.078287Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078435Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078437Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078439Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078440Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T09:56:30.302237Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.313391Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.323660Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.336572Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "docs/ai-developer/gate-cli-command-set.md",
+              "docs/ai-developer/rules.md",
+              "docs/ai-developer/specific_rules/gated-workflow.md",
+              "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+              "src/scistudio/qa/governance/gate_record/__init__.py",
+              "src/scistudio/qa/governance/gate_record/evaluator.py",
+              "src/scistudio/qa/governance/gate_record/guards/__init__.py",
+              "src/scistudio/qa/governance/gate_record/guards/agent_docs_guard.py",
+              "src/scistudio/qa/governance/gate_record/labels.py",
+              "src/scistudio/qa/governance/gate_record/surfaces.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T09:56:30.347143Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.358038Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.369014Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.379562Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.390244Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.400854Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.411335Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:56:30.458475Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -45,25 +383,154 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "9e75224d",
+    "changed_files": [
+      ".workflow/records/2438-protect-agent-docs.json",
+      "docs/ai-developer/gate-cli-command-set.md",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+      "docs/specs/adr-042-gate-ledger-runtime.md",
+      "src/scistudio/qa/governance/gate_record/__init__.py",
+      "src/scistudio/qa/governance/gate_record/evaluator.py",
+      "src/scistudio/qa/governance/gate_record/guards/__init__.py",
+      "src/scistudio/qa/governance/gate_record/guards/agent_docs_guard.py",
+      "src/scistudio/qa/governance/gate_record/labels.py",
+      "src/scistudio/qa/governance/gate_record/surfaces.py",
+      "tests/qa/governance/test_gate_record_package.py",
+      "tests/qa/test_gate_evaluator.py",
+      "tests/qa/test_gate_record.py",
+      "tests/qa/test_gate_record_hooks.py",
+      "tests/qa/test_governance_paths.py",
+      "tests/qa/test_guard_calculators.py"
+    ],
+    "diff_fingerprint": "sha256:51aa06d8b859ca7a0ff08c76ce449dc3b9145c666f15d3a1f74b681b66f00f98",
+    "head": "HEAD",
+    "head_sha": "c2464f52",
+    "surfaces": {
+      "docs": 5,
+      "frontend": 0,
+      "governance": 10,
+      "governed_docs": 4,
+      "implementation": 6,
+      "packaging": 0,
+      "protected_agent_docs": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 13,
+      "test": 6,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Protect src/scistudio/_skills/**, src/scistudio/_agent_reference/**, and src/scistudio/agent_provisioning/templates/claude_agents_md.md behind a new label admin-approved:agent-docs.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T09:56:30.458552Z",
+      "diff_fingerprint": "sha256:51aa06d8b859ca7a0ff08c76ce449dc3b9145c666f15d3a1f74b681b66f00f98",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "2438-protect-agent-docs",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "agent_docs_guard",
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "0c7cf5a9-2b27-4b06-82a2-c09709792c16",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T09:56:39.078445Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_guard_calculators.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078451Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_governance_paths.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078452Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078453Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078454Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_record_hooks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:56:39.078455Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/governance/test_gate_record_package.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
