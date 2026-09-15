@@ -12,6 +12,8 @@ This reference is **generated** from the public API's docstrings and the `scistu
 - **`provisional`** — usable but still settling; may change in a minor release with a changelog note.
 - **`internal`** — excluded from this reference (no promise).
 
+A symbol can also be **deprecated**. Deprecation does not change its tier: the symbol keeps working as documented until the release named in its notice removes it, and the notice names the replacement.
+
 A handful of public constants and type-aliases (a bare `str`, a `list[...]` or `collections.abc.Callable` alias) cannot carry a runtime stability marker and render as *unmarked*.
 
 ## Canonical public roots
@@ -23,8 +25,9 @@ A handful of public constants and type-aliases (a bare `str`, a `list[...]` or `
 - [`scistudio.blocks.io`](scistudio.blocks.io.md) — 12 public symbols (10 stability-marked)
 - [`scistudio.blocks.app`](scistudio.blocks.app.md) — 7 public symbols (7 stability-marked)
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 public symbols (59 stability-marked)
-- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 public symbols (17 stability-marked)
-- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 public symbols (11 stability-marked)
+- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 public symbols (17 stability-marked) — **deprecated**
+- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 public symbols (11 stability-marked) — **deprecated**
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 public symbols (14 stability-marked)
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 public symbols (1 stability-marked)
 - [`scistudio.api.seam`](scistudio.api.seam.md) — 12 public symbols (11 stability-marked)
+- [`scistudio.panels`](scistudio.panels.md) — 7 public symbols (6 stability-marked)

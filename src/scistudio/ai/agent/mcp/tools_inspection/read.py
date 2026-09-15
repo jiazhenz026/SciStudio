@@ -331,9 +331,14 @@ async def get_block_config(
 
     Use when:
       - You need to read a block's params before patching them.
+      - You need the file format a core ``load_data`` / ``save_data`` node
+        (``capability``) or a Code/App Block port (``port_capabilities``) will
+        use: the stored ``capability_id``, the one the registry resolves when
+        none is stored, or that the choice is ambiguous.
 
     Do NOT use to:
       - Patch params — use ``update_block_config``.
+      - List every capability a block can pick — use ``get_block_schema``.
       - Inspect runtime state — use ``get_run_status`` /
         ``get_block_output``.
 
@@ -350,13 +355,35 @@ async def get_block_config(
         if node.id == block_id:
             # #2403: the GUI nests node config under ``config.params``; return
             # the params the block reads whichever shape the file uses.
+            capability, port_capabilities = _capability_views(node.block_type, node.config)
             return GetBlockConfigResult(
                 block_id=block_id,
                 type=node.block_type,
                 params=_effective_node_params(node.config),
                 workflow_path=str(p),
+                capability=capability,
+                port_capabilities=port_capabilities,
             )
     raise KeyError(f"Block '{block_id}' not found in workflow {p}")
+
+
+def _capability_views(block_type: str, config: Any) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """Return the node and port format-capability views for ``get_block_config``."""
+    # Development references: #2435.
+    from scistudio.ai.agent.mcp._format_capabilities import node_capability_view
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _effective_node_params
+
+    ctx = get_optional_context()
+    registry = getattr(ctx, "block_registry", None)
+    if registry is None:
+        return None, []
+    try:
+        return node_capability_view(
+            block_type, _effective_node_params(config), registry, getattr(ctx, "type_registry", None)
+        )
+    except Exception:  # the capability view is advisory; never fail the config read
+        logger.debug("get_block_config: capability view failed for %s", block_type, exc_info=True)
+        return None, []
 
 
 # ---------------------------------------------------------------------------

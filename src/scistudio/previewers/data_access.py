@@ -12,6 +12,10 @@ The runtime constructs one of these per request and injects it on
 ``request.data_access``; you call its methods and never instantiate it yourself.
 The result types below are plain dataclasses with JSON-safe contents.
 
+**Deprecated.** Every public symbol of this module is deprecated since 0.3.5,
+stays supported until it is removed in 0.6.0, and is replaced by HTML panels,
+which read data through the panel SDK (see :mod:`scistudio.panels`).
+
 Array reads are bounded directly against the storage handle: a Zarr array is
 indexed with explicit slices (``arr[plane_index, y0:y1, x0:x1]``) rather than
 ``arr[...]`` so only the requested plane or tile is read into memory.
@@ -24,11 +28,13 @@ import datetime
 import decimal
 import math
 import mimetypes
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scistudio.core.storage.ref import StorageReference
+from scistudio.previewers._deprecation import PREVIEWERS_DEPRECATED
 from scistudio.stability import internal, provisional
 
 
@@ -90,6 +96,7 @@ DEFAULT_TEXT_CHARS = 5000
 DEFAULT_SERIES_POINTS = 256
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class DataFramePage:
@@ -117,6 +124,7 @@ class DataFramePage:
     """Sort direction (``"asc"`` / ``"desc"``), or ``None`` if unsorted."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class SliceAxis:
@@ -137,6 +145,7 @@ class SliceAxis:
     """Currently selected index along this axis."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArrayPlane:
@@ -185,6 +194,7 @@ class ArrayPlane:
     """Number of dimensions of the source array."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArrayTile:
@@ -208,6 +218,7 @@ class ArrayTile:
     :attr:`ArrayPlane.matrix`)."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class SeriesPoints:
@@ -251,6 +262,7 @@ class SeriesPoints:
     draws a continuous line across it."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class TableXYPoints:
@@ -276,6 +288,7 @@ class TableXYPoints:
     silently vanish. A faithful table read reports every dropped row here."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class TextChunk:
@@ -297,6 +310,7 @@ class TextChunk:
     """Next byte offset, or None at end of file."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class ArtifactInfo:
@@ -317,6 +331,7 @@ class ArtifactInfo:
     """Inline ``data:`` URI for a small displayable image, else ``None``."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CompositeSlots:
@@ -326,6 +341,7 @@ class CompositeSlots:
     """Mapping of slot name to its recorded type name."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class CollectionSample:
@@ -353,6 +369,7 @@ class CollectionSample:
     count, every item is reachable by requesting each page 1..``total_pages``."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class PreviewDataAccess:
     """The bounded reader a provider uses for every payload read.
@@ -1313,3 +1330,7 @@ __all__ = [
     "TableXYPoints",
     "TextChunk",
 ]
+
+# Every name in __all__ above, including the constants and type aliases that cannot
+# carry a marker, is deprecated (ADR-054 §8; removal tracked in #2288).
+PREVIEWERS_DEPRECATED(sys.modules[__name__])
