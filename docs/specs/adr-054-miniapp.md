@@ -524,6 +524,14 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   `validate_panel(path)`, a read tool returning the discovery diagnostics for a
   panel directory, and `open_miniapp(panel_id, workflow_id, block_id, port)`, a
   write tool that asks the workspace to open a MiniApp tab on that output.
+- **FR-029a** (#2441): `tools_panels.py` MUST also add `list_miniapps(data_type?)`,
+  a read tool listing every discovered panel declaring `miniapp` — id, name, owner
+  tier and package, declared type, entry, `has_python`, and directory — together
+  with a bounded list of the directories under the project and user panels tiers
+  that discovery skipped and their diagnostics. It MUST read the same discovery
+  `open_miniapp` reads, so every listed id opens. `data_type` MUST keep only the
+  MiniApps whose declared type the type-match rule of FR-004 accepts for
+  an output of that type, `Collection[...]` forms included.
 - **FR-030**: `open_miniapp` MUST emit a `panel.open_miniapp` event carrying the
   panel id and target, added to the outbound events of `src/scistudio/api/ws.py`;
   the frontend dispatcher MUST open or focus the MiniApp tab. With no frontend
@@ -671,7 +679,7 @@ page ◀══ result ══ host ◀────────── JSON or bina
 | `src/scistudio/engine/runners/process_handle.py` | modify | Registry support for panel handles, if the command handle's pattern needs a shared base |
 | `src/scistudio/api/ws.py` | modify | `panel.open_miniapp` outbound event |
 | `src/scistudio/api/routes/user_library.py` | modify | Panel directory promotion |
-| `src/scistudio/ai/agent/mcp/tools_panels.py` | create | `validate_panel`, `open_miniapp` |
+| `src/scistudio/ai/agent/mcp/tools_panels.py` | create | `validate_panel`, `open_miniapp`, `list_miniapps` (#2441) |
 | `src/scistudio/ai/agent/mcp/__init__.py` | modify | Register the new tool module |
 | `src/scistudio/api/schemas.py`, `frontend/src/types/api.ts` | modify | `UserLibraryTarget` gains panels; MiniApp source and create models |
 | `src/scistudio/api/routes/projects.py` | modify | Project path resolution for panel directories |

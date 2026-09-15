@@ -1,0 +1,107 @@
+{
+  "base_ref": "origin/main",
+  "branch": "feat/2441-list-miniapps",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "tests/ai/test_mcp_panels_tools.py",
+      "tests/e2e/test_mcp_tools.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_finish_ai_block_skeleton.py",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/cli/test_mcp_bridge.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py",
+      "docs/specs/adr-054-miniapp.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T10:09:35.890899Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T10:09:35.891061Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2441,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Add an MCP tool to list existing MiniApps.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2441-list-miniapps",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "f664d8c9-f12b-4b54-9f5f-35170958b51a",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T10:09:35.891065Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_panels_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T10:09:35.891067Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T10:09:35.891068Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_fastmcp.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T10:09:35.891069Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/test_runtime_import_contract.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

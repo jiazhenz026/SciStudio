@@ -1115,6 +1115,47 @@ def test_open_miniapp_reaches_a_connected_workspace_and_says_so_when_none_is(
     agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
 
 
+def test_list_miniapps_lists_what_open_miniapp_opens(agent: Agent) -> None:
+    write_panel(agent, f"panels/{MINIAPP_ID}", MINIAPP_DESCRIPTOR)
+    write_panel(
+        agent,
+        "panels/plate_preview",
+        dict(MINIAPP_DESCRIPTOR, id="plate_preview", contexts=["preview"], name="Plate preview"),
+    )
+    agent.call("write_file", path="panels/half_written/panel.json", content="{not json", create_parents=True).ok()
+
+    # No registry reload: the tool reads discovery afresh, as open_miniapp does.
+    listed = agent.call("list_miniapps").ok()
+    apps = {app["panel_id"]: app for app in listed["miniapps"]}
+    assert MINIAPP_ID in apps, listed
+    assert "plate_preview" not in apps, listed
+    app = apps[MINIAPP_ID]
+    assert app["name"] == "Table explorer"
+    assert app["tier"] == "project" and app["package"] is None
+    assert app["types"] == ["DataFrame"]
+    assert app["entry"] == "index.html"
+    assert app["has_python"] is False
+    assert app["path"] == f"panels/{MINIAPP_ID}"
+    assert listed["data_type"] is None
+    invalid = {entry["panel_id"]: entry for entry in listed["invalid"]}
+    assert "half_written" in invalid, listed["invalid"]
+    assert invalid["half_written"]["path"] == "panels/half_written"
+    assert invalid["half_written"]["diagnostics"], invalid
+
+    # Filtered by the type of the block output a MiniApp would open on.
+    tables = agent.call("list_miniapps", data_type="DataFrame").ok()
+    assert MINIAPP_ID in {app["panel_id"] for app in tables["miniapps"]}, tables
+    assert tables["data_type"] == "DataFrame"
+    collections = agent.call("list_miniapps", data_type="Collection[DataFrame]").ok()
+    assert MINIAPP_ID not in {app["panel_id"] for app in collections["miniapps"]}, collections
+
+    # Every listed MiniApp is one open_miniapp accepts (no workspace is connected here).
+    target = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
+    for panel_id in apps:
+        opened = agent.call("open_miniapp", dict(target, panel_id=panel_id)).ok()
+        assert opened["panel_id"] == panel_id, opened
+
+
 def test_screenshot_gui_is_refused_over_the_text_only_webmcp_bridge(agent: Agent) -> None:
     # screenshot_gui needs a connected SciStudio desktop window and local MCP; the
     # external WebMCP host is documented as unsupported (it carries text, not

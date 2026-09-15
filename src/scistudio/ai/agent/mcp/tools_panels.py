@@ -1,6 +1,6 @@
-"""MCP tools for panels and MiniApps (2 tools)."""
+"""MCP tools for panels and MiniApps (3 tools)."""
 # Maintainer context (kept outside generated API documentation):
-# Category (g) MCP tools — the agent's half of the MiniApp loop (2 tools).
+# Category (g) MCP tools — the agent's half of the MiniApp loop (3 tools).
 #
 # ``docs/specs/adr-054-miniapp.md`` FR-029/FR-030. The MiniApp skill tells the
 # agent to write a panel directory, check it, and then put it in front of the
@@ -18,6 +18,13 @@
 #   notices asynchronously. This tool emits the ``panel.open_miniapp`` event the realtime
 #   layer forwards, which is the one channel from the agent back into the open
 #   workspace.
+# * ``list_miniapps`` lists the MiniApps that already exist (#2441), so the agent
+#   can reuse one — or find one for a block output's type — instead of guessing
+#   from the file tree. It reads the same discovery ``open_miniapp`` reads
+#   (:func:`_discover`), so anything listed opens and anything that opens is
+#   listed. ``GET /api/panels/miniapps`` reads the runtime's cached registry; the
+#   refresh that keeps that cache in step with disk belongs to the catalog
+#   (#2421), and a fresh discovery here already sees what is on disk.
 #
 # **Why the no-workspace case is a result rather than a silent success.**
 # ``broadcast_blocks_reloaded`` swallows a missing event bus, and it is right to:
@@ -41,15 +48,19 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_path, _resolve_project_root, get_context
 from scistudio.ai.agent.mcp.server import mcp
-from scistudio.panels.descriptor import parse_descriptor
+from scistudio.core.dropins import panel_scan_dirs
+from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
 from scistudio.panels.files import validate_external_references
+from scistudio.panels.miniapp import declared_type
 from scistudio.panels.registry import PanelRegistry, discover_panels
+from scistudio.panels.targets import type_chain
 from scistudio.previewers.models import OwnerKind
 
 logger = logging.getLogger(__name__)
@@ -66,6 +77,12 @@ NO_EVENT_BUS = "no_event_bus"
 BROADCAST_FAILED = "broadcast_failed"
 
 _MINIAPP_CONTEXT = "miniapp"
+
+#: Bounds on the ``invalid`` half of a ``list_miniapps`` result. A panels tier
+#: full of half-written directories must not drown the list the agent asked for.
+_MAX_INVALID_DIRECTORIES = 20
+_MAX_DIAGNOSTICS_PER_DIRECTORY = 5
+_MAX_DIAGNOSTIC_CHARS = 500
 
 
 class ValidatePanelResult(BaseModel):
@@ -136,6 +153,144 @@ class OpenMiniAppResult(BaseModel):
     )
 
 
+class MiniAppSummary(BaseModel):
+    """One discovered MiniApp in a ``list_miniapps`` result."""
+
+    panel_id: str = Field(description="The id to pass to open_miniapp — the directory name under panels/.")
+    name: str = Field(description="Display name from panel.json (the id when none is declared).")
+    description: str = Field(default="", description="Description from panel.json.")
+    tier: str = Field(description="Owner tier: 'project', 'user', 'package', or 'core'.")
+    package: str | None = Field(
+        default=None,
+        description="Name of the package entry point that ships the MiniApp; None outside the package tier.",
+    )
+    types: list[str] = Field(
+        description="The declared data type (a MiniApp declares exactly one), verbatim, e.g. 'Image' or 'Collection[Image]'."
+    )
+    entry: str = Field(description="The page the host loads, relative to the MiniApp directory.")
+    has_python: bool = Field(description="True when the directory carries a panel.py.")
+    path: str = Field(description="MiniApp directory: project-relative when inside the project, absolute otherwise.")
+
+
+class InvalidPanelDirectory(BaseModel):
+    """A directory under a panels tier that discovery skipped."""
+
+    panel_id: str = Field(description="The directory name — the id discovery expected.")
+    tier: str = Field(description="Tier the directory sits in: 'project' or 'user'.")
+    path: str = Field(description="The directory: project-relative when inside the project, absolute otherwise.")
+    diagnostics: list[str] = Field(
+        description="Why discovery skipped it, naming the rule and the field to fix. Bounded; run validate_panel for the full text."
+    )
+
+
+class ListMiniAppsResult(BaseModel):
+    """Result envelope for ``list_miniapps``."""
+
+    miniapps: list[MiniAppSummary] = Field(
+        description="Every discovered panel declaring the 'miniapp' context, sorted by name. Each one opens with open_miniapp."
+    )
+    data_type: str | None = Field(
+        default=None,
+        description="The data_type filter that was applied, or None when every MiniApp is listed.",
+    )
+    invalid: list[InvalidPanelDirectory] = Field(
+        default_factory=list,
+        description=(
+            "Directories under the project and user panels tiers that discovery skipped. They are "
+            "not MiniApps until fixed, and may be broken preview panels rather than MiniApps. "
+            "Not filtered by data_type."
+        ),
+    )
+    invalid_truncated: int = Field(
+        default=0,
+        description="How many further skipped directories were left out of ``invalid`` to keep the result bounded.",
+    )
+    next_step: str = Field(
+        default=(
+            "To show a listed MiniApp on a block output, call open_miniapp with its panel_id; the output's "
+            "type must match its declared type. To fix an entry in invalid, edit it and run validate_panel "
+            "on its path."
+        ),
+        description="Suggested next MCP call.",
+    )
+
+
+def _discover(ctx: Any) -> PanelRegistry:
+    """The panel discovery ``open_miniapp`` and ``list_miniapps`` share.
+
+    The live type registry rather than a fresh scan: discovery validates each
+    panel's declared types against it, and the one the tools already share is
+    both the cheaper and the more accurate answer to "what is registered".
+    """
+    return discover_panels(
+        getattr(ctx, "project_dir", None),
+        registered_types=tuple(ctx.type_registry.all_types().keys()),
+    )
+
+
+def _display_path(path: Path, project_root: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(project_root.resolve()).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _accepts(ctx: Any, panel: PanelDescriptor, data_type: str) -> bool:
+    """True when a MiniApp opens on an output of ``data_type``.
+
+    The rule is ``scistudio.panels.miniapp._check_type``'s, applied to a type
+    name instead of a frozen output: a MiniApp declaring ``T`` opens on ``T`` or
+    a subtype, one declaring ``Collection[T]`` on a collection whose item type is
+    ``T`` or a subtype, and one declaring bare ``Collection`` on any collection.
+    """
+    name, is_collection = declared_type(panel)
+    requested = data_type.strip()
+    if requested == "Collection" or (requested.startswith("Collection[") and requested.endswith("]")):
+        if not is_collection:
+            return False
+        item_type = requested[11:-1].strip() if requested != "Collection" else ""
+        chain = type_chain(ctx, item_type) if item_type else ()
+        return not name or name == item_type or name in chain
+    if is_collection:
+        return False
+    return name == requested or name in type_chain(ctx, requested)
+
+
+def _invalid_directories(
+    ctx: Any, registry: PanelRegistry, project_root: Path
+) -> tuple[list[InvalidPanelDirectory], int]:
+    """Directories in the project and user panels tiers that discovery skipped."""
+    discovered = {panel.root for panel in registry.panels.values()} | {panel.root for panel in registry.shadowed}
+    roots = panel_scan_dirs(getattr(ctx, "project_dir", None))
+    tiers = [(roots[0], OwnerKind.PROJECT.value), (roots[-1], OwnerKind.USER.value)]
+    found: list[InvalidPanelDirectory] = []
+    skipped = 0
+    seen: set[Path] = set()
+    for root, tier in tiers:
+        if root in seen or not root.is_dir():
+            continue
+        seen.add(root)
+        for child in sorted(root.iterdir()):
+            if not child.is_dir() or child.name.startswith(".") or child.resolve() in discovered:
+                continue
+            if len(found) >= _MAX_INVALID_DIRECTORIES:
+                skipped += 1
+                continue
+            prefix = f"{child}: "
+            notes = [entry[len(prefix) :] for entry in registry.diagnostics if entry.startswith(prefix)]
+            notes = notes or ["not discovered as a panel; run validate_panel on this directory"]
+            found.append(
+                InvalidPanelDirectory(
+                    panel_id=child.name,
+                    tier=tier,
+                    path=_display_path(child, project_root),
+                    diagnostics=[note[:_MAX_DIAGNOSTIC_CHARS] for note in notes[:_MAX_DIAGNOSTICS_PER_DIRECTORY]],
+                )
+            )
+    return found, skipped
+
+
 def _workspace_connected() -> bool:
     """True when at least one SciStudio workspace holds a realtime connection.
 
@@ -178,7 +333,7 @@ async def validate_panel(
     Do NOT use to:
       - Check a page's JavaScript — this reads ``panel.json`` and scans the page
         files for external references; it never runs the page.
-      - List panels — the MiniApps tab and ``GET /api/panels/catalog`` own that.
+      - List MiniApps — use ``list_miniapps``.
       - Check a block — use ``run_block_tests``.
 
     Returns the diagnostics rather than raising on an invalid panel: the text of
@@ -232,6 +387,64 @@ async def validate_panel(
     )
 
 
+@mcp.tool(name="list_miniapps", tags={"category:panels", "read"})
+async def list_miniapps(
+    data_type: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Only list MiniApps that open on an output of this type, e.g. 'Image' or "
+                "'Collection[Image]' — a MiniApp declaring a parent type is included. Omit to list all."
+            )
+        ),
+    ] = None,
+) -> ListMiniAppsResult:
+    """List the MiniApps that already exist, and the panel directories that failed discovery.
+
+    Use when:
+      - The user asks what MiniApps they have, or asks to open or change an
+        existing one and you need its ``panel_id``.
+      - Before writing a new MiniApp, to check whether one for that data type
+        already exists — pass the block output's type as ``data_type``.
+      - A MiniApp the user expects is missing: ``invalid`` names the directories
+        discovery skipped and why.
+
+    Do NOT use to:
+      - Check one directory in full — use ``validate_panel``; ``invalid`` only
+        carries a bounded excerpt of its diagnostics.
+      - Open a MiniApp — use ``open_miniapp`` with a ``panel_id`` from this list.
+      - Find the block outputs a MiniApp can open on — use ``get_block_output``.
+
+    The list covers the project, user, package, and core tiers, reading the same
+    discovery ``open_miniapp`` reads: every listed ``panel_id`` is one
+    ``open_miniapp`` accepts. Where two tiers ship the same id, only the one that
+    wins (project over user over package over core) is listed. Raises
+    ``RuntimeError`` when no project is open.
+    """
+    ctx = get_context()
+    project_root = _resolve_project_root(ctx)
+    registry = _discover(ctx)
+    wanted = data_type.strip() if data_type and data_type.strip() else None
+
+    miniapps = [
+        MiniAppSummary(
+            panel_id=panel.id,
+            name=panel.name or panel.id,
+            description=panel.description,
+            tier=panel.owner_kind.value,
+            package=panel.owner_name if panel.owner_kind is OwnerKind.PACKAGE else None,
+            types=list(panel.types),
+            entry=panel.entry,
+            has_python=panel.has_python,
+            path=_display_path(panel.root, project_root),
+        )
+        for panel in sorted(registry.panels.values(), key=lambda p: ((p.name or p.id).lower(), p.id))
+        if _MINIAPP_CONTEXT in panel.contexts and (wanted is None or _accepts(ctx, panel, wanted))
+    ]
+    invalid, truncated = _invalid_directories(ctx, registry, project_root)
+    return ListMiniAppsResult(miniapps=miniapps, data_type=wanted, invalid=invalid, invalid_truncated=truncated)
+
+
 @mcp.tool(name="open_miniapp", tags={"category:panels", "write"})
 async def open_miniapp(
     panel_id: Annotated[
@@ -275,10 +488,7 @@ async def open_miniapp(
     does not declare the ``miniapp`` context.
     """
     ctx = get_context()
-    # The live type registry rather than a fresh scan: discovery validates each
-    # panel's declared types against it, and the one the tools already share is
-    # both the cheaper and the more accurate answer to "what is registered".
-    registry = discover_panels(ctx.project_dir, registered_types=tuple(ctx.type_registry.all_types().keys()))
+    registry = _discover(ctx)
     panel = registry.get(panel_id)
     if panel is None:
         known = _miniapp_ids(registry)
@@ -352,8 +562,12 @@ __all__ = [
     "NO_EVENT_BUS",
     "NO_WORKSPACE",
     "PANEL_OPEN_MINIAPP_EVENT_TYPE",
+    "InvalidPanelDirectory",
+    "ListMiniAppsResult",
+    "MiniAppSummary",
     "OpenMiniAppResult",
     "ValidatePanelResult",
+    "list_miniapps",
     "open_miniapp",
     "validate_panel",
 ]
