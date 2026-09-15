@@ -31,15 +31,23 @@ export function OpenAsDialog() {
   const [selected, setSelected] = useState<string>("");
   const [remember, setRemember] = useState(true);
 
-  useEffect(() => subscribeToOpenAsRequests(setRequest), []);
-
   // Reseed each time a new request opens: the remembered type when the picker
   // was reopened to change it, else the first (most specific tier) candidate.
-  useEffect(() => {
-    if (request === null) return;
-    setSelected(request.remembered ?? request.candidates[0]?.name ?? "");
-    setRemember(true);
-  }, [request]);
+  //
+  // Seeded in the same update that opens the dialog, not in an effect after it:
+  // an effect runs once the dialog is already on screen, so for a moment nothing
+  // is selected, and a pick made in that moment is overwritten by the late seed
+  // — the file then opens as a type the person did not choose (#2381).
+  useEffect(
+    () =>
+      subscribeToOpenAsRequests((next) => {
+        setRequest(next);
+        if (next === null) return;
+        setSelected(next.remembered ?? next.candidates[0]?.name ?? "");
+        setRemember(true);
+      }),
+    [],
+  );
 
   if (request === null) return null;
 

@@ -1,0 +1,108 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2381-frontend-flaky-tests",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**/*.test.ts",
+      "frontend/src/**/*.test.tsx",
+      "frontend/vitest.setup.ts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T03:53:38.996005Z",
+      "class": "docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "test-determinism fixes and one internal UI state-seeding race; no contract, spec, ADR, or user-facing documented behavior changes",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2381,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2366,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2227,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Frontend tests are flaky in CI, as seen in PR #2365. Investigate the cause and push a fix PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2381-frontend-flaky-tests",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:38:59.019382Z",
+      "pattern": "frontend/src/components/OpenAsDialog.tsx",
+      "reason": "Root cause of the OpenAsDialog flake (#2366) is a production race: the dialog seeds its selection in a passive effect after it is already on screen, so a pick made before the effect flushes is overwritten. Proven with a MutationObserver probe (no radio checked at insertion; observed findBy=false once). Minimal fix: seed selection in the same update that opens the dialog. Manager dispatch allows production edits only for genuine production races."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:53:38.995006Z",
+      "pattern": "frontend/src/components/DataPreview.parts/coreViewers.tutorialReport.test.tsx",
+      "reason": "Flake survey (218 failed CI runs + 6 re-run runs) found three frontend flake classes plus one deterministic PR-local failure. Record the regression tests for each fix; #2227 production fix already on main (f52ed20d), this adds its regression guard; docs are N/A."
+    }
+  ],
+  "session_id": "f53cf91f-fc1c-4fc1-a305-ab14257684bd",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T03:53:38.996030Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/OpenAsDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:53:38.996040Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/arrayPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:53:38.996044Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/coreViewers.tutorialReport.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
