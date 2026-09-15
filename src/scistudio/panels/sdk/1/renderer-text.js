@@ -9,6 +9,14 @@ import {
   ScrollArea,
 } from "./panel-ui.js";
 
+/**
+ * A text document, shown literally in a scrolling surface.
+ *
+ * @param {string} [props.text] The text read so far.
+ * @param {object} [props.meta] `{total_bytes?, encoding?}`; `null` shows the loading state.
+ * @param {boolean} [props.done] `false` while more text is still being read.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ */
 export function TextView({ text = "", meta = {}, done = true, error }) {
   if (error) {
     return html`<${Panel}><${ErrorState}>Could not read text: ${error}<//><//>`;

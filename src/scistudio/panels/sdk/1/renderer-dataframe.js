@@ -51,6 +51,15 @@ export function nextSort(current, column) {
   return { by: null, dir: null };
 }
 
+/**
+ * A paged, sortable table. The caller reads each page (for example with `table.page`) and passes it in; the view asks for another page or sort order through `onQueryChange`.
+ *
+ * @param {object} [props.data] The page: `{columns, rows, total?, total_rows?, page?, page_size?, total_pages?, sort?: {by, direction}}`. The loading state shows until it is given.
+ * @param {object} [props.query] The requested `{page, pageSize, sortBy?, sortDir?}`.
+ * @param {boolean} [props.loading] Marks a read in flight.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {function} [props.onQueryChange] `(nextQuery)` when the reader pages or sorts; sorting returns to page 1.
+ */
 export function DataFrameView({
   data,
   query = { page: 1, pageSize: 50 },

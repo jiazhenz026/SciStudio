@@ -448,7 +448,16 @@ def _sc_render_index(stats: list[tuple[str, int]]) -> str:
         note = " — **deprecated**" if _root_is_deprecated(root) else ""
         lines.append(f"- [`{root}`]({root}.md) — {count} symbols{note}")
     lines.append("")
+    lines += _panel_reference().index_section()
     return "\n".join(lines) + "\n"
+
+
+def _panel_reference() -> Any:
+    """The panel contract generator (ADR-052 Addendum 1), which lives beside this script."""
+    here = str(Path(__file__).resolve().parent)
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    return importlib.import_module("build_panel_reference")
 
 
 def generate_selfcontained() -> list[tuple[str, int]]:
@@ -461,6 +470,7 @@ def generate_selfcontained() -> list[tuple[str, int]]:
         _write_page(PACKAGE_REFERENCE_DIR / f"{root}.md", page)
         stats.append((root, count))
         print(f"  [self-contained] wrote {root}.md  ({count} symbols)")
+    _panel_reference().generate(PACKAGE_REFERENCE_DIR)
     _write_page(PACKAGE_REFERENCE_DIR / "index.md", _sc_render_index(stats))
     print(f"  [self-contained] wrote index.md  (version {_core_version()})")
     return stats

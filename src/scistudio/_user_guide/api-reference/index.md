@@ -31,3 +31,11 @@ A symbol marked **deprecated** keeps its tier and keeps working until the releas
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
 - [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols
 - [`scistudio.panels`](scistudio.panels.md) — 7 symbols
+
+## Panel contract
+
+The panel SDK, components, and descriptor (panel API `1.0`, `provisional`), generated from the panel sources.
+
+- [Panel SDK](panels-sdk.md) — `window.scistudio`: contexts, operations, read operations, errors, libraries
+- [Panel components](panels-renderers.md) — stylesheets, UI components, and data views
+- [Panel descriptor](panel-descriptor.md) — `panel.json` keys and rules, and `panel.sample.json`
