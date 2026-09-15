@@ -141,6 +141,9 @@ export function PanelFrame(props: PanelFrameProps) {
     bridge.current = createPanelBridge(channel.port1, context, {
       read: (ref, op, params) =>
         panelsApi.read(context.context_id, ref, op, params, readsAbort.current?.signal),
+      // ADR-054 FR-016 — only a miniapp context is granted `call`; the bridge
+      // refuses it everywhere else, so wiring it unconditionally is safe.
+      call: (fn, args) => panelsApi.call(context.context_id, fn, args, readsAbort.current?.signal),
       open: (ref) =>
         callbacks.current.onOpen?.(ref, context.context_id) ??
         Promise.reject(new Error("No preview host")),
@@ -228,7 +231,11 @@ export function PanelFrame(props: PanelFrameProps) {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-testid="panel-host">
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      data-testid="panel-host"
+      data-panel-ready={ready && !error}
+    >
       {error ? (
         <div role="alert" className="rounded border border-red-300 p-3 text-sm">
           <p>

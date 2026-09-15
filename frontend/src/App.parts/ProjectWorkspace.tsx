@@ -8,13 +8,13 @@
 // state wiring.
 
 import type { PanelImperativeHandle } from "react-resizable-panels";
-import { useEffect, useRef, type RefObject, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject, type ReactNode } from "react";
 
 import { usePresentation } from "../lib/presentation";
 import { useAppStore } from "../store";
 import { openDataFileAsPreview } from "../lib/openDataFile";
 import { buildPreviewCacheKey } from "../store/previewSlice";
-import type { AnyTab, FileTab, PreviewTab } from "../store/types";
+import type { AnyTab, FileTab, MiniAppTab, PreviewTab } from "../store/types";
 import type {
   BlockSchemaResponse,
   BlockSummary,
@@ -31,6 +31,17 @@ import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
 import { FileTabStage } from "../components/FileTabStage";
 import { PaletteTipCard } from "../components/palette/tips/PaletteTipCard";
 import { PreviewerPalette } from "../components/PreviewerPalette";
+import { ConvertToBlockDialog } from "../miniapps/ConvertToBlockDialog";
+import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
+import { MiniAppPalette } from "../miniapps/MiniAppPalette";
+import {
+  MiniAppTabLayer,
+  useMiniAppPreviewColumn,
+  usePreviewColumnState,
+} from "../miniapps/MiniAppTab";
+import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
+import { useMiniAppCatalog } from "../miniapps/useMiniAppCatalog";
+import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
 import { TabBar } from "../components/TabBar";
@@ -42,6 +53,11 @@ import { buildScopedBlockOutputs } from "../components/WorkflowCanvas.parts/subw
 import { SUBWORKFLOW_BLOCK_TYPES } from "../components/WorkflowCanvas.parts/useFlowNodes";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "../components/ui/resizable";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import {
+  AI_SIDEBAR_WIDTH,
+  DESKTOP_SIDEBAR_WIDTH,
+  useWorkspaceSidebar,
+} from "./useWorkspaceSidebar";
 
 type BottomTabValue = ReturnType<typeof useAppStore.getState>["activeBottomTab"];
 
@@ -70,10 +86,37 @@ export type LeftTab =
   | "blocks"
   | "types"
   | "previewers"
+  // ADR-054 FR-031 — the MiniApps section, in the activity bar's previewers
+  // slot. `previewers` stays in the union: the Previewers list moves into the
+  // preview column (FR-033) and the tutorial still routes to it.
+  | "miniapps"
   | "workflows"
   | "data"
   | "project"
   | "preview";
+
+/** ADR-054 — what the MiniApps section and the MiniApp tab call back into. */
+export interface MiniAppWiring {
+  /** FR-034 — a card was opened; pick the output it runs on. */
+  onOpen: (summary: MiniAppSummary) => void;
+  /** FR-023 — the New MiniApp dialog. */
+  onCreate: () => void;
+  /**
+   * FR-035 — what a block's context menu may offer.
+   *
+   * The canvas needs the catalogue to decide which MiniApps match a block's
+   * output type, and it needs somewhere to send the choice. These three are
+   * separate from `onOpen`/`onCreate` above because the canvas has ALREADY
+   * resolved the target by the time it calls them: the sidebar card knows only
+   * the MiniApp and has to ask which data, while the context menu knows the
+   * block and is asking which MiniApp.
+   */
+  catalogue: MiniAppSummary[];
+  /** Open `summary` on a target the canvas resolved. */
+  onOpenOnTarget: (summary: MiniAppSummary, target: MiniAppTarget) => void;
+  /** New MiniApp, pre-filled with the block's output (or `null`). */
+  onCreateFor: (target: MiniAppTarget | null) => void;
+}
 
 /**
  * What the Data section opens with. Module-level so the reference is stable —
@@ -167,7 +210,9 @@ export interface ProjectWorkspaceProps {
   setPanelSize: (key: "palette" | "preview" | "bottom", size: number) => void;
 }
 
-function PaletteOrProjectPane(props: ProjectWorkspaceProps & { previewPane?: ReactNode }) {
+function PaletteOrProjectPane(
+  props: ProjectWorkspaceProps & { previewPane?: ReactNode; miniApps: MiniAppWiring },
+) {
   const {
     leftTab,
     onLeftTabChange,
@@ -209,6 +254,11 @@ function PaletteOrProjectPane(props: ProjectWorkspaceProps & { previewPane?: Rea
         <TypePalette />
       ) : leftTab === "previewers" ? (
         <PreviewerPalette />
+      ) : leftTab === "miniapps" ? (
+        // ADR-054 FR-031 — the MiniApps list. Like the Data types and
+        // Previewers panes it reads its own catalogue; only the two actions
+        // that leave the pane are wired from here.
+        <MiniAppPalette onOpen={props.miniApps.onOpen} onCreate={props.miniApps.onCreate} />
       ) : leftTab === "blocks" ? (
         <BlockPalette
           blocks={blocks}
@@ -342,7 +392,7 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   );
 }
 
-function CanvasOrEditor(props: ProjectWorkspaceProps) {
+function CanvasOrEditor(props: ProjectWorkspaceProps & { miniApps: MiniAppWiring }) {
   const {
     activeFileTab,
     activePreviewTab,
@@ -408,6 +458,9 @@ function CanvasOrEditor(props: ProjectWorkspaceProps) {
 
   return (
     <WorkflowCanvas
+      miniApps={props.miniApps.catalogue}
+      onOpenMiniApp={props.miniApps.onOpenOnTarget}
+      onNewMiniApp={props.miniApps.onCreateFor}
       blockStates={blockStates}
       blockErrors={blockErrors}
       blockErrorSummaries={blockErrorSummaries}
@@ -472,19 +525,55 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
     selectedNodeLabel,
   } = props;
 
+  // ADR-054 FR-018/FR-019 — every open MiniApp, and the focused one. Derived
+  // here rather than threaded from App: the tab list is already a prop, and a
+  // MiniApp pane must stay mounted while a tab of another kind is active, so
+  // the layer needs all of them, not just the active one.
+  const miniAppTabs = useMemo(
+    () => tabs.filter((tab): tab is MiniAppTab => tab.kind === "miniapp"),
+    [tabs],
+  );
+  const activeMiniAppTab = miniAppTabs.find((tab) => tab.id === activeTabId) ?? null;
+
+  // ADR-054 FR-023/FR-034/FR-036 — the three MiniApp dialogs are mounted once
+  // here, beside the workspace, and opened from the palette, the tab toolbar
+  // and (through the store opener) a block's context menu.
+  const createOpen = useAppStore((s) => s.createMiniAppOpen);
+  const setCreateOpen = useAppStore((s) => s.setCreateMiniAppOpen);
+  const [pickerFor, setPickerFor] = useState<MiniAppSummary | null>(null);
+  const [convertFor, setConvertFor] = useState<string | null>(null);
+  const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
+  // FR-035 — refresh compatible actions together with the sidebar catalogue.
+  const { miniapps: miniAppCatalogue } = useMiniAppCatalog();
+  const [presetTarget, setPresetTarget] = useState<MiniAppTarget | null>(null);
+
+  const miniApps: MiniAppWiring = {
+    onOpen: (summary) => setPickerFor(summary),
+    onCreate: () => {
+      setPresetTarget(null);
+      setCreateOpen(true);
+    },
+    catalogue: miniAppCatalogue,
+    onOpenOnTarget: (summary, target) =>
+      openMiniAppTab({ panelId: summary.panel_id, name: summary.name, target }),
+    onCreateFor: (target) => {
+      setPresetTarget(target);
+      setCreateOpen(true);
+    },
+  };
+
   // #2090 — the store's `paletteCollapsed` (toggled by the activity bar and
   // Ctrl+B) was disconnected from the actual panel before; this handle is
   // what makes the collapse real.
   const leftPanelRef = useRef<PanelImperativeHandle>(null);
-  useEffect(() => {
-    const panel = leftPanelRef.current;
-    if (!panel) return;
-    if (paletteCollapsed) {
-      panel.collapse();
-    } else {
-      panel.expand();
-    }
-  }, [paletteCollapsed]);
+  const onSidebarResize = useWorkspaceSidebar(leftPanelRef, paletteCollapsed, isAi);
+
+  // ADR-054 FR-020 — the right preview column folds away while a MiniApp tab
+  // is active and comes back at the width it had. The rules (and why the panel
+  // handle rather than `panelSizes.preview` holds the width) are in the hook.
+  const previewPanelRef = useRef<PanelImperativeHandle>(null);
+  usePreviewColumnState(previewPanelRef);
+  useMiniAppPreviewColumn(previewPanelRef, activeMiniAppTab !== null);
 
   // ADR-044 — preview panels read the same run-scoped, exposed-mapped outputs as
   // the canvas, so selecting a subworkflow node (or a node in an expanded child
@@ -577,24 +666,14 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
       // the app does not flash an open panel before the effect above
       // can collapse it.
       id="workspace-sidebar"
-      defaultSize={paletteCollapsed ? "0%" : isAi ? "28%" : "15%"}
-      minSize={isAi ? "180px" : "10%"}
-      maxSize={isAi ? "50%" : "28%"}
+      defaultSize={paletteCollapsed ? "0%" : isAi ? AI_SIDEBAR_WIDTH : DESKTOP_SIDEBAR_WIDTH}
+      minSize={isAi ? "180px" : "240px"}
+      maxSize={isAi ? "50%" : "40%"}
       collapsible
       collapsedSize="0%"
-      onResize={(size) => {
-        // Codex P2 on #2106 — dragging the separator below `minSize`
-        // collapses the panel internally without touching the store,
-        // leaving the activity bar's click decision stale. Mirror the
-        // panel's collapsed state back into `paletteCollapsed` (the
-        // reverse direction — store → panel — is the effect above).
-        const collapsed = size.asPercentage <= 0.5;
-        if (collapsed !== useAppStore.getState().paletteCollapsed) {
-          useAppStore.setState({ paletteCollapsed: collapsed });
-        }
-      }}
+      onResize={onSidebarResize}
     >
-      <PaletteOrProjectPane {...props} previewPane={previewPane} />
+      <PaletteOrProjectPane {...props} previewPane={previewPane} miniApps={miniApps} />
     </ResizablePanel>
   );
   const stagePanel = (
@@ -631,8 +710,24 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
              * element left her standing in the corner of the *window*, over
              * the left panel, when it was not on screen.
              */}
-            <div className="h-full min-h-0" data-tutorial-target="workspace_stage">
-              <CanvasOrEditor {...props} />
+            <div className="relative h-full min-h-0" data-tutorial-target="workspace_stage">
+              {/*
+               * ADR-054 FR-019 — the MiniApp layer sits over the stage and
+               * every open MiniApp stays mounted inside it, active or not.
+               * A MiniApp's context (and therefore its `panel.py` process)
+               * lives exactly as long as its frame is mounted, so unmounting
+               * on a focus change would kill the process the tab exists to
+               * keep running. What changes on a focus change is only which
+               * one is visible.
+               */}
+              <div className={activeMiniAppTab ? "hidden" : "h-full min-h-0"}>
+                <CanvasOrEditor {...props} miniApps={miniApps} />
+              </div>
+              <MiniAppTabLayer
+                tabs={miniAppTabs}
+                activeTabId={activeTabId}
+                onConvert={setConvertFor}
+              />
             </div>
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -694,12 +789,8 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           }
         }}
       >
-        {/* Left Sidebar — section content picked by the activity bar.
-            `minSize` is 10% rather than 4%: below roughly that the pane is
-            narrower than a single 80px tile plus the pane's own padding, so
-            the block grid clipped its tiles and the tip card had no room for
-            a title. The pane is still `collapsible` to 0%, so the narrow end
-            of the range is a real collapse instead of an unusable sliver. */}
+        {/* Desktop width is bounded in pixels so labels stay readable on a
+            narrow window. Both presentations can still collapse to zero. */}
         {isAi
           ? [stagePanel, <ResizableHandle key="sidebar-divider" withHandle />, sidebarPanel]
           : [sidebarPanel, <ResizableHandle key="sidebar-divider" withHandle />, stagePanel]}
@@ -708,6 +799,13 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {/* The workbench has a separate preview; AI mode uses the Preview card. */}
         {!isAi && (
           <ResizablePanel
+            panelRef={previewPanelRef}
+            onResize={(size) => {
+              const collapsed = size.asPercentage === 0;
+              if (collapsed !== useAppStore.getState().previewCollapsed) {
+                useAppStore.setState({ previewCollapsed: collapsed });
+              }
+            }}
             id="workspace-preview"
             defaultSize="22%"
             minSize="15%"
@@ -719,6 +817,50 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           </ResizablePanel>
         )}
       </ResizablePanelGroup>
+      {/*
+       * ADR-054 FR-023 / FR-034 / FR-036 — the MiniApp dialogs. Mounted beside
+       * the panel group rather than inside a pane so opening one does not
+       * depend on which section, tab or column is on screen.
+       */}
+      <CreateMiniAppDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        presetTarget={presetTarget}
+        onCreated={(result) => {
+          setCreateOpen(false);
+          openMiniAppTab({
+            panelId: result.panel_id,
+            name: result.name,
+            target: result.target,
+          });
+        }}
+      />
+      <MiniAppTargetPicker
+        open={pickerFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setPickerFor(null);
+        }}
+        summary={pickerFor}
+        onPick={(target: MiniAppTarget) => {
+          const summary = pickerFor;
+          setPickerFor(null);
+          if (summary) {
+            openMiniAppTab({ panelId: summary.panel_id, name: summary.name, target });
+          }
+        }}
+      />
+      <ConvertToBlockDialog
+        open={convertFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setConvertFor(null);
+        }}
+        panelId={convertFor ?? ""}
+        panelName={
+          miniAppTabs.find((tab) => tab.panelId === convertFor)?.displayName ??
+          miniAppCatalogue.find((app) => app.panel_id === convertFor)?.name
+        }
+        onStarted={() => setConvertFor(null)}
+      />
     </div>
   );
 }

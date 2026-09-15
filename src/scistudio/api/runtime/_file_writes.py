@@ -831,6 +831,15 @@ async def move_project_path(
             await asyncio.to_thread(_move_on_disk, source_path, destination)
         except Exception as exc:
             raise ProjectFileWriteError(f"move failed: {exc}") from exc
+        # #2394: a moved workflow is identified by its new file, so its declared
+        # ``id:`` follows the new name. Rewritten before the change events so
+        # their versions describe the final bytes.
+        moved_workflows = _moved_workflow_files(project_root, pairs)
+        for _old, new in moved_workflows:
+            try:
+                await asyncio.to_thread(_rewrite_moved_workflow_id, new)
+            except Exception:
+                logger.warning("#2394: could not rewrite the workflow id of moved %s", new, exc_info=True)
 
         changes: list[FileChange] = []
         for old, new in pairs:
@@ -851,6 +860,15 @@ async def move_project_path(
                     FileChange(entity_id=file_id, kind=kind, version=int(payload["version"]), payload=payload)
                 )
 
+        await _emit_moved_workflow_changes(
+            runtime,
+            project_root=project_root,
+            moved=moved_workflows,
+            source=source,
+            source_id=source_id,
+            changed_by=changed_by,
+        )
+
         refreshed = False
         touched = [
             path for old, new in pairs for path in (old, new) if project_dropin_dir(project_root, path) is not None
@@ -864,6 +882,111 @@ async def move_project_path(
                     runtime, reloaded=[destination.name], path=destination
                 )
     return changes, refreshed
+
+
+_WORKFLOW_FILE_DIRS: frozenset[str] = frozenset({"workflows", "subworkflows"})
+
+
+def _moved_workflow_files(project_root: Path, pairs: list[tuple[Path, Path]]) -> list[tuple[Path, Path]]:
+    """The moved entries that are workflow YAML files under ``workflows/`` or ``subworkflows/``."""
+    from scistudio.workflow.identity import WORKFLOW_SUFFIXES
+
+    moved: list[tuple[Path, Path]] = []
+    for old, new in pairs:
+        if is_link(new) or not new.name.lower().endswith(WORKFLOW_SUFFIXES):
+            continue
+        try:
+            relative = new.relative_to(project_root)
+        except ValueError:
+            continue
+        if relative.parts and relative.parts[0] in _WORKFLOW_FILE_DIRS:
+            moved.append((old, new))
+    return moved
+
+
+def _rewrite_moved_workflow_id(path: Path) -> bool:
+    """Set the declared ``workflow.id`` of a moved workflow file to its new name.
+
+    Only the ``id:`` line changes, so comments and key order survive; a file the
+    line edit cannot handle is re-serialised instead. A file that is not a valid
+    workflow is left untouched. Returns whether the file was rewritten.
+    """
+    # Development references: #2394.
+    import yaml
+
+    from scistudio.utils.atomic_io import atomic_write_text
+    from scistudio.workflow.identity import declared_id_for_file_name, rewrite_workflow_id_text
+    from scistudio.workflow.serializer import load_yaml, save_yaml
+
+    new_id = declared_id_for_file_name(path.name)
+    try:
+        text = path.read_text(encoding="utf-8")
+        parsed = yaml.safe_load(text)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return False
+    body = parsed.get("workflow") if isinstance(parsed, dict) else None
+    if not isinstance(body, dict) or body.get("id") == new_id:
+        return False
+    rewritten = rewrite_workflow_id_text(text, new_id)
+    if rewritten is not None:
+        try:
+            reparsed = yaml.safe_load(rewritten)
+        except yaml.YAMLError:
+            reparsed = None
+        expected = {**parsed, "workflow": {**body, "id": new_id}}
+        if isinstance(reparsed, dict) and reparsed == expected:
+            atomic_write_text(path, rewritten, encoding="utf-8")
+            return True
+    try:
+        definition = load_yaml(path)
+    except Exception:
+        logger.debug("#2394: moved file %s is not a loadable workflow; id left as is", path, exc_info=True)
+        return False
+    definition.id = new_id
+    save_yaml(definition, path)
+    return True
+
+
+async def _emit_moved_workflow_changes(
+    runtime: ApiRuntime,
+    *,
+    project_root: Path,
+    moved: list[tuple[Path, Path]],
+    source: str,
+    source_id: str | None,
+    changed_by: str | None,
+) -> None:
+    """Broadcast ``workflow.changed`` for moved workflow files.
+
+    The old run identity is ``deleted`` so a tab showing it learns the file went
+    away; the new identity is ``created``. Both are marked first-party so the FS
+    watcher does not echo them as external edits.
+    """
+    # Development references: #2394, ADR-045.
+    from scistudio.api.runtime import WORKFLOW_ENTITY_CLASS
+    from scistudio.engine.events import WORKFLOW_CHANGED
+    from scistudio.workflow.identity import workflow_identity_for_path
+
+    for old, new in moved:
+        for path, kind in ((old, "deleted"), (new, "created")):
+            try:
+                identity = workflow_identity_for_path(project_root, path)
+                version = runtime.bump_entity_version(WORKFLOW_ENTITY_CLASS, identity, path=path)
+                runtime.mark_workflow_first_party_write(identity, version, path=path, kind=kind)
+                payload = runtime.versioned_change_payload(
+                    entity_class=WORKFLOW_ENTITY_CLASS,
+                    entity_id=identity,
+                    version=version,
+                    source=source,
+                    source_id=source_id,
+                    kind=kind,
+                    workflow_id=identity,
+                    path=project_relative_entity_id(project_root, path),
+                    changed_by=changed_by,
+                )
+                await runtime.event_bus.emit(EngineEvent(event_type=WORKFLOW_CHANGED, data=payload))
+            except Exception:
+                logger.debug("#2394: workflow.changed for moved %s failed", path, exc_info=True)
 
 
 def _read_text_or_empty(path: Path) -> str:

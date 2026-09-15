@@ -8,6 +8,9 @@ import { useWorkflowWebSocket } from "./useWebSocket";
 
 class MockWebSocket {
   static instance: MockWebSocket | null = null;
+  static OPEN = 1;
+  readyState = MockWebSocket.OPEN;
+  send = vi.fn();
   onopen?: () => void;
   onclose?: () => void;
   onerror?: () => void;

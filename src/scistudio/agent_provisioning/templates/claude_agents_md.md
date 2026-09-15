@@ -121,6 +121,9 @@ lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
   / lineage) without materialising.
 - `scistudio-project-qa` — answer the user's SciStudio / project
   questions, grounded in the reference docs below + MCP tools.
+- `scistudio-write-miniapp` — author a MiniApp: a small page under
+  `panels/<panel_id>/`, opened on one block output, for looking,
+  comparing, or tuning interactively.
 - `scistudio-write-panel` — create or repair an HTML preview panel or an
   interactive workflow decision page. Pair the latter with
   `scistudio-write-block`; the panel skill covers SDK contracts and live checks.
@@ -128,8 +131,8 @@ lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
   or computer-use tools, when the user requests GUI operation or an authoring
   skill calls for a live check.
 
-Panel authoring routes to the GUI skill for a brief rendered-view and main
-interaction check. Plot authoring, workflow authoring, and ordinary run
+MiniApp and panel authoring route to the GUI skill for a brief rendered-view
+and main interaction check. Plot authoring, workflow authoring, and ordinary run
 debugging do not automatically invoke GUI checks; an explicit user request
 for GUI operation still applies.
 

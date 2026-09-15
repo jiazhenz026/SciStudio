@@ -17,6 +17,7 @@ _SKILL_NAMES = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    "scistudio-write-miniapp",
     "scistudio-use-gui",
     "scistudio-write-panel",
 )
@@ -36,7 +37,7 @@ def test_write_skills_cross_installs_both_trees(tmp_project_dir: Path) -> None:
         assert claude.read_bytes() == agents.read_bytes(), f"content mismatch for: {name}"
 
 
-@pytest.mark.parametrize("skill_name", ["scistudio-use-gui", "scistudio-write-panel"])
+@pytest.mark.parametrize("skill_name", ["scistudio-use-gui", "scistudio-write-panel", "scistudio-write-miniapp"])
 def test_missing_skill_is_added_on_reopen_without_overwriting_custom_skills(
     tmp_project_dir: Path, skill_name: str
 ) -> None:

@@ -23,12 +23,14 @@ describe("ActivityBar", () => {
   it("renders one icon button per left-panel section", () => {
     renderBar();
     expect(screen.getByTestId("activity-bar")).toBeInTheDocument();
-    for (const label of ["Blocks", "Data types", "Workflows", "Data", "Previewers", "Project"]) {
+    // ADR-054 FR-031 — `MiniApps` took the `Previewers` slot; the previewer
+    // list moved into the preview column behind All Previewers (FR-033).
+    for (const label of ["Blocks", "Data types", "Workflows", "Data", "MiniApps", "Project"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("orders the sections Blocks, Workflows, Data types, Data, Previewers, Project (#2113 owner review)", () => {
+  it("orders the sections Blocks, Workflows, Data types, Data, MiniApps, Project (#2113 owner review, ADR-054 FR-031)", () => {
     renderBar();
     const keys = [...screen.getByTestId("activity-bar").querySelectorAll("button")].map((button) =>
       button.getAttribute("data-testid"),
@@ -38,7 +40,7 @@ describe("ActivityBar", () => {
       "activity-bar-workflows",
       "activity-bar-types",
       "activity-bar-data",
-      "activity-bar-previewers",
+      "activity-bar-miniapps",
       "activity-bar-project",
     ]);
   });

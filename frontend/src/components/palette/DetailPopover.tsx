@@ -32,9 +32,9 @@ export interface DetailPopoverProps {
   /**
    * Accept pointer events (FR-044).
    *
-   * Off by default, which preserves the display-only, `pointer-events-none`
-   * canvas-node popover documented in `frontend-block-palette` spec §10. A
-   * palette surface turns it on by spreading `useHoverPopover().popoverProps`,
+   * Off by default for display-only surfaces. A palette surface enables it
+   * by spreading `useHoverPopover().popoverProps`; the canvas supplies its
+   * own node-anchored hover controller,
    * which supplies this flag together with the handlers that keep the card
    * open — the two must arrive together, because a card that swallows pointer
    * events without maintaining its own hover state closes under the cursor.

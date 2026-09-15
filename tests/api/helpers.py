@@ -113,3 +113,17 @@ def build_linear_workflow(
         ],
         "metadata": {"kind": "linear"},
     }
+
+
+def ws_hello(websocket: Any) -> str:
+    """Consume the ``hello`` frame every ``/ws`` connection opens with.
+
+    ADR-054 MiniApp FR-013: the backend mints a workspace client id and sends
+    it first, so a browser knows what to quote as ``ws_client_id`` when it
+    opens a MiniApp context. Every test that reads a specific frame has to
+    take this one off the wire first.
+    """
+    frame = websocket.receive_json()
+    assert frame["type"] == "hello", f"expected the hello frame first, got {frame}"
+    client_id: str = frame["client_id"]
+    return client_id

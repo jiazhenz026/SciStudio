@@ -59,6 +59,7 @@ def test_the_event_socket_handler_returns_when_the_client_leaves() -> None:
 
     async def _run() -> None:
         ws = AsyncMock()
+        ws.query_params = {}
         ws.accept = AsyncMock()
         ws.receive_text = AsyncMock(side_effect=WebSocketDisconnect(1012))
         ws.send_json = AsyncMock()

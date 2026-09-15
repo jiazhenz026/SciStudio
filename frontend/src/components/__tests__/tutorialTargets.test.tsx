@@ -332,6 +332,12 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
        * previewers live, and a project with none installed still has the place
        * they would live. The catalogue fetch is stubbed away because what is
        * being proved is that the element carrying the target exists at all.
+       *
+       * Rendered standalone on purpose, and that is now the point rather than a
+       * convenience: ADR-054 FR-040 moved this list out of the left panel and
+       * into the preview column, and it is the same component either way. A
+       * target that only resolved inside one mount point would have moved with
+       * the furniture.
        */
       vi.stubGlobal(
         "fetch",
@@ -701,8 +707,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
     const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
 
-    applyStepRoute("history", { openBottomTab, setLeftTab, showCanvas });
+    applyStepRoute("history", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
 
     // `openBottomTab` expands a collapsed panel; `setActiveBottomTab` would
     // change the tab behind a shut panel and look like nothing happened.
@@ -714,8 +721,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
     const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
 
-    applyStepRoute("block_palette", { openBottomTab, setLeftTab, showCanvas });
+    applyStepRoute("block_palette", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
 
     expect(setLeftTab).toHaveBeenCalledWith("blocks");
     expect(openBottomTab).not.toHaveBeenCalled();
@@ -727,7 +735,12 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     // uncatchable by any caller. jsdom omits the method, which makes this the
     // real check it looks like rather than a hypothetical one.
     await RENDERERS.canvas.render();
-    applyStepRoute("canvas", { openBottomTab: vi.fn(), setLeftTab: vi.fn(), showCanvas: vi.fn() });
+    applyStepRoute("canvas", {
+      openBottomTab: vi.fn(),
+      setLeftTab: vi.fn(),
+      showCanvas: vi.fn(),
+      showAllPreviewers: vi.fn(),
+    });
 
     await new Promise((resolve) => setTimeout(resolve, 20));
     // Reaching here at all is the assertion: an unhandled rejection in the
@@ -739,8 +752,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
     const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
 
-    applyStepRoute("canvas", { openBottomTab, setLeftTab, showCanvas });
+    applyStepRoute("canvas", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
 
     expect(openBottomTab).not.toHaveBeenCalled();
     expect(setLeftTab).not.toHaveBeenCalled();
@@ -750,8 +764,9 @@ describe("route targets map onto this UI (FR-089 companion)", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
     const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
 
-    applyStepRoute("not_a_target", { openBottomTab, setLeftTab, showCanvas });
+    applyStepRoute("not_a_target", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
 
     expect(openBottomTab).not.toHaveBeenCalled();
     expect(setLeftTab).not.toHaveBeenCalled();
@@ -796,10 +811,70 @@ describe("the data_types route target (#2061)", () => {
     const openBottomTab = vi.fn();
     const setLeftTab = vi.fn();
     const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
 
-    applyStepRoute("data_types", { openBottomTab, setLeftTab, showCanvas });
+    applyStepRoute("data_types", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
 
     expect(openBottomTab).not.toHaveBeenCalled();
     expect(setLeftTab).toHaveBeenCalledWith("types");
+  });
+});
+
+describe("the previewers route target follows the list (ADR-054 FR-040)", () => {
+  /*
+   * The list left the left panel: the activity bar's Previewers section was
+   * replaced by MiniApps and the list now opens inside the preview column. The
+   * tutorial vocabulary did not move with it — `route_to: previewers` and
+   * `highlight: previewer_palette` are what two shipped core tutorials are
+   * written against — so these tests hold the vocabulary still while the
+   * destination changes underneath it.
+   */
+  it("opens the All Previewers list instead of switching the left panel", () => {
+    const openBottomTab = vi.fn();
+    const setLeftTab = vi.fn();
+    const showCanvas = vi.fn();
+    const showAllPreviewers = vi.fn();
+
+    applyStepRoute("previewers", { openBottomTab, setLeftTab, showCanvas, showAllPreviewers });
+
+    expect(showAllPreviewers).toHaveBeenCalledTimes(1);
+    // The left panel is left exactly where the reader had it. Switching it to a
+    // section that no longer exists is the failure this route used to have.
+    expect(setLeftTab).not.toHaveBeenCalled();
+    expect(openBottomTab).not.toHaveBeenCalled();
+  });
+
+  it("leaves no left-tab entry behind that could switch the panel silently", () => {
+    /*
+     * `ROUTE_TARGET_LEFT_TABS` is `Partial`, so an entry put back here would
+     * typecheck and quietly route to a tab that is not in the activity bar any
+     * more — the step would look like it did nothing. The absence is the
+     * requirement, which is why it is asserted rather than assumed.
+     */
+    expect(ROUTE_TARGET_LEFT_TABS).not.toHaveProperty("previewers");
+    // Still a route target with a decision recorded for it, so the exhaustive
+    // bottom-tab map keeps accounting for it.
+    expect(ROUTE_TARGET_BOTTOM_TABS.previewers).toBeNull();
+    expect(ROUTE_TARGETS).toContain("previewers");
+  });
+
+  it("rings the same list the route opens", async () => {
+    /*
+     * The two halves of FR-040 are only correct together: a route that opens
+     * the list somewhere the highlight cannot find it leaves the step pointing
+     * at nothing, which is the exact failure the ring was added to prevent.
+     */
+    const showAllPreviewers = vi.fn();
+    await RENDERERS.previewer_palette.render();
+
+    applyStepRoute("previewers", {
+      openBottomTab: vi.fn(),
+      setLeftTab: vi.fn(),
+      showCanvas: vi.fn(),
+      showAllPreviewers,
+    });
+
+    expect(showAllPreviewers).toHaveBeenCalled();
+    expect(document.querySelector(tutorialTargetSelector("previewer_palette"))).not.toBeNull();
   });
 });

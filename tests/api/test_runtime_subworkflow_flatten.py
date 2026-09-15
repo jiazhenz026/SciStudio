@@ -169,7 +169,9 @@ def test_get_workflow_by_path_opens_subworkflow_file(client: TestClient, opened_
     response = client.get("/api/workflows/by-path", params={"path": "subworkflows/child.yaml"})
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["id"] == "child"
+    # #2394: the response id is the file's run identity (path form), which the
+    # editor saves and runs the tab under — not the declared ``id:``.
+    assert body["id"] == "@subworkflows@child.yaml"
     assert {n["block_type"] for n in body["nodes"]} == {"load_block", "process_block"}
 
 

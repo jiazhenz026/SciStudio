@@ -42,7 +42,25 @@ function makeIo(options?: {
   const writes: Written[] = [];
   const existing = options?.existing ?? new Set<string>();
   const sources = options?.sources ?? {};
+  const directories: { name: string; overwrite: boolean }[] = [];
   const io: PromotionIo = {
+    // ADR-054 FR-039 — the directory door. A `panels` promotion never touches
+    // `write`, so this fake answers it on its own terms: it 409s a name already
+    // in `existing` exactly as the file route does, so the collision prompt is
+    // exercised by the same switch.
+    writeDirectory: vi.fn(async (name: string, opts: { overwrite: boolean }) => {
+      if (existing.has(`panels/${name}`) && !opts.overwrite) {
+        throw new Conflict(`A MiniApp called ${name} is already in your library.`);
+      }
+      directories.push({ name, overwrite: opts.overwrite });
+      existing.add(`panels/${name}`);
+      return {
+        path: `/library/panels/${name}`,
+        kind: opts.overwrite ? ("modified" as const) : ("created" as const),
+        movedFrom: options?.moveFails === undefined ? `panels/${name}` : null,
+        moveError: options?.moveFails ?? null,
+      };
+    }),
     readSource: vi.fn(async (ref) => {
       const key = ref.from === "block" ? `block:${ref.blockType}` : ref.path;
       const found = sources[key] ?? { filename: "fallback.py", content: "# fallback\n" };
@@ -84,7 +102,7 @@ function makeIo(options?: {
     }),
     isCollision: (error: unknown) => error instanceof Conflict,
   };
-  return { io, writes, existing };
+  return { io, writes, existing, directories };
 }
 
 function makePrompts(overrides?: Partial<PromotionPrompts>): PromotionPrompts {

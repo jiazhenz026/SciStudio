@@ -22,6 +22,9 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
     expected_essential = {
         "CLAUDE.md",
         "AGENTS.md",
+        "user-guide/miniapps.md",
+        ".scistudio/agent-reference/gui-debug.md",
+        ".scistudio/agent-reference/miniapp-renderers.md",
         ".claude/settings.json",
         ".claude/hooks/deny_scistudio_cli.py",
         ".claude/hooks/protect_workflow_yaml.py",
@@ -41,14 +44,14 @@ def test_install_project_agent_assets_fresh_project(tmp_project_dir: Path) -> No
     for path in result.written:
         assert (tmp_project_dir / path).exists(), f"declared written but missing: {path}"
 
-    # 18 skill files (9 names, 2 trees) — flat layout per ADR-040 Addendum 1;
-    # 9 = 1 base + 8 task skills (incl. the GUI operation guide).
+    # 20 skill files (10 names, 2 trees) — flat layout per ADR-040 Addendum 1;
+    # 10 = 1 base + 9 task skills (including MiniApp/panel authoring and GUI operation).
     skill_files = [
         p
         for p in result.written
         if (p.startswith(".claude/skills/") or p.startswith(".agents/skills/")) and p.endswith("/SKILL.md")
     ]
-    assert len(skill_files) == 18, f"expected 18 skill files, got {len(skill_files)}: {skill_files}"
+    assert len(skill_files) == 20, f"expected 20 skill files, got {len(skill_files)}: {skill_files}"
 
 
 def test_install_project_agent_assets_idempotent(tmp_project_dir: Path) -> None:

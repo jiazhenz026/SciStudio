@@ -13,6 +13,7 @@
 import { startTransition, useCallback, useRef } from "react";
 
 import { api, ApiError } from "../lib/api";
+import { isPathWorkflowIdentity } from "../lib/workflowIdentity";
 import { useAppStore } from "../store";
 import type {
   BlockSchemaResponse,
@@ -140,6 +141,12 @@ export function useWorkflowSync(deps: WorkflowSyncDeps): WorkflowSync {
         saveErroredRef.current = false;
       }
       await refreshProjects();
+      // #2394: an expanded subworkflow tab saves to its own file under its path
+      // identity; that file is not one of the project's top-level workflows.
+      if (isPathWorkflowIdentity(saved.id)) {
+        setCurrentProject(projectForState);
+        return;
+      }
       setCurrentProject({
         ...projectForState,
         current_workflow_id: saved.id,

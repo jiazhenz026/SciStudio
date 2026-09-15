@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Node } from "@xyflow/react";
 
 import type { BlockPortResponse, BlockSchemaResponse, BlockSummary } from "./api";
@@ -40,6 +41,8 @@ export interface BlockNodeData extends Record<string, unknown> {
    */
   uiIconHint?: string;
   summary?: BlockSummary;
+  /** Actions rendered inside the interactive canvas hover details. */
+  detailActions?: ReactNode;
   schema?: BlockSchemaResponse;
   config?: Record<string, unknown>;
   inputPorts: BlockPortResponse[];

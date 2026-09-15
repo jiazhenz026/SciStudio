@@ -73,6 +73,9 @@ def resolve_panel_file(root: Path, relative: str) -> Path:
         raise ValueError("FR-026: file type is not a panel asset")
     if not candidate.is_file():
         raise ValueError("FR-026: panel asset does not exist")
+    python_source = Path(root_real) / "panel.py"
+    if python_source.is_file() and candidate.samefile(python_source):
+        raise ValueError("FR-026: executable source is not a panel asset")
     return candidate
 
 
