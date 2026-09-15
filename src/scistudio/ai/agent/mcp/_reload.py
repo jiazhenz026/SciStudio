@@ -38,13 +38,21 @@ def refresh_context_registries(ctx: Any) -> tuple[list[str], list[str]]:
     """Rebuild both registries *ctx* holds, in place.
 
     Returns ``(added, removed)`` block type names so a caller can report what
-    the event changed.
+    the event changed. The registry is keyed by display name; the reported names
+    are each spec's ``type_name``, the string ``list_blocks`` / ``get_block_schema``
+    and a workflow's ``block_type`` use.
     """
-    before = set(ctx.block_registry.all_specs().keys())
+    # Development references: #2405.
+    before = _block_type_names(ctx.block_registry)
     ctx.block_registry.hot_reload()
     ctx.type_registry.rescan()
-    after = set(ctx.block_registry.all_specs().keys())
+    after = _block_type_names(ctx.block_registry)
     return sorted(after - before), sorted(before - after)
+
+
+def _block_type_names(registry: Any) -> set[str]:
+    """Return the ``type_name`` of every registered block (display name as fallback)."""
+    return {getattr(spec, "type_name", "") or key for key, spec in registry.all_specs().items()}
 
 
 async def broadcast_blocks_reloaded(

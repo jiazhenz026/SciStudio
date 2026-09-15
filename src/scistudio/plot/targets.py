@@ -68,22 +68,24 @@ def _workflow_files(root: Path, workflow_path: str | None) -> list[Path]:
     )
 
 
-def _output_ports_for_block(ctx: Any, block_type: str, node_config: dict[str, Any]) -> list[tuple[str, str]]:
+def _output_ports_for_block(ctx: Any, block_type: str, node_config: dict[str, Any]) -> list[tuple[str, str]] | None:
     """Return ``[(port_name, accepted_type_name)]`` for a registered block type.
 
-    Best-effort: returns ``[]`` when the block type is not registered (e.g. a
+    Best-effort: returns ``None`` when the block type is not registered (e.g. a
     plugin not installed in this environment) so discovery degrades to a
-    diagnostic rather than raising.
+    diagnostic rather than raising. A registered block with no output ports (a
+    sink such as ``save_data``) returns ``[]`` and contributes no target.
     """
+    # Development references: #2404.
     registry = getattr(ctx, "block_registry", None)
     if registry is None:
-        return []
+        return None
     try:
         spec = registry.get_spec(block_type)
     except Exception:
         spec = None
     if spec is None:
-        return []
+        return None
     raw_ports: list[Any] | None = None
     instantiate = getattr(registry, "instantiate", None)
     if callable(instantiate):
@@ -261,7 +263,7 @@ def discover_targets(
         for node in definition.nodes:
             ports = _output_ports_for_block(ctx, node.block_type, node.config)
             node_label = str(node.config.get("label", "")) if isinstance(node.config, dict) else ""
-            if not ports:
+            if ports is None:
                 # Block type not registered here — emit a single diagnostic
                 # target keyed on a synthetic 'output' port so the agent at
                 # least sees the node exists.
