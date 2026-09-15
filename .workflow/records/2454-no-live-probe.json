@@ -282,7 +282,13 @@
       "tests/api/test_agent_availability.py"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T15:28:42.906505Z",
+      "owner_directive": "AI Chat and the MiniApp/Convert/Bring-in-my-work/Learning Center entries must be identical; delete the second (graded availability) implementation and use AI Chat's code.",
+      "reason": "owner: remove the graded availability path; one implementation shared with AI Chat"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T13:21:27.061028Z",
@@ -863,7 +869,26 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T15:28:42.906783Z",
+      "pattern": "frontend/src/**",
+      "reason": "owner: remove the graded availability path; one implementation shared with AI Chat"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T15:28:42.906788Z",
+      "pattern": "src/scistudio/**",
+      "reason": "owner: remove the graded availability path; one implementation shared with AI Chat"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T15:28:42.906790Z",
+      "pattern": "tests/**",
+      "reason": "owner: remove the graded availability path; one implementation shared with AI Chat"
+    }
+  ],
   "session_id": "0d53d43a-70ef-4da6-80bb-54e16bd6f8fd",
   "strictness_tier": 2,
   "task_kind": "bugfix",

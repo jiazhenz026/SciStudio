@@ -2,6 +2,7 @@
 import { html } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
 
 import {
+  Button,
   EmptyState,
   ErrorState,
   LoadingState,
@@ -13,11 +14,20 @@ import {
  * A text document, shown literally in a scrolling surface.
  *
  * @param {string} [props.text] The text read so far.
- * @param {object} [props.meta] `{total_bytes?, encoding?}`; `null` shows the loading state.
+ * @param {object} [props.meta] The latest `text.chunk` result, or `{total_bytes?, encoding?, next_offset?}`; `null` shows the loading state.
  * @param {boolean} [props.done] `false` while more text is still being read.
+ * @param {boolean} [props.hasMore] More of the document remains and is not being read right now; shows how much is on screen and a Read more control.
+ * @param {function} [props.onReadMore] Called by Read more; read the next chunks and append them to `text`.
  * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
  */
-export function TextView({ text = "", meta = {}, done = true, error }) {
+export function TextView({
+  text = "",
+  meta = {},
+  done = true,
+  hasMore = false,
+  onReadMore,
+  error,
+}) {
   if (error) {
     return html`<${Panel}><${ErrorState}>Could not read text: ${error}<//><//>`;
   }
@@ -32,22 +42,38 @@ export function TextView({ text = "", meta = {}, done = true, error }) {
 
   const totalBytes =
     typeof meta.total_bytes === "number" ? meta.total_bytes : null;
+  // The byte offset the text read so far ends at.
+  const shownBytes =
+    typeof meta.next_offset === "number"
+      ? meta.next_offset
+      : new TextEncoder().encode(text).length;
 
   return html`<${Panel}>
     <${ScrollArea} class="text-surface">
       <pre class="text-content" data-testid="text-content">${text}</pre>
     <//>
-    ${!done
-      ? html`<${LoadingState} data-testid="text-loading-more">
-          Reading the
-          rest${totalBytes !== null
-            ? ` of ${totalBytes.toLocaleString()} bytes`
-            : ""}…
-        <//>`
-      : totalBytes !== null
-        ? html`<div class="panel-hint" data-testid="text-size">
-            ${`${totalBytes.toLocaleString()} bytes${meta.encoding ? ` · ${meta.encoding}` : ""}`}
-          </div>`
-        : null}
+    ${hasMore
+      ? html`<div class="panel-hint" data-testid="text-partial">
+          ${`Showing ${shownBytes.toLocaleString()}${totalBytes !== null ? ` of ${totalBytes.toLocaleString()}` : ""} bytes.`}
+          ${onReadMore
+            ? html` <${Button}
+                data-testid="text-read-more"
+                onClick=${onReadMore}
+                >Read more<//
+              >`
+            : null}
+        </div>`
+      : !done
+        ? html`<${LoadingState} data-testid="text-loading-more">
+            Reading the
+            rest${totalBytes !== null
+              ? ` of ${totalBytes.toLocaleString()} bytes`
+              : ""}…
+          <//>`
+        : totalBytes !== null
+          ? html`<div class="panel-hint" data-testid="text-size">
+              ${`${totalBytes.toLocaleString()} bytes${meta.encoding ? ` · ${meta.encoding}` : ""}`}
+            </div>`
+          : null}
   <//>`;
 }

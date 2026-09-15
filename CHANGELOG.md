@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2447] **MiniApps can ask before they build.** An AI writing a MiniApp can
+  declare a short questionnaire in `panels/<id>/questionnaire.json` and show it
+  with the new SDK components (`Questionnaire`, `Question`,
+  `SingleChoiceQuestion`, `MultipleChoiceQuestion`, `TextQuestion`,
+  `NumberQuestion`, `SubmitBar` in `sdk/1/panel-ui.js`). Every question is
+  optional and offers "Decide for me". `scistudio.submitAnswers(answers)` saves
+  the answers to `panels/<id>/answers.json` and types a one-line notice into the
+  MiniApp's AI terminal tab when it is open. `validate_panel` now exercises a
+  questionnaire end to end (spec, page wiring, sample submits) and reports
+  actionable errors, and the new MCP tool `wait_for_answers` lets an agent in
+  External AI mode wait for the submit. The MiniApp create brief now asks the
+  agent to look at the data, ask, wait for the submit, then build.
 - [#2415] **The activity bar can be rearranged.** Drag an icon in the left
   rail to move its section, or focus an icon and press Alt+ArrowUp /
   Alt+ArrowDown. The order is remembered in this browser; right-click the rail
@@ -753,6 +765,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2460] **Previews and MiniApps show the complete data, never a sample.** A
+  series longer than 2000 points was drawn from an evenly spaced sample, and a
+  large array plane arrived striding over its pixels. Panel reads now page
+  instead: `series.points` and `table.xy` take `offset`/`limit` (up to 100000
+  rows a page) and return every row in place, NaN and infinities included;
+  `array.plane` returns the whole plane only when it fits one read and otherwise
+  its geometry and extent, with the values read exactly through `array.tile`;
+  `composite.slots` pages by cursor instead of refusing a composite with more
+  than 200 slots. The core series preview reads every page and its table
+  scrolls over every row, the text preview offers Read more after a large
+  batch instead of stopping silently, and table cells show exact values rather
+  than four decimal places. `max_points`, `sampled`, `decimation`, `strides`,
+  and `source_indices` are gone from panel reads, and
+  `PreviewDataAccess.series_points` loses its `max_points` argument.
 
 - [#2421] **A new MiniApp shows up in the MiniApps tab on its own.** A MiniApp
   written into the project's `panels/` folder, by an agent, the editor, or any

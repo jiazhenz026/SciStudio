@@ -127,7 +127,7 @@ def test_miniapp_context_reports_call_operation(tmp_path: Path) -> None:
     client = _client(tmp_path)
     body = _open(client)
     assert body["kind"] == "miniapp"
-    assert body["operations"] == ["read", "call"]
+    assert body["operations"] == ["read", "call", "submitAnswers"]
     assert body["services"] == ["save"]
     assert body["process"]["state"] in ("starting", "running")
     client.delete(f"/api/panels/contexts/{body['context_id']}")

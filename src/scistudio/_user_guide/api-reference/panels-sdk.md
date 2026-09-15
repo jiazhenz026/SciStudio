@@ -29,7 +29,7 @@ What `window.scistudio` offers depends on the context. Operations and services a
 | --- | --- | --- |
 | `preview` | `read` | `open`, `save` |
 | `interactive` | `writeBack` | `save` |
-| `miniapp` | `read`, `call` (with `panel.py`) | `save` |
+| `miniapp` | `read`, `call` (with `panel.py`), `submitAnswers` | `save` |
 
 ## Lifecycle
 
@@ -229,6 +229,31 @@ the key `JSON.stringify({fn, args})`, then the key `fn`.
 
 **Returns:** `Promise<any>` — The function's JSON-safe return value.
 
+## Questionnaire
+
+### `scistudio.submitAnswers(answers)`
+
+**Contexts:** `miniapp`
+
+Submit the MiniApp's questionnaire. The host checks the answers against
+`questionnaire.json`, writes them to `answers.json` in the MiniApp's
+folder (replacing an earlier submit), and, when the agent session that
+is building this MiniApp is still open in SciStudio, types one line into
+it saying the answers are ready; `notified` is then `true`. Otherwise
+`notified` is `false`, `reason` is `no_session`, and `message` asks the
+user to go back to their AI chat. Answers that do not fit the
+questionnaire reject with `invalid_answers`. The `Questionnaire`
+component calls this for you when given it as `onSubmit`.
+
+In sample mode nothing is saved: it resolves with `saved: false`,
+`notified: false`, and `reason: "sample_mode"`.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `answers` | `object` | One answer per question id: `{status: "answered", value, other?}`, `{status: "decide_for_me"}`, or `{status: "skipped"}`. A question left out counts as skipped. |
+
+**Returns:** `Promise<object>` — `{saved, path, submitted_at, notified, reason, message}`.
+
 ## Services
 
 ### `scistudio.save(value)`
@@ -249,14 +274,14 @@ Save a file for the user through the host. An `ArrayBuffer` in
 | Operation | Target | Parameters | Result |
 | --- | --- | --- | --- |
 | `metadata` | any target | _ignored_ | `{type_chain, metadata, shape, dtype}` recorded for the target. |
-| `composite.slots` | a composite | none | `{slots: [{name, type_name, ref}], complete}`; each slot `ref` can be read or opened. |
-| `collection.items` | a collection | `cursor`, `limit` | One bounded page `{items: [{ref, type_name, kind, display_name}], truncated, complete, ...}`; pass the returned cursor to continue. |
+| `composite.slots` | a composite | `cursor`, `limit` | One page `{slots: [{name, type_name, ref}], count, next_cursor, truncated, complete}`; each slot `ref` can be read or opened. Pass the returned cursor to continue; `complete` is true on the last page. |
+| `collection.items` | a collection | `cursor`, `limit` | One page `{items: [{ref, type_name, kind, display_name}], count, next_cursor, truncated, complete}`; pass the returned cursor to continue. `truncated` means more pages remain. |
 | `table.page` | a data object with a table | `page`, `page_size`, `sort_by`, `sort_dir` | `{columns, rows, total, total_rows, page, page_size, total_pages, sort: {by, direction}, complete}`. Paging is navigation over complete data. |
-| `table.xy` | a data object with a table | `x_column`, `y_column`, `max_points` | `{x, y, ...}` for two columns; `max_points` is clamped to 1..2000. |
-| `array.plane` | an array | `slice_index`, `axis_indices` | A numeric read of the selected plane: `values` plus geometry such as `shape`, `dtype`, `axes`, `slice_axes`, `vmin`, `vmax`. |
-| `array.tile` | an array | `slice_index`, `axis_indices`, `y0`, `x0`, `height`, `width` | A numeric read of one bounded window `{values, y0, x0, ...}` of the selected plane. |
-| `series.points` | a series | `max_points` | `{index, values, nonfinite_positions, source_indices, ...}`; `max_points` is clamped to 1..2000. |
-| `text.chunk` | a text object | `offset`, `length` | `{text, content, offset, next_offset, total_bytes, encoding, truncated, complete}`; continue from `next_offset`. |
+| `table.xy` | a data object with a table | `x_column`, `y_column`, `offset`, `limit` | One page of rows `{x, y, columns, x_column, y_column, offset, next_offset, total, nonnumeric, truncated, complete}` for two columns: `x[i]` and `y[i]` are the exact values of source row `offset + i`, a non-finite or missing value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most 100000; continue from `next_offset` until it is `null`. |
+| `array.plane` | an array | `slice_index`, `axis_indices` | The selected plane's geometry `{source_shape, source_dtype, axes, slice_axes, height, width, tile_size, vmin, vmax, complete}` (`vmin`/`vmax` over every cell). `values` holds the whole plane when it fits one read (`complete` true); otherwise `values` is empty and the plane's exact values are read with `array.tile` windows of at most `tile_size` per side. |
+| `array.tile` | an array | `slice_index`, `axis_indices`, `y0`, `x0`, `height`, `width` | The exact values of one window `{values, y0, x0, height, width, truncated, complete}` of the selected plane; `truncated` means the window was larger than one read and was cut at the tile size. |
+| `series.points` | a series | `offset`, `limit` | One page of points `{index, values, offset, next_offset, total, nonnumeric, truncated, complete}`: `index[i]` and `values[i]` are the exact x and y of source row `offset + i`, a non-finite or missing value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most 100000; continue from `next_offset` until it is `null`. |
+| `text.chunk` | a text object | `offset`, `length` | `{text, content, offset, next_offset, total_bytes, encoding, truncated, complete}`; continue from `next_offset` until it is `null`. |
 | `artifact.info` | an artifact | none | `{name, path, mime_type, size}`, plus `formats` for a plot. |
 | `artifact.file` | an artifact | `variant` | `artifact.info` plus a `url` the page can load; `variant` selects one of a plot's `formats`. |
 
@@ -264,7 +289,8 @@ Save a file for the user through the host. An `ArrayBuffer` in
 
 A rejected promise carries an `Error` whose `code` names the failure. The
 host adds its own codes for refused requests (for example
-`invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`); a
+`invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`,
+`invalid_answers`, `no_questionnaire`); a
 failed `call` uses the Python exception's type name as its code.
 
 | Code | Meaning |
@@ -275,7 +301,7 @@ failed `call` uses the Python exception's type name as its code.
 | `not_found` | Sample mode has no `reads` or `calls` entry for the request. |
 | `unsupported` | Sample mode cannot perform the request (no host `save` or `open`), or the sample's `context` is not a panel context. |
 | `already_used` | `writeBack` was already called once for this decision. |
-| `invalid_request` | `call` was given no function name. |
+| `invalid_request` | `call` was given no function name, or `submitAnswers` was given something other than an object. |
 | `sample_missing` | Sample mode could not load `panel.sample.json`. |
 
 ## Shared libraries

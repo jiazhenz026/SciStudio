@@ -51,6 +51,10 @@ WATCHED_TIERS = (OwnerKind.PROJECT, OwnerKind.USER)
 
 _MANIFEST_AND_PYTHON = ("panel.json", "panel.py")
 _IGNORED_PARTS = {"__pycache__"}
+# MiniApp FR-051: the host writes answers.json when the user submits a
+# questionnaire. It is data, not page, and reloading would wipe the message the
+# submit left on screen, so it never reloads the tab.
+_IGNORED_NAMES = {"answers.json"}
 
 
 def watches(panel: Any) -> bool:
@@ -66,6 +70,8 @@ def counts(directory: Path, path: Path) -> bool:
     except ValueError:
         return False
     if any(part in _IGNORED_PARTS for part in relative.parts):
+        return False
+    if relative.name in _IGNORED_NAMES or relative.name.startswith(".answers-"):
         return False
     if relative.name in _MANIFEST_AND_PYTHON:
         return True

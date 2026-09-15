@@ -13,6 +13,12 @@ export interface PanelBridgeHandlers {
    * a handler is refused as `unsupported` rather than crashing.
    */
   call?: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
+  /**
+   * ADR-054 MiniApp FR-050 — submit a MiniApp questionnaire. Optional for the
+   * same reason as `call`: a host without it refuses the operation as
+   * `unsupported`.
+   */
+  submitAnswers?: (answers: Record<string, unknown>) => Promise<unknown>;
   save: (payload: unknown) => Promise<unknown>;
   viewState: (state: unknown) => void;
   resize: (height: number) => void;
@@ -39,6 +45,31 @@ const READ_OPS = new Set([
   "composite.slots",
   "collection.items",
 ]);
+
+/** ADR-054 FR-016 — forward a page call to the context's resident `panel.py`. */
+function forwardCall(payload: unknown, handlers: PanelBridgeHandlers) {
+  if (
+    !isRecord(payload) ||
+    typeof payload.fn !== "string" ||
+    !payload.fn ||
+    !isRecord(payload.args)
+  )
+    throw new PanelError("invalid_request", "A call needs a function name and an args object");
+  if (!handlers.call) throw new PanelError("unsupported", "This host does not forward panel calls");
+  return handlers.call(payload.fn, payload.args);
+}
+
+/** ADR-054 MiniApp FR-050 — forward a questionnaire submit the context was granted. */
+function submitAnswers(payload: unknown, handlers: PanelBridgeHandlers) {
+  if (!isRecord(payload) || !isRecord(payload.answers) || !isJsonSafe(payload.answers))
+    throw new PanelError(
+      "invalid_request",
+      "Answers must be a JSON-safe object keyed by question id",
+    );
+  if (!handlers.submitAnswers)
+    throw new PanelError("unsupported", "This host does not accept questionnaire answers");
+  return handlers.submitAnswers(payload.answers);
+}
 
 /** A single mount has a single port. No window message listener is installed. */
 export function createPanelBridge(
@@ -148,18 +179,11 @@ export function createPanelBridge(
         throw new PanelError("invalid_request", "Open requires a child reference");
       return handlers.open(payload.ref); // Backend validates parent-child reachability.
     }
-    if (type === "call" && context.operations.includes("call")) {
-      if (
-        !isRecord(payload) ||
-        typeof payload.fn !== "string" ||
-        !payload.fn ||
-        !isRecord(payload.args)
-      )
-        throw new PanelError("invalid_request", "A call needs a function name and an args object");
-      if (!handlers.call)
-        throw new PanelError("unsupported", "This host does not forward panel calls");
-      return handlers.call(payload.fn, payload.args);
-    }
+    // ADR-054 FR-016 / MiniApp FR-050 — the two operations only a miniapp is granted.
+    if (type === "call" && context.operations.includes("call"))
+      return forwardCall(payload, handlers);
+    if (type === "submitAnswers" && context.operations.includes("submitAnswers"))
+      return submitAnswers(payload, handlers);
     if (
       type === "writeBack" &&
       context.kind === "interactive" &&

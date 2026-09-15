@@ -311,7 +311,7 @@ def compose_create_brief(
 
 A user asked SciStudio for a small app to look at one piece of their data.
 SciStudio has already created the directory and opened it in a tab, so the
-user is watching a template page while you work. Replace it.
+user is watching a template page while you work.
 
 ## What the user asked for
 
@@ -327,20 +327,25 @@ user is watching a template page while you work. Replace it.
 
 ## How to do it
 
-1. Follow the `scistudio-write-miniapp` skill. It is the MiniApp form: what
-   `panel.json` declares, how the page talks to the SDK (`read`, `call`,
-   `save`), what `panel.py` may do, and what the frame does and does not allow.
-2. Write only inside `{directory_relpath}`, unless the user asks you for
-   something else. This is their project; a MiniApp leaves only itself behind.
-3. Keep the `id`, `contexts`, and `types` that are already in `panel.json`.
-   The tab is open on that id and that type right now, and changing either
-   closes the user's tab underneath them. If the type is wrong for what they
-   asked for, say so instead of editing it.
-4. Put the work that is slow in `setup(data)` in `panel.py`, once, and answer
-   the page from what it loaded. `data` is the output above, already
-   reconstructed as a SciStudio data object.
-5. Run `validate_panel` on the directory before you finish, and fix what it
-   reports. The tab reloads every time you save, so the user sees each step.
+Follow the `scistudio-write-miniapp` skill; it holds the detail. In short:
+
+1. Take a quick look at the data, so your questions are about this data.
+2. Ask before you build. Write `questionnaire.json` and a page that shows it
+   with the SDK's standard `Questionnaire` component. Every answer is optional
+   and every question offers "Decide for me"; suggest alternative answers as
+   options. Run `validate_panel` on the directory until it passes — it checks
+   the questionnaire works end to end.
+3. Wait for the user to submit. In this session you are told in the chat when
+   they do; without a SciStudio session, call `wait_for_answers`. The answers are
+   in `{directory_relpath}/answers.json`.
+4. Build the MiniApp from the answers, replacing the questionnaire page. Choose
+   sensibly wherever the user picked "Decide for me" or skipped a question.
+5. Write only inside `{directory_relpath}`, unless the user asks you for
+   something else. Keep the `id`, `contexts`, and `types` that are already in
+   `panel.json`: the tab is open on that id and that type, and changing either
+   closes the user's tab. If the type is wrong for what they asked for, say so.
+6. Run `validate_panel` again before you finish. The tab reloads every time you
+   save, so the user sees each step.
 
 When it works, tell the user in one or two sentences what they can now do with
 it — not how you built it.

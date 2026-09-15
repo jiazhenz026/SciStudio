@@ -133,7 +133,7 @@ def select_plane(access: Any, ref: Any, slice_index: int, axis_indices: dict[int
 
 
 def _extent(selection: PlaneSelection, byte_budget: int) -> tuple[int | float | None, int | float | None]:
-    """Compute full-plane extrema in bounded tiles, including unsampled cells."""
+    """Compute full-plane extrema in bounded tiles, covering every cell."""
     itemsize = max(8, np.dtype(selection.handle.dtype).itemsize)
     edge = max(1, min(256, math.isqrt(max(1, byte_budget // itemsize))))
     low = high = None
@@ -149,18 +149,28 @@ def _extent(selection: PlaneSelection, byte_budget: int) -> tuple[int | float | 
 
 
 def read_plane(access: Any, ref: Any, slice_index: int, axis_indices: dict[int, int] | None) -> NumericRead:
+    """Read the selected plane's geometry, full extent, and — when it fits one read — every value.
+
+    A plane never arrives sampled. When the whole plane fits one read (at most
+    ``max_tile`` cells per side and the byte budget) ``values`` holds all of it
+    and ``complete`` is true. A larger plane returns its geometry and extent with
+    an empty ``values`` and ``complete`` false: its values are read exactly,
+    window by window, through ``array.tile`` (at most ``tile_size`` per side).
+    """
+    # Development references: ADR-054, #1886, #2460.
     selection = select_plane(access, ref, slice_index, axis_indices)
     dtype = np.dtype(selection.handle.dtype)
     if dtype.kind not in "biuf":
         raise ValueError(f"Unsupported panel numeric dtype: {dtype}")
-    max_cells = access.max_bytes // dtype.itemsize
-    if max_cells < 1:
+    if access.max_bytes // dtype.itemsize < 1:
         raise ValueError("Numeric read byte budget is smaller than one value")
-    edge = min(access.max_dim, max(1, math.isqrt(max_cells)))
-    step_y, step_x = max(1, math.ceil(selection.height / edge)), max(1, math.ceil(selection.width / edge))
-    values = selection.read(slice(0, selection.height, step_y), slice(0, selection.width, step_x))
+    height, width = selection.height, selection.width
+    fits = (
+        height <= access.max_tile and width <= access.max_tile and height * width * dtype.itemsize <= access.max_bytes
+    )
+    # A plane too large for one read carries no values at all, never a stand-in.
+    values = selection.read(slice(0, height), slice(0, width)) if fits else np.empty((0, 0), dtype=dtype)
     vmin, vmax = _extent(selection, access.max_bytes)
-    sampled = step_y > 1 or step_x > 1
     return numeric_read(
         values,
         {
@@ -168,13 +178,13 @@ def read_plane(access: Any, ref: Any, slice_index: int, axis_indices: dict[int, 
             "source_dtype": str(dtype),
             "axes": selection.axes,
             "slice_axes": selection.slice_axes,
+            "height": height,
+            "width": width,
+            "tile_size": access.max_tile,
             "vmin": vmin,
             "vmax": vmax,
-            "sampled": sampled,
-            "truncated": sampled,
-            "complete": not sampled,
-            "decimation": "stride" if sampled else "none",
-            "strides": [step_y, step_x],
+            "truncated": not fits,
+            "complete": fits,
         },
         access.max_bytes,
     )
@@ -215,7 +225,6 @@ def read_tile(
             "x0": x0,
             "height": h,
             "width": w,
-            "sampled": False,
             "truncated": truncated,
             "complete": not truncated,
         },
