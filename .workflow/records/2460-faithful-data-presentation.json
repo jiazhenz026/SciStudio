@@ -28,7 +28,56 @@
     ]
   },
   "directive_events": [],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:51:46.466482Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466647Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466649Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-sdk.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466651Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-renderers.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466654Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466664Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No architectural decision changes; ADR-054 already requires faithful preview and spec FR-011a records the read contract",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -60,5 +109,54 @@
   "session_id": "2e6b365a-4367-4e20-bb31-af46dbdf4569",
   "strictness_tier": null,
   "task_kind": "bugfix",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T13:51:46.466670Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/previewers/test_panel_read_extensions.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466679Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466680Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/seriesPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466682Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/textPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466683Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/compositePanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:51:46.466684Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/dataframePanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
