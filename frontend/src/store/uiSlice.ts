@@ -18,6 +18,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   bottomPanelCollapsed: false,
   bottomPanelPinned: false,
   minimapVisible: true,
+  // #2361 — a markdown tab opens split by default; the whole point of the
+  // preview is to be there without being asked for.
+  markdownPreviewVisible: true,
   panelSizes: {
     palette: 15,
     preview: 22,
@@ -106,6 +109,8 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   toggleBottomPanel: () => set((state) => ({ bottomPanelCollapsed: !state.bottomPanelCollapsed })),
   toggleBottomPanelPinned: () => set((state) => ({ bottomPanelPinned: !state.bottomPanelPinned })),
   toggleMinimap: () => set((state) => ({ minimapVisible: !state.minimapVisible })),
+  toggleMarkdownPreview: () =>
+    set((state) => ({ markdownPreviewVisible: !state.markdownPreviewVisible })),
   setPanelSize: (panel, size) =>
     set((state) => ({
       panelSizes: {

@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld("scistudioDesktop", {
   // the main process to relaunch, so a fresh Python interpreter imports the new
   // package code (already-imported modules are not re-imported in-process).
   relaunch: () => ipcRenderer.invoke("scistudio:relaunch"),
+  // #2361: links inside rendered project markdown must reach the user's default
+  // browser. window.open would ask Electron for a child BrowserWindow the main
+  // window has no handler for, so the renderer asks the main process, which
+  // validates the scheme and forwards to shell.openExternal.
+  openExternal: (url) => ipcRenderer.invoke("scistudio:open-external", url),
   // Application-menu actions (desktop/menu.js). Subscribe with a callback that
   // receives the action id; returns an unsubscribe function. The frontend
   // dispatches these in App.parts/useDesktopMenuActions.ts.
