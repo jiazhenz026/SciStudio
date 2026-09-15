@@ -1,0 +1,621 @@
+{
+  "base_ref": null,
+  "branch": "guided/2467-user-guide",
+  "check_events": [
+    {
+      "at": "2026-09-15T17:59:40.705710Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 1,
+      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T17:59:41.099003Z",
+      "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T17:59:48.242075Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T17:59:48.302413Z",
+      "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T18:01:45.162454Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/_user_guide/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T17:06:18.300382Z",
+      "owner_directive": "miniapps.md \u7d22\u5f15\u6761\u76ee\u5e94\u653e\u5230 Using the app \u8868\uff08\u4e0d\u653e Making your own\uff09\uff1b\u5148\u4fee\u8ba2 README.md\uff0c\u4eca\u5929\u4e00\u7bc7\u4e00\u7bc7\u8fc7",
+      "reason": "owner reviewed README.md and directed the placement of the MiniApps index entry"
+    },
+    {
+      "at": "2026-09-15T17:08:57.470074Z",
+      "owner_directive": "README.md \u7d22\u5f15\u884c What it covers \u4e0d\u5e94\u662f Create, reuse, debug and convert...\uff0c\u5e94\u5199\u6210 instructions on using miniapps for data exploration and interaction",
+      "reason": "owner rejected the index row wording for miniapps.md"
+    },
+    {
+      "at": "2026-09-15T17:11:39.253112Z",
+      "owner_directive": "getting-started.md \u5e95\u90e8\u680f\u63cf\u8ff0\u4e0d\u7528\u7ba1\uff1b\u53ea\u5728\u6700\u540e Where to go next \u8868\u52a0\u4e00\u4e2a\u6307\u5411 miniapps.md \u7684\u8def\u7531",
+      "reason": "owner reviewed getting-started.md: bottom-panel wording is fine as-is; only a MiniApps route is wanted"
+    },
+    {
+      "at": "2026-09-15T17:17:35.536338Z",
+      "owner_directive": "how-scistudio-works.md\uff1a\u8fc7\u65f6\u7684\u6539\u6389\uff08MCP \u5de5\u5177\u6570\u3001Previewers \u884c\uff09\uff1bMiniApps \u63d0\u4e00\u53e5",
+      "reason": "owner reviewed how-scistudio-works.md"
+    },
+    {
+      "at": "2026-09-15T17:21:20.522606Z",
+      "owner_directive": "Lineage and Reproducibility \u7ae0\u8282\u7f16\u53f7\u653e 4.5\uff1bMiniApps \u6309\u65b0\u67b6\u6784\u6587\u6863\u4f5c\u4e3a\u5355\u72ec\u7ae0\u8282\uff0810. Panels and MiniApps\uff09\uff1b\u5176\u4f59\u7f16\u53f7\u6309\u67b6\u6784\u6587\u6863\u66f4\u65b0",
+      "reason": "owner decided the lineage section number and the MiniApps section placement"
+    },
+    {
+      "at": "2026-09-15T17:23:37.076016Z",
+      "owner_directive": "using-the-gui.md \u5927\u6539\uff1a\u4e0d\u518d\u6559 workflow \u64cd\u4f5c\uff08\u6559\u5b66\u5df2\u7531\u6559\u7a0b\u8986\u76d6\uff09\uff0c\u6539\u4e3a\u50cf\u67b6\u6784\u6587\u6863\u90a3\u6837\u753b\u51fa GUI \u5e03\u5c40\u56fe\uff0c\u5206\u533a\u7b80\u5355\u4ecb\u7ecd\u529f\u80fd\uff1a\u5de6\u8fb9\u680f\u3001tab\u680f\u3001\u53f3\u8fb9\u680f\u3001canvas\u3001\u5de5\u5177\u680f",
+      "reason": "owner redirected using-the-gui.md from an operations manual to a layout map"
+    },
+    {
+      "at": "2026-09-15T17:32:18.145974Z",
+      "owner_directive": "GUI \u7b80\u7b14\u753b\u8981\u7167\u67b6\u6784\u6587\u6863 \u00a79.2 \u7684\u753b\u6cd5\uff08\u5e26\u56fe\u6807 glyph\u3001\u5206\u533a\u65b9\u6846\u7684\u7b80\u7b14\u753b\uff09\uff0c\u4e0d\u8981\u81ea\u5df1\u53d1\u660e\u7eaf\u6587\u5b57 ASCII",
+      "reason": "owner rejected the hand-rolled ASCII diagram"
+    },
+    {
+      "at": "2026-09-15T17:35:30.405472Z",
+      "owner_directive": "using-the-gui.md \u4e0d\u5e26\u7b80\u7b14\u753b\uff0c\u7eaf\u6587\u5b57\u5206\u533a\u4ecb\u7ecd",
+      "reason": "owner decided against both ASCII and screenshots for now"
+    },
+    {
+      "at": "2026-09-15T17:36:43.897626Z",
+      "owner_directive": "\u521b\u5efa\u4e00\u4e2a\u65b0\u7684\u7528\u6237\u6587\u6863 learning-center\uff08\u4ecb\u7ecd Learning Center \u529f\u80fd\uff09\uff1busing-the-gui.md \u52a0\u4e00\u4e2a\u8def\u7531\u8fc7\u53bb",
+      "reason": "owner expanded the user guide series with a new page"
+    },
+    {
+      "at": "2026-09-15T17:40:00.755828Z",
+      "owner_directive": "README.md \u7d22\u5f15\u8868\u548c getting-started.md \u7684 Where to go next \u8868\u90fd\u8981\u52a0 learning-center \u7684\u8def\u7531",
+      "reason": "owner edited learning-center.md directly and directed the index routes"
+    },
+    {
+      "at": "2026-09-15T17:42:44.457892Z",
+      "owner_directive": "built-in-blocks/history-and-branches/ai-assistant \u770b\u8fc7\u4e86\u4e0d\u7528\u52a8\uff1bminiapps.md \u5e9f\u8bdd\u592a\u591a\uff0c\u7b80\u5316",
+      "reason": "owner reviewed the remaining pages: three need no change, miniapps.md needs condensing"
+    },
+    {
+      "at": "2026-09-15T17:47:34.046569Z",
+      "owner_directive": "miniapps.md \u6700\u540e\u9762\u52a0\u4e00\u4e2a Next step \u8def\u7531",
+      "reason": "owner further condensed miniapps.md by hand and asked for a closing route"
+    },
+    {
+      "at": "2026-09-15T17:49:17.898622Z",
+      "owner_directive": "\u626b\u5168\u90e8 user guide \u91cc\u65e7\u7684 previewer \u8bf4\u8f9e\u5e76\u6e05\u6389",
+      "reason": "owner asked for a full user-guide sweep for stale previewer wording"
+    },
+    {
+      "at": "2026-09-15T17:54:59.823853Z",
+      "owner_directive": "\u65b0\u5efa use-panels \u7528\u6237\u6587\u6863\uff1a\u8bb2 panels \u662f\u4ec0\u4e48\u3001\u5206\u54ea 3 \u7c7b\u3001\u6bcf\u7c7b\u505a\u4ec0\u4e48\u7528\uff0c\u52a0\u8def\u7531",
+      "reason": "owner added a new page to the user guide series"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T17:06:18.300610Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:08:57.470389Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:11:39.253434Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/getting-started.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:17:35.536470Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:21:20.522771Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:37.076204Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/using-the-gui.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:32:18.146420Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/using-the-gui.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:35:30.405806Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/using-the-gui.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:36:43.897931Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/learning-center.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:36:43.897946Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/using-the-gui.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:40:00.755999Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:40:00.756015Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/getting-started.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:42:44.458032Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/miniapps.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:47:34.046970Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/miniapps.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:49:17.898938Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/custom-types.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:54:59.824044Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/use-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:54:59.824506Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/README.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-15T17:59:48.368262Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.379156Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.390143Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.401180Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.412614Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.423564Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.434333Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.445905Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "allowed_roots": [
+              ".agents",
+              ".claude",
+              ".codex",
+              ".gemini"
+            ],
+            "runtime": "pi:kimi-for-coding"
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "persona_policy",
+          "git_evidence": null,
+          "id": "persona_policy.unsupported-runtime-root",
+          "line": null,
+          "message": "runtime must map to one of the ADR-042 AI runtime config roots",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "persona_policy.unsupported-runtime-root",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "persona_policy",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T17:59:48.456773Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.467589Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.478435Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T17:59:48.489394Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.189992Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.200282Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.210759Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.221766Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.232543Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.242834Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.253385Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.264288Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.274678Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.284617Z",
+      "findings": [],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.294771Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:01:45.305514Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2467,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "92ed988f",
+    "changed_files": [],
+    "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "head": "HEAD",
+    "head_sha": "561259fd",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_agent_docs": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 0,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "\u7ee7\u7eed ADR-054 \u6587\u6863\u4fee\u8ba2\uff0c\u5148\u4fee\u8ba2 user guide \u7cfb\u5217\uff08_user_guide\uff09\uff1b\u4eca\u5929\u8d70 guided \u6d41\u7a0b\uff0c\u6587\u6863\u4e00\u7bc7\u4e00\u7bc7\u8fc7\uff0c\u4e0d\u6025\u7740\u6279\u91cf\u6539",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T17:59:48.489462Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.commit_hygiene",
+        "guard.persona_policy"
+      ]
+    },
+    {
+      "at": "2026-09-15T18:01:45.305589Z",
+      "diff_fingerprint": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2467-guided-2467-user-guide",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [],
+    "guards": [
+      "agent_docs_guard",
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": []
+  },
+  "runtime": "agents",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:06:18.300507Z",
+      "pattern": "src/scistudio/_user_guide/README.md",
+      "reason": "owner reviewed README.md and directed the placement of the MiniApps index entry"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:11:39.253424Z",
+      "pattern": "src/scistudio/_user_guide/getting-started.md",
+      "reason": "owner reviewed getting-started.md: bottom-panel wording is fine as-is; only a MiniApps route is wanted"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:17:35.536463Z",
+      "pattern": "src/scistudio/_user_guide/how-scistudio-works.md",
+      "reason": "owner reviewed how-scistudio-works.md"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:36:43.897920Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "owner expanded the user guide series with a new page"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:49:17.898931Z",
+      "pattern": "src/scistudio/_user_guide/custom-types.md",
+      "reason": "owner asked for a full user-guide sweep for stale previewer wording"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:54:59.824034Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "owner added a new page to the user guide series"
+    }
+  ],
+  "session_id": "2c05ba84-a154-4875-a9e8-7bdf3685a0e2",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": []
+}

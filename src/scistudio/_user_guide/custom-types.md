@@ -11,7 +11,7 @@ storage format — you inherit all of that — you are **naming** your data and
 pinning the rules and metadata that go with it.
 
 > This page covers a **simple, project-local** type. Designing the type system
-> for a distributable package (multiple types, composites, previewers) is
+> for a distributable package (multiple types, composites, panels) is
 > covered in the Package Development guide (`docs/package-development/types.md`).
 
 ## Pick a base type
@@ -106,7 +106,7 @@ around.
 
 Put the class in a `.py` file under your project (next to the blocks that use
 it). For a one-off project that is all you need. If you later want to **share**
-the type — give it a dedicated previewer, publish it for others to install — see
+the type — give it a dedicated panel, publish it for others to install — see
 the Package Development guide, which uses the real `Spectrum` type from the
 spectroscopy package as its worked example.
 
