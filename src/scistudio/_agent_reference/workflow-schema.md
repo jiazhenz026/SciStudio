@@ -32,6 +32,10 @@
 - **Validate before every run.** Call `validate_workflow` after each change and fix
   every error, reading `Warning:` messages as advisory. Never start
   `run_workflow` on a workflow that has not validated.
+- **Track a run by its own `run_id`.** `run_workflow` returns it; pass it to
+  `get_run_status`, `get_block_output`, `get_block_logs`, and `cancel_run`, which act
+  on that run only (a workflow id means that workflow's latest run). One workflow
+  cannot run twice at once, while different workflows can.
 - **Poll a run to a terminal state.** Keep calling `get_run_status` while the state
   is `queued`, `running`, or `unknown`. Only `succeeded`, `failed`, or `cancelled` is
   an outcome.

@@ -27,6 +27,7 @@ import type { StateCreator } from "zustand";
 
 import { bottomTabForReplaySurface } from "../components/LearningCenter.parts/targets";
 import { ApiError } from "../lib/api/core";
+import { confirmLeavingProject } from "../lib/leaveProject";
 import {
   learningCenterApi,
   TUTORIAL_SESSION_CONFLICT_STATUS,
@@ -378,6 +379,14 @@ export const createLearningCenterSlice: StateCreator<AppStore, [], [], LearningC
     },
 
     startTutorial: async (request: TutorialStartRequest) => {
+      // #2433: a tutorial opens its own project, which ends the open project's
+      // runs — ask first.
+      try {
+        if (!(await confirmLeavingProject({ getState: get }))) return;
+      } catch (error) {
+        set({ learningCenterError: describe(error) });
+        return;
+      }
       set({
         learningCenterLoading: true,
         learningCenterError: null,

@@ -15,9 +15,9 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
-import warnings
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
@@ -83,7 +83,8 @@ class RecentRunEntry(BaseModel):
 
     workflow_id: str
     started_at: str
-    state: str
+    state: str = Field(description="One of running/succeeded/failed/cancelled, as get_run_status reports it.")
+    run_id: str = Field(default="", description="The run id run_workflow returned for this run.")
 
 
 class GetProjectInfoResult(BaseModel):
@@ -94,7 +95,7 @@ class GetProjectInfoResult(BaseModel):
     workflows: list[str] = Field(default_factory=list, description="Names (file stems) of workflows in workflows/.")
     recent_runs: list[RecentRunEntry] = Field(
         default_factory=list,
-        description="Best-effort recent run listing via MetadataStore.",
+        description="The project's most recent runs from its run history, newest first.",
     )
 
 
@@ -380,6 +381,51 @@ async def list_data(
 # (d.4) get_project_info
 # ---------------------------------------------------------------------------
 
+#: How many runs ``get_project_info.recent_runs`` lists.
+_RECENT_RUNS_LIMIT = 20
+#: The run history's status spelled the way ``get_run_status`` reports a state.
+_RUN_STATE_BY_STATUS = {"completed": "succeeded"}
+
+
+def _recent_runs(ctx: Any, root: Path) -> list[RecentRunEntry]:
+    """The project's most recent runs, read from its lineage run history.
+
+    Uses the runtime's open lineage store when the context exposes one, and
+    otherwise reads ``.scistudio/lineage.db`` directly. A project with no run
+    history, or one that cannot be read, lists none.
+    """
+    # Development references: #2401.
+    store = getattr(ctx, "lineage_store", None)
+    owned = None
+    try:
+        if store is None:
+            db_path = root / ".scistudio" / "lineage.db"
+            if not db_path.is_file():
+                return []
+            from scistudio.core.lineage.store import LineageStore
+
+            store = owned = LineageStore(str(db_path))
+        rows = store.list_runs(limit=_RECENT_RUNS_LIMIT)
+    except Exception:
+        logger.debug("get_project_info: run history lookup failed", exc_info=True)
+        return []
+    finally:
+        if owned is not None:
+            with contextlib.suppress(Exception):
+                owned.close()
+    entries: list[RecentRunEntry] = []
+    for row in rows:
+        status = str(row.get("status") or "")
+        entries.append(
+            RecentRunEntry(
+                run_id=str(row.get("run_id") or ""),
+                workflow_id=str(row.get("workflow_id") or ""),
+                started_at=str(row.get("started_at") or ""),
+                state=_RUN_STATE_BY_STATUS.get(status, status),
+            )
+        )
+    return entries
+
 
 @mcp.tool(name="get_project_info", tags={"category:qa", "read"})
 async def get_project_info() -> GetProjectInfoResult:
@@ -410,22 +456,7 @@ async def get_project_info() -> GetProjectInfoResult:
     if workflows_dir.is_dir():
         workflows = sorted(p.stem for p in workflows_dir.glob("*.yaml"))
 
-    recent_runs: list[RecentRunEntry] = []
-    # Best-effort MetadataStore enumeration (D38-2.3 deprecation suppress).
-    with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", module=r"scistudio\.core\.metadata_store")
-        try:
-            from scistudio.core.metadata_store import get_metadata_store
-
-            store = get_metadata_store()
-            if store is not None:
-                # Best-effort: leave empty if the store doesn't expose
-                # a recent_runs helper. Out of scope per ADR-040 §3.1.
-                # TODO(#1012): once MetadataStore grows a proper
-                # recent_runs() API, populate this list.
-                pass
-        except Exception:
-            logger.debug("get_project_info: MetadataStore lookup failed", exc_info=True)
+    recent_runs = _recent_runs(ctx, root)
 
     return GetProjectInfoResult(
         project=project_meta,

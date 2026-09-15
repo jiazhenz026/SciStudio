@@ -59,6 +59,7 @@ from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE, FILE_ENTITY_CL
 from scistudio.api.routes.ai_pty.replay import open_replay_tab
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
+from scistudio.api.runtime._runs import ProjectRunsLiveError
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
@@ -1530,6 +1531,10 @@ def _acting(action: Callable[[], _T]) -> _T:
         # (#2061), which the detail is worded to say.
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except TutorialUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ProjectRunsLiveError as exc:
+        # #2433: starting a tutorial opens its project, which ends the open
+        # project's runs; the GUI ends them with the user's consent first.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except NoActiveSessionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
