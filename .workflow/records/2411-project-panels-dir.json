@@ -31,9 +31,168 @@
       "reason": "owner decision"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T07:34:25.879169Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/ai/work_import/brief_template.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:34:25.879318Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ARCHITECTURE.md project tree is owner-handled per owner directive; no other user-facing doc lists the new-project tree",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T07:34:08.443732Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.455878Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/core/dropins.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/core/dropins.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.466996Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "src/scistudio/ai/work_import/brief_template.md",
+              "src/scistudio/api/project_layout.py",
+              "src/scistudio/api/routes/tutorials.py",
+              "src/scistudio/core/dropins.py",
+              "src/scistudio/panels/miniapp_create.py",
+              "src/scistudio/tutorials/projects.py"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T07:34:08.478842Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.502185Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.514294Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.526039Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.538594Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.553755Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.565949Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:34:08.579305Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -43,11 +202,64 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "443a1853",
+    "changed_files": [
+      ".workflow/records/2411-project-panels-dir.json",
+      "src/scistudio/ai/work_import/brief_template.md",
+      "src/scistudio/api/project_layout.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/core/dropins.py",
+      "src/scistudio/panels/miniapp_create.py",
+      "src/scistudio/tutorials/projects.py",
+      "tests/api/test_project_layout.py",
+      "tests/api/test_tutorial_routes.py",
+      "tests/tutorials/test_scoped_library.py"
+    ],
+    "diff_fingerprint": "sha256:df69760a01e60b3464804cf89ed1fda87619dc77f3eb3813563428d2199f5e3b",
+    "head": "HEAD",
+    "head_sha": "ea1a4ed8",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 6,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 1,
+      "sentrux": 9,
+      "test": 3,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "New projects create panels/ instead of previewers/; existing previewers/ still scanned until 0.6.",
   "persona": "live_implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T07:34:08.579359Z",
+      "diff_fingerprint": "sha256:df69760a01e60b3464804cf89ed1fda87619dc77f3eb3813563428d2199f5e3b",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.architecture_tests",
+        "checks.commit_hygiene",
+        "checks.deferral_discipline",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "tests.changed_test_required"
+      ]
+    }
+  ],
   "record_id": "2411-project-panels-dir",
   "requested_admin_labels": [
     {
@@ -58,11 +270,39 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -93,7 +333,32 @@
     }
   ],
   "session_id": "018bcda3-998a-4c0e-b027-e78b06e6df08",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T07:34:25.879322Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_project_layout.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:34:25.879325Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_scoped_library.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:34:25.879326Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_tutorial_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
