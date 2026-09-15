@@ -155,7 +155,11 @@ function renderCanvas(miniApps: MiniAppSummary[] = [THRESHOLD, TABLE_APP]): {
         blockErrors={{}}
         blockOutputs={OUTPUTS}
         blockStates={{}}
-        blocks={[]}
+        blocks={Object.values(SCHEMAS).map((item) => ({
+          ...item,
+          subcategory: "",
+          version: "1.0",
+        }))}
         edges={[]}
         miniApps={miniApps}
         minimapVisible={false}
@@ -186,6 +190,15 @@ function rightClick(container: HTMLElement, nodeId: string): void {
   fireEvent.contextMenu(node);
 }
 
+async function hoverDetails(container: HTMLElement, nodeId: string): Promise<void> {
+  const node = container.querySelector(
+    `.react-flow__node[data-id="${nodeId}"] [data-testid="block-node-shell"]`,
+  );
+  if (!(node instanceof HTMLElement)) throw new Error(`no rendered node ${nodeId}`);
+  fireEvent.mouseEnter(node);
+  await waitFor(() => expect(screen.getByTestId("block-detail-popover")).toBeInTheDocument());
+}
+
 beforeEach(() => {
   resetAppStore();
   installReactFlowJsdomMocks();
@@ -200,38 +213,38 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("canvas block context menu (ADR-054 FR-035)", () => {
-  it("offers the MiniApps whose declared type matches an output, and New MiniApp", () => {
+describe("canvas block hover actions (ADR-054 FR-035)", async () => {
+  it("offers the MiniApps whose declared type matches an output, and New MiniApp", async () => {
     // US6 acceptance 1, canvas half: `mask` is a `Mask`, which is a subtype of
     // the `Image` the threshold explorer declares.
     const { container } = renderCanvas();
-    rightClick(container, "segment1");
+    await hoverDetails(container, "segment1");
 
-    expect(screen.getByTestId("canvas-block-context-menu")).toBeInTheDocument();
-    expect(screen.getByTestId("canvas-context-miniapp-threshold")).toHaveTextContent(
+    expect(screen.getByTestId("canvas-block-detail-actions")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-detail-miniapp-threshold")).toHaveTextContent(
       "Open in Threshold explorer",
     );
-    expect(screen.getByTestId("canvas-context-new-miniapp")).toBeEnabled();
+    expect(screen.getByTestId("canvas-detail-new-miniapp")).toBeEnabled();
   });
 
-  it("offers New MiniApp and no Image MiniApp on a DataFrame block", () => {
+  it("offers New MiniApp and no Image MiniApp on a DataFrame block", async () => {
     // US6 acceptance 2, verbatim: the menu must not offer a MiniApp that could
     // not read this block's output. `DataFrame` is not an `Image`, and the
     // subtype rule is directional — a bidirectional compatibility check would
     // have offered it here.
     const { container } = renderCanvas();
-    rightClick(container, "table1");
+    await hoverDetails(container, "table1");
 
-    expect(screen.getByTestId("canvas-context-new-miniapp")).toBeInTheDocument();
-    expect(screen.queryByTestId("canvas-context-miniapp-threshold")).toBeNull();
-    expect(screen.getByTestId("canvas-context-miniapp-tabler")).toBeInTheDocument();
+    expect(screen.getByTestId("canvas-detail-new-miniapp")).toBeInTheDocument();
+    expect(screen.queryByTestId("canvas-detail-miniapp-threshold")).toBeNull();
+    expect(screen.getByTestId("canvas-detail-miniapp-tabler")).toBeInTheDocument();
   });
 
-  it("pre-fills the block's output when New MiniApp is chosen", () => {
+  it("pre-fills the block's output when New MiniApp is chosen", async () => {
     // US1 acceptance 1: the dialog opens with THAT block's output.
     const { container, handlers } = renderCanvas();
-    rightClick(container, "segment1");
-    fireEvent.click(screen.getByTestId("canvas-context-new-miniapp"));
+    await hoverDetails(container, "segment1");
+    fireEvent.click(screen.getByTestId("canvas-detail-new-miniapp"));
 
     expect(handlers.onNewMiniApp).toHaveBeenCalledWith({
       workflow_id: "main",
@@ -239,14 +252,14 @@ describe("canvas block context menu (ADR-054 FR-035)", () => {
       port: "mask",
     });
     // The menu closes behind the choice.
-    expect(screen.queryByTestId("canvas-block-context-menu")).toBeNull();
+    expect(screen.queryByTestId("block-detail-popover")).toBeNull();
   });
 
-  it("opens a MiniApp on the block's only matching port without asking", () => {
+  it("opens a MiniApp on the block's only matching port without asking", async () => {
     // FR-034 — "asking only when several ports match".
     const { container, handlers } = renderCanvas();
-    rightClick(container, "segment1");
-    fireEvent.click(screen.getByTestId("canvas-context-miniapp-threshold"));
+    await hoverDetails(container, "segment1");
+    fireEvent.click(screen.getByTestId("canvas-detail-miniapp-threshold"));
 
     expect(handlers.onOpenMiniApp).toHaveBeenCalledWith(THRESHOLD, {
       workflow_id: "main",
@@ -270,25 +283,32 @@ describe("canvas block context menu (ADR-054 FR-035)", () => {
       ),
     );
     const { container, handlers } = renderCanvas();
-    rightClick(container, "pair1");
-    fireEvent.click(screen.getByTestId("canvas-context-miniapp-threshold"));
+    await hoverDetails(container, "pair1");
+    fireEvent.click(screen.getByTestId("canvas-detail-miniapp-threshold"));
 
     await waitFor(() => expect(screen.getByTestId("miniapp-target-picker")).toBeInTheDocument());
     expect(handlers.onOpenMiniApp).not.toHaveBeenCalled();
   });
 
-  it("disables the entries with the reason for a block that has not produced anything", () => {
+  it("disables the entries with the reason for a block that has not produced anything", async () => {
     // FR-035 — disabled WITH THE REASON, not hidden: the entry is how a user
     // finds out MiniApps exist, and the reason is what they can act on.
     const { container, handlers } = renderCanvas();
-    rightClick(container, "fresh1");
+    await hoverDetails(container, "fresh1");
 
-    const entry = screen.getByTestId("canvas-context-new-miniapp");
+    const entry = screen.getByTestId("canvas-detail-new-miniapp");
     expect(entry).toBeDisabled();
-    expect(screen.getByTestId("canvas-context-reason")).toHaveTextContent(/run it/i);
-    expect(screen.queryByTestId("canvas-context-miniapp-threshold")).toBeNull();
+    expect(screen.getByTestId("canvas-detail-reason")).toHaveTextContent(/run it/i);
+    expect(screen.queryByTestId("canvas-detail-miniapp-threshold")).toBeNull();
     fireEvent.click(entry);
     expect(handlers.onNewMiniApp).not.toHaveBeenCalled();
+  });
+
+  it("never mounts the removed custom right-click menu, even with MiniApp handlers", () => {
+    const { container } = renderCanvas();
+    rightClick(container, "segment1");
+    expect(screen.queryByTestId("canvas-block-context-menu")).toBeNull();
+    expect(screen.queryByTestId("block-detail-popover")).toBeNull();
   });
 
   it("leaves the browser's own menu alone when the workspace wired no MiniApp handlers", () => {

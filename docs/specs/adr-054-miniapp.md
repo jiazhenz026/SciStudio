@@ -871,3 +871,15 @@ next blocks.” The dynamic MiniApp name is bold. A second short paragraph says
 “Your MiniApp will remain available.” Submission says **Convert**. The type
 control is the catalogue-backed native select with keyboard prefix lookup;
 this does not claim a searchable combobox.
+
+
+### Canvas hover actions (guided owner directive, #2354)
+
+The node right-click menu described in FR-035 is replaced by the existing block
+hover detail popover. Its New MiniApp and compatible Open in MiniApp actions
+retain the same produced-output, type and multi-port selection contracts. The
+popover remains open while the pointer is inside, with a 120ms transit grace.
+Project/user block source opens through Edit block in the existing editor;
+builtin/package/custom source uses the existing readonly View source action.
+The authoritative canvas interaction details are in
+[the block palette spec](frontend-block-palette.md#canvas-action-relocation-guided-owner-directive-2354).

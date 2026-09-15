@@ -18,8 +18,8 @@
 // (effective ports for dynamic blocks, variadic min/max limits) — the same
 // contracts as before, minus the deleted inline-config path.
 
-import { type Node, type NodeProps } from "@xyflow/react";
-import { useEffect, useRef, useState } from "react";
+import { type Node, type NodeProps, useStoreApi } from "@xyflow/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { BlockNodeData } from "../../types/ui";
@@ -29,6 +29,7 @@ import {
 } from "../../utils/computeEffectivePorts";
 
 import { BlockDetailPopover, type PopoverAnchor } from "../BlockDetailPopover";
+import { POPOVER_CLOSE_DELAY_MS } from "../palette/hoverPopover";
 import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
 import { promotableBlock } from "../promotion/promotable";
 import { NodeActionToolbar } from "./BlockNode.parts/NodeActionToolbar";
@@ -41,7 +42,15 @@ import {
   computeNodeDetailAnchor,
 } from "./BlockNode.parts/nodeDetailAnchor";
 
-export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNodeData>>) {
+export function BlockNode({
+  id: nodeId,
+  data,
+  selected,
+  positionAbsoluteX,
+  positionAbsoluteY,
+  dragging,
+}: NodeProps<Node<BlockNodeData>>) {
+  const flowStore = useStoreApi();
   // ADR-050 §2.1 — block-kind mark + macaron body colour from the base
   // category (lucide line icon), with optional per-block overrides (#1839):
   // a block may declare its own `ui_color` / `ui_icon` on its summary, which
@@ -107,21 +116,63 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
   // placed node: after a short dwell, show the shared BlockDetailPopover with
   // this block's summary, anchored beside the node's on-screen rect (so it is
   // correct under any canvas zoom/pan). It floats to the side of the square and
-  // is pointer-events-none, so it never collides with the action toolbar that
-  // floats above. No-op when the block summary is unavailable (e.g. an
+  // accepts pointer events so its actions can be reached after the dwell. No-op when the block summary is unavailable (e.g. an
   // unresolved custom/plugin block).
   const shellRef = useRef<HTMLDivElement>(null);
   const [detailAnchor, setDetailAnchor] = useState<PopoverAnchor | null>(null);
   const detailTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const detailCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const summary = data.summary;
+  const keepDetailOpen = useCallback(() => {
+    if (detailCloseTimer.current) clearTimeout(detailCloseTimer.current);
+    detailCloseTimer.current = null;
+  }, []);
+  const closeDetail = useCallback(() => {
+    keepDetailOpen();
+    if (detailTimer.current) clearTimeout(detailTimer.current);
+    detailTimer.current = null;
+    setDetailAnchor(null);
+  }, [keepDetailOpen]);
+
+  // Portalled cards have fixed viewport anchors; invalidate them when their
+  // node or the canvas moves, including programmatic fit/zoom transitions.
+  useEffect(() => closeDetail(), [positionAbsoluteX, positionAbsoluteY, dragging, closeDetail]);
+  useEffect(
+    () =>
+      flowStore.subscribe((state, previous) => {
+        if (state.transform.some((value, index) => value !== previous.transform[index]))
+          closeDetail();
+      }),
+    [flowStore, closeDetail],
+  );
+  useEffect(() => {
+    if (!detailAnchor) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeDetail();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Element;
+      if (!shellRef.current?.contains(target) && !target.closest("[data-canvas-block-detail]"))
+        closeDetail();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    window.addEventListener("resize", closeDetail);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      window.removeEventListener("resize", closeDetail);
+    };
+  }, [detailAnchor, closeDetail]);
 
   const showActions = () => {
+    keepDetailOpen();
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
     setHovered(true);
-    if (summary && typeof window !== "undefined") {
+    if (summary && !detailAnchor && typeof window !== "undefined") {
       if (detailTimer.current) clearTimeout(detailTimer.current);
       detailTimer.current = setTimeout(() => {
         const rect = shellRef.current?.getBoundingClientRect();
@@ -142,18 +193,22 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       setHovered(false);
       hideTimer.current = null;
     }, 450);
-    // The detail popover sits beside the node and has no controls to reach, so
-    // it dismisses immediately on leave rather than after the toolbar delay.
+    // Allow pointer transit across the gap; entering the card cancels this close.
     if (detailTimer.current) {
       clearTimeout(detailTimer.current);
       detailTimer.current = null;
     }
-    setDetailAnchor(null);
+    keepDetailOpen();
+    detailCloseTimer.current = setTimeout(() => {
+      detailCloseTimer.current = null;
+      setDetailAnchor(null);
+    }, POPOVER_CLOSE_DELAY_MS);
   };
   useEffect(
     () => () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
       if (detailTimer.current) clearTimeout(detailTimer.current);
+      if (detailCloseTimer.current) clearTimeout(detailCloseTimer.current);
     },
     [],
   );
@@ -172,6 +227,7 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       className="relative"
       onMouseEnter={showActions}
       onMouseLeave={scheduleHideActions}
+      onMouseDown={closeDetail}
     >
       {/* Floating actions — outside the square body (ADR-050 §2.2).
           ADR-053 §6.2 E2: "Move to My Library" joins the same menu, from the
@@ -194,13 +250,41 @@ export function BlockNode({ id: nodeId, data, selected }: NodeProps<Node<BlockNo
       />
 
       {/* Hover detail popover beside the node (#1887). Shared with the palette;
-          pointer-events-none + fixed positioning keep it out of layout flow.
+          fixed positioning keeps it out of layout flow.
           Portalled to <body> so it escapes ReactFlow's transformed viewport: a
           position:fixed descendant of a `transform`ed ancestor is positioned in
           that ancestor's coordinate space, so the getBoundingClientRect-derived
           viewport anchor would drift from the node after pan/zoom. */}
       {detailAnchor && summary && typeof document !== "undefined"
-        ? createPortal(<BlockDetailPopover anchor={detailAnchor} block={summary} />, document.body)
+        ? createPortal(
+            <div
+              className="nodrag nopan"
+              data-canvas-block-detail
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                const button = (event.target as Element).closest("button");
+                if (button && !button.disabled) closeDetail();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.stopPropagation();
+                  closeDetail();
+                }
+              }}
+            >
+              <BlockDetailPopover
+                anchor={detailAnchor}
+                block={summary}
+                interactive
+                onMouseEnter={keepDetailOpen}
+                onMouseLeave={scheduleHideActions}
+                actions={data.detailActions}
+              />
+            </div>,
+            document.body,
+          )
         : null}
 
       {/* ----------------------------------------------------------------- */}

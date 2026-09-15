@@ -29,8 +29,7 @@ export interface BlockDetailPopoverProps {
    * FR-044: accept pointer events and keep the card open while the pointer is
    * inside it. Supplied together with the handlers below by spreading
    * `useHoverPopover().popoverProps`. Left off, the card stays display-only —
-   * which is what the canvas node popover wants (`frontend-block-palette`
-   * spec §10).
+   * interactive surfaces supply their own hover controller.
    */
   interactive?: boolean;
   onMouseEnter?: () => void;

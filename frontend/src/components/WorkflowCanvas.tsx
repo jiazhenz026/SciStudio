@@ -1,7 +1,6 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
 import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
@@ -30,6 +29,7 @@ import { computeFocusSet, type FocusResult } from "./WorkflowCanvas.parts/focusM
 import { useCanvasHandlers } from "./WorkflowCanvas.parts/useCanvasHandlers";
 import { useFlowCallbacks } from "./WorkflowCanvas.parts/useFlowCallbacks";
 import { useFlowNodes } from "./WorkflowCanvas.parts/useFlowNodes";
+import { canEditBlockSource, openBlockEditor } from "./WorkflowCanvas.parts/blockSourceEditor";
 import { WorkflowMiniMap } from "./WorkflowCanvas.parts/WorkflowMiniMap";
 
 const nodeTypes = {
@@ -42,7 +42,7 @@ const nodeTypes = {
 const edgeTypes = { typed: TypedEdge };
 
 // ---------------------------------------------------------------------------
-// ADR-054 Phase D (#2354) — the block context menu (FR-035).
+// ADR-054 Phase D (#2354) — canvas block hover actions (FR-035).
 // ---------------------------------------------------------------------------
 
 /** What the menu says instead of an action when the block has produced nothing. */
@@ -116,71 +116,6 @@ export function portsForMiniApp(
     (port.accepted_types ?? []).some((candidate) =>
       isDeclaredSubtype(candidate, type, typeHierarchy),
     ),
-  );
-}
-
-interface CanvasMenuEntry {
-  key: string;
-  label: string;
-  disabled: boolean;
-  onSelect: () => void;
-}
-
-interface BlockContextMenuProps {
-  x: number;
-  y: number;
-  entries: CanvasMenuEntry[];
-  /** Shown under the entries when they are disabled, so the menu says WHY (FR-035). */
-  reason: string | null;
-  onClose: () => void;
-}
-
-/**
- * The menu itself.
- *
- * The same primitive `ProjectTree.parts/ContextMenu.tsx` uses — a fixed-position
- * panel at the pointer, dismissed on an outside mousedown — rather than a new
- * one. There is no generic context-menu component in the UI kit (only the
- * ProjectTree's, which is hard-wired to a tree node's three actions), and the
- * radix `DropdownMenu` this app has is anchored to a trigger element, which a
- * right-click at a point is not.
- */
-function BlockContextMenu({ x, y, entries, reason, onClose }: BlockContextMenuProps) {
-  useEffect(() => {
-    const handler = () => onClose();
-    window.addEventListener("mousedown", handler);
-    return () => window.removeEventListener("mousedown", handler);
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      className="fixed z-[60] min-w-48 rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
-      data-testid="canvas-block-context-menu"
-      onMouseDown={(event) => event.stopPropagation()}
-      style={{ left: x, top: y }}
-    >
-      {entries.map((entry) => (
-        <button
-          className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100 disabled:text-stone-400 disabled:hover:bg-transparent"
-          data-testid={`canvas-context-${entry.key}`}
-          disabled={entry.disabled}
-          key={entry.key}
-          onClick={() => {
-            entry.onSelect();
-            onClose();
-          }}
-          type="button"
-        >
-          {entry.label}
-        </button>
-      ))}
-      {reason ? (
-        <p className="px-4 py-1.5 text-[11px] text-stone-500" data-testid="canvas-context-reason">
-          {reason}
-        </p>
-      ) : null}
-    </div>,
-    document.body,
   );
 }
 
@@ -440,7 +375,7 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
    * and the canvas is not told which workflow it is showing: the id lives on
    * the workflow slice, which is what the tab restores on every switch. Read
    * here for the same reason `highlightedNodeId` is: transient identity the
-   * context menu needs and nothing above the canvas would otherwise thread.
+   * hover detail needs and nothing above the canvas would otherwise thread.
    */
   const workflowId = useAppStore((s) => s.workflowId);
   const {
@@ -493,7 +428,85 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onWarningClick,
   });
 
+  const [pickerFor, setPickerFor] = useState<{ summary: MiniAppSummary; blockId: string } | null>(
+    null,
+  );
+  const makeDetailActions = useCallback(
+    (node: WorkflowNode) => {
+      const summary = blocks.find((block) => block.type_name === node.block_type);
+      if (!summary) return null;
+      const schema = schemas[node.block_type];
+      const ports = producedOutputPorts(node, schema, blockOutputs?.[node.id]);
+      const targetFor = (port: string): MiniAppTarget | null =>
+        workflowId ? { workflow_id: workflowId, block_id: node.id, port } : null;
+      const entries = [
+        {
+          key: "edit-block",
+          label: canEditBlockSource(summary) ? "Edit block" : "View source",
+          disabled: false,
+          onSelect: () => {
+            void openBlockEditor(summary);
+          },
+        },
+        ...(onOpenMiniApp
+          ? (miniApps ?? []).flatMap((app) => {
+              const matching = portsForMiniApp(ports, app.type, schema?.type_hierarchy);
+              return matching.length
+                ? [
+                    {
+                      key: `miniapp-${app.panel_id}`,
+                      label: `Open in ${app.name}`,
+                      disabled: !workflowId,
+                      onSelect: () => {
+                        if (matching.length > 1) setPickerFor({ summary: app, blockId: node.id });
+                        else {
+                          const target = targetFor(matching[0].name);
+                          if (target) onOpenMiniApp(app, target);
+                        }
+                      },
+                    },
+                  ]
+                : [];
+            })
+          : []),
+        ...(onNewMiniApp
+          ? [
+              {
+                key: "new-miniapp",
+                label: "New MiniApp",
+                disabled: !ports.length || !workflowId,
+                onSelect: () => onNewMiniApp(targetFor(ports[0].name)),
+              },
+            ]
+          : []),
+      ];
+      return (
+        <div className="flex flex-col gap-1" data-testid="canvas-block-detail-actions">
+          {entries.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              className="rounded px-2 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100 disabled:text-stone-400"
+              data-testid={`canvas-detail-${entry.key}`}
+              disabled={entry.disabled}
+              onClick={entry.onSelect}
+            >
+              {entry.label}
+            </button>
+          ))}
+          {onNewMiniApp && !ports.length ? (
+            <p className="px-2 text-[11px] text-stone-500" data-testid="canvas-detail-reason">
+              {NO_OUTPUTS_REASON}
+            </p>
+          ) : null}
+        </div>
+      );
+    },
+    [blocks, schemas, blockOutputs, workflowId, miniApps, onOpenMiniApp, onNewMiniApp],
+  );
+
   const baseFlowNodes = useFlowNodes({
+    makeDetailActions,
     nodes,
     edges,
     blocks,
@@ -592,76 +605,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
 
   const showReadabilityControls = Boolean(onTidyLayout || onEnterFocusMode);
 
-  /*
-   * FR-035 — the context menu.
-   *
-   * It exists only when the workspace gave the canvas somewhere to send a
-   * choice: without `onNewMiniApp` and `onOpenMiniApp` a right-click keeps the
-   * browser's own menu, which is what every other consumer of this component
-   * (the subworkflow child canvas, the tests that predate this) still sees.
-   * THE HOVER TOOLBAR IS UNTOUCHED — this adds a second, slower route to the
-   * same block, and nothing was moved into it.
-   */
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    nodeId: string;
-  } | null>(null);
-  /** Set when several of the block's ports match; FR-034's "asking" case. */
-  const [pickerFor, setPickerFor] = useState<{
-    summary: MiniAppSummary;
-    blockId: string;
-  } | null>(null);
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
-
-  const menuNode = contextMenu ? (nodes.find((n) => n.id === contextMenu.nodeId) ?? null) : null;
-  const menuSchema = menuNode ? schemas[menuNode.block_type] : undefined;
-  const menuPorts = menuNode
-    ? producedOutputPorts(menuNode, menuSchema, blockOutputs?.[menuNode.id])
-    : [];
-  const menuHasOutputs = menuPorts.length > 0;
-
-  const targetFor = (blockId: string, port: string): MiniAppTarget | null =>
-    workflowId ? { workflow_id: workflowId, block_id: blockId, port } : null;
-
-  const openOn = (summary: MiniAppSummary, blockId: string, ports: BlockPortResponse[]) => {
-    // FR-034 — one match opens straight away; several ask, through the same
-    // picker the MiniApps tab uses, narrowed to this block.
-    if (ports.length === 1) {
-      const target = targetFor(blockId, ports[0].name);
-      if (target) onOpenMiniApp?.(summary, target);
-      return;
-    }
-    setPickerFor({ summary, blockId });
-  };
-
-  const menuEntries: CanvasMenuEntry[] = menuNode
-    ? [
-        ...(miniApps ?? [])
-          .map((summary) => ({
-            summary,
-            ports: portsForMiniApp(menuPorts, summary.type, menuSchema?.type_hierarchy),
-          }))
-          .filter((entry) => entry.ports.length > 0)
-          .map((entry) => ({
-            key: `miniapp-${entry.summary.panel_id}`,
-            label: `Open in ${entry.summary.name}`,
-            disabled: !workflowId,
-            onSelect: () => openOn(entry.summary, menuNode.id, entry.ports),
-          })),
-        {
-          key: "new-miniapp",
-          label: "New MiniApp",
-          // FR-035 — disabled, not hidden, for a block that has produced
-          // nothing: the entry is how the user learns the feature exists, and
-          // `reason` below says what to do about it.
-          disabled: !menuHasOutputs || !workflowId,
-          onSelect: () =>
-            onNewMiniApp?.(menuHasOutputs ? targetFor(menuNode.id, menuPorts[0].name) : null),
-        },
-      ]
-    : [];
-
   return (
     <div
       className="relative h-full"
@@ -685,15 +628,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
         onNodeClick={handlers.handleNodeClick}
         onNodeDoubleClick={handlers.handleNodeDoubleClick}
         onNodeDragStop={handlers.handleNodeDragStop}
-        onNodeContextMenu={(event, node) => {
-          // FR-035 is about BLOCK nodes. Annotations and subworkflow containers
-          // keep the browser menu: a subworkflow has no outputs of its own to
-          // open a MiniApp on, and an annotation is not data at all.
-          if (node.type !== "block") return;
-          if (!onNewMiniApp && !onOpenMiniApp) return;
-          event.preventDefault();
-          setContextMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
-        }}
         onNodesDelete={handlers.handleNodesDelete}
         onPaneClick={handlers.handlePaneClick}
         deleteKeyCode={["Backspace", "Delete"]}
@@ -717,15 +651,6 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           />
         ) : null}
       </ReactFlow>
-      {contextMenu && menuNode ? (
-        <BlockContextMenu
-          entries={menuEntries}
-          onClose={closeContextMenu}
-          reason={menuHasOutputs ? null : NO_OUTPUTS_REASON}
-          x={contextMenu.x}
-          y={contextMenu.y}
-        />
-      ) : null}
       {/* FR-034's "several ports match" case, on the block the user picked. */}
       <MiniAppTargetPicker
         onOpenChange={(open) => {
