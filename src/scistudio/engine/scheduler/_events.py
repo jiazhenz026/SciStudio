@@ -50,18 +50,23 @@ def _reap_cancelled_workers(terminations: list[tuple[str, Any]]) -> None:
 
 
 def _event_is_for_run(self: DAGScheduler, event: EngineEvent) -> bool:
-    """Return True when *event* targets this scheduler's own workflow.
+    """Return True when *event* targets this scheduler's own run.
 
     ``ApiRuntime`` owns one process-global ``EventBus`` and fans
     every event out to every live scheduler. A scheduler must only react to
-    events for its own ``workflow_id``; otherwise a cancel or terminal event
-    for one run mutates the state of every other concurrent run. Events that
-    carry no ``workflow_id`` are treated as in-scope (fail-open) so event types
-    that predate run scoping keep working.
+    events for its own run; otherwise a cancel or terminal event for one run
+    mutates the state of every other concurrent run. An event that carries a
+    ``run_id`` is matched on it: two runs of the same workflow share a
+    ``workflow_id``. An event without one is matched on
+    ``workflow_id``, and one carrying neither is treated as in-scope
+    (fail-open) so event types that predate run scoping keep working.
     """
-    # Development references: #1517.
+    # Development references: #1517, #2433.
     if not isinstance(event.data, dict):
         return True
+    event_run = event.data.get("run_id")
+    if event_run is not None and self._run_id is not None:
+        return bool(event_run == self._run_id)
     event_wf = event.data.get("workflow_id")
     return event_wf is None or event_wf == self._workflow.id
 
@@ -105,7 +110,7 @@ async def _on_interactive_complete(self: DAGScheduler, event: EngineEvent) -> No
         else:
             # Legacy / test callers emit the decision flat; drop any scoping
             # workflow_id so the recorded response is the decision only.
-            response = {key: value for key, value in data.items() if key != "workflow_id"}
+            response = {key: value for key, value in data.items() if key not in ("workflow_id", "run_id")}
         future.set_result(response)
     else:
         logger.warning(

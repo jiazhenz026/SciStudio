@@ -5,7 +5,14 @@
  * record that the parent `api` object spreads in.
  */
 
-import type { ActiveProjectResponse, ProjectResponse, TreeResponse } from "../../types/api";
+import type {
+  ActiveProjectResponse,
+  EndProjectRunsRequest,
+  EndProjectRunsResponse,
+  ProjectResponse,
+  ProjectRunsResponse,
+  TreeResponse,
+} from "../../types/api";
 import { apiFetch, JSON_HEADERS } from "./core";
 
 /**
@@ -28,6 +35,24 @@ export const projectsApi = {
    * it. Used by an attached view; `openProject` would reset the session.
    */
   getActiveProject: () => apiFetch<ActiveProjectResponse>("/api/projects/active"),
+  /**
+   * #2433 — the active project's runs that have not finished. Leaving the
+   * project ends every one of them, so the GUI asks first when this is not empty.
+   */
+  getActiveProjectRuns: () => apiFetch<ProjectRunsResponse>("/api/projects/active/runs"),
+  /**
+   * #2433 — cancel every live run of the active project and wait until each has
+   * ended. Bound to what the user confirmed: refused (409) when the active
+   * project is another one or a run they were not shown has started. Bounded
+   * server-side; a run that ignores cancellation is recorded as cancelled.
+   */
+  endActiveProjectRuns: (body: EndProjectRunsRequest) =>
+    apiFetch<EndProjectRunsResponse>("/api/projects/active/end-runs", {
+      method: "POST",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(body),
+      timeoutMs: PROJECT_SWITCH_TIMEOUT_MS,
+    }),
   createProject: (body: { name: string; description: string; path: string }) =>
     apiFetch<ProjectResponse>("/api/projects/", {
       method: "POST",

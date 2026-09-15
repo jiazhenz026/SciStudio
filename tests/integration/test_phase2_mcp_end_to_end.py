@@ -79,16 +79,17 @@ async def _test_mcp_server_initialize_tools_list_and_call(tmp_path: Path) -> Non
         assert "result" in init
         assert init["result"]["serverInfo"]["name"] == "scistudio-mcp"
 
-        # tools/list — expect all 38 locally visible tools (25 baseline
+        # tools/list — expect all 41 locally visible tools (25 baseline
         # + finish_ai_block from ADR-035
         # + get_active_workflow_context from ADR-040 Addendum 5
         # + 6 plot tools from ADR-048 SPEC 2 + edit_workflow from #1912
         # + open_gui from #1947 + promote_to_user_library from ADR-053 FR-011
-        # + validate_panel and open_miniapp from ADR-054 MiniApp FR-029/FR-030;
+        # + validate_panel and open_miniapp from ADR-054 MiniApp FR-029/FR-030
+        # + list_panels from #2441/#2445 + wait_for_answers from #2447;
         # the 14 external-audience tools of ADR-055 Spec 2 are hidden here).
         listed = await _connect_and_call(server, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
         tools = listed["result"]["tools"]
-        assert len(tools) == 39
+        assert len(tools) == 41
         names = {t["name"] for t in tools}
         assert "list_blocks" in names and "preview_data" in names and "search_docs" in names
         assert "edit_workflow" in names

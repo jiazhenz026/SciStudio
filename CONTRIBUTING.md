@@ -75,4 +75,4 @@ as a human contributor you don't need to run the gate yourself.
 
 ## Community
 
-- [Discord](https://discord.gg/5b7kTRU2k)
+- [Discord](https://discord.gg/KGJfkM6EQN)

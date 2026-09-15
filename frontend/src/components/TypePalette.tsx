@@ -31,6 +31,7 @@ import type { TypeSummary } from "../types/api";
 import { FilterChips, type FilterChip } from "./palette/FilterChips";
 import { useHoverPopover } from "./palette/hoverPopover";
 import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
+import { SectionReloadButton } from "./SectionReloadButton";
 import { isPromotable, promotableType } from "./promotion/promotable";
 import { TypeDetailPopover } from "./TypePalette.parts/TypeDetailPopover";
 import { TypeRow } from "./TypePalette.parts/TypeRow";
@@ -257,9 +258,7 @@ export function TypePalette() {
         {/* FR-039: the panel names itself after its tab, so `Blocks` and
             `Data types` read as peers. */}
         <p className="font-display text-xl text-ink">Data types</p>
-        <button className="toolbar-button" onClick={handleReload} type="button">
-          Reload
-        </button>
+        <SectionReloadButton onClick={handleReload} />
       </div>
 
       <div

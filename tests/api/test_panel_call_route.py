@@ -22,9 +22,7 @@ from scistudio.engine.runners.process_handle import ProcessRegistry
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.registry import PanelRegistry
 from scistudio.previewers.models import OwnerKind, PreviewTarget
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.router import PreviewRouter
-from scistudio.previewers.session import PreviewSessionManager
+from tests.panels.conftest import install_panel_service
 
 pytestmark = pytest.mark.serial
 
@@ -52,12 +50,6 @@ def _runtime(tmp_path: Path, *, contexts='["miniapp"]'):
     panels.register(
         parse_descriptor(panel_dir, owner_kind=OwnerKind.PROJECT, owner_name="p", registered_types={"Text"})[0]
     )
-    registry = PreviewerRegistry()
-    registry.load_core()
-    registry.install_panels(panels)
-    service = SimpleNamespace(
-        registry=registry, router=PreviewRouter(registry), sessions=PreviewSessionManager(registry)
-    )
     record = DataRecord(
         "data-a",
         StorageReference(backend="filesystem", path=str(data), metadata={"type_chain": ["DataObject", "Text"]}),
@@ -78,7 +70,6 @@ def _runtime(tmp_path: Path, *, contexts='["miniapp"]'):
     )
     runtime.event_bus.runtime = runtime
     runtime.get_data_record = lambda ref: runtime.data_catalog[ref]
-    runtime.get_preview_service = lambda: service
     runtime.resolve_session_target = lambda target: PreviewTarget(
         kind=target.kind,
         ref=target.ref,
@@ -88,6 +79,7 @@ def _runtime(tmp_path: Path, *, contexts='["miniapp"]'):
     runtime.type_registry = SimpleNamespace(
         resolve=lambda name: SimpleNamespace(base_type={"Text": "DataObject"}.get(name, ""))
     )
+    install_panel_service(runtime, panels)
     return runtime
 
 
@@ -127,7 +119,7 @@ def test_miniapp_context_reports_call_operation(tmp_path: Path) -> None:
     client = _client(tmp_path)
     body = _open(client)
     assert body["kind"] == "miniapp"
-    assert body["operations"] == ["read", "call"]
+    assert body["operations"] == ["read", "call", "submitAnswers"]
     assert body["services"] == ["save"]
     assert body["process"]["state"] in ("starting", "running")
     client.delete(f"/api/panels/contexts/{body['context_id']}")
@@ -283,7 +275,7 @@ def test_hung_calls_do_not_starve_http_health(tmp_path: Path, monkeypatch: pytes
     import anyio.to_thread
     import httpx
 
-    from scistudio.panels.contexts import get_panel_contexts
+    from scistudio.panels.service import get_panel_contexts
 
     monkeypatch.setenv("SCISTUDIO_PANEL_TEARDOWN_GRACE", "0.1")
     monkeypatch.setenv("SCISTUDIO_PANEL_CALL_TIMEOUT", "10")

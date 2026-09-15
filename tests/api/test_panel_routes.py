@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.app import create_app
 from tests.api.fake_guard import RecordingFakeGuardFactory, authenticate_fake_session
-from tests.panels.conftest import make_runtime
+from tests.panels.conftest import make_runtime, use_panels
 
 
 @pytest.fixture(params=["", "/user/alice/scistudio"])
@@ -87,11 +87,8 @@ def test_renew_and_guarded_read_metadata(panel_client):
     )
     assert result.status_code == 200, result.text
     assert result.json()["type_chain"] == ["DataObject", "Text"]
-    assert {k: result.json()[k] for k in ("sampled", "truncated", "complete")} == {
-        "sampled": False,
-        "truncated": False,
-        "complete": True,
-    }
+    assert {k: result.json()[k] for k in ("truncated", "complete")} == {"truncated": False, "complete": True}
+    assert "sampled" not in result.json()
     rejected = client.post(
         prefix + "/api/panels/contexts/" + context["context_id"] + "/read",
         json={"ref": "another-data", "op": "metadata"},
@@ -134,7 +131,7 @@ def test_openapi_declares_context_and_binary_read(panel_client):
 
 def test_entry_bootstrap_precedes_author_markup_and_is_document_specific(panel_client):
     client, prefix, runtime, store, _ = panel_client
-    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    panel = runtime.get_panel_service().panel("lab.text")
     original = (
         b'<!doctype html><meta http-equiv="refresh" content="0;url=next.html"><script>window.author=true</script>'
     )
@@ -178,7 +175,7 @@ def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, en
     from scistudio.previewers.models import OwnerKind
 
     client, prefix, runtime, _, _ = panel_client
-    root = runtime.get_preview_service().registry.panels.get("lab.text").root
+    root = runtime.get_panel_service().panel("lab.text").root
     entry_path = root / entry
     entry_path.parent.mkdir(parents=True, exist_ok=True)
     entry_path.write_text("<p>entry</p>")
@@ -188,7 +185,7 @@ def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, en
     panels = PanelRegistry()
     panel, _ = parse_descriptor(root, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Text"})
     panels.register(panel)
-    runtime.get_preview_service().registry.install_panels(panels)
+    use_panels(runtime, panels)
     context = create(client, prefix)
     assert context["entry_url"].endswith("/assets/lab.text/" + PurePosixPath(entry).as_posix())
     assert "/./" not in context["entry_url"]
@@ -206,7 +203,7 @@ def test_entry_modified_after_discovery_has_bounded_source_read(panel_client, mo
     from scistudio.panels.files import MAX_SOURCE_BYTES
 
     client, prefix, runtime, _, _ = panel_client
-    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    panel = runtime.get_panel_service().panel("lab.text")
     path = panel.root / panel.entry
     context = create(client, prefix)
     with path.open("wb") as source:
@@ -249,10 +246,10 @@ def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tamper
     from scistudio.panels.targets import register_collection
 
     client, prefix, runtime, store, _ = panel_client
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     panels = PanelRegistry()
-    panels.register(replace(service.registry.panels.get("lab.text"), types=("Collection[Text]",)))
-    service.registry.install_panels(panels)
+    panels.register(replace(service.panel("lab.text"), types=("Collection[Text]",)))
+    use_panels(runtime, panels)
     group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
     parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
     url = prefix + "/api/panels/contexts/" + parent.context_id + "/open"
@@ -272,7 +269,7 @@ def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tamper
     assert "hello panel" in client.get(session_url).text
     runtime.data_catalog["data-a"].metadata["changed"] = True
     assert client.get(session_url).status_code == 404
-    assert envelope["session_id"] not in service.sessions._session_guards
+    assert envelope["session_id"] not in service.legacy.sessions._session_guards
 
 
 def test_composite_child_panel_maximizes_independently_after_parent_close(panel_client, tmp_path):
@@ -294,10 +291,8 @@ def test_composite_child_panel_maximizes_independently_after_parent_close(panel_
         "comp", storage, "Composite", {"slots": {"index": "DataFrame"}}, ["DataObject", "Composite"]
     )
     panels = PanelRegistry()
-    panels.register(
-        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Composite", "DataFrame"))
-    )
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Composite", "DataFrame")))
+    use_panels(runtime, panels)
     parent = store.create({"kind": "preview", "target": {"ref": "comp"}})
     opened = client.post(prefix + "/api/panels/contexts/" + parent.context_id + "/open", json={"ref": "comp#index"})
     assert opened.status_code == 200, opened.text
@@ -348,8 +343,8 @@ def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
         ["DataObject", "Array"],
     )
     panels = PanelRegistry()
-    panels.register(replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Array",)))
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Array",)))
+    use_panels(runtime, panels)
     created = client.post(prefix + "/api/panels/contexts", json={"kind": "preview", "target": {"ref": "array"}})
     assert created.status_code == 200, created.text
     url = prefix + "/api/panels/contexts/" + created.json()["context_id"] + "/read"
@@ -360,11 +355,56 @@ def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
     shape = json.loads(response.headers["x-panel-shape"])
     assert np.array_equal(np.frombuffer(response.content, dtype="<i4").reshape(shape), data)
     flags = json.loads(response.headers["x-panel-metadata"])
-    assert flags["complete"] and not flags["sampled"]
+    assert flags["complete"] and "sampled" not in flags
     invalid = client.post(
         url, json={"ref": "array", "op": "array.plane", "params": {"_storage": {"path": "/etc/passwd"}}}
     )
     assert invalid.status_code == 422
+
+
+def test_series_points_route_pages_exact_rows(panel_client, tmp_path):
+    """#2460: series.points pages every exact row; nothing is decimated or dropped."""
+    from dataclasses import replace
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    from scistudio.api.runtime.models import DataRecord
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels.registry import PanelRegistry
+
+    client, prefix, runtime, _store, _guard = panel_client
+    values = [float(i) for i in range(5)]
+    values[2] = float("nan")
+    path = tmp_path / "series.parquet"
+    pq.write_table(pa.table({"t": [0.5 * i for i in range(5)], "v": values}), path)
+    runtime.data_catalog["series"] = DataRecord(
+        "series",
+        StorageReference(backend="arrow", path=str(path)),
+        "Series",
+        {"index_name": "t", "value_name": "v"},
+        ["DataObject", "Series"],
+    )
+    panels = PanelRegistry()
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Series",)))
+    use_panels(runtime, panels)
+    created = client.post(prefix + "/api/panels/contexts", json={"kind": "preview", "target": {"ref": "series"}})
+    assert created.status_code == 200, created.text
+    url = prefix + "/api/panels/contexts/" + created.json()["context_id"] + "/read"
+    index, ys, offset = [], [], 0
+    while offset is not None:
+        page = client.post(url, json={"ref": "series", "op": "series.points", "params": {"offset": offset, "limit": 2}})
+        assert page.status_code == 200, page.text
+        body = page.json()
+        assert body["offset"] == offset and body["total"] == 5
+        assert body["truncated"] is (body["next_offset"] is not None)
+        index += body["index"]
+        ys += body["values"]
+        offset = body["next_offset"]
+    assert index == [0.0, 0.5, 1.0, 1.5, 2.0]
+    assert ys == [0.0, 1.0, "NaN", 3.0, 4.0]
+    refused = client.post(url, json={"ref": "series", "op": "series.points", "params": {"max_points": 10}})
+    assert refused.status_code == 422
 
 
 def test_reads_execute_off_event_loop(panel_client, monkeypatch):
@@ -424,7 +464,7 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     panels = PanelRegistry()
     panels.load(project, OwnerKind.PROJECT, {"Text"}, "active project")
     panels.load(user, OwnerKind.USER, {"Text"}, "user library")
-    runtime.get_preview_service().registry.install_panels(panels)
+    use_panels(runtime, panels)
     response = client.get(prefix + "/api/previews/previewers")
     assert response.status_code == 200, response.text
     cards = [card for card in response.json()["previewers"] if card["previewer_id"] == "lab.shaded"]
@@ -438,7 +478,7 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     assert cards[1]["target_type"] == ("Text" if "preview" in user_contexts else "")
     context = create(client, prefix)
     assert context["panel"]["id"] == "lab.shaded"
-    assert runtime.get_preview_service().registry.get("lab.shaded").owner_kind is OwnerKind.PROJECT
+    assert runtime.get_panel_service().previewer("lab.shaded").owner_kind is OwnerKind.PROJECT
 
 
 def test_shared_renderer_assets_are_served_under_context_authority(panel_client):
@@ -468,3 +508,52 @@ def test_shared_renderer_assets_are_served_under_context_authority(panel_client)
     client.delete(prefix + "/api/panels/contexts/" + context["context_id"])
     client.cookies.clear()
     assert client.get(f"{sdk}/renderers.js").status_code == 403
+
+
+def test_composite_slots_page_past_the_item_budget(panel_client, tmp_path, monkeypatch):
+    """#2460: a composite with more slots than one read carries is paged, not refused."""
+    from dataclasses import replace
+
+    import pyarrow as pa
+
+    from scistudio.api.runtime.models import DataRecord
+    from scistudio.core.storage.composite_store import CompositeStore
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels import contexts
+    from scistudio.panels.registry import PanelRegistry
+
+    monkeypatch.setattr(contexts, "READ_ITEMS", 2)
+    client, prefix, runtime, store, _ = panel_client
+    names = [f"s{i}" for i in range(5)]
+    storage = CompositeStore().write(
+        {name: ("arrow", pa.table({"a": [i]})) for i, name in enumerate(names)},
+        StorageReference(backend="composite", path=str(tmp_path / "composite")),
+    )
+    runtime.data_catalog["comp"] = DataRecord(
+        "comp", storage, "Composite", {"slots": dict.fromkeys(names, "DataFrame")}, ["DataObject", "Composite"]
+    )
+    panels = PanelRegistry()
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Composite", "DataFrame")))
+    use_panels(runtime, panels)
+    context = store.create({"kind": "preview", "target": {"ref": "comp"}})
+    url = prefix + "/api/panels/contexts/" + context.context_id + "/read"
+    seen, cursor = [], None
+    while True:
+        params = {"cursor": cursor} if cursor else {}
+        page = client.post(url, json={"ref": "comp", "op": "composite.slots", "params": params})
+        assert page.status_code == 200, page.text
+        body = page.json()
+        assert len(body["slots"]) <= 2 and body["count"] == 5
+        assert body["truncated"] is (body["next_cursor"] is not None)
+        seen += [slot["name"] for slot in body["slots"]]
+        cursor = body["next_cursor"]
+        if cursor is None:
+            break
+    assert seen == names
+    # A slot on the last page is authorized before any page listed it.
+    fresh = store.create({"kind": "preview", "target": {"ref": "comp"}})
+    last = client.post(
+        prefix + "/api/panels/contexts/" + fresh.context_id + "/read", json={"ref": "comp#s4", "op": "table.page"}
+    )
+    assert last.status_code == 200, last.text
+    assert last.json()["rows"] == [{"a": 4}]

@@ -2,12 +2,12 @@
  * ADR-053 spec 2 (#2001) — Bring In My Work dialog.
  *
  * Covers the acceptance scenarios of User Stories 1–4 that live on this side of
- * the boundary: the framing questions, the no-codebase path, graded agent
- * availability, and the correctness caveat.
+ * the boundary: the framing questions, the no-codebase path, the agent setup,
+ * and the correctness caveat.
  *
- * The availability payload is supplied through the `fetchAvailability` seam so
- * these tests pin contract C1 (`checklist §7.1`) directly, rather than the
- * transport of the module that will implement it.
+ * #2454 — the agent setup is AI Chat's own (`AgentLaunchSetup` over
+ * `GET /api/ai/status`), so provider status is faked with AI Chat's fixture
+ * rather than a dialog-specific seam.
  *
  * THE DIALOG IS PAGED, so a test that renders it sees ONE page. Everything here
  * drives it to the page it means to assert about through the shared `walkTo`,
@@ -26,6 +26,7 @@ vi.mock("../../lib/api", async () => {
 });
 
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
+import { mockAgentStatus } from "../AIChat/__tests__/agentStatusFixture";
 import {
   CAVEAT_BODY,
   DATA_KIND_GROUPS,
@@ -36,18 +37,21 @@ import {
   Q5_LABEL,
   SOURCE_LABEL,
 } from "../BringInMyWorkDialog.parts/copy";
+import {
+  REASON_NO_PERMISSION_MODE,
+  REASON_NO_PROVIDER,
+} from "../BringInMyWorkDialog.parts/formState";
 import { validateWorkImportRequest } from "../../lib/api/workImport";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../store";
-import type { AgentAvailabilityResponse } from "../../lib/api/agentAvailability";
 import {
+  blockedGoingOn,
   CLAUDE,
   CODEX,
   currentPage,
   LAST_PAGE,
   PAGE_IDS,
   provider,
-  ready,
   renderDialog,
   sessionResponse,
   settled,
@@ -63,8 +67,21 @@ function walkToStart(answers: PageAnswers = {}): void {
   walkTo(LAST_PAGE, answers);
 }
 
+/**
+ * Choose the agent on the setup page. Provider and permission mode both start
+ * unchosen, exactly as in AI Chat (#2454), so a test that replaces the harness's
+ * setup answer has to make this choice itself.
+ */
+function chooseAgent(name = "claude-code", mode: "safe" | "auto" | "dangerous" = "safe"): void {
+  fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: name } });
+  fireEvent.click(screen.getByTestId(`setup-permission-${mode}`));
+}
+
 const NO_CODEBASE: PageAnswers = {
-  setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")),
+  setup: () => {
+    fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+    chooseAgent();
+  },
   q2: () =>
     fireEvent.change(screen.getByTestId("work-import-q2-input"), {
       target: { value: "Every Monday I open the export in Excel and average the replicates." },
@@ -163,10 +180,11 @@ describe("FR-008 – FR-010 — source, browse, and the no-codebase path", () =>
     // FR-010 — every other field remains in effect, including the destination
     // and the agent setup, which share the setup page with it.
     expect(screen.getByTestId("work-import-destination-user_library")).toBeEnabled();
+    expect(screen.getByTestId("setup-provider-select")).toBeEnabled();
     expect(screen.getByTestId("setup-permission-safe")).toBeEnabled();
     // And the questions, which are now pages of their own rather than fields
     // below it — reachable with no source location given.
-    walkTo("q1", { setup: () => {} });
+    walkTo("q1", { setup: () => chooseAgent() });
     expect(screen.getByTestId("work-import-data-kind-Image")).toBeEnabled();
   });
 });
@@ -396,7 +414,7 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
       /not usable right now/i,
     ];
 
-    renderDialog(ready(CLAUDE, CODEX));
+    renderDialog([CLAUDE, CODEX]);
     await settled();
     for (const page of PAGE_IDS) {
       walkTo(page, {
@@ -404,9 +422,7 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
           fireEvent.change(screen.getByTestId("work-import-source-input"), {
             target: { value: SOURCE },
           });
-          fireEvent.change(screen.getByTestId("setup-provider-select"), {
-            target: { value: "codex" },
-          });
+          chooseAgent("codex");
         },
       });
       const text = screen.getByTestId("work-import-dialog").textContent ?? "";
@@ -415,213 +431,14 @@ describe("FR-006 / FR-007 — who the questions are written for", () => {
   });
 });
 
-describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
-  it("names the executable to install and where SciStudio looked, and offers no start action", async () => {
-    // FR-031's guidance column for this state is "Installation instructions"
-    // and SC-002 requires "a specific next action". Asserting only that the
-    // block exists would pass against an empty body, which is how the shipped
-    // "Set one of the supported agents up" survived review: it named the
-    // providers and then named nothing to do. The instruction is the backend's
-    // `next_step`, so what is pinned here is that the dialog RENDERS it.
-    renderDialog({
-      state: "not_installed",
-      providers: [
-        provider({
-          key: "claude-code",
-          label: "Claude Code",
-          state: "not_installed",
-          next_step:
-            "Install the Claude Code CLI so that `claude` is on your PATH and in ~/.local/bin.",
-        }),
-      ],
-    });
-    await settled();
-    const panel = screen.getByTestId("work-import-guidance-not_installed");
-    expect(panel.textContent).toContain("Claude Code");
-    expect(panel.textContent).toContain("`claude`");
-    expect(panel.textContent).toContain("~/.local/bin");
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-  });
-
-  it("names the sign-in command for the detected provider", async () => {
-    // FR-031's guidance column here is "Login instructions for the detected
-    // provider". "Sign in the way that agent expects" is the explicit absence
-    // of that, so this asserts an actual command reaches the user rather than
-    // that the panel contains the word "sign".
-    renderDialog({
-      state: "not_authenticated",
-      providers: [
-        provider({
-          key: "codex",
-          label: "Codex",
-          state: "not_authenticated",
-          next_step: "Sign in by running `codex login` in a terminal.",
-        }),
-      ],
-    });
-    await settled();
-    const panel = screen.getByTestId("work-import-guidance-not_authenticated");
-    expect(panel.textContent).toContain("Codex");
-    expect(panel.textContent).toContain("codex login");
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-  });
-
-  it("reports the concrete cause on call_failed and never suggests reinstalling", async () => {
-    renderDialog({
-      state: "call_failed",
-      providers: [
-        provider({
-          key: "claude-code",
-          label: "Claude Code",
-          state: "call_failed",
-          cause: "quota exceeded",
-        }),
-      ],
-    });
-    await settled();
-    const panel = screen.getByTestId("work-import-guidance-call_failed");
-    expect(panel.textContent).toContain("quota exceeded");
-    // FR-034 — a correctly configured user must never be sent to reinstall
-    // software they are already running. The branch avoids the word entirely.
-    expect(panel.textContent).not.toMatch(/reinstall/i);
-    expect(screen.queryByTestId("work-import-guidance-not_installed")).toBeNull();
-  });
-
-  it("does not tell a user whose call failed that their setup is fine", async () => {
-    // The implementation's own measurement table records the observed
-    // `kimi-code` failure as "No model configured" — a local problem the user
-    // has to fix. Copy asserting the opposite would send that user away from
-    // the only thing that would help. Not naming a fix is honest; asserting
-    // there is nothing to fix is not, and FR-034 does not license it.
-    renderDialog({
-      state: "call_failed",
-      providers: [
-        provider({
-          key: "kimi-code",
-          label: "Kimi Code",
-          state: "call_failed",
-          cause: "No model configured.",
-        }),
-      ],
-    });
-    await settled();
-    const panel = screen.getByTestId("work-import-guidance-call_failed");
-    expect(panel.textContent).not.toMatch(/nothing on your computer/i);
-    expect(panel.textContent).not.toMatch(/setup is fine/i);
-    expect(panel.textContent).toContain("No model configured.");
-  });
-
-  it("offers a retry that re-probes with refresh=true", async () => {
-    // The copy invites the user to check again, and the backend memoises the
-    // report for 60 seconds; without `refresh` a user who has just fixed their
-    // quota is re-served the same failure. Wiring the control is what makes
-    // that invitation something the UI can carry out.
-    const failing = {
-      state: "call_failed" as const,
-      providers: [
-        provider({ key: "codex", label: "Codex", state: "call_failed", cause: "quota exceeded" }),
-      ],
-    };
-    const fetchAvailability = vi
-      .fn<(options?: { refresh?: boolean }) => Promise<AgentAvailabilityResponse>>()
-      .mockResolvedValueOnce(failing)
-      .mockResolvedValueOnce(ready(CODEX));
-
-    render(
-      <BringInMyWorkDialog
-        onClose={vi.fn()}
-        fetchAvailability={fetchAvailability}
-        startSession={vi.fn<StartSession>(async () => sessionResponse())}
-      />,
-    );
-    await settled();
-    expect(fetchAvailability.mock.calls[0][0]).toBeUndefined();
-
-    fireEvent.click(screen.getByTestId("work-import-availability-retry"));
-
-    await waitFor(() => expect(screen.getByTestId("setup-provider-select")).toBeTruthy());
-    expect(fetchAvailability).toHaveBeenCalledTimes(2);
-    expect(fetchAvailability.mock.calls[1][0]).toEqual({ refresh: true });
-    expect(screen.queryByTestId("work-import-guidance-call_failed")).toBeNull();
-    // The user was held on the setup page while no agent could run; the fix
-    // releases them, all the way through to a start action.
-    walkToStart();
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
-  });
-
-  it("each state gets its own guidance rather than one state's cause standing in for another", async () => {
-    renderDialog({
-      state: "call_failed",
-      providers: [
-        provider({
-          key: "codex",
-          label: "Codex",
-          state: "call_failed",
-          cause: "network unreachable",
-        }),
-        provider({ key: "kimi-code", label: "Kimi", state: "not_authenticated" }),
-      ],
-    });
-    await settled();
-    const failed = screen.getByTestId("work-import-guidance-list-call_failed");
-    const unauthenticated = screen.getByTestId("work-import-guidance-list-not_authenticated");
-    expect(failed.textContent).toContain("Codex");
-    expect(failed.textContent).not.toContain("Kimi");
-    expect(unauthenticated.textContent).toContain("Kimi");
-    expect(unauthenticated.textContent).not.toContain("network unreachable");
-  });
-
-  it("lets the user proceed when some providers are usable and others are not", async () => {
-    renderDialog({
-      state: "ready",
-      providers: [
-        CLAUDE,
-        provider({ key: "codex", label: "Codex", state: "call_failed", cause: "quota" }),
-      ],
-    });
-    await settled();
-
-    // The unusable one is IN THE DROPDOWN, greyed, with a short suffix — the AI
-    // chat's pattern (owner, 2026-08-08). There is no longer a block of prose
-    // beside the picker telling a user with a working agent how to repair one
-    // they are not using.
-    const codex = screen.getByTestId("setup-provider-option-codex") as HTMLOptionElement;
-    expect(codex.disabled).toBe(true);
-    expect(codex.textContent).toBe("Codex (call failed)");
-    // FR-034 — never reported as an install problem.
-    expect(codex.textContent).not.toMatch(/install/i);
-    // The remedy and the cause are not here; they belong to the dead-end state.
-    expect(screen.queryByTestId("work-import-guidance-call_failed")).toBeNull();
-    expect(screen.getByTestId("work-import-dialog").textContent).not.toContain("quota");
-
-    // Not blocked: a mixed result lets the user through to the start action.
-    walkToStart();
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
-  });
-
-  it("lists every provider in the one dropdown, selectable ones first", async () => {
-    // The owner's own machine: two agents working, three not, and previously a
-    // paragraph of install and login instructions under the picker for the
-    // three he was not going to use.
-    renderDialog({
-      state: "ready",
-      providers: [
-        provider({
-          key: "qoder",
-          label: "Qoder CLI",
-          state: "not_installed",
-          next_step: "Install the Qoder CLI so that `qodercli` is on your PATH.",
-        }),
-        CLAUDE,
-        provider({
-          key: "qoder-cn",
-          label: "Qoder CLI (China)",
-          state: "not_authenticated",
-          next_step: "Start `qoderclicn` in a terminal and complete its sign-in.",
-        }),
-        CODEX,
-      ],
-    });
+describe("#2454 — the agent setup is AI Chat's", () => {
+  it("lists every provider in the one dropdown, installed ones first", async () => {
+    renderDialog([
+      provider({ name: "qoder", label: "Qoder CLI", available: false, version: null }),
+      CLAUDE,
+      provider({ name: "qoder-cn", label: "Qoder CLI (China)", logged_in: false, version: null }),
+      CODEX,
+    ]);
     await settled();
 
     const select = screen.getByTestId("setup-provider-select") as HTMLSelectElement;
@@ -632,146 +449,81 @@ describe("FR-005 / FR-031 / FR-034 — graded availability", () => {
     }));
     expect(options).toEqual([
       { value: "", text: "Choose provider…", disabled: true },
-      { value: "claude-code", text: "Claude Code", disabled: false },
-      { value: "codex", text: "Codex", disabled: false },
+      { value: "claude-code", text: "Claude Code v9.9.9", disabled: false },
+      // Not logged in is selectable: the CLI runs its own sign-in in the session.
+      { value: "qoder-cn", text: "Qoder CLI (China) (not logged in)", disabled: false },
+      { value: "codex", text: "Codex v9.9.9", disabled: false },
       { value: "qoder", text: "Qoder CLI (not installed)", disabled: true },
-      { value: "qoder-cn", text: "Qoder CLI (China) (not signed in)", disabled: true },
     ]);
-
-    // None of the remedies reaches the user in this state.
-    const dialog = screen.getByTestId("work-import-dialog").textContent ?? "";
-    expect(dialog).not.toContain("qodercli");
-    expect(dialog).not.toMatch(/complete its sign-in/i);
   });
 
-  it("renders with a reported state rather than waiting when the probe fails", async () => {
-    renderDialog(new Error("probe exploded"));
+  it("shows AI Chat's no-providers notice when no agent is installed, and holds the user there", async () => {
+    renderDialog([
+      provider({ name: "claude-code", label: "Claude Code", available: false, version: null }),
+      provider({ name: "codex", label: "Codex", available: false, version: null }),
+    ]);
     await settled();
-    expect(screen.getByTestId("work-import-dialog")).toBeTruthy();
-    expect(screen.getByTestId("work-import-guidance-call_failed").textContent).toContain(
-      "probe exploded",
-    );
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
+
+    const notice = screen.getByTestId("setup-no-providers-notice");
+    expect(notice.textContent).toContain("Claude Code");
+    expect(notice.textContent).toContain("Codex");
+    expect(screen.queryByTestId("setup-provider-select")).toBeNull();
+
+    fireEvent.change(screen.getByTestId("work-import-source-input"), {
+      target: { value: SOURCE },
+    });
+    fireEvent.click(screen.getByTestId("setup-permission-safe"));
+    expect(blockedGoingOn()).toContain(REASON_NO_PROVIDER);
   });
 
-  it("renders immediately while the probe is still in flight", () => {
+  it("reports a failed status check and holds the user on the setup page", async () => {
+    renderDialog(new Error("status exploded"));
+    await settled();
+    expect(screen.getByTestId("setup-status-error")).toBeTruthy();
+    expect(screen.getByTestId("work-import-dialog")).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId("work-import-source-input"), {
+      target: { value: SOURCE },
+    });
+    expect(blockedGoingOn()).toContain(REASON_NO_PROVIDER);
+  });
+
+  it("reads provider status from /api/ai/status and never from the removed availability probe", async () => {
+    const record = mockAgentStatus([CLAUDE]);
     render(
       <BringInMyWorkDialog
         onClose={vi.fn()}
-        fetchAvailability={() => new Promise<AgentAvailabilityResponse>(() => {})}
         startSession={vi.fn<StartSession>(async () => sessionResponse())}
       />,
     );
-    // FR-035 — a hanging probe never produces a stuck surface. The dialog is on
-    // screen, the setup page is usable, only the agent section reports waiting…
-    expect(screen.getByTestId("work-import-dialog")).toBeTruthy();
-    expect(currentPage()).toBe("setup");
-    expect(screen.getByTestId("work-import-probing")).toBeTruthy();
-    // …and an unresolved probe does not hold the user on page one either. Only
-    // the start action waits on it.
-    walkTo("q1");
-    expect(screen.getByTestId("work-import-q1")).toBeTruthy();
-  });
-
-  it("explains itself when the report names no providers at all", async () => {
-    // Contract C1 names this case — `aggregate_state([])` is `not_installed` —
-    // and guidance derived from provider ROWS produced nothing for it: a dialog
-    // full of questions, no start action, and no explanation of either.
-    renderDialog({ state: "not_installed", providers: [] });
     await settled();
-    const panel = screen.getByTestId("work-import-guidance-not_installed");
-    expect(panel.textContent).toMatch(/no agent providers registered/i);
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-  });
-});
-
-describe("a provider that cannot run a session is never offered (FR-029, FR-043)", () => {
-  const KIMI_REASON =
-    "Kimi Code has no positional prompt argument: its only prompt flag, -p/--prompt, runs one " +
-    "prompt non-interactively and exits.";
-  const KIMI = provider({
-    key: "kimi-code",
-    label: "Kimi Code",
-    state: "ready",
-    session_unsupported_reason: KIMI_REASON,
-  });
-
-  it("is not auto-selected when it is the only ready provider", async () => {
-    // The bug this pins: `ready` alone made a provider usable, FR-043 then
-    // selected the only usable one, and pressing Start returned an opaque 500
-    // with a stray brief left in the user's project. "Answers a live call" and
-    // "can be handed a task on its command line" are different capabilities and
-    // this feature needs both.
-    renderDialog({ state: "ready", providers: [KIMI] });
-    await settled();
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-    expect(screen.queryByTestId("setup-provider-select")).toBeNull();
-  });
-
-  it("is explained rather than silently dropped", async () => {
-    renderDialog({ state: "ready", providers: [KIMI] });
-    await settled();
-    const panel = screen.getByTestId("work-import-guidance-session_unsupported");
-    expect(panel.textContent).toContain("Kimi Code");
-    expect(panel.textContent).toContain("no positional prompt argument");
-    // Not reported as an install problem: installing it again would not help.
-    expect(screen.queryByTestId("work-import-guidance-not_installed")).toBeNull();
-  });
-
-  it("does not block a user who also has a provider that works", async () => {
-    renderDialog({ state: "ready", providers: [CLAUDE, KIMI] });
-    await settled();
-    expect(screen.getByTestId("setup-provider-select")).toHaveValue("claude-code");
-
-    const kimi = screen.getByTestId("setup-provider-option-kimi-code") as HTMLOptionElement;
-    expect(kimi.disabled).toBe(true);
-    // Its own suffix, not its availability state — it IS ready, and an option
-    // reading "Kimi Code" with nothing after it would look selectable-but-broken.
-    expect(kimi.textContent).toBe("Kimi Code (not available)");
-    // The registry's full explanation is guidance, and this user needs none.
-    expect(screen.getByTestId("work-import-dialog").textContent).not.toContain(
-      "no positional prompt argument",
-    );
-
     walkToStart();
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
-  });
+    expect(screen.getByTestId("work-import-start")).toBeEnabled();
 
-  it("is reported under its own reason even when it is also not installed", async () => {
-    // Installing it would not make it usable here, so "install this" would be
-    // an action that does not work — which is the thing SC-002 rules out.
-    renderDialog({
-      state: "not_installed",
-      providers: [
-        provider({
-          key: "kimi-code",
-          label: "Kimi Code",
-          state: "not_installed",
-          next_step: "Install the Kimi Code CLI so that `kimi` is on your PATH.",
-          session_unsupported_reason: KIMI_REASON,
-        }),
-      ],
-    });
-    await settled();
-    expect(screen.getByTestId("work-import-guidance-session_unsupported")).toBeTruthy();
-    expect(screen.queryByTestId("work-import-guidance-not_installed")).toBeNull();
+    expect(record.statusCalls.length).toBeGreaterThan(0);
+    expect(record.availabilityCalls).toEqual([]);
   });
 });
 
 describe("FR-040 – FR-044 — provider and permission mode", () => {
-  it("preselects the single usable provider and keeps the control visible", async () => {
-    renderDialog(ready(CLAUDE));
+  it("starts with neither a provider nor a permission mode chosen, even with one installed agent", async () => {
+    renderDialog([CLAUDE]);
     await settled();
     const select = screen.getByTestId("setup-provider-select");
     expect(select).toBeVisible();
-    expect(select).toHaveValue("claude-code");
+    expect(select).toHaveValue("");
+    for (const mode of ["safe", "auto", "dangerous"]) {
+      expect(screen.getByTestId(`setup-permission-${mode}`)).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+    }
   });
 
-  it("lets the user choose between two usable providers", async () => {
-    renderDialog(ready(CLAUDE, CODEX));
+  it("lets the user choose between two installed providers", async () => {
+    renderDialog([CLAUDE, CODEX]);
     await settled();
     const select = screen.getByTestId("setup-provider-select");
-    // Neither is preselected — the choice is the user's (ADR-034 FR-021i).
     expect(select).toHaveValue("");
     expect(screen.getByTestId("setup-provider-option-claude-code")).toBeTruthy();
     expect(screen.getByTestId("setup-provider-option-codex")).toBeTruthy();
@@ -779,18 +531,11 @@ describe("FR-040 – FR-044 — provider and permission mode", () => {
     expect(select).toHaveValue("codex");
   });
 
-  it("defaults to the safe permission mode and offers the bypass one", async () => {
-    renderDialog();
-    await settled();
-    expect(screen.getByTestId("setup-permission-safe")).toBeChecked();
-    expect(screen.getByTestId("setup-permission-dangerous")).not.toBeChecked();
-  });
-
   it("the chosen provider and permission mode reach the request", async () => {
     const startSession = vi.fn<StartSession>(async () =>
       sessionResponse({ provider: "codex", permission_mode: "bypass" }),
     );
-    renderDialog(ready(CLAUDE, CODEX), { startSession });
+    renderDialog([CLAUDE, CODEX], { startSession });
     await settled();
 
     walkToStart({
@@ -798,10 +543,7 @@ describe("FR-040 – FR-044 — provider and permission mode", () => {
         fireEvent.change(screen.getByTestId("work-import-source-input"), {
           target: { value: SOURCE },
         });
-        fireEvent.change(screen.getByTestId("setup-provider-select"), {
-          target: { value: "codex" },
-        });
-        fireEvent.click(screen.getByTestId("setup-permission-dangerous"));
+        chooseAgent("codex", "dangerous");
       },
     });
     fireEvent.click(screen.getByTestId("work-import-start"));
@@ -818,7 +560,7 @@ describe("FR-040 – FR-044 — provider and permission mode", () => {
 describe("starting the session (FR-021 – FR-025)", () => {
   it("sends every answer, marks the skipped ones, and attaches the returned tab", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    const { onClose } = renderDialog(ready(CLAUDE), { startSession });
+    const { onClose } = renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkToStart({
@@ -864,13 +606,13 @@ describe("starting the session (FR-021 – FR-025)", () => {
 
   it("a no-codebase session cannot get past question 2 without it, and can with it", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession });
+    renderDialog([CLAUDE], { startSession });
     await settled();
 
     // FR-020 under paging: the block is on the page that asks, not on a start
     // action several pages away that the user would otherwise never have
     // reached.
-    walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
+    walkTo("q2", { setup: NO_CODEBASE.setup });
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("q2");
     expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
@@ -890,7 +632,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
   it("the submitted body satisfies A2's ImportSessionContext rules in every mode", async () => {
     // Codebase mode, everything answered.
     const withSource = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession: withSource });
+    renderDialog([CLAUDE], { startSession: withSource });
     await settled();
     walkToStart({
       q2: () =>
@@ -914,7 +656,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
     // No-codebase mode, reached by typing a source and then ticking the box —
     // the state most likely to send both fields at once.
     const noCodebase = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession: noCodebase });
+    renderDialog([CLAUDE], { startSession: noCodebase });
     await settled();
     walkToStart({
       setup: () => {
@@ -922,6 +664,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
           target: { value: "/typed/before/ticking" },
         });
         fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+        chooseAgent();
       },
       q1: () => fireEvent.click(screen.getByTestId("work-import-data-kind-Image")),
       q2: () =>
@@ -940,7 +683,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
 
   it("a question the user typed into and then skipped is sent as skipped, with no answer", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession });
+    renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkToStart({
@@ -960,23 +703,22 @@ describe("starting the session (FR-021 – FR-025)", () => {
     expect(validateWorkImportRequest(body)).toEqual([]);
   });
 
-  it("cannot leave the setup page without a provider when two are usable", async () => {
-    renderDialog(ready(CLAUDE, CODEX));
+  it("cannot leave the setup page without a provider and a permission mode", async () => {
+    renderDialog([CLAUDE, CODEX]);
     await settled();
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
     });
-    // Neither provider is preselected, so the request would carry a blank
-    // `provider` — which the backend rejects. FR-040's choice is made on this
-    // page, so this page is where the dialog blocks: the user is told now, not
-    // after four more pages of answers.
-    fireEvent.click(screen.getByTestId("work-import-next"));
-    expect(currentPage()).toBe("setup");
-    expect(screen.getByTestId("work-import-blocking-reasons").textContent).toMatch(
-      /Required: which agent runs the session/i,
-    );
+    // Nothing is preselected, so the request would carry a blank `provider` —
+    // which the backend rejects. FR-040's choice is made on this page, so this
+    // page is where the dialog blocks: the user is told now, not after four
+    // more pages of answers.
+    expect(blockedGoingOn()).toContain(REASON_NO_PROVIDER);
 
     fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
+    expect(blockedGoingOn()).toContain(REASON_NO_PERMISSION_MODE);
+
+    fireEvent.click(screen.getByTestId("setup-permission-safe"));
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("q1");
   });
@@ -985,7 +727,7 @@ describe("starting the session (FR-021 – FR-025)", () => {
     const startSession = vi.fn<StartSession>(async () => {
       throw new Error("brief could not be written");
     });
-    const { onClose } = renderDialog(ready(CLAUDE), { startSession });
+    const { onClose } = renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkToStart();

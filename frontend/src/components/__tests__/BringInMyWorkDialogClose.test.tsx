@@ -4,13 +4,13 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { CLAUDE, ready, renderDialog, settled } from "./BringInMyWorkDialog.harness";
+import { CLAUDE, renderDialog, settled } from "./BringInMyWorkDialog.harness";
 
 afterEach(cleanup);
 
 describe("Bring In My Work header close control (#2378)", () => {
   it("is an icon-only X that closes the dialog", async () => {
-    const { onClose } = renderDialog(ready(CLAUDE));
+    const { onClose } = renderDialog([CLAUDE]);
     await settled();
 
     const close = screen.getByTestId("work-import-close");

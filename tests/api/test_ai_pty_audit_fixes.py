@@ -379,12 +379,12 @@ def test_p1e_unknown_block_run_id_is_swallowed(client: TestClient) -> None:
 #
 # ``test_p1a_bootstrap_failure_propagates`` asserted that
 # ``AIBlock._build_spawn_argv`` re-raised as "AIBlock bootstrap failed"
-# when ``_write_system_prompt_tempfile`` / ``_ensure_mcp_config`` failed,
+# when the worker's old bootstrap helpers failed,
 # instead of silently degrading the argv it composed.
 #
 # ADR-034 FR-012 deletes ``_build_spawn_argv`` outright: the AI Block
-# worker no longer composes provider argv, writes system-prompt files, or
-# writes MCP config. The engine's descriptor-driven spawn owns all of it.
+# worker no longer composes provider argv or writes MCP config. The engine's
+# descriptor-driven spawn owns provider setup.
 # There is therefore no worker-side bootstrap step left to fail, so the
 # behaviour this test guarded does not exist in any form — repairing the
 # test would have meant manufacturing a guard for deleted code.

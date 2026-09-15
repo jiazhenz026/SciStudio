@@ -1,4 +1,4 @@
-// The MiniApps tab — the left panel's fifth activity-bar section.
+// The MiniApps tab — a left-panel activity-bar section (third by default, #2415).
 //
 // Spec: docs/specs/adr-054-miniapp.md
 //   FR-031 (this tab replaces the Previewers tab in the same slot: every panel
@@ -21,7 +21,7 @@
 // (FR-024) are dialogs mounted beside the whole workspace, not inside a
 // sidebar pane that a tab switch unmounts.
 
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { useState, type ReactNode } from "react";
 
@@ -30,6 +30,7 @@ import { useHoverPopover } from "../components/palette/hoverPopover";
 import { buildSections, filterItems, withoutEmptyHints } from "../components/palette/sections";
 import type { Section, SectionSlot } from "../components/palette/sections";
 import { PromoteToLibraryAction } from "../components/promotion/PromoteToLibraryAction";
+import { SectionReloadButton } from "../components/SectionReloadButton";
 import { promotableMiniApp } from "../components/promotion/promotable";
 
 import { useAppStore } from "../store";
@@ -259,22 +260,13 @@ function MiniAppPaletteBody({ onOpen, onCreate }: MiniAppPaletteProps) {
             of `Blocks` and `Data types`. */}
         <p className="font-display text-xl text-ink">MiniApps</p>
         <div className="flex shrink-0 items-center gap-2">
-          <button
-            className="toolbar-button inline-flex items-center gap-1 whitespace-nowrap"
-            disabled={reloading}
+          <SectionReloadButton
+            loading={reloading}
             onClick={() => {
               triggerFlash();
               void reload();
             }}
-            type="button"
-          >
-            <RefreshCw
-              size={14}
-              aria-hidden="true"
-              className={reloading ? "animate-spin" : undefined}
-            />
-            Reload
-          </button>
+          />
           <button
             className="toolbar-button inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
             data-testid="miniapp-new"

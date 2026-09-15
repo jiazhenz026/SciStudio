@@ -77,11 +77,18 @@ function newRequestId(): string {
  */
 export class ApiError extends Error {
   status: number;
+  /**
+   * The response's `detail` payload when it was a structured object (for
+   * example the per-block reasons a refused "Run from here" returns, #2448).
+   * `undefined` for plain-string details.
+   */
+  detail?: Record<string, unknown>;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, detail?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -212,7 +219,11 @@ export async function apiFetch<T>(path: string, init?: ApiFetchOptions): Promise
       message = `${message} (HTTP ${response.status})`;
     }
     logger.warn(`${method} ${url} ${response.status} ${elapsedMs}ms`, { request_id: requestId });
-    throw new ApiError(message, response.status);
+    const structuredDetail =
+      payload.detail && typeof payload.detail === "object"
+        ? (payload.detail as Record<string, unknown>)
+        : undefined;
+    throw new ApiError(message, response.status, structuredDetail);
   }
 
   logger.debug(`← ${method} ${url} ${response.status} ${elapsedMs}ms`, { request_id: requestId });

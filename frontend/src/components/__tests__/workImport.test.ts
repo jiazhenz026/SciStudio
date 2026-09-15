@@ -12,13 +12,20 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { mockBackend, type MockBackend } from "../../__tests__/contract/mockBackend";
+import type { AgentLaunchProblem } from "../AIChat/SetupScreen.parts/agentStatus";
 import {
+  agentReason,
   buildRequest,
+  canStart,
   INITIAL_FORM_STATE,
   blockingReasons,
+  REASON_NO_AGENT,
+  REASON_NO_PERMISSION_MODE,
+  REASON_NO_PROVIDER,
   REASON_NO_WORKFLOW_DESCRIPTION,
   type WorkImportFormState,
 } from "../BringInMyWorkDialog.parts/formState";
+import { furthestReachablePage, pageGate } from "../BringInMyWorkDialog.parts/pages";
 import {
   fromBackendPermissionMode,
   startWorkImportSession,
@@ -146,7 +153,7 @@ describe("buildRequest (FR-021, FR-023)", () => {
 
 describe("blockingReasons (FR-017, FR-020)", () => {
   it("requires a source or the no-codebase option, and question 1", () => {
-    const reasons = blockingReasons(form(), { projectDir: "/p", agentUsable: true });
+    const reasons = blockingReasons(form(), { projectDir: "/p", agentProblem: null });
     expect(reasons.some((r) => /I don't have a codebase/.test(r))).toBe(true);
     expect(reasons.some((r) => /at least one kind of data/.test(r))).toBe(true);
   });
@@ -154,7 +161,7 @@ describe("blockingReasons (FR-017, FR-020)", () => {
   it("questions 3, 4 and 5 never block", () => {
     const reasons = blockingReasons(form({ sourceLocation: "/repo", dataKinds: ["Array"] }), {
       projectDir: "/p",
-      agentUsable: true,
+      agentProblem: null,
     });
     expect(reasons).toEqual([]);
   });
@@ -162,13 +169,13 @@ describe("blockingReasons (FR-017, FR-020)", () => {
   it("question 2 blocks in no-codebase mode only", () => {
     const withSource = blockingReasons(form({ sourceLocation: "/repo", dataKinds: ["Array"] }), {
       projectDir: "/p",
-      agentUsable: true,
+      agentProblem: null,
     });
     expect(withSource).toEqual([]);
 
     const noCodebase = blockingReasons(form({ hasNoCodebase: true, dataKinds: ["Array"] }), {
       projectDir: "/p",
-      agentUsable: true,
+      agentProblem: null,
     });
     // The sentence states the fact and stops. It used to carry its own
     // justification ("With no codebase to read, this is the only description of
@@ -177,6 +184,55 @@ describe("blockingReasons (FR-017, FR-020)", () => {
     // no-codebase help text, three inches above the box.
     expect(noCodebase).toContain(REASON_NO_WORKFLOW_DESCRIPTION);
     expect(REASON_NO_WORKFLOW_DESCRIPTION).toMatch(/^Required:/);
+  });
+});
+
+describe("the agent launch rule's reasons (#2454)", () => {
+  const answered = form({ sourceLocation: "/repo", dataKinds: ["Array"] });
+  const cases: Array<[AgentLaunchProblem, string]> = [
+    ["no_provider", REASON_NO_PROVIDER],
+    ["provider_unavailable", REASON_NO_AGENT],
+    ["no_permission_mode", REASON_NO_PERMISSION_MODE],
+  ];
+
+  it("starts with neither a provider nor a permission mode chosen", () => {
+    expect(INITIAL_FORM_STATE.provider).toBeNull();
+    expect(INITIAL_FORM_STATE.permissionMode).toBeNull();
+  });
+
+  it("maps no problem to no reason", () => {
+    expect(agentReason(null)).toBeNull();
+    expect(canStart(answered, { projectDir: "/p", agentProblem: null })).toBe(true);
+  });
+
+  it.each(cases)("%s blocks the start action with its own sentence", (problem, reason) => {
+    expect(agentReason(problem)).toBe(reason);
+    expect(blockingReasons(answered, { projectDir: "/p", agentProblem: problem })).toEqual([
+      reason,
+    ]);
+    expect(canStart(answered, { projectDir: "/p", agentProblem: problem })).toBe(false);
+  });
+
+  it.each(cases)("%s holds the setup page with the same sentence", (problem, reason) => {
+    const gate = pageGate(0, answered, { projectDir: "/p", agentProblem: problem });
+    expect(gate.reasons).toEqual([reason]);
+    // A missing provider sends the user to the picker; a missing mode has no
+    // single control to land on.
+    expect(gate.focusId).toBe(
+      problem === "no_permission_mode" ? null : "setup-provider-select-work-import",
+    );
+    expect(furthestReachablePage(answered, { projectDir: "/p", agentProblem: problem })).toBe(0);
+  });
+
+  it("with no agent problem the setup page lets the user through", () => {
+    expect(pageGate(0, answered, { projectDir: "/p", agentProblem: null }).reasons).toEqual([]);
+    expect(furthestReachablePage(answered, { projectDir: "/p", agentProblem: null })).toBe(5);
+  });
+
+  it("the source is still focused first when it is missing too", () => {
+    const gate = pageGate(0, form(), { projectDir: "/p", agentProblem: "no_provider" });
+    expect(gate.reasons).toContain(REASON_NO_PROVIDER);
+    expect(gate.focusId).toBe("work-import-source");
   });
 });
 

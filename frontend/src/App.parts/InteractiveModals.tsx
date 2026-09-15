@@ -18,7 +18,11 @@ import { useRef } from "react";
 import { submitPanelDecision } from "../panels/decisions";
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
-import { INTERACTIVE_MEMORY_KEY, readInteractiveMemory } from "../lib/interactiveMemory";
+import {
+  INTERACTIVE_MEMORY_KEY,
+  isPromptOutsideCanvas,
+  readInteractiveMemory,
+} from "../lib/interactiveMemory";
 import { useAppStore } from "../store";
 import { executionViewKey } from "../store/executionSlice.parts/eventReducer";
 import {
@@ -63,6 +67,8 @@ export function InteractiveModals() {
         // ADR-051 audit P2-1: carry the prompt's workflow_id so the backend can
         // run-scope the response and not resolve a colliding block_id in another run.
         workflow_id: promptWorkflowId,
+        // #2433: and the run, so a later run of the same workflow cannot take it.
+        ...(interactivePrompt.runId ? { run_id: interactivePrompt.runId } : {}),
         data: responseData,
         ...(contextId ? { context_id: contextId } : {}),
       });
@@ -95,8 +101,15 @@ export function InteractiveModals() {
     // and skip" (the new workflow has no node with that id) or wrote one
     // workflow's decision and input fingerprint into a same-named node of
     // another, which the autosave then committed to disk.
+    //
+    // #2412: a block inside an expanded subworkflow prompts as
+    // `<subworkflowNodeId>__<innerId>`, which is not a node of this canvas, so
+    // nothing is remembered for it (the Config tab says so).
     const state = useAppStore.getState();
-    if (state.workflowId === promptWorkflowId) {
+    if (
+      state.workflowId === promptWorkflowId &&
+      !isPromptOutsideCanvas(interactivePrompt.blockId, state.workflowNodes)
+    ) {
       const node = state.workflowNodes.find((n) => n.id === interactivePrompt.blockId);
       const memory = readInteractiveMemory(node?.config as Record<string, unknown> | undefined);
       if (memory?.enabled) {
@@ -118,6 +131,7 @@ export function InteractiveModals() {
       type: "cancel_block",
       block_id: interactivePrompt.blockId,
       workflow_id: promptWorkflowId,
+      ...(interactivePrompt.runId ? { run_id: interactivePrompt.runId } : {}),
     });
     removeInteractivePrompt(promptWorkflowId, interactivePrompt.blockId);
   };

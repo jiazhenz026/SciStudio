@@ -2,11 +2,119 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Any
 
 from scistudio.panels.contexts import READ_POINTS, PanelContext, PanelContexts, read_access
 from scistudio.panels.targets import PanelError, child_targets, plot_variant_target
+from scistudio.stability import internal
+
+
+@internal()
+@dataclass(frozen=True)
+class ReadOperation:
+    """One ``read(op, params)`` operation: the parameters it accepts and what it answers.
+
+    :func:`read_context` checks a read's parameters against ``params``, and the
+    generated panel SDK reference renders this table, so an operation cannot
+    accept a parameter the reference does not list. ``params`` is ``None`` for
+    an operation that ignores its parameters.
+    """
+
+    op: str
+    params: tuple[str, ...] | None
+    target: str
+    result: str
+
+
+#: Every read operation, in the order the reference lists them. Every
+#: operation also accepts ``format``: ``"json"`` (the default) or ``"binary"``
+#: for the numeric array and series reads.
+READ_OPERATIONS: dict[str, ReadOperation] = {
+    operation.op: operation
+    for operation in (
+        ReadOperation(
+            "metadata",
+            None,
+            "any target",
+            "`{type_chain, metadata, shape, dtype}` recorded for the target.",
+        ),
+        ReadOperation(
+            "composite.slots",
+            ("cursor", "limit"),
+            "a composite",
+            "One page `{slots: [{name, type_name, ref}], count, next_cursor, truncated, complete}`; each slot "
+            "`ref` can be read or opened. Pass the returned cursor to continue; `complete` is true on the last page.",
+        ),
+        ReadOperation(
+            "collection.items",
+            ("cursor", "limit"),
+            "a collection",
+            "One page `{items: [{ref, type_name, kind, display_name}], count, next_cursor, truncated, complete}`; "
+            "pass the returned cursor to continue. `truncated` means more pages remain.",
+        ),
+        ReadOperation(
+            "table.page",
+            ("page", "page_size", "sort_by", "sort_dir"),
+            "a data object with a table",
+            "`{columns, rows, total, total_rows, page, page_size, total_pages, sort: {by, direction}, complete}`. "
+            "Paging is navigation over complete data.",
+        ),
+        ReadOperation(
+            "table.xy",
+            ("x_column", "y_column", "offset", "limit"),
+            "a data object with a table",
+            "One page of rows `{x, y, columns, x_column, y_column, offset, next_offset, total, nonnumeric, truncated, "
+            "complete}` for two columns: `x[i]` and `y[i]` are the exact values of source row `offset + i`, a "
+            'non-finite or missing value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most '
+            f"{READ_POINTS}; continue from `next_offset` until it is `null`.",
+        ),
+        ReadOperation(
+            "array.plane",
+            ("slice_index", "axis_indices"),
+            "an array",
+            "The selected plane's geometry `{source_shape, source_dtype, axes, slice_axes, height, width, tile_size, "
+            "vmin, vmax, complete}` (`vmin`/`vmax` over every cell). `values` holds the whole plane when it fits one "
+            "read (`complete` true); otherwise `values` is empty and the plane's exact values are read with "
+            "`array.tile` windows of at most `tile_size` per side.",
+        ),
+        ReadOperation(
+            "array.tile",
+            ("slice_index", "axis_indices", "y0", "x0", "height", "width"),
+            "an array",
+            "The exact values of one window `{values, y0, x0, height, width, truncated, complete}` of the selected "
+            "plane; `truncated` means the window was larger than one read and was cut at the tile size.",
+        ),
+        ReadOperation(
+            "series.points",
+            ("offset", "limit"),
+            "a series",
+            "One page of points `{index, values, offset, next_offset, total, nonnumeric, truncated, complete}`: "
+            "`index[i]` and `values[i]` are the exact x and y of source row `offset + i`, a non-finite or missing "
+            f'value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most {READ_POINTS}; '
+            "continue from `next_offset` until it is `null`.",
+        ),
+        ReadOperation(
+            "text.chunk",
+            ("offset", "length"),
+            "a text object",
+            "`{text, content, offset, next_offset, total_bytes, encoding, truncated, complete}`; "
+            "continue from `next_offset` until it is `null`.",
+        ),
+        ReadOperation(
+            "artifact.info",
+            (),
+            "an artifact",
+            "`{name, path, mime_type, size}`, plus `formats` for a plot.",
+        ),
+        ReadOperation(
+            "artifact.file",
+            ("variant",),
+            "an artifact",
+            "`artifact.info` plus a `url` the page can load; `variant` selects one of a plot's `formats`.",
+        ),
+    )
+}
 
 
 def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str, params: dict[str, Any]) -> Any:
@@ -24,19 +132,17 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             "dtype": target.metadata.get("dtype", (storage.metadata or {}).get("dtype") if storage else None),
         }
     if op in ("composite.slots", "collection.items"):
-        allowed = {"cursor", "limit"} if op == "collection.items" else set()
-        _only(options, allowed)
+        _only(options, op)
         return child_targets(store.runtime, target, access, **options)
     if storage is None:
         raise PanelError(400, "unsupported", "This read requires an individual data object")
     if op == "table.page":
-        _only(options, {"page", "page_size", "sort_by", "sort_dir"})
+        _only(options, op)
         result = asdict(access.dataframe_page(storage, **options))
         return {
             **result,
             "total": result["total_rows"],
             "sort": {"by": result["sort_by"], "direction": result["sort_dir"]},
-            "sampled": False,
             # A page is not a truncation. Every row of the table is reachable by
             # paging, so the read reports the table as complete however many
             # pages it takes — flagging a paged table as truncated is exactly the
@@ -46,31 +152,28 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             "complete": True,
         }
     if op == "table.xy":
-        _only(options, {"x_column", "y_column", "max_points"})
-        options["max_points"] = min(READ_POINTS, max(1, int(options.get("max_points", READ_POINTS))))
-        result = access.panel_table_xy(storage, **options).to_json()
+        _only(options, op)
+        window = _window(options)
+        result = access.panel_table_xy(
+            storage, x_column=options.get("x_column"), y_column=options.get("y_column"), **window
+        ).to_json()
         pairs = result.pop("values")
         return {**result, "x": [row[0] for row in pairs], "y": [row[1] for row in pairs]}
     if op in ("array.plane", "array.tile"):
-        _only(
-            options,
-            {"slice_index", "axis_indices"} | ({"y0", "x0", "height", "width"} if op == "array.tile" else set()),
-        )
+        _only(options, op)
         if "axis_indices" in options:
             options["axis_indices"] = {int(k): int(v) for k, v in options["axis_indices"].items()}
         reader = access.panel_array_tile if op == "array.tile" else access.panel_array_plane
         return reader(storage, **options)
     if op == "series.points":
-        _only(options, {"max_points"})
-        return access.panel_series_points(
-            storage, target.metadata, max_points=min(READ_POINTS, max(1, int(options.get("max_points", READ_POINTS))))
-        )
+        _only(options, op)
+        return access.panel_series_points(storage, target.metadata, **_window(options))
     if op == "text.chunk":
-        _only(options, {"offset", "length"})
+        _only(options, op)
         chunk = asdict(access.text_chunk(storage, **options))
-        return {**chunk, "text": chunk["content"], "sampled": False, "complete": not chunk["truncated"]}
+        return {**chunk, "text": chunk["content"], "complete": not chunk["truncated"]}
     if op in ("artifact.info", "artifact.file"):
-        _only(options, {"variant"} if op == "artifact.file" else set())
+        _only(options, op)
         import mimetypes
 
         from scistudio.previewers._plot_formats import available_formats
@@ -108,7 +211,19 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
     raise PanelError(400, "unsupported", f"Unsupported panel read operation: {op}")
 
 
-def _only(options: dict[str, Any], allowed: set[str]) -> None:
-    unexpected = options.keys() - allowed
+def _window(options: dict[str, Any]) -> dict[str, int]:
+    """The ``offset``/``limit`` of a paged point read; ``limit`` pages, it never samples."""
+    try:
+        offset = int(options.get("offset", 0))
+        limit = int(options.get("limit", READ_POINTS))
+    except (TypeError, ValueError) as exc:
+        raise PanelError(422, "invalid_request", "offset and limit must be integers") from exc
+    if offset < 0 or limit < 1:
+        raise PanelError(422, "invalid_request", "offset must be nonnegative and limit positive")
+    return {"offset": offset, "limit": min(limit, READ_POINTS)}
+
+
+def _only(options: dict[str, Any], op: str) -> None:
+    unexpected = options.keys() - set(READ_OPERATIONS[op].params or ())
     if unexpected:
         raise PanelError(422, "invalid_request", f"Unsupported read parameters: {', '.join(sorted(unexpected))}")

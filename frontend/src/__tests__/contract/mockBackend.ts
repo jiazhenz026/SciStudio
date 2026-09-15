@@ -11,7 +11,7 @@
  *
  * ```ts
  * const backend = mockBackend({
- *   "GET /api/ai/availability": READY,                    // static body, checked now
+ *   "GET /api/ai/status": STATUS,                         // static body, checked now
  *   "POST /api/plots/run": (req) => ({ ...RUN, ...req.body as object }), // checked per call
  *   "DELETE /api/plots/{name}": reply(204),
  * });

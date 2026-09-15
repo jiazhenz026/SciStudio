@@ -18,6 +18,7 @@
  * whole store up.
  */
 import type { MiniAppTarget } from "../../miniapps/types";
+import type { PreviewRerouteSignal } from "../../panels/panelEvents";
 import type { LogEntry, WorkflowEventMessage } from "../../types/api";
 
 /**
@@ -35,8 +36,16 @@ export interface MiniAppRealtimeDeps {
   setWsClientId: (id: string | null) => void;
   /** Open the MiniApp tab, or focus it when its id is already open (FR-018). */
   openMiniAppTab: (input: { panelId: string; name: string; target: MiniAppTarget }) => void;
-  /** Reload every open MiniApp tab on this panel (FR-022). */
+  /** Reload every open mount of this panel, whatever its context kind (FR-022). */
   notifyPanelFilesChanged: (panelId: string) => void;
+  /** Remount the mounts holding these revoked contexts (#2465). */
+  notifyPanelContextsRevoked: (contextIds: readonly string[]) => void;
+  /** Re-read the MiniApp catalog (the block catalog counter drives it). */
+  bumpBlockCatalogRefresh: () => void;
+  /** Re-read the Previewers listing and choices. */
+  invalidatePreviewerCatalog: () => void;
+  /** Re-route the open previews the signal concerns. */
+  requestPreviewReroute: (signal: PreviewRerouteSignal) => void;
   appendLog: (entry: LogEntry) => void;
 }
 
@@ -132,14 +141,12 @@ export function handleOpenMiniApp(
 }
 
 /**
- * FR-022 — the panel directory changed; tell the workspace the panel moved.
+ * FR-022 — a page file of an open panel changed; tell every mount of it.
  *
  * Deliberately NOT debounced here. FR-022's 500 ms window is a window on the
- * *reload*, and the reload happens in the tab (`MiniAppTab`), which is where
- * the timer lives and where unmounting cancels it. Coalescing here as well
- * would stack the two windows into one second, and a module-level timer map
- * outlives the tabs it fires into. The store bump is an idempotent counter, so
- * three bumps inside one burst are one reload either way.
+ * *reload*, and the reload happens in the shared panel host (`PanelFrame`),
+ * which is where the timer lives and where unmounting cancels it. Coalescing
+ * here as well would stack the two windows into one second.
  */
 export function handlePanelFilesChanged(
   payload: WorkflowEventMessage,
@@ -151,4 +158,66 @@ export function handlePanelFilesChanged(
     return;
   }
   deps.notifyPanelFilesChanged(panelId);
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+/**
+ * #2465 Q3-a — the panel service revoked contexts whose panel was removed,
+ * changed or shadowed, or whose project was left. Only their mounts remount.
+ */
+export function handlePanelContextsRevoked(
+  payload: WorkflowEventMessage,
+  deps: Pick<MiniAppRealtimeDeps, "notifyPanelContextsRevoked">,
+): void {
+  const data = (payload.data ?? {}) as Record<string, unknown>;
+  deps.notifyPanelContextsRevoked(strings(data.context_ids));
+}
+
+/**
+ * #2465 — the panel service's catalog diff (``blocks.reloaded`` with
+ * ``registry: "panels"``).
+ *
+ *  - A MiniApp was added, changed or removed: re-read the MiniApp catalog.
+ *  - Preview candidates changed: re-read the Previewers listing, and re-route
+ *    only the open previews whose type the changed claims concern (Q3-y), plus
+ *    every legacy-rendered preview when the legacy previewers were reloaded
+ *    (Q5-b). Nothing else remounts.
+ */
+export function handlePanelCatalogChanged(
+  payload: WorkflowEventMessage,
+  deps: Pick<
+    MiniAppRealtimeDeps,
+    "bumpBlockCatalogRefresh" | "invalidatePreviewerCatalog" | "requestPreviewReroute"
+  >,
+): void {
+  const data = (payload.data ?? {}) as Record<string, unknown>;
+  if (data.miniapps_changed === true) deps.bumpBlockCatalogRefresh();
+  if (data.preview_candidates_changed !== true) return;
+  deps.invalidatePreviewerCatalog();
+  deps.requestPreviewReroute({
+    types: strings(data.preview_types),
+    legacy: data.legacy_reloaded === true,
+  });
+}
+
+/** #2465 Q6-b — a previewer choice changed; only previews of that type re-route. */
+export function handlePanelChoicesChanged(
+  payload: WorkflowEventMessage,
+  deps: Pick<MiniAppRealtimeDeps, "invalidatePreviewerCatalog" | "requestPreviewReroute">,
+): void {
+  // Read from the event data only: the frame's own top-level `type` is the
+  // event name.
+  const raw = ((payload.data ?? {}) as Record<string, unknown>).type;
+  const type = typeof raw === "string" && raw !== "" ? raw : null;
+  if (type === null) {
+    console.warn("[panel.choices_changed] frame carries no type; ignoring", payload);
+    return;
+  }
+  deps.invalidatePreviewerCatalog();
+  deps.requestPreviewReroute({ choiceType: type });
 }

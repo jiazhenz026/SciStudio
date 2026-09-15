@@ -12,10 +12,9 @@
  * ASKS and SENDS — that contract is unchanged by paging and its tests should
  * not have to be read as paging tests.
  */
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
 import {
   Q5_HELP,
   Q5_LABEL,
@@ -24,8 +23,12 @@ import {
   SKIPPED_MARKER,
   stepStatus,
 } from "../BringInMyWorkDialog.parts/copy";
+import {
+  REASON_NO_PERMISSION_MODE,
+  REASON_NO_PROJECT,
+  REASON_NO_PROVIDER,
+} from "../BringInMyWorkDialog.parts/formState";
 import { useAppStore } from "../../store";
-import type { AgentAvailabilityResponse } from "../../lib/api/agentAvailability";
 import {
   blockedGoingOn,
   CLAUDE,
@@ -34,7 +37,6 @@ import {
   LAST_PAGE,
   PAGE_IDS,
   provider,
-  ready,
   renderDialog,
   sessionResponse,
   settled,
@@ -50,6 +52,15 @@ const QUESTION_TESTIDS = {
   q4: "work-import-q4",
   q5: "work-import-q5",
 } as const;
+
+/**
+ * #2454 — provider and permission mode start unchosen. A test that answers the
+ * setup page itself has to make that choice too, as the user would.
+ */
+function chooseAgent(name = "claude-code"): void {
+  fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: name } });
+  fireEvent.click(screen.getByTestId("setup-permission-safe"));
+}
 
 beforeEach(() => {
   useAppStore.setState({
@@ -195,9 +206,10 @@ describe("moving between pages", () => {
 
   it("Enter advances where that is unambiguous, and never starts a session", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    const { onClose } = renderDialog(ready(CLAUDE), { startSession });
+    const { onClose } = renderDialog([CLAUDE], { startSession });
     await settled();
 
+    chooseAgent();
     // In a one-line field, Enter means "done with this".
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
@@ -268,6 +280,7 @@ describe("FR-020 — what a page requires, and what it lets the user past", () =
     // Page 1 — the source, or the no-codebase option.
     expect(attentionBanner().textContent).toMatch(/Required: where your work is/i);
     expect(currentPage()).toBe("setup");
+    chooseAgent();
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
     });
@@ -285,7 +298,12 @@ describe("FR-020 — what a page requires, and what it lets the user past", () =
     cleanup();
     renderDialog();
     await settled();
-    walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
+    walkTo("q2", {
+      setup: () => {
+        chooseAgent();
+        fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+      },
+    });
     expect(attentionBanner().textContent).toMatch(/Required: a description of your workflow/i);
     expect(currentPage()).toBe("q2");
   });
@@ -312,6 +330,7 @@ describe("FR-020 — what a page requires, and what it lets the user past", () =
     // …and puts the user in front of the control that fixes it.
     expect(document.activeElement).toBe(screen.getByTestId("work-import-source-input"));
 
+    chooseAgent();
     fireEvent.click(screen.getByTestId("work-import-no-codebase"));
     fireEvent.click(screen.getByTestId("work-import-next"));
     expect(currentPage()).toBe("q1");
@@ -367,7 +386,7 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
 
   it("an answer given after un-skipping is the one that is sent", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession });
+    renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkTo("q3");
@@ -391,7 +410,7 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
     // agent must be able to tell "they did not say" from "nothing applies", so
     // both are the same explicit skip in the request.
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession });
+    renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkTo(LAST_PAGE);
@@ -417,7 +436,12 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
     // would be worse than none.
     renderDialog();
     await settled();
-    walkTo("q2", { setup: () => fireEvent.click(screen.getByTestId("work-import-no-codebase")) });
+    walkTo("q2", {
+      setup: () => {
+        chooseAgent();
+        fireEvent.click(screen.getByTestId("work-import-no-codebase"));
+      },
+    });
     expect(screen.queryByTestId("work-import-q2-skip")).toBeNull();
     // Only Back and Next in the navigation row — no third control.
     expect(within(screen.getByTestId("work-import-nav-actions")).getAllByRole("button")).toEqual([
@@ -432,109 +456,111 @@ describe("FR-020 / FR-021 — a skip is a choice, and it reaches the request", (
   });
 });
 
-describe("FR-005 — a user learns there is no usable agent on page one, not page five", () => {
-  const NOT_INSTALLED: AgentAvailabilityResponse = {
-    state: "not_installed",
-    providers: [
-      provider({
-        key: "claude-code",
-        label: "Claude Code",
-        state: "not_installed",
-        next_step: "Install the Claude Code CLI so that `claude` is on your PATH.",
-      }),
-    ],
-  };
-
-  it("shows the guidance on the setup page and holds the user there", async () => {
-    renderDialog(NOT_INSTALLED);
+describe("FR-005 — the agent is chosen on page one, exactly as in AI Chat (#2454)", () => {
+  it("starts with no provider and no permission mode chosen", async () => {
+    renderDialog([CLAUDE]);
     await settled();
 
-    expect(currentPage()).toBe("setup");
-    // FR-031 / SC-002 — the state with a dead end is the state that gets the
-    // full guidance, with the concrete next action in it. The picker is not
-    // rendered at all here: a menu with nothing selectable answers no question.
-    const guidance = screen.getByTestId("work-import-guidance-not_installed");
-    expect(guidance.textContent).toContain("`claude`");
-    expect(screen.queryByTestId("setup-provider-select")).toBeNull();
+    expect(screen.getByTestId("setup-provider-select")).toHaveValue("");
+    for (const mode of ["safe", "auto", "dangerous"]) {
+      expect(screen.getByTestId(`setup-permission-${mode}`)).toHaveAttribute(
+        "aria-checked",
+        "false",
+      );
+    }
+  });
 
+  it("holds the setup page until a provider is chosen, then until a permission mode is", async () => {
+    renderDialog([CLAUDE, CODEX]);
+    await settled();
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
     });
-    expect(blockedGoingOn()).toMatch(/No agent is ready to run the session/i);
+
+    expect(blockedGoingOn()).toBe(REASON_NO_PROVIDER);
+    // …and puts the user in front of the picker that fixes it.
+    expect(document.activeElement).toBe(screen.getByTestId("setup-provider-select"));
+
+    fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
+    expect(blockedGoingOn()).toBe(REASON_NO_PERMISSION_MODE);
+
+    fireEvent.click(screen.getByTestId("setup-permission-safe"));
+    fireEvent.click(screen.getByTestId("work-import-next"));
+    expect(currentPage()).toBe("q1");
+  });
+
+  it("lists a provider that is not installed, disabled, and never lets it be chosen", async () => {
+    renderDialog([CLAUDE, provider({ name: "codex", label: "Codex", available: false })]);
+    await settled();
+
+    const option = screen.getByTestId("setup-provider-option-codex") as HTMLOptionElement;
+    expect(option.disabled).toBe(true);
+    expect(option.textContent).toContain("(not installed)");
+    expect(
+      (screen.getByTestId("setup-provider-option-claude-code") as HTMLOptionElement).disabled,
+    ).toBe(false);
+  });
+
+  it("shows AI Chat's no-providers notice, and blocks, when nothing is installed", async () => {
+    renderDialog([provider({ name: "claude-code", label: "Claude Code", available: false })]);
+    await settled();
+
+    expect(screen.getByTestId("setup-no-providers-notice")).toBeTruthy();
+    expect(screen.queryByTestId("setup-provider-select")).toBeNull();
+    fireEvent.change(screen.getByTestId("work-import-source-input"), {
+      target: { value: SOURCE },
+    });
+    expect(blockedGoingOn()).toBe(REASON_NO_PROVIDER);
     // Nowhere to start from, and no way to spend five pages finding that out.
     expect(screen.queryByTestId("work-import-start")).toBeNull();
   });
 
-  it("releases the user as soon as an agent becomes usable", async () => {
-    const fetchAvailability = vi
-      .fn<(options?: { refresh?: boolean }) => Promise<AgentAvailabilityResponse>>()
-      .mockResolvedValueOnce(NOT_INSTALLED)
-      .mockResolvedValueOnce(ready(CLAUDE));
-
-    render(
-      <BringInMyWorkDialog
-        onClose={vi.fn()}
-        fetchAvailability={fetchAvailability}
-        startSession={vi.fn<StartSession>(async () => sessionResponse())}
-      />,
-    );
+  it("does not block a provider that is installed but not signed in", async () => {
+    // The CLI runs its own sign-in inside the session, as in AI Chat.
+    const startSession = vi.fn<StartSession>(async () => sessionResponse());
+    renderDialog([provider({ name: "claude-code", label: "Claude Code", logged_in: false })], {
+      startSession,
+    });
     await settled();
+
+    const option = screen.getByTestId("setup-provider-option-claude-code") as HTMLOptionElement;
+    expect(option.disabled).toBe(false);
+    expect(option.textContent).toContain("(not logged in)");
+
+    walkTo(LAST_PAGE);
+    expect(screen.getByTestId("work-import-start")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("work-import-start"));
+    await waitFor(() => expect(startSession).toHaveBeenCalledTimes(1));
+    expect(startSession.mock.calls[0][0]).toMatchObject({
+      provider: "claude-code",
+      permission_mode: "safe",
+    });
+  });
+
+  it("blocks the setup page when the provider status cannot be read", async () => {
+    renderDialog(new Error("backend down"));
+    await settled();
+
+    expect(screen.getByTestId("setup-status-error")).toBeTruthy();
     fireEvent.change(screen.getByTestId("work-import-source-input"), {
       target: { value: SOURCE },
     });
-    expect(blockedGoingOn()).toMatch(/No agent is ready/i);
-
-    // `not_installed` has no retry control of its own — the user installs an
-    // agent and reopens — so this stands in for the probe resolving usable.
-    cleanup();
-    renderDialog(ready(CLAUDE));
-    await settled();
-    walkTo(LAST_PAGE);
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
+    expect(blockedGoingOn()).toBe(REASON_NO_PROVIDER);
   });
 
-  it("puts the guidance in place of the start action if it is only learnt late", async () => {
-    // The probe is still in flight while the user answers, and resolves to "no
-    // usable agent" only once they are on the last page. FR-005 is a statement
-    // about the page that carries the start action, wherever the user got to.
-    let settle: (value: AgentAvailabilityResponse) => void = () => {};
-    render(
-      <BringInMyWorkDialog
-        onClose={vi.fn()}
-        fetchAvailability={() =>
-          new Promise<AgentAvailabilityResponse>((resolve) => {
-            settle = resolve;
-          })
-        }
-        startSession={vi.fn<StartSession>(async () => sessionResponse())}
-      />,
-    );
-    // FR-035 — an unresolved probe never holds the user up.
-    walkTo(LAST_PAGE);
-    expect(screen.getByTestId("work-import-probing")).toBeTruthy();
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-
-    settle(NOT_INSTALLED);
-    await waitFor(() => expect(screen.queryByTestId("work-import-probing")).toBeNull());
-    expect(currentPage()).toBe(LAST_PAGE);
-    expect(screen.getByTestId("work-import-guidance-not_installed")).toBeTruthy();
-    expect(screen.queryByTestId("work-import-start")).toBeNull();
-    // The caveat is still there: it is not conditioned on being able to start.
-    expect(screen.getByTestId("work-import-caveat")).toBeTruthy();
-  });
-
-  it("does not hold up a user who has a choice of providers still to make", async () => {
-    // Two usable agents: the choice blocks the setup page (it is where the
-    // choice is), and making it releases the whole flow.
-    renderDialog(ready(CLAUDE, CODEX));
+  it("always shows Start on the last page, disabled with the reason when it cannot start", async () => {
+    const startSession = vi.fn<StartSession>(async () => sessionResponse());
+    renderDialog([CLAUDE], { startSession });
     await settled();
-    fireEvent.change(screen.getByTestId("work-import-source-input"), {
-      target: { value: SOURCE },
-    });
-    expect(blockedGoingOn()).toMatch(/Required: which agent runs the session/i);
-    fireEvent.change(screen.getByTestId("setup-provider-select"), { target: { value: "codex" } });
     walkTo(LAST_PAGE);
-    expect(screen.getByTestId("work-import-start")).toBeTruthy();
+    expect(screen.getByTestId("work-import-start")).toBeEnabled();
+
+    // The project closes under the dialog after every page was answered.
+    act(() => useAppStore.setState({ currentProject: null }));
+    expect(screen.getByTestId("work-import-start")).toBeDisabled();
+    expect(screen.getByTestId("work-import-blocking-reasons").textContent).toBe(REASON_NO_PROJECT);
+    fireEvent.click(screen.getByTestId("work-import-start"));
+    expect(startSession).not.toHaveBeenCalled();
   });
 });
 
@@ -567,7 +593,7 @@ describe("FR-019a — the last question is the open one", () => {
 
   it("FR-023: its answer reaches the request like any other", async () => {
     const startSession = vi.fn<StartSession>(async () => sessionResponse());
-    renderDialog(ready(CLAUDE), { startSession });
+    renderDialog([CLAUDE], { startSession });
     await settled();
 
     walkTo(LAST_PAGE);

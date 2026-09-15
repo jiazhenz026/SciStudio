@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isInteractiveBlock, readInteractiveMemory } from "./interactiveMemory";
+import {
+  isInteractiveBlock,
+  isPromptOutsideCanvas,
+  readInteractiveMemory,
+} from "./interactiveMemory";
 
 describe("readInteractiveMemory (ADR-051 Addendum 1)", () => {
   it("reads the record from config.params", () => {
@@ -8,15 +12,39 @@ describe("readInteractiveMemory (ADR-051 Addendum 1)", () => {
     expect(readInteractiveMemory({ params: { interactive_memory: rec } })).toEqual(rec);
   });
 
-  it("reads the record from the top level", () => {
+  it("reads a legacy top-level record when params has none", () => {
     const rec = { enabled: false };
     expect(readInteractiveMemory({ interactive_memory: rec })).toEqual(rec);
+    expect(readInteractiveMemory({ interactive_memory: rec, params: {} })).toEqual(rec);
+  });
+
+  it("prefers the params record over a legacy top-level one (#2412)", () => {
+    const legacy = { enabled: true, decision: null, signature: null };
+    const saved = { enabled: true, decision: { routes: [1] }, signature: { x: ["a.tif"] } };
+    expect(
+      readInteractiveMemory({ interactive_memory: legacy, params: { interactive_memory: saved } }),
+    ).toEqual(saved);
+    const disabled = { enabled: false };
+    expect(
+      readInteractiveMemory({
+        interactive_memory: legacy,
+        params: { interactive_memory: disabled },
+      }),
+    ).toEqual(disabled);
   });
 
   it("returns null when absent or config is nullish", () => {
     expect(readInteractiveMemory({ params: {} })).toBeNull();
     expect(readInteractiveMemory(undefined)).toBeNull();
     expect(readInteractiveMemory(null)).toBeNull();
+  });
+});
+
+describe("isPromptOutsideCanvas (#2412)", () => {
+  it("is true for a flattened subworkflow block id the canvas does not hold", () => {
+    const nodes = [{ id: "sw1" }, { id: "pick" }];
+    expect(isPromptOutsideCanvas("sw1__pick", nodes)).toBe(true);
+    expect(isPromptOutsideCanvas("pick", nodes)).toBe(false);
   });
 });
 

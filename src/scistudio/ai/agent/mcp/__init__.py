@@ -31,14 +31,14 @@
 #   and project Q&A (4 tools).
 # * :mod:`scistudio.ai.agent.mcp.tools_library` — category (f): promotion
 #   into the personal tool library (1 tool, ADR-053 FR-011).
-# * :mod:`scistudio.ai.agent.mcp.tools_panels` — category (g): panel and
-#   MiniApp checking and opening (2 tools, ADR-054 MiniApp FR-029/FR-030).
+# * :mod:`scistudio.ai.agent.mcp.tools_panels` — category (g): panel listing
+#   (every kind), panel checking, and MiniApp opening (3 tools, ADR-054 MiniApp
+#   FR-029/FR-030, #2441, and #2445).
 #
 # FastMCP discovers tools by ``@mcp.tool()`` decorator on the module-scope
 # :data:`scistudio.ai.agent.mcp.server.mcp` instance — there is no longer a
 # separate ``TOOL_REGISTRY`` tuple. Consumers that need the tool
-# catalogue call ``await mcp.list_tools()`` directly (see
-# :mod:`scistudio.ai.agent.system_prompt` for the rendering side).
+# catalogue call ``await mcp.list_tools()`` directly.
 #
 # See ``docs/adr/ADR-040.md`` §3.1-§3.3 for the full migration design.
 #

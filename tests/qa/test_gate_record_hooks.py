@@ -134,6 +134,7 @@ def test_workflow_gate_derives_the_label_vocabulary_rather_than_restating_it() -
     assert '"admin-approved:core-change"' not in workflow
     assert '"admin-approved:merge"' not in workflow
     assert '"admin-approved:architecture-doc"' not in workflow
+    assert '"admin-approved:agent-docs"' not in workflow
     assert '"human-authored"' not in workflow
 
 
@@ -160,6 +161,7 @@ def test_workflow_gate_inline_python_parses_and_covers_every_valid_label() -> No
         "admin-approved:core-change",
         "admin-approved:merge",
         "admin-approved:architecture-doc",
+        "admin-approved:agent-docs",
     } <= VALID_LABELS
 
 

@@ -47,3 +47,8 @@ def test_status_endpoint_still_present(client: TestClient) -> None:
     payload = response.json()
     assert "providers" in payload
     assert isinstance(payload["providers"], list)
+
+
+def test_graded_availability_endpoint_is_gone(client: TestClient) -> None:
+    """#2454: the live, billed availability probe was removed; ``/api/ai/status`` is the one report."""
+    assert client.get("/api/ai/availability").status_code in (404, 405)

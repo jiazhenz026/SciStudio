@@ -9,6 +9,9 @@ Publishes ONE site to GitHub Pages that covers everything author-facing:
   - API Reference     <- src/scistudio/_user_guide/api-reference/  (self-contained,
                          generated from docstrings + stability decorators; the
                          SAME artifact provisioned into projects — single source)
+  - Architecture      <- src/scistudio/_user_guide/architecture.md  (generated
+                         copy of docs/architecture/ARCHITECTURE.md by
+                         sync_architecture_doc.py, #2469; also shipped in-app)
   - Package Development <- docs/package-development/   (repo-only developer guide)
 
 Unlike ``build_reference.py`` (which renders the API reference via mkdocstrings
@@ -37,6 +40,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from build_reference import generate_selfcontained  # noqa: E402
+from sync_architecture_doc import write as sync_architecture_doc  # noqa: E402
 
 USER_GUIDE_SRC = SRC / "scistudio" / "_user_guide"
 PACKAGE_DEV_SRC = REPO_ROOT / "docs" / "package-development"
@@ -54,10 +58,12 @@ an AI-native workflow runtime for multimodal scientific data.
   workflows, previewing data, writing your own blocks, types, and plots.
 - **[API Reference](user-guide/api-reference/index.md)** — the public API you may
   rely on, with signatures, docstrings, and stability tiers.
+- **[Architecture](user-guide/architecture.md)** — how SciStudio is built: the
+  runtime, data, block, registry, boundary IO, frontend, and extension layers.
 - **[Package Development](package-development/index.md)** — building a
   distributable SciStudio package (blocks, types, previewers).
 
-The User Guide and API Reference are the same docs SciStudio provisions into each
+The User Guide, API Reference, and Architecture are the same docs SciStudio provisions into each
 project, so what you read here matches what ships with the app.
 """
 
@@ -76,6 +82,8 @@ def stage() -> None:
     """Assemble the unified docs tree under STAGE_DIR."""
     # Ensure the self-contained API reference exists inside the user guide tree.
     generate_selfcontained()
+    # Refresh the shipped copy of the architecture document from its source.
+    sync_architecture_doc()
 
     if STAGE_DIR.exists():
         shutil.rmtree(STAGE_DIR)

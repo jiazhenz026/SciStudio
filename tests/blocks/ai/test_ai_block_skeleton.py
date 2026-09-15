@@ -12,8 +12,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.ai.agent import providers_registry
-from scistudio.ai.agent.availability import session_unsupported_reason
-from scistudio.ai.agent.providers_registry import agent_descriptors, agent_keys
+from scistudio.ai.agent.providers_registry import agent_descriptors, agent_keys, session_unsupported_reason
 from scistudio.blocks.ai.ai_block import (
     REUSE_LAST_OUTPUT_KEY,
     AIBlock,
@@ -342,11 +341,8 @@ def test_run_rejects_a_provider_outside_the_registry(project_dir: Path, stub_age
 def test_run_leaves_no_orphaned_temp_file(project_dir: Path, stub_agent: StubAgent) -> None:
     """ADR-034 FR-013: an AI Block run creates no file nobody deletes.
 
-    ``_build_spawn_argv`` called ``_write_system_prompt_tempfile`` and put
-    the path into an argv the engine discarded, so the file under
-    ``<project>/.scistudio/.tmp/`` was orphaned on every run: the real
-    spawn wrote its own file and ``PtyProcess.kill_tree`` only ever knew
-    about that one. Nothing in the system could delete the worker's copy.
+    The removed worker-side argv builder once created a prompt file whose path
+    the engine discarded, leaving an orphan under ``.scistudio/.tmp``.
     """
     tmp_dir = project_dir / ".scistudio" / ".tmp"
     stub_agent.outputs = {"out": ("out.csv", "x\n")}

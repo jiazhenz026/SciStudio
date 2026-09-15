@@ -31,6 +31,7 @@ import {
 import type { PreviewerChoice, PreviewerSpecSummary } from "../types/api";
 
 import { PreviewerCard } from "./PreviewerPalette.parts/PreviewerCard";
+import { SectionReloadButton } from "./SectionReloadButton";
 import {
   buildPreviewerSections,
   choiceForType,
@@ -172,9 +173,7 @@ export function PreviewerPalette() {
         {/* The panel names itself after its tab, so `Previewers` reads as a
             peer of `Blocks` and `Data types` (FR-034/FR-039). */}
         <p className="font-display text-xl text-ink">Previewers</p>
-        <button className="toolbar-button" onClick={handleReload} type="button">
-          Reload
-        </button>
+        <SectionReloadButton onClick={handleReload} />
       </div>
 
       <div

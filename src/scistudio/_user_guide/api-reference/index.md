@@ -6,11 +6,15 @@
 
 The public API you may rely on, generated from the code's docstrings and `scistudio.stability` decorators. Only the public surface (each canonical root's `__all__`) appears; `internal` symbols are excluded. Import from the canonical root shown on each page, never a deeper module path.
 
+The workflow file format has its own generated page: [Workflow YAML file format](workflow-yaml.md) (`provisional`) — the keys, rules, and JSON Schema of a workflow YAML file.
+
 ## Stability
 
 - `stable` — supported; no incompatible change within a major version without deprecation.
 - `provisional` — usable, may change in a minor release.
 - `internal` — excluded from this reference.
+
+A symbol marked **deprecated** keeps its tier and keeps working until the release its notice names removes it; the notice names the replacement.
 
 ## Canonical roots
 
@@ -21,8 +25,17 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.blocks.io`](scistudio.blocks.io.md) — 12 symbols
 - [`scistudio.blocks.app`](scistudio.blocks.app.md) — 7 symbols
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 symbols
-- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols
-- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
+- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols — **deprecated**
+- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols — **deprecated**
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
 - [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols
+- [`scistudio.panels`](scistudio.panels.md) — 7 symbols
+
+## Panel contract
+
+The panel SDK, components, and descriptor (panel API `1.0`, `provisional`), generated from the panel sources.
+
+- [Panel SDK](panels-sdk.md) — `window.scistudio`: contexts, operations, read operations, errors, libraries
+- [Panel components](panels-renderers.md) — stylesheets, UI components, and data views
+- [Panel descriptor](panel-descriptor.md) — `panel.json` keys and rules, and `panel.sample.json`

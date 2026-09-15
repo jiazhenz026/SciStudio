@@ -45,8 +45,8 @@ def _without_auto(key: str) -> ProviderDescriptor:
 EXPECTED_AUTO_ARGV = {
     # `claude --help` at 2.1.210 lists `auto` among --permission-mode choices.
     "claude-code": ("--permission-mode", "auto"),
-    # `codex --approve-for-me -a on-request --help` exits 0 at 0.154.0.
-    "codex": ("--approve-for-me", "--ask-for-approval", "on-request"),
+    # #2452: `--approve-for-me` alone; clap rejects it beside -a/-s at 0.154.0.
+    "codex": ("--approve-for-me",),
     # kimi 0.42.0: -y/--yolo is "Ask When Needed"; --auto is "Never Ask" (bypass).
     "kimi-code": ("--yolo",),
     # docs.qoder.com/en/cli/permissions: `--permission-mode auto`.
@@ -241,25 +241,3 @@ def test_status_row_reports_no_auto_for_a_codex_older_than_the_flag(monkeypatch:
 
     monkeypatch.setattr(ai_routes, "_binary_status", lambda _d: ("/fake/codex", True, "codex-cli 0.154.0"))
     assert ai_routes._probe_provider(get("codex"))["supports_auto_mode"] is True
-
-
-def test_availability_reports_no_auto_for_a_codex_older_than_the_flag() -> None:
-    import asyncio
-
-    from scistudio.ai.agent.availability import resolve_availability
-
-    rows = [
-        {
-            "name": "codex",
-            "label": "Codex",
-            "available": True,
-            "logged_in": False,
-            "version": "codex-cli 0.144.0-alpha.4",
-        },
-        {"name": "claude-code", "label": "Claude Code", "available": False, "logged_in": False, "version": None},
-    ]
-    report = asyncio.run(resolve_availability(rows))
-    by_key = {p.key: p for p in report.providers}
-    assert by_key["codex"].supports_auto_mode is False
-    # Not installed: no version, so no evidence the flag is accepted.
-    assert by_key["claude-code"].supports_auto_mode is False

@@ -1,3 +1,14 @@
+/**
+ * @overview
+ * Styles for the data views in `renderers.js` (SDK major 1). Link it after
+ * `panel.css`, which supplies the design tokens these rules use:
+ *
+ * ```html
+ * <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ * <link rel="stylesheet" href="../../sdk/1/renderers.css" />
+ * ```
+ */
+
 /* ArrayView */
 
 /* Fixed column geometry: the virtualizer reserves width for off-window
@@ -107,6 +118,11 @@
 .series-values td {
     text-align: left;
     padding: 3px 10px;
+    white-space: nowrap;
+}
+/* A fixed row height: SeriesView windows the rows on it (ROW_H). */
+.series-values tbody tr[data-row] {
+    height: 22px;
 }
 
 /* TextView */

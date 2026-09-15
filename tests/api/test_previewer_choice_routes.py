@@ -144,31 +144,53 @@ def test_clearing_a_type_that_was_never_chosen_succeeds(client: TestClient, open
     assert client.delete("/api/previews/choices/NeverChosen", params={"scope": "user"}).status_code == 200
 
 
-def test_choice_writes_refresh_every_registry(
+def test_choice_writes_rebuild_nothing_and_announce_the_type(
     client: TestClient,
     opened_project: Path,
     runtime: ApiRuntime,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Choice writes are invalidation events, so both routes use the unified refresh."""
+    """#2465 Q6-b: a choice is persisted and announced; no registry is rebuilt.
+
+    Open previews of the chosen type re-route on ``panel.choices_changed``;
+    every other open preview, panel context and MiniApp is left alone.
+    """
+    import asyncio
+
     _install_previewers(opened_project, client)
     refreshes = 0
-    refresh_all = runtime.refresh_all_registries
 
     def tracked_refresh() -> None:
         nonlocal refreshes
         refreshes += 1
-        refresh_all()
 
     monkeypatch.setattr(runtime, "refresh_all_registries", tracked_refresh)
+    announced: list[dict] = []
+    original_emit = runtime.event_bus.emit
+
+    async def capture(event):  # type: ignore[no-untyped-def]
+        if event.event_type == "panel.choices_changed":
+            announced.append(dict(event.data))
+        await original_emit(event)
+
+    monkeypatch.setattr(runtime.event_bus, "emit", capture)
+    legacy_before = runtime.get_preview_service()
 
     response = client.put(
         "/api/previews/choices/DataFrame",
         json={"previewer_id": "choice.alternate", "scope": "user"},
     )
     assert response.status_code == 200
+    assert runtime.get_panel_service().choices() == {"DataFrame": "choice.alternate"}
     assert client.delete("/api/previews/choices/DataFrame", params={"scope": "user"}).status_code == 200
-    assert refreshes == 2
+    assert runtime.get_panel_service().choices() == {}
+    for _ in range(50):
+        if len(announced) == 2:
+            break
+        asyncio.run(asyncio.sleep(0.01))
+    assert refreshes == 0
+    assert runtime.get_preview_service() is legacy_before
+    assert announced == [{"type": "DataFrame"}, {"type": "DataFrame"}]
 
 
 # -- persistence -------------------------------------------------------------

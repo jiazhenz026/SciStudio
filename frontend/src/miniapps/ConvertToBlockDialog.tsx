@@ -15,26 +15,23 @@
  * and these outputs. The user keeps the MiniApp they were using while the block
  * is being written, and a conversion they abandon costs them nothing.
  *
- * The agent controls are the same ones the create dialog offers, for the same
- * reason (ADR-053 FR-042): this is the second surface in this feature to start
- * a session, and a session that cannot start should say so here rather than
- * failing inside the route.
+ * The agent controls are AI Chat's own (#2454, owner directive):
+ * `AgentLaunchSetup` over `useAgentStatus`, the same code the AI Chat setup
+ * screen and the create dialog render. No availability probe runs.
  */
 import { Plus, X } from "lucide-react";
 
 import { useCallback, useEffect, useState } from "react";
 
-import type { PermissionMode } from "../components/AIChat/SetupScreen.parts/types";
-import { AgentSetup } from "../components/BringInMyWorkDialog.parts/AgentSetup";
-import { AvailabilityGuidance } from "../components/BringInMyWorkDialog.parts/AvailabilityGuidance";
+import { AgentLaunchSetup } from "../components/AIChat/SetupScreen.parts/AgentLaunchSetup";
 import {
-  hasUsableProvider,
-  resolveSelectedProvider,
-} from "../components/BringInMyWorkDialog.parts/availability";
-import {
-  useAgentAvailability,
-  type AvailabilityFetcher,
-} from "../components/BringInMyWorkDialog.parts/useAgentAvailability";
+  agentLaunchProblem,
+  useAgentStatus,
+} from "../components/AIChat/SetupScreen.parts/agentStatus";
+import type {
+  PermissionMode,
+  TerminalProvider,
+} from "../components/AIChat/SetupScreen.parts/types";
 import { fromBackendPermissionMode, toBackendPermissionMode } from "../lib/api/workImport";
 import { useAppStore } from "../store";
 
@@ -45,7 +42,6 @@ export const CONVERT_EYEBROW = "MiniApp";
 export const OUTPUTS_LABEL = "Outputs";
 export const NOTE_LABEL = "Instructions";
 export const NOTE_PLACEHOLDER = "Use the current threshold as the default.";
-export const PROBING = "Checking which agents can run this...";
 
 /** One requested output port of the block being written. */
 export interface OutputRow {
@@ -90,13 +86,11 @@ export interface ConvertToBlockDialogProps {
   panelId: string;
   panelName?: string;
   onStarted(sessionTabId: string | null): void;
-  /** Test seam for the graded availability probe. */
-  fetchAvailability?: AvailabilityFetcher;
   /** Test seam for `POST /api/panels/miniapps/{panel_id}/convert`. */
   convert?: typeof miniAppsApi.convert;
 }
 
-/** Mounted only while open, so the availability probe fires on open. */
+/** Mounted only while open, so the provider status is read when the dialog opens. */
 export function ConvertToBlockDialog(props: ConvertToBlockDialogProps) {
   if (!props.open) return null;
   return <ConvertToBlockDialogBody {...props} />;
@@ -107,30 +101,19 @@ function ConvertToBlockDialogBody({
   panelId,
   panelName,
   onStarted,
-  fetchAvailability,
   convert = miniAppsApi.convert,
 }: ConvertToBlockDialogProps) {
   const types = useAppStore((s) => s.types);
 
   const [rows, setRows] = useState<OutputRow[]>([emptyRow()]);
   const [note, setNote] = useState("");
-  const [provider, setProvider] = useState<string | null>(null);
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("safe");
+  const [provider, setProvider] = useState<TerminalProvider | null>(null);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    loading: probing,
-    availability,
-    probeError,
-    retry,
-    retrying,
-  } = useAgentAvailability(fetchAvailability);
-  const agentUsable = hasUsableProvider(availability);
-
-  useEffect(() => {
-    setProvider((prev) => resolveSelectedProvider(availability, prev));
-  }, [availability]);
+  const agentStatus = useAgentStatus();
+  const agentReady = agentLaunchProblem(agentStatus.providers, provider, permissionMode) === null;
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -154,14 +137,14 @@ function ConvertToBlockDialogBody({
     duplicateNames && outputs.every((output) => output.name)
       ? "Give each output a different name."
       : null;
-  const submittable = complete && !rowError && !submitting && !probing && agentUsable;
+  const submittable = complete && !rowError && !submitting && agentReady;
 
   const patchRow = (id: string, patch: Partial<OutputRow>) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
   const submit = useCallback(async () => {
-    if (!submittable) return;
+    if (!submittable || !provider || !permissionMode) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -320,37 +303,14 @@ function ConvertToBlockDialogBody({
             />
           </div>
 
-          {probing ? (
-            <div className="grid gap-2">
-              <p className="text-xs italic text-stone-500" data-testid="miniapp-convert-probing">
-                {PROBING}
-              </p>
-              <AgentSetup
-                availability={availability}
-                probing
-                provider={provider}
-                permissionMode={permissionMode}
-                onProviderChange={setProvider}
-                onPermissionModeChange={setPermissionMode}
-              />
-            </div>
-          ) : agentUsable ? (
-            <AgentSetup
-              availability={availability}
-              probing={false}
-              provider={provider}
-              permissionMode={permissionMode}
-              onProviderChange={setProvider}
-              onPermissionModeChange={setPermissionMode}
-            />
-          ) : (
-            <AvailabilityGuidance
-              availability={availability}
-              probeError={probeError}
-              onRetry={retry}
-              retrying={retrying}
-            />
-          )}
+          <AgentLaunchSetup
+            tabId="miniapp-convert"
+            agentStatus={agentStatus}
+            provider={provider}
+            permissionMode={permissionMode}
+            onProviderChange={setProvider}
+            onPermissionModeChange={setPermissionMode}
+          />
         </div>
 
         <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4">

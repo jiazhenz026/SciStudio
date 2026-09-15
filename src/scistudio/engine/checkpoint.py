@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -228,7 +228,10 @@ def _try_reconstruct(item_data: dict[str, Any], fallback_type_name: str) -> Any:
 # #1530: persisted-format version stamp for checkpoint files. Bump on a
 # non-backward-compatible change to the WorkflowCheckpoint shape and pair it
 # with a migration step; stamping is the cheap half done now.
-CHECKPOINT_FORMAT_VERSION = 1
+# Version 2 (#2448) adds ``node_fingerprints``. A version-1 file loads with an
+# empty mapping, and "Run from here" refuses to reuse its outputs because the
+# definitions they were produced with are unknown.
+CHECKPOINT_FORMAT_VERSION = 2
 
 
 @dataclass
@@ -246,6 +249,10 @@ class WorkflowCheckpoint:
     pending_block: str | None = None
     config_snapshot: dict[str, Any] = field(default_factory=dict)
     skip_reasons: dict[str, str] = field(default_factory=dict)  # ADR-018: block_id → skip reason
+    #: Per node with a stored output: ``{"definition": <sha256>, "lineage": <sha256>}``
+    #: describing the definition the output was produced with. See
+    #: :mod:`scistudio.engine.run_from_here`.
+    node_fingerprints: dict[str, dict[str, str]] = field(default_factory=dict)
     version: int = CHECKPOINT_FORMAT_VERSION  # #1530: persisted-format version stamp
 
 
@@ -300,7 +307,8 @@ def load_checkpoint(path: str | Path) -> WorkflowCheckpoint:
     with open(path) as f:
         data = json.load(f)
     data["timestamp"] = datetime.fromisoformat(data["timestamp"])
-    return WorkflowCheckpoint(**data)
+    known = {f.name for f in fields(WorkflowCheckpoint)}
+    return WorkflowCheckpoint(**{key: value for key, value in data.items() if key in known})
 
 
 # ---------------------------------------------------------------------------

@@ -59,9 +59,11 @@ from scistudio.api.file_contracts import FILE_CHANGED_EVENT_TYPE, FILE_ENTITY_CL
 from scistudio.api.routes.ai_pty.replay import open_replay_tab
 from scistudio.api.runtime import ApiRuntime
 from scistudio.api.runtime._helpers import _rmtree_force
+from scistudio.api.runtime._runs import ProjectRunsLiveError
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PANELS_DIR_NAME,
     PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     previewer_scan_dirs,
@@ -582,7 +584,7 @@ class _ApiProductState:
         internal handle the user never sees.
         """
         # Development references: FR-047.
-        specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+        specs: list[Any] = _read_or(lambda: self.runtime.get_panel_service().all_specs(), [])
         return frozenset(str(spec.target_type) for spec in specs if getattr(spec, "target_type", None))
 
     # -- plots ------------------------------------------------------------
@@ -833,7 +835,7 @@ class _ApiProductState:
         if previewer_scan_dirs(self.project_dir)[-1] == library / PREVIEWERS_DIR_NAME:
             from scistudio.previewers.models import OwnerKind
 
-            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_panel_service().all_specs(), [])
             for spec in previewer_specs:
                 if getattr(spec, "owner_kind", None) is OwnerKind.USER:
                     entries.add(("previewer", str(spec.previewer_id)))
@@ -1059,7 +1061,11 @@ class _TutorialWiring:
 #: ``previewers/*.py`` and then says "expand the preview" needs the previewer
 #: registered before the step's text is readable, exactly as blocks and types
 #: already settle — ``refresh_all_registries`` rebuilds the preview service too.
-_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME})
+#: ``panels/`` joined with #2411, beside ``previewers/`` rather than replacing it:
+#: new projects scaffold ``panels/``, and tutorials still write previewer drop-ins.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset(
+    {BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME, PANELS_DIR_NAME}
+)
 
 
 #: The project subdirectory holding workflow YAML, which the open canvas renders.
@@ -1525,6 +1531,10 @@ def _acting(action: Callable[[], _T]) -> _T:
         # (#2061), which the detail is worded to say.
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except TutorialUnavailableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ProjectRunsLiveError as exc:
+        # #2433: starting a tutorial opens its project, which ends the open
+        # project's runs; the GUI ends them with the user's consent first.
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except NoActiveSessionError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

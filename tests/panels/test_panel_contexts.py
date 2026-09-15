@@ -110,7 +110,7 @@ def test_cancel_event_revokes_interactive_context(panel_runtime):
         store.by_token(ctx.token)
 
 
-@pytest.mark.parametrize("change", ["project", "service", "data"])
+@pytest.mark.parametrize("change", ["project", "legacy_reload", "data"])
 @pytest.mark.parametrize("operation", ["read", "patch", "resource"])
 def test_independent_child_session_validates_every_followup(panel_runtime, change, operation):
     from dataclasses import replace
@@ -120,29 +120,35 @@ def test_independent_child_session_validates_every_followup(panel_runtime, chang
     from scistudio.previewers.models import UnknownPreviewerError
 
     runtime, store = panel_runtime
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     panels = PanelRegistry()
-    panels.register(replace(service.registry.panels.get("lab.text"), types=("Collection[Text]",)))
-    service.registry.install_panels(panels)
+    panels.register(replace(service.panel("lab.text"), types=("Collection[Text]",)))
+    runtime.test_panels[0] = panels
+    service.rescan(force=True)
     group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
     parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
     envelope = store.open_child(parent.context_id, "data-a")
+    # The child routes to the legacy core text previewer: no panel claims Text now.
+    sessions = service.legacy.sessions
+    assert sessions.owns(envelope.session_id)
     store.close(parent.context_id)
     if change == "project":
         runtime.active_project = SimpleNamespace(id="other", path="other")
-    elif change == "service":
-        runtime.get_preview_service = lambda: object()
+    elif change == "legacy_reload":
+        # #2465 Q5-b: reloading the legacy previewers ends their sessions; the
+        # host recreates them.
+        service.refresh()
     else:
         runtime.data_catalog["data-a"].metadata["changed"] = True
     with pytest.raises(UnknownPreviewerError):
         if operation == "read":
-            service.sessions.read_session(envelope.session_id)
+            service.read_session(envelope.session_id)
         elif operation == "patch":
-            service.sessions.patch_session(envelope.session_id, {"page": 2})
+            service.patch_session(envelope.session_id, {"page": 2})
         else:
-            service.sessions.read_resource(envelope.session_id, "tile")
-    assert envelope.session_id not in service.sessions._session_guards
-    assert envelope.session_id not in service.sessions._session_authorities
+            service.read_resource(envelope.session_id, "tile")
+    assert envelope.session_id not in sessions._session_guards or change == "legacy_reload"
+    assert envelope.session_id not in sessions._session_authorities or change == "legacy_reload"
 
 
 def test_child_session_eviction_cleans_authority(panel_runtime):

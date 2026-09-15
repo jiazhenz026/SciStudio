@@ -60,8 +60,6 @@ from scistudio.ai.agent.providers_registry import (
     ProviderDescriptor,
     ProviderKind,
     ProviderRegistry,
-    SystemPromptInjection,
-    SystemPromptStrategy,
 )
 
 #: A sixth provider that exists only for the duration of this module.
@@ -81,10 +79,6 @@ FIXTURE = ProviderDescriptor(
     config_root=(".fixture-agent",),
     config_root_env=None,
     mcp=McpInjection(strategy=McpStrategy.FLAG, flag="--mcp-config"),
-    system_prompt=SystemPromptInjection(
-        strategy=SystemPromptStrategy.AMBIENT,
-        skill_dirs=(".agents/skills",),
-    ),
     credentials=CredentialProbe(credential_path=(".auth",)),
     bypass_argv=("--fixture-bypass",),
 )
@@ -180,7 +174,7 @@ def test_ai_block_config_enum_picks_up_the_sixth_provider(sixth_provider: dict[s
     descriptor keeps the default ``prompt_argv_prefix``, so it is capable and
     still appears with no edit here.
     """
-    from scistudio.ai.agent.availability import session_unsupported_reason
+    from scistudio.ai.agent.providers_registry import session_unsupported_reason
 
     ai_block = sixth_provider["scistudio.blocks.ai.ai_block"]
     provider_schema = ai_block.AIBlock.config_schema["properties"]["provider"]
