@@ -59,9 +59,11 @@ class OpenInFiji(AppBlock):
         The only customization in this block. By default ``AppBlock`` launches
         the app with the exchange folder as its trailing argument; a GUI Fiji
         opens *files*, not folders, so this override passes the staged input
-        files directly (the imaging package's Fiji block does the same, #420).
+        files directly, the way the imaging package's Fiji block does.
         ``output_dir`` is where the watcher expects saved results. Returning
         ``None`` would keep the default exchange-folder behavior — the right
         choice for apps that read the folder themselves.
         """
+        # A GUI Fiji opens files, not folders; same approach as the imaging
+        # package's Fiji block (#420).
         return [str(p) for p in sorted((exchange_dir / "inputs").rglob("*")) if p.is_file()]
