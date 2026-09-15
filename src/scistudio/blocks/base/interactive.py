@@ -348,13 +348,14 @@ def interactive_input_signature(inputs: dict[str, Any]) -> dict[str, list[str]]:
 def load_interactive_memory(config: Any) -> dict[str, Any] | None:
     """Read an enabled remembered-decision record from a block config.
 
-    The record lives at ``config['params'][INTERACTIVE_MEMORY_KEY]`` (#2412):
-    the GUI and the agent tools both write it there. A legacy record at the
-    config top level is honoured only when ``params`` carries none, so a
-    params record (including a disabled or cleared one) always wins. Returns
-    the record dict (``{enabled, decision, signature}``) or ``None`` when
-    memory is absent or disabled.
+    The record lives at ``config['params'][INTERACTIVE_MEMORY_KEY]``; the GUI
+    and the agent tools both write it there. A legacy record at the config
+    top level is honoured only when ``params`` carries none, so a params
+    record (including a disabled or cleared one) always wins. Returns the
+    record dict (``{enabled, decision, signature}``) or ``None`` when memory
+    is absent or disabled.
     """
+    # Development references: ADR-051 Addendum 1, #2412.
     record: Any = None
     if isinstance(config, dict):
         params = config.get("params")

@@ -41,7 +41,7 @@ function spyOnStoreActions() {
 
 const deps = {
   appendLog: vi.fn(),
-  setInteractivePrompt: vi.fn(),
+  upsertInteractivePrompt: vi.fn(),
   setWorkflow: vi.fn(),
 };
 

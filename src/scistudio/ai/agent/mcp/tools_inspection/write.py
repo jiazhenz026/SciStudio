@@ -28,10 +28,11 @@ _MISSING = object()
 
 
 def _write_interactive_memory(config_node: dict[str, Any], record: Any) -> None:
-    """Store an ``interactive_memory`` record under ``config.params`` (#2412).
+    """Store an ``interactive_memory`` record under ``config.params``.
 
     Removes a legacy top-level copy so the engine and the GUI read one record.
     """
+    # Development references: ADR-051 Addendum 1, #2412.
     params_node = config_node.get("params")
     if not isinstance(params_node, dict):
         config_node["params"] = {}
