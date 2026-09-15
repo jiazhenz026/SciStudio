@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 #: reference to each one — a bare ``create_task`` result is garbage-collectable
 #: mid-sleep, which would silently leave a gone workspace's MiniApp processes
 #: running for the rest of the session.
-_panel_close_tasks: set[asyncio.Task[None]] = set()
+_panel_close_tasks: dict[str, asyncio.Task[None]] = {}
 
 # ADR-036 §3.5 (I36c): outbound event type emitted after a successful
 # blocks/*.py save passes lint and hot_reload runs. Declared here as a
@@ -229,6 +229,28 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
         logger.warning("Failed to close panel contexts for client %s", client_id, exc_info=True)
 
 
+def _cancel_panel_close(client_id: str) -> None:
+    """A reconnect invalidates the previous disconnect's grace timer."""
+    previous = _panel_close_tasks.pop(client_id, None)
+    if previous is not None:
+        previous.cancel()
+
+
+def _schedule_panel_close(event_bus: EventBus, client_id: str) -> None:
+    """Start a fresh grace period only after the client's final socket closes."""
+    if client_id in gui_presence.connected():
+        return
+    _cancel_panel_close(client_id)
+    task = asyncio.create_task(_close_panel_contexts_after_grace(event_bus, client_id))
+    _panel_close_tasks[client_id] = task
+
+    def remove_finished(done: asyncio.Task[None]) -> None:
+        if _panel_close_tasks.get(client_id) is done:
+            _panel_close_tasks.pop(client_id)
+
+    task.add_done_callback(remove_finished)
+
+
 async def _run_socket_pumps(*loops: Coroutine[Any, Any, None]) -> None:
     """End both socket pumps as soon as either direction disconnects."""
     tasks = {asyncio.create_task(loop) for loop in loops}
@@ -273,7 +295,8 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     # announces it is sent, so a send that fails still unwinds through the
     # ``finally`` below rather than leaving a registration behind.
     client_id = _client_id_for(websocket)
-    gui_presence.register(client_id)
+    presence_token = gui_presence.register(client_id)
+    _cancel_panel_close(client_id)
 
     outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
     from scistudio.panels.gui_debug import get_gui_debug
@@ -446,13 +469,11 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     finally:
         if debug_broker and debug_connection:
             debug_broker.disconnect(debug_connection)
-        gui_presence.unregister(client_id)
+        gui_presence.unregister(client_id, presence_token)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
         # FR-013: this workspace's MiniApp processes outlive a dropped socket
         # for the grace period and no longer. The task holds no reference to
         # this connection, so it survives the handler returning.
-        close_task = asyncio.create_task(_close_panel_contexts_after_grace(event_bus, client_id))
-        _panel_close_tasks.add(close_task)
-        close_task.add_done_callback(_panel_close_tasks.discard)
+        _schedule_panel_close(event_bus, client_id)

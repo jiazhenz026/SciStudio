@@ -29,19 +29,26 @@ import threading
 __all__ = ["any_connected", "connected", "register", "unregister"]
 
 _lock = threading.Lock()
-_clients: set[str] = set()
+_clients: dict[str, set[object]] = {}
 
 
-def register(client_id: str) -> None:
-    """Record *client_id* as a connected workspace realtime client."""
+def register(client_id: str) -> object:
+    """Register one socket and return its connection-specific removal token."""
+    token = object()
     with _lock:
-        _clients.add(client_id)
+        _clients.setdefault(client_id, set()).add(token)
+    return token
 
 
-def unregister(client_id: str) -> None:
-    """Forget *client_id*; unknown ids are ignored so a double close is safe."""
+def unregister(client_id: str, token: object) -> None:
+    """Remove only this socket; duplicate closes cannot remove a reconnect."""
     with _lock:
-        _clients.discard(client_id)
+        tokens = _clients.get(client_id)
+        if tokens is None:
+            return
+        tokens.discard(token)
+        if not tokens:
+            del _clients[client_id]
 
 
 def connected() -> tuple[str, ...]:

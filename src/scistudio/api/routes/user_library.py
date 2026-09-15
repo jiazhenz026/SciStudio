@@ -80,6 +80,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
+from filelock import FileLock, Timeout
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes.projects import (
@@ -717,11 +718,20 @@ def _copy_tree_confined(source: Path, staging: Path) -> None:
 
 
 def _land_directory(staging: Path, destination: Path, *, overwrite: bool, target: UserLibraryTarget) -> None:
-    """Rename the staged copy into place, or refuse a collision."""
+    """Serialize promotions and keep an existing panel recoverable until landing."""
+    lock_path = destination.parent / ".__scistudio_promote.lock"
+    try:
+        with FileLock(lock_path, timeout=0):
+            _swap_directory(staging, destination, overwrite=overwrite, target=target)
+    except Timeout as exc:
+        raise _reject(409, "Another user library promotion is in progress. Retry when it finishes.") from exc
+
+
+def _swap_directory(staging: Path, destination: Path, *, overwrite: bool, target: UserLibraryTarget) -> None:
+    """Land a complete tree; restore the previous tree if the landing fails."""
     if destination.is_symlink():
-        # An overwrite would otherwise be asked to remove a link standing where
-        # a panel should be, whose target is somewhere this route never checked.
         raise _reject(403, f"{destination.name} in the user library {target} directory is a symbolic link")
+    backup: Path | None = None
     if destination.exists():
         if not overwrite:
             raise HTTPException(
@@ -734,18 +744,43 @@ def _land_directory(staging: Path, destination: Path, *, overwrite: bool, target
                     ),
                 },
             )
-        shutil.rmtree(destination)
+        if not destination.is_dir():
+            raise _reject(409, f"{destination.name} in the user library is not a directory")
+        backup = Path(tempfile.mkdtemp(prefix=".__scistudio_backup_", dir=destination.parent))
+        try:
+            os.rename(destination, backup / "previous")
+        except OSError:
+            backup.rmdir()
+            raise
     try:
+        # The file lock serializes API writers. Refuse a destination introduced
+        # by another filesystem writer instead of deleting it during recovery.
+        if os.path.lexists(destination):
+            raise FileExistsError(f"{destination.name} was created by another writer")
         os.rename(staging, destination)
     except OSError as exc:
-        # A concurrent writer created the name between the probe and here.
-        raise HTTPException(
-            409,
-            detail={
-                "code": "exists",
-                "message": f"{destination.name} was created in the user library {target} directory by something else.",
-            },
-        ) from exc
+        if backup is not None:
+            try:
+                if os.path.lexists(destination):
+                    raise FileExistsError("The destination is occupied")
+                os.rename(backup / "previous", destination)
+            except OSError as restore_exc:
+                raise _reject(
+                    500,
+                    f"Promotion failed; the previous panel is preserved in {backup.name}/previous. "
+                    f"Could not restore it: {restore_exc}",
+                ) from exc
+            with suppress(OSError):
+                backup.rmdir()
+        status = 409 if isinstance(exc, FileExistsError) else 500
+        raise _reject(status, f"Could not promote {destination.name}: {exc}") from exc
+    if backup is not None:
+        # Landing has committed. Cleanup failure must not turn a successful
+        # promotion into a failure or remove the newly installed panel.
+        try:
+            shutil.rmtree(backup)
+        except OSError:
+            logger.warning("Promoted %s; could not remove backup %s", destination.name, backup.name, exc_info=True)
 
 
 def _consume_directory(source: Path, written: Path) -> tuple[bool, str | None]:

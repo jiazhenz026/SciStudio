@@ -216,3 +216,113 @@ def test_the_directory_route_refuses_a_file_tier(client: TestClient, project: Pa
         json={"project_dir": str(project)},
     )
     assert response.status_code == 400
+
+
+def _replacement(project: Path, library: Path) -> tuple[Path, Path]:
+    source = _write_panel(project / "panels", "threshold_explorer")
+    destination = _write_panel(library, "threshold_explorer")
+    (source / "index.html").write_text("new panel", encoding="utf-8")
+    (destination / "index.html").write_text("old panel", encoding="utf-8")
+    return source, destination
+
+
+@pytest.mark.parametrize("failing_step", ["backup", "landing"])
+def test_failed_overwrite_preserves_original_and_project(
+    client: TestClient, project: Path, library: Path, monkeypatch: pytest.MonkeyPatch, failing_step: str
+) -> None:
+    from scistudio.api.routes import user_library
+
+    source, destination = _replacement(project, library)
+    rename = user_library.os.rename
+
+    def fail_selected(origin: Any, target: Any) -> None:
+        path = Path(origin)
+        if (failing_step == "backup" and path == destination) or (
+            failing_step == "landing" and path.name.startswith(".__scistudio_promote_")
+        ):
+            raise PermissionError("injected rename failure")
+        rename(origin, target)
+
+    monkeypatch.setattr(user_library.os, "rename", fail_selected)
+    response = _promote(client, project, "threshold_explorer", overwrite=True)
+
+    assert response.status_code == 500
+    assert (destination / "index.html").read_text() == "old panel"
+    assert (source / "index.html").read_text() == "new panel"
+    assert not list(library.glob(".__scistudio_backup_*"))
+    assert not list(library.glob(".__scistudio_promote_*"))
+
+
+@pytest.mark.parametrize("collision", [False, True])
+def test_failed_rollback_keeps_recoverable_backup(
+    client: TestClient, project: Path, library: Path, monkeypatch: pytest.MonkeyPatch, collision: bool
+) -> None:
+    from scistudio.api.routes import user_library
+
+    source, destination = _replacement(project, library)
+    rename = user_library.os.rename
+
+    def fail_landing_and_restore(origin: Any, target: Any) -> None:
+        path = Path(origin)
+        if path.name.startswith(".__scistudio_promote_"):
+            if collision:
+                destination.mkdir()
+                (destination / "index.html").write_text("concurrent panel")
+            raise OSError("injected landing failure")
+        if path.name == "previous":
+            raise PermissionError("injected rollback failure")
+        rename(origin, target)
+
+    monkeypatch.setattr(user_library.os, "rename", fail_landing_and_restore)
+    response = _promote(client, project, "threshold_explorer", overwrite=True)
+
+    assert response.status_code == 500
+    backups = list(library.glob(".__scistudio_backup_*"))
+    assert len(backups) == 1
+    assert backups[0].name in response.json()["detail"]
+    assert (backups[0] / "previous" / "index.html").read_text() == "old panel"
+    assert (source / "index.html").read_text() == "new panel"
+    if collision:
+        assert (destination / "index.html").read_text() == "concurrent panel"
+    else:
+        assert not destination.exists()
+
+
+def test_backup_cleanup_failure_keeps_successful_promotion(
+    client: TestClient, project: Path, library: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scistudio.api.routes import user_library
+
+    source, destination = _replacement(project, library)
+    rmtree = user_library.shutil.rmtree
+
+    def fail_backup(path: Any, *args: Any, **kwargs: Any) -> None:
+        if Path(path).name.startswith(".__scistudio_backup_"):
+            raise PermissionError("injected cleanup failure")
+        rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(user_library.shutil, "rmtree", fail_backup)
+    response = _promote(client, project, "threshold_explorer", overwrite=True)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["moved"] is True
+    assert (destination / "index.html").read_text() == "new panel"
+    backups = list(library.glob(".__scistudio_backup_*"))
+    assert len(backups) == 1
+    assert (backups[0] / "previous" / "index.html").read_text() == "old panel"
+    assert not source.exists()
+
+
+def test_concurrent_promotion_is_refused_without_touching_either_copy(
+    client: TestClient, project: Path, library: Path
+) -> None:
+    from filelock import FileLock
+
+    source, destination = _replacement(project, library)
+    with FileLock(library / ".__scistudio_promote.lock"):
+        response = _promote(client, project, "threshold_explorer", overwrite=True)
+
+    assert response.status_code == 409
+    assert (source / "index.html").read_text() == "new panel"
+    assert (destination / "index.html").read_text() == "old panel"
+    assert not list(library.glob(".__scistudio_backup_*"))
