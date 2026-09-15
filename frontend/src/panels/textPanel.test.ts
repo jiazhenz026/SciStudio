@@ -55,7 +55,6 @@ function chunk(content: string, offset: number, total: number, more: boolean) {
     next_offset: offset + content.length,
     truncated: more,
     complete: !more,
-    sampled: false,
     language: "txt",
     encoding: "utf-8",
   };
@@ -173,6 +172,43 @@ describe("core.text.basic — the rendered document", () => {
       expect(root().querySelector("[data-testid=text-loading-more]")).toBeTruthy(),
     );
     (resolveSecond as null | (() => void))?.();
+  });
+});
+
+describe("core.text.basic — a document longer than one batch (#2460)", () => {
+  it("pauses after a batch of chunks and reads the rest on Read more", async () => {
+    // 512 chunks is one batch; 520 chunks of 1 byte leave 8 for Read more.
+    const document_ = "y".repeat(520);
+    const { reads } = stubHost(document_, 1);
+    await loadPanelModule();
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=text-read-more]")).toBeTruthy(),
+    );
+    expect(content().length).toBe(512);
+    expect(root().querySelector("[data-testid=text-partial]")?.textContent).toContain(
+      "512 of 520 bytes",
+    );
+
+    (root().querySelector("[data-testid=text-read-more]") as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(content()).toBe(document_));
+    expect(root().querySelector("[data-testid=text-read-more]")).toBeNull();
+    expect(reads.length).toBe(520);
+  });
+
+  it("reports a reader that stops advancing instead of presenting the text as complete", async () => {
+    const { api } = stubHost("abcdefghij", 5);
+    api.read = () =>
+      Promise.resolve({
+        content: "abc",
+        text: "abc",
+        offset: 0,
+        next_offset: 0,
+        truncated: true,
+        total_bytes: 10,
+      });
+    await loadPanelModule();
+    await vi.waitFor(() => expect(root().querySelector(".panel-error")).toBeTruthy());
+    expect(api.reportError).toHaveBeenCalled();
   });
 });
 

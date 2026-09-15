@@ -27,7 +27,9 @@ READ_BYTES = 20 * 1024 * 1024
 READ_ITEMS = 200
 READ_ROWS = 200
 READ_DIM = 512
-READ_POINTS = 2000
+#: Rows in one ``series.points`` / ``table.xy`` page. A page, not a cap: every
+#: row is reached by following ``next_offset`` (#2460).
+READ_POINTS = 100_000
 
 
 def read_access() -> PreviewDataAccess:
@@ -511,8 +513,14 @@ class PanelContexts:
                     root.children[ref] = freeze_target(self.runtime, ref)
                     root.children[ref].parent = root
                     break
-        elif ref.startswith(root.target.ref + "#"):
-            child_targets(self.runtime, root, read_access())
+        elif ref.startswith(root.target.ref + "#") and ref not in root.children:
+            # Slots are paged; a slot past the first page is authorized too.
+            cursor = None
+            while True:
+                page = child_targets(self.runtime, root, read_access(), cursor=cursor)
+                cursor = page.get("next_cursor")
+                if ref in root.children or cursor is None:
+                    break
         stack = list(root.children.values())
         while stack:
             child = stack.pop()

@@ -224,9 +224,7 @@ class ArrayTile:
 class SeriesPoints:
     """The complete finite set of (x, y) chart points for a Series preview.
 
-    Legacy calls return every plottable point. Explicit ``max_points`` opts
-    into bounded uniform-index decimation for panel display, with flags and
-    the method recorded so an export cannot mistake a sample for the source.
+    Every plottable point is returned; nothing is sampled.
     """
 
     points: list[dict[str, float]]
@@ -234,32 +232,15 @@ class SeriesPoints:
     total: int
     """Total number of source values considered (including non-numeric ones)."""
     truncated: bool
-    """True only when explicit decimation omitted source indices."""
+    """Always ``False`` — every finite point is returned."""
     nonnumeric: int = 0
     """Count of values dropped because they were not finite numbers."""
-    sampled: bool = False
-    """Whether explicit panel decimation omitted source indices."""
     complete: bool = True
-    """Whether every finite source point was included."""
-    decimation: str = "none"
-    """Applied decimation method; legacy complete reads use none."""
+    """Whether every finite source point was included (always ``True``)."""
     nonfinite_positions: list[int] = field(default_factory=list)
-    """0-based source positions of the points dropped for being non-finite
+    """0-based source positions of every point dropped for being non-finite
     (NaN / +-inf), so the frontend can mark the gaps rather than let dropped
-    samples silently vanish. For a decimated read this list is bounded and may be
-    shorter than :attr:`nonnumeric`; :attr:`nonfinite_positions_complete` says
-    whether it lists every dropped position."""
-    nonfinite_positions_complete: bool = True
-    """True when :attr:`nonfinite_positions` lists every dropped position (always
-    True for a complete/faithful read; may be False for a bounded decimated read
-    with more drops than the position budget)."""
-    source_indices: list[int] = field(default_factory=list)
-    """0-based source position of each returned point, in the same order.
-
-    Without it a decimated read cannot be drawn honestly: the dropped positions
-    above are source positions, while the points are a sample, so a consumer
-    counting points has no way to tell where in the curve a gap belongs and
-    draws a continuous line across it."""
+    samples silently vanish."""
 
 
 @PREVIEWERS_DEPRECATED
@@ -589,6 +570,10 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage format is not a supported array store.
         """
+        # TODO(#2462): this deprecated provider read still downsamples the plane to max_dim.
+        #   Out of scope per #2460: panel reads (array.plane / array.tile) are complete; this legacy
+        #   ADR-048 form is shadowed by core.array.basic and is removed in 0.6 (#2288).
+        #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2462
         import numpy as np
 
         handle, full_shape, dtype = self._open_array_handle(ref)
@@ -742,20 +727,35 @@ class PreviewDataAccess:
         ref: StorageReference,
         metadata: dict[str, Any],
         *,
-        max_points: int = 4096,
+        offset: int = 0,
+        limit: int,
     ) -> NumericRead:
-        """Return interleaved x/y float64 values with explicit decimation flags."""
-        from dataclasses import asdict
+        """Return the exact x/y float64 rows of one source window of a Series.
 
-        import numpy as np
-
+        Row ``i`` is source row ``offset + i``; a non-finite or missing value is
+        returned in place as NaN, never dropped. Continue from ``next_offset``.
+        """
         from scistudio.previewers._read_arrays import numeric_read
+        from scistudio.previewers._read_series import read_xy_window
 
-        result = self.series_points(ref, metadata, max_points=max_points)
-        meta = asdict(result)
-        meta.pop("points")
-        values = np.asarray([[p["x"], p["y"]] for p in result.points], dtype="<f8").reshape(-1, 2)
-        return numeric_read(values, {**meta, "columns": ["x", "y"]}, self.max_bytes)
+        path = Path(ref.path)
+        if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
+            raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")
+        meta = metadata if isinstance(metadata, dict) else {}
+        index_name, value_name = meta.get("index_name"), meta.get("value_name")
+        both = isinstance(index_name, str) and isinstance(value_name, str)
+        window = read_xy_window(
+            path,
+            meta,
+            x_column=index_name if both else None,
+            y_column=value_name if both else None,
+            offset=offset,
+            limit=limit,
+        )
+        values = window.pop("values")
+        for key in ("columns", "x_column", "y_column"):
+            window.pop(key)
+        return numeric_read(values, {**window, "columns": ["x", "y"]}, self.max_bytes)
 
     @internal()
     def panel_table_xy(
@@ -764,32 +764,28 @@ class PreviewDataAccess:
         *,
         x_column: str | None = None,
         y_column: str | None = None,
-        max_points: int = 2000,
+        offset: int = 0,
+        limit: int,
     ) -> NumericRead:
-        """Read a bounded x/y table sample without changing legacy exports."""
+        """Return the exact x/y rows of one source window of two table columns."""
         import pyarrow.parquet as pq
 
-        from scistudio.previewers._read_arrays import NumericRead
+        from scistudio.previewers._read_arrays import numeric_read
+        from scistudio.previewers._read_series import read_xy_window
 
         path = Path(ref.path)
         if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
             raise ValueError("Table x/y preview expects Arrow/Parquet storage; got Zarr/directory storage")
-        columns = list(pq.ParquetFile(path).schema_arrow.names)
-        if len(columns) < 2:
+        if len(pq.ParquetFile(path).schema_arrow.names) < 2:
             raise ValueError("Table x/y preview requires at least two columns")
-        x_name = x_column if x_column in columns else columns[0]
-        y_name = y_column if y_column in columns else columns[1]
-        result = self.panel_series_points(ref, {"index_name": x_name, "value_name": y_name}, max_points=max_points)
-        return NumericRead(
-            result.values, {**result.metadata, "columns": columns, "x_column": x_name, "y_column": y_name}
-        )
+        window = read_xy_window(path, {}, x_column=x_column, y_column=y_column, offset=offset, limit=limit)
+        values = window.pop("values")
+        return numeric_read(values, window, self.max_bytes)
 
     # -- Series -------------------------------------------------------------
 
     @provisional(since="0.3.1")
-    def series_points(
-        self, ref: StorageReference, metadata: dict[str, Any], *, max_points: int | None = None
-    ) -> SeriesPoints:
+    def series_points(self, ref: StorageReference, metadata: dict[str, Any]) -> SeriesPoints:
         """Return the complete set of chart points for a Series.
 
         Use this to plot a 1-D series. It prefers in-memory values supplied on
@@ -801,8 +797,6 @@ class PreviewDataAccess:
             ref: Storage reference for the Series payload.
             metadata: Recorded Series metadata; may carry ``values``,
                 ``index_name``, and ``value_name``.
-            max_points: Opt-in display cap (at most 16384 and the byte budget).
-                None preserves the complete legacy provider/export behavior.
 
         Returns:
             A :class:`SeriesPoints` with every finite point.
@@ -810,20 +804,6 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage is Zarr/directory storage.
         """
-        if max_points is not None:
-            from scistudio.previewers._read_series import decimate
-
-            if max_points < 1:
-                raise ValueError("max_points must be positive")
-            limit = min(max_points, 16384, self.max_bytes // 16)
-            if limit < 1:
-                raise ValueError("Series byte budget is smaller than one point")
-            return SeriesPoints(
-                **decimate(
-                    ref, metadata, max_points=limit, batch_size=min(self.series_batch_size, 4096, self.max_bytes // 16)
-                )
-            )
-
         path = Path(ref.path)
         if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
             raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")

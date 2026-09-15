@@ -7,7 +7,6 @@
       "metadata": { "created_by": "some.block", "note": "no type-specific panel matched" },
       "shape": null,
       "dtype": null,
-      "sampled": false,
       "truncated": false,
       "complete": true
     }

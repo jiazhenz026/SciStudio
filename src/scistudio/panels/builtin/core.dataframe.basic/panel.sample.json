@@ -15,7 +15,6 @@
       "page_size": 50,
       "total_pages": 1,
       "sort": { "by": null, "direction": null },
-      "sampled": false,
       "truncated": false,
       "complete": true
     }

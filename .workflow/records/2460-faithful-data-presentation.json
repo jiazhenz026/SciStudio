@@ -1,0 +1,64 @@
+{
+  "base_ref": null,
+  "branch": "fix/2460-faithful-data-presentation",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/previewers/**",
+      "src/scistudio/api/routes/panels.py",
+      "frontend/src/panels/**",
+      "frontend/src/components/DataPreview*",
+      "frontend/src/components/DataPreview.parts/**",
+      "frontend/src/lib/api/panels.ts",
+      "src/scistudio/_user_guide/api-reference/panels-sdk.md",
+      "src/scistudio/_user_guide/api-reference/panels-renderers.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "docs/specs/adr-054-panels.md",
+      "CHANGELOG.md",
+      "tests/previewers/**",
+      "tests/panels/**",
+      "tests/api/test_panel_routes.py",
+      "tests/contracts/openapi.json",
+      "tests/docs/**",
+      ".workflow/records/2460-faithful-data-presentation.json"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2460,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Every panel, preview, and MiniApp read presents the real, complete data: no sampling, decimation, striding, cropping, or rounding away because data is large, for every data type; large data stays reachable by paging, tiling, or slices with exact values.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2460-faithful-data-presentation",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "2e6b365a-4367-4e20-bb31-af46dbdf4569",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": []
+}
