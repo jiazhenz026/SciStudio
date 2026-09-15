@@ -201,12 +201,8 @@ class LineageRecorder:
         if self._store is None or event.block_id is None:
             return
 
-        # #1596: ignore terminal events from other concurrent workflows on the
-        # shared EventBus (fail-open when an event carries no workflow_id).
-        if self._workflow_id is not None:
-            event_wf = event.data.get("workflow_id") if isinstance(event.data, dict) else None
-            if event_wf is not None and event_wf != self._workflow_id:
-                return
+        if not self._is_for_this_run(event):
+            return
 
         block_id = event.block_id
         data: dict[str, Any] = event.data or {}
@@ -274,6 +270,21 @@ class LineageRecorder:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _is_for_this_run(self, event: EngineEvent) -> bool:
+        """Whether a terminal event on the shared bus belongs to this run.
+
+        An event stamped with a ``run_id`` is matched on it, so a second run of
+        the same workflow never writes into this run's record (#2433). An event
+        without one is matched on ``workflow_id`` (#1596), and one carrying
+        neither is accepted (fail-open).
+        """
+        data = event.data if isinstance(event.data, dict) else {}
+        event_run = data.get("run_id")
+        if event_run is not None:
+            return bool(event_run == self._run_id)
+        event_wf = data.get("workflow_id")
+        return self._workflow_id is None or event_wf is None or event_wf == self._workflow_id
 
     def _record_io(
         self,

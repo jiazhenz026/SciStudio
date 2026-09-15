@@ -35,6 +35,7 @@ import sys
 import threading
 import time
 from collections.abc import Callable
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -279,6 +280,56 @@ def terminate_ai_terminal_sessions(*, timeout_sec: float = 0.0) -> int:
     return started
 
 
+def _session_project_dir(session: Any) -> Path | None:
+    raw = getattr(session, "_cwd", None)
+    if raw is None:
+        return None
+    try:
+        return Path(raw).resolve()
+    except (OSError, TypeError, ValueError):
+        return None
+
+
+def terminate_project_terminal_sessions(project_dir: Path) -> int:
+    """Kill the AI terminal sessions started for the project at *project_dir*.
+
+    A session belongs to the project it was started in: its working directory
+    is that project or a directory inside it (an AI Block run folder). Leaving
+    the project closes them, so an agent started there cannot act on the
+    project opened next (#2433). The kills run on daemon threads.
+
+    Returns:
+        The number of sessions this call started killing.
+    """
+    # Development references: #2433.
+    try:
+        from scistudio.api.routes import ai_pty
+    except Exception:
+        logger.debug("AI terminal sessions are unavailable", exc_info=True)
+        return 0
+    try:
+        root = Path(project_dir).resolve()
+    except OSError:
+        return 0
+    started = 0
+    for tab_id, session in list(ai_pty._active_ptys.items()):
+        cwd = _session_project_dir(session)
+        if cwd is None or not (cwd == root or cwd.is_relative_to(root)):
+            continue
+        ai_pty._active_ptys.pop(tab_id, None)
+        run_id = ai_pty._engine_tab_to_run.pop(tab_id, None)
+        if run_id is not None:
+            ai_pty._engine_run_to_run_dir.pop(run_id, None)
+        killer = threading.Thread(target=_kill_quietly, args=(session,), name="scistudio-pty-kill", daemon=True)
+        killer.start()
+        with _killers_lock:
+            _KILLERS.append(killer)
+        started += 1
+    if started:
+        logger.info("closed %d AI terminal session(s) of project %s", started, root)
+    return started
+
+
 def begin_shutdown(self: ApiRuntime) -> None:
     """End the backend's long-lived streams so a graceful stop can proceed.
 
@@ -296,5 +347,6 @@ __all__ = [
     "detach_standard_input",
     "start_stop_request_watcher",
     "terminate_ai_terminal_sessions",
+    "terminate_project_terminal_sessions",
     "watch_for_stop_request",
 ]

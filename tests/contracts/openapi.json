@@ -1449,6 +1449,17 @@
     ],
     "type": "object"
    },
+   "EndProjectRunsResponse": {
+    "properties": {
+     "ended_run_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
    "ExecuteFromRequest": {
     "properties": {
      "block_id": {
@@ -1482,6 +1493,16 @@
        "type": "string"
       },
       "type": "array"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "status": {
       "type": "string"
@@ -1962,6 +1983,27 @@
       ]
      }
     },
+    "type": "object"
+   },
+   "LiveRunResponse": {
+    "properties": {
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "workflow_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "workflow_id"
+    ],
     "type": "object"
    },
    "LocalPackageInstallRequest": {
@@ -3545,6 +3587,17 @@
     ],
     "type": "object"
    },
+   "ProjectRunsResponse": {
+    "properties": {
+     "runs": {
+      "items": {
+       "$ref": "#/components/schemas/LiveRunResponse"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
    "ProjectUpdate": {
     "properties": {
      "description": {
@@ -4747,6 +4800,16 @@
     "properties": {
      "message": {
       "type": "string"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "status": {
       "type": "string"
@@ -8837,6 +8900,42 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ActiveProjectResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/projects/active/end-runs": {
+   "post": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EndProjectRunsResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/projects/active/runs": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectRunsResponse"
         }
        }
       }

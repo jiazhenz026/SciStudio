@@ -5,6 +5,7 @@ import {
   emptyWorkflowExecution,
   executionViewKey,
   extractBlockError,
+  isStaleRunEvent,
   maybeAppendErrorLog,
   executionWorkflowKey,
   nextExecutionByWorkflow,
@@ -26,9 +27,17 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
   executionMessages: [],
   logEntries: [],
   isRunning: false,
+  runId: null,
+  endedRunIds: [],
   interactivePrompts: {},
   consumeEvent: (event) =>
     set((state) => {
+      // #2433: an event of a run other than the one its workflow follows — or
+      // of a run leaving its project ended — changes nothing, logs included.
+      const eventKey = executionWorkflowKey(event, state.workflowId);
+      if (isStaleRunEvent(event, state.executionByWorkflow[eventKey], state.endedRunIds)) {
+        return {};
+      }
       const extraction = extractBlockError(event);
       const { logEntries: nextLogs, appended } = maybeAppendErrorLog(
         event,
@@ -47,16 +56,15 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
         event,
         state.executionByWorkflow,
         state.workflowId,
+        Date.now(),
+        state.endedRunIds,
       );
 
       // #2395: a workflow whose run ended can no longer be waiting on an
       // interactive block, so its pending prompts (and only its) are dropped.
       const interactivePrompts =
         event.type === "workflow_completed"
-          ? removeWorkflowPrompts(
-              state.interactivePrompts,
-              executionWorkflowKey(event, state.workflowId),
-            )
+          ? removeWorkflowPrompts(state.interactivePrompts, eventKey, event.run_id ?? null)
           : state.interactivePrompts;
 
       return {
@@ -94,8 +102,19 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
       logEntries: [],
       interactivePrompts: {},
     }),
+  markRunsEnded: (runIds) =>
+    set((state) => ({
+      // Bounded: only the most recent ended runs can still have events in flight.
+      endedRunIds: [
+        ...state.endedRunIds,
+        ...runIds.filter((id) => !state.endedRunIds.includes(id)),
+      ].slice(-200),
+    })),
   upsertInteractivePrompt: (prompt) =>
-    set((state) => ({ interactivePrompts: upsertPrompt(state.interactivePrompts, prompt) })),
+    set((state) => {
+      if (prompt.runId && state.endedRunIds.includes(prompt.runId)) return {};
+      return { interactivePrompts: upsertPrompt(state.interactivePrompts, prompt) };
+    }),
   removeInteractivePrompt: (workflowId, blockId) =>
     set((state) => ({
       interactivePrompts: removePrompt(state.interactivePrompts, workflowId, blockId),

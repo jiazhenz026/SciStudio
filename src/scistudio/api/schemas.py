@@ -89,11 +89,16 @@ class WorkflowResponse(WorkflowCreate):
 
 
 class WorkflowExecutionResponse(BaseModel):
-    """Response body for workflow execution control endpoints."""
+    """Response body for workflow execution control endpoints.
+
+    ``run_id`` names the run a start scheduled (#2433); every event of that run
+    carries it. It is ``None`` on responses that start no run.
+    """
 
     workflow_id: str
     status: str
     message: str
+    run_id: str | None = None
 
 
 class ExecuteWorkflowRequest(BaseModel):
@@ -857,6 +862,35 @@ class ActiveProjectResponse(BaseModel):
 
     project: ProjectResponse | None = None
     active_workflow_id: str | None = None
+
+
+class LiveRunResponse(BaseModel):
+    """One workflow run of the active project that has not finished."""
+
+    # Development references: #2433.
+
+    run_id: str | None = None
+    workflow_id: str
+
+
+class ProjectRunsResponse(BaseModel):
+    """Response body for ``GET /api/projects/active/runs``.
+
+    The active project's live runs. Leaving the project ends every one of them,
+    so the GUI asks the user first whenever this list is not empty.
+    """
+
+    # Development references: #2433.
+
+    runs: list[LiveRunResponse] = Field(default_factory=list)
+
+
+class EndProjectRunsResponse(BaseModel):
+    """Response body for ``POST /api/projects/active/end-runs``."""
+
+    # Development references: #2433.
+
+    ended_run_ids: list[str] = Field(default_factory=list)
 
 
 class CancelBlockRequest(BaseModel):

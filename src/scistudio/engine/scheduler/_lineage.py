@@ -274,7 +274,7 @@ def _build_block_done_data(
     recorded_config = dict(config) if isinstance(config, dict) else {}
     recorded_config.pop("interactive_intermediate", None)
     return {
-        "workflow_id": self._workflow.id,
+        **self._run_scope(),
         "outputs": outputs,
         "inputs": inputs,
         "config": recorded_config,
@@ -354,7 +354,7 @@ def _build_block_terminal_data(
         inputs = {}
 
     data: dict[str, Any] = {
-        "workflow_id": self._workflow.id,
+        **self._run_scope(),
         "block_type": block_type,
         "block_version": block_version,
         "config": config,

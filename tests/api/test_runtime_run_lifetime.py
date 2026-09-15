@@ -8,8 +8,11 @@ says closing the browser must not stop an analysis, so #2327 removed the
 disconnect cancel. These tests pin what replaces it:
 
 * a GUI disconnect neither cancels a run nor strands its lineage;
-* reopening the project, or switching to another one, mid-run keeps the run
-  and records its blocks and outcome in its own project;
+* reopening the project mid-run keeps the run and records its blocks and
+  outcome in its own project;
+* switching to another project mid-run is refused until the runs are ended;
+  ending them records ``cancelled`` in their own project, also for a run that
+  ignores cancellation (#2433);
 * graceful shutdown mid-run leaves a terminal lineage row, also for a run that
   ignores cancellation, and that run's own later completion does not
   overwrite it;
@@ -265,49 +268,101 @@ def test_reopening_the_project_mid_run_keeps_its_history(
     assert runtime.lineage_store.get_run(run_id)["status"] == "completed"
 
 
-def test_switching_projects_mid_run_keeps_the_run_and_its_history(
+def test_switching_projects_mid_run_ends_the_run_in_its_own_project(
     client: TestClient, runtime: ApiRuntime, opened_project: Path, project_parent: Path
 ) -> None:
-    """A switch does not end the run; it is visible on switching back and records in its own project."""
+    """#2433: the switch is refused while the run is live; ending it records ``cancelled`` at home."""
     gate = _start_gated_run(client, runtime, opened_project, "switch-flow")
     first_id = runtime.active_project.id
     first_store = runtime.lineage_store
     (run_id,) = first_store.runs_in_progress()
     run = runtime.workflow_runs["switch-flow"]
+    assert run.run_id == run_id
+
+    listed = client.get("/api/projects/active/runs").json()
+    assert listed == {"runs": [{"run_id": run_id, "workflow_id": "switch-flow"}]}
+    refused = client.post(
+        "/api/projects/", json={"name": "Other Project", "description": "", "path": str(project_parent)}
+    )
+    assert refused.status_code == 409
+    assert refused.json()["detail"]["run_ids"] == [run_id]
+    assert runtime.active_project.id == first_id
+    assert not run.task.done(), "a refused switch leaves the run alone"
+
+    ended = client.post("/api/projects/active/end-runs")
+    assert ended.status_code == 200
+    assert ended.json() == {"ended_run_ids": [run_id]}
+    assert run.task.done()
+    assert gate.cancelled.is_set()
+    wait_for_condition(lambda: run_id not in _run_lifetime.live_run_ids(), timeout=10)
+    assert first_store.get_run(run_id)["status"] == "cancelled"
+    marker = _run_lifetime.owner_marker_path(opened_project, run_id)
+    assert marker is not None and not marker.exists()
 
     other = client.post(
         "/api/projects/", json={"name": "Other Project", "description": "", "path": str(project_parent)}
     )
     assert other.status_code == 200
     assert runtime.active_project.id != first_id
-    assert runtime.lineage_store is not first_store
-    assert not run.task.done(), "a project switch does not end the run"
-    # #2362: the other project cannot address it by workflow id, but the
-    # backend still holds it.
-    assert "switch-flow" not in runtime.workflow_runs
-    assert run in runtime.all_workflow_runs()
-
-    assert client.get(f"/api/projects/{first_id}").status_code == 200
-    assert runtime.workflow_runs["switch-flow"] is run, "switching back hands the run back"
-    assert [row["status"] for row in _lineage_rows(client, "switch-flow")] == ["running"]
-    assert client.get(f"/api/projects/{other.json()['id']}").status_code == 200
-
-    gate.release.set()
-    wait_for_condition(run.task.done, timeout=60)
-    assert run.task.exception() is None
-    wait_for_condition(lambda: run_id not in _run_lifetime.live_run_ids(), timeout=10)
+    assert runtime.workflow_runs == {}
+    with pytest.raises(sqlite3.ProgrammingError):
+        first_store.count("runs")  # nothing writes through the retired store any more
 
     store = LineageStore(_run_lifetime.lineage_db_path(opened_project))
     try:
-        row = store.get_run(run_id)
-        assert row is not None
-        assert row["status"] == "completed"
-        assert row["provenance_degraded"] == 0
-        assert len(store.list_block_executions(run_id)) == 3
+        assert store.get_run(run_id)["status"] == "cancelled"
     finally:
         store.close()
-    with pytest.raises(sqlite3.ProgrammingError):
-        first_store.count("runs")  # the retired store closed once its last run ended
+
+
+class _StubbornRunner(_GatedRunner):
+    """A block that ignores cancellation until ``release`` is set."""
+
+    async def run(self, block: Any, inputs: dict[str, Any], config: dict[str, Any]) -> Any:
+        self.started.set()
+        while not self.release.is_set():
+            try:
+                await asyncio.sleep(0.01)
+            except asyncio.CancelledError:
+                self.cancelled.set()
+        return await self._inner.run(block, inputs, config)
+
+
+def test_ending_a_run_that_ignores_cancellation_is_bounded(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path, project_parent: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The switch never waits on a stuck block; its run is recorded ``cancelled`` and left behind."""
+    monkeypatch.setattr(_run_lifetime, "_PROJECT_LEAVE_RUN_TIMEOUT_SEC", 1.0)
+    monkeypatch.setattr(_run_lifetime, "_PROJECT_LEAVE_CANCEL_GRACE_SEC", 0.2)
+    payload = build_linear_workflow(opened_project, workflow_id="stuck-flow")
+    assert client.post("/api/workflows/", json=payload).status_code == 200
+    gate = _StubbornRunner(runtime.runner)
+    runtime.runner = gate  # type: ignore[assignment]
+    assert client.post("/api/workflows/stuck-flow/execute").status_code == 200
+    assert gate.started.wait(10)
+    run = runtime.workflow_runs["stuck-flow"]
+    run_id = run.run_id
+    store = runtime.lineage_store
+
+    started = time.monotonic()
+    assert client.post("/api/projects/active/end-runs").status_code == 200
+    assert time.monotonic() - started < 10
+    assert store.get_run(run_id)["status"] == "cancelled"
+    assert client.get("/api/projects/active/runs").json() == {"runs": []}
+    assert (
+        client.post(
+            "/api/projects/", json={"name": "Elsewhere", "description": "", "path": str(project_parent)}
+        ).status_code
+        == 200
+    )
+
+    gate.release.set()
+    wait_for_condition(run.task.done, timeout=60)
+    reopened = LineageStore(_run_lifetime.lineage_db_path(opened_project))
+    try:
+        assert reopened.get_run(run_id)["status"] == "cancelled", "its late completion does not overwrite it"
+    finally:
+        reopened.close()
 
 
 # ---------------------------------------------------------------------------

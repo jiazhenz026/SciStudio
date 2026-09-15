@@ -1,14 +1,14 @@
-"""#2362 — a run belongs to the project that started it.
+"""#2362 / #2433 — a run belongs to the project that started it.
 
-``ApiRuntime.workflow_runs`` is keyed by workflow id and nothing else, and
-``main`` is the default workflow name in every project. Nothing ever cleared the
-registry on a project switch, so after opening a second project its ``main``
-resolved the first project's run: ``get_run`` handed back the other project's
-scheduler and storage paths, ``_is_workflow_running`` rejected a start with
-"workflow is already running", and the MCP ``cancel_run`` tool terminated a live
-execution in a project the caller had already left.
+``ApiRuntime.workflow_runs`` is keyed by workflow id, and ``main`` is the default
+workflow name in every project. #2362 stopped the next project's ``main`` from
+resolving the previous project's run. #2365 then kept a live run executing,
+detached, across the switch; its events still carried only ``workflow_id``, so
+they landed on the next project's same-named workflow.
 
-These tests fail against the pre-#2362 runtime.
+#2433 (owner decision): leaving a project ends its runs. The GUI asks first,
+``end_project_runs`` cancels them, and a switch that would leave a live run
+behind is refused. A GUI disconnect still never cancels a run (#2327).
 """
 
 from __future__ import annotations
@@ -94,80 +94,80 @@ def test_switching_projects_retires_the_previous_projects_runs(
         runtime.get_run("main")
 
 
-def test_a_live_run_survives_the_switch_but_is_no_longer_addressable(
+def test_switching_away_from_a_live_run_is_refused(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
-    """It still has a worker to finish, and shutdown still has to cancel it."""
+    """#2433: a run is never carried into another project; it must be ended first."""
+    from scistudio.api.runtime._runs import ProjectRunsLiveError
+
     alpha = _make_project(client, project_parent, "Alpha")
     beta = _make_project(client, project_parent, "Beta")
 
     runtime.open_project(alpha)
     live = _fake_run(done=False)
+    live.run_id = "run-alpha"
     runtime.workflow_runs["main"] = live
 
-    runtime.open_project(beta)
+    with pytest.raises(ProjectRunsLiveError) as refused:
+        runtime.open_project(beta)
 
-    assert "main" not in runtime.workflow_runs
-    assert live in runtime.all_workflow_runs()
-
-
-def test_switching_back_hands_a_live_run_back_to_its_project(
-    client: TestClient, runtime: ApiRuntime, project_parent: Path
-) -> None:
-    """#2327: a switch does not end a run, and its project sees it again on return."""
-    alpha = _make_project(client, project_parent, "Alpha")
-    beta = _make_project(client, project_parent, "Beta")
-
-    runtime.open_project(alpha)
-    live = _fake_run(done=False)
-    runtime.workflow_runs["main"] = live
-
-    runtime.open_project(beta)
-    assert "main" not in runtime.workflow_runs
-
-    runtime.open_project(alpha)
+    assert refused.value.run_ids == ["run-alpha"]
+    assert runtime.active_project is not None and runtime.active_project.id == alpha
     assert runtime.workflow_runs.get("main") is live
-    assert runtime.all_workflow_runs() == [live]
 
 
-def test_a_finished_detached_run_is_not_handed_back(
+def test_the_projects_route_refuses_the_switch_with_the_live_run_ids(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
     alpha = _make_project(client, project_parent, "Alpha")
     beta = _make_project(client, project_parent, "Beta")
+    runtime.open_project(alpha)
+    live = _fake_run(done=False)
+    live.run_id = "run-alpha"
+    runtime.workflow_runs["main"] = live
 
+    listed = client.get("/api/projects/active/runs")
+    assert listed.status_code == 200
+    assert listed.json() == {"runs": [{"run_id": "run-alpha", "workflow_id": "main"}]}
+
+    for response in (
+        client.get(f"/api/projects/{beta}"),
+        client.post("/api/projects/", json={"name": "Gamma", "description": "", "path": str(project_parent)}),
+    ):
+        assert response.status_code == 409, response.text
+        detail = response.json()["detail"]
+        assert detail["code"] == "project_runs_live"
+        assert detail["run_ids"] == ["run-alpha"]
+    assert runtime.active_project is not None and runtime.active_project.id == alpha
+
+
+def test_ended_runs_let_the_switch_proceed(client: TestClient, runtime: ApiRuntime, project_parent: Path) -> None:
+    alpha = _make_project(client, project_parent, "Alpha")
+    beta = _make_project(client, project_parent, "Beta")
     runtime.open_project(alpha)
     live = _fake_run(done=False)
     runtime.workflow_runs["main"] = live
-    runtime.open_project(beta)
-    live.task.cancel()  # the worker finished while the user was in Beta
 
-    runtime.open_project(alpha)
-    assert "main" not in runtime.workflow_runs
+    live.task.cancel()  # what end_project_runs achieves
+    assert client.get("/api/projects/active/runs").json() == {"runs": []}
+    assert client.get(f"/api/projects/{beta}").status_code == 200
+    assert runtime.workflow_runs == {}
 
 
-def test_a_detached_live_run_still_blocks_a_same_id_start(
+def test_a_same_workflow_start_is_refused_while_its_run_is_live(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
-    """Same-id runs share the event bus and the ``(workflow_id, block_id)`` process registry."""
+    """Different workflows may run at once; the same workflow may not run twice (#2433)."""
     from scistudio.api.runtime._runs import WorkflowAlreadyRunningError, _is_workflow_running
 
     alpha = _make_project(client, project_parent, "Alpha")
-    beta = _make_project(client, project_parent, "Beta")
-
     runtime.open_project(alpha)
-    live = _fake_run(done=False)
-    runtime.workflow_runs["main"] = live
-    runtime.open_project(beta)
+    runtime.workflow_runs["main"] = _fake_run(done=False)
 
-    assert "main" not in runtime.workflow_runs
     assert _is_workflow_running(runtime, "main") is True
     assert _is_workflow_running(runtime, "other") is False
     with pytest.raises(WorkflowAlreadyRunningError):
         runtime.start_workflow("main")
-
-    live.task.cancel()  # Alpha's run finished
-    assert _is_workflow_running(runtime, "main") is False
 
 
 def test_reopening_the_active_project_keeps_its_runs(
@@ -184,93 +184,34 @@ def test_reopening_the_active_project_keeps_its_runs(
     assert runtime.workflow_runs.get("main") is live
 
 
-def test_detach_drops_finished_runs_and_prunes_earlier_detached_ones(
+def test_updating_or_deleting_another_project_does_not_switch_to_it(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
-    alpha = _make_project(client, project_parent, "Alpha")
-    runtime.open_project(alpha)
-
-    runtime.workflow_runs["done"] = _fake_run(done=True)
-    live = _fake_run(done=False)
-    runtime.workflow_runs["live"] = live
-    runtime.detach_workflow_runs()
-
-    assert runtime.all_workflow_runs() == [live]
-
-    # Once it finishes, a later detach prunes it rather than accumulating.
-    live.task.cancel()  # the worker finished
-    runtime.detach_workflow_runs()
-    assert runtime.all_workflow_runs() == []
-
-
-def test_all_workflow_runs_covers_active_and_detached(
-    client: TestClient, runtime: ApiRuntime, project_parent: Path
-) -> None:
+    """#2433: only an explicit open leaves the active project and ends its runs."""
     alpha = _make_project(client, project_parent, "Alpha")
     beta = _make_project(client, project_parent, "Beta")
-
     runtime.open_project(alpha)
-    from_alpha = _fake_run(done=False)
-    runtime.workflow_runs["main"] = from_alpha
+    live = _fake_run(done=False)
+    runtime.workflow_runs["main"] = live
 
-    runtime.open_project(beta)
-    from_beta = _fake_run(done=False)
-    runtime.workflow_runs["main"] = from_beta
+    runtime.update_project(beta, description="renamed while Alpha runs")
+    runtime.delete_project(beta)
 
-    everything = runtime.all_workflow_runs()
-    assert set(map(id, everything)) == {id(from_alpha), id(from_beta)}
-    # Addressable by workflow id: only the active project's.
-    assert runtime.workflow_runs["main"] is from_beta
+    assert runtime.active_project is not None and runtime.active_project.id == alpha
+    assert runtime.workflow_runs.get("main") is live
 
 
-def test_activity_poll_still_sees_a_detached_live_run(
+def test_activity_poll_sees_the_active_projects_live_run(
     client: TestClient, runtime: ApiRuntime, project_parent: Path
 ) -> None:
     """Idle culling must not stop a backend that is still executing (#2362)."""
     from scistudio.api.seam import workflow_runs_active
 
     alpha = _make_project(client, project_parent, "Alpha")
-    beta = _make_project(client, project_parent, "Beta")
-
     runtime.open_project(alpha)
     runtime.workflow_runs["main"] = _fake_run(done=False)
-    runtime.open_project(beta)
 
-    assert runtime.workflow_runs == {}
     assert workflow_runs_active(client.app) is True  # type: ignore[arg-type]
-
-
-def test_shutdown_still_cancels_a_detached_live_run(
-    client: TestClient, runtime: ApiRuntime, project_parent: Path
-) -> None:
-    """#2327 shutdown finalises every live run; a project switch must not hide one."""
-    import asyncio
-
-    alpha = _make_project(client, project_parent, "Alpha")
-    beta = _make_project(client, project_parent, "Beta")
-
-    async def scenario() -> bool:
-        started = asyncio.Event()
-
-        async def work() -> None:
-            started.set()
-            await asyncio.sleep(3600)
-
-        task = asyncio.create_task(work())
-        await started.wait()
-        runtime.open_project(alpha)
-        runtime.workflow_runs["main"] = WorkflowRun(
-            scheduler=object(),  # type: ignore[arg-type]
-            task=task,
-            checkpoint_manager=object(),  # type: ignore[arg-type]
-        )
-        runtime.open_project(beta)
-        assert "main" not in runtime.workflow_runs
-
-        await runtime.shutdown_workflow_runs(timeout_sec=1.0)
-        return task.cancelled()
-
-    assert asyncio.run(scenario()) is True
 
 
 def test_deleting_the_active_project_retires_its_runs(

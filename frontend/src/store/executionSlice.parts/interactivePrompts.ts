@@ -43,13 +43,19 @@ export function removePrompt(
 /**
  * Drop every prompt of a workflow whose run has ended. A block cannot still be
  * waiting for an answer once its workflow emitted `workflow_completed` (the
- * engine emits it for success, failure and cancellation alike).
+ * engine emits it for success, failure and cancellation alike). #2433: with a
+ * `runId`, only that run's prompts (and prompts carrying no run) are dropped.
  */
 export function removeWorkflowPrompts(
   prompts: InteractivePromptMap,
   workflowId: string,
+  runId: string | null = null,
 ): InteractivePromptMap {
-  const keys = Object.keys(prompts).filter((key) => prompts[key].workflowId === workflowId);
+  const keys = Object.keys(prompts).filter((key) => {
+    const prompt = prompts[key];
+    if (prompt.workflowId !== workflowId) return false;
+    return runId === null || !prompt.runId || prompt.runId === runId;
+  });
   if (keys.length === 0) return prompts;
   const next = { ...prompts };
   for (const key of keys) delete next[key];

@@ -35,46 +35,86 @@ logger = logging.getLogger(__name__)
 class WorkflowAlreadyRunningError(RuntimeError):
     """Raised when a workflow is started while its previous run is active.
 
-    Concurrent runs of the same workflow share runtime resources and would hide
-    the earlier run from lookup and cancellation. API routes report this conflict
-    as HTTP 409.
+    Different workflows of a project may run at the same time; the same
+    workflow may not run twice at once. API routes report this conflict as
+    HTTP 409.
     """
 
     # Maintainer context (kept outside generated API documentation):
-    # Raised when a workflow is re-executed while a live run is in flight.
-    #
-    #     Short-term concurrency guard for #1525: starting a second scheduler for
-    #     the same ``workflow_id`` while the first is still running silently orphans
-    #     the original run (both share the event bus, resource manager, process
-    #     registry, checkpoint slot, and lineage store, and ``get_run`` /
-    #     ``cancel_workflow`` only resolve the newest entry). The route maps this to
-    #     HTTP 409. The long-term fix (keying runs by ``run_id`` with an explicit
-    #     concurrency policy) is tracked separately.
-    #
-    #     TODO(#1517): replace this guard with run-identity keyed concurrency.
-    #       Out of scope per manager dispatch A1 (short-term guard only for #1525).
-    #       Followup: https://github.com/zjzcpj/SciStudio/issues/1517
-    # Development references: #1517, #1525, TODO.
+    # The one-live-run-per-workflow rule is the deliberate concurrency policy
+    # (owner decision on #2433), not a stopgap. Every event, lineage row, log
+    # file and MCP address is keyed by ``run_id``, so two runs could be told
+    # apart; what stays shared per workflow is the pause/resume checkpoint slot
+    # and the process registry key ``(workflow_id, block_id)``, and a user
+    # reading one canvas has no way to watch two runs of it at once.
+    # Development references: #1525, #2433.
 
     def __init__(self, workflow_id: str) -> None:
         self.workflow_id = workflow_id
         super().__init__(f"Workflow is already running: {workflow_id}")
 
 
+class ProjectRunsLiveError(RuntimeError):
+    """Raised when leaving a project whose workflow runs are still executing.
+
+    Switching projects ends the runs of the project being left. The caller
+    ends them first, with the user's confirmation, through
+    ``ApiRuntime.end_project_runs``; API routes report this conflict as HTTP 409
+    with the live run ids so the GUI can ask.
+    """
+
+    # Development references: #2433.
+
+    def __init__(self, run_ids: list[str]) -> None:
+        self.run_ids = run_ids
+        count = len(run_ids)
+        noun = "run is" if count == 1 else "runs are"
+        super().__init__(f"{count} workflow {noun} still running in this project; end them before leaving it.")
+
+
 def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
     """Return ``True`` when a live (non-finished) run exists for *workflow_id*.
 
     Module-level helper (not a bound ``ApiRuntime`` method) so the guard works
-    without touching the runtime ``__init__`` method-binding table.
+    without touching the runtime ``__init__`` method-binding table. A project
+    switch ends every run of the project it leaves (#2433), so the registry of
+    the active project is the whole answer.
     """
     run = runtime.workflow_runs.get(workflow_id)
-    if run is not None and not run.task.done():
+    return run is not None and not run.task.done()
+
+
+def live_workflow_runs(self: ApiRuntime) -> list[WorkflowRun]:
+    """The active project's runs that have not finished, oldest first."""
+    # Development references: #2433.
+    return [run for run in self.workflow_runs.values() if not run.task.done()]
+
+
+def find_run(self: ApiRuntime, identifier: str) -> WorkflowRun | None:
+    """Return the run *identifier* names, or ``None``.
+
+    *identifier* is a run id, or a workflow id standing for that workflow's
+    latest run. A run id wins when both could match.
+    """
+    # Development references: #2433, #2401.
+    for run in self.workflow_runs.values():
+        if run.run_id is not None and run.run_id == identifier:
+            return run
+    return self.workflow_runs.get(identifier)
+
+
+def is_current_run_event(self: ApiRuntime, event: Any) -> bool:
+    """Whether *event* was emitted by a run the active project holds.
+
+    An event stamped with a ``run_id`` must name a run in ``workflow_runs``; an
+    event without one (a caller that predates run identity) is accepted.
+    """
+    # Development references: #2433.
+    data = getattr(event, "data", None)
+    run_id = data.get("run_id") if isinstance(data, dict) else None
+    if run_id is None:
         return True
-    # #2362: a run a project switch detached is no longer addressable by
-    # workflow id, but it still shares the event bus and the process registry
-    # keyed by ``(workflow_id, block_id)`` with any new run of the same id.
-    detached = getattr(runtime, "detached_live_run", None)
-    return callable(detached) and detached(workflow_id) is not None
+    return any(run.run_id == run_id for run in self.workflow_runs.values())
 
 
 def _ancestors_of(self: ApiRuntime, workflow: WorkflowDefinition, block_id: str) -> set[str]:
@@ -118,13 +158,15 @@ def _build_lineage_recorder(
     workflow_git_commit: str | None = None,
     workflow_dirty: bool = False,
     flattened: bool = False,
+    run_id: str | None = None,
 ) -> Any:
     """Construct a per-run :class:`LineageRecorder` and seed its ``runs`` row.
 
     Returns ``None`` when the lineage store is unavailable. ``flattened`` is set
     when *workflow* is the inline-flattened result of a graph that contained
     ``SubWorkflowBlock`` references, so the snapshot captures the flat DAG that
-    actually ran.
+    actually ran. ``run_id`` is the identity the caller already assigned to the
+    run; a fresh one is generated when it is omitted.
     """
     # Development references: ADR-044, SC-002.
     if self.lineage_store is None:
@@ -134,7 +176,7 @@ def _build_lineage_recorder(
         from scistudio.core.lineage.record import RunRecord
         from scistudio.core.lineage.recorder import LineageRecorder
 
-        run_id = uuid4().hex
+        run_id = run_id or uuid4().hex
         workflow_yaml_snapshot = self._serialise_workflow_snapshot(workflow_id, workflow, prefer_inmemory=flattened)
         env_snapshot = EnvironmentSnapshot.capture(full=True).to_dict()
         triggered_by = "execute_from" if execute_from is not None else "user"
@@ -439,13 +481,9 @@ def start_workflow(
     # ``workflow.id`` (event filter, process registry, output directory).
     workflow_id = self.canonical_workflow_identity(workflow_id)
 
-    # #1525 short-term guard: reject starting a second scheduler for a
-    # workflow whose previous run is still live. Without this, the old
-    # asyncio.Task / DAGScheduler is never cancelled and keeps racing the new
-    # one on the shared event bus, resource manager, process registry,
-    # checkpoint slot, and lineage store — and becomes uncancellable because
-    # get_run / cancel_workflow only resolve the newest run. Checked before any
-    # side effect (auto-commit, lineage INSERT, task creation).
+    # #1525 / #2433: the same workflow may not run twice at once (different
+    # workflows may). Checked before any side effect (auto-commit, lineage
+    # INSERT, task creation).
     if _is_workflow_running(self, workflow_id):
         raise WorkflowAlreadyRunningError(workflow_id)
 
@@ -585,7 +623,12 @@ def start_workflow(
     if execute_from is not None and checkpoint is None:
         raise ValueError("Run the full workflow at least once before using 'Run from here'")
 
+    # #2433: the run's identity is assigned here, before anything records the
+    # run, so the lineage row, the run log, the scheduler's events and the
+    # registry entry all carry the same id — with or without a lineage store.
+    run_id = uuid4().hex
     lineage_recorder = self._build_lineage_recorder(
+        run_id=run_id,
         workflow_id=workflow_id,
         workflow=workflow,
         execute_from=execute_from,
@@ -606,6 +649,7 @@ def start_workflow(
             checkpoint_manager=checkpoint_manager,
             lineage_recorder=lineage_recorder,
             project_dir=str(self.active_project.path) if self.active_project else None,
+            run_id=run_id,
         )
     except Exception:
         # #2327: the ``runs`` row already exists; without a task nothing
@@ -613,11 +657,10 @@ def start_workflow(
         abandon_run(lineage_recorder)
         raise
 
-    # #1741: per-run diagnostic log. Reuse the lineage run_id when available so
-    # the ``run-<id>.log`` filename matches the lineage ``runs`` row; otherwise
-    # synthesize one. Captures engine events, worker output, and tracebacks for
-    # this run only (scoped by the run_id contextvar).
-    run_log_id = getattr(lineage_recorder, "run_id", None) or uuid4().hex
+    # #1741: per-run diagnostic log, named by the run id so the ``run-<id>.log``
+    # filename matches the lineage ``runs`` row. Captures engine events, worker
+    # output, and tracebacks for this run only (scoped by the run_id contextvar).
+    run_log_id = run_id
     project_root_for_log = str(self.active_project.path) if self.active_project else None
 
     async def _run() -> None:
@@ -629,6 +672,7 @@ def start_workflow(
                     level="info",
                     message=f"execute from {execute_from}",
                     workflow_id=workflow_id,
+                    run_id=run_id,
                 )
                 await scheduler.execute_from(execute_from)
             else:
@@ -636,6 +680,7 @@ def start_workflow(
                     level="info",
                     message="workflow execution started",
                     workflow_id=workflow_id,
+                    run_id=run_id,
                 )
                 await scheduler.execute()
 
@@ -644,7 +689,9 @@ def start_workflow(
     except Exception:
         abandon_run(lineage_recorder)
         raise
-    task.add_done_callback(lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished)))
+    task.add_done_callback(
+        lambda finished: asyncio.create_task(self._log_workflow_task_failure(workflow_id, finished, run_id=run_id))
+    )
     if lineage_recorder is not None:
         recorder_for_callback = lineage_recorder
         attach_task(recorder_for_callback.run_id, task)
@@ -669,6 +716,8 @@ def start_workflow(
         task=task,
         checkpoint_manager=checkpoint_manager,
         workflow_git_commit=workflow_git_commit,
+        run_id=run_id,
+        project_id=self.active_project.id if self.active_project else None,
     )
 
     reused_blocks: list[str] = []
@@ -678,6 +727,7 @@ def start_workflow(
     reset_blocks = sorted(set(node.id for node in workflow.nodes) - set(reused_blocks))
     return {
         "workflow_id": workflow_id,
+        "run_id": run_id,
         "status": "started",
         "message": "Workflow execution has been scheduled.",
         "reused_blocks": reused_blocks,
@@ -685,7 +735,13 @@ def start_workflow(
     }
 
 
-async def _log_workflow_task_failure(self: ApiRuntime, workflow_id: str, task: asyncio.Task[None]) -> None:
+async def _log_workflow_task_failure(
+    self: ApiRuntime,
+    workflow_id: str,
+    task: asyncio.Task[None],
+    *,
+    run_id: str | None = None,
+) -> None:
     """Surface unexpected workflow task failures to logs and SSE clients."""
     if task.cancelled():
         return
@@ -705,6 +761,7 @@ async def _log_workflow_task_failure(self: ApiRuntime, workflow_id: str, task: a
         level="error",
         message=str(exc),
         workflow_id=workflow_id,
+        run_id=run_id,
     )
 
 

@@ -83,11 +83,19 @@ class WorkflowRun:
 
     The field is ``None`` only when the project is not a git repository
     (degraded mode) or auto-commit failed both ways.
+
+    ``run_id`` is the run's identity: the lineage ``runs.run_id`` and the
+    ``run-<run_id>.log`` name, stamped on every event the run emits.
+    ``project_id`` is the project that started it. The registry holds one entry
+    per workflow (the latest run of it), so ``run_id`` is what tells a new run
+    of a workflow from the one before.
     """
 
-    # Development references: ADR-038, ADR-039.
+    # Development references: ADR-038, ADR-039, #2433.
 
     scheduler: DAGScheduler
     task: asyncio.Task[None]
     checkpoint_manager: CheckpointManager
     workflow_git_commit: str | None = None
+    run_id: str | None = None
+    project_id: str | None = None

@@ -44,6 +44,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     ValidateWorkflowResult,
     WorkflowDefinitionEnvelope,
 )
+from scistudio.ai.agent.mcp.tools_workflow._run_lookup import require_run, run_identity
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema
 from scistudio.workflow.identity import project_relative_path_for_identity
 
@@ -308,7 +309,9 @@ async def validate_workflow(
 
 @mcp.tool(name="get_run_status", tags={"category:workflow", "read"})
 async def get_run_status(
-    run_id: str = Field(description="Identifier returned by run_workflow."),
+    run_id: str = Field(
+        description="Run id returned by run_workflow. A workflow id means that workflow's latest run.",
+    ),
 ) -> GetRunStatusResult:
     """Return the current status of a workflow run.
 
@@ -324,13 +327,12 @@ async def get_run_status(
     Raises ``KeyError`` if the run_id is unknown.
     """
     runtime = _get_workflow_runtime()
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict) or run_id not in runs:
-        raise KeyError(f"Unknown run: {run_id}")
+    # #2401: the id run_workflow returned, or a workflow id for its latest run.
+    workflow_id, run = require_run(getattr(runtime, "workflow_runs", None), run_id)
+    run_id = run_identity(run, workflow_id)
 
     _ensure_error_subscriber()
 
-    run = runs[run_id]
     task = getattr(run, "task", None)
     if task is None:
         state = "unknown"
@@ -352,7 +354,7 @@ async def get_run_status(
             block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
         }
 
-    raw_errors = _collect_run_errors(run_id)
+    raw_errors = _collect_run_errors(run_id, workflow_id=workflow_id)
     if state == "failed" and not raw_errors and task is not None:
         try:
             exc = task.exception()

@@ -20,7 +20,10 @@ from scistudio.ai.agent.mcp._context import get_context
 logger = logging.getLogger(__name__)
 
 _run_block_errors: dict[tuple[str, str], dict[str, Any]] = {}
-"""``{(workflow_id, block_id): {"error": traceback, "summary": one_line}}``.
+"""``{(run_id, block_id): {"error": traceback, "summary": one_line, "workflow_id": id}}``.
+
+#2433: keyed by the run that failed. An event that predates run identity (no
+``run_id``) is keyed by its workflow id instead.
 
 Holds the CURRENT run's failures only. The key names a workflow, not a run, and
 the map is module-global for the life of the process, so a traceback left here
@@ -37,14 +40,17 @@ _error_subscriber_installed: bool = False
 
 
 def forget_workflow_errors(workflow_id: str) -> None:
-    """Drop every captured failure for ``workflow_id``.
+    """Drop every captured failure of any run of ``workflow_id``.
 
     Called when that workflow starts running: the previous run's tracebacks are
-    not evidence about the new one, and — because the key carries no project —
-    they may not even be evidence about this project.
+    not evidence about the new one.
     """
-    # Development references: #2362.
-    for key in [key for key in _run_block_errors if key[0] == workflow_id]:
+    # Development references: #2362, #2433.
+    for key in [
+        key
+        for key, record in _run_block_errors.items()
+        if key[0] == workflow_id or record.get("workflow_id") == workflow_id
+    ]:
         del _run_block_errors[key]
 
 
@@ -77,14 +83,16 @@ def _ensure_error_subscriber() -> None:
         if not isinstance(data, dict):
             return
         workflow_id = data.get("workflow_id")
+        run_id = data.get("run_id")
         block_id = getattr(event, "block_id", None)
         error = data.get("error")
         summary = data.get("error_summary")
         if not workflow_id or not block_id or error is None:
             return
-        _run_block_errors[(str(workflow_id), str(block_id))] = {
+        _run_block_errors[(str(run_id or workflow_id), str(block_id))] = {
             "error": str(error),
             "summary": str(summary) if summary else None,
+            "workflow_id": str(workflow_id),
         }
 
     async def _reset(event: Any) -> None:
@@ -104,12 +112,16 @@ def _ensure_error_subscriber() -> None:
         logger.warning("MCP: failed to install block_error capture", exc_info=True)
 
 
-def _collect_run_errors(run_id: str) -> list[dict[str, Any]]:
-    """Return the captured block errors for ``run_id`` (its workflow_id)."""
+def _collect_run_errors(run_id: str, *, workflow_id: str | None = None) -> list[dict[str, Any]]:
+    """Return the captured block errors of the run ``run_id`` names.
+
+    ``workflow_id`` also matches failures captured without a run identity for
+    that workflow.
+    """
     return [
         {"block_id": block_id, "error": record["error"], "summary": record["summary"]}
-        for (workflow_id, block_id), record in _run_block_errors.items()
-        if workflow_id == run_id
+        for (key, block_id), record in _run_block_errors.items()
+        if key == run_id or (workflow_id is not None and key == workflow_id)
     ]
 
 

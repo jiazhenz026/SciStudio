@@ -114,6 +114,21 @@ export interface ActiveProjectResponse {
   active_workflow_id: string | null;
 }
 
+/** #2433 — one live run of the active project (`GET /api/projects/active/runs`). */
+export interface LiveRunResponse {
+  run_id: string | null;
+  workflow_id: string;
+}
+
+export interface ProjectRunsResponse {
+  runs: LiveRunResponse[];
+}
+
+/** #2433 — `POST /api/projects/active/end-runs`. */
+export interface EndProjectRunsResponse {
+  ended_run_ids: string[];
+}
+
 /*
  * ADR-053 FR-001 — `RunFirstWorkflowBootstrapRequest` / `...Response` were the
  * wire types of the single hardcoded tutorial's bootstrap route, removed with
@@ -908,6 +923,11 @@ export interface WorkflowEventMessage {
   type: string;
   block_id?: string | null;
   workflow_id?: string | null;
+  /**
+   * #2433 — the run an execution event came from. Two runs of one workflow
+   * share `workflow_id`; this tells the current run from an earlier one.
+   */
+  run_id?: string | null;
   data: Record<string, unknown>;
   timestamp: string;
 }
@@ -918,6 +938,7 @@ export interface LogEntry {
   message: string;
   details?: string | null;
   workflow_id?: string | null;
+  run_id?: string | null;
   block_id?: string | null;
 }
 

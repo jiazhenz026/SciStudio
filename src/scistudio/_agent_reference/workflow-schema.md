@@ -43,8 +43,13 @@ workflow:                            # REQUIRED top-level key
   exactly the file at `path`. A file under `workflows/` runs as its file name
   (`workflows/main.yaml` → `main`); any other workflow file runs under its
   project path written with `@` separators (`subworkflows/qc.yaml` →
-  `@subworkflows@qc.yaml`). That value is the `run_id` to poll, the `workflow_id`
-  on run events and lineage, and the `data/zarr/<id>/` output folder.
+  `@subworkflows@qc.yaml`). That value is the `workflow_id` on run events and
+  lineage, and the `data/zarr/<id>/` output folder.
+- **Each run has its own `run_id`.** `run_workflow` returns it; pass it to
+  `get_run_status`, `get_block_output`, `get_block_logs` and `cancel_run`, which
+  then act on that run only. A workflow id is still accepted and means that
+  workflow's latest run. A workflow may not run twice at once; different
+  workflows may.
 - **Edge shape is two strings.** Not the canvas 4-field `{source, source_port,
   target, target_port}` form. Separator is a single colon (`load:data`), not
   `.`/`/`/`-`.

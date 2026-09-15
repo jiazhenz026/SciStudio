@@ -1,0 +1,194 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2433-run-identity",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "docs/adr/**",
+      "docs/architecture/**",
+      "docs/ai-developer/**"
+    ],
+    "include": [
+      "src/scistudio/api/**",
+      "src/scistudio/engine/**",
+      "src/scistudio/core/lineage/**",
+      "src/scistudio/ai/**",
+      "src/scistudio/panels/contexts.py",
+      "frontend/src/**",
+      "tests/**",
+      "docs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:08:25.079086Z",
+      "owner_directive": "MCP run addressing by real run id (#2401); workflow id still accepted as latest run; exact block log filtering.",
+      "reason": "Manager dispatch: #2401 is closed by the same PR"
+    },
+    {
+      "at": "2026-09-15T09:08:25.233292Z",
+      "owner_directive": "Remove the #2365 detach/reattach machinery and update its tests.",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T09:08:25.406266Z",
+      "owner_directive": "Multiple different workflows may run concurrently; the same workflow may not run twice at once within a project - deliberate rule; replace TODO(#1517).",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T09:08:25.574087Z",
+      "owner_directive": "Key run events, lineage recorder filtering, WS/SSE payloads, MCP error cache and panel contexts by run_id (+project where relevant).",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T09:08:25.732807Z",
+      "owner_directive": "In a background project a run needing interaction shows nothing (moot once switching cancels runs; do not build cross-project prompt UI).",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T09:08:25.889925Z",
+      "owner_directive": "Protected-path changes under src/scistudio/engine/** and src/scistudio/core/** are authorised for this PR.",
+      "reason": "Owner authorised protected core/engine paths"
+    },
+    {
+      "at": "2026-09-15T09:41:38.230157Z",
+      "owner_directive": "Do not edit any skill documents (src/scistudio/_skills/**, any SKILL.md); owner edits skills personally. Tool docstrings in code are fine.",
+      "reason": "Owner hard rule relayed by manager"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T09:41:51.835059Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-055-local-background-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835200Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/workflow-schema.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2433,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2401,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Switching projects: if runs are live, confirm first; on confirm cancel all runs of the project and close its agent terminals (AI Chat and AI block PTYs), then switch. GUI disconnect still does not cancel runs.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2433-2433-run-identity",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-exclude",
+      "at": "2026-09-15T09:41:38.230351Z",
+      "pattern": "src/scistudio/_skills/**",
+      "reason": "Owner hard rule relayed by manager"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T09:41:38.393452Z",
+      "pattern": "src/scistudio/_agent_reference/workflow-schema.md",
+      "reason": "Agent reference states MCP run_id semantics (dispatch: update agent-reference text)"
+    }
+  ],
+  "session_id": "035eb35f-8752-4e96-97cc-a0e53889d2d3",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T09:41:51.835205Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_run_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835207Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_project_scoped_runs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835209Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_run_lifetime.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835210Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_scheduler_run_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835211Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_run_addressing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835221Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/openapi.json",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:41:51.835222Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/runIdentity.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

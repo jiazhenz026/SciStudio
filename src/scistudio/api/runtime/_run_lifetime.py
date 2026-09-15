@@ -1,9 +1,12 @@
 """How a workflow run ends when no browser is watching it.
 
 Closing the connection window or the browser does not stop an active
-analysis. A run ends when it completes or when someone cancels it explicitly.
-The ``/ws`` handler does not cancel runs when browsers disconnect, and neither
-reopening a project nor switching to another one ends a run.
+analysis. A run ends when it completes, when someone cancels it explicitly, or
+when the user leaves its project. The ``/ws`` handler does not cancel runs when
+browsers disconnect, and reopening the active project does not end a run.
+Switching to another project does: the GUI asks first, then
+:func:`end_project_runs` cancels every run of the project being left before the
+switch happens.
 
 A lineage ``runs`` row must still not stay ``running`` once the run it
 describes can no longer finish, and a run that did finish must be recorded as
@@ -12,7 +15,12 @@ what it was. This module keeps that guarantee.
 * **The store a run writes through stays usable.** Reopening the active
   project keeps its ``LineageStore``. Switching to another project retires the
   previous store, which is closed only once the last live run writing through
-  it has been released (:func:`retire_store`).
+  it has been released (:func:`retire_store`); a run that ignored the switch's
+  cancellation is the only one that can still be writing then.
+* **Leaving a project.** :func:`end_project_runs` asks each live run to cancel,
+  cancels the task of any run still going after a short grace, and waits 10 s in
+  total. A run still pending after that is finalised as ``cancelled`` here, as
+  at shutdown, and the switch proceeds.
 * **A run's terminal write is checked.** :func:`release_run` removes a run's
   owner marker only once its row is terminal. If the row is still ``running``,
   the status is written again through a store opened by path. If that fails
@@ -86,6 +94,12 @@ _TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
 # tests can shorten it.
 _SHUTDOWN_RUN_TIMEOUT_SEC = 10.0
 
+# How long leaving a project waits, in total, for its runs to end, and how much
+# of that a run gets to stop on its own cancellation request before its task is
+# cancelled. Read at call time so tests can shorten them.
+_PROJECT_LEAVE_RUN_TIMEOUT_SEC = 10.0
+_PROJECT_LEAVE_CANCEL_GRACE_SEC = 2.0
+
 # Same tolerance as the engine's #1542 PID-identity check: a reused PID belongs
 # to a process whose creation time is far from the recorded one.
 _PROCESS_IDENTITY_TOLERANCE_SEC = 2.0
@@ -135,6 +149,8 @@ _LIVE_RUNS: dict[str, _LiveRun] = {}
 _RETIRED_STORES: list[Any] = []
 # Runs whose lineage shutdown finalised while their task was still going.
 _FORCED_RUN_IDS: set[str] = set()
+# Tasks of runs that ignored a project switch's cancellation; held until they stop.
+_ABANDONED_TASKS: set[asyncio.Task[None]] = set()
 # Orders a run's claim, finalise-then-release and the store bookkeeping against
 # reconciliation's check-then-finalise and the marker sweep. Under the lock,
 # reconciliation sees a run either as live or as already terminal, never as
@@ -479,8 +495,9 @@ def release_run(run_id: str, *, terminal_status: str | None = None) -> None:
 def retire_store(store: Any) -> None:
     """Close *store* now, or once the last live run writing through it is released.
 
-    A project switch does not end the previous project's runs; they keep
-    recording their blocks and outcome through the store they started with.
+    A project switch ends the previous project's runs first, but a run whose
+    block ignored cancellation may still record through the store it started
+    with until its task finally stops.
     """
     if store is None:
         return
@@ -547,18 +564,74 @@ async def shutdown_workflow_runs(self: ApiRuntime, *, timeout_sec: float | None 
         finish within the bound.
     """
     bound = _SHUTDOWN_RUN_TIMEOUT_SEC if timeout_sec is None else timeout_sec
-    # #2362: every run this process holds, including one a project switch
-    # detached from ``workflow_runs`` — it is still executing and still needs a
-    # terminal lineage row before the process exits. A runtime stand-in without
-    # the accessor falls back to the mapping.
-    everything = getattr(self, "all_workflow_runs", None)
-    runs = everything() if callable(everything) else list(self.workflow_runs.values())
-    pending = [run.task for run in runs if not run.task.done()]
+    pending = [run.task for run in list(self.workflow_runs.values()) if not run.task.done()]
     if not pending:
         return []
     for task in pending:
         task.cancel()
-    _finished, still_pending = await asyncio.wait(pending, timeout=bound)
+    return await _await_or_force(pending, bound=bound, reason="backend shutdown")
+
+
+async def end_project_runs(self: ApiRuntime, *, timeout_sec: float | None = None) -> list[str]:
+    """End every live run of the active project before the user leaves it.
+
+    Each run is first asked to cancel the way the GUI's Stop asks: its running
+    blocks are marked cancelled, their workers are terminated, and the run
+    reports ``workflow_completed``. A run still going after a short grace has
+    its task cancelled. The wait is *timeout_sec* in total; a run that has not
+    ended by then is finalised as ``cancelled`` here, as at shutdown, so the
+    switch never waits on a block that ignores cancellation.
+
+    Returns:
+        The run ids that were live when this was called.
+    """
+    # Development references: #2433.
+    from scistudio.engine.events import CANCEL_WORKFLOW_REQUEST, EngineEvent
+
+    bound = _PROJECT_LEAVE_RUN_TIMEOUT_SEC if timeout_sec is None else timeout_sec
+    live = [run for run in list(self.workflow_runs.values()) if not run.task.done()]
+    if not live:
+        return []
+    ended = [str(run.run_id) for run in live if run.run_id is not None]
+    for run in live:
+        workflow = getattr(getattr(run, "scheduler", None), "_workflow", None)
+        data: dict[str, Any] = {"workflow_id": getattr(workflow, "id", None)}
+        if run.run_id is not None:
+            data["run_id"] = run.run_id
+        try:
+            await self.event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data=data))
+        except Exception:
+            logger.warning("#2433: could not ask run %s to cancel", run.run_id, exc_info=True)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + bound
+    tasks = [run.task for run in live]
+    grace = min(_PROJECT_LEAVE_CANCEL_GRACE_SEC, bound)
+    if grace > 0:
+        await asyncio.wait(tasks, timeout=grace)
+    for task in tasks:
+        if not task.done():
+            task.cancel()
+    await _await_or_force(tasks, bound=max(0.0, deadline - loop.time()), reason="leaving the project")
+    for key, run in list(self.workflow_runs.items()):
+        if run in live and not run.task.done():
+            # Its lineage is already recorded as cancelled. It leaves the
+            # registry so the project can be left, and stays referenced here so
+            # its task is not garbage-collected while it finally stops.
+            del self.workflow_runs[key]
+            _ABANDONED_TASKS.add(run.task)
+            run.task.add_done_callback(_ABANDONED_TASKS.discard)
+    return ended
+
+
+async def _await_or_force(tasks: list[asyncio.Task[None]], *, bound: float, reason: str) -> list[str]:
+    """Wait *bound* seconds for *tasks*; finalise the lineage of any still pending.
+
+    A finalised straggler's own done-callback leaves its row alone afterwards.
+    """
+    pending = [task for task in tasks if not task.done()]
+    still_pending: set[asyncio.Task[None]] = set()
+    if pending:
+        _finished, still_pending = await asyncio.wait(pending, timeout=bound)
     # A finished task's done-callbacks, lineage finalisation included, are
     # scheduled ahead of asyncio.wait's own wake-up. Yield once so that every
     # one of them has run before the caller tears the runtime down.
@@ -574,12 +647,13 @@ async def shutdown_workflow_runs(self: ApiRuntime, *, timeout_sec: float | None 
         try:
             entry.recorder.finalize_run(status=SHUTDOWN_RUN_STATUS)
         except Exception:
-            logger.warning("#2327: could not finalise run %s at shutdown", entry.run_id, exc_info=True)
+            logger.warning("#2327: could not finalise run %s after %s", entry.run_id, reason, exc_info=True)
         release_run(entry.run_id, terminal_status=SHUTDOWN_RUN_STATUS)
         logger.warning(
-            "#2327: run %s did not stop within %.1fs of backend shutdown; its lineage is recorded as %r.",
+            "#2327: run %s did not stop within %.1fs of %s; its lineage is recorded as %r.",
             entry.run_id,
             bound,
+            reason,
             SHUTDOWN_RUN_STATUS,
         )
         forced.append(entry.run_id)
@@ -840,6 +914,7 @@ __all__ = [
     "attach_task",
     "claim_run",
     "consume_forced",
+    "end_project_runs",
     "is_same_path",
     "lineage_db_path",
     "live_run_ids",
