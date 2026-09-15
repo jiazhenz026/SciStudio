@@ -1307,11 +1307,6 @@ def test_get_project_info_lists_recent_runs(agent: Agent, tutorial_run: dict[str
     assert "main" in {row["workflow_id"] for row in recent}, recent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="a validated MiniApp is missing from the MiniApps list until a manual reload — TODO(#2421)",
-)
 def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     before = agent.observed["miniapps_before_reload"]
     assert MINIAPP_ID in [app["panel_id"] for app in before], before

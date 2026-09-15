@@ -323,9 +323,17 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
     }
 
 
+def _current_panels(request: Request) -> Any:
+    """The panel registry, rediscovered first when the panel directories changed."""
+    # Development references: #2421.
+    from scistudio.panels.catalog_refresh import current_preview_service
+
+    return current_preview_service(request.app.state.runtime).registry.panels
+
+
 @router.get("/catalog")
 def catalog(request: Request) -> dict[str, Any]:
-    registry = request.app.state.runtime.get_preview_service().registry.panels
+    registry = _current_panels(request)
     return {
         "panels": [
             p.to_dict() | {"owner_kind": p.owner_kind.value, "shadowed": False} for p in registry.panels.values()
@@ -345,7 +353,7 @@ _PERMISSION_MODES = {"safe": "safe", "auto": "auto", "bypass": "bypass", "danger
 
 
 def _miniapps(request: Request) -> dict[str, Any]:
-    registry = request.app.state.runtime.get_preview_service().registry.panels
+    registry = _current_panels(request)
     return {panel_id: p for panel_id, p in registry.panels.items() if "miniapp" in p.contexts}
 
 
