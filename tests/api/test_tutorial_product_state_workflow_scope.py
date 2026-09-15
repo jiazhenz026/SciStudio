@@ -44,13 +44,11 @@ class _StubRun:
         self.task = _FinishedTask()
 
 
-def _write_workflow(project: Path, workflow_id: str) -> None:
+def _write_workflow(project: Path, workflow_id: str, *, declare_id: bool = True) -> None:
     wf_dir = project / "workflows"
     wf_dir.mkdir(parents=True, exist_ok=True)
     (wf_dir / f"{workflow_id}.yaml").write_text(
-        "workflow:\n"
-        f"  id: {workflow_id}\n"
-        "  version: 1.0.0\n"
+        "workflow:\n" + (f"  id: {workflow_id}\n" if declare_id else "") + "  version: 1.0.0\n"
         "  nodes:\n"
         f"  - id: {NODE}\n"
         "    block_type: load_data\n"
@@ -120,3 +118,28 @@ def test_rendered_plots_still_ignores_a_record_with_no_figure(runtime: ApiRuntim
 
     runtime.active_workflow_id = "current"
     assert _state(runtime).rendered_plots() == ()
+
+
+def test_a_workflow_without_an_id_is_scoped_by_its_filename(
+    client: TestClient, runtime: ApiRuntime, project_parent: Path
+) -> None:
+    """``WorkflowDefinition.id`` defaults to ``""``; runs and previews then use the filename stem."""
+    response = client.post(
+        "/api/projects/",
+        json={"name": "Tutorial", "description": "", "path": str(project_parent)},
+    )
+    assert response.status_code == 200, response.text
+    project = Path(response.json()["path"])
+    _write_workflow(project, "untitled", declare_id=False)
+    runtime.open_project(response.json()["id"])
+    runtime.active_workflow_id = "untitled"
+    assert runtime.load_workflow("untitled").id == ""
+
+    runtime.workflow_runs["untitled"] = _StubRun({NODE: {PORT: {"path": "/tmp/x.parquet"}}})
+    plot_dir = project / ".scistudio" / "previews" / "untitled" / NODE / PORT / "plot"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    (plot_dir / "current.svg").write_text("<svg/>", encoding="utf-8")
+
+    state = _state(runtime)
+    assert state.port_has_output(NODE, PORT) is True
+    assert state.rendered_plots() == (("untitled", NODE, PORT, "plot"),)

@@ -513,6 +513,16 @@ class _ApiProductState:
         project has exactly one, ``main``, so the fallback is the normal path
         during a tutorial rather than an edge case.
         """
+        workflow_id = self._workflow_ref()
+        if workflow_id is None:
+            return None
+        try:
+            return self.runtime.load_workflow(workflow_id)
+        except (FileNotFoundError, OSError, ValueError):
+            return None
+
+    def _workflow_ref(self) -> str | None:
+        """The name the edited workflow is loaded by: its filename stem."""
         if self.runtime.active_project is None:
             return None
         workflow_id = self.runtime.active_workflow_id
@@ -521,10 +531,21 @@ class _ApiProductState:
             if not available:
                 return None
             workflow_id = available[0]
-        try:
-            return self.runtime.load_workflow(workflow_id)
-        except (FileNotFoundError, OSError, ValueError):
+        return workflow_id
+
+    def _workflow_scope_id(self) -> str | None:
+        """The id the edited workflow's runs and preview cache are filed under.
+
+        ``WorkflowDefinition.id`` defaults to ``""`` for a YAML that omits it;
+        the run registry, the lineage rows, and the plot preview cache then use
+        the workflow's filename stem, so an empty id falls back to that rather
+        than reading as "no workflow".
+        """
+        # Development references: #2362.
+        workflow = self.workflow()
+        if workflow is None:
             return None
+        return getattr(workflow, "id", None) or self._workflow_ref()
 
     # -- the three registries --------------------------------------------
 
@@ -620,7 +641,7 @@ class _ApiProductState:
         project_dir = self.project_dir
         if project_dir is None:
             return ()
-        workflow_id = getattr(self.workflow(), "id", None)
+        workflow_id = self._workflow_scope_id()
         if not workflow_id:
             return ()
         root = project_dir / ".scistudio" / "previews"
@@ -692,8 +713,7 @@ class _ApiProductState:
         same name in one they had already finished.
         """
         # Development references: #2362.
-        workflow = self.workflow()
-        workflow_id = getattr(workflow, "id", None)
+        workflow_id = self._workflow_scope_id()
         if not workflow_id:
             return False
 
