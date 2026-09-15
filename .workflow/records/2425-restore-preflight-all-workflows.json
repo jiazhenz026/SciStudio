@@ -1,0 +1,108 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2425-restore-preflight-all-workflows",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/core/lineage/restore_preflight.py",
+      "src/scistudio/core/lineage/store.py",
+      "src/scistudio/api/routes/runs.py",
+      "tests/api/test_runs_routes.py",
+      "tests/core/lineage/**",
+      "frontend/src/types/lineage.ts",
+      "frontend/src/components/Lineage/**",
+      ".workflow/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T08:10:08.603017Z",
+      "owner_directive": "Protected-path changes under src/scistudio/core/** are authorised for this PR.",
+      "reason": "Owner authorised protected core paths for this PR"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T08:15:17.923278Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "No user-guide page describes the restore dialog checks; the response contract lives in the route and restore_preflight docstrings and the RestorePreflight TS type. ADR text is out of scope per the dispatch.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2425,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Restore preflight checks the latest run of every workflow at the commit and merges the warnings; a run_id not belonging to the commit is rejected.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2425-restore-preflight-all-workflows",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:15:17.923059Z",
+      "pattern": "tests/core/test_restore_preflight_workflows.py",
+      "reason": "Add core regression test file and record evidence"
+    }
+  ],
+  "session_id": "479df2c7-81ae-4f8b-a668-af5fd184c3a9",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T08:15:17.923300Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/core/test_restore_preflight_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:15:17.923303Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runs_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:15:17.923305Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/Lineage/__tests__/RestoreDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["evaluate_restore_target"]
+__all__ = ["RestoreRunMismatchError", "evaluate_restore_target"]
 
 
 def _recorded_environment(run: dict[str, Any]) -> dict[str, Any]:
@@ -225,6 +225,56 @@ def _python_base(version_string: str) -> str:
     return version_string.strip().split()[0] if version_string.strip() else version_string
 
 
+class RestoreRunMismatchError(ValueError):
+    """Raised when a supplied ``run_id`` was recorded at a different commit.
+
+    A run from another commit describes a different project tree, so comparing
+    the restore target against it would answer a question the user did not
+    ask. The caller maps this to a client error instead of silently using it.
+    """
+
+    def __init__(self, run_id: str, run_commit: str | None, commit_sha: str) -> None:
+        self.run_id = run_id
+        self.run_commit = run_commit
+        self.commit_sha = commit_sha
+        recorded = run_commit or "no commit"
+        super().__init__(f"run {run_id!r} was recorded at {recorded}, not at the restore target {commit_sha}")
+
+
+def _run_entry(store: LineageStore, run: dict[str, Any]) -> dict[str, Any]:
+    """Evaluate both checks for one run and return its per-workflow entry."""
+    run_id = str(run.get("run_id") or "")
+    return {
+        "workflow_id": run.get("workflow_id"),
+        "run_id": run_id,
+        "run_started_at": run.get("started_at"),
+        "input_warnings": _input_warnings(store, run_id),
+        "env_warnings": _env_warnings(_recorded_environment(run)),
+    }
+
+
+def _merge_env_warnings(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge per-run environment warnings, collapsing identical drifts.
+
+    The environment is shared by every workflow, so two runs that recorded
+    the same package version report the same drift. Identical
+    ``(package, old, new)`` triples are listed once, with every workflow and
+    run that recorded them.
+    """
+    merged: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for entry in entries:
+        for warning in entry["env_warnings"]:
+            key = (warning["package"], warning["old"], warning["new"])
+            slot = merged.get(key)
+            if slot is None:
+                slot = {**warning, "workflow_ids": [], "run_ids": []}
+                merged[key] = slot
+            if entry["workflow_id"] not in slot["workflow_ids"]:
+                slot["workflow_ids"].append(entry["workflow_id"])
+            slot["run_ids"].append(entry["run_id"])
+    return list(merged.values())
+
+
 def evaluate_restore_target(
     store: LineageStore,
     commit_sha: str,
@@ -233,8 +283,9 @@ def evaluate_restore_target(
 ) -> dict[str, Any]:
     """Return the advisory preflight for restoring to *commit_sha*.
 
-    Applies the two checks against the record of the run this
-    restore is anchored to.
+    A commit snapshots every workflow in the project, so the checks run
+    against the newest recorded run of **each** workflow at the commit and the
+    warnings are merged, each attributed to its workflow and run.
 
     Args:
         store: The active project's lineage store.
@@ -246,44 +297,63 @@ def evaluate_restore_target(
             This is not a redundant hint. The pre-run auto-commit is skipped
             when the tree is already clean, so consecutive runs of an unedited
             workflow all anchor to the same SHA — and resolving by commit alone
-            would then answer with the newest of them regardless of outcome. A
-            user restoring the run that *worked* would be compared against a
-            subsequent run at the same commit that failed after an input or
-            environment change, which can report the present state as clean
-            precisely when it is the drift they are looking for.
+            would then answer with the newest of them regardless of outcome.
+            The selected run therefore replaces the newest run *of its own
+            workflow*; the other workflows at the commit are still checked
+            through their newest runs.
 
     Returns:
         A dict with ``commit_sha``, ``run_id``, ``run_started_at``,
-        ``input_warnings`` (``{path, reason}``) and ``env_warnings``
-        (``{package, old, new}``).
+        ``input_warnings`` (``{path, reason, workflow_id, run_id}``),
+        ``env_warnings`` (``{package, old, new, workflow_ids, run_ids}``) and
+        ``runs`` (one ``{workflow_id, run_id, run_started_at, input_warnings,
+        env_warnings}`` entry per checked workflow: the selected run first when
+        one was passed, the rest newest first).
 
-        ``run_id`` is ``None`` when no run could be resolved — the normal case
-        for a manual commit or an ``auto: pre-restore`` commit. Callers MUST
-        render that as "no run recorded here, so nothing could be checked",
-        never as a clean result: reporting "no drift detected" for a comparison
-        that never happened is the exact defect exists to remove.
+        ``run_id``/``run_started_at`` name the anchoring run: the selected run
+        when one was passed, otherwise the newest run at the commit.
+
+        ``run_id`` is ``None`` (and ``runs`` empty) when no run could be
+        resolved — the normal case for a manual commit or an
+        ``auto: pre-restore`` commit. Callers MUST render that as "no run
+        recorded here, so nothing could be checked", never as a clean result.
+
+    Raises:
+        RestoreRunMismatchError: ``run_id`` names a recorded run whose
+            ``workflow_git_commit`` is not *commit_sha*.
     """
-    # Development references: ADR-038, Addendum 1.
-    run = store.get_run(run_id) if run_id else None
-    if run is None:
-        # Either no run was named, or the named row is gone (a retention sweep,
-        # a hand-edited db). Fall back to the commit, which is all the Git tab
-        # ever has.
-        run = store.latest_run_for_git_commit(commit_sha)
-    if run is None:
+    # Development references: #2425, ADR-038, Addendum 1.
+    selected = store.get_run(run_id) if run_id else None
+    if selected is not None and selected.get("workflow_git_commit") != commit_sha:
+        raise RestoreRunMismatchError(str(run_id), selected.get("workflow_git_commit"), commit_sha)
+    # A named run that is gone (a retention sweep, a hand-edited db) falls back
+    # to the commit, which is all the Git tab ever has.
+
+    runs = store.latest_runs_per_workflow_for_git_commit(commit_sha)
+    if selected is not None:
+        runs = [selected] + [r for r in runs if r.get("workflow_id") != selected.get("workflow_id")]
+    if not runs:
         return {
             "commit_sha": commit_sha,
             "run_id": None,
             "run_started_at": None,
             "input_warnings": [],
             "env_warnings": [],
+            "runs": [],
         }
 
-    run_id = str(run.get("run_id") or "")
+    entries = [_run_entry(store, run) for run in runs]
+    anchor = entries[0]
+    input_warnings = [
+        {**warning, "workflow_id": entry["workflow_id"], "run_id": entry["run_id"]}
+        for entry in entries
+        for warning in entry["input_warnings"]
+    ]
     return {
         "commit_sha": commit_sha,
-        "run_id": run_id,
-        "run_started_at": run.get("started_at"),
-        "input_warnings": _input_warnings(store, run_id),
-        "env_warnings": _env_warnings(_recorded_environment(run)),
+        "run_id": anchor["run_id"],
+        "run_started_at": anchor["run_started_at"],
+        "input_warnings": input_warnings,
+        "env_warnings": _merge_env_warnings(entries),
+        "runs": entries,
     }
