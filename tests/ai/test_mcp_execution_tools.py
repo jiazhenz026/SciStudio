@@ -538,6 +538,19 @@ def test_cancel_reaches_a_grandchild_whose_parent_already_exited(ctx: _ExecConte
     assert ctx.process_registry.active_handles() == []
 
 
+def test_a_command_that_starts_no_background_process_reports_none(ctx: _ExecContext) -> None:
+    """#2407: the exit report never claims a leftover process for a command that started none."""
+
+    async def scenario() -> list[Any]:
+        return [await tools_execution.run_command(command="echo hi", wait_seconds=30) for _ in range(5)]
+
+    for result in _run(scenario()):
+        assert result.state == "exited" and result.exit_code == 0, result.stderr_tail
+        assert result.background_processes_running is False, result
+        assert "background process" not in result.next_step, result.next_step
+    assert ctx.process_registry.active_handles() == []
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX shell background syntax; Windows runs `start /b` below")
 def test_posix_background_job_is_reported_exited_and_cancellable(ctx: _ExecContext, project: Path) -> None:
     async def scenario() -> tuple[Any, Any]:

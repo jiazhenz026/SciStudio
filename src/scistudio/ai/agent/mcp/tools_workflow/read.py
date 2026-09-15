@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import traceback
+from typing import Any
 
 import yaml as yaml_module
 from pydantic import Field
@@ -257,9 +258,12 @@ async def validate_workflow(
       - Persist a workflow — call ``write_workflow`` (which also validates).
       - Inspect a workflow's structure — call ``get_workflow``.
 
-    ``warnings`` lists non-blocking core-IO advisories (a package or custom IO
-    block the core ``load_data`` / ``save_data`` block already covers, or a core
-    Load/Save node without ``core_type``); they never change ``valid``.
+    ``errors`` lists what makes ``valid`` false, including a node whose
+    ``block_type`` is not registered (``write_workflow`` refuses those).
+    ``warnings`` lists non-blocking advisories: the validator's ``Warning:``
+    diagnostics and core-IO steering (a package or custom IO block the core
+    ``load_data`` / ``save_data`` block already covers, or a core Load/Save node
+    without ``core_type``); they never change ``valid``.
     """
     from scistudio.workflow.schema import WorkflowFileModel
     from scistudio.workflow.validator import validate_workflow as _validate
@@ -287,23 +291,77 @@ async def validate_workflow(
     # start accepts.
     diagnostics = _validate(definition, registry=ctx.block_registry, project_dir=ctx.project_dir)
     # #1988: a leading ``Warning:`` marks an advisory diagnostic, the convention
-    # the API layer already applies (``api/runtime/_workflows.py``). ``valid``
-    # must reflect hard errors only, or an advisory would tell the agent a
-    # workflow is invalid when run start would dispatch it happily. Every
-    # diagnostic is still returned, so nothing is hidden from the agent.
-    valid = not any(not d.startswith("Warning:") for d in diagnostics)
+    # the API layer already applies (``api/runtime/_workflows.py``). #2406:
+    # advisories are returned in ``warnings`` so ``errors`` holds only what makes
+    # ``valid`` false, and a node whose ``block_type`` is not registered is an
+    # error here, because ``write_workflow`` refuses to write that workflow.
+    unregistered = _unregistered_block_type_errors(definition.nodes, ctx.block_registry)
+    errors = [d for d in diagnostics if not d.startswith("Warning:")]
+    advisories = [
+        d
+        for d in diagnostics
+        if d.startswith("Warning:") and not (unregistered and "which is not registered in this project" in d)
+    ]
+    errors.extend(unregistered)
     # #2376: core-IO steering advisories never affect ``valid``.
     steering_warnings = _core_io_steering_warnings(
         definition.nodes,
         registry=ctx.block_registry,
         type_registry=getattr(ctx, "type_registry", None),
     )
-    return ValidateWorkflowResult(valid=valid, errors=list(diagnostics), warnings=steering_warnings)
+    return ValidateWorkflowResult(valid=not errors, errors=errors, warnings=advisories + steering_warnings)
+
+
+def _unregistered_block_type_errors(nodes: Any, registry: Any) -> list[str]:
+    """Return one error per node whose ``block_type`` the registry does not know.
+
+    Mirrors ``write_workflow``'s refusal: an empty or unscanned registry cannot
+    judge ``block_type`` validity, so it reports nothing, and the flattener's
+    broken-subworkflow marker is left to the validator's own report.
+    """
+    # Development references: #2406.
+    from scistudio.workflow.flatten import SUBWORKFLOW_BROKEN_TYPE
+
+    try:
+        specs = registry.all_specs() if registry is not None else {}
+    except Exception:  # pragma: no cover - defensive: registry not ready
+        return []
+    if not specs:
+        return []
+    known = {spec.type_name for spec in specs.values() if spec.type_name}
+    return [
+        f"node '{node.id}': block_type '{node.block_type}' is not a registered block type. "
+        "Call list_blocks and copy a block's 'type_name'."
+        for node in nodes
+        if node.block_type != SUBWORKFLOW_BROKEN_TYPE and node.block_type not in known
+    ]
 
 
 # ---------------------------------------------------------------------------
 # (a.9) get_run_status
 # ---------------------------------------------------------------------------
+
+
+def _terminal_run_state(task: Any, block_states: dict[str, Any]) -> str:
+    """Return the outcome of a finished run task.
+
+    The scheduler catches a block's exception and marks the block ``ERROR``
+    (or ``CANCELLED`` after ``cancel_run``), so the run task itself usually
+    completes normally. The outcome therefore comes from the block states as
+    well, the same derivation the runtime uses for the run record's status,
+    with the run record's ``completed`` spelled ``succeeded`` here.
+    """
+    # Development references: #2408.
+    if task.cancelled():
+        return "cancelled"
+    if task.exception() is not None:
+        return "failed"
+    values = {str(getattr(state, "value", state)).lower() for state in block_states.values()}
+    if "error" in values:
+        return "failed"
+    if "cancelled" in values:
+        return "cancelled"
+    return "succeeded"
 
 
 @mcp.tool(name="get_run_status", tags={"category:workflow", "read"})
@@ -332,25 +390,21 @@ async def get_run_status(
 
     run = runs[run_id]
     task = getattr(run, "task", None)
+    scheduler = getattr(run, "scheduler", None)
+    raw_states: dict[str, Any] = {}
+    if scheduler is not None:
+        snapshot = getattr(scheduler, "block_states", None)
+        raw_states = snapshot() if callable(snapshot) else getattr(scheduler, "_block_states", {})
+    block_states: dict[str, str] = {
+        block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
+    }
+
     if task is None:
         state = "unknown"
     elif task.done():
-        if task.cancelled():
-            state = "cancelled"
-        elif task.exception() is not None:
-            state = "failed"
-        else:
-            state = "succeeded"
+        state = _terminal_run_state(task, raw_states)
     else:
         state = "running"
-
-    block_states: dict[str, str] = {}
-    scheduler = getattr(run, "scheduler", None)
-    if scheduler is not None:
-        raw_states = getattr(scheduler, "_block_states", {})
-        block_states = {
-            block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
-        }
 
     raw_errors = _collect_run_errors(run_id)
     if state == "failed" and not raw_errors and task is not None:
