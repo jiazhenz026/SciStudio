@@ -253,11 +253,22 @@ def test_interactive_review_keeps_every_label_but_the_one_the_user_removed(
     second = [row["id"] for row in slides[1]["labels"]]
     assert first and second
     removed = first[0]
+    # A panel window writes back through the context the host opened for this
+    # waiting block, and the backend refuses a decision that names none
+    # (ADR-054 §2). So the test opens it the way the GUI does and sends the
+    # decision under its id.
+    context = backend.call(
+        "POST",
+        "/api/panels/contexts",
+        json={"kind": "interactive", "panel_id": "review_labels", "workflow_id": "main", "block_id": "review"},
+    )
+    assert context["input"]["slides"] == slides, "the panel is handed the view prepare_prompt built"
     events.send(
         {
             "type": "interactive_complete",
             "block_id": "review",
             "workflow_id": "main",
+            "context_id": context["context_id"],
             "data": {"removed": [[removed], []]},
         }
     )
