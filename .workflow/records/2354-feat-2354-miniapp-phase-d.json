@@ -31,7 +31,16 @@
       "reason": "Address Codex review findings on umbrella PR #2368"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T04:58:33.175224Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "internal frame encoding, exit detection and Windows containment conform to adr-054-miniapp FR-008/FR-011/FR-015 as written; no contract change",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [
     {
@@ -149,6 +158,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.606292Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.617463Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.629853Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.641126Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.652277Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.663749Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.674829Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.686430Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.698075Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.709099Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:58:33.722167Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -161,7 +258,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/track/adr-054-phase-d",
+    "base": "origin/track/adr-054-phase-d~2",
     "base_sha": "21a5bf0e",
     "changed_files": [
       ".workflow/records/2354-feat-2354-miniapp-phase-d.json",
@@ -170,9 +267,9 @@
       "src/scistudio/panels/process.py",
       "tests/panels/test_panel_process.py"
     ],
-    "diff_fingerprint": "sha256:0bd33588467b505cef4e74681481425bc0396a4bd6a6ef071a70f16d5b5d3440",
+    "diff_fingerprint": "sha256:eec1fb392c2925db92740ec682b1dbcf8122eecf16a627fefe0b01f50365a8f7",
     "head": "HEAD",
-    "head_sha": "304ec300",
+    "head_sha": "30a81694",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -202,6 +299,14 @@
         "guard.docs_landing",
         "tests.changed_test_required"
       ]
+    },
+    {
+      "at": "2026-09-15T04:58:33.722208Z",
+      "diff_fingerprint": "sha256:eec1fb392c2925db92740ec682b1dbcf8122eecf16a627fefe0b01f50365a8f7",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2354-feat-2354-miniapp-phase-d",
@@ -288,5 +393,14 @@
   "session_id": "73a3e1af-6de5-4f9e-896d-3a5df339e253",
   "strictness_tier": 1,
   "task_kind": "feature",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T04:58:33.175348Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_process.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
