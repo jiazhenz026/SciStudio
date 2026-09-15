@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.ai.agent import providers_registry
-from scistudio.ai.agent.availability import session_unsupported_reason
+from scistudio.ai.agent.providers_registry import session_unsupported_reason
 from scistudio.ai.agent.providers_registry import agent_descriptors, agent_keys
 from scistudio.blocks.ai.ai_block import (
     REUSE_LAST_OUTPUT_KEY,

@@ -30,7 +30,7 @@
 # ``prompt_argv_prefix is None``. FR-029 removes the *system-prompt*
 # difference between providers; it does not remove that one. Such a
 # provider is refused up front by
-# :func:`~scistudio.ai.agent.availability.session_capability_refusal`,
+# :func:`~scistudio.api.routes.ai_pty.validation.validate_agent_launch`,
 # with the registry's own explanation and before anything is written, so a
 # session that cannot start leaves nothing behind.
 #
@@ -56,13 +56,10 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.availability import SessionRefusal, session_capability_refusal
-from scistudio.ai.agent.providers_registry import agent_keys
-from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.work_import.brief import compose_brief
 from scistudio.ai.work_import.context import ImportSessionContext
 from scistudio.api.routes.ai_pty import engine as _engine
-from scistudio.api.routes.ai_pty.validation import _validate_project_dir
+from scistudio.api.routes.ai_pty.validation import _validate_project_dir, validate_agent_launch
 
 logger = logging.getLogger(__name__)
 
@@ -226,46 +223,18 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
     except (RuntimeError, PermissionError, OSError) as exc:
         raise HTTPException(status_code=400, detail=f"Invalid project_dir: {exc}") from exc
 
-    # The provider is stated, never inferred (ADR-034 FR-010). Checked
-    # here as well as in the spawn so a typo is a 400 on the request that
-    # made it rather than a 503 that reads like the agent is unavailable.
-    accepted = agent_keys()
-    if request.provider not in accepted:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown provider {request.provider!r}; expected one of {sorted(accepted)}.",
-        )
-
-    # A registry agent is not automatically a provider that can *run* a session.
-    # The opening message is delivered as a positional command-line argument
-    # (FR-029), and Kimi Code parses its first positional as a subcommand, so
-    # the spawn raises rather than launching an agent with no instructions.
-    # Unhandled, that reached the user as a bare 500 with the registry's own
-    # explanation lost, plus a brief on disk for a session that never started.
-    #
-    # Refused here, before the brief is composed or written, for the reason
-    # ``AIBlock.validate_config`` refuses the same providers at config time
-    # (``scistudio.blocks.ai.ai_block``): a limitation the registry already
-    # knows about should surface as the registry's own sentence at the moment
-    # the user chose the provider, not as an opaque failure several layers down.
-    # The dialog additionally filters these providers out of the picker, so a
-    # user should never get here — this is the guard for a caller that is not
-    # the dialog, and for a future provider whose limitation nobody carried
-    # through to the frontend.
-    #
-    # #2379: the dialog greys Auto out for providers without an Auto mode; the
-    # same helper refuses it for any other caller, before a brief is written.
-    #
-    # #2454: these are the only provider checks on submit, and both are static —
-    # registry facts, no live availability call. The dialog probes when it opens.
-    refusal = session_capability_refusal(get_descriptor(request.provider), request.permission_mode)
-    if refusal is not None and refusal.refusal is SessionRefusal.SESSION_UNSUPPORTED:
-        raise HTTPException(
-            status_code=400,
-            detail=(f"Provider {request.provider!r} cannot run a Bring In My Work session. {refusal.message}"),
-        )
-    if refusal is not None:
-        raise HTTPException(status_code=400, detail=refusal.message)
+    # The provider is stated, never inferred (ADR-034 FR-010), and it is
+    # checked before the brief is composed or written. #2454: the check is the
+    # AI Chat launch check itself (``validate_agent_launch``) — the registry key,
+    # the permission mode, Auto support, and, because this session starts with an
+    # opening instruction on the command line, whether the CLI can take one
+    # (Kimi Code parses its first positional as a subcommand). A refusal is a
+    # 400 on the request that made it, carrying the registry's own sentence,
+    # rather than a spawn failure several layers down with a brief left behind.
+    try:
+        validate_agent_launch(request.provider, request.permission_mode, with_prompt=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # ``ImportSessionContext`` owns the answer-shape rules (contract C2): a
     # source location supplied alongside "I don't have a codebase", neither

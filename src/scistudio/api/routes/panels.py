@@ -210,7 +210,9 @@ class MiniAppCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request: str = Field(max_length=4000, description="What the user wants to see or do, in their own words.")
     source: MiniAppTarget
-    provider: str | None = Field(default=None, description="Agent provider key; the first ready one when omitted.")
+    provider: str | None = Field(
+        default=None, description="Agent provider key, as the AI Chat setup offers it. Required."
+    )
     permission_mode: str | None = Field(
         default=None,
         description="'safe', 'auto', or 'bypass'; 'dangerous' means 'bypass'. Auto requires provider support. Defaults to safe.",
@@ -441,36 +443,25 @@ def _permission_mode(raw: str | None) -> str:
     return mode
 
 
-async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
+def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
     """Return the provider and mode a session may start with, or refuse."""
     # Return the provider and mode a session may start with, or refuse (FR-024).
     #
     # This runs FIRST, before anything is written: a MiniApp whose agent never
     # started is a directory the user did not ask for and has to find and delete
-    # themselves. ``session_unsupported_reason`` refuses a provider however
-    # ready it is — the opening instruction is a positional argument its CLI
-    # cannot take, and no amount of signing in changes that.
-    #
-    # #2454: the check is static. The dialog already ran the graded probe when it
-    # opened; a live, billed call per provider here held "Creating…" for seconds.
-    # The status rows (installed, signed in, ``--version``) and the registry
-    # decide; a still-fresh cached report only orders the default choice.
-    from scistudio.ai.agent import availability as agent_availability
-    from scistudio.ai.agent.availability import AvailabilityState, SessionRefusal
-    from scistudio.api.routes.ai import _status_rows
+    # themselves. #2454: it is the AI Chat launch check itself
+    # (``validate_agent_launch``), with the opening instruction the session is
+    # started with — no availability probe, no second checker.
+    from scistudio.api.routes.ai_pty.validation import validate_agent_launch
 
     mode = _permission_mode(permission_mode)
-    cached = agent_availability.cached_availability()
-    prefer = [p.key for p in cached.providers if p.state is AvailabilityState.READY] if cached else []
-    check = agent_availability.check_session_start(await _status_rows(), provider, mode, prefer=prefer)
-    if check.ok and check.key is not None:
-        return check.key, mode
-    message = check.message or "No agent provider can start a MiniApp session right now."
-    if check.refusal is SessionRefusal.UNKNOWN_PROVIDER:
-        raise PanelError(422, "invalid_request", message)
-    if check.refusal is SessionRefusal.AUTO_UNSUPPORTED:
-        raise PanelError(400, "invalid_request", message)
-    raise PanelError(409, "agent_unavailable", message)
+    if not provider:
+        raise PanelError(400, "invalid_request", "Choose an agent provider to run the session.")
+    try:
+        validate_agent_launch(provider, mode, with_prompt=True)
+    except ValueError as exc:
+        raise PanelError(400, "invalid_request", str(exc)) from exc
+    return provider, mode
 
 
 #: The agent session last started for each MiniApp, keyed by panel id, with the
@@ -492,7 +483,7 @@ def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permis
 
     Last, and never fatal: the directory and the brief are already on disk and
     the tab opens on them, so a provider binary that vanished between the
-    static session check and this call leaves the user with a MiniApp they can
+    launch check and this call leaves the user with a MiniApp they can
     still see and an agent they can start by hand.
     """
     from scistudio.panels.miniapp_create import opening_message
@@ -613,12 +604,12 @@ async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, 
     """Create a MiniApp directory and start the agent session that writes it."""
     # Create a MiniApp directory and start the agent session that writes it.
     #
-    # The order is normative (FR-024): the static agent check (#2454) comes first
+    # The order is normative (FR-024): the AI Chat launch check (#2454) comes first
     # and nothing is created when it refuses, then the template directory, then
     # the brief — closed and fsynced — and the agent session last, pointed at a
     # brief that is already complete on disk.
     try:
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_create_miniapp, request.app.state.runtime, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -668,7 +659,7 @@ async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Reque
     # with, and the block is a second artefact beside it.
     try:
         panel = _miniapp(request, panel_id)
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_convert_miniapp, request.app.state.runtime, panel, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc

@@ -610,11 +610,12 @@ def test_open_engine_tab_rejects_auto_for_a_provider_without_one(
 ) -> None:
     import dataclasses
 
-    from scistudio.ai.agent.providers_registry import get
-    from scistudio.api.routes.ai_pty import engine as engine_module
+    from scistudio.ai.agent import providers_registry
 
-    no_auto = dataclasses.replace(get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture")
-    monkeypatch.setattr(engine_module, "get_descriptor", lambda _key: no_auto)
+    no_auto = dataclasses.replace(
+        providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture"
+    )
+    monkeypatch.setattr(providers_registry, "get", lambda _key: no_auto)
 
     with pytest.raises(RuntimeError, match="no Auto permission mode"):
         open_engine_initiated_tab(**{**_spec_kw(tmp_path), "permission_mode": "auto"})

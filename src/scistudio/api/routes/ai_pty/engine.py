@@ -49,11 +49,10 @@ import time
 import uuid
 from pathlib import Path
 
-from scistudio.ai.agent.providers_registry import PERMISSION_MODES, agent_keys
-from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
+from scistudio.api.routes.ai_pty.validation import validate_agent_launch
 
 logger = logging.getLogger(__name__)
 
@@ -201,19 +200,12 @@ def _open_prespawned_tab(
     if not cwd_path.is_absolute() or not cwd_path.is_dir():
         raise RuntimeError(f"pre-spawned PTY tab: cwd must be an existing absolute dir, got {cwd!r}")
 
-    if permission_mode not in PERMISSION_MODES:
-        raise RuntimeError(
-            f"pre-spawned PTY tab: permission_mode must be one of {PERMISSION_MODES!r}, got {permission_mode!r}"
-        )
-
-    accepted = agent_keys()
-    if provider not in accepted:
-        raise RuntimeError(f"pre-spawned PTY tab: unknown provider {provider!r}; expected one of {sorted(accepted)}")
-
-    # #2379: refuse Auto before reclaiming or spawning anything, with the
-    # registry's own sentence, for a CLI that has no auto mode.
-    if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:
-        raise RuntimeError(f"pre-spawned PTY tab: {get_descriptor(provider).label} has no Auto permission mode")
+    # #2454: the same static check the AI Chat launch runs (``validate_agent_launch``).
+    # A prompt is a positional argument, so a CLI that cannot take one is refused here.
+    try:
+        validate_agent_launch(provider, permission_mode, with_prompt=bool(prompt))
+    except ValueError as exc:
+        raise RuntimeError(f"pre-spawned PTY tab: {exc}") from exc
 
     # Reclaim first: an orphan from an earlier handoff that never happened
     # holds a slot it will never use, and without this a run of failed
@@ -291,7 +283,7 @@ def open_work_import_tab(
     ``ValueError`` for those rather than launching an agent with no
     instructions, so callers must refuse such a provider before they get
     here — ``POST /api/work-import/sessions`` does, via
-    :func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+    :func:`~scistudio.api.routes.ai_pty.validation.validate_agent_launch`,
     and the AI Block does the same at config time.
 
     Args:

@@ -574,7 +574,7 @@ def test_auto_is_refused_for_a_provider_without_an_auto_mode(
     from scistudio.ai.agent.providers_registry import get
 
     no_auto = dataclasses.replace(get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture")
-    monkeypatch.setattr(work_import, "get_descriptor", lambda _key: no_auto)
+    monkeypatch.setattr(providers_registry, "get", lambda _key: no_auto)
 
     resp = client.post("/api/work-import/sessions", json=_payload(opened_project, permission_mode="auto"))
 
@@ -585,21 +585,25 @@ def test_auto_is_refused_for_a_provider_without_an_auto_mode(
     assert not brief_dir.exists() or not list(brief_dir.iterdir())
 
 
-def test_submit_makes_no_live_availability_call(
+def test_submit_uses_the_ai_chat_launch_check(
     client: TestClient, opened_project: Path, spawn: _SpawnRecorder, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """#2454: the dialog probes on open; starting the session never does."""
-    from scistudio.ai.agent import availability
+    """#2454: the route validates through the same function the AI Chat launch uses."""
+    from scistudio.api.routes.ai_pty import validation
 
-    def live(*_args: Any, **_kwargs: Any) -> Any:
-        raise AssertionError("Bring In My Work made a live availability call on submit")
+    seen: list[tuple[str, str, bool]] = []
+    real = validation.validate_agent_launch
 
-    for name in ("probe_availability", "resolve_availability", "_live_call_cause", "_run_minimal_call"):
-        monkeypatch.setattr(availability, name, live)
+    def record(provider: str, permission_mode: str, *, with_prompt: bool = False, accepted: Any = None) -> None:
+        seen.append((provider, permission_mode, with_prompt))
+        real(provider, permission_mode, with_prompt=with_prompt, accepted=accepted)
+
+    monkeypatch.setattr(work_import, "validate_agent_launch", record)
 
     _body, data = _start(client, opened_project)
 
     assert data["provider"] == "claude-code"
+    assert seen[0] == ("claude-code", "safe", True)
     assert len(spawn.calls) == 1
 
 
