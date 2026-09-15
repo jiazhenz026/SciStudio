@@ -259,18 +259,17 @@ _BLOCK_NAME_MAX = 64
 # category -> template kind; "io" picks io_load or io_save from the ports.
 _SCAFFOLD_KINDS: dict[str, str] = {"block": "basic", "process": "process", "io": "io_load", "app": "app"}
 
-_SCAFFOLD_REFUSALS: dict[str, ToolRefusal] = {
-    "code": ToolRefusal(
-        code="code_block_not_subclassed",
-        message=(
-            "A Code Block is not written as a block class: the built-in 'code_block' runs a project "
-            "script as a step. Write the script under the project (e.g. scripts/<name>.py) so it reads "
-            "its inputs from $SCISTUDIO_INPUTS_DIR/<port>/ and writes results to "
-            "$SCISTUDIO_OUTPUTS_DIR/<port>/, then add a 'code_block' node whose config sets script_path "
-            "and the declared inputs/outputs (get_block_schema('code_block') lists the fields)."
-        ),
-        use_instead=["get_block_schema", "edit_workflow"],
+# Categories that are not subclassable author bases but map onto one that is.
+_SCAFFOLD_ALIASES: dict[str, tuple[str, str]] = {
+    "code": (
+        "process",
+        "'code' is not a subclassable base class, so a ProcessBlock starter was generated instead: "
+        "put the logic in process_item() (or override run() for several ports). Use category='process' "
+        "next time.",
     ),
+}
+
+_SCAFFOLD_REFUSALS: dict[str, ToolRefusal] = {
     "ai": ToolRefusal(
         code="ai_block_not_authored",
         message=(
@@ -467,7 +466,8 @@ async def scaffold_block(
         description=(
             "Base class to start from: 'block' (Block, write run()), 'process' (ProcessBlock, write "
             "process_item()), 'io' (SimpleLoader, or SimpleSaver when only input_ports are given), "
-            "'app' (AppBlock, declare the external command). 'code', 'ai' and 'subworkflow' are refused: "
+            "'app' (AppBlock, declare the external command). 'code' is not a subclassable base and "
+            "scaffolds a ProcessBlock starter (with a warning). 'ai' and 'subworkflow' are refused: "
             "those steps use built-in blocks configured as workflow nodes."
         ),
     ),
@@ -514,8 +514,9 @@ async def scaffold_block(
     Do NOT use to:
       Modify an existing block — read its source via
         ``read_block_source`` and use ``Edit``/``Write`` directly.
-      Wrap a script (Code Block), add an AI step, or nest a workflow —
-        those categories are refused with what to do instead.
+      Add an AI step or nest a workflow — those categories are refused
+        with what to do instead. ``category='code'`` is not a subclassable
+        base: it scaffolds a ProcessBlock starter and says so in ``warnings``.
       Bypass the block-reuse rule — the
         enforce_list_blocks_before_block_write hook will
         block this tool call unless ``list_blocks`` was called earlier
@@ -560,6 +561,9 @@ async def scaffold_block(
             refusal=refusal,
             next_step=refusal.message,
         )
+    alias_warning: str | None = None
+    if category in _SCAFFOLD_ALIASES:
+        category, alias_warning = _SCAFFOLD_ALIASES[category]
     if category not in _SCAFFOLD_KINDS:
         raise ValueError(
             f"Unknown block category {category!r}. Scaffold one of: {sorted(_SCAFFOLD_KINDS)}. "
@@ -584,7 +588,7 @@ async def scaffold_block(
     # TODO(#1016): hard BlockRegistry-level rejection of generic DataObject
     #   ports + unregistered type names. Out of scope per ADR-040 §3.2a
     #   (Layer 4 only here). Followup: https://github.com/zjzcpj/SciStudio/issues/1016.
-    warnings_list: list[str] = []
+    warnings_list: list[str] = [alias_warning] if alias_warning else []
     for direction, spec_map in (("input", inputs_norm), ("output", outputs_norm)):
         for port_name, spec in spec_map.items():
             type_name = spec.get("type", "")

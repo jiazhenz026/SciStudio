@@ -84,9 +84,10 @@ mcp__scistudio__run_block_tests type_name="<registered name>"   # read pytest ou
 
 `category` → parent: `block`→Block, `process`→ProcessBlock, `io`→SimpleLoader
 (SimpleSaver when only `input_ports` are given), `app`→AppBlock. The file imports
-and registers as written. `code`, `ai` and `subworkflow` are refused: those steps
-are built-in blocks configured as workflow nodes. Every write-class tool returns a
-`next_step` — read and follow.
+and registers as written. `code` is not a subclassable base: use `process`
+(passing `code` scaffolds a ProcessBlock and warns). `ai` and `subworkflow` are
+refused: those steps are built-in blocks configured as workflow nodes. Every
+write-class tool returns a `next_step` — read and follow.
 
 ## Make it usable — label everything the user sees
 

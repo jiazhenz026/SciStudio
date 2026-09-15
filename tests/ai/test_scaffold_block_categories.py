@@ -144,7 +144,20 @@ def test_description_argument_labels_the_block(ctx: _StubRuntime) -> None:
     assert block.__doc__ == "Count nuclei in each image."
 
 
-@pytest.mark.parametrize("category", ["code", "ai", "subworkflow"])
+def test_code_category_scaffolds_a_process_block_with_a_warning(ctx: _StubRuntime) -> None:
+    """Owner decision on #2384: ``code`` is not a subclassable base; steer to ProcessBlock."""
+    result = _scaffold(
+        name="script_step", category="code", input_ports={"a": {"type": "Array"}}, output_ports={"b": {"type": "Array"}}
+    )
+    assert result.status == "ok"
+    assert any("ProcessBlock starter was generated" in w and "category='process'" in w for w in result.warnings)
+    source = Path(result.path).read_text(encoding="utf-8")
+    assert "class ScriptStep(ProcessBlock):" in source
+    assert "code_block" not in source and "CodeBlock" not in source
+    assert not BlockTestHarness(_load_class(result.path, "ScriptStep")).validate_block()
+
+
+@pytest.mark.parametrize("category", ["ai", "subworkflow"])
 def test_non_author_categories_are_refused_without_writing(ctx: _StubRuntime, category: str) -> None:
     result = _scaffold(name="not_written", category=category)
     assert result.status == "refused"
