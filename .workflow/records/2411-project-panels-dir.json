@@ -386,6 +386,14 @@
       "path": null,
       "rationale": "ARCHITECTURE.md project tree is owner-handled per owner directive; no other user-facing doc lists the new-project tree",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:50:21.456338Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-work-import.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -1268,6 +1276,12 @@
       "at": "2026-09-15T07:29:35.086330Z",
       "pattern": "tests/api/test_tutorial_routes.py",
       "reason": "test for tutorial scanned-dir panels"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:50:21.456169Z",
+      "pattern": "docs/specs/adr-053-work-import.md",
+      "reason": "brief template must stay verbatim with spec 4.6 (CI fidelity test)"
     }
   ],
   "session_id": "018bcda3-998a-4c0e-b027-e78b06e6df08",
@@ -1295,6 +1309,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_tutorial_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:50:21.456343Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_work_import_brief.py",
       "rationale": null,
       "verified_in_diff": null
     }
