@@ -186,12 +186,14 @@ def refresh_all_registries(self: ApiRuntime) -> None:
     entry point to call after a user library write.
 
     The order is the one the project-switch path already used: types, then
-    blocks, then previewers.
+    blocks, then the panel service, which rescans the deprecated previewers and
+    then applies the panel catalog incrementally: only contexts on a panel that
+    changed are revoked, and a project switch re-arms its watches (#2465).
     """
-    # Development references: #2009, ADR-053, FR-010, FR-062, FR-065.
+    # Development references: #2009, #2465, ADR-053, ADR-054, FR-010, FR-062, FR-065.
     self.refresh_type_registry()
     self.refresh_block_registry()
-    self.refresh_preview_service()
+    self.get_panel_service().refresh()
 
 
 def _init_lineage_store(self: ApiRuntime, project_path: Path) -> None:
@@ -508,6 +510,11 @@ def _leave_active_project(self: ApiRuntime) -> None:
     outgoing = self.active_project
     if outgoing is not None:
         terminate_project_terminal_sessions(Path(outgoing.path))
+    # MiniApp FR-013 (#2465): the project's panel contexts and MiniApp
+    # processes end now, not on the next panel request.
+    service = getattr(self, "_panel_service", None)
+    if service is not None:
+        service.close_project()
 
 
 def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:

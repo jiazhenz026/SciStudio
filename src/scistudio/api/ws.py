@@ -65,6 +65,15 @@ PANEL_FILES_CHANGED = "panel.files_changed"
 # ``{"panel_id": str, "workflow_id": str, "block_id": str, "port": str}``.
 PANEL_OPEN_MINIAPP = "panel.open_miniapp"
 
+# ADR-054 (#2465): the panel service revoked contexts whose panel was removed,
+# changed or shadowed, or whose project was left. Data:
+# ``{"context_ids": [str], "panel_ids": [str], "reason": str}``.
+PANEL_CONTEXTS_REVOKED = "panel.contexts_revoked"
+
+# #2465: a previewer choice changed; open previews of that type re-route.
+# Data: ``{"type": str}``.
+PANEL_CHOICES_CHANGED = "panel.choices_changed"
+
 #: FR-013: the shape of a workspace realtime client id. Minted here, sent to
 #: the browser in the ``hello`` frame, and quoted back as ``ws_client_id`` when
 #: the workspace opens a MiniApp context.
@@ -95,6 +104,8 @@ _OUTBOUND_EVENTS = frozenset(
         # never subscribed, so it silently never reaches the browser.
         PANEL_FILES_CHANGED,
         PANEL_OPEN_MINIAPP,
+        PANEL_CONTEXTS_REVOKED,
+        PANEL_CHOICES_CHANGED,
         FILE_CHANGED_EVENT_TYPE,
         # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
         # Git tab invalidate cached log/branch/status state when an

@@ -34,7 +34,6 @@ from scistudio.previewers import (
     PreviewSource,
     PreviewTarget,
     TargetKind,
-    build_preview_service,
 )
 
 from ._preview_image import _infer_type_name_from_ref
@@ -55,7 +54,7 @@ def _type_chain_from_registry(type_registry: Any, type_name: str) -> list[str]:
     """Return *type_name*'s ancestry, ordered general -> specific.
 
     a file registered straight off disk carries no ``type_chain``, and a
-    single-entry chain is not routable — :class:`PreviewRouter` walks the chain
+    single-entry chain is not routable — :class:`~scistudio.panels.router.PanelRouter` walks the chain
     to reach a previewer registered for an *ancestor*, so a ``.tif`` recorded as
     a project's ``SRSImage`` with chain ``["SRSImage"]`` could never reach the
     imaging package's ``Image`` viewer and fell through to the artifact
@@ -323,38 +322,27 @@ def _resolve_record_class(self: ApiRuntime, record: DataRecord) -> type | None:
         return None
 
 
-def get_preview_service(self: ApiRuntime) -> PreviewService:
-    """Return (building on first use) this runtime's :class:`PreviewService`.
+def get_panel_service(self: ApiRuntime) -> Any:
+    """Return this runtime's panel service, built on first use and never rebuilt.
 
-    the runtime owns a per-process preview service loaded with
-    core + package + project previewers. It is built lazily and rebuilt on
-    project switch via :meth:`refresh_preview_service` so project-local
-    previewers and defaults track the active project.
+    The panel service owns the panel catalog, routing over panels and the
+    deprecated previewers, preview sessions, panel contexts and their processes
+    (ADR-054, #2465).
     """
-    # Development references: ADR-048, SPEC 1.
-    service = getattr(self, "_preview_service", None)
-    if service is None:
-        project_dir = Path(self.active_project.path) if self.active_project else None
-        service = build_preview_service(
-            project_dir=project_dir,
-            child_context_resolver=self.resolve_child_preview_context,
-            registered_types=self.type_registry.all_types().keys(),
-        )
-        self._preview_service = service  # type: ignore[attr-defined]
-    return service
+    from scistudio.panels.service import get_panel_service as _get
+
+    return _get(self)
 
 
-def refresh_preview_service(self: ApiRuntime) -> PreviewService:
-    """Rebuild the runtime preview service for the active project."""
-    # Development references: FR-002.
-    project_dir = Path(self.active_project.path) if self.active_project else None
-    service = build_preview_service(
-        project_dir=project_dir,
-        child_context_resolver=self.resolve_child_preview_context,
-        registered_types=self.type_registry.all_types().keys(),
-    )
-    self._preview_service = service  # type: ignore[attr-defined]
-    return service
+def get_preview_service(self: ApiRuntime) -> PreviewService:
+    """Return the deprecated previewers' service (legacy registry + sessions).
+
+    Only the legacy fallback: routing, panels and every preview session go
+    through :meth:`get_panel_service`. Kept for callers that inspect the legacy
+    registry itself.
+    """
+    # Development references: ADR-048, ADR-054, #2465.
+    return self.get_panel_service().legacy_service()  # type: ignore[no-any-return]
 
 
 def _target_kind_for_record(record: DataRecord, resolved_cls: type | None) -> TargetKind:

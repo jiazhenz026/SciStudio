@@ -1,0 +1,119 @@
+{
+  "base_ref": "origin/main",
+  "branch": "refactor/2465-panel-subsystem",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/previewers/**",
+      "src/scistudio/api/**",
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "tests/**",
+      "frontend/src/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T15:43:51.870652Z",
+      "owner_directive": "Q1 unified candidates: legacy previewers compete in the same ladder as panels (FR-006/007); legacy renders only when a legacy candidate wins; legacy never holds or installs panels.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:52.090861Z",
+      "owner_directive": "Q2: page-file changes reload in place for all context kinds via a panel-level files-changed mechanism (backend watch per open panel, frontend debounce in PanelFrame, MiniAppTab copy removed); panel.json descriptor changes invalidate contexts using that panel incl. MiniApps; answers.json, .answers-*, __pycache__, dotfiles, node_modules ignored in fingerprints.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:52.308285Z",
+      "owner_directive": "Q3-a: new WS event panel.contexts_revoked {context_ids, panel_ids, reason} in the ws outbound allowlist; frontend handles only affected mounts.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:52.506784Z",
+      "owner_directive": "Q3-y: when a preview panel is added/changed/removed, open previews re-route immediately, only those whose data type (type chain + Collection-ness) is affected by the changed panels' declared types.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:52.712273Z",
+      "owner_directive": "Q5-b: when legacy previewers are reloaded as a whole (Reload, package install, project switch), every legacy-rendered preview remounts and recreates its session; panel-rendered previews, interactive and MiniApp contexts untouched.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:52.906990Z",
+      "owner_directive": "Q6-b: previewer choices PUT/DELETE update choices in PanelService (persisted) without refresh_all_registries; emit panel.choices_changed {type}; only open previews of that type switch.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.090793Z",
+      "owner_directive": "Q7: panel-routed preview sessions are split out of the legacy PreviewSessionManager in this PR.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.280830Z",
+      "owner_directive": "Q8: panel discovery has one implementation in scistudio.panels used by PanelService and block interactive panel validation; blocks must not depend on api; changes under src/scistudio/blocks/** not authorised.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.472789Z",
+      "owner_directive": "blocks.reloaded keeps working for block catalog and MiniApp list; frontend must not invalidate the previewer catalog or remount previews on it unless the payload says preview candidates changed.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.646080Z",
+      "owner_directive": "Project switch closes all panel contexts and ends MiniApp processes immediately; same-project reopen does not close.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.800538Z",
+      "owner_directive": "Delete install_panels coupling, PreviewService.panel_sources, PANEL branch in legacy session manager, panels/catalog_refresh.py, workflow_watcher panel hook, PanelContext.preview_service identity check, legacy PreviewRouter duplication; refresh_all_registries = types, blocks, legacy.rebuild, panel_service.rescan.",
+      "reason": "owner decision"
+    },
+    {
+      "at": "2026-09-15T15:43:53.952826Z",
+      "owner_directive": "No documentation edits in this PR (owner is revising docs); docs N/A, stale doc mentions listed in the PR body.",
+      "reason": "owner decision"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2465,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2455,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Implement #2465: make the panel subsystem standalone per ADR-054 in ONE PR (no splitting); also fixes #2455.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2465-2465-panel-subsystem",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "d8e70f57-cfdf-4785-952e-733018d5ceec",
+  "strictness_tier": null,
+  "task_kind": "refactor",
+  "test_events": []
+}
