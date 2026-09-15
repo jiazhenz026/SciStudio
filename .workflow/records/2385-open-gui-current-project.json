@@ -160,6 +160,16 @@
       "at": "2026-09-15T04:38:19.253210Z",
       "owner_directive": "Make open_gui open the interface the user sees for the current project directly; do not open the welcome page.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T04:54:17.007261Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "Owner directed fixing Codex review findings on PR #2389 (and CI OpenAPI snapshot drift from the new endpoint)"
+    },
+    {
+      "at": "2026-09-15T04:55:41.018895Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "Codex P1 on PR #2389: bind attached view requests to the attached project (backend guard middleware + app registration)"
     }
   ],
   "docs_events": [
@@ -654,7 +664,32 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:54:17.007402Z",
+      "pattern": "tests/contracts/openapi.json",
+      "reason": "Owner directed fixing Codex review findings on PR #2389 (and CI OpenAPI snapshot drift from the new endpoint)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:55:41.019032Z",
+      "pattern": "src/scistudio/api/_attached_project.py",
+      "reason": "Codex P1 on PR #2389: bind attached view requests to the attached project (backend guard middleware + app registration)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:55:41.019035Z",
+      "pattern": "src/scistudio/api/app.py",
+      "reason": "Codex P1 on PR #2389: bind attached view requests to the attached project (backend guard middleware + app registration)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:55:41.019037Z",
+      "pattern": "tests/api/test_attached_project.py",
+      "reason": "Codex P1 on PR #2389: bind attached view requests to the attached project (backend guard middleware + app registration)"
+    }
+  ],
   "session_id": "39f4943f-e768-4438-8d90-448bd6e3e75b",
   "strictness_tier": 2,
   "task_kind": "guided",

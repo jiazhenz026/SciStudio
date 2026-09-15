@@ -10,6 +10,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { ATTACHED_PROJECT_HEADER, setAttachedProjectBinding } from "./lib/api/core";
 import { useAppStore } from "./store";
 import { resetAppStore } from "./testUtils";
 
@@ -29,22 +30,30 @@ const PROJECT = {
 interface FetchCall {
   url: string;
   method: string;
+  attachedProject: string | null;
 }
 
 function jsonResponse(data: unknown) {
   return Promise.resolve({ ok: true, status: 200, json: async () => data });
 }
 
-function installFetch(active: {
-  project: typeof PROJECT | null;
-  active_workflow_id: string | null;
-}) {
+function installFetch(
+  active: {
+    project: typeof PROJECT | null;
+    active_workflow_id: string | null;
+  },
+  { refuseWorkflowRead = false }: { refuseWorkflowRead?: boolean } = {},
+) {
   const calls: FetchCall[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      calls.push({ url, method: (init?.method ?? "GET").toUpperCase() });
+      calls.push({
+        url,
+        method: (init?.method ?? "GET").toUpperCase(),
+        attachedProject: new Headers(init?.headers).get(ATTACHED_PROJECT_HEADER),
+      });
       if (url.endsWith("/api/projects/")) return jsonResponse([PROJECT]);
       if (url.endsWith("/api/projects/active")) return jsonResponse(active);
       if (url.endsWith("/api/tutorials/catalogue")) {
@@ -53,6 +62,17 @@ function installFetch(active: {
       if (url.endsWith("/api/tutorials/sessions/active")) return jsonResponse(null);
       if (url.endsWith("/api/blocks/")) return jsonResponse({ blocks: [] });
       const workflowMatch = url.match(/\/api\/workflows\/([^/?]+)$/);
+      if (workflowMatch && refuseWorkflowRead) {
+        // The backend's answer once the user switched projects (#2385).
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          statusText: "Conflict",
+          json: async () => ({
+            detail: { error: "attached_project_changed", message: "switched" },
+          }),
+        });
+      }
       if (workflowMatch) {
         const id = decodeURIComponent(workflowMatch[1]);
         return jsonResponse({
@@ -121,6 +141,7 @@ describe("App project deep link (#2385)", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    setAttachedProjectBinding(null);
     setSearch("");
   });
 
@@ -136,6 +157,28 @@ describe("App project deep link (#2385)", () => {
     expect(useAppStore.getState().lastError).toBeNull();
     // Attach is read-only: no project re-open, no active-context publish.
     expect(sessionMutations(calls)).toEqual([]);
+    // Once attached, requests are bound to the verified project.
+    const workflowRead = calls.find((call) => call.url.endsWith("/api/workflows/qc"));
+    expect(workflowRead?.attachedProject).toBe(PROJECT.id);
+  });
+
+  it("detaches when the backend refuses a bound request after a project switch", async () => {
+    const calls = installFetch(
+      { project: PROJECT, active_workflow_id: "main" },
+      { refuseWorkflowRead: true },
+    );
+    setSearch(deepLink(PROJECT_PATH, "qc"));
+
+    render(<App />);
+
+    const banner = await screen.findByTestId("app-error-banner");
+    expect(banner.textContent).toContain("no longer has");
+    expect(useAppStore.getState().currentProject).toBeNull();
+    expect(useAppStore.getState().tabs).toEqual([]);
+    expect(sessionMutations(calls)).toEqual([]);
+    // Later requests stay bound, so none of them can reach the new project.
+    const afterDetach = calls.filter((call) => call.url.endsWith("/api/workflows/qc"));
+    expect(afterDetach.every((call) => call.attachedProject === PROJECT.id)).toBe(true);
   });
 
   it("falls back to the backend's active workflow when the link names none", async () => {
