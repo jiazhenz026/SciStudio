@@ -179,7 +179,10 @@ function MiniAppTargetPickerBody({
                       }}
                       type="button"
                     >
-                      <span className="font-medium">{row.block_name}</span>
+                      <span className="font-medium">
+                        {row.block_name}
+                        {row.block_name !== row.block_id ? ` [${row.block_id}]` : ""}
+                      </span>
                       <span className="text-stone-500">
                         {" "}
                         - {row.port} ({row.type})

@@ -94,6 +94,29 @@ describe("MiniAppTargetPicker (ADR-054 FR-034)", () => {
     expect(screen.getByText("Other")).toBeInTheDocument();
   });
 
+  it("distinguishes same-name nodes and opens the selected instance", async () => {
+    const harness = renderPicker({
+      sources: [
+        source({ block_id: "load_one", block_name: "load_data", port: "data", type: "Array" }),
+        source({ block_id: "load_two", block_name: "load_data", port: "data", type: "Array" }),
+        source({ block_id: "load_three", port: "data", type: "Array" }),
+      ],
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "load_data [load_one] - data (Array)" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "load_three - data (Array)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "load_data [load_two] - data (Array)" }));
+
+    expect(harness.onPick).toHaveBeenCalledWith({
+      workflow_id: "main",
+      block_id: "load_two",
+      port: "data",
+    });
+    expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("opens the MiniApp on the chosen output", async () => {
     const harness = renderPicker();
     await waitFor(() =>
