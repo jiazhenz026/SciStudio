@@ -1067,9 +1067,7 @@ def test_main_installer_release_lands_in_the_manifest(
 
     monkeypatch.setattr(mod, "fetch_release", fake_fetch)
 
-    assert (
-        mod.main(["--channel", "alpha", "--src", str(src), "--dry-run", "--installer-release", "v0.3.5-beta"]) == 0
-    )
+    assert mod.main(["--channel", "alpha", "--src", str(src), "--dry-run", "--installer-release", "v0.3.5-beta"]) == 0
 
     assert asked == [(mod.DEFAULT_REPO, "v0.3.5-beta")]
     manifest = json.loads((tmp_path / "work" / "manifest.json").read_text())

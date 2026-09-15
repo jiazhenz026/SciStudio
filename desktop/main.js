@@ -2929,7 +2929,9 @@ function start(injectedHost) {
       splashStatus("Loading the interface…");
       createWindow(url);
       // #2396: report on an install the previous run handed to the helper.
-      reportInstallOutcome(mainWindow || undefined).catch((error) => {
+      // Unparented: the main window stays hidden until it has rendered, and a
+      // sheet attached to a hidden window may never be seen.
+      reportInstallOutcome(undefined).catch((error) => {
         safeError(`[scistudio] install outcome report failed: ${error.message}`);
       });
       // #1775: check for an OTA update after the window is up so startup is never
