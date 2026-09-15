@@ -36,6 +36,7 @@ import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
 import { MiniAppPalette } from "../miniapps/MiniAppPalette";
 import {
   MiniAppTabLayer,
+  recordPreviewColumnSize,
   useMiniAppPreviewColumn,
   usePreviewColumnState,
 } from "../miniapps/MiniAppTab";
@@ -545,6 +546,11 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
   // FR-035 — refresh compatible actions together with the sidebar catalogue.
   const { miniapps: miniAppCatalogue } = useMiniAppCatalog();
+  // #2457 — a `panel.json` rename refreshes this catalogue; open MiniApp tabs
+  // take the new name from it (a no-op when no name changed).
+  useEffect(() => {
+    useAppStore.getState().syncMiniAppTabNames(miniAppCatalogue);
+  }, [miniAppCatalogue, miniAppTabs]);
   const [presetTarget, setPresetTarget] = useState<MiniAppTarget | null>(null);
 
   const miniApps: MiniAppWiring = {
@@ -800,12 +806,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {!isAi && (
           <ResizablePanel
             panelRef={previewPanelRef}
-            onResize={(size) => {
-              const collapsed = size.asPercentage === 0;
-              if (collapsed !== useAppStore.getState().previewCollapsed) {
-                useAppStore.setState({ previewCollapsed: collapsed });
-              }
-            }}
+            onResize={recordPreviewColumnSize}
             id="workspace-preview"
             defaultSize="22%"
             minSize="15%"

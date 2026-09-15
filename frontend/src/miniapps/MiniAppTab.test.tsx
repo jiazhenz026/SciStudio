@@ -31,7 +31,13 @@ import { resetBasePathCacheForTests } from "../lib/api/base-path";
 import { bootstrapFrame } from "../panels/testUtils";
 import { useAppStore } from "../store";
 import type { MiniAppTab as MiniAppTabState } from "../store/types";
-import { MiniAppTabLayer, useMiniAppPreviewColumn, usePreviewColumnState } from "./MiniAppTab";
+import { TabBar } from "../components/TabBar";
+import {
+  MiniAppTabLayer,
+  recordPreviewColumnSize,
+  useMiniAppPreviewColumn,
+  usePreviewColumnState,
+} from "./MiniAppTab";
 
 const TAB: MiniAppTabState = {
   kind: "miniapp",
@@ -394,4 +400,170 @@ it("expands the actual preview panel when a visibility request opens it", () => 
   act(() => useAppStore.setState({ previewCollapsed: false }));
   expect(panel.expand).toHaveBeenCalledTimes(1);
   expect(panel.isCollapsed()).toBe(false);
+});
+
+/**
+ * #2456 — a panel that calls the real `onResize` writer on every size change,
+ * the way react-resizable-panels does, so the store and its persisted copy see
+ * what the app sees.
+ */
+function wiredPanel(percentage: number, collapsed = false) {
+  const state = { percentage, collapsed };
+  const report = () =>
+    recordPreviewColumnSize({ asPercentage: state.collapsed ? 0 : state.percentage });
+  const panel: PanelImperativeHandle = {
+    collapse: vi.fn(() => {
+      state.collapsed = true;
+      report();
+    }),
+    expand: vi.fn(() => {
+      state.collapsed = false;
+      report();
+    }),
+    getSize: vi.fn(() => ({ asPercentage: state.collapsed ? 0 : state.percentage, inPixels: 0 })),
+    isCollapsed: vi.fn(() => state.collapsed),
+    resize: vi.fn((size: number | string) => {
+      state.percentage = typeof size === "number" ? size : parseFloat(size);
+      report();
+    }),
+  };
+  return { panel, state };
+}
+
+function persistedPreviewCollapsed(): unknown {
+  const raw = localStorage.getItem("scistudio-studio-ui");
+  return raw === null ? undefined : JSON.parse(raw).state.previewCollapsed;
+}
+
+/** Replace the in-memory store, keep the persisted copy, then rehydrate from it. */
+async function relaunchWith(memory: { previewCollapsed: boolean }): Promise<void> {
+  const persisted = localStorage.getItem("scistudio-studio-ui");
+  useAppStore.setState({ ...memory, previewCollapsedByMiniApp: false });
+  if (persisted === null) localStorage.removeItem("scistudio-studio-ui");
+  else localStorage.setItem("scistudio-studio-ui", persisted);
+  await useAppStore.persist.rehydrate();
+}
+
+describe("the persisted preview preference across a MiniApp (#2456)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useAppStore.setState({ previewCollapsed: false, previewCollapsedByMiniApp: false });
+  });
+
+  afterEach(() => {
+    useAppStore.setState({ previewCollapsed: false, previewCollapsedByMiniApp: false });
+    localStorage.clear();
+  });
+
+  it("does not persist the MiniApp's collapse, and restores the column after it", () => {
+    const { panel, state } = wiredPanel(26);
+    const ref = { current: panel };
+    const view = renderHook(({ active }) => useMiniAppPreviewColumn(ref, active), {
+      initialProps: { active: false },
+    });
+
+    view.rerender({ active: true });
+    expect(state.collapsed).toBe(true);
+    // The store still mirrors the panel; only the persisted preference ignores it.
+    expect(useAppStore.getState().previewCollapsed).toBe(true);
+    expect(persistedPreviewCollapsed()).toBe(false);
+
+    view.rerender({ active: false });
+    expect(state).toEqual({ percentage: 26, collapsed: false });
+    expect(useAppStore.getState().previewCollapsedByMiniApp).toBe(false);
+    expect(useAppStore.getState().previewCollapsed).toBe(false);
+    expect(persistedPreviewCollapsed()).toBe(false);
+  });
+
+  it("persists a collapse the user makes while the MiniApp is active", () => {
+    const { panel, state } = wiredPanel(26);
+    const ref = { current: panel };
+    const view = renderHook(({ active }) => useMiniAppPreviewColumn(ref, active), {
+      initialProps: { active: false },
+    });
+    view.rerender({ active: true });
+
+    // The user opens the column, then collapses it again, without leaving.
+    act(() => panel.expand());
+    act(() => panel.collapse());
+    expect(persistedPreviewCollapsed()).toBe(true);
+
+    // Their collapse is not undone by leaving the MiniApp.
+    view.rerender({ active: false });
+    expect(state.collapsed).toBe(true);
+    expect(persistedPreviewCollapsed()).toBe(true);
+  });
+
+  it("relaunches with the column open after closing on an active MiniApp", async () => {
+    const { panel } = wiredPanel(26);
+    const ref = { current: panel };
+    const view = renderHook(({ active }) => useMiniAppPreviewColumn(ref, active), {
+      initialProps: { active: false },
+    });
+    view.rerender({ active: true });
+    view.unmount();
+    expect(useAppStore.getState().previewCollapsed).toBe(false);
+    expect(persistedPreviewCollapsed()).toBe(false);
+
+    // A new launch: whatever is in memory is replaced by the persisted copy.
+    await relaunchWith({ previewCollapsed: true });
+    expect(useAppStore.getState().previewCollapsed).toBe(false);
+    const next = wiredPanel(22);
+    renderHook(() => usePreviewColumnState({ current: next.panel }));
+    expect(next.panel.collapse).not.toHaveBeenCalled();
+    expect(next.state.collapsed).toBe(false);
+  });
+
+  it("relaunches collapsed when the user had collapsed the column", async () => {
+    const { panel } = wiredPanel(26);
+    act(() => panel.collapse());
+    const view = renderHook(({ active }) => useMiniAppPreviewColumn({ current: panel }, active), {
+      initialProps: { active: false },
+    });
+    view.rerender({ active: true });
+    view.unmount();
+    expect(persistedPreviewCollapsed()).toBe(true);
+
+    await relaunchWith({ previewCollapsed: false });
+    expect(useAppStore.getState().previewCollapsed).toBe(true);
+    const next = wiredPanel(22);
+    renderHook(() => usePreviewColumnState({ current: next.panel }));
+    expect(next.state.collapsed).toBe(true);
+  });
+});
+
+it("shows the renamed MiniApp's name in the toolbar and the tab strip (#2457)", () => {
+  useAppStore.setState({ tabs: [TAB], activeTabId: TAB.id });
+  function Workspace() {
+    const tabs = useAppStore((s) => s.tabs);
+    const miniApps = tabs.filter((tab): tab is MiniAppTabState => tab.kind === "miniapp");
+    return (
+      <>
+        <TabBar
+          tabs={tabs}
+          activeTabId={TAB.id}
+          onSwitchTab={vi.fn()}
+          onCloseTab={vi.fn()}
+          onNewTab={vi.fn()}
+        />
+        <MiniAppTabLayer tabs={miniApps} activeTabId={TAB.id} onConvert={vi.fn()} />
+      </>
+    );
+  }
+  render(<Workspace />);
+  expect(screen.getByRole("tab")).toHaveTextContent("Threshold explorer");
+
+  act(() =>
+    useAppStore
+      .getState()
+      .syncMiniAppTabNames([{ panel_id: TAB.panelId, name: "Otsu threshold tuner" }]),
+  );
+  const tab = screen.getByRole("tab");
+  expect(tab).toHaveTextContent("Otsu threshold tuner");
+  expect(tab.querySelector("[title]")).toHaveAttribute("title", "Otsu threshold tuner");
+  expect(screen.getByTestId("miniapp-tab-pane")).toHaveTextContent("Otsu threshold tuner");
+  expect(screen.getByTestId("miniapp-tab-pane")).not.toHaveTextContent("Threshold explorer");
+  // Same tab, same pane: no second context was opened for the rename.
+  expect(useAppStore.getState().tabs[0].id).toBe(TAB.id);
+  useAppStore.setState({ tabs: [], activeTabId: null });
 });
