@@ -84,7 +84,9 @@ inspect_data(ref) / preview_data(ref, fmt)
 
 Every write-class result carries `next_step`; read it and follow it.
 `write_workflow` refuses a file name whose stem differs from the workflow `id`,
-so always write `workflows/{id}.yaml`.
+so always write `workflows/{id}.yaml`; a mismatched pair collides with the file
+that id names on save and import. `run_workflow(path)` runs exactly the file at
+`path`.
 
 **Changing an existing workflow.** `write_workflow` replaces the whole file, so
 use it only to create a workflow. To change part of one, call `get_workflow` and

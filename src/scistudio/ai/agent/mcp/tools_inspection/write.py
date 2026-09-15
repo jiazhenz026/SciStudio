@@ -52,6 +52,13 @@ async def update_block_config(
         protect_workflow_yaml hook will block such calls.
         This tool is the ONLY supported per-block-patch path.
 
+    A patch that sets ``capability_id`` (on a core ``load_data`` /
+    ``save_data`` node, or on an entry of a Code/App Block port list) is
+    checked against the registered format capabilities for the resulting
+    direction, data type, and extension; an unknown or mismatched id raises
+    ``ValueError`` listing the valid choices and nothing is written. ``null``
+    or an empty string clears the pin. ``get_block_schema`` lists the choices.
+
     Uses ruamel.yaml round-trip mode to preserve formatting. The result's
     ``warnings`` list flags a patched node that bypasses the core
     ``load_data`` / ``save_data`` block (for example ``core_type`` cleared on a
@@ -109,11 +116,30 @@ async def update_block_config(
             if target is None:
                 raise KeyError(f"Block '{block_id}' not found in workflow {p}")
             config_node = target.get("config")
+            # #2435: refuse a capability_id the resulting config cannot use.
+            capability_errors = _capability_patch_errors(target.get("block_type"), config_node, params)
+            if capability_errors:
+                raise ValueError("update_block_config: " + " ".join(capability_errors))
             if not isinstance(config_node, dict):
                 target["config"] = dict(params)
             else:
+                # An explicit ``params`` key still replaces ``config.params`` as a whole.
+                if "params" in params:
+                    config_node["params"] = params["params"]
+                nested = config_node.get("params")
                 for key, value in params.items():
-                    config_node[key] = value
+                    if key == "params":
+                        continue
+                    if isinstance(nested, dict):
+                        # #2403: a GUI-saved node nests its params under
+                        # ``config.params``. Patch them there, and drop a
+                        # same-named top-level key the nested value would
+                        # shadow, so the node keeps one shape.
+                        nested[key] = value
+                        if key in config_node:
+                            del config_node[key]
+                    else:
+                        config_node[key] = value
 
             if version_context is not None:
                 _, runtime = version_context
@@ -168,6 +194,21 @@ async def update_block_config(
         bytes_written=bytes_written,
         workflow_path=str(p),
         warnings=steering_warnings,
+    )
+
+
+def _capability_patch_errors(block_type: Any, config: Any, patch: dict[str, Any]) -> list[str]:
+    """Return why *patch* stores an unusable ``capability_id`` (empty when it does not)."""
+    # Development references: #2435.
+    from scistudio.ai.agent.mcp._context import get_optional_context
+    from scistudio.ai.agent.mcp._format_capabilities import capability_patch_errors
+
+    ctx = get_optional_context()
+    registry = getattr(ctx, "block_registry", None)
+    if registry is None or not isinstance(block_type, str):
+        return []
+    return capability_patch_errors(
+        block_type, config if isinstance(config, dict) else {}, patch, registry, getattr(ctx, "type_registry", None)
     )
 
 

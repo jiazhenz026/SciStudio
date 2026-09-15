@@ -14,11 +14,13 @@ from __future__ import annotations
 import dataclasses
 import logging
 import traceback
+from typing import Any
 
 import yaml as yaml_module
 from pydantic import Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
+from scistudio.ai.agent.mcp._format_capabilities import schema_format_capabilities
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _collect_run_errors,
@@ -45,6 +47,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     WorkflowDefinitionEnvelope,
 )
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema
+from scistudio.workflow.identity import project_relative_path_for_identity
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +142,13 @@ async def get_block_schema(
     Use when:
       - You need port names + expected types before wiring edges.
       - You need the config_schema to populate a block's static params.
+      - You need a file format's ``capability_id`` for a core ``load_data`` /
+        ``save_data`` node or a Code/App Block port: ``format_capabilities``
+        lists the choices and ``format_capability_usage`` says where to set one.
 
     Do NOT use to:
       - Discover available block types — call ``list_blocks`` first.
+      - See which capability a configured node uses — call ``get_block_config``.
 
     Raises ``KeyError`` if the type is not registered.
     """
@@ -149,6 +156,8 @@ async def get_block_schema(
     spec = ctx.block_registry.get_spec(type_name)
     if spec is None:
         raise KeyError(f"Block type '{type_name}' is not registered")
+    # #2435: the capability ids the GUI Format dropdowns offer for this block.
+    format_capabilities, format_capability_usage = schema_format_capabilities(spec, ctx.block_registry)
     return BlockSchemaResult(
         type_name=spec.type_name,
         ports={
@@ -163,6 +172,8 @@ async def get_block_schema(
             "base_category": spec.base_category,
             "subcategory": spec.subcategory,
         },
+        format_capabilities=format_capabilities,
+        format_capability_usage=format_capability_usage,
     )
 
 
@@ -256,9 +267,12 @@ async def validate_workflow(
       - Persist a workflow — call ``write_workflow`` (which also validates).
       - Inspect a workflow's structure — call ``get_workflow``.
 
-    ``warnings`` lists non-blocking core-IO advisories (a package or custom IO
-    block the core ``load_data`` / ``save_data`` block already covers, or a core
-    Load/Save node without ``core_type``); they never change ``valid``.
+    ``errors`` lists what makes ``valid`` false, including a node whose
+    ``block_type`` is not registered (``write_workflow`` refuses those).
+    ``warnings`` lists non-blocking advisories: the validator's ``Warning:``
+    diagnostics and core-IO steering (a package or custom IO block the core
+    ``load_data`` / ``save_data`` block already covers, or a core Load/Save node
+    without ``core_type``); they never change ``valid``.
     """
     from scistudio.workflow.schema import WorkflowFileModel
     from scistudio.workflow.validator import validate_workflow as _validate
@@ -286,23 +300,77 @@ async def validate_workflow(
     # start accepts.
     diagnostics = _validate(definition, registry=ctx.block_registry, project_dir=ctx.project_dir)
     # #1988: a leading ``Warning:`` marks an advisory diagnostic, the convention
-    # the API layer already applies (``api/runtime/_workflows.py``). ``valid``
-    # must reflect hard errors only, or an advisory would tell the agent a
-    # workflow is invalid when run start would dispatch it happily. Every
-    # diagnostic is still returned, so nothing is hidden from the agent.
-    valid = not any(not d.startswith("Warning:") for d in diagnostics)
+    # the API layer already applies (``api/runtime/_workflows.py``). #2406:
+    # advisories are returned in ``warnings`` so ``errors`` holds only what makes
+    # ``valid`` false, and a node whose ``block_type`` is not registered is an
+    # error here, because ``write_workflow`` refuses to write that workflow.
+    unregistered = _unregistered_block_type_errors(definition.nodes, ctx.block_registry)
+    errors = [d for d in diagnostics if not d.startswith("Warning:")]
+    advisories = [
+        d
+        for d in diagnostics
+        if d.startswith("Warning:") and not (unregistered and "which is not registered in this project" in d)
+    ]
+    errors.extend(unregistered)
     # #2376: core-IO steering advisories never affect ``valid``.
     steering_warnings = _core_io_steering_warnings(
         definition.nodes,
         registry=ctx.block_registry,
         type_registry=getattr(ctx, "type_registry", None),
     )
-    return ValidateWorkflowResult(valid=valid, errors=list(diagnostics), warnings=steering_warnings)
+    return ValidateWorkflowResult(valid=not errors, errors=errors, warnings=advisories + steering_warnings)
+
+
+def _unregistered_block_type_errors(nodes: Any, registry: Any) -> list[str]:
+    """Return one error per node whose ``block_type`` the registry does not know.
+
+    Mirrors ``write_workflow``'s refusal: an empty or unscanned registry cannot
+    judge ``block_type`` validity, so it reports nothing, and the flattener's
+    broken-subworkflow marker is left to the validator's own report.
+    """
+    # Development references: #2406.
+    from scistudio.workflow.flatten import SUBWORKFLOW_BROKEN_TYPE
+
+    try:
+        specs = registry.all_specs() if registry is not None else {}
+    except Exception:  # pragma: no cover - defensive: registry not ready
+        return []
+    if not specs:
+        return []
+    known = {spec.type_name for spec in specs.values() if spec.type_name}
+    return [
+        f"node '{node.id}': block_type '{node.block_type}' is not a registered block type. "
+        "Call list_blocks and copy a block's 'type_name'."
+        for node in nodes
+        if node.block_type != SUBWORKFLOW_BROKEN_TYPE and node.block_type not in known
+    ]
 
 
 # ---------------------------------------------------------------------------
 # (a.9) get_run_status
 # ---------------------------------------------------------------------------
+
+
+def _terminal_run_state(task: Any, block_states: dict[str, Any]) -> str:
+    """Return the outcome of a finished run task.
+
+    The scheduler catches a block's exception and marks the block ``ERROR``
+    (or ``CANCELLED`` after ``cancel_run``), so the run task itself usually
+    completes normally. The outcome therefore comes from the block states as
+    well, the same derivation the runtime uses for the run record's status,
+    with the run record's ``completed`` spelled ``succeeded`` here.
+    """
+    # Development references: #2408.
+    if task.cancelled():
+        return "cancelled"
+    if task.exception() is not None:
+        return "failed"
+    values = {str(getattr(state, "value", state)).lower() for state in block_states.values()}
+    if "error" in values:
+        return "failed"
+    if "cancelled" in values:
+        return "cancelled"
+    return "succeeded"
 
 
 @mcp.tool(name="get_run_status", tags={"category:workflow", "read"})
@@ -331,25 +399,21 @@ async def get_run_status(
 
     run = runs[run_id]
     task = getattr(run, "task", None)
+    scheduler = getattr(run, "scheduler", None)
+    raw_states: dict[str, Any] = {}
+    if scheduler is not None:
+        snapshot = getattr(scheduler, "block_states", None)
+        raw_states = snapshot() if callable(snapshot) else getattr(scheduler, "_block_states", {})
+    block_states: dict[str, str] = {
+        block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
+    }
+
     if task is None:
         state = "unknown"
     elif task.done():
-        if task.cancelled():
-            state = "cancelled"
-        elif task.exception() is not None:
-            state = "failed"
-        else:
-            state = "succeeded"
+        state = _terminal_run_state(task, raw_states)
     else:
         state = "running"
-
-    block_states: dict[str, str] = {}
-    scheduler = getattr(run, "scheduler", None)
-    if scheduler is not None:
-        raw_states = getattr(scheduler, "_block_states", {})
-        block_states = {
-            block_id: getattr(state_obj, "name", str(state_obj)) for block_id, state_obj in raw_states.items()
-        }
 
     raw_errors = _collect_run_errors(run_id)
     if state == "failed" and not raw_errors and task is not None:
@@ -392,7 +456,10 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
 
     Do NOT use to:
       - Load a workflow's full structure — call ``get_workflow`` with
-        the returned id (``workflows/<id>.yaml``).
+        the file the returned id names: ``workflows/<id>.yaml``, or for an
+        id starting with ``@`` (a subworkflow) the path whose components
+        follow each ``@``, e.g. ``@subworkflows@qc.yaml`` is
+        ``subworkflows/qc.yaml``.
       - List every workflow in the project — call ``list_workflows``
         via the runtime instead.
 
@@ -415,7 +482,9 @@ async def get_active_workflow_context() -> ActiveWorkflowContextResult:
     # the right key to ``get_workflow`` for the authoritative load.
     workflow_name: str | None = workflow_id
     try:
-        path = _resolve_project_path(f"workflows/{workflow_id}.yaml")
+        # #2394: the editor publishes the run identity of the open file, which
+        # names a subworkflow by its path (``@subworkflows@qc.yaml``).
+        path = _resolve_project_path(str(project_relative_path_for_identity(workflow_id)))
         if path.exists():
             raw = yaml_module.safe_load(path.read_text(encoding="utf-8")) or {}
             metadata = raw.get("metadata") if isinstance(raw, dict) else None

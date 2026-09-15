@@ -885,7 +885,9 @@ export interface WorkflowTab {
    * subworkflow opened by double-click passes its project-relative `ref.path`,
    * so each referenced copy gets its own tab even though several copies share
    * the same internal `workflow.id` (which would otherwise collide into one
-   * tab). `workflowId` is unchanged, so save/run keep using the real id.
+   * tab). #2394: `workflowId` is the file's run identity the backend returns
+   * (the path form `@subworkflows@qc.yaml` for a subworkflow), so save and run
+   * address that file.
    */
   tabKey?: string;
   /**
@@ -900,8 +902,8 @@ export interface WorkflowTab {
   /**
    * #2362 — the workflow whose run this expanded child tab shows. Engine events
    * carry the TOP-LEVEL workflow id (the parser flattens the subworkflow into
-   * the parent's run), while `workflowId` here is the child file's own internal
-   * id. Execution state is held per workflow id, so the tab projects this key's
+   * the parent's run), while `workflowId` here is the child file's own run
+   * identity. Execution state is held per workflow id, so the tab projects this key's
    * bucket; `runPrefix` then maps each inner node to its flattened id. Set with
    * `runPrefix` when a subworkflow node is expanded; absent otherwise.
    */
@@ -1091,6 +1093,14 @@ export interface TabSlice {
   closeTab: (tabId: string) => boolean;
   /** Sync the active tab's snapshot from current workflow state. */
   syncActiveTab: () => void;
+  /**
+   * #2394 — stop an expanded subworkflow tab from showing its parent's run.
+   *
+   * Running an expanded subworkflow tab runs that subworkflow file on its own,
+   * under its own identity, so the tab clears `runPrefix` / `runWorkflowId` and
+   * shows its own run. No-op for a tab that is not an expansion.
+   */
+  showActiveTabOwnRun: () => void;
   /**
    * ADR-036 §3.10 — open (or focus) a file editor tab.
    *

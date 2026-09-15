@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   blocks. Includes project-scoped source selection, reusable core data-view UI
   components, and AI-accessible desktop GUI screenshots. (#2354)
 
+- [#2434] **The workflow YAML file format has a generated reference page.**
+  `api-reference/workflow-yaml.md` lists every key of a workflow file with its
+  type, whether it is required, its default, and its meaning; the rules checked
+  when a file loads; the file name and run identity rules; the checks workflow
+  validation runs; example files as SciStudio saves them; and the JSON Schema. It
+  is generated from the models that load workflow files and from the validator,
+  marked `provisional`, linked from the API reference index, and a test fails when
+  the committed page falls behind the code. The `validate_workflow` docstring now
+  lists all twelve checks it runs.
+
 - [#2361] **A markdown file shows what it says while you write it.** Opening a
   `.md` file splits the centre stage: the editor on the left, a live preview on
   the right, resizable and roughly half each. The preview reads the tab's own

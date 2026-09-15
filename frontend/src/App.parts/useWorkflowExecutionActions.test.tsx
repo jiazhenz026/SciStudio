@@ -42,6 +42,44 @@ describe("useWorkflowExecutionActions", () => {
     vi.clearAllMocks();
   });
 
+  it("reports a started run so an expanded subworkflow tab shows its own run (#2394)", async () => {
+    apiMocks.executeWorkflow.mockResolvedValueOnce({ workflow_id: "@subworkflows@qc.yaml" });
+    const onRunStarted = vi.fn();
+    const hook = renderHook(() =>
+      useWorkflowExecutionActions({
+        currentProject: {
+          id: "p1",
+          name: "Project",
+          description: "",
+          path: "/p",
+          workflow_count: 1,
+          workflows: ["main"],
+          current_workflow_id: "main",
+        },
+        workflowId: "@subworkflows@qc.yaml",
+        selectedNodeId: null,
+        saveWorkflow: vi.fn().mockResolvedValue(undefined),
+        setLastError: vi.fn(),
+        workflowPayloadId: "@subworkflows@qc.yaml",
+        onRunStarted,
+      }),
+    );
+
+    await act(async () => {
+      await hook.result.current.runWorkflow();
+    });
+    expect(apiMocks.executeWorkflow).toHaveBeenCalledWith("@subworkflows@qc.yaml", {
+      overwriteNodeIds: [],
+    });
+    expect(onRunStarted).toHaveBeenCalledTimes(1);
+
+    apiMocks.executeWorkflow.mockRejectedValueOnce(new Error("Workflow is already running"));
+    await act(async () => {
+      await hook.result.current.runWorkflow();
+    });
+    expect(onRunStarted).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps Run from here precondition errors visible after async save side effects", async () => {
     vi.useFakeTimers();
     apiMocks.executeFrom.mockRejectedValueOnce(

@@ -632,7 +632,8 @@ def test_edit_workflow_empty_edits_rejected(ctx: _StubRuntime, tmp_path: Path) -
 
 
 def test_run_workflow_delegates_to_runtime(ctx: _StubRuntime, tmp_path: Path) -> None:
-    wf = tmp_path / "test_wf.yaml"
+    wf = tmp_path / "workflows" / "test_wf.yaml"
+    wf.parent.mkdir(exist_ok=True)
     wf.write_text(_WF_YAML, encoding="utf-8")
     result = _run(tools_workflow.run_workflow(str(wf)))
     assert result.status == "queued"
@@ -644,7 +645,8 @@ def test_run_workflow_delegates_to_runtime(ctx: _StubRuntime, tmp_path: Path) ->
 
 def test_run_workflow_result_carries_additive_poll_hint(ctx: _StubRuntime, tmp_path: Path) -> None:
     """ADR-055 Spec 2 (#2279) remind_poll_status parity: an additive field, existing fields unchanged."""
-    wf = tmp_path / "hint_wf.yaml"
+    wf = tmp_path / "workflows" / "hint_wf.yaml"
+    wf.parent.mkdir(exist_ok=True)
     wf.write_text(_WF_YAML, encoding="utf-8")
     result = _run(tools_workflow.run_workflow(str(wf)))
     dumped = result.model_dump()
@@ -657,6 +659,38 @@ def test_run_workflow_result_carries_additive_poll_hint(ctx: _StubRuntime, tmp_p
     assert "run_id=hint_wf" in dumped["poll_hint"]
     for state in ("succeeded", "failed", "cancelled"):
         assert state in dumped["poll_hint"]
+
+
+def test_run_workflow_runs_the_named_subdirectory_file(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#2394: ``subworkflows/main.yaml`` runs that file, never ``workflows/main.yaml``."""
+    for folder in ("workflows", "subworkflows"):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "main.yaml").write_text(_WF_YAML, encoding="utf-8")
+    result = _run(tools_workflow.run_workflow("subworkflows/main.yaml"))
+    assert result.run_id == "@subworkflows@main.yaml"
+    assert list(ctx.workflow_runs) == ["@subworkflows@main.yaml"]
+
+
+def test_run_workflow_rejects_a_missing_or_non_yaml_file(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#2394: a path that names no workflow file is refused instead of running a same-stem workflow."""
+    (tmp_path / "workflows").mkdir()
+    (tmp_path / "workflows" / "main.yaml").write_text(_WF_YAML, encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="no workflow file"):
+        _run(tools_workflow.run_workflow("subworkflows/main.yaml"))
+    (tmp_path / "notes.txt").write_text("not a workflow", encoding="utf-8")
+    with pytest.raises(ValueError, match="not a workflow YAML"):
+        _run(tools_workflow.run_workflow("notes.txt"))
+    assert ctx.workflow_runs == {}
+
+
+def test_run_workflow_rejects_an_identity_naming_another_file(ctx: _StubRuntime, tmp_path: Path) -> None:
+    """#2394: when the runtime would resolve the identity to a different file, nothing starts."""
+    (tmp_path / "workflows").mkdir()
+    (tmp_path / "workflows" / "main.yaml").write_text(_WF_YAML, encoding="utf-8")
+    ctx.workflow_path = lambda workflow_id: tmp_path / "elsewhere.yaml"  # type: ignore[attr-defined]
+    with pytest.raises(ValueError, match="names a different file"):
+        _run(tools_workflow.run_workflow("workflows/main.yaml"))
+    assert ctx.workflow_runs == {}
 
 
 def test_run_workflow_no_start_method_raises() -> None:

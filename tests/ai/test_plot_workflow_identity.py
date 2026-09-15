@@ -187,11 +187,13 @@ def _runtime(project: Path, array_path: Path, artifact_path: Path) -> _StubRunti
 
 
 def test_workflow_run_keys_prefers_the_file_stem() -> None:
-    """The run registry is keyed by the id that resolves to ``workflows/<id>.yaml``."""
+    """The run registry is keyed by the file's run identity."""
     assert workflow_run_keys("workflows/main.yaml", "main") == ("main",)
     assert workflow_run_keys("workflows/main.yaml", None) == ("main",)
-    # A YAML whose declared id drifted from its filename keeps both candidates.
-    assert workflow_run_keys("workflows/on_disk.yaml", "declared") == ("on_disk", "declared")
+    # #2394: a declared id that drifted from the file name is not a key — a
+    # copy still declaring the original's id must not read the original's run.
+    assert workflow_run_keys("workflows/on_disk.yaml", "declared") == ("on_disk",)
+    assert workflow_run_keys("subworkflows/qc.yaml", "main") == ("@subworkflows@qc.yaml",)
 
 
 # ---------------------------------------------------------------------------
