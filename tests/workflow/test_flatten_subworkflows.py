@@ -19,6 +19,7 @@ from scistudio.workflow.flatten import (
     SUBWORKFLOW_BROKEN_TYPE,
     SUBWORKFLOW_TYPE,
     CyclicSubworkflowError,
+    authored_node_id_candidates,
     flatten_subworkflows,
 )
 from scistudio.workflow.serializer import load_yaml
@@ -431,3 +432,10 @@ def test_flatten_exposed_internal_unknown_block_raises(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="unknown block 'ghost'"):
         flatten_subworkflows(parent, base_dir=tmp_path)
+
+
+def test_authored_node_id_candidates_cover_every_flatten_prefix() -> None:
+    """#2424: a flattened id names every id the node may have been authored with."""
+    assert authored_node_id_candidates("fiji") == ["fiji"]
+    assert authored_node_id_candidates("sw1__fiji") == ["sw1__fiji", "fiji"]
+    assert authored_node_id_candidates("sw1__sw2__load") == ["sw1__sw2__load", "sw2__load", "load"]
