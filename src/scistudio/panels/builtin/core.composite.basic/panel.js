@@ -1,12 +1,4 @@
-/* core.composite.basic — the slot inventory of a composite, with drill-down.
- *
- * Built with Preact and the shared panel component set. The surface matches the
- * viewer it replaces: a slot count, then one full-width row per slot showing the
- * slot's name over the type it holds, with a trailing preview hint. Selecting a
- * row opens that slot, which the host renders with its own panel and a Back
- * action — the composite lists what is inside it and routes; it never renders a
- * child itself.
- */
+/* Core preview shell: read authority and view persistence. */
 import {
   html,
   render,
@@ -14,14 +6,8 @@ import {
   useEffect,
   useState,
 } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
-import {
-  EmptyState,
-  ErrorState,
-  ListRow,
-  LoadingState,
-  Panel,
-} from "../../sdk/1/panel-ui.js";
 
+import { CompositeView } from "../../sdk/1/renderer-composite.js";
 const api = window.scistudio;
 
 function CompositePanel() {
@@ -59,34 +45,11 @@ function CompositePanel() {
     [fail],
   );
 
-  if (error) {
-    return html`<${Panel}><${ErrorState}>Could not read slots: ${error}<//><//>`;
-  }
-  if (slots === null) {
-    return html`<${Panel}><${LoadingState}>Loading slots…<//><//>`;
-  }
-  if (!slots.length) {
-    return html`<${Panel}>
-      <${EmptyState} data-testid="composite-empty">This composite has no slots.<//>
-    <//>`;
-  }
-
-  return html`<${Panel}>
-    <div class="panel-label" data-testid="composite-summary">
-      ${slots.length} slot${slots.length === 1 ? "" : "s"}
-    </div>
-    ${slots.map(
-      (slot) => html`<${ListRow}
-        key=${slot.name}
-        data-testid=${`composite-slot-${slot.name}`}
-        label=${slot.name}
-        value=${String(slot.type_name || "")}
-        trailing=${api.open ? "Preview →" : undefined}
-        title=${slot.ref ?? ""}
-        onClick=${() => open(slot.ref)}
-      />`,
-    )}
-  <//>`;
+  return html`<${CompositeView}
+    slots=${slots}
+    error=${error}
+    onOpen=${api.open ? open : undefined}
+  />`;
 }
 
 api

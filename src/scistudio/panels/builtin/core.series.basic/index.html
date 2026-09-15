@@ -1,22 +1,17 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Series preview</title>
-    <link rel="stylesheet" href="../../sdk/1/panel.css" />
-    <style>
-      .series-modes { gap: 4px; }
-      .series-chart { width: 100%; height: 260px; }
-      .series-values { min-width: 100%; font-size: 11px; text-align: left; }
-      .series-values th, .series-values td { text-align: left; padding: 3px 10px; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <!-- Charting uses the vendored, pinned Plotly build; no network fetch. -->
-    <script src="../../lib/plotly@2.35.3/dist/plotly.min.js"></script>
-    <script src="../../sdk/1/scistudio-panel.js"></script>
-    <script type="module" src="panel.js"></script>
-  </body>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Series preview</title>
+        <link rel="stylesheet" href="../../sdk/1/panel.css" />
+        <link rel="stylesheet" href="../../sdk/1/renderers.css" />
+    </head>
+    <body>
+        <div id="root"></div>
+        <!-- Charting uses the vendored, pinned Plotly build; no network fetch. -->
+        <script src="../../lib/plotly@2.35.3/dist/plotly.min.js"></script>
+        <script src="../../sdk/1/scistudio-panel.js"></script>
+        <script type="module" src="panel.js"></script>
+    </body>
 </html>

@@ -14,6 +14,7 @@
  * (see loadPanelModule) rather than eval'd as a classic script.
  */
 import { readFileSync } from "node:fs";
+import { rewriteRendererImports } from "./rendererTestModules";
 import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -38,7 +39,11 @@ async function loadPanelModule() {
       JSON.stringify(preactUrl),
     ),
   );
-  const panelSrc = readFileSync(resolve(PANEL, "panel.js"), "utf8")
+  const panelSrc = rewriteRendererImports(
+    readFileSync(resolve(PANEL, "panel.js"), "utf8"),
+    preactUrl,
+    uiUrl,
+  )
     .replace(/"[^"]*preact-standalone\.module\.js"/g, JSON.stringify(preactUrl))
     .replace(/"[^"]*panel-ui\.js"/g, JSON.stringify(uiUrl));
   // The panel renders as a side effect of loading, and a module URL is only

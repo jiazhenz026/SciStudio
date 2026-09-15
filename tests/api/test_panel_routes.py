@@ -439,3 +439,32 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     context = create(client, prefix)
     assert context["panel"]["id"] == "lab.shaded"
     assert runtime.get_preview_service().registry.get("lab.shaded").owner_kind is OwnerKind.PROJECT
+
+
+def test_shared_renderer_assets_are_served_under_context_authority(panel_client):
+    client, prefix, _runtime, _store, _guard = panel_client
+    context = create(client, prefix)
+    sdk = context["sdk_url"].rsplit("/", 1)[0]
+    client.cookies.clear()
+    for name in (
+        "renderers.js",
+        "renderers.css",
+        "renderer-array.js",
+        "renderer-dataframe.js",
+        "renderer-series.js",
+        "renderer-text.js",
+        "renderer-artifact.js",
+        "renderer-plot.js",
+        "renderer-collection.js",
+        "renderer-composite.js",
+        "renderer-base.js",
+    ):
+        response = client.get(f"{sdk}/{name}", headers={"Origin": "null"})
+        assert response.status_code == 200, name
+        assert response.headers["access-control-allow-origin"] == "*"
+        assert client.get(f"{sdk}/{name}".replace(context["token"], "invalid")).status_code == 403
+    assert client.get(f"{sdk}/renderer-unreviewed.js").status_code == 404
+    authenticate_fake_session(client)
+    client.delete(prefix + "/api/panels/contexts/" + context["context_id"])
+    client.cookies.clear()
+    assert client.get(f"{sdk}/renderers.js").status_code == 403

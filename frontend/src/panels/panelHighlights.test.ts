@@ -198,14 +198,14 @@ describe("the panels that carry these targets still mark them", () => {
   it("keeps the marks the tutorial names", async () => {
     const { readFileSync } = await import("node:fs");
     const { resolve } = await import("node:path");
-    const builtin = resolve(process.cwd(), "../src/scistudio/panels/builtin");
+    const sdk = resolve(process.cwd(), "../src/scistudio/panels/sdk/1");
 
-    const collection = readFileSync(resolve(builtin, "core.collection.basic/panel.js"), "utf8");
+    const collection = readFileSync(resolve(sdk, "renderer-collection.js"), "utf8");
     expect(collection).toContain('data-tutorial-target="preview_item"');
     // Keyed by position, so a step can ring the first card rather than the grid.
     expect(collection).toContain("data-tutorial-target-key");
 
-    const plot = readFileSync(resolve(builtin, "core.plot.basic/panel.js"), "utf8");
+    const plot = readFileSync(resolve(sdk, "renderer-plot.js"), "utf8");
     expect(plot).toContain('data-tutorial-target="plot_export_button"');
   });
 
