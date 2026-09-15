@@ -343,7 +343,16 @@ def _props_table(component: Component) -> list[str]:
 # panels-sdk.md
 # --------------------------------------------------------------------------
 
-_SDK_GROUPS = ("Lifecycle", "Context properties", "View state and theme", "Data", "Decisions", "Python", "Services")
+_SDK_GROUPS = (
+    "Lifecycle",
+    "Context properties",
+    "View state and theme",
+    "Data",
+    "Decisions",
+    "Python",
+    "Questionnaire",
+    "Services",
+)
 
 
 def _sdk_api_names(source: str) -> set[str]:

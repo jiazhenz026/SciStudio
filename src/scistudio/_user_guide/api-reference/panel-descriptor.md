@@ -39,9 +39,9 @@ What each context may call is in [the panel SDK reference](panels-sdk.md#context
 
 `panel.sample.json` sits beside the panel page and stands in for the host
 when the page is opened directly. The SDK gives the sample context the
-operations and services of a real context of that kind, with `call`
-always present for `miniapp`; without a host, `open` and `save` reject
-with `unsupported`.
+operations and services of a real context of that kind, with `call` and
+`submitAnswers` always present for `miniapp`; without a host, `open` and
+`save` reject with `unsupported`.
 
 | Key | Type | Description |
 | --- | --- | --- |

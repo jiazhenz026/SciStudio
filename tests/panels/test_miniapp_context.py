@@ -130,7 +130,7 @@ def test_open_starts_one_registered_process_on_the_target(tmp_path: Path) -> Non
     context = store.create(dict(_SOURCE, ws_client_id="ws-1"), process_registry=registry)
     try:
         assert context.kind == "miniapp"
-        assert context.provides() == (["read", "call"], ["save"])
+        assert context.provides() == (["read", "call", "submitAnswers"], ["save"])
         assert context.input["ref"] == "data-a"
         assert context.input["panel_id"] == "lab.explorer"
         assert _await_running(context.process) == process_mod.RUNNING
@@ -547,7 +547,7 @@ def test_html_only_miniapp_does_not_advertise_call(tmp_path: Path) -> None:
     _runtime, store, registry, _ = _make(tmp_path, with_python=False)
     context = store.create(dict(_SOURCE), process_registry=registry)
     try:
-        assert context.provides() == (["read"], ["save"])
+        assert context.provides() == (["read", "submitAnswers"], ["save"])
         with pytest.raises(PanelError, match="no panel process"):
             store.stop_process(context.context_id)
     finally:

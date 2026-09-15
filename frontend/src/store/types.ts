@@ -407,6 +407,14 @@ export interface UISlice {
   paletteCollapsed: boolean;
   previewCollapsed: boolean;
   /**
+   * #2456 / ADR-054 FR-020 — true while the preview column is collapsed only
+   * because a MiniApp tab took the stage. `previewCollapsed` still mirrors the
+   * panel, but the persisted preference ignores this collapse, so closing the
+   * app with a MiniApp active does not reopen it with the column folded away.
+   * Cleared as soon as the column opens again. Never persisted.
+   */
+  previewCollapsedByMiniApp: boolean;
+  /**
    * ADR-054 FR-013 — the `/ws` connection's id, announced by the backend in
    * its first frame. Every MiniApp context is created against it so the
    * backend can end the process once this workspace has been gone for its
@@ -1196,6 +1204,11 @@ export interface TabSlice {
     name: string;
     target: { workflow_id: string; block_id: string; port: string };
   }) => void;
+  /**
+   * #2457 — rename open MiniApp tabs to their panel's current catalogue name.
+   * Panels the catalogue does not list keep their name; ids never change.
+   */
+  syncMiniAppTabNames: (catalogue: ReadonlyArray<{ panel_id: string; name: string }>) => void;
   saveFileTab: (id: string) => Promise<void>;
   /**
    * ADR-036 §3.10 — update the in-memory content for a file tab.

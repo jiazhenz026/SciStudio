@@ -41,16 +41,17 @@ READ_OPERATIONS: dict[str, ReadOperation] = {
         ),
         ReadOperation(
             "composite.slots",
-            (),
+            ("cursor", "limit"),
             "a composite",
-            "`{slots: [{name, type_name, ref}], complete}`; each slot `ref` can be read or opened.",
+            "One page `{slots: [{name, type_name, ref}], count, next_cursor, truncated, complete}`; each slot "
+            "`ref` can be read or opened. Pass the returned cursor to continue; `complete` is true on the last page.",
         ),
         ReadOperation(
             "collection.items",
             ("cursor", "limit"),
             "a collection",
-            "One bounded page `{items: [{ref, type_name, kind, display_name}], truncated, complete, ...}`; "
-            "pass the returned cursor to continue.",
+            "One page `{items: [{ref, type_name, kind, display_name}], count, next_cursor, truncated, complete}`; "
+            "pass the returned cursor to continue. `truncated` means more pages remain.",
         ),
         ReadOperation(
             "table.page",
@@ -61,36 +62,44 @@ READ_OPERATIONS: dict[str, ReadOperation] = {
         ),
         ReadOperation(
             "table.xy",
-            ("x_column", "y_column", "max_points"),
+            ("x_column", "y_column", "offset", "limit"),
             "a data object with a table",
-            f"`{{x, y, ...}}` for two columns; `max_points` is clamped to 1..{READ_POINTS}.",
+            "One page of rows `{x, y, columns, x_column, y_column, offset, next_offset, total, nonnumeric, truncated, "
+            "complete}` for two columns: `x[i]` and `y[i]` are the exact values of source row `offset + i`, a "
+            'non-finite or missing value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most '
+            f"{READ_POINTS}; continue from `next_offset` until it is `null`.",
         ),
         ReadOperation(
             "array.plane",
             ("slice_index", "axis_indices"),
             "an array",
-            "A numeric read of the selected plane: `values` plus geometry such as `shape`, `dtype`, `axes`, "
-            "`slice_axes`, `vmin`, `vmax`.",
+            "The selected plane's geometry `{source_shape, source_dtype, axes, slice_axes, height, width, tile_size, "
+            "vmin, vmax, complete}` (`vmin`/`vmax` over every cell). `values` holds the whole plane when it fits one "
+            "read (`complete` true); otherwise `values` is empty and the plane's exact values are read with "
+            "`array.tile` windows of at most `tile_size` per side.",
         ),
         ReadOperation(
             "array.tile",
             ("slice_index", "axis_indices", "y0", "x0", "height", "width"),
             "an array",
-            "A numeric read of one bounded window `{values, y0, x0, ...}` of the selected plane.",
+            "The exact values of one window `{values, y0, x0, height, width, truncated, complete}` of the selected "
+            "plane; `truncated` means the window was larger than one read and was cut at the tile size.",
         ),
         ReadOperation(
             "series.points",
-            ("max_points",),
+            ("offset", "limit"),
             "a series",
-            f"`{{index, values, nonfinite_positions, source_indices, ...}}`; `max_points` is clamped to "
-            f"1..{READ_POINTS}.",
+            "One page of points `{index, values, offset, next_offset, total, nonnumeric, truncated, complete}`: "
+            "`index[i]` and `values[i]` are the exact x and y of source row `offset + i`, a non-finite or missing "
+            f'value in place as `"NaN"`/`"Infinity"`/`"-Infinity"`. `limit` is at most {READ_POINTS}; '
+            "continue from `next_offset` until it is `null`.",
         ),
         ReadOperation(
             "text.chunk",
             ("offset", "length"),
             "a text object",
             "`{text, content, offset, next_offset, total_bytes, encoding, truncated, complete}`; "
-            "continue from `next_offset`.",
+            "continue from `next_offset` until it is `null`.",
         ),
         ReadOperation(
             "artifact.info",
@@ -134,7 +143,6 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             **result,
             "total": result["total_rows"],
             "sort": {"by": result["sort_by"], "direction": result["sort_dir"]},
-            "sampled": False,
             # A page is not a truncation. Every row of the table is reachable by
             # paging, so the read reports the table as complete however many
             # pages it takes — flagging a paged table as truncated is exactly the
@@ -145,8 +153,10 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         }
     if op == "table.xy":
         _only(options, op)
-        options["max_points"] = min(READ_POINTS, max(1, int(options.get("max_points", READ_POINTS))))
-        result = access.panel_table_xy(storage, **options).to_json()
+        window = _window(options)
+        result = access.panel_table_xy(
+            storage, x_column=options.get("x_column"), y_column=options.get("y_column"), **window
+        ).to_json()
         pairs = result.pop("values")
         return {**result, "x": [row[0] for row in pairs], "y": [row[1] for row in pairs]}
     if op in ("array.plane", "array.tile"):
@@ -157,13 +167,11 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         return reader(storage, **options)
     if op == "series.points":
         _only(options, op)
-        return access.panel_series_points(
-            storage, target.metadata, max_points=min(READ_POINTS, max(1, int(options.get("max_points", READ_POINTS))))
-        )
+        return access.panel_series_points(storage, target.metadata, **_window(options))
     if op == "text.chunk":
         _only(options, op)
         chunk = asdict(access.text_chunk(storage, **options))
-        return {**chunk, "text": chunk["content"], "sampled": False, "complete": not chunk["truncated"]}
+        return {**chunk, "text": chunk["content"], "complete": not chunk["truncated"]}
     if op in ("artifact.info", "artifact.file"):
         _only(options, op)
         import mimetypes
@@ -201,6 +209,18 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
             info["url"] = f"/api/panels/t/{token}/artifact/{grant_id}"
         return info
     raise PanelError(400, "unsupported", f"Unsupported panel read operation: {op}")
+
+
+def _window(options: dict[str, Any]) -> dict[str, int]:
+    """The ``offset``/``limit`` of a paged point read; ``limit`` pages, it never samples."""
+    try:
+        offset = int(options.get("offset", 0))
+        limit = int(options.get("limit", READ_POINTS))
+    except (TypeError, ValueError) as exc:
+        raise PanelError(422, "invalid_request", "offset and limit must be integers") from exc
+    if offset < 0 or limit < 1:
+        raise PanelError(422, "invalid_request", "offset must be nonnegative and limit positive")
+    return {"offset": offset, "limit": min(limit, READ_POINTS)}
 
 
 def _only(options: dict[str, Any], op: str) -> None:

@@ -61,3 +61,36 @@ export function createOpenMiniAppTab(
     });
   };
 }
+
+/**
+ * #2457 — follow a MiniApp's name in the catalogue.
+ *
+ * A MiniApp tab captures its name at open time, and a new MiniApp's first name
+ * is derived from the creation instruction; the agent then names it properly in
+ * `panel.json`. That write refreshes the catalogue (`blocks.reloaded`), and this
+ * brings every open tab on the panel in line with the catalogue's name, so the
+ * tab strip and the toolbar follow a rename without reopening the tab. Tab ids
+ * are untouched (FR-018 still focuses the same tab), a panel the catalogue does
+ * not list keeps the name it has, and nothing is written when no name changed.
+ */
+export function createSyncMiniAppTabNames(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["syncMiniAppTabNames"] {
+  return (catalogue) => {
+    const names = new Map<string, string>();
+    for (const entry of catalogue) {
+      if (entry.name) names.set(entry.panel_id, entry.name);
+    }
+    const { tabs } = get();
+    let changed = false;
+    const next = tabs.map((tab) => {
+      if (tab.kind !== "miniapp") return tab;
+      const name = names.get(tab.panelId);
+      if (name === undefined || name === tab.displayName) return tab;
+      changed = true;
+      return { ...tab, displayName: name };
+    });
+    if (changed) set({ tabs: next });
+  };
+}

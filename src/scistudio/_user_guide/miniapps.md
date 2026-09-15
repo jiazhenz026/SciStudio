@@ -20,6 +20,20 @@ usual AI settings, then submit. SciStudio opens an AI authoring session to build
 the MiniApp. The AI should test it on the selected data and report what it has
 actually verified; creation alone is not proof that every control works.
 
+## Answer the AI's questions
+
+Before it builds, the AI usually shows a short questionnaire in the MiniApp tab:
+what to show, how to colour it, which values to start from. Every question is
+optional. Pick one of the suggested answers, type your own where a box is
+offered, choose **Decide for me** to leave that choice to the AI, or skip the
+question. Then press **Submit**. You can change your answers and submit again;
+the latest submit counts.
+
+If the AI is working in a SciStudio terminal tab, the submit tells it directly
+and it starts building. If you use SciStudio from your own AI app (External AI),
+or you closed that terminal tab, the page says your answers are saved: go back
+to your AI chat and tell it you have submitted.
+
 ## Open and reuse
 
 Click a MiniApp in the sidebar once to open it. If SciStudio asks **Open on which

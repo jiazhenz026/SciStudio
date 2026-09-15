@@ -910,6 +910,19 @@
     ],
     "type": "object"
    },
+   "ContextAnswers": {
+    "additionalProperties": false,
+    "properties": {
+     "answers": {
+      "additionalProperties": true,
+      "type": "object"
+     }
+    },
+    "required": [
+     "answers"
+    ],
+    "type": "object"
+   },
    "ContextCall": {
     "additionalProperties": false,
     "properties": {
@@ -1091,7 +1104,8 @@
        "enum": [
         "read",
         "writeBack",
-        "call"
+        "call",
+        "submitAnswers"
        ],
        "type": "string"
       },
@@ -3663,15 +3677,11 @@
      "complete": {
       "type": "boolean"
      },
-     "sampled": {
-      "type": "boolean"
-     },
      "truncated": {
       "type": "boolean"
      }
     },
     "required": [
-     "sampled",
      "truncated",
      "complete"
     ],
@@ -3981,6 +3991,60 @@
      "id",
      "index",
      "total"
+    ],
+    "type": "object"
+   },
+   "SubmitAnswersResult": {
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "notified": {
+      "type": "boolean"
+     },
+     "path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "enum": [
+         "no_session",
+         "session_ended"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "saved": {
+      "type": "boolean"
+     },
+     "submitted_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "saved",
+     "path",
+     "notified",
+     "message"
     ],
     "type": "object"
    },
@@ -6723,6 +6787,116 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/answers": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContextAnswers"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SubmitAnswersResult"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "500": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
         }
        }
       }

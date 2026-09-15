@@ -118,6 +118,11 @@
 .series-values td {
     text-align: left;
     padding: 3px 10px;
+    white-space: nowrap;
+}
+/* A fixed row height: SeriesView windows the rows on it (ROW_H). */
+.series-values tbody tr[data-row] {
+    height: 22px;
 }
 
 /* TextView */

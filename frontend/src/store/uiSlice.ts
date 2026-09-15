@@ -15,6 +15,8 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   // the canvas first; the value is persisted, so a later user toggle sticks.
   paletteCollapsed: true,
   previewCollapsed: false,
+  // #2456 — the MiniApp's transient collapse; see `previewCollapsedByMiniApp`.
+  previewCollapsedByMiniApp: false,
   // ADR-054 FR-013 / FR-022 — realtime session identity and the per-panel
   // file-change counter. Neither is persisted: both describe the live `/ws`
   // connection, which a reload replaces.

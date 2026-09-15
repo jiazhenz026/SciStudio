@@ -28,6 +28,7 @@ export function resetAppStore() {
     activeBottomTab: "config",
     paletteCollapsed: false,
     previewCollapsed: false,
+    previewCollapsedByMiniApp: false,
     bottomPanelCollapsed: false,
     // ADR-053 Learning Center (#2057) — view state only (FR-074 keeps progress
     // on the backend), so a reset is just "closed, nothing fetched yet".

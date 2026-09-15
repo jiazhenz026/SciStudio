@@ -134,7 +134,7 @@ Example:
 - `table_xy_points(self, ref: 'StorageReference', *, x_column: 'str | None' = None, y_column: 'str | None' = None) -> 'TableXYPoints'` — `provisional` · Since `0.3.1` — Return all finite x/y points from two Parquet table columns.
 - `array_plane(self, ref: 'StorageReference', *, slice_index: 'int' = 0, axis_indices: 'dict[int, int] | None' = None) -> 'ArrayPlane'` — `provisional` · Since `0.3.1` — Return array shape/axes metadata plus one bounded, downsampled 2-D plane.
 - `array_tile(self, ref: 'StorageReference', *, slice_index: 'int' = 0, y0: 'int' = 0, x0: 'int' = 0, height: 'int | None' = None, width: 'int | None' = None) -> 'ArrayTile'` — `provisional` · Since `0.3.1` — Read one bounded rectangular tile from a 2-D plane.
-- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]', *, max_points: 'int | None' = None) -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
+- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]') -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
 - `text_chunk(self, ref: 'StorageReference', *, offset: 'int' = 0, length: 'int | None' = None) -> 'TextChunk'` — `provisional` · Since `0.3.1` — Return a bounded chunk of text plus a truncation marker.
 - `artifact_metadata(self, ref: 'StorageReference', *, mime_type: 'str | None' = None) -> 'ArtifactInfo'` — `provisional` · Since `0.3.1` — Return bounded artifact metadata, inlining a small image as a data URI.
 - `composite_slots(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'` — _unmarked — no runtime stability marker_ — Return a composite's slot inventory without rendering any child.
@@ -151,14 +151,12 @@ Example:
 
 ```python
 class SeriesPoints
-SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, sampled: 'bool' = False, complete: 'bool' = True, decimation: 'str' = 'none', nonfinite_positions: 'list[int]' = <factory>, nonfinite_positions_complete: 'bool' = True, source_indices: 'list[int]' = <factory>) -> None
+SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, complete: 'bool' = True, nonfinite_positions: 'list[int]' = <factory>) -> None
 ```
 
 The complete finite set of (x, y) chart points for a Series preview.
 
-Legacy calls return every plottable point. Explicit ``max_points`` opts
-into bounded uniform-index decimation for panel display, with flags and
-the method recorded so an export cannot mistake a sample for the source.
+Every plottable point is returned; nothing is sampled.
 
 ## `SliceAxis` — _class_ · deprecated
 

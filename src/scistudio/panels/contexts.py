@@ -27,7 +27,9 @@ READ_BYTES = 20 * 1024 * 1024
 READ_ITEMS = 200
 READ_ROWS = 200
 READ_DIM = 512
-READ_POINTS = 2000
+#: Rows in one ``series.points`` / ``table.xy`` page. A page, not a cap: every
+#: row is reached by following ``next_offset`` (#2460).
+READ_POINTS = 100_000
 
 
 def read_access() -> PreviewDataAccess:
@@ -81,7 +83,9 @@ class PanelContext:
     def provides(self) -> tuple[list[str], list[str]]:
         """The operations and services this context exposes to its page."""
         if self.kind == "miniapp":
-            return (["read", "call"] if self.panel.has_python else ["read"]), ["save"]
+            # MiniApp FR-050: every MiniApp may submit a questionnaire; the
+            # route refuses one with no questionnaire.json.
+            return (["read", "call", "submitAnswers"] if self.panel.has_python else ["read", "submitAnswers"]), ["save"]
         if self.kind == "preview":
             return ["read"], ["open", "save"]
         return ["writeBack"], ["save"]
@@ -511,8 +515,14 @@ class PanelContexts:
                     root.children[ref] = freeze_target(self.runtime, ref)
                     root.children[ref].parent = root
                     break
-        elif ref.startswith(root.target.ref + "#"):
-            child_targets(self.runtime, root, read_access())
+        elif ref.startswith(root.target.ref + "#") and ref not in root.children:
+            # Slots are paged; a slot past the first page is authorized too.
+            cursor = None
+            while True:
+                page = child_targets(self.runtime, root, read_access(), cursor=cursor)
+                cursor = page.get("next_cursor")
+                if ref in root.children or cursor is None:
+                    break
         stack = list(root.children.values())
         while stack:
             child = stack.pop()
