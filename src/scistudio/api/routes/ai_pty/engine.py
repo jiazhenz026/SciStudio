@@ -276,13 +276,8 @@ def open_work_import_tab(
 
     ``opening_message`` is the single line the user sees when the
     session starts. It is delivered exactly as the AI Block's
-    prompt is — a positional CLI argument on the spawned agent — which
-    is what keeps delivery independent of a provider's system-prompt
-    capability. Only ``claude-code`` is ``FLAG_FILE`` in the
-    registry; ``codex``, ``kimi-code`` and both Qoder channels
-    are ``AMBIENT`` and have no per-session prompt channel at all, so
-    routing the brief through a file plus this pointer is what makes
-    that difference invisible.
+    prompt is — a positional CLI argument on the spawned agent. Routing the
+    durable brief through a file plus this pointer keeps delivery uniform.
 
     It does **not** make every provider equivalent. Being a positional
     argument, the pointer cannot reach a CLI that parses its first
@@ -323,6 +318,53 @@ def open_work_import_tab(
         permission_mode,
     )
     return tab_id
+
+
+#: Pause between typing a line into an agent TUI and pressing Enter. Claude
+#: Code and Codex both treat a burst of input as a paste, and a carriage
+#: return inside that burst becomes a newline in the composer instead of a
+#: submit, so Enter has to arrive as a keystroke of its own.
+TYPE_LINE_ENTER_DELAY_S = 0.4
+
+
+def type_line_into_tab(tab_id: str, text: str, *, expected_cwd: Path | None = None) -> bool:
+    """Type one line into a live agent tab and press Enter, as the user would.
+
+    Returns ``False`` without writing anything when the tab is not registered,
+    its process has exited, or it runs in a different directory than
+    ``expected_cwd`` (a tab from another project that happens to share the id
+    must never receive the line). Newlines in ``text`` are flattened so the line
+    cannot submit early or smuggle a second submit.
+
+    Blocking (it sleeps between the text and Enter): call it off the event loop.
+
+    What happens when the agent is busy is the provider's own input behaviour,
+    the same as when the user types: Claude Code queues a line submitted during
+    a turn and runs it after the turn; Codex adds it to the running turn as
+    steering. Neither interrupts the turn — that takes Escape or Ctrl+C, which
+    this never sends.
+    """
+    # Development references: #2447, ADR-054 MiniApp FR-051.
+    pty = _pkg._active_ptys.get(tab_id)
+    if pty is None or not pty.is_alive():
+        return False
+    if expected_cwd is not None:
+        cwd = getattr(pty, "_cwd", None)
+        try:
+            if cwd is None or Path(cwd).resolve() != Path(expected_cwd).resolve():
+                return False
+        except OSError:
+            return False
+    line = " ".join(str(text).split())
+    if not line:
+        return False
+    pty.write(line.encode("utf-8", errors="replace"))
+    time.sleep(TYPE_LINE_ENTER_DELAY_S)
+    if not pty.is_alive():
+        return False
+    pty.write(b"\r")
+    logger.info("type_line_into_tab: tab_id=%s chars=%d", tab_id, len(line))
+    return True
 
 
 def open_engine_initiated_tab(

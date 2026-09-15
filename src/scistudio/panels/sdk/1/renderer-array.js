@@ -523,7 +523,24 @@ function LocalArrayView({
   />`;
 }
 
-/** Raw numeric data, or caller-owned plane/tile windows for bounded remote reads. */
+/**
+ * The numeric heatmap for an array of any dimensionality: one plane is shown, and every other axis gets an index control.
+ *
+ * Give it either local values in `data`, or a caller-owned `plane` and `tile` for a bounded remote array read with `array.plane` and `array.tile`. Local data is windowed automatically; with `plane`/`tile` the caller reads the window that `onScroll` asks for.
+ *
+ * @param {number | Array | TypedArray} [props.data] Local values: a scalar, rectangular nested arrays, or a typed numeric array. Flat data with `shape` is indexed row-major.
+ * @param {number[]} [props.shape] Shape of `data`; inferred from nested arrays when omitted. Must match the number of values.
+ * @param {string[]} [props.axes] Axis names, one per dimension.
+ * @param {string} [props.dtype] Data type label shown in the summary; `number` for local data when omitted.
+ * @param {object} [props.indices] Selected index per non-displayed axis, `{axis: index}`.
+ * @param {function} [props.onSliceChange] `(axis, index)` when the reader moves an index control; update `indices` in response.
+ * @param {object} [props.plane] An `array.plane` result: `source_shape`, `source_dtype`, `axes`, `slice_axes`, `vmin`, `vmax`.
+ * @param {object} [props.tile] The loaded window `{values, y0, x0}`, `values` as rows of cells.
+ * @param {number} [props.rowHeight] Row height in pixels used to place the window.
+ * @param {object} [props.scrollRef] A Preact ref for the scrolling element.
+ * @param {function} [props.onScroll] `(event)` when the surface scrolls; read the window it now shows.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ */
 export function ArrayView(props) {
   if (props.error) return html`<${ArraySurface} error=${props.error} />`;
   return props.data !== undefined

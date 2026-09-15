@@ -60,8 +60,6 @@ from scistudio.ai.agent.providers_registry import (
     ProviderDescriptor,
     ProviderKind,
     ProviderRegistry,
-    SystemPromptInjection,
-    SystemPromptStrategy,
 )
 
 #: A sixth provider that exists only for the duration of this module.
@@ -81,10 +79,6 @@ FIXTURE = ProviderDescriptor(
     config_root=(".fixture-agent",),
     config_root_env=None,
     mcp=McpInjection(strategy=McpStrategy.FLAG, flag="--mcp-config"),
-    system_prompt=SystemPromptInjection(
-        strategy=SystemPromptStrategy.AMBIENT,
-        skill_dirs=(".agents/skills",),
-    ),
     credentials=CredentialProbe(credential_path=(".auth",)),
     bypass_argv=("--fixture-bypass",),
 )

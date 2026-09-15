@@ -116,6 +116,8 @@ export const createTerminalTabsSlice: StateCreator<AppStore, [], [], TerminalTab
       return { terminalTabs: next, activeTerminalTabId: activeId };
     }),
 
+  closeAllTerminalTabs: () => set({ terminalTabs: [], activeTerminalTabId: null }),
+
   renameTerminalTab: (id, title) =>
     set((state) => ({
       terminalTabs: state.terminalTabs.map((t) => (t.id === id ? { ...t, title } : t)),

@@ -15,7 +15,9 @@ author roots — :mod:`scistudio.previewers.models`,
 package top level. Your package wires a ``scistudio.previewers`` entry point to
 a callable returning ``list[PreviewerSpec]`` (see :class:`PreviewerEntryPoint`)
 and otherwise only constructs the public model and data-access types. The whole
-preview subsystem is **provisional**.
+preview subsystem is **provisional** and **deprecated**: deprecated since 0.3.5,
+supported until it is removed in 0.6.0, and replaced by HTML panels (see
+:mod:`scistudio.panels`).
 
 The operational layer — :class:`PreviewerRegistry`, :class:`PreviewRouter`,
 :class:`PreviewSessionManager`, :class:`PreviewService`,
@@ -99,6 +101,10 @@ class PreviewService:
     registry: PreviewerRegistry
     router: PreviewRouter
     sessions: PreviewSessionManager
+    #: What the panel tiers looked like when this service discovered its
+    #: panels (:func:`scistudio.panels.registry.panel_sources_fingerprint`).
+    #: ``None`` for a service built without discovery. #2421.
+    panel_sources: tuple[tuple[object, ...], ...] | None = None
 
 
 @internal()
@@ -134,8 +140,11 @@ def build_preview_service(
     registry.load_packages()
     load_project_previewers(registry, project_dir)
     load_user_previewers(registry, project_dir)
-    from scistudio.panels.registry import discover_panels
+    from scistudio.panels.registry import discover_panels, panel_sources_fingerprint
 
+    # Taken before discovery, so a write landing during the scan leaves the
+    # service looking stale rather than looking current (#2421).
+    panel_sources = panel_sources_fingerprint(project_dir)
     registry.install_panels(discover_panels(project_dir, registered_types=registered_types))
     registry.set_previewer_choices(load_choices(project_dir))
 
@@ -145,7 +154,7 @@ def build_preview_service(
         child_context_resolver=child_context_resolver,
         project_dir=project_dir,
     )
-    return PreviewService(registry=registry, router=router, sessions=sessions)
+    return PreviewService(registry=registry, router=router, sessions=sessions, panel_sources=panel_sources)
 
 
 # Process-global default service so non-runtime callers (and the

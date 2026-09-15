@@ -63,6 +63,8 @@ export function InteractiveModals() {
         // ADR-051 audit P2-1: carry the prompt's workflow_id so the backend can
         // run-scope the response and not resolve a colliding block_id in another run.
         workflow_id: promptWorkflowId,
+        // #2433: and the run, so a later run of the same workflow cannot take it.
+        ...(interactivePrompt.runId ? { run_id: interactivePrompt.runId } : {}),
         data: responseData,
         ...(contextId ? { context_id: contextId } : {}),
       });
@@ -118,6 +120,7 @@ export function InteractiveModals() {
       type: "cancel_block",
       block_id: interactivePrompt.blockId,
       workflow_id: promptWorkflowId,
+      ...(interactivePrompt.runId ? { run_id: interactivePrompt.runId } : {}),
     });
     removeInteractivePrompt(promptWorkflowId, interactivePrompt.blockId);
   };

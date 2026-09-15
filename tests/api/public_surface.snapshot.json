@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 12 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080). scistudio.api.app and scistudio.api.seam entered the contract at 0.3.5 (#2304, ADR-055 identity seam).",
+    "description": "ADR-052 §15 frozen public API surface. Spec-derived from docs/specs/adr-052-public-api-surface.md (the per-symbol contract) for the 13 canonical public roots. Each root maps its top-level __all__ symbols to {tier, since}, plus deprecated {since, removed_in} when the symbol or its root is deprecated. The freeze test in test_public_surface.py recomputes the live surface (import root, sorted(__all__), get_stability) and diffs it against this file. Editing this file is a reviewable, owner-gated contract change (ADR-052 §15); accidental drift fails CI. Baseline Since = 0.3.1 (BASE_VERSION on main); scistudio.tutorials entered the contract at 0.3.4 (#2080). scistudio.api.app and scistudio.api.seam entered the contract at 0.3.5 (#2304, ADR-055 identity seam). scistudio.panels entered the contract at 0.3.5 and the two scistudio.previewers roots were deprecated at 0.3.5 for removal in 0.6.0 (#2426, ADR-054 section 8).",
     "spec": "docs/specs/adr-052-public-api-surface.md",
     "adr": "docs/adr/ADR-052.md",
     "issue": "1833 (umbrella #1817)"
@@ -446,133 +446,261 @@
   "scistudio.previewers.models": {
     "EnvelopeKind": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "FrontendManifest": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "OwnerKind": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PREVIEWER_API_VERSION": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewEnvelope": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewError": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewErrorCode": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewErrorInfo": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewLimits": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewMetadata": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewProvider": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewRequest": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewResource": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewResourceProvider": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewSource": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewTarget": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewerEntryPoint": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewerSpec": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewerSpecList": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "ProviderError": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "TargetKind": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     }
   },
   "scistudio.previewers.data_access": {
     "ArrayPlane": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "ArrayTile": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "ArtifactInfo": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "CollectionSample": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "CompositeSlots": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "DataFramePage": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "PreviewDataAccess": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "SeriesPoints": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "SliceAxis": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "TableXYPoints": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     },
     "TextChunk": {
       "tier": "provisional",
-      "since": "0.3.1"
+      "since": "0.3.1",
+      "deprecated": {
+        "since": "0.3.5",
+        "removed_in": "0.6.0"
+      }
     }
   },
   "scistudio.tutorials": {
@@ -693,6 +821,36 @@
       "since": "0.3.5"
     },
     "workflow_runs_active": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    }
+  },
+  "scistudio.panels": {
+    "PANEL_API_VERSION": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "PanelDescriptor": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "PanelRegistry": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "discover_panels": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "parse_descriptor": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "validate_external_references": {
+      "tier": "provisional",
+      "since": "0.3.5"
+    },
+    "validate_interactive_panel": {
       "tier": "provisional",
       "since": "0.3.5"
     }

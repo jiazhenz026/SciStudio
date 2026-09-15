@@ -221,6 +221,17 @@ describe("BlockPalette — grid redesign (#1797)", () => {
     expect(screen.queryByTestId("palette-category-chips")).not.toBeInTheDocument();
     // The block is still reachable by its title attribute.
     expect(screen.getByTitle("Cellpose Segment")).toBeInTheDocument();
+    // #2415 — the rail's icon-only Reload uses the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
+  });
+
+  it("gives the expanded palette's Reload control the reload icon (#2415)", () => {
+    render(<BlockPalette {...defaultProps} blocks={[cellpose]} />);
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
   });
 
   it("renders the tile grid via a width-driven column count, not a fixed 2-col class (#1857)", () => {

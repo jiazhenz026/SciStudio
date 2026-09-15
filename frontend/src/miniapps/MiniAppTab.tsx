@@ -164,6 +164,13 @@ export function MiniAppTabLayer({ tabs, activeTabId, onConvert }: MiniAppTabLaye
  * The pre-collapse width is read off the panel handle rather than the store's
  * `panelSizes.preview`: that writer skips anything under 4%, so it holds a
  * stale number exactly when the column is narrow.
+ *
+ * #2456 — the collapse is transient layout. It is flagged with
+ * `previewCollapsedByMiniApp` before the panel folds, so the persisted
+ * preference keeps the column the user left open; the flag clears once the
+ * column opens again, by the restore or by the user, and an unmount with the
+ * flag still set (closing or switching the project on a MiniApp) hands the
+ * next workspace an open column.
  */
 export function useMiniAppPreviewColumn(
   panelRef: RefObject<PanelImperativeHandle | null>,
@@ -179,15 +186,42 @@ export function useMiniAppPreviewColumn(
         return;
       }
       restoreTo.percentage = panel.getSize().asPercentage;
+      useAppStore.setState({ previewCollapsedByMiniApp: true });
       panel.collapse();
       return;
     }
     const percentage = restoreTo.percentage;
     restoreTo.percentage = null;
-    if (percentage === null || !panel.isCollapsed()) return;
+    // A column the user opened while the MiniApp was active cleared the flag:
+    // whatever they did with it since is theirs, so nothing is restored.
+    const stillMiniAppCollapse = useAppStore.getState().previewCollapsedByMiniApp;
+    if (stillMiniAppCollapse) useAppStore.setState({ previewCollapsedByMiniApp: false });
+    if (percentage === null || !stillMiniAppCollapse || !panel.isCollapsed()) return;
     panel.expand();
     panel.resize(`${percentage}%`);
   }, [miniAppActive, panelRef, restoreTo]);
+  useEffect(
+    () => () => {
+      if (useAppStore.getState().previewCollapsedByMiniApp) {
+        useAppStore.setState({ previewCollapsed: false, previewCollapsedByMiniApp: false });
+      }
+    },
+    [],
+  );
+}
+
+/**
+ * The preview panel's `onResize` writer: `previewCollapsed` mirrors the panel.
+ * Any size above zero ends a MiniApp's transient collapse (#2456), so a later
+ * collapse, by drag or shortcut, is the user's and is persisted.
+ */
+export function recordPreviewColumnSize(size: { asPercentage: number }): void {
+  const collapsed = size.asPercentage === 0;
+  const state = useAppStore.getState();
+  if (collapsed !== state.previewCollapsed) useAppStore.setState({ previewCollapsed: collapsed });
+  if (!collapsed && state.previewCollapsedByMiniApp) {
+    useAppStore.setState({ previewCollapsedByMiniApp: false });
+  }
 }
 
 /** Apply explicit preview visibility requests, including the tutorial route. */

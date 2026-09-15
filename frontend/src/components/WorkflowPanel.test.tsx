@@ -2,7 +2,7 @@
 // project with its YAML description, highlights the one on the canvas, and
 // opens one on click.
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as ApiModule from "../lib/api";
@@ -116,6 +116,10 @@ describe("WorkflowPanel", () => {
     render(<WorkflowPanel projectId="p1" activeWorkflowId={null} onOpenWorkflow={vi.fn()} />);
 
     await screen.findByText("main");
+    // #2415 — the Reload control carries the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     await screen.findByText("main");
     expect(listWorkflows).toHaveBeenCalledTimes(2);

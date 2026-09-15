@@ -4,14 +4,14 @@
 
 # SciStudio
 
-**与你的 AI 伙伴一起使用的科研工作流工作台。**
+**与你的 AI 伙伴一起使用的科研数据工作台。**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue.svg)](https://jiazhenz026.github.io/SciStudio/)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/5b7kTRU2k)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/KGJfkM6EQN)
 
 [English](README.md) | **简体中文**
 
@@ -28,17 +28,13 @@
 
 ## SciStudio 是什么?
 
-SciStudio 是一套面向多模态科学数据分析的交互式工作流编排系统。你和 AI 伙伴可以在同一张画布上交互协作。
-我们以空间多组学为起点，正在逐渐向其他数据模态拓展。SciStudio 让研究者把科研软件、AI 智能体、脚本和多模态数据连接成一条可视化工作流。
+SciStudio 是一个面向多模态科学数据分析的交互式工作台。在这里，你和 AI 伙伴一起处理数据：交互式地探索数据，把行之有效的分析沉淀为可复现的工作流，同时继续使用你信任的工具。
 
-- **同一张类型化的图** —— 各区块交换带类型的数据,在同一条工作流中流转,
-  让每一步都彼此衔接。
-- **按你的方式查看数据** —— 自定义数据预览方式，并通过绘图卡片定制图表。
-- **沿用你现有的工具** —— 把 R 或 Python 脚本当作普通区块运行,
-  也能像区块一样在流程中启动 Fiji 等桌面应用。
-- **AI 原生** —— 内置助手(Claude Code 或 Codex)帮你搭建工作流、编写新区块、
-  并检视你的数据。
-- **可扩展** —— 添加你自己的区块、数据类型和图表,并以可安装的软件包形式分享出去。
+- **用 MiniApp 探索** —— 让 AI 伙伴为你的数据做一个交互式小应用，在下一步还没确定时自由尝试各种分析。
+- **用工作流复现** —— 确定下来的步骤成为带类型的工作流，可以重跑、复用、追溯。
+- **沿用你的工具** —— R、Python 脚本和 Fiji 等桌面应用都能作为区块在流程中运行。
+- **AI 随你选** —— 在 SciStudio 里使用 AI 编程智能体，或者通过 WebMCP 在你的 AI 应用中使用 SciStudio。
+- **随你扩展** —— 添加区块、数据类型、面板、MiniApp 和图表，并以软件包形式分享。
 
 ## 安装与使用
 
@@ -117,7 +113,7 @@ Windows 安装包)的说明见 [`desktop/README.md`](desktop/README.md)。
 
 在 SciStudio 处于 alpha 阶段期间,我们非常欢迎提问、反馈与缺陷报告:
 
-- [Discord](https://discord.gg/5b7kTRU2k)
+- [Discord](https://discord.gg/KGJfkM6EQN)
 - [GitHub Issues](https://github.com/jiazhenz026/SciStudio/issues)
 
 ## 状态

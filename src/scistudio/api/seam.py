@@ -385,11 +385,11 @@ def workflow_runs_active(app: FastAPI) -> bool:
     runtime = getattr(app.state, "runtime", None)
     if runtime is None:
         return False
-    # #2362: ask for EVERY run, not just the active project's. A run detached
-    # by a project switch is still executing, and culling the backend under it
-    # is exactly what this accessor exists to prevent. The seam duck-types the
-    # runtime — an edition may supply its own — so a runtime without the
-    # accessor falls back to the mapping.
-    everything = getattr(runtime, "all_workflow_runs", None)
-    runs = everything() if callable(everything) else list(getattr(runtime, "workflow_runs", {}).values())
+    # #2433: leaving a project ends its runs, so the active project's registry
+    # holds every run this backend is executing, apart from a run a switch
+    # ended whose task ignored cancellation and is still stopping.
+    runs = [
+        *getattr(runtime, "workflow_runs", {}).values(),
+        *(getattr(runtime, "_stopping_runs", None) or {}).values(),
+    ]
     return any(not run.task.done() for run in runs)

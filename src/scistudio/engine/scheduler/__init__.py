@@ -120,6 +120,11 @@ class DAGScheduler:
         NodeDef is forwarded.
     checkpoint_manager:
         Optional checkpoint manager for persisting execution state.
+    run_id:
+        Identity of this run (the lineage ``runs.run_id``). Stamped on every
+        event the scheduler emits beside ``workflow_id``, and the scheduler
+        reacts only to requests addressed to it. ``None`` keeps the
+        workflow-scoped behaviour for callers that start no tracked run.
     """
 
     def __init__(
@@ -133,8 +138,10 @@ class DAGScheduler:
         checkpoint_manager: Any | None = None,
         lineage_recorder: LineageRecorder | None = None,
         project_dir: str | None = None,
+        run_id: str | None = None,
     ) -> None:
         self._workflow = workflow
+        self._run_id = run_id
         self._event_bus = event_bus
         self._resource_manager = resource_manager
         self._process_registry = process_registry
@@ -186,6 +193,23 @@ class DAGScheduler:
         self._event_bus.subscribe(CANCEL_WORKFLOW_REQUEST, self._on_cancel_workflow)
         self._event_bus.subscribe(INTERACTIVE_COMPLETE, self._on_interactive_complete)
 
+    @property
+    def run_id(self) -> str | None:
+        """Identity of the run this scheduler executes, or ``None``."""
+        return self._run_id
+
+    def _run_scope(self) -> dict[str, Any]:
+        """The identity fields every emitted event carries.
+
+        ``workflow_id`` names the workflow file; ``run_id`` names this one run
+        of it, so a consumer can tell two runs of the same workflow apart.
+        """
+        # Development references: #2433.
+        scope: dict[str, Any] = {"workflow_id": self._workflow.id}
+        if self._run_id is not None:
+            scope["run_id"] = self._run_id
+        return scope
+
     def dispose(self) -> None:
         """Unsubscribe this scheduler's handlers from the shared EventBus.
 
@@ -221,13 +245,11 @@ class DAGScheduler:
         processes on engine-level failure.
         """
         # Development references: ADR-018, Addendum 1.
-        await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_STARTED, data={"workflow_id": self._workflow.id}))
+        await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_STARTED, data=self._run_scope()))
 
         if not self._dag.nodes:
             self._completed_event.set()
-            await self._event_bus.emit(
-                EngineEvent(event_type=WORKFLOW_COMPLETED, data={"workflow_id": self._workflow.id})
-            )
+            await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_COMPLETED, data=self._run_scope()))
             return
 
         try:
@@ -243,7 +265,7 @@ class DAGScheduler:
         finally:
             await self._cancel_active_tasks_on_shutdown()
 
-        await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_COMPLETED, data={"workflow_id": self._workflow.id}))
+        await self._event_bus.emit(EngineEvent(event_type=WORKFLOW_COMPLETED, data=self._run_scope()))
 
     async def pause(self) -> None:
         """Request a graceful pause after current blocks complete."""
@@ -271,7 +293,7 @@ class DAGScheduler:
         await self._on_cancel_workflow(
             EngineEvent(
                 event_type=CANCEL_WORKFLOW_REQUEST,
-                data={"workflow_id": self._workflow.id},
+                data=self._run_scope(),
             )
         )
 
@@ -281,7 +303,7 @@ class DAGScheduler:
             EngineEvent(
                 event_type=CANCEL_BLOCK_REQUEST,
                 block_id=block_id,
-                data={"workflow_id": self._workflow.id},
+                data=self._run_scope(),
             )
         )
 
@@ -485,7 +507,7 @@ class DAGScheduler:
         await self._event_bus.emit(
             EngineEvent(
                 event_type=WORKFLOW_STARTED,
-                data={"workflow_id": self._workflow.id, "mode": "execute_from", "block_id": block_id},
+                data={**self._run_scope(), "mode": "execute_from", "block_id": block_id},
             )
         )
 
@@ -502,7 +524,7 @@ class DAGScheduler:
         await self._event_bus.emit(
             EngineEvent(
                 event_type=WORKFLOW_COMPLETED,
-                data={"workflow_id": self._workflow.id, "mode": "execute_from", "block_id": block_id},
+                data={**self._run_scope(), "mode": "execute_from", "block_id": block_id},
             )
         )
 

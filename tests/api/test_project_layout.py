@@ -24,9 +24,12 @@ from fastapi.testclient import TestClient
 from scistudio.api.project_layout import DATA_SUBDIRS, DROPIN_SUBDIRS, PROJECT_SUBDIRS
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PANELS_DIR_NAME,
     PREVIEWERS_DIR_NAME,
     TUTORIALS_DIR_NAME,
     TYPES_DIR_NAME,
+    panel_scan_dirs,
+    previewer_scan_dirs,
 )
 
 
@@ -41,15 +44,31 @@ def test_dropin_dirs_are_named_by_the_module_that_scans_them() -> None:
     assert DROPIN_SUBDIRS == (
         BLOCKS_DIR_NAME,
         TYPES_DIR_NAME,
-        PREVIEWERS_DIR_NAME,
+        PANELS_DIR_NAME,
         TUTORIALS_DIR_NAME,
     )
 
 
-def test_every_dropin_tier_has_a_scaffolded_directory() -> None:
-    """Previewers and tutorials were the two missing before #2095."""
-    for name in (BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME, TUTORIALS_DIR_NAME):
+def test_every_current_dropin_tier_has_a_scaffolded_directory() -> None:
+    """Tutorials were missing before #2095; panels replaced previewers in #2411."""
+    for name in (BLOCKS_DIR_NAME, TYPES_DIR_NAME, PANELS_DIR_NAME, TUTORIALS_DIR_NAME):
         assert name in PROJECT_SUBDIRS
+
+
+def test_panels_dir_name_is_the_one_panel_discovery_scans(tmp_path: Path) -> None:
+    """The scaffolded ``panels/`` is the project tier ``panel_scan_dirs`` returns."""
+    assert panel_scan_dirs(tmp_path)[0] == tmp_path / PANELS_DIR_NAME
+
+
+def test_deprecated_previewers_dir_is_not_scaffolded() -> None:
+    """ADR-054 §8 deprecates Python previewer drop-ins, so new projects omit them (#2411)."""
+    assert PREVIEWERS_DIR_NAME not in PROJECT_SUBDIRS
+
+
+def test_existing_previewers_dir_is_still_scanned(tmp_path: Path) -> None:
+    """Dropping the scaffold must not drop the scan: old projects keep working until 0.6."""
+    (tmp_path / PREVIEWERS_DIR_NAME).mkdir()
+    assert previewer_scan_dirs(tmp_path)[0] == tmp_path / PREVIEWERS_DIR_NAME
 
 
 def test_data_subdirs_include_the_user_facing_pair_and_the_runtime_stores() -> None:
@@ -75,6 +94,8 @@ def test_api_create_project_creates_every_scaffold_directory(client: TestClient,
 
     missing = [d for d in PROJECT_SUBDIRS if not (project_path / d).is_dir()]
     assert not missing, f"API scaffold did not create: {missing}"
+    assert (project_path / PANELS_DIR_NAME).is_dir()
+    assert not (project_path / PREVIEWERS_DIR_NAME).exists()
 
 
 def test_cli_init_creates_the_same_directories_as_the_api(tmp_path: Path) -> None:
@@ -106,3 +127,5 @@ def test_cli_init_creates_the_same_directories_as_the_api(tmp_path: Path) -> Non
     project_path = tmp_path / "cli_layout_probe"
     missing = [d for d in PROJECT_SUBDIRS if not (project_path / d).is_dir()]
     assert not missing, f"CLI scaffold did not create: {missing}"
+    assert (project_path / PANELS_DIR_NAME).is_dir()
+    assert not (project_path / PREVIEWERS_DIR_NAME).exists()

@@ -910,6 +910,19 @@
     ],
     "type": "object"
    },
+   "ContextAnswers": {
+    "additionalProperties": false,
+    "properties": {
+     "answers": {
+      "additionalProperties": true,
+      "type": "object"
+     }
+    },
+    "required": [
+     "answers"
+    ],
+    "type": "object"
+   },
    "ContextCall": {
     "additionalProperties": false,
     "properties": {
@@ -1091,7 +1104,8 @@
        "enum": [
         "read",
         "writeBack",
-        "call"
+        "call",
+        "submitAnswers"
        ],
        "type": "string"
       },
@@ -1449,6 +1463,41 @@
     ],
     "type": "object"
    },
+   "EndProjectRunsRequest": {
+    "properties": {
+     "project_id": {
+      "type": "string"
+     },
+     "run_ids": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "project_id"
+    ],
+    "type": "object"
+   },
+   "EndProjectRunsResponse": {
+    "properties": {
+     "ended_run_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
    "ExecuteFromRequest": {
     "properties": {
      "block_id": {
@@ -1482,6 +1531,16 @@
        "type": "string"
       },
       "type": "array"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "status": {
       "type": "string"
@@ -1962,6 +2021,27 @@
       ]
      }
     },
+    "type": "object"
+   },
+   "LiveRunResponse": {
+    "properties": {
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "workflow_id": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "workflow_id"
+    ],
     "type": "object"
    },
    "LocalPackageInstallRequest": {
@@ -3545,6 +3625,27 @@
     ],
     "type": "object"
    },
+   "ProjectRunsResponse": {
+    "properties": {
+     "project_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "runs": {
+      "items": {
+       "$ref": "#/components/schemas/LiveRunResponse"
+      },
+      "type": "array"
+     }
+    },
+    "type": "object"
+   },
    "ProjectUpdate": {
     "properties": {
      "description": {
@@ -3576,15 +3677,11 @@
      "complete": {
       "type": "boolean"
      },
-     "sampled": {
-      "type": "boolean"
-     },
      "truncated": {
       "type": "boolean"
      }
     },
     "required": [
-     "sampled",
      "truncated",
      "complete"
     ],
@@ -3894,6 +3991,60 @@
      "id",
      "index",
      "total"
+    ],
+    "type": "object"
+   },
+   "SubmitAnswersResult": {
+    "properties": {
+     "message": {
+      "type": "string"
+     },
+     "notified": {
+      "type": "boolean"
+     },
+     "path": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "enum": [
+         "no_session",
+         "session_ended"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "saved": {
+      "type": "boolean"
+     },
+     "submitted_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "required": [
+     "saved",
+     "path",
+     "notified",
+     "message"
     ],
     "type": "object"
    },
@@ -4747,6 +4898,16 @@
     "properties": {
      "message": {
       "type": "string"
+     },
+     "run_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
      },
      "status": {
       "type": "string"
@@ -6626,6 +6787,116 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/answers": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ContextAnswers"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SubmitAnswersResult"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "500": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
         }
        }
       }
@@ -8837,6 +9108,61 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ActiveProjectResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/projects/active/end-runs": {
+   "post": {
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/EndProjectRunsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EndProjectRunsResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/projects/active/runs": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProjectRunsResponse"
         }
        }
       }

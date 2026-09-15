@@ -23,6 +23,15 @@ export function inlineNotice({ mime, url, imageFailed }) {
   return null;
 }
 
+/**
+ * A stored file: its path, MIME type, and size, with the image inline when it is one.
+ *
+ * @param {object} [props.info] An `artifact.info` result `{name?, path?, mime_type?, size?}`; the loading state shows until it is given.
+ * @param {string} [props.url] URL of the file's bytes, such as an `artifact.file` result's `url` or a caller-owned blob URL.
+ * @param {boolean} [props.imageFailed] Set after the image failed to load, to explain why nothing is shown.
+ * @param {function} [props.onImageError] Called when the inline image fails to load.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ */
 export function ArtifactView({
   info,
   url,

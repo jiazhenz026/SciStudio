@@ -4,14 +4,14 @@
 
 # SciStudio
 
-**Scientific workflow bench with your AI partner.**
+**Scientific data workbench with your AI partner.**
 
 [![Status: alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![CI](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml/badge.svg)](https://github.com/jiazhenz026/SciStudio/actions/workflows/ci.yml)
 [![Docs](https://img.shields.io/badge/docs-online-blue.svg)](https://jiazhenz026.github.io/SciStudio/)
-[![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/5b7kTRU2k)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2.svg?logo=discord&logoColor=white)](https://discord.gg/KGJfkM6EQN)
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -28,17 +28,21 @@
 
 ## What is SciStudio?
 
-SciStudio is an interactive workflow orchestration system for multimodal scientific data analysis. You and your AI partner work together interactively on the same canvas. It starts from spatial multi-omics and is progressively expanding to other data modalities. SciStudio lets researchers connect scientific software, AI agents, scripts and multimodal data into one visual workflow.
+SciStudio is an interactive workbench for multimodal scientific data analysis.
+It is a shared space where you and your AI partner work on your data together:
+explore it interactively, turn what works into reproducible workflows, and keep
+using the tools you already trust.
 
-- **Typed data, one graph** — blocks exchange typed data and flow through the
-  same workflow, so every step stays connected end to end.
-- **View your data in your way** - Customize the way you preview your data, customize your figure with plot cards.
-- **Bring your existing tools** — run R or Python scripts and
-  launch desktop apps like Fiji as ordinary blocks in the flow.
-- **AI-native** — a built-in assistant (Claude Code or Codex) helps you build
-  workflows, author new blocks, and inspect your data.
-- **Extensible** — add your own blocks, data types, and plots, and share them as
-  installable packages.
+- **Explore with MiniApps** — ask your AI partner for an interactive app on your
+  data, and try analyses while the next step is still open.
+- **Reproduce with workflows** — settled steps become a typed workflow you can
+  rerun, reuse, and trace back.
+- **Bring your tools** — R and Python scripts and desktop apps like Fiji run as
+  blocks in the flow.
+- **Your AI, your way** — work with an AI coding agent inside SciStudio, or from
+  your AI app through WebMCP.
+- **Grows with you** — add blocks, data types, panels, MiniApps, and plots, and
+  share them as packages.
 
 ## Install and use
 
@@ -123,7 +127,7 @@ To build and ship your own blocks (rather than change the core), follow the
 
 Questions, feedback, and bug reports are very welcome while SciStudio is in alpha:
 
-- [Discord](https://discord.gg/5b7kTRU2k)
+- [Discord](https://discord.gg/KGJfkM6EQN)
 - [GitHub Issues](https://github.com/jiazhenz026/SciStudio/issues)
 
 ## Status

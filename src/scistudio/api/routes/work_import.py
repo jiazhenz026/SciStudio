@@ -14,14 +14,9 @@
 # over. So the endpoint validates, composes, writes the brief *and closes
 # and fsyncs it*, and only then spawns (FR-024).
 #
-# **Why the brief is a file rather than a system prompt.** Of the five
-# agent providers in the ADR-034 registry only ``claude-code`` is
-# ``FLAG_FILE`` and can carry a hidden per-session prompt; ``codex``,
-# ``kimi-code`` and both Qoder channels are ``AMBIENT`` and have no
-# per-session channel at all. A file plus a one-line pointer is the only
-# delivery that does not vary with that difference, and a sixth provider
-# needs nothing of this module beyond reading a file it is told to read
-# (FR-029).
+# **Why the brief is a file.** A file keeps a durable, inspectable record while
+# a one-line positional pointer delivers it uniformly. A sixth provider needs
+# nothing from this module beyond reading a file it is told to read (FR-029).
 #
 # **The one thing delivery still requires of a provider.** The pointer
 # itself is a positional command-line argument, so a CLI that parses its

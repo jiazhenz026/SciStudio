@@ -9,6 +9,13 @@ import {
   Panel,
 } from "./panel-ui.js";
 
+/**
+ * The slot inventory of a composite, one row per slot.
+ *
+ * @param {object[] | null} [props.slots] The slots `{name, type_name?, ref?}`, as `composite.slots` returns them; `null` shows the loading state.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {function} [props.onOpen] `(ref, slot)` when the reader opens a slot; rows are not clickable without it.
+ */
 export function CompositeView({ slots = [], error, onOpen }) {
   if (error) {
     return html`<${Panel}

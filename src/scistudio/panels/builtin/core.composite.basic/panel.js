@@ -20,16 +20,34 @@ function CompositePanel() {
     api.reportError(message);
   }, []);
 
+  /*
+   * Every slot, page by page: a composite with more slots than one read carries
+   * is paged by cursor, and the list shows all of them once the last page
+   * lands (#2460).
+   */
   useEffect(() => {
     let cancelled = false;
-    api
-      .read("composite.slots", {})
-      .then((data) => {
-        if (!cancelled) setSlots(data.slots ?? []);
-      })
-      .catch((err) => {
-        if (!cancelled) fail(err);
-      });
+    const collected = [];
+    const readFrom = (cursor) => {
+      api
+        .read("composite.slots", cursor ? { cursor } : {})
+        .then((data) => {
+          if (cancelled) return;
+          const got = data.slots ?? [];
+          collected.push(...got);
+          const next = data.next_cursor ?? null;
+          if (next && got.length) {
+            readFrom(next);
+            return;
+          }
+          if (next) throw new Error("The slot read did not advance");
+          setSlots([...collected]);
+        })
+        .catch((err) => {
+          if (!cancelled) fail(err);
+        });
+    };
+    readFrom(null);
     return () => {
       cancelled = true;
     };

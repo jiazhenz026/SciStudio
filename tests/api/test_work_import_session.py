@@ -10,8 +10,7 @@ instructions it can find. Everything pinned here follows from that:
 * the brief lives where the user's version history will not pick it up
   (FR-027);
 * the user sees one sentence, not the instruction set (FR-028);
-* and delivery does not vary with the provider (FR-029), because four of
-  the five registry agents have no per-session prompt channel at all.
+* and delivery does not vary with the provider (FR-029).
 
 The PTY spawn is faked with a tiny echo subprocess through the existing
 ``ai_pty._state._spawn`` seam, so no real agent CLI is launched. The fake
@@ -34,7 +33,6 @@ from fastapi.testclient import TestClient
 from scistudio.ai.agent import providers_registry
 from scistudio.ai.agent import terminal as terminal_module
 from scistudio.ai.agent.providers_registry import (
-    SystemPromptStrategy,
     agent_descriptors,
 )
 from scistudio.ai.agent.terminal import PtyProcess
@@ -392,22 +390,9 @@ def test_opening_message_wording_is_actionable() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_registry_still_has_both_system_prompt_strategies() -> None:
-    """Guards the parametrised test below from silently covering one strategy.
-
-    FR-029 exists because the registry is mixed. If it ever stopped being
-    mixed, the provider-independence test would still pass while proving
-    nothing.
-    """
-    strategies = {descriptor.system_prompt.strategy for descriptor in agent_descriptors()}
-    assert SystemPromptStrategy.FLAG_FILE in strategies
-    assert SystemPromptStrategy.AMBIENT in strategies
-
-
 #: Registry agents a SciStudio-started session can actually be delivered to.
 #:
-#: FR-029 removes the *system-prompt* difference between providers. It does not
-#: remove the one requirement delivery still has: the pointer is a positional
+#: Delivery has one provider capability requirement: the pointer is a positional
 #: command-line argument, and a CLI that parses its first positional as a
 #: subcommand never receives it. The registry records exactly that with
 #: ``prompt_argv_prefix is None``, so the split is read off the registry rather
@@ -428,14 +413,10 @@ def test_the_registry_still_contains_a_provider_that_cannot_take_a_prompt() -> N
 
 
 @pytest.mark.parametrize("provider", _DELIVERABLE_PROVIDERS)
-def test_delivery_is_identical_across_system_prompt_strategies(
+def test_delivery_is_identical_across_providers(
     provider: str, client: TestClient, opened_project: Path, spawn: _SpawnRecorder
 ) -> None:
-    """FR-029: a ``FLAG_FILE`` and an ``AMBIENT`` provider are served the same way.
-
-    Only ``claude-code`` can carry a hidden per-session prompt; the others
-    have no per-session channel at all. Routing through a file plus a
-    pointer is what makes that difference invisible here.
+    """FR-029: every capable provider receives the same opening pointer.
 
     This runs against a stubbed ``_spawn``, so what it proves is that the
     *endpoint* hands every provider the same message and the same complete

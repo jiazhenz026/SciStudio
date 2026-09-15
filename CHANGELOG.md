@@ -9,10 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2295] **A `scistudio-write-type` skill teaches the AI to define a data type.**
+  Every new project provisions it beside the other task skills. It covers reuse
+  through `list_types`, choosing the core base, axis and slot rules, typed
+  metadata, and the required loader, so a new type can always be read into a
+  workflow through core `load_data`.
+- [#2447] **MiniApps can ask before they build.** An AI writing a MiniApp can
+  declare a short questionnaire in `panels/<id>/questionnaire.json` and show it
+  with the new SDK components (`Questionnaire`, `Question`,
+  `SingleChoiceQuestion`, `MultipleChoiceQuestion`, `TextQuestion`,
+  `NumberQuestion`, `SubmitBar` in `sdk/1/panel-ui.js`). Every question is
+  optional and offers "Decide for me". `scistudio.submitAnswers(answers)` saves
+  the answers to `panels/<id>/answers.json` and types a one-line notice into the
+  MiniApp's AI terminal tab when it is open. `validate_panel` now exercises a
+  questionnaire end to end (spec, page wiring, sample submits) and reports
+  actionable errors, and the new MCP tool `wait_for_answers` lets an agent in
+  External AI mode wait for the submit. The MiniApp create brief now asks the
+  agent to look at the data, ask, wait for the submit, then build.
+- [#2415] **The activity bar can be rearranged.** Drag an icon in the left
+  rail to move its section, or focus an icon and press Alt+ArrowUp /
+  Alt+ArrowDown. The order is remembered in this browser; right-click the rail
+  and choose Reset order to go back to the default, which now puts MiniApps
+  third, right below Blocks and Workflows. Every left-panel section's Reload
+  button also carries the reload icon, which spins while a reload is running.
+- [#2426] **`scistudio.panels` is a public API root.** Panel authors and packages
+  can check panels from Python through `from scistudio.panels import ...`:
+  `discover_panels` and `PanelRegistry` (the discovery the application runs,
+  with shadowing and diagnostics), `parse_descriptor` and `PanelDescriptor`
+  (validate one panel folder), `validate_external_references` (CDN allowlist and
+  version pinning), `validate_interactive_panel` (an interactive block's panel
+  opens in the interactive context), and `PANEL_API_VERSION`. All seven are
+  `provisional` since 0.3.5 and appear in the generated API reference; the rest
+  of the panels package stays internal.
+- [#2426] **Deprecations are recorded on the symbol.**
+  `scistudio.stability.deprecated(since=..., removed_in=..., replacement=...)`
+  marks a public symbol, or a whole module, deprecated without changing its
+  tier; `get_deprecation` reads it back. The generated API reference shows the
+  notice on each deprecated symbol, on the root page, and in the index, and the
+  public-surface snapshot freezes the start and removal versions.
+
 - MiniApps: create interactive tools on project data with optional resident Python,
   reuse them across compatible outputs, and convert them into interactive workflow
   blocks. Includes project-scoped source selection, reusable core data-view UI
   components, and AI-accessible desktop GUI screenshots. (#2354)
+
+- [#2441] **Agents can list the MiniApps that already exist.** The new read-only
+  MCP tool `list_miniapps` returns every discovered MiniApp with its id, name,
+  owner tier (and package), declared type, entry page, whether it has Python, and
+  its directory, plus the directories under the project and user panels tiers that
+  discovery skipped, with their diagnostics. An optional `data_type` filter keeps
+  only the MiniApps that open on an output of that type, subtypes included. It
+  reads the same discovery `open_miniapp` reads, so every listed MiniApp opens.
 
 - [#2434] **The workflow YAML file format has a generated reference page.**
   `api-reference/workflow-yaml.md` lists every key of a workflow file with its
@@ -514,7 +561,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   test covers all four groups, so a fifth cannot be added divergently without
   failing.
 
+### Deprecated
+
+- [#2426] **The Python previewer API is deprecated.** Every public symbol of
+  `scistudio.previewers.models`, `scistudio.previewers.data_access`, and
+  `scistudio.previewers.helpers` is deprecated since 0.3.5, keeps working through
+  the 0.5 line, and is removed in 0.6.0. Write HTML panels instead and check them
+  with `scistudio.panels`. The symbols keep their `provisional` tier until removal.
+
 ### Changed
+
+- [#2383] Use each project's provisioned `AGENTS.md` as the common instruction
+  and navigation entry for every embedded AI provider. Claude launch no longer
+  creates a composed prompt tempfile or passes `--append-system-prompt`;
+  provider routers stay short, while current project facts and exact tool
+  contracts come from the live MCP server.
 
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say
@@ -715,6 +776,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2460] **Previews and MiniApps show the complete data, never a sample.** A
+  series longer than 2000 points was drawn from an evenly spaced sample, and a
+  large array plane arrived striding over its pixels. Panel reads now page
+  instead: `series.points` and `table.xy` take `offset`/`limit` (up to 100000
+  rows a page) and return every row in place, NaN and infinities included;
+  `array.plane` returns the whole plane only when it fits one read and otherwise
+  its geometry and extent, with the values read exactly through `array.tile`;
+  `composite.slots` pages by cursor instead of refusing a composite with more
+  than 200 slots. The core series preview reads every page and its table
+  scrolls over every row, the text preview offers Read more after a large
+  batch instead of stopping silently, and table cells show exact values rather
+  than four decimal places. `max_points`, `sampled`, `decimation`, `strides`,
+  and `source_indices` are gone from panel reads, and
+  `PreviewDataAccess.series_points` loses its `max_points` argument.
+
+- [#2421] **A new MiniApp shows up in the MiniApps tab on its own.** A MiniApp
+  written into the project's `panels/` folder, by an agent, the editor, or any
+  other program, used to stay missing from the MiniApps list and the panel
+  catalog until someone pressed Reload, while `open_miniapp` already accepted
+  it. The backend now notices when the panel folders change: the list, the
+  catalog, and opening a MiniApp all read the folders as they are, and the
+  workspace re-reads its list shortly after the writes settle.
+- [#2422] **`open_miniapp` in a standalone `scistudio mcp-bridge` session reports
+  `no_event_bus`.** It reported `no_workspace`, the reason meant for a running
+  server with no window connected. Neither case ever claimed a tab opened.
 
 - [#2327] **Closing the browser no longer cancels a running workflow.** Two
   seconds after the last SciStudio browser tab disconnected, the backend used

@@ -12,10 +12,19 @@ if TYPE_CHECKING:
     from scistudio.panels.registry import PanelRegistry
 
 from scistudio.panels.files import validate_external_references as validate_external_references
+from scistudio.stability import provisional
 
 
+@provisional(since="0.3.5")
 def validate_interactive_panel(manifest: object, registry: PanelRegistry | None = None) -> None:
-    """Apply block-to-panel context compatibility, including 0.5 legacy modules."""
+    """Check that an interactive block's panel declaration can open.
+
+    ``manifest`` is the block's panel declaration (its ``panel_id`` and
+    ``module_url``). The panel must resolve, in ``registry`` or in a fresh
+    discovery, to a panel whose contexts include ``interactive``; otherwise
+    ``ValueError`` is raised. A declaration that still names a legacy
+    ``module_url`` emits a ``DeprecationWarning`` and is not checked further.
+    """
     import warnings
 
     from scistudio.panels.registry import discover_panels

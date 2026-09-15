@@ -175,14 +175,42 @@ def _handle_block_user_signal(
 
 
 def serialise_event(event: EngineEvent) -> dict[str, Any]:
-    """Convert an EngineEvent to a JSON-serialisable dict for the WebSocket protocol."""
+    """Convert an EngineEvent to a JSON-serialisable dict for the WebSocket protocol.
+
+    ``run_id`` names the run an execution event came from, so a client
+    can tell the current run of a workflow from an earlier one; it is ``None``
+    for events no run emitted.
+    """
+    data = event.data if isinstance(event.data, dict) else None
     return {
         "type": event.event_type,
         "block_id": event.block_id,
-        "workflow_id": event.data.get("workflow_id") if isinstance(event.data, dict) else None,
+        "workflow_id": data.get("workflow_id") if data is not None else None,
+        "run_id": data.get("run_id") if data is not None else None,
         "data": event.data,
         "timestamp": event.timestamp.isoformat(),
     }
+
+
+def _run_scope(event_bus: EventBus, data: dict[str, Any]) -> dict[str, Any]:
+    """The identity an inbound run request is addressed to.
+
+    A client that names a ``run_id`` addresses that run. One that names only a
+    workflow addresses that workflow's run the active project holds, stamped
+    with its ``run_id`` so no other run of the workflow can take the request.
+    """
+    # Development references: #2433.
+    workflow_id = data.get("workflow_id")
+    scope: dict[str, Any] = {"workflow_id": workflow_id}
+    run_id = data.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        runtime = getattr(event_bus, "runtime", None)
+        runs = getattr(runtime, "workflow_runs", None)
+        run = runs.get(workflow_id) if isinstance(runs, dict) and isinstance(workflow_id, str) else None
+        run_id = getattr(run, "run_id", None)
+    if isinstance(run_id, str) and run_id:
+        scope["run_id"] = run_id
+    return scope
 
 
 def _client_id_for(websocket: WebSocket) -> str:
@@ -340,7 +368,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                         EngineEvent(
                             event_type=CANCEL_BLOCK_REQUEST,
                             block_id=block_id,
-                            data={"workflow_id": workflow_id},
+                            data=_run_scope(event_bus, data),
                         )
                     )
                 elif msg_type == "cancel_workflow":
@@ -351,7 +379,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                     await event_bus.emit(
                         EngineEvent(
                             event_type=CANCEL_WORKFLOW_REQUEST,
-                            data={"workflow_id": workflow_id},
+                            data=_run_scope(event_bus, data),
                         )
                     )
                 elif msg_type == "interactive_complete":
@@ -395,7 +423,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                                 event_type=INTERACTIVE_COMPLETE,
                                 block_id=data.get("block_id"),
                                 data={
-                                    "workflow_id": data.get("workflow_id"),
+                                    **_run_scope(event_bus, data),
                                     "response": data.get("data", {}),
                                 },
                             )

@@ -8,6 +8,7 @@ import type { TreeEntry } from "../types/api";
 import { ContextMenu } from "./ProjectTree.parts/ContextMenu";
 import type { ContextMenuState, TreeNodeData } from "./ProjectTree.parts/types";
 import { useTreeNodes } from "./ProjectTree.parts/useTreeNodes";
+import { SectionReloadButton } from "./SectionReloadButton";
 
 interface ProjectTreeProps {
   projectId: string;
@@ -243,11 +244,7 @@ export function ProjectTree({
     >
       <div className="flex items-center justify-between gap-2">
         <p className="font-display text-xl text-ink">{title}</p>
-        <button className="toolbar-button" disabled={loading} onClick={handleRefresh} type="button">
-          {/* #2090 — "Reload" wording shared with the Blocks palette and the
-              Workflows section; one verb for every left-panel reload. */}
-          {loading ? "..." : "Reload"}
-        </button>
+        <SectionReloadButton loading={loading} onClick={handleRefresh} />
       </div>
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-thin" ref={treeRef}>

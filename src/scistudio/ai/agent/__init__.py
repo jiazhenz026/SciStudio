@@ -1,10 +1,11 @@
-"""AI agent runtime package (terminal session, system prompt, MCP wiring)."""
+"""AI agent runtime package (terminal sessions and MCP wiring)."""
 # Maintainer context (kept outside generated API documentation):
-# AI agent runtime package (terminal session, system prompt, MCP wiring).
+# AI agent runtime package (terminal sessions and MCP wiring).
 #
 # This subpackage hosts the agent-side runtime that the AI block (``scistudio.
-# blocks.ai.ai_block``) drives: ``terminal`` (PTY/agent session helpers),
-# ``system_prompt`` (prompt assembly), and ``mcp`` (MCP server/tool wiring).
+# blocks.ai.ai_block``) drives: ``terminal`` (PTY/agent session helpers) and
+# ``mcp`` (MCP server/tool wiring). Project instructions are provisioned through
+# the project-root ``AGENTS.md`` shared by every provider.
 #
 # Issue #1591: this package was previously missing its ``__init__.py``, so
 # ``[tool.setuptools.packages.find]`` (regular, non-namespace discovery) silently

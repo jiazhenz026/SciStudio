@@ -35,6 +35,8 @@ from scistudio.workflow.serializer import save_yaml
 
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 from ._run_lifetime import is_same_path, lineage_db_path, reconcile_interrupted_runs, retire_store
+from ._runs import ProjectRunsLiveError
+from ._stop_request import terminate_project_terminal_sessions
 
 if TYPE_CHECKING:
     from . import ApiRuntime, KnownProject
@@ -309,6 +311,11 @@ def create_project(
     # Development references: ADR-053, FR-063, FR-064, FR-066.
     from .models import KnownProject
 
+    # #2433: the new project is opened, which leaves the active one; refuse
+    # before anything is written when that would leave a live run behind.
+    live = self.live_workflow_runs()
+    if live:
+        raise ProjectRunsLiveError([str(run.run_id) for run in live])
     parent_dir = _safe_parent_dir(parent_path)
     project_path = parent_dir / (dir_name or _slugify(name))
     if project_path.exists():
@@ -435,6 +442,14 @@ def list_projects(self: ApiRuntime) -> list[KnownProject]:
 
 
 def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProject:
+    entry = _read_project_from_path(project_path)
+    self.known_projects[entry.id] = entry
+    self._save_known_projects()
+    return entry
+
+
+def _read_project_from_path(project_path: Path) -> KnownProject:
+    """Read the project at *project_path* without registering it."""
     from .models import KnownProject
 
     project_file = project_path / "project.yaml"
@@ -458,34 +473,56 @@ def _load_project_from_path(self: ApiRuntime, project_path: Path) -> KnownProjec
         tutorial_source_id=tutorial.get("source_id"),
         tutorial_id=tutorial.get("id"),
     )
-    self.known_projects[entry.id] = entry
-    self._save_known_projects()
     return entry
 
 
-def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
+def _resolve_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
+    """Return the project *project_id_or_path* names, without opening or registering it.
+
+    A path not yet in the registry is read, not registered: the caller registers
+    it once the operation is allowed, so a refused open leaves no trace.
+    """
     candidate = self.known_projects.get(project_id_or_path)
     if candidate is None:
         decoded = Path(unquote(project_id_or_path)).expanduser()
         resolved = decoded.resolve()
         if not (resolved / "project.yaml").is_file():
             raise FileNotFoundError(f"Not a valid SciStudio project (no project.yaml): {resolved}")
-        candidate = self._load_project_from_path(resolved)
+        candidate = _read_project_from_path(resolved)
+    return candidate
+
+
+def _leave_active_project(self: ApiRuntime) -> None:
+    """Forget the active project's runs and close its agent terminals.
+
+    Leaving a project ends its runs: the caller has already ended them
+    through ``end_project_runs``, so a still-live run here is refused rather
+    than carried into the next project. Its AI Chat and AI Block terminals are
+    closed too: an agent started in one project must not act on the next.
+    """
+    # Development references: #2433.
+    live = self.live_workflow_runs()
+    if live:
+        raise ProjectRunsLiveError([str(run.run_id) for run in live])
+    self.workflow_runs = {}
+    outgoing = self.active_project
+    if outgoing is not None:
+        terminate_project_terminal_sessions(Path(outgoing.path))
+
+
+def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
+    candidate = _resolve_project(self, project_id_or_path)
+    # #2433: re-opening the already-active project (the GUI does this) keeps its
+    # runs. Switching leaves the outgoing project, which ends its runs; the
+    # check runs before anything about the switch is recorded.
+    outgoing = self.active_project
+    switching = outgoing is None or outgoing.id != candidate.id
+    if switching:
+        _leave_active_project(self)
     candidate.last_opened = _now_iso()
     self.known_projects[candidate.id] = candidate
     self._save_known_projects()
-    # #2362: a run is addressable by workflow id alone, so leaving the previous
-    # project's runs in the registry let the incoming project's ``main`` resolve
-    # the outgoing project's ``main``. Retire them — but only on an actual
-    # switch: re-opening the already-active project (the GUI does this) must not
-    # detach the user's own live run. A run the incoming project left running
-    # when the user switched away is handed back to it (#2327).
-    outgoing = self.active_project
-    switching = outgoing is None or outgoing.id != candidate.id
     self.active_project = candidate
-    if switching:
-        self.detach_workflow_runs(outgoing.id if outgoing is not None else None)
-        self.reattach_workflow_runs(candidate.id)
     self.data_catalog = {}
     # ADR-053 FR-062: a project switch invalidates all three registries —
     # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
@@ -717,7 +754,8 @@ def update_project(
     name: str | None = None,
     description: str | None = None,
 ) -> KnownProject:
-    project = self.open_project(project_id_or_path)
+    # #2433: editing a project's metadata does not switch to it.
+    project = _resolve_project(self, project_id_or_path)
     project_file = Path(project.path) / "project.yaml"
     raw = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
     raw.setdefault("project", {})
@@ -737,7 +775,11 @@ def update_project(
 
 
 def delete_project(self: ApiRuntime, project_id_or_path: str) -> None:
-    project = self.open_project(project_id_or_path)
+    # #2433: deleting a project does not switch to it first. Deleting the active
+    # project leaves it, which ends its runs and closes its terminals.
+    project = _resolve_project(self, project_id_or_path)
+    if self.active_project is not None and self.active_project.id == project.id:
+        _leave_active_project(self)
     project_path = Path(project.path).resolve()
     if not project_path.exists():
         self.known_projects.pop(project.id, None)
@@ -750,8 +792,6 @@ def delete_project(self: ApiRuntime, project_id_or_path: str) -> None:
         self.known_projects.pop(project.id, None)
         if self.active_project is not None and self.active_project.id == project.id:
             self.active_project = None
-            # #2362: the project is gone; its runs must not answer for the next one.
-            self.detach_workflow_runs(project.id)
             self.data_catalog = {}
         self._save_known_projects()
         return
@@ -773,8 +813,6 @@ def delete_project(self: ApiRuntime, project_id_or_path: str) -> None:
     self.known_projects.pop(project.id, None)
     if self.active_project is not None and self.active_project.id == project.id:
         self.active_project = None
-        # #2362: the project is gone; its runs must not answer for the next one.
-        self.detach_workflow_runs(project.id)
         self.data_catalog = {}
     self._save_known_projects()
 

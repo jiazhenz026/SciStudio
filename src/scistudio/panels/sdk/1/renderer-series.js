@@ -3,6 +3,7 @@ import {
   html,
   useLayoutEffect,
   useRef,
+  useState,
 } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
 
 import {
@@ -16,136 +17,151 @@ import {
   Table,
 } from "./panel-ui.js";
 
-/**
- * Describe the samples the reading layer could not plot.
- *
- * Returns null when nothing was dropped, so a complete series carries no notice
- * at all — a caveat must appear only when there is something to caveat.
- */
-export function gapNotice(data) {
-  const count = data?.nonnumeric ?? 0;
-  if (!count) return null;
-  const positions = data?.nonfinite_positions ?? [];
-  const complete = data?.nonfinite_positions_complete !== false;
-  const noun = count === 1 ? "value" : "values";
-  if (!positions.length) {
-    return `${count} non-finite ${noun} (NaN or ±∞) are not plotted.`;
-  }
-  const shown = positions.slice(0, 8).join(", ");
-  const rest = positions.length > 8 ? `, …` : "";
-  const where = complete
-    ? `at index ${shown}${rest}`
-    : `including index ${shown}${rest}`;
-  return `${count} non-finite ${noun} (NaN or ±∞) are not plotted — ${where}.`;
+const SENTINELS = { NaN: NaN, Infinity: Infinity, "-Infinity": -Infinity };
+
+/** One transported cell as a number: a JSON sentinel becomes the value it names, anything else not a number is NaN. */
+export function toNumber(value) {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value in SENTINELS) return SENTINELS[value];
+  return NaN;
 }
 
 /**
- * Read the series read's points.
+ * Every row of a series read, in source order, as `{x, y, position}`.
  *
- * ``series.points`` answers as two parallel arrays: ``index`` carries the x
- * values and ``values`` the y values, one entry each per plotted point. (The
- * route splits the reader's x/y pairs into that shape for JSON callers.) An
- * older numeric transport sent the pairs row-wise, so a pair of numbers is
- * still accepted per entry.
+ * ``series.points`` answers with two parallel arrays: ``index`` carries the x
+ * values and ``values`` the y values, one entry per source row. Row ``i`` is
+ * source row ``offset + i``. Nothing is dropped: a non-finite or missing value
+ * arrives in place (as a `"NaN"` / `"Infinity"` / `"-Infinity"` sentinel over
+ * JSON) and stays in the result as that number. The binary transport's
+ * row-wise `[x, y]` pairs are accepted too.
  */
 export function readPoints(data) {
   const ys = data?.values;
-  if (!Array.isArray(ys)) return [];
-  const xs = Array.isArray(data?.index) ? data.index : null;
+  if (!Array.isArray(ys) && !ArrayBuffer.isView(ys)) return [];
+  const xs =
+    Array.isArray(data?.index) || ArrayBuffer.isView(data?.index)
+      ? data.index
+      : null;
+  const offset = typeof data?.offset === "number" ? data.offset : 0;
   const points = [];
   for (let i = 0; i < ys.length; i += 1) {
     const entry = ys[i];
-    // Row-wise pairs (the binary transport's JSON form).
+    const position = offset + i;
     if (Array.isArray(entry)) {
-      const [x, y] = entry;
-      if (typeof x === "number" && typeof y === "number") points.push({ x, y });
+      points.push({ x: toNumber(entry[0]), y: toNumber(entry[1]), position });
       continue;
     }
-    const x = xs ? xs[i] : i;
-    if (typeof entry !== "number" || typeof x !== "number") continue;
-    points.push({ x, y: entry });
+    points.push({
+      x: xs ? toNumber(xs[i]) : position,
+      y: toNumber(entry),
+      position,
+    });
   }
   return points;
 }
 
 /**
- * Where each returned point sat in the source, when the read did not say.
+ * Join consecutive `series.points` pages into one read, in order.
  *
- * A complete read returns every finite point in order, so a point's source
- * position is its own position plus the dropped ones before it. A decimated
- * read cannot be reconstructed this way, which is why it reports the positions
- * itself.
+ * A caller that follows `next_offset` from `0` holds the whole series once the
+ * last page (`next_offset: null`) is joined.
  */
-export function inferSourceIndices(count, gaps) {
-  const ordered = [...(gaps ?? [])].sort((a, b) => a - b);
-  const out = [];
-  let source = 0;
-  let g = 0;
-  for (let i = 0; i < count; i += 1) {
-    while (g < ordered.length && ordered[g] === source) {
-      source += 1;
-      g += 1;
-    }
-    out.push(source);
-    source += 1;
+export function mergePages(pages) {
+  const index = [];
+  const values = [];
+  let nonnumeric = 0;
+  for (const page of pages ?? []) {
+    for (const x of page?.index ?? []) index.push(x);
+    for (const y of page?.values ?? []) values.push(y);
+    nonnumeric += page?.nonnumeric ?? 0;
   }
-  return out;
+  const first = pages?.[0] ?? {};
+  const last = pages?.[pages.length - 1] ?? {};
+  return {
+    index,
+    values,
+    offset: typeof first.offset === "number" ? first.offset : 0,
+    total: last.total ?? values.length,
+    next_offset: last.next_offset ?? null,
+    nonnumeric,
+    truncated: last.next_offset != null,
+    complete: last.next_offset == null,
+  };
+}
+
+const finite = (point) => Number.isFinite(point.x) && Number.isFinite(point.y);
+
+/**
+ * Describe the rows the chart cannot draw, or null when every row is drawable.
+ *
+ * A complete series carries no notice at all — a caveat appears only when there
+ * is something to caveat. The rows themselves are still in the table view.
+ */
+export function gapNotice(data) {
+  const missing = readPoints(data).filter((point) => !finite(point));
+  if (!missing.length) return null;
+  const noun = missing.length === 1 ? "value" : "values";
+  const shown = missing
+    .slice(0, 8)
+    .map((point) => point.position)
+    .join(", ");
+  const rest = missing.length > 8 ? ", …" : "";
+  return `${missing.length} non-finite ${noun} (NaN, ±∞, or missing) cannot be drawn — at row ${shown}${rest}.`;
 }
 
 /**
- * Build the plotted line, breaking it where samples are missing.
+ * Build the plotted line, breaking it where a row has no finite value.
  *
- * Plotly renders null as a gap, so a break between two points shows the absence
- * between them rather than a straight segment drawn over it.
- *
- * The dropped positions are *source* positions, and for a series longer than
- * the read's budget the points are a sample of the source — so counting
- * returned points to find a gap puts it in the wrong place, or never reaches it
- * at all, and the curve is drawn continuous across data that is missing. Each
- * point's own source position is what the two are compared in.
+ * Plotly renders null as a gap, so a break shows the absence between two
+ * points rather than a straight segment drawn over it. A run of missing rows is
+ * one break.
  */
-export function lineData(points, positions, sourceIndices) {
+export function lineData(points) {
   const xs = [];
   const ys = [];
-  const rows = points ?? [];
-  const gaps = [...(positions ?? [])].sort((a, b) => a - b);
-  const sources =
-    Array.isArray(sourceIndices) && sourceIndices.length === rows.length
-      ? sourceIndices
-      : inferSourceIndices(rows.length, gaps);
-  let g = 0;
-  rows.forEach((point, i) => {
-    if (i > 0) {
-      const previous = sources[i - 1];
-      // Both lists ascend, so the cursor only moves forward.
-      while (g < gaps.length && gaps[g] <= previous) g += 1;
-      if (g < gaps.length && gaps[g] < sources[i]) {
+  let broken = false;
+  for (const point of points ?? []) {
+    if (!finite(point)) {
+      if (xs.length && !broken) {
         xs.push(null);
         ys.push(null);
       }
+      broken = true;
+      continue;
     }
+    broken = false;
     xs.push(point.x);
     ys.push(point.y);
-  });
+  }
+  if (broken && xs.length && xs[xs.length - 1] === null) {
+    xs.pop();
+    ys.pop();
+  }
   return { xs, ys };
 }
 
-function SeriesChart({ points, positions, sourceIndices, plotly }) {
+/** Above this many points the chart draws through WebGL so every point is still drawn. */
+const WEBGL_POINTS = 20000;
+
+function SeriesChart({ points, plotly }) {
   const node = useRef(null);
   useLayoutEffect(() => {
     const Plotly = plotly;
     const element = node.current;
     if (!Plotly || !element) return;
-    const { xs, ys } = lineData(points, positions, sourceIndices);
+    const { xs, ys } = lineData(points);
+    const large = points.length > WEBGL_POINTS;
     Plotly.react(
       element,
       [
         {
           x: xs,
           y: ys,
-          type: "scatter",
-          mode: "lines+markers",
+          type: large ? "scattergl" : "scatter",
+          mode: large ? "lines" : "lines+markers",
           marker: { color: "#f06a44" },
+          line: { color: "#f06a44" },
           connectgaps: false,
         },
       ],
@@ -158,7 +174,7 @@ function SeriesChart({ points, positions, sourceIndices, plotly }) {
       { displayModeBar: false, responsive: true },
     );
     return () => Plotly.purge(element);
-  }, [points, positions, sourceIndices, plotly]);
+  }, [points, plotly]);
   return html`<div
     class="series-chart"
     data-testid="series-chart"
@@ -166,30 +182,81 @@ function SeriesChart({ points, positions, sourceIndices, plotly }) {
   ></div>`;
 }
 
+const ROW_H = 22; // table row height, mirrored by renderers.css
+const VIEWPORT = 320; // the scroll surface's max height, from panel.css
+const OVERSCAN = 10;
+
+function formatValue(v) {
+  if (Number.isNaN(v)) return "NaN";
+  if (v === Infinity) return "∞";
+  if (v === -Infinity) return "-∞";
+  return String(v);
+}
+
+/**
+ * Every row, exactly, in a scrolling table. Only the rows in view are in the
+ * DOM; spacer rows of exactly the missing height keep the scrollbar describing
+ * the whole series.
+ */
 function SeriesTable({ points }) {
-  return html`<${ScrollArea} data-testid="series-table">
+  const [top, setTop] = useState(0);
+  const first = Math.max(0, Math.floor(top / ROW_H) - OVERSCAN);
+  const last = Math.min(
+    points.length,
+    Math.ceil((top + VIEWPORT) / ROW_H) + OVERSCAN,
+  );
+  const rows = points.slice(first, last);
+  return html`<${ScrollArea}
+    data-testid="series-table"
+    onScroll=${(event) => setTop(event.currentTarget.scrollTop)}
+  >
     <${Table} class="series-values">
       <thead>
         <tr>
+          <th>row</th>
           <th>x</th>
           <th>y</th>
         </tr>
       </thead>
       <tbody>
-        ${points.map(
-          (point, index) =>
-            html`<tr key=${index}>
-              <td>${point.x}</td>
-              <td>${point.y}</td>
+        ${first > 0
+          ? html`<tr
+              aria-hidden="true"
+              style=${`height:${first * ROW_H}px`}
+            ></tr>`
+          : null}
+        ${rows.map(
+          (point) =>
+            html`<tr key=${point.position} data-row=${point.position}>
+              <td>${point.position}</td>
+              <td>${formatValue(point.x)}</td>
+              <td>${formatValue(point.y)}</td>
             </tr>`,
         )}
+        ${last < points.length
+          ? html`<tr
+              aria-hidden="true"
+              style=${`height:${(points.length - last) * ROW_H}px`}
+            ></tr>`
+          : null}
       </tbody>
     <//>
   <//>`;
 }
 
+/**
+ * A series as a line chart or a table of every row. Rows without a finite value are drawn as breaks in the line, listed in a notice, and shown as they are in the table.
+ *
+ * @param {object} [props.data] A `series.points` result `{index, values, offset?, total?}`, several pages with their `index` and `values` joined in order, or computed `values` and `index` arrays. Every row is shown; nothing is sampled.
+ * @param {boolean} [props.loading] Set while further pages are still being read; the view says how many rows of `data.total` it holds.
+ * @param {"chart" | "table"} [props.mode] Which view to show.
+ * @param {function} [props.onModeChange] `(mode)` when the reader switches view.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {object} [props.plotly] The Plotly library for chart mode; load `plotly@2.35.3` from the shared libraries. Table mode needs none.
+ */
 export function SeriesView({
   data,
+  loading = false,
   mode = "chart",
   onModeChange = () => {},
   error,
@@ -205,7 +272,7 @@ export function SeriesView({
   }
 
   const points = readPoints(data);
-  const notice = gapNotice(data);
+  const notice = loading ? null : gapNotice(data);
 
   return html`<${Panel}>
     <${Row} class="series-modes">
@@ -222,6 +289,14 @@ export function SeriesView({
         >Table<//
       >
     <//>
+    ${loading
+      ? html`<${LoadingState} data-testid="series-loading-more">
+          Reading rows…
+          ${points.length.toLocaleString()}${typeof data.total === "number"
+            ? ` of ${data.total.toLocaleString()}`
+            : ""}
+        <//>`
+      : null}
     ${notice
       ? html`<div
           class="panel-hint"
@@ -232,16 +307,13 @@ export function SeriesView({
         </div>`
       : null}
     ${points.length === 0
-      ? html`<${EmptyState} data-testid="series-empty"
-          >This series has no plottable values.<//
-        >`
+      ? loading
+        ? null
+        : html`<${EmptyState} data-testid="series-empty"
+            >This series has no values.<//
+          >`
       : mode === "chart"
-        ? html`<${SeriesChart}
-            points=${points}
-            positions=${data.nonfinite_positions}
-            sourceIndices=${data.source_indices}
-            plotly=${plotly}
-          />`
+        ? html`<${SeriesChart} points=${points} plotly=${plotly} />`
         : html`<${SeriesTable} points=${points} />`}
   <//>`;
 }

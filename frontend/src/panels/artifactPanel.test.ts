@@ -10,7 +10,7 @@
  * The fixtures use the shape the read really answers with. `artifact.info` and
  * `artifact.file` are built in `panels/reads.py` from the resolved file —
  * `name`, `path`, `mime_type`, `size` — and the route adds
- * `sampled`/`truncated`/`complete` and absolutises `url`. There is no
+ * `truncated`/`complete` and absolutises `url`. There is no
  * `data_uri` on this path: bytes travel through the token-scoped artifact URL.
  */
 import { readFileSync } from "node:fs";
@@ -54,7 +54,6 @@ function info(overrides: Record<string, unknown> = {}) {
     path: "/project/runs/r1/figure.png",
     mime_type: "image/png",
     size: 2048,
-    sampled: false,
     truncated: false,
     complete: true,
     ...overrides,

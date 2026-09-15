@@ -60,6 +60,18 @@ function basename(path) {
   return parts[parts.length - 1] || String(path);
 }
 
+/**
+ * A grid of a collection's items. The caller owns paging and what opening an item does.
+ *
+ * @param {object[]} [props.items] The items read so far, `{ref?, data_ref?, display_name?, type_name?, metadata?}`.
+ * @param {number} [props.count] Total number of items in the collection.
+ * @param {string} [props.itemType] What the items are called in the summary.
+ * @param {boolean} [props.loading] Marks a read in flight.
+ * @param {boolean} [props.hasMore] Show the Show more control.
+ * @param {function} [props.onLoadMore] Called by Show more.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {function} [props.onOpen] `(ref, item)` when the reader opens an item; items are not clickable without it.
+ */
 export function CollectionView({
   items = [],
   count = items.length,
