@@ -1599,6 +1599,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.450883Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.461631Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.472915Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.484325Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.495227Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.506128Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.516610Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.527316Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.539355Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.551207Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:04:31.563008Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1611,8 +1699,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "443a1853c10fdcc32d376c3116a48478326ecaea",
-    "base_sha": "443a1853",
+    "base": "origin/main",
+    "base_sha": "25a378c0",
     "changed_files": [
       ".workflow/records/2396-feat-2396-in-app-installer.json",
       "CHANGELOG.md",
@@ -1626,25 +1714,24 @@
       "desktop/test/installer.test.js",
       "docs/ai-developer/release-runbook.md",
       "docs/specs/desktop-in-app-installer.md",
-      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
       "scripts/ota_publish.py",
       "scripts/templates/reinstall-notice.html",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:3169fa12cbb383c76e81b11c0ea805c41ea2ca5c1f6b22271440db6f5efd70b4",
+    "diff_fingerprint": "sha256:242b0583a876d3dd74aa31cca524578ffbc19802e93af2c4538d242b7250cd7e",
     "head": "HEAD",
-    "head_sha": "2dd2f729",
+    "head_sha": "5ae2be5a",
     "surfaces": {
       "docs": 2,
-      "frontend": 1,
+      "frontend": 0,
       "governance": 1,
       "governed_docs": 1,
-      "implementation": 1,
+      "implementation": 0,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 3,
-      "test": 4,
+      "sentrux": 2,
+      "test": 3,
       "workflow_ci": 0
     }
   },
@@ -1746,6 +1833,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T08:04:31.563044Z",
+      "diff_fingerprint": "sha256:242b0583a876d3dd74aa31cca524578ffbc19802e93af2c4538d242b7250cd7e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2396-feat-2396-in-app-installer",
@@ -1757,7 +1852,6 @@
       "commit_hygiene",
       "deferral_discipline",
       "format_check",
-      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -1780,9 +1874,7 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": [
-      "changed_test_required"
-    ]
+    "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
