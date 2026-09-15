@@ -13,7 +13,7 @@ The runtime constructs one of these per request and injects it on
 The result types below are plain dataclasses with JSON-safe contents.
 
 **Deprecated.** Every public symbol of this module is deprecated since 0.3.5,
-stays supported until it is removed in 0.6.0, and is replaced by HTML panels,
+stays supported until it is removed in 0.3.6, and is replaced by HTML panels,
 which read data through the panel SDK (see :mod:`scistudio.panels`).
 
 Array reads are bounded directly against the storage handle: a Zarr array is
@@ -572,7 +572,7 @@ class PreviewDataAccess:
         """
         # TODO(#2462): this deprecated provider read still downsamples the plane to max_dim.
         #   Out of scope per #2460: panel reads (array.plane / array.tile) are complete; this legacy
-        #   ADR-048 form is shadowed by core.array.basic and is removed in 0.6 (#2288).
+        #   ADR-048 form is shadowed by core.array.basic and is removed in 0.3.6 (#2288).
         #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2462
         import numpy as np
 

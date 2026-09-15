@@ -66,7 +66,7 @@ def test_deprecated_previewers_dir_is_not_scaffolded() -> None:
 
 
 def test_existing_previewers_dir_is_still_scanned(tmp_path: Path) -> None:
-    """Dropping the scaffold must not drop the scan: old projects keep working until 0.6."""
+    """Dropping the scaffold must not drop the scan: old projects keep working until 0.3.6."""
     (tmp_path / PREVIEWERS_DIR_NAME).mkdir()
     assert previewer_scan_dirs(tmp_path)[0] == tmp_path / PREVIEWERS_DIR_NAME
 

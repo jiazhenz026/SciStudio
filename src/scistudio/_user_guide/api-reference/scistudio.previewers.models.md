@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.previewers.models import ...`
 
-> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.6.0`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.3.6`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 Self-contained public-API reference — 21 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
 
@@ -12,7 +12,7 @@ Self-contained public-API reference — 21 symbols from this module's `__all__`,
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class EnvelopeKind(StrEnum)
@@ -29,7 +29,7 @@ two so existing callers and tests keep working.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class FrontendManifest
@@ -61,7 +61,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class OwnerKind(StrEnum)
@@ -78,7 +78,7 @@ values appear verbatim in the REST and session API payloads.
 
 **Stability:** _unmarked — no runtime stability marker_
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 _constant_ — see the module source for the value.
 
@@ -86,7 +86,7 @@ _constant_ — see the module source for the value.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewEnvelope
@@ -120,7 +120,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewError(Exception)
@@ -145,7 +145,7 @@ Args:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewErrorCode(StrEnum)
@@ -160,7 +160,7 @@ frontend can react consistently instead of parsing a free-text message.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewErrorInfo
@@ -181,7 +181,7 @@ optional structured detail.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewLimits
@@ -207,7 +207,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewMetadata
@@ -234,7 +234,7 @@ Example:
 
 **Stability:** _unmarked — no runtime stability marker_
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 _type-alias_ — see the module source for the value.
 
@@ -242,7 +242,7 @@ _type-alias_ — see the module source for the value.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewRequest
@@ -270,7 +270,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewResource
@@ -298,7 +298,7 @@ Example:
 
 **Stability:** _unmarked — no runtime stability marker_
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 _type-alias_ — see the module source for the value.
 
@@ -306,7 +306,7 @@ _type-alias_ — see the module source for the value.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewSource
@@ -332,7 +332,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewTarget
@@ -365,7 +365,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewerEntryPoint(Protocol)
@@ -395,7 +395,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewerSpec
@@ -430,7 +430,7 @@ Example:
 
 **Stability:** _unmarked — no runtime stability marker_
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 _type-alias_ — see the module source for the value.
 
@@ -443,7 +443,7 @@ The argument must be an iterable if specified.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ProviderError(PreviewError)
@@ -459,7 +459,7 @@ it and renders a ``provider_exception`` error envelope.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TargetKind(StrEnum)

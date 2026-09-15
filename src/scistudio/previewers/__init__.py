@@ -16,7 +16,7 @@ package top level. Your package wires a ``scistudio.previewers`` entry point to
 a callable returning ``list[PreviewerSpec]`` (see :class:`PreviewerEntryPoint`)
 and otherwise only constructs the public model and data-access types. The whole
 preview subsystem is **provisional** and **deprecated**: deprecated since 0.3.5,
-supported until it is removed in 0.6.0, and replaced by HTML panels (see
+supported until it is removed in 0.3.6, and replaced by HTML panels (see
 :mod:`scistudio.panels`).
 
 The operational layer — :class:`PreviewerRegistry`, :class:`PreviewRouter`,

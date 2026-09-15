@@ -32,7 +32,7 @@ _CORE_SENTINEL_TYPES = ("DataObject", "Collection", "PlotArtifact")
 
 
 # TODO(#2288): owner_kind uses OwnerKind from the deprecated previewer models root.
-#   Out of scope per #2426; the enum needs a non-deprecated home before 0.6.
+#   Out of scope per #2426; the enum needs a non-deprecated home before 0.3.6.
 #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2288
 @provisional(since="0.3.5")
 @dataclass(frozen=True)

@@ -33,7 +33,7 @@ scope:
     - "Per-panel Python providers for reads (ADR-054 §5; tracked in #2288). Panel Python (`panel.py`) and the `miniapp` context are specified separately, as Phase D, in `adr-054-miniapp`."
     - "Interactive panels reading the block's inputs; they receive only the `prepare_prompt` view (ADR-054 §2)."
     - "Editing a panel's source inside the application (tracked in #2288)."
-    - "Removing the legacy previewer forms, the compiled core viewers kept for them, and the backend provider and envelope path; that happens in 0.6 (tracked in #2288)."
+    - "Removing the legacy previewer forms, the compiled core viewers kept for them, and the backend provider and envelope path; that happens in 0.3.6 (tracked in #2288)."
     - "Migrating the external imaging, spectroscopy, LCMS, and package-template repositories; each migrates in its own repository (tracked in #2288)."
     - "Rewriting the tutorial copy of \"What Is A Type\"; the copy is owner-authored (FR-049)."
     - "Any change to the ADR-051 runtime, its `interactive_prompt` event, interaction memory, or the embedded agent's MCP preview tools (`src/scistudio/ai/agent/mcp/tools_inspection/_preview.py`, which read data independently of the preview service)."
@@ -184,7 +184,7 @@ What does not change: previewers stay read-only; ADR-051's runtime, its
 interactive window stays a full-screen modal; the ADR-048 §3 routing ladder,
 ambiguity rule, and per-type user choice carry over. Both legacy previewer forms
 — `mount(container, host)` modules and Python-only previewers — keep working,
-deprecated, through 0.5.x.
+deprecated, until 0.3.6.
 
 ### Phase A Owner Decisions (2026-09-11)
 
@@ -386,7 +386,7 @@ finding.
    `interactive`, **When** the block pauses, **Then** the modal shows an error
    naming both panels and offers Cancel.
 
-### User Story 8 - Both legacy previewer forms keep working, deprecated, through 0.5.x (Priority: P2)
+### User Story 8 - Both legacy previewer forms keep working, deprecated, until 0.3.6 (Priority: P2)
 
 The imaging and spectroscopy packages' `FrontendManifest` previewers, the LCMS
 package's `module_url` panels, and Python-only previewers such as the tutorial's
@@ -740,12 +740,12 @@ CDNs, and renders.
   in a preview it MUST also offer the core panel for the type, and in an
   interactive modal it MUST offer Cancel. The host MUST NOT fall back silently.
 - **FR-036**: The `FrontendManifest` module path and the `PanelManifest`
-  `module_url` path MUST keep working through 0.5.x through the existing loaders.
+  `module_url` path MUST keep working until 0.3.6 through the existing loaders.
   Registering either MUST record a deprecation diagnostic naming the panel
   replacement and emit a `DeprecationWarning`; the frontend MUST log one warning
   per legacy module load. These paths MUST gain no feature of the panel model.
 - **FR-037**: A `PreviewerSpec` with a backend provider and no frontend manifest
-  MUST keep rendering through 0.5.x, its envelope drawn by the compiled core
+  MUST keep rendering until 0.3.6, its envelope drawn by the compiled core
   viewers retained for that purpose (FR-043), and MUST record a deprecation
   diagnostic. A legacy module that fails to load MUST degrade to the compiled
   viewer for its envelope kind, as today.
@@ -795,7 +795,7 @@ CDNs, and renders.
   MUST delete `DataRouterModal`, `PairEditorModal`, and the `PANEL_REGISTRY` of
   built-in interactive windows, and MUST stop using the compiled core viewers for
   anything but envelopes from legacy previewers (FR-037). The compiled viewers are
-  removed in 0.6 with the legacy forms (#2288).
+  removed in 0.3.6 with the legacy forms (#2288).
 
 **Phase C — docs and skills**
 
@@ -804,7 +804,7 @@ CDNs, and renders.
   read operation, the library set, the CDN allowlist and the offline caveat, view
   state, the frame's limits, testing with `panel.sample.json`, the
   `scistudio.panels` entry point, and the tiers. `previewers.md` MUST be reduced to
-  both legacy forms and a migration guide until 0.6, and the other
+  both legacy forms and a migration guide until 0.3.6, and the other
   package-development pages that mention previewers or `PanelManifest` MUST point
   to `panels.md`.
 - **FR-045**: A new embedded-agent skill
@@ -942,7 +942,7 @@ panel page ──GET (token in path)──▶ /api/panels/t/{token}/{assets|sdk|
 | `frontend/src/components/DataPreview.tsx`, `frontend/src/store/tabSlice.parts/previewTabActions.ts`, `frontend/src/App.parts/ProjectWorkspace.tsx` | modify | Maximize carries panel id and view state; disposal on drop |
 | `frontend/src/App.parts/InteractiveModals.tsx` and `.parts/**` | modify | Mount panels by id; keep `DynamicPanel` for legacy |
 | `frontend/src/components/DataRouterModal.tsx`, `frontend/src/components/PairEditorModal.tsx` | delete | Phase B, after parity |
-| `frontend/src/components/DataPreview.parts/coreViewers.tsx`, `TableViewer.tsx`, `PlotViewer.tsx` | modify | Phase B: used only for legacy envelopes (removed in 0.6, #2288) |
+| `frontend/src/components/DataPreview.parts/coreViewers.tsx`, `TableViewer.tsx`, `PlotViewer.tsx` | modify | Phase B: used only for legacy envelopes (removed in 0.3.6, #2288) |
 | `docs/package-development/panels.md` | create | Phase C guide |
 | `docs/package-development/previewers.md`, `index.md`, `architecture.md`, `blocks.md`, `publishing.md` | modify | Phase C |
 | `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md` | create | Phase C skill |
@@ -1014,7 +1014,7 @@ independently of panels.
   be reverted independently.
 - **Confidentiality.** A panel can still navigate or load allowlisted scripts;
   the frame teardown and allowlist narrow this and ADR-054 §4 states the limit.
-- **Two loaders and two rendering paths until 0.6.** Deprecation diagnostics make
+- **Two loaders and two rendering paths until 0.3.6.** Deprecation diagnostics make
   every remaining legacy use visible; removal is tracked in #2288.
 - **Rollback.** Phase A is additive; Phase B is reverted together with any panel
   found wanting, restoring the compiled windows.

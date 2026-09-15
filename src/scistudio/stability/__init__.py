@@ -68,7 +68,7 @@
 # declaring its whole public surface deprecated; that is how a root's
 # non-markable constants and type aliases are covered::
 #
-#     _deprecated = deprecated(since="0.3.5", removed_in="0.6.0", replacement="...")
+#     _deprecated = deprecated(since="0.3.5", removed_in="0.3.6", replacement="...")
 #
 #     @_deprecated
 #     @provisional(since="0.3.1")

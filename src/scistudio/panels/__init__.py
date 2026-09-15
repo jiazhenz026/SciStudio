@@ -44,7 +44,7 @@ inside this package carry no promise.
 # TODO(#2288): PanelDescriptor.owner_kind and parse_descriptor(owner_kind=...)
 #   still use OwnerKind from the deprecated scistudio.previewers.models root.
 #   Out of scope per #2426 (marking only); the tier enum needs a non-deprecated
-#   home before the previewer surface is removed in 0.6.
+#   home before the previewer surface is removed in 0.3.6.
 #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2288
 # Development references: ADR-052, ADR-054, #2426.
 

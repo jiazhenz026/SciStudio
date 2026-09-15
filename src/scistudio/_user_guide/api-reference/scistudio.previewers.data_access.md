@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.previewers.data_access import ...`
 
-> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.6.0`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.3.6`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 Self-contained public-API reference — 11 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
 
@@ -12,7 +12,7 @@ Self-contained public-API reference — 11 symbols from this module's `__all__`,
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArrayPlane
@@ -31,7 +31,7 @@ extra axis).
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArrayTile
@@ -47,7 +47,7 @@ zoomed-in region of a large plane without loading the whole plane.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArtifactInfo
@@ -64,7 +64,7 @@ files return metadata only.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class CollectionSample
@@ -77,7 +77,7 @@ A bounded sample of a collection's items.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class CompositeSlots
@@ -90,7 +90,7 @@ The slot inventory of a composite target, with no child rendered.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class DataFramePage
@@ -106,7 +106,7 @@ render a pager. The page size is capped by the session row budget.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewDataAccess
@@ -147,7 +147,7 @@ Example:
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class SeriesPoints
@@ -162,7 +162,7 @@ Every plottable point is returned; nothing is sampled.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class SliceAxis
@@ -179,7 +179,7 @@ the frontend needs to render one such index picker.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TableXYPoints
@@ -192,7 +192,7 @@ The complete finite set of (x, y) points from two table columns.
 
 **Stability:** `provisional` · Since `0.3.1`
 
-**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TextChunk

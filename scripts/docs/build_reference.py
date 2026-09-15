@@ -76,7 +76,7 @@ from scistudio.stability import DeprecationInfo, get_deprecation, get_stability 
 #: (ADR-052 §3/§4; identical to the SciStudio freeze contract). ``api.app`` and
 #: ``api.seam`` are the ADR-055 identity seam an edition composes on (#2304);
 #: ``panels`` is the ADR-054 panels surface (#2426). The two ``previewers`` roots
-#: are deprecated as a whole and removed in 0.6 (ADR-054 §8, #2288).
+#: are deprecated as a whole and removed in 0.3.6 (ADR-054 §8, #2288).
 CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.core.types",
     "scistudio.core.meta",

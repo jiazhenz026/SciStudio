@@ -1,0 +1,134 @@
+{
+  "base_ref": null,
+  "branch": "fix/2468-previewer-deprecation-0-3-6",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "CHANGELOG.md",
+      "docs/adr/ADR-052.md",
+      "docs/adr/ADR-054.md",
+      "docs/planning/adr-054-backend-notes.md",
+      "docs/planning/adr-054-browser-validation.md",
+      "docs/planning/adr-054-contract-notes.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "docs/specs/adr-054-panels.md",
+      "docs/user/reference/scistudio.previewers.data_access.md",
+      "docs/user/reference/scistudio.previewers.models.md",
+      "frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts",
+      "frontend/src/components/DataPreview.parts/dynamicPreviewer.ts",
+      "scripts/docs/build_reference.py",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "src/scistudio/api/project_layout.py",
+      "src/scistudio/panels/__init__.py",
+      "src/scistudio/panels/descriptor.py",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/previewers/_deprecation.py",
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/helpers.py",
+      "src/scistudio/previewers/models.py",
+      "src/scistudio/previewers/registry.py",
+      "src/scistudio/stability/__init__.py",
+      "tests/api/public_surface.snapshot.json",
+      "tests/api/test_previewers.py",
+      "tests/api/test_project_layout.py",
+      "tests/api/test_public_surface.py",
+      "tests/docs/test_build_reference_deprecation.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T17:23:21.550434Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:21.550562Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:21.550564Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:21.550565Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2468,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Correct the legacy previewer removal version from 0.6.0 to 0.3.6 everywhere (code, snapshot, tests, generated reference, and documentation except skills and ARCHITECTURE.md); open a PR closing #2468; do not merge.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2468-previewer-deprecation-0-3-6",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "45079657-a5f3-4a24-a103-4f22d5abe621",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T17:23:21.550568Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:21.550570Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewers.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:23:21.550571Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_build_reference_deprecation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
