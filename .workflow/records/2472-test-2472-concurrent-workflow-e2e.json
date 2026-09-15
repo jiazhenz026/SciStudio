@@ -1,0 +1,72 @@
+{
+  "base_ref": null,
+  "branch": "test/2472-concurrent-workflow-e2e",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/e2e/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T18:18:13.834993Z",
+      "class": "test-only",
+      "kind": "na",
+      "path": null,
+      "rationale": "adds opt-in e2e tests; no product behavior, contract or doc surface changes; new bug filed as #2474",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2472,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Write e2e tests running different workflows concurrently proving no state leaks between runs (lineage, outputs, workflow state, previews, prompts); strict-xfail real bugs citing issues; test-only, no src changes",
+  "persona": "test_engineer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2472-test-2472-concurrent-workflow-e2e",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:18:13.834733Z",
+      "pattern": "tests/e2e/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "bbd31dd0-af32-4c7f-8421-026434028683",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-15T18:18:13.835003Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_concurrent_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
