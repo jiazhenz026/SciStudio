@@ -95,7 +95,7 @@ describe("OpenAsDialog (#2112)", () => {
     getOpenAsCandidatesMock.mockResolvedValue(AMBIGUOUS as any);
     render(<OpenAsDialog />);
 
-    void openDataFileAsPreview("proj-1", "data/img.tif", "img.tif");
+    const opening = openDataFileAsPreview("proj-1", "data/img.tif", "img.tif");
     await screen.findByTestId("open-as-dialog");
 
     for (const name of ["SRSImage", "Image", "Artifact"]) {
@@ -107,7 +107,40 @@ describe("OpenAsDialog (#2112)", () => {
     expect(screen.getByText("built in")).toBeInTheDocument();
 
     // First candidate (project tier) is preselected.
-    await waitFor(() => expect(radioFor("SRSImage").checked).toBe(true));
+    expect(radioFor("SRSImage").checked).toBe(true);
+
+    // Answer the picker so the flow this test started ends inside the test.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await opening;
+  });
+
+  it("is never on screen without its seeded choice (#2381)", async () => {
+    // The selection used to be seeded by an effect that ran after the dialog
+    // was already in the document. A pick made in that gap was overwritten by
+    // the late seed, and the file opened as a type nobody chose. Read the radios
+    // at the moment the dialog node is inserted, before anything else can run.
+    getOpenAsCandidatesMock.mockResolvedValue({ ...AMBIGUOUS, remembered: "Image" } as any);
+    render(<OpenAsDialog />);
+
+    let checkedAtInsert: string[] | null = null;
+    const observer = new MutationObserver(() => {
+      const dialog = document.querySelector("[data-testid=open-as-dialog]");
+      if (dialog === null || checkedAtInsert !== null) return;
+      checkedAtInsert = Array.from(dialog.querySelectorAll<HTMLInputElement>("input[type=radio]"))
+        .filter((radio) => radio.checked)
+        .map((radio) => radio.value);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const opening = openDataFileAsPreview("proj-1", "data/img.tif", "img.tif", { forceAsk: true });
+    await screen.findByTestId("open-as-dialog");
+    observer.disconnect();
+
+    expect(checkedAtInsert).toEqual(["Image"]);
+    expect(screen.getByTestId("open-as-remember")).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await opening;
   });
 
   it("opens the file as the picked type and remembers it when the box is checked", async () => {
