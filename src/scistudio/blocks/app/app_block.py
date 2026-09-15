@@ -687,7 +687,7 @@ _ADHOC_WORKFLOW = "adhoc"
 def _path_component(value: str, *, fallback: str) -> str:
     """Return *value* as one directory name, replacing separators if present.
 
-    Workflow run identities (#2394) and node ids are already single path
+    Workflow run identities and node ids are already single path
     segments and are used unchanged; anything that is not is made safe so it
     cannot escape the exchange root.
     """
@@ -728,11 +728,12 @@ def _project_exchange_dir(project_dir: Path, *, workflow_id: str, block_id: str,
 def _is_legacy_default_output_dir(output_dir: str, *, project_dir: Any, block_id: str) -> bool:
     """Whether *output_dir* is a value the workflow editor used to pre-fill.
 
-    Before #2424 the editor stamped ``<project>/data/exchange/outputs`` (block
+    The editor used to stamp ``<project>/data/exchange/outputs`` (block
     palette) or ``<project>/data/exchange/<node>/outputs`` (add node) into every
     new AppBlock. Those shared folders are exactly what per-run exchange
     folders replace, so they are read as "no output folder chosen".
     """
+    # Development references: #2424.
     if not project_dir:
         return False
     exchange_root = Path(str(project_dir)) / "data" / _EXCHANGE_DIR_NAME

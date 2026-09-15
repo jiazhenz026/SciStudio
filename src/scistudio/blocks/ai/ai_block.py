@@ -760,7 +760,7 @@ class AIBlock(Block):
         A reuse hit requires **every** declared output to still be present at
         its ``expected_path`` and be non-empty; that is exactly the "never ran /
         no prior output" boundary the fallback is meant to cover. The files
-        must also have been produced by this same workflow node (#2424): the
+        must also have been produced by this same workflow node: the
         most recent AI Block run record that names any of the paths must be a
         run of *block_name* in *workflow_id* with the same output paths, so a
         same-named node in another workflow, or another node sharing a
@@ -830,8 +830,8 @@ def _outputs_last_produced_by(
     scanned newest first; the first one that names any of *resolved_paths* is
     the last execution that wrote (or re-emitted) them. Reuse is allowed only
     when that execution is *block_name* in *workflow_id* and it names the same
-    path for every port. Records written before #2424 carry no workflow
-    identity and never match.
+    path for every port. Older records that carry no workflow identity never
+    match.
     """
     # Development references: #2424, #1898.
     from pathlib import Path
@@ -929,7 +929,7 @@ def _clear_expected_outputs(output_specs: dict[str, dict[str, Any]], project_dir
 
     The FileWatcher completion path (CompletionWatcher) fires when every declared
     ``expected_path`` exists and is size-stable. The output folder
-    (``data/ai_outputs/<workflow>/<block>/`` by default, #2424) persists across runs, so a leftover file from a previous run would complete
+    (``data/ai_outputs/<workflow>/<block>/`` by default) persists across runs, so a leftover file from a previous run would complete
     the block immediately — before the agent produces anything. Clearing them up
     front means completion only triggers on output this run actually creates (or
     the MCP finish tool / user "Mark done"). Best-effort; missing files and

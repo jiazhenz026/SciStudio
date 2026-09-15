@@ -65,8 +65,9 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+# Development references: #2424.
 AI_OUTPUTS_ROOT = "data/ai_outputs"
-"""Project-relative folder holding AI Block default outputs (#2424)."""
+"""Project-relative folder holding AI Block default outputs."""
 
 
 def _path_component(value: str, *, fallback: str) -> str:
@@ -334,9 +335,9 @@ class RunDir:
     def _default_expected_path(block_name: str, port: OutputPort, *, workflow_id: str = "") -> str:
         """Compute ``./data/ai_outputs/{workflow}/{block_name}/{port.name}.{ext}``.
 
-        The workflow run identity (#2394) is part of the path so same-named
-        nodes in different workflows never share, clear, or reuse each other's
-        outputs (#2424). An ad-hoc run (no workflow) uses ``adhoc``.
+        The workflow run identity is part of the path so same-named nodes in
+        different workflows never share, clear, or reuse each other's outputs.
+        An ad-hoc run (no workflow) uses ``adhoc``.
 
         Picks an extension based on the first accepted type:
             DataFrame  -> .csv
@@ -355,6 +356,7 @@ class RunDir:
             "Artifact": "bin",
             "CompositeData": "json",
         }
+        # Development references: #2424, #2394.
         ext = ext_map.get(port.accepted_types[0].__name__, "dat") if port.accepted_types else "dat"
         workflow_dir = _path_component(workflow_id, fallback="adhoc")
         block_dir = _path_component(block_name, fallback="block")
