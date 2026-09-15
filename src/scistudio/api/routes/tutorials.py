@@ -68,6 +68,7 @@ from scistudio.core.dropins import (
     tutorial_library_dir,
 )
 from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
+from scistudio.plot.runtime import safe_cache_segment
 from scistudio.tutorials.conditions import (
     UI_EVENT_NAMES,
     ExternalEventNames,
@@ -512,6 +513,16 @@ class _ApiProductState:
         project has exactly one, ``main``, so the fallback is the normal path
         during a tutorial rather than an edge case.
         """
+        workflow_id = self._workflow_ref()
+        if workflow_id is None:
+            return None
+        try:
+            return self.runtime.load_workflow(workflow_id)
+        except (FileNotFoundError, OSError, ValueError):
+            return None
+
+    def _workflow_ref(self) -> str | None:
+        """The name the edited workflow is loaded by: its filename stem."""
         if self.runtime.active_project is None:
             return None
         workflow_id = self.runtime.active_workflow_id
@@ -520,10 +531,21 @@ class _ApiProductState:
             if not available:
                 return None
             workflow_id = available[0]
-        try:
-            return self.runtime.load_workflow(workflow_id)
-        except (FileNotFoundError, OSError, ValueError):
+        return workflow_id
+
+    def _workflow_scope_id(self) -> str | None:
+        """The id the edited workflow's runs and preview cache are filed under.
+
+        ``WorkflowDefinition.id`` defaults to ``""`` for a YAML that omits it;
+        the run registry, the lineage rows, and the plot preview cache then use
+        the workflow's filename stem, so an empty id falls back to that rather
+        than reading as "no workflow".
+        """
+        # Development references: #2362.
+        workflow = self.workflow()
+        if workflow is None:
             return None
+        return getattr(workflow, "id", None) or self._workflow_ref()
 
     # -- the three registries --------------------------------------------
 
@@ -600,7 +622,8 @@ class _ApiProductState:
         return tuple(bindings)
 
     def rendered_plots(self) -> tuple[tuple[str, str, str, str], ...]:
-        """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure.
+        """``(workflow_id, node_id, output_port, plot_id)`` for every rendered figure
+        **of the workflow being edited**.
 
         Read straight off the preview cache, whose layout is the plot runtime's
         Preview files under ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/
@@ -608,14 +631,24 @@ class _ApiProductState:
         ``current.json`` run record. A directory holding only the record has
         recorded a run that produced no figure, so it does not count — the term
         judges "a figure exists", not "a render was attempted".
+
+        The cache's first path segment is the workflow, and ``plot_rendered``
+        selects on node id and port — neither of which is unique across
+        workflows — so returning every workflow's figures let a step be
+        satisfied by a plot the reader rendered somewhere else.
         """
-        # Development references: #2066.
+        # Development references: #2066, #2362.
         project_dir = self.project_dir
         if project_dir is None:
             return ()
+        workflow_id = self._workflow_scope_id()
+        if not workflow_id:
+            return ()
         root = project_dir / ".scistudio" / "previews"
         found: list[tuple[str, str, str, str]] = []
-        artifacts: list[Path] = _read_or(lambda: sorted(root.glob("*/*/*/*/current.*")), list[Path]())
+        artifacts: list[Path] = _read_or(
+            lambda: sorted((root / safe_cache_segment(workflow_id)).glob("*/*/*/current.*")), list[Path]()
+        )
         for artifact in artifacts:
             if artifact.name == "current.json":
                 continue
@@ -663,7 +696,7 @@ class _ApiProductState:
         return tuple(summaries)
 
     def port_has_output(self, node_id: str, port: str) -> bool:
-        """Whether ``node_id``'s ``port`` holds data.
+        """Whether ``node_id``'s ``port`` holds data **in the workflow being edited**.
 
         Asked of both halves of the product's own answer, because they go stale
         in opposite directions. The scheduler's in-memory outputs are what the
@@ -672,10 +705,21 @@ class _ApiProductState:
         input/output edges are written per block execution and survive a
         restart. A step waiting on an output must not regress because the
         backend was restarted, nor wait for a database write to land.
+
+        Both halves are confined to the reader's workflow. A node id is not
+        unique across a project — generated ids like ``load_data_1`` repeat in
+        every workflow — so asking the question of *any* workflow let a step
+        about the workflow the reader is building be satisfied by a node of the
+        same name in one they had already finished.
         """
-        for run in list(self.runtime.workflow_runs.values()):
-            scheduler = getattr(run, "scheduler", None)
-            outputs = getattr(scheduler, "_block_outputs", None)
+        # Development references: #2362.
+        workflow_id = self._workflow_scope_id()
+        if not workflow_id:
+            return False
+
+        run = self.runtime.workflow_runs.get(workflow_id)
+        if run is not None:
+            outputs = getattr(getattr(run, "scheduler", None), "_block_outputs", None)
             if isinstance(outputs, dict):
                 produced = outputs.get(node_id)
                 if isinstance(produced, dict) and port in produced:
@@ -684,7 +728,9 @@ class _ApiProductState:
         store = self.runtime.lineage_store
         if store is None:
             return False
-        rows: list[dict[str, Any]] = _read_or(lambda: store.list_runs(limit=_RUN_HISTORY_LIMIT), [])
+        rows: list[dict[str, Any]] = _read_or(
+            lambda: store.list_runs(workflow_id=workflow_id, limit=_RUN_HISTORY_LIMIT), []
+        )
         for row in rows:
             run_id = str(row.get("run_id") or "")
             if not run_id:

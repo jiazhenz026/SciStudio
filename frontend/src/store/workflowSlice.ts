@@ -3,6 +3,7 @@ import type { StateCreator } from "zustand";
 import { setWorkflowWriteStartedListener } from "../lib/api";
 import type { VersionedWorkflowResponse } from "../lib/api";
 import type { AppStore, WorkflowSlice } from "./types";
+import { executionViewKey, projectExecution } from "./executionSlice.parts/eventReducer";
 import {
   createAddAnnotationNode,
   createAddNode,
@@ -50,9 +51,18 @@ export const createWorkflowSlice: StateCreator<AppStore, [], [], WorkflowSlice> 
     workflowHistory: [],
     workflowFuture: [],
     setWorkflow: (workflow) =>
-      set(() => {
+      set((state) => {
         const baseVersion = stateVersionOf(workflow as VersionedWorkflowResponse | null);
         return {
+          // #2362: the node-keyed execution maps are a projection of
+          // `executionByWorkflow` onto the workflow on screen, so changing
+          // which workflow that is re-projects them. Without this the previous
+          // workflow's status glyphs and data refs stayed on the canvas and
+          // answered for every node the two workflows happen to name the same.
+          ...projectExecution(
+            state.executionByWorkflow,
+            executionViewKey({ ...state, workflowId: workflow?.id ?? null }),
+          ),
           workflowId: workflow?.id ?? null,
           // #796: WorkflowModel.id has an empty-string default in the backend
           // schema. A workflow YAML that omits the `id:` field round-trips through

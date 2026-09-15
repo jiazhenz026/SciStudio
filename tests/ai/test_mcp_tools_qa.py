@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -248,27 +249,80 @@ def test_get_project_info_no_project_raises(tmp_path: Path) -> None:
         _context.set_context(None)
 
 
-# --- open_gui (#1947) ------------------------------------------------------
+# --- open_gui (#1947, #2385) ----------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("published", "expected"),
-    [
-        ("http://127.0.0.1:54321/", "http://127.0.0.1:54321"),
-        ("  https://studio.example/lab/session/  ", "https://studio.example/lab/session"),
-    ],
-)
-def test_open_gui_happy(monkeypatch: pytest.MonkeyPatch, published: str, expected: str) -> None:
-    """Returns the running GUI URL published by the backend on startup.
+@dataclass
+class _StubRuntimeWithWorkflow(_StubRuntime):
+    active_workflow_id: str | None = None
 
-    open_gui reads the canonical ``SCISTUDIO_ENGINE_API_URL`` (ADR-035 §3.10);
-    it needs no project context. A trailing slash is stripped so the agent
-    gets a clean base URL to open in a browser.
-    """
+
+@pytest.fixture(params=["http://127.0.0.1:54321/", "  http://127.0.0.1:54321/lab/session/  "])
+def gui_url(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> str:
+    published = str(request.param)
     monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", published)
-    out = _run(tools_qa.open_gui())
-    assert out.url == expected
-    assert out.hint  # non-empty usage guidance
+    return published.strip().rstrip("/")
+
+
+def _open_gui_with(runtime: object | None):
+    _context.set_context(runtime)
+    try:
+        return _run(tools_qa.open_gui())
+    finally:
+        _context.set_context(None)
+
+
+def test_open_gui_deep_links_project_and_active_workflow(gui_url: str, tmp_path: Path) -> None:
+    """With a project and an active workflow open, the URL opens that view (#2385).
+
+    The agent must land on the user's current project, not the welcome page, so
+    the URL carries the project path and the workflow the GUI has open.
+    ``base_url`` keeps the plain base for callers that want it.
+    """
+    project = tmp_path / "Demo"
+    out = _open_gui_with(_StubRuntimeWithWorkflow(_project_dir=project, active_workflow_id="main"))
+    parsed = urlsplit(out.url)
+    expected_base = urlsplit(gui_url)
+    assert (parsed.scheme, parsed.netloc) == (expected_base.scheme, expected_base.netloc)
+    assert parsed.path == f"{expected_base.path}/"
+    assert parse_qs(parsed.query) == {"project": [str(project)], "workflow": ["main"]}
+    assert out.base_url == gui_url
+    assert "loopback" in out.hint
+    assert "main" in out.hint
+
+
+def test_open_gui_project_without_active_workflow(gui_url: str, tmp_path: Path) -> None:
+    """A project with no active workflow deep-links the project alone."""
+    project = tmp_path / "Demo"
+    out = _open_gui_with(_StubRuntime(_project_dir=project))
+    assert parse_qs(urlsplit(out.url).query) == {"project": [str(project)]}
+    assert out.base_url == gui_url
+
+
+def test_open_gui_encodes_spaces_and_unicode(gui_url: str, tmp_path: Path) -> None:
+    """Paths with spaces and non-ASCII characters survive the round trip."""
+    project = tmp_path / "My Projects" / "细胞 分析 & more"
+    out = _open_gui_with(_StubRuntimeWithWorkflow(_project_dir=project, active_workflow_id="qc run"))
+    query = urlsplit(out.url).query
+    assert " " not in out.url
+    assert "细" not in out.url
+    assert parse_qs(query) == {"project": [str(project)], "workflow": ["qc run"]}
+
+
+def test_open_gui_no_project_returns_base_url(gui_url: str) -> None:
+    """With no project open the tool says so instead of silently landing on the welcome page."""
+    out = _open_gui_with(_StubRuntime(_project_dir=None))
+    assert out.url == gui_url
+    assert out.base_url == gui_url
+    assert "No project is open" in out.hint
+    assert "loopback" in out.hint
+
+
+def test_open_gui_no_context_returns_base_url(gui_url: str) -> None:
+    """A backend with no MCP context installed still yields the base URL."""
+    out = _open_gui_with(None)
+    assert out.url == gui_url
+    assert "No project is open" in out.hint
 
 
 def test_open_gui_no_server_raises(monkeypatch: pytest.MonkeyPatch) -> None:

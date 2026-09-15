@@ -150,9 +150,11 @@ re-spliced at compose time).**
   block configuration, and lineage without materialising arrays.
 - **QA / project (5)** — `get_project_info`, `list_data`,
   `search_docs`, `get_doc`, `open_gui`. Project structure, raw-asset
-  listing, doc search; `open_gui` returns the running GUI's URL so you
-  can follow `scistudio-use-gui` to operate the live interface with available
-  browser or computer-use tools. The tool itself only returns an address.
+  listing, doc search; `open_gui` returns a URL for the user's current
+  project view. Open the complete URL on the same machine as SciStudio,
+  preserving its project/workflow query parameters and any path prefix.
+  Follow `scistudio-use-gui` with available browser or computer-use tools.
+  The tool itself only returns an address.
 - **Plot (6)** — `list_plot_targets`, `scaffold_plot`,
   `list_plot_examples`, `read_plot_source`, `validate_plot`,
   `run_plot_job`. Author and run PREVIEW-ONLY plots (matplotlib /

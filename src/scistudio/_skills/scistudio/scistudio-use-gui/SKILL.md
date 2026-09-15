@@ -16,9 +16,12 @@ interaction instructions; do not assume a provider-specific tool name.
 ## Connect to the running workspace
 
 1. Call `mcp__scistudio__open_gui`. Open its complete returned URL with your
-   browser or computer-use tool, including any deployment prefix. `open_gui`
-   returns an address; it does not open a browser or click anything.
-2. Reuse a browser tab already connected to that instance when available.
+   browser or computer-use tool on the same machine as SciStudio. Preserve
+   any deployment prefix and project/workflow query parameters: `url` attaches
+   to the current project view; `base_url` omits that context. `open_gui` returns
+   an address; it does not open a browser or click anything.
+2. Reuse a browser tab already connected to that instance and intended project
+   when available.
    Computer use can also operate the existing SciStudio desktop window. Do not
    guess a port or start a second backend.
 3. Read the current page or take a screenshot. Confirm the intended project

@@ -478,6 +478,12 @@ def create_app(
     app.state.webmcp_session_token = webmcp_session_token
     app.state.lifespan_hooks = hooks
     app.state.capabilities = capabilities
+    # #2385: an attached ``open_gui`` view binds its requests to the project it
+    # attached to; refused once the active project changes. Innermost, so it
+    # runs after the identity guard and only ever sees admitted requests.
+    from scistudio.api._attached_project import AttachedProjectGuardMiddleware
+
+    app.add_middleware(AttachedProjectGuardMiddleware)
     app.add_middleware(GuardDispatchMiddleware, guard=guard, root_path=root_path)
     app.add_middleware(
         PanelCORSMiddleware,

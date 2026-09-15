@@ -664,6 +664,11 @@
       "at": "2026-09-15T05:11:39.838253Z",
       "owner_directive": "\u67e5\u770b Codex \u4e24\u6761 audit\uff1b\u4fdd\u7559\u672a ship \u7684 Phase D \u5f15\u7528\u5e76\u4e0e open PR \u4e00\u81f4\uff0c\u4fee\u6b63\u65e0\u4f9d\u636e\u8def\u5f84\uff1b\u8865\u9f50\u7f3a\u5931\u8def\u7531\u3002\u6cbf\u7528\u672c\u5730 skip preflight\u3002",
       "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
+    },
+    {
+      "at": "2026-09-15T05:21:02.644516Z",
+      "owner_directive": "2391 \u548c\u6700\u65b0 main \u51b2\u7a81\u4e86\uff1b\u89e3\u51b3\u51b2\u7a81\u5e76\u63a8\u56de\u539f PR\u3002\u6cbf\u7528\u672c\u5730 skip preflight\u3002",
+      "reason": "Resolve PR 2391 conflicts with latest main while preserving the merged project-attached open_gui behavior"
     }
   ],
   "docs_events": [

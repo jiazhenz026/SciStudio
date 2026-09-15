@@ -224,3 +224,13 @@ published git objects only; do not edit the Phase D worktree or MiniApp skill.
 No invented file path was found in the audited references. The Phase D-only
 references remain intact. Local preflight stays skipped per owner direction;
 new-head CI, rather than prior-head results, validates this follow-up.
+
+## 11. Main Integration
+
+Merged main through `5e60a327` to resolve #2391 conflicts after #2389 landed.
+Preserve main's project/workflow deep link, `base_url`, no-project fallback,
+and loopback guidance. Combine these with the GUI skill routing and extend
+main's URL tests to exercise both plain and deployment-prefixed base URLs.
+The GUI guide now preserves query parameters as well as the path prefix.
+No Phase D implementation or MiniApp skill is changed. Local preflight remains
+skipped per owner instruction; current-head validation is delegated to CI.

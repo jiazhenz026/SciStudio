@@ -41,6 +41,17 @@ export function createOpenPreviewTab(
       ? state.tabs.map((t) => (t.id === state.activeTabId ? captureActiveTab(state, t) : t))
       : [...state.tabs];
 
+    // #2362: remember WHICH workflow tab the live workflow slice belongs to, so
+    // `syncActiveTab` writes the capture back into that one tab instead of into
+    // every tab that happens to share its `workflowId`. Preview-to-preview
+    // carries the same backing tab forward.
+    const backingTabId =
+      currentActive?.kind === "workflow"
+        ? currentActive.id
+        : currentActive?.kind === "preview"
+          ? currentActive.backingTabId
+          : undefined;
+
     const newTab: PreviewTab = {
       kind: "preview",
       id,
@@ -48,6 +59,7 @@ export function createOpenPreviewTab(
       displayName: displayName || target.ref,
       openAs,
       initialQuery,
+      backingTabId,
       panelId: panelSnapshot?.panelId,
       previewSessionId: panelSnapshot?.previewSessionId,
       viewState: panelSnapshot?.viewState,
