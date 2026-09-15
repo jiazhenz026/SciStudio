@@ -40,8 +40,13 @@ export function useMiniAppProcess(
   // Read by the interval without re-arming it: a status answer must not
   // restart the five-second clock, or a slow backend drifts the cadence.
   const stopped = useRef(false);
+  const revision = useRef(0);
+  const actionPending = useRef(false);
 
   useEffect(() => {
+    revision.current += 1;
+    actionPending.current = false;
+    setBusy(false);
     stopped.current = false;
     setAbsent(false);
     setError(null);
@@ -51,17 +56,21 @@ export function useMiniAppProcess(
     }
     const controller = new AbortController();
     let cancelled = false;
+    let pendingPoll: number | null = null;
     const poll = () => {
-      if (cancelled || stopped.current) return;
+      if (cancelled || stopped.current || actionPending.current || pendingPoll === revision.current)
+        return;
+      const request = ++revision.current;
+      pendingPoll = request;
       void panelsApi
         .processStatus(contextId, controller.signal)
         .then((next) => {
-          if (cancelled) return;
+          if (cancelled || request !== revision.current) return;
           setStatus(next);
           setError(null);
         })
         .catch((err: unknown) => {
-          if (cancelled) return;
+          if (cancelled || request !== revision.current) return;
           // 404 `no_process`: this MiniApp has no panel.py. Nothing to poll.
           if (err instanceof ApiError && err.status === 404) {
             stopped.current = true;
@@ -70,12 +79,16 @@ export function useMiniAppProcess(
             return;
           }
           setError(err instanceof Error ? err.message : String(err));
+        })
+        .finally(() => {
+          if (pendingPoll === request) pendingPoll = null;
         });
     };
     poll();
     const timer = setInterval(poll, MINIAPP_PROCESS_POLL_MS);
     return () => {
       cancelled = true;
+      revision.current += 1;
       clearInterval(timer);
       controller.abort();
     };
@@ -83,17 +96,29 @@ export function useMiniAppProcess(
 
   const act = useCallback(
     (run: (id: string) => Promise<{ process?: PanelProcessStatus | null }>) => {
-      if (!contextId) return;
+      if (!contextId || actionPending.current) return;
+      // Ignore reads begun before the command, and pause polling until it settles.
+      // The same revision invalidates command results when the context closes.
+      const request = ++revision.current;
+      actionPending.current = true;
       setBusy(true);
       void run(contextId)
         .then((context) => {
+          if (request !== revision.current) return;
           stopped.current = false;
           setAbsent(false);
           setError(null);
           setStatus(context.process ?? null);
         })
-        .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-        .finally(() => setBusy(false));
+        .catch((err: unknown) => {
+          if (request !== revision.current) return;
+          setError(err instanceof Error ? err.message : String(err));
+        })
+        .finally(() => {
+          if (request !== revision.current) return;
+          actionPending.current = false;
+          setBusy(false);
+        });
     },
     [contextId],
   );

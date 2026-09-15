@@ -317,3 +317,17 @@ The three permission cases now wait for the expected provider selection before
 checking or clicking permissions, including the unsupported-provider case.
 All three focused tests, changed-file ESLint and Prettier checks passed. No
 product behavior or test timeouts changed, and no full suite was run locally.
+
+### MiniApp process response ordering (2026-09-15)
+
+The next frontend CI run passed the permission tests but failed the MiniApp
+Stop toolbar assertion. Process polling could apply an old Running response
+after Stop completed; the integration fixture also continued reporting Running
+on every poll after Stop. Commands now invalidate preceding reads, pause polling
+while pending, and discard results from closed contexts. Polls resume after the
+command and do not overlap within the same context revision. The fixture now
+reports the process state produced by Stop or Restart.
+
+All 20 focused process-hook and MiniApp-tab tests passed, including deterministic
+stale success, stale no-process/error, and context-switch cases. No local full
+suite or test-timeout increase was used. PR CI remains the completion check.

@@ -76,10 +76,16 @@ beforeEach(() => {
       });
     },
     "GET /api/panels/contexts/{context_id}/process": () => processBody(),
-    "POST /api/panels/contexts/{context_id}/process/restart": () =>
-      contextResponse("pc-1", { state: "starting", pid: 5151, resident_memory: null }),
-    "POST /api/panels/contexts/{context_id}/process/stop": () =>
-      contextResponse("pc-1", { state: "stopped", pid: 4242, exit_code: 0 }),
+    "POST /api/panels/contexts/{context_id}/process/restart": () => {
+      const process = { state: "starting", pid: 5151, resident_memory: null };
+      processBody = () => process;
+      return contextResponse("pc-1", process);
+    },
+    "POST /api/panels/contexts/{context_id}/process/stop": () => {
+      const process = { state: "stopped", pid: 4242, exit_code: 0 };
+      processBody = () => process;
+      return contextResponse("pc-1", process);
+    },
     "POST /api/panels/contexts/{context_id}/renew": () =>
       contextResponse("pc-1", { state: "running", pid: 4242, resident_memory: 1024 }),
     "DELETE /api/panels/contexts/{context_id}": reply(204),
