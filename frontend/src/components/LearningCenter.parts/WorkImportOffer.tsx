@@ -133,7 +133,7 @@ export function WorkImportOffer() {
   /*
    * The dialog is rendered here, beside the offer, rather than by reaching into
    * the toolbar's copy of it. The toolbar mounts its own only while open so the
-   * availability probe fires when a user asks for the feature; sharing one
+   * provider status is read when a user asks for the feature; sharing one
    * instance would mean lifting that state and changing the permanent entry's
    * behavior, which FR-081 says to leave exactly as it is.
    */

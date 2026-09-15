@@ -223,11 +223,6 @@ def test_mcp_bridge_without_a_backend_serves_the_project_standalone(
     assert exit_code == 0, client.stderr[-3000:]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="open_miniapp in a standalone bridge reports no_workspace, not no_event_bus — TODO(#2422)",
-)
 def test_open_miniapp_in_a_standalone_bridge_reports_no_event_bus(observed: dict[str, Any]) -> None:
     result = observed["standalone_open_miniapp"]
     assert result["reason"] == "no_event_bus", result

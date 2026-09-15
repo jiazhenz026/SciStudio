@@ -15,9 +15,11 @@ author roots — :mod:`scistudio.previewers.models`,
 package top level. Your package wires a ``scistudio.previewers`` entry point to
 a callable returning ``list[PreviewerSpec]`` (see :class:`PreviewerEntryPoint`)
 and otherwise only constructs the public model and data-access types. The whole
-preview subsystem is **provisional**.
+preview subsystem is **provisional** and **deprecated**: deprecated since 0.3.5,
+supported until it is removed in 0.3.6, and replaced by HTML panels (see
+:mod:`scistudio.panels`).
 
-The operational layer — :class:`PreviewerRegistry`, :class:`PreviewRouter`,
+The operational layer — :class:`PreviewerRegistry`,
 :class:`PreviewSessionManager`, :class:`PreviewService`,
 :func:`build_preview_service`, :func:`get_preview_service`,
 :func:`load_project_previewers`, and :func:`load_user_previewers` — is
@@ -80,7 +82,6 @@ from scistudio.previewers.models import (
 )
 from scistudio.previewers.project import load_project_previewers, load_user_previewers
 from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.router import PreviewRouter
 from scistudio.previewers.session import PreviewSessionManager
 from scistudio.stability import internal
 
@@ -90,14 +91,15 @@ logger = logging.getLogger(__name__)
 @internal()
 @dataclass
 class PreviewService:
-    """Bundle of the registry, router, and session manager for one runtime.
+    """The deprecated Python previewers: their registry and their session manager.
 
-    The API runtime holds one of these. It is rebuilt on project switch so
-    project-local previewers and defaults reflect the active project.
+    Holds no panels. The API runtime's panel service owns one of these as its
+    legacy fallback and rebuilds it when the previewer tiers may have changed;
+    routing over panels and legacy previewers together lives in
+    :mod:`scistudio.panels.router`.
     """
 
     registry: PreviewerRegistry
-    router: PreviewRouter
     sessions: PreviewSessionManager
 
 
@@ -105,7 +107,6 @@ class PreviewService:
 def build_preview_service(
     *,
     project_dir: Path | None = None,
-    registered_types: Any = None,
     child_context_resolver: Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
     | None = None,
 ) -> PreviewService:
@@ -134,18 +135,13 @@ def build_preview_service(
     registry.load_packages()
     load_project_previewers(registry, project_dir)
     load_user_previewers(registry, project_dir)
-    from scistudio.panels.registry import discover_panels
-
-    registry.install_panels(discover_panels(project_dir, registered_types=registered_types))
     registry.set_previewer_choices(load_choices(project_dir))
-
-    router = PreviewRouter(registry)
     sessions = PreviewSessionManager(
         registry,
         child_context_resolver=child_context_resolver,
         project_dir=project_dir,
     )
-    return PreviewService(registry=registry, router=router, sessions=sessions)
+    return PreviewService(registry=registry, sessions=sessions)
 
 
 # Process-global default service so non-runtime callers (and the
@@ -172,7 +168,7 @@ def get_preview_service(*, project_dir: Path | None = None, refresh: bool = Fals
 # ``__all__`` advertises only the public author surface re-exported for
 # convenience; the canonical roots are ``.models`` / ``.data_access`` /
 # ``.helpers`` (ADR-052 §8). The Internal operational layer (PreviewerRegistry,
-# PreviewRouter, PreviewSessionManager, PreviewService, build_preview_service,
+# PreviewSessionManager, PreviewService, build_preview_service,
 # get_preview_service, load_project_previewers, load_user_previewers) stays
 # importable from this module
 # for the API runtime but is decorated ``@internal`` and excluded here so it is

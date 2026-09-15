@@ -8,6 +8,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import * as panelEvents from "../../panels/panelEvents";
 import { useAppStore } from "../../store";
 import type { WorkflowEventMessage } from "../../types/api";
 
@@ -23,18 +24,15 @@ import { dispatchWorkflowEvent } from "./dispatchEvent";
 function spyOnStoreActions() {
   const setWsClientId = vi.fn();
   const openMiniAppTab = vi.fn();
-  const notifyPanelFilesChanged = vi.fn();
   const previous = useAppStore.getState();
-  useAppStore.setState({ setWsClientId, openMiniAppTab, notifyPanelFilesChanged });
+  useAppStore.setState({ setWsClientId, openMiniAppTab });
   return {
     setWsClientId,
     openMiniAppTab,
-    notifyPanelFilesChanged,
     restore: () =>
       useAppStore.setState({
         setWsClientId: previous.setWsClientId,
         openMiniAppTab: previous.openMiniAppTab,
-        notifyPanelFilesChanged: previous.notifyPanelFilesChanged,
       }),
   };
 }
@@ -97,13 +95,14 @@ describe("the dispatcher routes the MiniApp frames", () => {
     actions.restore();
   });
 
-  it("consumes panel.files_changed and tells the store which panel moved", () => {
+  it("consumes panel.files_changed and tells every mount of that panel", () => {
     /*
-     * Forwarded straight through: FR-022's 500 ms window is the tab's, not the
-     * dispatcher's (see handleMiniApp.ts). The store counter is idempotent, so
-     * a burst of saves is several bumps and still one reload.
+     * Forwarded straight through: FR-022's 500 ms window is the shared panel
+     * host's (`PanelFrame`), not the dispatcher's (see handleMiniApp.ts).
      */
-    const actions = spyOnStoreActions();
+    const heard: string[] = [];
+    const stop = panelEvents.subscribePanelFilesChanged("peak_explorer", () => heard.push("peak"));
+    const other = panelEvents.subscribePanelFilesChanged("other_panel", () => heard.push("other"));
 
     const consumed = dispatchWorkflowEvent(
       frame({ type: "panel.files_changed", data: { panel_id: "peak_explorer" } }),
@@ -111,7 +110,27 @@ describe("the dispatcher routes the MiniApp frames", () => {
     );
 
     expect(consumed).toBe(true);
-    expect(actions.notifyPanelFilesChanged).toHaveBeenCalledWith("peak_explorer");
-    actions.restore();
+    expect(heard).toEqual(["peak"]);
+    stop();
+    other();
+  });
+
+  it("consumes panel.contexts_revoked and reaches only the mounts holding them", () => {
+    const heard: string[] = [];
+    const stops = ["pc-a", "pc-b", "pc-c"].map((id) =>
+      panelEvents.subscribePanelContextRevoked(id, () => heard.push(id)),
+    );
+
+    const consumed = dispatchWorkflowEvent(
+      frame({
+        type: "panel.contexts_revoked",
+        data: { context_ids: ["pc-a", "pc-c"], panel_ids: ["lab.view"], reason: "panel_changed" },
+      }),
+      deps,
+    );
+
+    expect(consumed).toBe(true);
+    expect(heard).toEqual(["pc-a", "pc-c"]);
+    stops.forEach((stop) => stop());
   });
 });

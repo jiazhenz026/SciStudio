@@ -174,6 +174,16 @@ def test_amend_accepts_migrated_bypass_label(git_repo: Path) -> None:
     assert "admin-approved:bypass" in ledger.requested_label_names()
 
 
+def test_amend_accepts_agent_docs_label(git_repo: Path) -> None:
+    """#2438: the provisioned agent-document label is a valid --admin-label choice."""
+
+    record = _init(git_repo)
+    rc = _run(git_repo, "amend", "--reason", "owner approval", "--admin-label", "admin-approved:agent-docs")
+    assert rc == workflow.EXIT_OK
+    ledger = io.load_ledger(record)
+    assert "admin-approved:agent-docs" in ledger.requested_label_names()
+
+
 # ---------------------------------------------------------------------------
 # Deterministic discovery (§5.1): branch-scoped, no stale matches.
 # ---------------------------------------------------------------------------

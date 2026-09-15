@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiUrl, getBasePath } from "../lib/api/base-path";
 import { panelsApi } from "../lib/api/panels";
 import { createPanelBridge } from "./bridge";
+import { subscribePanelContextRevoked, subscribePanelFilesChanged } from "./panelEvents";
 import {
   forgetPanelHighlight,
   reportPanelHighlight,
@@ -11,6 +12,12 @@ import { savePanelBytes } from "./save";
 import { observePanelTheme, readPanelTheme } from "./theme";
 import { isRecord } from "./types";
 import type { PanelContext, PanelCreateRequest } from "./types";
+
+/**
+ * ADR-054 FR-022 — a burst of page writes (an editor saving, an agent writing
+ * several files) is one reload, not one per file.
+ */
+export const PANEL_RELOAD_DEBOUNCE_MS = 500;
 
 export interface PanelFrameProps {
   request: PanelCreateRequest;
@@ -131,6 +138,37 @@ export function PanelFrame(props: PanelFrameProps) {
 
   useEffect(() => observePanelTheme((theme) => bridge.current?.theme(theme)), []);
 
+  /*
+   * #2465 — two backend signals remount this frame, and only this frame.
+   *
+   * A page file of the panel changed (`panel.files_changed`): every context
+   * kind reloads in place, 500 ms after the last write. The entry handshake is
+   * one-shot, so a reload is a new context (and, for a MiniApp, a new process)
+   * on the same request.
+   *
+   * The context was revoked (`panel.contexts_revoked`): its panel's descriptor
+   * changed or went away, or the project was left. The remount opens the
+   * request again; a panel that no longer exists shows the error.
+   */
+  const panelId = context?.panel.id ?? props.request.panel_id ?? null;
+  useEffect(() => {
+    if (!panelId) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = subscribePanelFilesChanged(panelId, () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setAttempt((value) => value + 1), PANEL_RELOAD_DEBOUNCE_MS);
+    });
+    return () => {
+      stop();
+      clearTimeout(timer);
+    };
+  }, [panelId]);
+  const contextId = context?.context_id ?? null;
+  useEffect(() => {
+    if (!contextId) return;
+    return subscribePanelContextRevoked(contextId, () => setAttempt((value) => value + 1));
+  }, [contextId]);
+
   const fail = (message: string) => {
     teardown.current();
     setError(message);
@@ -144,6 +182,8 @@ export function PanelFrame(props: PanelFrameProps) {
       // ADR-054 FR-016 — only a miniapp context is granted `call`; the bridge
       // refuses it everywhere else, so wiring it unconditionally is safe.
       call: (fn, args) => panelsApi.call(context.context_id, fn, args, readsAbort.current?.signal),
+      // ADR-054 MiniApp FR-050 — granted to miniapp contexts only; refused elsewhere by the bridge.
+      submitAnswers: (answers) => panelsApi.submitAnswers(context.context_id, answers),
       open: (ref) =>
         callbacks.current.onOpen?.(ref, context.context_id) ??
         Promise.reject(new Error("No preview host")),

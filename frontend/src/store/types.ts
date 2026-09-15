@@ -280,6 +280,11 @@ export interface InteractivePrompt {
   blockId: string;
   blockType: string;
   /**
+   * #2433: the run that paused, carried by the prompt event; answers and
+   * cancels are addressed to it. `null` for an emitter without run identity.
+   */
+  runId?: string | null;
+  /**
    * ADR-051: the workflow id the prompt belongs to, carried by the prompt event.
    * Confirm/cancel MUST use this (not the store's active workflow id), so the
    * response is run-scoped to the right run even if the user switches tabs while
@@ -333,6 +338,19 @@ export interface ExecutionSlice {
    * or finishing never flips it.
    */
   isRunning: boolean;
+  /**
+   * #2433 — the run the workflow on screen follows (a projection of its
+   * bucket, like `isRunning`); `null` before any run of it was seen.
+   */
+  runId: string | null;
+  /**
+   * #2433 — runs ended by leaving their project. Their late events (the socket
+   * can deliver them after the switch) are dropped instead of landing on the
+   * next project's same-named workflow. Survives `resetExecution`.
+   */
+  endedRunIds: string[];
+  /** Remember runs that leaving a project ended (see `endedRunIds`). */
+  markRunsEnded: (runIds: string[]) => void;
   /**
    * #591/#594 + #2395: pending interactive prompts from PAUSED blocks, keyed by
    * `interactivePromptKey(workflowId, blockId)` in arrival order. Two workflows
@@ -389,6 +407,14 @@ export interface UISlice {
   paletteCollapsed: boolean;
   previewCollapsed: boolean;
   /**
+   * #2456 / ADR-054 FR-020 — true while the preview column is collapsed only
+   * because a MiniApp tab took the stage. `previewCollapsed` still mirrors the
+   * panel, but the persisted preference ignores this collapse, so closing the
+   * app with a MiniApp active does not reopen it with the column folded away.
+   * Cleared as soon as the column opens again. Never persisted.
+   */
+  previewCollapsedByMiniApp: boolean;
+  /**
    * ADR-054 FR-013 — the `/ws` connection's id, announced by the backend in
    * its first frame. Every MiniApp context is created against it so the
    * backend can end the process once this workspace has been gone for its
@@ -396,13 +422,6 @@ export interface UISlice {
    * hello.
    */
   wsClientId: string | null;
-  /**
-   * ADR-054 FR-022 — per-panel change counter, bumped on every
-   * `panel.files_changed` event. Open MiniApp tabs on that panel watch their
-   * own entry and reload (debounced) when it moves; a counter rather than a
-   * timestamp so two events in the same millisecond are still two events.
-   */
-  panelFilesChangedSeq: Record<string, number>;
   bottomPanelCollapsed: boolean;
   /**
    * When true, the bottom panel does not auto-collapse on canvas-pane
@@ -492,8 +511,6 @@ export interface UISlice {
   setLastError: (message: string | null) => void;
   /** ADR-054 FR-013 — called by the `/ws` dispatcher with the `hello` frame. */
   setWsClientId: (id: string | null) => void;
-  /** ADR-054 FR-022 — called by the `/ws` dispatcher for `panel.files_changed`. */
-  notifyPanelFilesChanged: (panelId: string) => void;
   /**
    * Desktop application menu (desktop/menu.js) opens these dialogs from
    * outside the toolbar, so the open state lives in the store instead of
@@ -584,16 +601,8 @@ export interface PreviewerCatalogSlice {
   previewerChoices: PreviewerChoice[];
   /** True once `GET /api/previews/choices` has landed at least once. */
   previewerChoicesLoaded: boolean;
-  /**
-   * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
-   * as the routing epoch so an open preview re-creates its session — and thus
-   * re-routes through the new choice — instead of sitting on the envelope the
-   * old choice produced.
-   */
-  previewerChoiceVersion: number;
   setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
   setPreviewerChoices: (choices: PreviewerChoice[]) => void;
-  bumpPreviewerChoiceVersion: () => void;
 }
 
 /**
@@ -764,6 +773,12 @@ export interface TerminalTabsSlice {
   /** Create a user shell tab backed by the desktop Python dependency env. */
   addUserTerminalTab: () => string;
   closeTerminalTab: (id: string) => void;
+  /**
+   * #2433 — close every AI terminal tab. A terminal belongs to the project it
+   * was started in, so leaving the project closes them (the backend ends their
+   * processes too).
+   */
+  closeAllTerminalTabs: () => void;
   renameTerminalTab: (id: string, title: string) => void;
   launchTerminalTab: (
     id: string,
@@ -1172,6 +1187,11 @@ export interface TabSlice {
     name: string;
     target: { workflow_id: string; block_id: string; port: string };
   }) => void;
+  /**
+   * #2457 — rename open MiniApp tabs to their panel's current catalogue name.
+   * Panels the catalogue does not list keep their name; ids never change.
+   */
+  syncMiniAppTabNames: (catalogue: ReadonlyArray<{ panel_id: string; name: string }>) => void;
   saveFileTab: (id: string) => Promise<void>;
   /**
    * ADR-036 §3.10 — update the in-memory content for a file tab.

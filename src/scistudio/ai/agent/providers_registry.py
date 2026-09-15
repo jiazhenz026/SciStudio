@@ -82,8 +82,6 @@ __all__ = [
     "ProviderDescriptor",
     "ProviderKind",
     "ProviderRegistry",
-    "SystemPromptInjection",
-    "SystemPromptStrategy",
     "agent_descriptors",
     "agent_keys",
     "get",
@@ -148,17 +146,6 @@ class McpStrategy(StrEnum):
     NONE = "none"
 
 
-class SystemPromptStrategy(StrEnum):
-    """How a provider receives the composed SciStudio system prompt."""
-
-    #: A flag that accepts ``@<file>`` indirection, so an unbounded prompt never
-    #: lands on the command line.
-    FLAG_FILE = "flag_file"
-    #: Ambient discovery through the already-provisioned skills trees. No new
-    #: skills tree is added by ADR-034 (FR-019).
-    AMBIENT = "ambient"
-
-
 @dataclass(frozen=True)
 class McpInjection:
     """MCP injection strategy for one provider."""
@@ -177,25 +164,6 @@ class McpInjection:
         if not self.project_file:
             return None
         return project_dir.joinpath(*self.project_file)
-
-
-@dataclass(frozen=True)
-class SystemPromptInjection:
-    """System-prompt injection strategy for one provider."""
-
-    strategy: SystemPromptStrategy
-    #: Flag name for :attr:`SystemPromptStrategy.FLAG_FILE`, otherwise ``None``.
-    flag: str | None = None
-    #: Whether ``flag`` accepts ``@<file>`` indirection. Only a flag that does
-    #: may carry the composed prompt; see :attr:`ambient_only_reason`.
-    supports_file_indirection: bool = False
-    #: Skills trees the CLI discovers on its own (ADR-040 provisions these).
-    skill_dirs: tuple[str, ...] = ()
-    #: Why a provider that *has* a system-prompt flag is nonetheless treated as
-    #: ambient-only. Qoder's ``--append-system-prompt`` takes literal text with
-    #: no ``@<file>`` indirection, and the composed prompt is unbounded, so it
-    #: would land on the command line (spec §4.1). ``None`` when not applicable.
-    ambient_only_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -254,7 +222,6 @@ class ProviderDescriptor:
     """Environment variable that overrides :attr:`config_root`, if any."""
 
     mcp: McpInjection
-    system_prompt: SystemPromptInjection
     credentials: CredentialProbe | None
 
     bypass_argv: tuple[str, ...]
@@ -582,20 +549,6 @@ def _qoder_channel(
             flag="--mcp-config",
             fallback_discovery=("<project>/.mcp.json",),
         ),
-        system_prompt=SystemPromptInjection(
-            strategy=SystemPromptStrategy.AMBIENT,
-            flag="--append-system-prompt",
-            supports_file_indirection=False,
-            skill_dirs=(".agents/skills",),
-            ambient_only_reason=(
-                "--append-system-prompt takes literal text with no @<file> "
-                "indirection; the composed SciStudio prompt is unbounded and "
-                "would land on the command line. Both Qoder channels receive "
-                "the prompt through .agents/skills like Codex does. "
-                "ADR-034 spec §4.1 records this as an assumption to revisit "
-                "if a future Qoder release gains @<file> indirection."
-            ),
-        ),
         credentials=CredentialProbe(
             credential_path=(".auth",),
             # No machine-readable auth status command observed on either
@@ -651,12 +604,6 @@ _CLAUDE_CODE = ProviderDescriptor(
         flag="--mcp-config",
         fallback_discovery=("<project>/.mcp.json",),
     ),
-    system_prompt=SystemPromptInjection(
-        strategy=SystemPromptStrategy.FLAG_FILE,
-        flag="--append-system-prompt",
-        supports_file_indirection=True,
-        skill_dirs=(".claude/skills",),
-    ),
     credentials=CredentialProbe(
         credential_path=(".credentials.json",),
         auth_status_argv=("auth", "status", "--json"),
@@ -698,12 +645,6 @@ _CODEX = ProviderDescriptor(
         flag=None,
         fallback_discovery=("~/.codex/config.toml", "<project>/.codex/config.toml"),
     ),
-    system_prompt=SystemPromptInjection(
-        strategy=SystemPromptStrategy.AMBIENT,
-        flag=None,
-        supports_file_indirection=False,
-        skill_dirs=(".agents/skills",),
-    ),
     credentials=CredentialProbe(
         credential_path=("auth.json",),
         auth_status_argv=("login", "status"),
@@ -724,16 +665,23 @@ _CODEX = ProviderDescriptor(
     # model or to a persisted ``sandbox_mode`` — the pairing Codex's retirement
     # notice recommends for the most cautious setup.
     manual_argv=("--ask-for-approval", "on-request", "--sandbox", "read-only"),
-    # #2379: ``--approve-for-me`` (added 0.147.0, present at 0.154.0) routes
-    # approval requests to Codex's auto-review subagent under the
-    # workspace-write sandbox; genuinely risky actions still escalate to the
-    # human. It leaves ``approval_policy`` untouched, so ``-a on-request`` is
-    # stated too: a persisted ``never`` would otherwise mean nothing is ever
-    # sent for review. ``codex --approve-for-me -a on-request --help`` exits 0.
+    # #2379, #2452: ``--approve-for-me`` (added 0.147.0, present at 0.154.0)
+    # routes approval requests to Codex's auto-review subagent; genuinely risky
+    # actions still escalate to the human. It is passed alone because it sets
+    # its own approval routing and the workspace-write sandbox, and clap
+    # declares it mutually exclusive with ``-a/--ask-for-approval``,
+    # ``-s/--sandbox`` and ``--dangerously-bypass-approvals-and-sandbox``:
+    # combining it with any of them exits 2 with "the argument
+    # '--approve-for-me' cannot be used with ...". ``--help`` and ``--version``
+    # short-circuit clap before combinations are validated, so a ``--help``
+    # run proves nothing about an argv. Checked instead at 0.154.0 by launching
+    # with stdin not a terminal: ``codex --approve-for-me </dev/null`` passes
+    # parsing and exits 1 with "stdin is not a terminal", while adding
+    # ``--ask-for-approval on-request`` exits 2 with the conflict above.
     # It supersedes the deprecated ``--full-auto``. Sources: ``codex --help`` at
     # 0.154.0; https://learn.chatgpt.com/docs/developer-commands?surface=cli
     # (approval and sandbox values, read 2026-09-14).
-    auto_argv=("--approve-for-me", "--ask-for-approval", "on-request"),
+    auto_argv=("--approve-for-me",),
     # Floor: 0.147.0, whose release notes read "Enable automatically reviewed
     # approvals with the new `--approve-for-me` CLI flag. (#36373)"
     # (https://github.com/openai/codex/releases/tag/rust-v0.147.0). Older
@@ -772,19 +720,6 @@ _KIMI_CODE = ProviderDescriptor(
             "<KIMI_CODE_HOME>/mcp.json",
             "<project>/.mcp.json",
             "<cwd>/.kimi-code/mcp.json",
-        ),
-    ),
-    system_prompt=SystemPromptInjection(
-        strategy=SystemPromptStrategy.AMBIENT,
-        # ``--agent-file <path>`` exists but selects an agent definition rather
-        # than appending to the system prompt, so it is not a prompt carrier.
-        flag=None,
-        supports_file_indirection=False,
-        skill_dirs=(
-            ".claude/skills",
-            ".codex/skills",
-            ".agents/skills",
-            ".kimi-code/skills",
         ),
     ),
     credentials=CredentialProbe(
@@ -885,7 +820,6 @@ _USER_TERMINAL = ProviderDescriptor(
     config_root=(),
     config_root_env=None,
     mcp=McpInjection(strategy=McpStrategy.NONE),
-    system_prompt=SystemPromptInjection(strategy=SystemPromptStrategy.AMBIENT),
     credentials=None,
     bypass_argv=(),
 )

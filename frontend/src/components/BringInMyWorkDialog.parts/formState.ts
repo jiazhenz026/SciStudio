@@ -6,6 +6,7 @@
  * looks like — are pure functions so they can be asserted directly rather than
  * inferred from rendered output.
  */
+import type { AgentLaunchProblem } from "../AIChat/SetupScreen.parts/agentStatus";
 import type { PermissionMode } from "../AIChat/SetupScreen.parts/types";
 import type {
   WorkImportDestinationTier,
@@ -39,10 +40,10 @@ export interface WorkImportFormState {
   otherSoftware: OptionalAnswer;
   /** FR-019a — the open question, asked last and skippable. */
   anythingElse: OptionalAnswer;
-  /** FR-040 / FR-043 — null until a usable provider is chosen or preselected. */
+  /** FR-040 — null until the user chooses, exactly as the AI Chat setup screen (#2454). */
   provider: string | null;
-  /** FR-041 — the safe mode is the default; the user opts out of it. */
-  permissionMode: PermissionMode;
+  /** FR-041 — null until the user chooses, exactly as the AI Chat setup screen (#2454). */
+  permissionMode: PermissionMode | null;
 }
 
 export const INITIAL_FORM_STATE: WorkImportFormState = {
@@ -56,7 +57,7 @@ export const INITIAL_FORM_STATE: WorkImportFormState = {
   otherSoftware: { ...EMPTY_ANSWER },
   anythingElse: { ...EMPTY_ANSWER },
   provider: null,
-  permissionMode: "safe",
+  permissionMode: null,
 };
 
 function trimmedOrNull(value: string): string | null {
@@ -122,8 +123,26 @@ export const REASON_NO_PROJECT = "Open a project first.";
 export const REASON_NO_SOURCE = 'Required: where your work is, or "I don\'t have a codebase".';
 export const REASON_NO_DATA_KIND = "Required: at least one kind of data, or your own.";
 export const REASON_NO_WORKFLOW_DESCRIPTION = "Required: a description of your workflow.";
-export const REASON_NO_AGENT = "No agent is ready to run the session.";
+export const REASON_NO_AGENT = "The chosen agent is not installed.";
 export const REASON_NO_PROVIDER = "Required: which agent runs the session.";
+export const REASON_NO_PERMISSION_MODE = "Required: a permission mode.";
+
+/**
+ * The sentence for the AI Chat launch rule's answer (`agentLaunchProblem`), so
+ * the page gate and the whole-form backstop say the same thing.
+ */
+export function agentReason(problem: AgentLaunchProblem | null): string | null {
+  switch (problem) {
+    case "no_provider":
+      return REASON_NO_PROVIDER;
+    case "provider_unavailable":
+      return REASON_NO_AGENT;
+    case "no_permission_mode":
+      return REASON_NO_PERMISSION_MODE;
+    default:
+      return null;
+  }
+}
 
 /**
  * What still stands between the user and a session, in the user's own words.
@@ -140,7 +159,7 @@ export const REASON_NO_PROVIDER = "Required: which agent runs the session.";
  */
 export function blockingReasons(
   state: WorkImportFormState,
-  opts: { projectDir: string | null; agentUsable: boolean },
+  opts: { projectDir: string | null; agentProblem: AgentLaunchProblem | null },
 ): string[] {
   const reasons: string[] = [];
   if (!opts.projectDir) {
@@ -155,17 +174,14 @@ export function blockingReasons(
   if (workflowDescriptionRequired(state) && !state.workflowDescription.text.trim()) {
     reasons.push(REASON_NO_WORKFLOW_DESCRIPTION);
   }
-  if (!opts.agentUsable) {
-    reasons.push(REASON_NO_AGENT);
-  } else if (!state.provider) {
-    reasons.push(REASON_NO_PROVIDER);
-  }
+  const agent = agentReason(opts.agentProblem);
+  if (agent) reasons.push(agent);
   return reasons;
 }
 
 export function canStart(
   state: WorkImportFormState,
-  opts: { projectDir: string | null; agentUsable: boolean },
+  opts: { projectDir: string | null; agentProblem: AgentLaunchProblem | null },
 ): boolean {
   return blockingReasons(state, opts).length === 0;
 }
@@ -216,9 +232,9 @@ export function buildRequest(
     other_software: otherSoftware,
     anything_else: anythingElse,
     skipped,
-    // `canStart` guarantees a provider before this runs; the fallback keeps the
-    // function total without inventing a default provider (ADR-034 FR-020c).
+    // `canStart` guarantees a provider and a permission mode before this runs;
+    // the fallbacks keep the function total (ADR-034 FR-020c).
     provider: state.provider ?? "",
-    permission_mode: toBackendPermissionMode(state.permissionMode),
+    permission_mode: toBackendPermissionMode(state.permissionMode ?? "safe"),
   };
 }

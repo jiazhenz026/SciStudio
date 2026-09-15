@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -105,6 +106,30 @@ def _win_junction(target: str) -> str:
     return str(junction)
 
 
+_MAX_BLOCK_DIR_CHARS = 40
+"""Longest block id used verbatim as a ``data/zarr/<workflow>/`` directory name."""
+_BLOCK_DIR_HASH_CHARS = 8
+"""Hex digits of the full-id digest appended to a shortened block directory name."""
+
+
+def _block_output_dir_name(block_id: str) -> str:
+    """Return the ``data/zarr/<workflow>/`` directory name for *block_id*.
+
+    Ids of at most 40 characters are used unchanged, so existing output
+    directories keep their paths. A longer id (typically a flattened
+    subworkflow node id) is shortened to keep zarr paths under the Windows
+    path limit; the short form keeps a readable prefix and appends a stable
+    hash of the full id, so two long ids that share a prefix still get
+    distinct directories.
+    """
+    # Development references: #2424.
+    if len(block_id) <= _MAX_BLOCK_DIR_CHARS:
+        return block_id
+    digest = hashlib.sha256(block_id.encode("utf-8")).hexdigest()[:_BLOCK_DIR_HASH_CHARS]
+    prefix = block_id[: _MAX_BLOCK_DIR_CHARS - _BLOCK_DIR_HASH_CHARS - 1]
+    return f"{prefix}-{digest}"
+
+
 def _derive_output_dir(block: Any, config: dict[str, Any]) -> str:
     """Return a persistence directory for worker auto-flush outputs."""
     explicit_output_dir = config.get("output_dir")
@@ -117,7 +142,7 @@ def _derive_output_dir(block: Any, config: dict[str, Any]) -> str:
     block_id = str(config.get("block_id") or getattr(block, "id", "block"))
     workflow_id = str(config.get("workflow_id") or "adhoc")
     if isinstance(project_dir, str) and project_dir:
-        short_block_id = block_id[:40] if len(block_id) > 40 else block_id
+        short_block_id = _block_output_dir_name(block_id)
         candidate = str(Path(project_dir) / "data" / "zarr" / workflow_id / short_block_id)
         # zarr creates internal subfiles adding ~60 chars. If total would
         # exceed Windows MAX_PATH (260), create an NTFS junction from a

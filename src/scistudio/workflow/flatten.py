@@ -40,6 +40,10 @@ SUBWORKFLOW_BROKEN_TYPE = "subworkflow_broken"
 # unresolved reference string for the editor / validator to surface.
 BROKEN_REF_CONFIG_KEY = "_broken_ref"
 
+# Separator between a subworkflow node id and an inlined inner node id: an
+# inner node ``fiji`` of subworkflow node ``sw1`` runs as ``sw1__fiji``.
+FLATTENED_ID_SEPARATOR = "__"
+
 
 class CyclicSubworkflowError(Exception):
     """Raised when inline flattening detects a reference cycle.
@@ -83,6 +87,27 @@ def subworkflow_ref_path(node: NodeDef) -> str | None:
             if isinstance(path, str) and path.strip():
                 return path
     return None
+
+
+def authored_node_id_candidates(node_id: str) -> list[str]:
+    """Return the ids *node_id* may have had before subworkflow flattening.
+
+    Flattening prefixes every inlined node id with ``<subworkflow node id>__``
+    (once per nesting level), so the id a node was authored with inside its own
+    workflow file is one of the ``__``-separated suffixes of the runtime id. The
+    runtime id itself comes first, followed by each shorter suffix. Because
+    authored ids may themselves contain ``__``, the result is a candidate set,
+    not a single answer.
+    """
+    # Development references: #2424, ADR-044.
+    candidates = [node_id]
+    rest = node_id
+    while True:
+        _head, sep, tail = rest.partition(FLATTENED_ID_SEPARATOR)
+        if not sep or not tail:
+            return candidates
+        candidates.append(tail)
+        rest = tail
 
 
 def _split_colon(ref: str) -> tuple[str, str]:
@@ -217,7 +242,7 @@ def _flatten(
         child = load_yaml(resolved)
         child_flat, child_in, child_out = _flatten(child, base, (*visiting, resolved), registry)
 
-        prefix = f"{node.id}__"
+        prefix = f"{node.id}{FLATTENED_ID_SEPARATOR}"
         for inner in child_flat.nodes:
             new_nodes.append(dataclasses.replace(inner, id=prefix + inner.id))
         for edge in child_flat.edges:

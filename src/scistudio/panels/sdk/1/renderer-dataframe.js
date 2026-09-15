@@ -27,9 +27,10 @@ const COL_OVERSCAN = 4;
 const DEFAULT_VIEWPORT_W = 640;
 
 /**
- * Format one cell as the table viewer did, with one addition: a value JSON
- * cannot carry arrives as a sentinel string, and a missing measurement is shown
- * as what it is rather than left to read as the literal text "NaN" (#1886 E).
+ * Format one cell exactly. A number is shown as its shortest exact decimal
+ * form, never rounded to a fixed number of places (#2460). A value JSON cannot
+ * carry arrives as a sentinel string, and a missing measurement is shown as
+ * what it is rather than left to read as the literal text "NaN" (#1886 E).
  */
 const SENTINELS = { NaN: "NaN", Infinity: "∞", "-Infinity": "-∞" };
 
@@ -39,7 +40,7 @@ export function formatCell(value) {
   if (typeof value === "number") {
     if (Number.isNaN(value)) return "NaN";
     if (!Number.isFinite(value)) return value > 0 ? "∞" : "-∞";
-    return Number.isInteger(value) ? String(value) : value.toFixed(4);
+    return String(value);
   }
   return String(value);
 }
@@ -51,6 +52,15 @@ export function nextSort(current, column) {
   return { by: null, dir: null };
 }
 
+/**
+ * A paged, sortable table. The caller reads each page (for example with `table.page`) and passes it in; the view asks for another page or sort order through `onQueryChange`.
+ *
+ * @param {object} [props.data] The page: `{columns, rows, total?, total_rows?, page?, page_size?, total_pages?, sort?: {by, direction}}`. The loading state shows until it is given.
+ * @param {object} [props.query] The requested `{page, pageSize, sortBy?, sortDir?}`.
+ * @param {boolean} [props.loading] Marks a read in flight.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {function} [props.onQueryChange] `(nextQuery)` when the reader pages or sorts; sorting returns to page 1.
+ */
 export function DataFrameView({
   data,
   query = { page: 1, pageSize: 50 },
@@ -198,10 +208,12 @@ export function DataFrameView({
                       style=${`min-width:${leftPad}px`}
                     ></td>`
                   : null}
-                ${window_.map(
-                  (column) =>
-                    html`<td key=${column}>${formatCell(row[column])}</td>`,
-                )}
+                ${window_.map((column) => {
+                  // A value wider than its column is cut by the ellipsis, so
+                  // the whole exact value stays on the cell's title.
+                  const text = formatCell(row[column]);
+                  return html`<td key=${column} title=${text}>${text}</td>`;
+                })}
                 ${rightPad
                   ? html`<td
                       class="dataframe-pad"

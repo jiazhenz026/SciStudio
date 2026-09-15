@@ -1,76 +1,42 @@
----
-title: MiniApp visual debugging
-status: Active
-owners:
-  - "@jiazhenz026"
-related_adrs:
-  - 54
-language_source: en
----
+# GUI visual debugging
 
-# MiniApp visual debugging
+## 1. Where to look
 
-The installed SciStudio MCP server provides `screenshot_gui` to local AI
-providers such as Claude Code and Codex. It returns an actual PNG image to the
-model, together with the selected window, MiniApp, dimensions and observed
-readiness. The screenshot is of the SciStudio application, including content
-rendered inside MiniApp iframes and canvas surfaces.
-
-After validating a MiniApp with `validate_panel`, open it on completed block
-output with `open_miniapp`. With that tab visible, call:
-
-```json
-{"target": "miniapp", "panel_id": "my_explorer", "wait_ms": 500}
-```
-
-These are arguments for `screenshot_gui`. `panel_id` may be omitted to capture
-the visible MiniApp. Supply `context_id` to select a particular mount, and
-`client_id` if more than one connected desktop window shows the project. The
-error names the matching client ids when that choice is needed. Use
-`{"target": "workspace"}` to inspect the full current workspace. The tool never
-opens or focuses tabs, starts processes, or manipulates controls.
-
-The image metadata distinguishes loading, ready and error states, and includes
-the MiniApp process state and visible error messages. A ready state means the
-page called its SDK readiness handshake; inspect the actual image for blank
-content, wrong data, clipping and error UI. A screenshot does not prove that a
-control works, that Python defaults match current slider values, or that a
-result is scientifically correct. When your AI host provides computer use, exercise important controls with that
-capability and capture the result again. If computer use is unavailable, explicitly
-report that interactions were not verified. SciStudio supplies screenshot_gui only;
-it does not supply a separate interaction or inspection automation tool.
-
-Capture is supported by the SciStudio desktop application through local MCP.
-A browser-only GUI has no native capture capability, and the external WebMCP
-host currently accepts text rather than image content. Those paths return
-explicit unsupported errors. A disconnected GUI, hidden MiniApp, project
-change, ambiguous window or timeout also produces an actionable error instead
-of a stale image. Waits are bounded to five seconds and requests to ten seconds.
-
-Pixels are returned only for the currently authorized project. Project and target
-identity are checked before and after capture; a result captured across a project
-or tab switch is discarded. Images are bounded to four million pixels and four
-MiB of PNG bytes on the tool transport; this is an implementation limit, not a
-metric displayed in the MiniApp interface.
-
-## Tool arguments and result
-
-| Argument | Contract |
+| You need | Read |
 |---|---|
-| `target` | `"miniapp"` (default) or `"workspace"` |
-| `panel_id` | Optional exact MiniApp id; only for the MiniApp target |
-| `context_id` | Optional exact mounted context id; only for the MiniApp target |
-| `client_id` | Optional connected workspace client id; required when several desktop windows match |
-| `wait_ms` | Integer 0–5000, default 500; layout delay, not an assertion that the app is ready |
+| Opening, navigating, and operating the running GUI | the `scistudio-use-gui` skill |
+| `screenshot_gui` arguments and result | the live MCP tool schema |
+| Checking a MiniApp after writing it | the `scistudio-write-miniapp` skill (step 9 and "Checking") |
+| Checking a panel after writing it | the `scistudio-write-panel` skill ("Check the result") |
+| Checking a plot's figure | the `scistudio-write-plot` skill ("Check the figure") |
+| What the user sees in a MiniApp tab | `user-guide/miniapps.md` |
 
-The project comes from the authorized MCP session; no arbitrary project or
-filesystem screenshot path is accepted. Success returns MCP `content` containing
-one `text` metadata block and one `image` block with `mimeType: "image/png"`.
-The MCP client consumes the image directly; do not reinterpret a local filename
-or a JSON/base64 string as visual inspection. Metadata includes `target`,
-`project`, `client_id`, `width`, `height`, `state`, and for MiniApps the `panel_id`,
-`context_id`, `process_state`, and visible `errors`. These observations are not
-an exhaustive JavaScript console or Python traceback collector.
+## 2. Rules
 
-For a working rendering surface, use the [reusable core renderers](miniapp-renderers.md).
-A user-oriented lifecycle guide is installed as `user-guide/miniapps.md`.
+- **`screenshot_gui` shows the desktop app over local MCP only.** It captures the
+  SciStudio desktop window, including MiniApp iframes, canvas, and WebGL, and
+  returns a PNG the model can see. Through WebMCP or in an ordinary browser tab it
+  returns an unsupported error; use your own browser or app screenshot tool there.
+- **It only looks; it never acts.** It does not open or focus tabs, click, or start
+  processes. Open the MiniApp with `open_miniapp` first, and operate controls with
+  your own browser, side-panel, or computer-use tools.
+- **Pick the target.** `target="miniapp"` (the default) captures the visible
+  MiniApp, narrowed by `panel_id` or `context_id`; `target="workspace"` captures the
+  whole window and takes neither. Pass `client_id` when several desktop windows show
+  the project; the error lists the ids.
+- **`wait_ms` is a layout delay, not readiness.** It accepts 0 to 5000 ms (default
+  500). Read the returned `state` (loading, ready, or error) and look at the image
+  before judging.
+- **Look at the image, not only the metadata.** A `ready` state means the page
+  finished the SDK handshake, nothing more. Check the picture for blank content,
+  wrong data, clipping, overlap, and error messages.
+- **A screenshot is not an interaction test.** It does not prove a control works,
+  that Python matches the slider, or that a result is correct. Operate the main
+  control, capture again, and report plainly any interaction you could not test.
+- **Errors are actionable; follow them.** A disconnected GUI, a hidden MiniApp, an
+  ambiguous window, a project switch, or a timeout (10 seconds per request) returns
+  a named error instead of a stale image. Fix the cause the error names and capture
+  again.
+- **Captures are bounded to the open project.** Only the authorized project can be
+  captured, and a capture that crosses a project or tab switch is discarded. Images
+  are limited to 2560 × 2560 pixels, 4 million pixels in total, and 4 MiB of PNG.

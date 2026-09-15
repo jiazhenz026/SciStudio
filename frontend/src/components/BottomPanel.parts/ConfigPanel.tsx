@@ -12,6 +12,7 @@ import { useAppStore } from "../../store";
 import { type PortRow, PortEditorTable } from "../PortEditorTable";
 import {
   INTERACTIVE_MEMORY_KEY,
+  SUBWORKFLOW_MEMORY_UNSUPPORTED,
   isInteractiveBlock,
   readInteractiveMemory,
 } from "../../lib/interactiveMemory";
@@ -204,6 +205,13 @@ export function ConfigPanel({
     {}) as Record<string, unknown>;
   const ordered = orderedConfigEntries(schema, selectedNode);
   useTutorialConfigPrefill(selectedNode, params, onUpdateConfig);
+  // #2412: a tab opened by expanding a subworkflow node carries a run prefix.
+  // Its blocks run flattened inside the parent's run, where no decision can be
+  // remembered, so the "remember" option is replaced by an explanation.
+  const inExpandedSubworkflow = useAppStore((state) => {
+    const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+    return active?.kind === "workflow" && Boolean(active.runPrefix);
+  });
 
   if (!selectedNode) {
     return <div className="text-sm text-stone-500">Select a block to edit its settings.</div>;
@@ -340,6 +348,16 @@ export function ConfigPanel({
           // ADR-051 interaction memory (Addendum 1): generic for every
           // interactive block (core or package), rendered from execution_mode
           // like the variadic-port editor renders from variadic_inputs.
+          if (inExpandedSubworkflow) {
+            return (
+              <div
+                className="mb-4 max-w-2xl rounded-lg border border-stone-200 bg-stone-50 p-3 text-xs text-stone-500"
+                data-testid="interactive-memory-unavailable"
+              >
+                {SUBWORKFLOW_MEMORY_UNSUPPORTED}
+              </div>
+            );
+          }
           const memory = readInteractiveMemory(selectedNode.config as Record<string, unknown>);
           const enabled = memory?.enabled === true;
           const hasSaved = enabled && memory?.decision != null;

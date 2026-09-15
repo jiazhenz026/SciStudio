@@ -33,7 +33,7 @@ scope:
     - "Per-panel Python providers for reads (ADR-054 §5; tracked in #2288). Panel Python (`panel.py`) and the `miniapp` context are specified separately, as Phase D, in `adr-054-miniapp`."
     - "Interactive panels reading the block's inputs; they receive only the `prepare_prompt` view (ADR-054 §2)."
     - "Editing a panel's source inside the application (tracked in #2288)."
-    - "Removing the legacy previewer forms, the compiled core viewers kept for them, and the backend provider and envelope path; that happens in 0.6 (tracked in #2288)."
+    - "Removing the legacy previewer forms, the compiled core viewers kept for them, and the backend provider and envelope path; that happens in 0.3.6 (tracked in #2288)."
     - "Migrating the external imaging, spectroscopy, LCMS, and package-template repositories; each migrates in its own repository (tracked in #2288)."
     - "Rewriting the tutorial copy of \"What Is A Type\"; the copy is owner-authored (FR-049)."
     - "Any change to the ADR-051 runtime, its `interactive_prompt` event, interaction memory, or the embedded agent's MCP preview tools (`src/scistudio/ai/agent/mcp/tools_inspection/_preview.py`, which read data independently of the preview service)."
@@ -184,7 +184,7 @@ What does not change: previewers stay read-only; ADR-051's runtime, its
 interactive window stays a full-screen modal; the ADR-048 §3 routing ladder,
 ambiguity rule, and per-type user choice carry over. Both legacy previewer forms
 — `mount(container, host)` modules and Python-only previewers — keep working,
-deprecated, through 0.5.x.
+deprecated, until 0.3.6.
 
 ### Phase A Owner Decisions (2026-09-11)
 
@@ -386,7 +386,7 @@ finding.
    `interactive`, **When** the block pauses, **Then** the modal shows an error
    naming both panels and offers Cancel.
 
-### User Story 8 - Both legacy previewer forms keep working, deprecated, through 0.5.x (Priority: P2)
+### User Story 8 - Both legacy previewer forms keep working, deprecated, until 0.3.6 (Priority: P2)
 
 The imaging and spectroscopy packages' `FrontendManifest` previewers, the LCMS
 package's `module_url` panels, and Python-only previewers such as the tutorial's
@@ -453,8 +453,9 @@ CDNs, and renders.
 - No panel matches the previewed type: `core.base.fallback` is mounted.
 - Two panels tie on tier, type specificity, and `priority`: routing returns the
   existing ambiguity error, shown in place of a panel.
-- A read exceeds its budget: the result is truncated or sampled and says so
-  (ADR-048 §7).
+- Data is larger than one read: the read returns one page, window, or chunk of
+  exact values and says more remains (`truncated`, with a cursor, offset, or
+  tile position to continue); it never returns a sample (FR-011a).
 - A panel reads a reference outside its context: the backend answers 403 and the
   SDK rejects the promise with `forbidden`.
 - A panel calls `open` on something that is not a child of the target: the host
@@ -552,25 +553,44 @@ CDNs, and renders.
   |---|---|
   | `metadata` | type chain, metadata, and shape and dtype where applicable |
   | `table.page` | columns, rows, total, page, sort |
-  | `table.xy` | x and y columns as numbers |
-  | `array.plane` | values, dtype, shape, axes, slice axes, vmin and vmax of the full plane |
-  | `array.tile` | values, dtype, tile bounds |
-  | `series.points` | decimated index and values, with the decimation method |
+  | `table.xy` | one page of exact x and y rows (`offset`, `limit`), total, next offset |
+  | `array.plane` | geometry (shape, dtype, axes, slice axes, height, width, tile size) and vmin and vmax over every cell of the plane; the plane's values when it fits one read, otherwise none |
+  | `array.tile` | the exact values of one window, dtype, tile bounds |
+  | `series.points` | one page of exact index and values rows (`offset`, `limit`), total, next offset |
   | `text.chunk` | text, encoding, offset, next offset |
   | `artifact.info` | name, MIME type, size |
   | `artifact.file` | backend: a distinct context-target grant URL, including preview-cache plot artifacts; SDK: artifact metadata, an `ArrayBuffer` in `data`, and a frame-local blob URL in `url` |
-  | `composite.slots` | slot names, types, and child references |
+  | `composite.slots` | a page of slot names, types, and child references, and the next cursor |
   | `collection.items` | a page of item references with types, and the next cursor |
 
-  Every result MUST carry the sampled, truncated, and complete flags of ADR-048
-  §7 and respect the panel read budgets, which the Phase A PR sets and records.
+  Every result MUST carry the `truncated` and `complete` flags and respect the
+  panel read budgets, which the Phase A PR sets and records. `truncated` means
+  more pages, windows, or chunks remain to be read; `complete` means the read
+  reached the end. Panel reads carry no `sampled` flag, because no panel read
+  samples (FR-011a).
+- **FR-011a** (#2460): Panel reads MUST present the real, complete data. No read
+  may sample, downsample, decimate, stride, crop, round, or drop values because
+  the data is large, for any data type (Array, DataFrame, Series, Text,
+  Artifact, CompositeData, Collection, plots, and package types). Budgets are
+  kept by paging: `table.page` by page, `table.xy` and `series.points` by
+  `offset`/`limit` (at most 100000 rows a page, row `i` is source row
+  `offset + i`, a non-finite or missing value in place as NaN or its JSON
+  sentinel), `array.plane` values by `array.tile` windows, `text.chunk` by
+  `next_offset`, and `collection.items` and `composite.slots` by cursor. The
+  core panels MUST reach every value through these reads: series and composite
+  panels read every page, the text panel reads in batches with a Read more
+  control, the array panel scrolls over tiles, and table cells show exact
+  values. The AI-facing MCP `preview_data` tool is a bounded model preview, not
+  a panel read, and is outside this requirement. The deprecated legacy provider
+  API (`PreviewDataAccess.array_plane` downsampling, `collection_sample`
+  without a cursor) is tracked in #2462.
 - **FR-012**: `array.plane`, `array.tile`, and `series.points` MUST support
   `format: "binary"`, answering `application/octet-stream` with little-endian
   values and dtype, shape, and flags in response headers; the host MUST hand the
   body to the panel as a transferred `ArrayBuffer`. JSON remains available.
 - **FR-013**: Read handlers MUST run off the API event loop (ADR-048 §8).
 - **FR-014**: `PreviewDataAccess` MUST gain what FR-011 needs and it lacks today:
-  decimation for `series_points` (which returns every point), an offset for
+  offset/limit paging for series and table point reads, an offset for
   `text_chunk` (which reads only the head), a cursor for `collection_sample`
   (which stops at `max_items`), file access for artifacts over the inline limit,
   and binary output for array reads (tiles are JSON float lists today).
@@ -720,12 +740,12 @@ CDNs, and renders.
   in a preview it MUST also offer the core panel for the type, and in an
   interactive modal it MUST offer Cancel. The host MUST NOT fall back silently.
 - **FR-036**: The `FrontendManifest` module path and the `PanelManifest`
-  `module_url` path MUST keep working through 0.5.x through the existing loaders.
+  `module_url` path MUST keep working until 0.3.6 through the existing loaders.
   Registering either MUST record a deprecation diagnostic naming the panel
   replacement and emit a `DeprecationWarning`; the frontend MUST log one warning
   per legacy module load. These paths MUST gain no feature of the panel model.
 - **FR-037**: A `PreviewerSpec` with a backend provider and no frontend manifest
-  MUST keep rendering through 0.5.x, its envelope drawn by the compiled core
+  MUST keep rendering until 0.3.6, its envelope drawn by the compiled core
   viewers retained for that purpose (FR-043), and MUST record a deprecation
   diagnostic. A legacy module that fails to load MUST degrade to the compiled
   viewer for its envelope kind, as today.
@@ -757,7 +777,7 @@ CDNs, and renders.
   |---|---|---|
   | `core.dataframe.basic` | `DataFrameViewer` (`TableViewer.tsx`) | paging, sort, column display, truncation notice |
   | `core.array.basic` | `ArrayViewer` | plane display, slice axes, contrast and LUT over values, tiles, metadata |
-  | `core.series.basic` | `SeriesViewer` | decimated line plot, axis labels |
+  | `core.series.basic` | `SeriesViewer` | line plot of every point (paged reads), axis labels, table of every row |
   | `core.text.basic` | `TextViewer` | paged text, encoding, truncation notice |
   | `core.artifact.basic` | `ArtifactViewer` | name, MIME type, size, safe display through `artifact.file` |
   | `core.composite.basic` | `CompositeViewer` | slot list; `open` into a slot |
@@ -775,7 +795,7 @@ CDNs, and renders.
   MUST delete `DataRouterModal`, `PairEditorModal`, and the `PANEL_REGISTRY` of
   built-in interactive windows, and MUST stop using the compiled core viewers for
   anything but envelopes from legacy previewers (FR-037). The compiled viewers are
-  removed in 0.6 with the legacy forms (#2288).
+  removed in 0.3.6 with the legacy forms (#2288).
 
 **Phase C — docs and skills**
 
@@ -784,7 +804,7 @@ CDNs, and renders.
   read operation, the library set, the CDN allowlist and the offline caveat, view
   state, the frame's limits, testing with `panel.sample.json`, the
   `scistudio.panels` entry point, and the tiers. `previewers.md` MUST be reduced to
-  both legacy forms and a migration guide until 0.6, and the other
+  both legacy forms and a migration guide until 0.3.6, and the other
   package-development pages that mention previewers or `PanelManifest` MUST point
   to `panels.md`.
 - **FR-045**: A new embedded-agent skill
@@ -832,6 +852,17 @@ CDNs, and renders.
 - **FR-049**: The Phase C PR MUST prepare the code assets of the "What Is A Type"
   tutorial as panel folders replacing `panel.mjs` and `image_preview.py`; the
   tutorial copy is supplied by the owner.
+- **FR-050**: The panel contract reference MUST be generated from source
+  (ADR-052 Addendum 1): `scripts/docs/build_panel_reference.py` renders
+  `panels-sdk.md` (the SDK, the operations per context, the read operations, the
+  error codes, and the library set), `panels-renderers.md` (the stylesheets and
+  the `panel-ui.js` and `renderers.js` components with their props), and
+  `panel-descriptor.md` (the `panel.json` keys and rules and the
+  `panel.sample.json` shape) into `src/scistudio/_user_guide/api-reference/`,
+  stamped `provisional` with the panel API version, and
+  `tests/docs/test_panel_reference.py` MUST fail when the committed pages are
+  stale. The guides and skills of FR-044 and FR-045 link to these pages for
+  signatures, props, keys, and read parameters instead of restating them.
 
 ### Key Entities
 
@@ -911,13 +942,14 @@ panel page ──GET (token in path)──▶ /api/panels/t/{token}/{assets|sdk|
 | `frontend/src/components/DataPreview.tsx`, `frontend/src/store/tabSlice.parts/previewTabActions.ts`, `frontend/src/App.parts/ProjectWorkspace.tsx` | modify | Maximize carries panel id and view state; disposal on drop |
 | `frontend/src/App.parts/InteractiveModals.tsx` and `.parts/**` | modify | Mount panels by id; keep `DynamicPanel` for legacy |
 | `frontend/src/components/DataRouterModal.tsx`, `frontend/src/components/PairEditorModal.tsx` | delete | Phase B, after parity |
-| `frontend/src/components/DataPreview.parts/coreViewers.tsx`, `TableViewer.tsx`, `PlotViewer.tsx` | modify | Phase B: used only for legacy envelopes (removed in 0.6, #2288) |
+| `frontend/src/components/DataPreview.parts/coreViewers.tsx`, `TableViewer.tsx`, `PlotViewer.tsx` | modify | Phase B: used only for legacy envelopes (removed in 0.3.6, #2288) |
 | `docs/package-development/panels.md` | create | Phase C guide |
 | `docs/package-development/previewers.md`, `index.md`, `architecture.md`, `blocks.md`, `publishing.md` | modify | Phase C |
 | `src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md` | create | Phase C skill |
 | `src/scistudio/_skills/scistudio/SKILL.md`, `scistudio-write-block/SKILL.md`, `scistudio-inspect-data/SKILL.md`, `src/scistudio/_agent_reference/*.md` | modify | Phase C references |
 | `docs/specs/adr-048-preview-system.md`, `docs/specs/adr-051-interactive-blocks.md`, `docs/specs/adr-055-enterprise-support.md` | modify | FR-047 |
 | `src/scistudio/tutorials/core/what-is-a-type/**` | modify | FR-049 code assets |
+| `scripts/docs/build_panel_reference.py`, `scripts/docs/build_reference.py`, `src/scistudio/_user_guide/api-reference/panels-sdk.md`, `panels-renderers.md`, `panel-descriptor.md`, `tests/docs/test_panel_reference.py` | create or generate | FR-050 generated panel contract reference |
 | `tests/panels/**`, `tests/api/test_panel_routes.py`, `tests/api/test_panel_security.py`, `tests/api/test_app.py`, `frontend/src/panels/*.test.*` | create or modify | Coverage for Phases A and B |
 
 ### 4.3 Implementation Sequence
@@ -982,7 +1014,7 @@ independently of panels.
   be reverted independently.
 - **Confidentiality.** A panel can still navigate or load allowlisted scripts;
   the frame teardown and allowlist narrow this and ADR-054 §4 states the limit.
-- **Two loaders and two rendering paths until 0.6.** Deprecation diagnostics make
+- **Two loaders and two rendering paths until 0.3.6.** Deprecation diagnostics make
   every remaining legacy use visible; removal is tracked in #2288.
 - **Rollback.** Phase A is additive; Phase B is reverted together with any panel
   found wanting, restoring the compiled windows.

@@ -2,7 +2,7 @@
 import type { PreviewEnvelope } from "../../types/api";
 import { readPanelBody } from "../../panels/readBody";
 import { materializePanelArtifact } from "../../panels/artifact";
-import { apiFetch, JSON_HEADERS } from "./core";
+import { ApiError, apiFetch, JSON_HEADERS } from "./core";
 import type { PanelContext, PanelCreateRequest, PanelProcessStatus } from "../../panels/types";
 import { PanelError } from "../../panels/types";
 
@@ -33,6 +33,23 @@ function callResult(body: Record<string, unknown>): unknown {
   }
   return body.result;
 }
+/** The result of a questionnaire submit (ADR-054 MiniApp FR-050). */
+export interface SubmitAnswersResult {
+  saved: boolean;
+  path: string | null;
+  submitted_at: string | null;
+  notified: boolean;
+  reason: string | null;
+  message: string;
+}
+
+/** Questionnaire refusals keep a code the page can branch on. */
+const SUBMIT_CODES: Record<number, string> = {
+  400: "unsupported",
+  409: "no_questionnaire",
+  422: "invalid_answers",
+};
+
 export const panelsApi = {
   create: (request: PanelCreateRequest) =>
     apiFetch<PanelContext>("/api/panels/contexts", {
@@ -93,6 +110,24 @@ export const panelsApi = {
       shape: JSON.parse(response.headers.get("X-Panel-Shape") ?? "[]"),
       data: await readPanelBody(response, { signal, limit: CALL_RESULT_LIMIT }),
     };
+  },
+  /**
+   * ADR-054 MiniApp FR-050 — save a questionnaire submit to `answers.json` and
+   * notify the MiniApp's agent session when it is open.
+   */
+  async submitAnswers(id: string, answers: Record<string, unknown>) {
+    try {
+      return await apiFetch<SubmitAnswersResult>(`${contextPath(id)}/answers`, {
+        method: "POST",
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ answers }),
+        timeoutMs: 15000,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && SUBMIT_CODES[error.status])
+        throw new PanelError(SUBMIT_CODES[error.status], error.message);
+      throw error;
+    }
   },
   renew: (id: string) =>
     apiFetch<PanelContext>(`${contextPath(id)}/renew`, {

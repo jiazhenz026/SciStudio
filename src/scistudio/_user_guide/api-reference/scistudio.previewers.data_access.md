@@ -4,11 +4,15 @@
 
 Canonical import root: `from scistudio.previewers.data_access import ...`
 
+> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.3.6`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 Self-contained public-API reference — 11 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
 
-## `ArrayPlane` — _class_
+## `ArrayPlane` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArrayPlane
@@ -23,9 +27,11 @@ grayscale image. Every non-displayed axis is listed in ``slice_axes`` with
 its selected index, so an N-D array is fully navigable (one index picker per
 extra axis).
 
-## `ArrayTile` — _class_
+## `ArrayTile` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArrayTile
@@ -37,9 +43,11 @@ A bounded rectangular tile read out of a 2-D array plane.
 Returned by `PreviewDataAccess.array_tile` so the frontend can fetch a
 zoomed-in region of a large plane without loading the whole plane.
 
-## `ArtifactInfo` — _class_
+## `ArtifactInfo` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ArtifactInfo
@@ -52,9 +60,11 @@ Describes a file artifact by path, MIME type, and size. A small,
 directly-displayable image may also carry an inline ``data_uri``; larger
 files return metadata only.
 
-## `CollectionSample` — _class_
+## `CollectionSample` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class CollectionSample
@@ -63,9 +73,11 @@ CollectionSample(count: 'int', item_type: 'str | None', items: 'list[dict[str, A
 
 A bounded sample of a collection's items.
 
-## `CompositeSlots` — _class_
+## `CompositeSlots` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class CompositeSlots
@@ -74,9 +86,11 @@ CompositeSlots(slots: 'dict[str, str]') -> None
 
 The slot inventory of a composite target, with no child rendered.
 
-## `DataFramePage` — _class_
+## `DataFramePage` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class DataFramePage
@@ -88,9 +102,11 @@ One bounded page of a table, returned by `PreviewDataAccess.dataframe_page`.
 Holds a single page of rows plus the paging/sort state the frontend needs to
 render a pager. The page size is capped by the session row budget.
 
-## `PreviewDataAccess` — _class_
+## `PreviewDataAccess` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewDataAccess
@@ -118,7 +134,7 @@ Example:
 - `table_xy_points(self, ref: 'StorageReference', *, x_column: 'str | None' = None, y_column: 'str | None' = None) -> 'TableXYPoints'` — `provisional` · Since `0.3.1` — Return all finite x/y points from two Parquet table columns.
 - `array_plane(self, ref: 'StorageReference', *, slice_index: 'int' = 0, axis_indices: 'dict[int, int] | None' = None) -> 'ArrayPlane'` — `provisional` · Since `0.3.1` — Return array shape/axes metadata plus one bounded, downsampled 2-D plane.
 - `array_tile(self, ref: 'StorageReference', *, slice_index: 'int' = 0, y0: 'int' = 0, x0: 'int' = 0, height: 'int | None' = None, width: 'int | None' = None) -> 'ArrayTile'` — `provisional` · Since `0.3.1` — Read one bounded rectangular tile from a 2-D plane.
-- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]', *, max_points: 'int | None' = None) -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
+- `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]') -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
 - `text_chunk(self, ref: 'StorageReference', *, offset: 'int' = 0, length: 'int | None' = None) -> 'TextChunk'` — `provisional` · Since `0.3.1` — Return a bounded chunk of text plus a truncation marker.
 - `artifact_metadata(self, ref: 'StorageReference', *, mime_type: 'str | None' = None) -> 'ArtifactInfo'` — `provisional` · Since `0.3.1` — Return bounded artifact metadata, inlining a small image as a data URI.
 - `composite_slots(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'` — `provisional` · Since `0.3.1` — Return a composite's slot inventory without rendering any child.
@@ -127,24 +143,26 @@ Example:
 - `artifact_file(self, ref: 'StorageReference') -> 'Path'` — `provisional` · Since `0.3.5` — Resolve an existing artifact for the host's streaming file response.
 - `collection_sample(self, *, count: 'int', item_type: 'str | None', items: 'list[dict[str, Any]]', cursor: 'str | None' = None, limit: 'int | None' = None, page: 'int | None' = None, page_size: 'int | None' = None) -> 'CollectionSample'` — `provisional` · Since `0.3.1` — Return a bounded page of a collection's item references.
 
-## `SeriesPoints` — _class_
+## `SeriesPoints` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
 
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 ```python
 class SeriesPoints
-SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, sampled: 'bool' = False, complete: 'bool' = True, decimation: 'str' = 'none', nonfinite_positions: 'list[int]' = <factory>, nonfinite_positions_complete: 'bool' = True, source_indices: 'list[int]' = <factory>) -> None
+SeriesPoints(points: 'list[dict[str, float]]', total: 'int', truncated: 'bool', nonnumeric: 'int' = 0, complete: 'bool' = True, nonfinite_positions: 'list[int]' = <factory>) -> None
 ```
 
 The complete finite set of (x, y) chart points for a Series preview.
 
-Legacy calls return every plottable point. Explicit ``max_points`` opts
-into bounded uniform-index decimation for panel display, with flags and
-the method recorded so an export cannot mistake a sample for the source.
+Every plottable point is returned; nothing is sampled.
 
-## `SliceAxis` — _class_
+## `SliceAxis` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class SliceAxis
@@ -157,9 +175,11 @@ For an array with more than two dimensions, every axis that is not the
 displayed Y or X axis becomes a slider the user can move. This carries what
 the frontend needs to render one such index picker.
 
-## `TableXYPoints` — _class_
+## `TableXYPoints` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TableXYPoints
@@ -168,9 +188,11 @@ TableXYPoints(columns: 'list[str]', x_column: 'str', y_column: 'str', points: 'l
 
 The complete finite set of (x, y) points from two table columns.
 
-## `TextChunk` — _class_
+## `TextChunk` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.3.6`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TextChunk

@@ -10,35 +10,35 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentAvailabilityResponse } from "../lib/api/agentAvailability";
+import {
+  mockAgentStatus,
+  providerStatus,
+  type AgentStatusMock,
+} from "../components/AIChat/__tests__/agentStatusFixture";
 import { ApiError } from "../lib/api/core";
 import { useAppStore } from "../store";
 import { resetAppStore } from "../testUtils";
 
 import { completeRows, ConvertToBlockDialog } from "./ConvertToBlockDialog";
 
-const READY: AgentAvailabilityResponse = {
-  state: "ready",
-  providers: [
-    {
-      key: "claude-code",
-      label: "Claude Code",
-      state: "ready",
-      cause: null,
-      next_step: null,
-      session_unsupported_reason: null,
-    },
-  ],
-};
-
-function renderDialog(options: { convert?: ReturnType<typeof vi.fn> } = {}) {
+function renderDialog(
+  options: {
+    convert?: ReturnType<typeof vi.fn>;
+    providers?: Parameters<typeof mockAgentStatus>[0];
+  } = {},
+): {
+  convert: ReturnType<typeof vi.fn>;
+  onStarted: ReturnType<typeof vi.fn>;
+  onOpenChange: ReturnType<typeof vi.fn>;
+  status: AgentStatusMock;
+} {
+  const status = mockAgentStatus(options.providers);
   const convert = options.convert ?? vi.fn(async () => ({ session_tab_id: "tab-9" }));
   const onStarted = vi.fn();
   const onOpenChange = vi.fn();
   render(
     <ConvertToBlockDialog
       convert={convert as never}
-      fetchAvailability={(async () => READY) as never}
       onOpenChange={onOpenChange}
       onStarted={onStarted}
       open
@@ -46,11 +46,22 @@ function renderDialog(options: { convert?: ReturnType<typeof vi.fn> } = {}) {
       panelName="Threshold explorer"
     />,
   );
-  return { convert, onStarted, onOpenChange };
+  return { convert, onStarted, onOpenChange, status };
 }
 
+/** Wait for `/api/ai/status` to arrive, so the provider options exist. */
 async function settled(): Promise<void> {
-  await waitFor(() => expect(screen.queryByTestId("miniapp-convert-probing")).toBeNull());
+  await screen.findByTestId("setup-provider-option-claude-code");
+  await waitFor(() => expect(screen.getByTestId("setup-provider-select")).not.toBeDisabled());
+}
+
+/** Choose a provider and a permission mode through the UI, as AI Chat asks for. */
+async function chooseAgent(): Promise<void> {
+  await settled();
+  fireEvent.change(screen.getByTestId("setup-provider-select"), {
+    target: { value: "claude-code" },
+  });
+  fireEvent.click(screen.getByTestId("setup-permission-safe"));
 }
 
 beforeEach(() => {
@@ -90,6 +101,7 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     fireEvent.change(screen.getByTestId("miniapp-convert-type-0"), {
       target: { value: "Mask" },
     });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-convert-submit"));
 
     await waitFor(() => expect(harness.convert).toHaveBeenCalledTimes(1));
@@ -103,6 +115,7 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     expect(useAppStore.getState().terminalTabs.some((tab) => tab.id === "tab-9")).toBe(true);
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
     expect(harness.onOpenChange).toHaveBeenCalledWith(false);
+    expect(harness.status.availabilityCalls).toEqual([]);
   });
 
   it("carries the optional note and several outputs", async () => {
@@ -121,6 +134,7 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     fireEvent.change(screen.getByTestId("miniapp-convert-note"), {
       target: { value: "Default to what the MiniApp last showed." },
     });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-convert-submit"));
 
     await waitFor(() => expect(harness.convert).toHaveBeenCalledTimes(1));
@@ -135,12 +149,64 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
 
   it("will not start a session with no output named", async () => {
     renderDialog();
-    await settled();
+    await chooseAgent();
     expect(screen.getByTestId("miniapp-convert-submit")).toBeDisabled();
 
     // A name with no type is not an output the agent can write.
     fireEvent.change(screen.getByTestId("miniapp-convert-name-0"), { target: { value: "mask" } });
     expect(screen.getByTestId("miniapp-convert-submit")).toBeDisabled();
+  });
+
+  it("starts with no provider or permission mode chosen and waits for both", async () => {
+    renderDialog();
+    await settled();
+    fireEvent.change(screen.getByTestId("miniapp-convert-name-0"), { target: { value: "mask" } });
+    fireEvent.change(screen.getByTestId("miniapp-convert-type-0"), { target: { value: "Mask" } });
+    const select = screen.getByTestId("setup-provider-select") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    const submit = screen.getByTestId("miniapp-convert-submit");
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(select, { target: { value: "claude-code" } });
+    expect(submit).toBeDisabled();
+    fireEvent.click(screen.getByTestId("setup-permission-safe"));
+    expect(submit).not.toBeDisabled();
+  });
+
+  it("will not start a session with a provider that is not installed", async () => {
+    renderDialog({ providers: [providerStatus({ name: "claude-code", available: false })] });
+    fireEvent.change(screen.getByTestId("miniapp-convert-name-0"), { target: { value: "mask" } });
+    fireEvent.change(screen.getByTestId("miniapp-convert-type-0"), { target: { value: "Mask" } });
+    await screen.findByTestId("setup-no-providers-notice");
+    expect(screen.getByTestId("miniapp-convert-submit")).toBeDisabled();
+  });
+
+  it("reads /api/ai/status when it opens, not while closed, never the removed probe", async () => {
+    const closed = mockAgentStatus();
+    const { rerender } = render(
+      <ConvertToBlockDialog
+        onOpenChange={vi.fn()}
+        onStarted={vi.fn()}
+        open={false}
+        panelId="threshold"
+        panelName="Threshold explorer"
+      />,
+    );
+    expect(screen.queryByTestId("miniapp-convert-dialog")).toBeNull();
+    expect(closed.statusCalls).toEqual([]);
+
+    rerender(
+      <ConvertToBlockDialog
+        onOpenChange={vi.fn()}
+        onStarted={vi.fn()}
+        open
+        panelId="threshold"
+        panelName="Threshold explorer"
+      />,
+    );
+    await settled();
+    expect(closed.statusCalls).toHaveLength(1);
+    expect(closed.availabilityCalls).toEqual([]);
   });
 
   it("shows what the route said when the session cannot start", async () => {
@@ -153,6 +219,7 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     await settled();
     fireEvent.change(screen.getByTestId("miniapp-convert-name-0"), { target: { value: "mask" } });
     fireEvent.change(screen.getByTestId("miniapp-convert-type-0"), { target: { value: "Mask" } });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-convert-submit"));
 
     await waitFor(() =>

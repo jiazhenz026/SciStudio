@@ -917,6 +917,18 @@ this contract (presence in `__all__` is not an author stability promise — §2)
 2026-06-27) — it is young (ADR-048; refactors #1579/#1598) and expected to settle,
 the same posture taken for app blocks (§7) and code blocks (§7A).
 
+**Deprecated (⚠️, #2426).** ADR-054 §8 replaces the Python previewer forms with
+HTML panels: they stay supported and deprecated until they
+are removed in 0.3.6 (#2288). Every public symbol of `scistudio.previewers.models`,
+`scistudio.previewers.data_access`, and `scistudio.previewers.helpers` therefore
+carries `@deprecated(since="0.3.5", removed_in="0.3.6", ...)` next to its
+unchanged `provisional` tier, and each of the three modules is marked deprecated
+as a whole so the non-markable constants and aliases (`PREVIEWER_API_VERSION`,
+`PreviewProvider`, `PreviewResourceProvider`, `PreviewerSpecList`) are covered.
+The per-symbol tables below keep their tier and `Since` columns; the deprecation
+applies to every public row. The replacement surface is the `scistudio.panels`
+canonical root (§8.6).
+
 **Reference implementation:** `scistudio-blocks-spectroscopy` is the canonical
 shape — it splits registration (`previewers/__init__.py`: only `PreviewerSpec` /
 `FrontendManifest`) from provider logic (`previewers/providers.py`), reads every
@@ -1092,6 +1104,31 @@ cache-key and resource-read paths before the API freeze.
 | ✅ | `PreviewRequest.record_metadata` (typed field, shipped #1823) | Public | provisional | 0.3.1 | replaces the `_record_metadata` query read |
 | ✅ | `request.query["_storage"]` / `["_record_metadata"]` | Internal | — | — | runtime-internal carrier (cache-key `data_version` + bounded resource reads); not an author contract (was an implicit one) |
 | ➖ | `StorageReference` (`scistudio.core.storage.ref`) | Public (via `core.types` re-export, §3) | — | — | appears in `PreviewDataAccess` signatures + the new `request.storage` field; previewer authors only pass it through, never import or construct it. Canonical inventory tracked under the core.storage governed-modules gap (§17), unchanged by this section |
+
+### 8.6 The replacement root — `scistudio.panels` (ADR-054)
+
+`scistudio.panels` is a canonical public root (#2426). Its `__all__` is the
+author-facing panel checks — the ADR-049 contract rows PV-09-007, PV-09-008,
+PV-09-010, and PV-12-006 — and every symbol is `provisional`, `Since 0.3.5`:
+
+| St | Symbol | Kind | Disposition | Tier | Since | Notes |
+|---|---|---|---|---|---|---|
+| ✅ | `PANEL_API_VERSION` | const | Public | provisional | 0.3.5 | descriptor `api_version` the host serves; non-markable `str` |
+| ✅ | `PanelDescriptor` | class | Public | provisional | 0.3.5 | validated `panel.json`; `candidates()` Internal (legacy routing adapter) |
+| ✅ | `parse_descriptor` | func | Public | provisional | 0.3.5 | validate one panel folder |
+| ✅ | `PanelRegistry` | class | Public | provisional | 0.3.5 | discovery result; `register()` / `load()` Internal |
+| ✅ | `discover_panels` | func | Public | provisional | 0.3.5 | the application's four-tier + entry-point discovery |
+| ✅ | `validate_external_references` | func | Public | provisional | 0.3.5 | CDN allowlist and pinning check |
+| ✅ | `validate_interactive_panel` | func | Public | provisional | 0.3.5 | interactive block → panel context compatibility |
+
+Everything else under `src/scistudio/panels/` — contexts, targets, reads, token
+routes and file serving (`resolve_panel_file`), security middleware, the resident
+process host, bootstrap and protocol, the watcher, MiniApp creation, and the GUI
+debug broker — is runtime machinery and Internal. The root re-exports lazily so
+the resident panel subprocess, which imports the package first, does not load
+discovery. `PanelDescriptor.owner_kind` and `parse_descriptor(owner_kind=...)`
+still use `OwnerKind` from the deprecated models root; the enum needs a
+non-deprecated home before 0.3.6 (#2288).
 
 ## 9. Plot `render(collection)` Contract
 
@@ -1589,3 +1626,5 @@ even after the tables are complete.
 | 2026-06-27 | **#1812 canonical display-name convention landed.** Chose **(B)** `user["display_name"]` as the optional producer override (not a typed `framework`/`meta` field), so **no §3.10 `FrameworkMeta` row and no §13.1 contract-table row change** — it is a value convention inside the already-public `user` slot. One core authority `core.meta._display_name.resolve_display_name` (Internal, not in `core.meta.__all__`) resolves both the interactive label path and the previewer/API path; `register_output_payload` stamps a resolved `display_name` onto item descriptors (additive, §8.2 note) and the frontend reads it instead of re-deriving. §13 + §8.2 notes added. | Owner 2026-06-27 (B + resolver in `core.meta` + `admin-approved:core-change` for `core.meta`/`blocks.base.interactive`). |
 | 2026-06-27 | **#1823 implemented (storage closure):** within the owner-approved typed-field approach, the owner picked the **consolidate-the-rebuild** variant over fully deleting the dict carrier. The `PreviewSessionManager` resolves the typed `StorageReference` once and sets `request.storage` / `record_metadata`; providers read those (core `fallbacks.py` keeps a defensive `_storage` rebuild only for requests built outside the manager). The `_storage` / `_record_metadata` query keys are **retained as a runtime-internal carrier** — the session cache-key folds in `_storage.metadata.data_version` and the bounded resource reads (tile/export) rebuild the ref from it. Fully removing the carrier was declined: no author-facing gain, and it would disturb the cache-key + resource-read paths before the API freeze. `sanitize_svg` relocated to the public `scistudio.previewers.helpers` home (`fallbacks` keeps a back-compat re-export, out of `__all__`, dropped by #1817). `models.__all__` reconciliation stays with #1817 per §8/§8.1. §8/§8.3/§8.5 updated to the shipped state. | Owner 2026-06-27 ("方案 A — consolidate, keep the internal carrier"). |
 | 2026-06-27 | **#1824 implemented (plot engine relocation):** the 8-module `render(collection)` engine (`_harness`/`runtime`/`validation`/`models`/`targets`/`scaffold`/`relink`/`examples`) moved from `scistudio.ai.agent.mcp.tools_plot` to the first-class **`scistudio.plot`** package, behavior-preserving. The `mcp._context` coupling is severed via **dependency injection** (approach b): a minimal `PlotRuntimeContext` Protocol + pure path helpers (`safe_under`/`resolve_project_root`) live in `scistudio.plot._context`; engine entry points take an injected `ctx`. The REST route passes its `ApiRuntime` (gained a `project_dir` property so it satisfies the Protocol); the MCP `tools.py` stays in the agent namespace as a thin wrapper and injects `get_context()` (cast at that boundary). **No module under `scistudio.plot` imports `scistudio.api` or `scistudio.ai`** — enforced by a new `plot` rule in `tests/architecture/test_layer_deps.py`. The MCP 33-tool count is unchanged (`tools.py` retained). §9 prose repointed to `scistudio.plot`. | Owner 2026-06-27 ("先 #1823 还是 #1824 — 开干"; "1824 居然没有做吗"). |
+| 2026-09-15 | **#2426: deprecation marker, previewers deprecated, panels root.** Added `scistudio.stability.deprecated` / `get_deprecation` / `DeprecationInfo` as a marker that composes with the tier (a deprecated symbol keeps its tier until removal; no fourth tier), recorded in the public-surface snapshot and rendered by the generated reference. Marked every public `scistudio.previewers` symbol, and the `models` / `data_access` / `helpers` modules, deprecated since 0.3.5 and removed in 0.6.0 (ADR-054 §8, #2288). Added `scistudio.panels` as the 13th canonical root with seven provisional symbols (§8.6). | Owner directive, #2426. |
+| 2026-09-15 | **#2468: previewer removal version corrected to 0.3.6.** The `scistudio.previewers` deprecation recorded by #2426 named 0.6.0 by mistake; every `removed_in` for the previewer surface, the §8 prose, the public-surface snapshot, and the generated reference now say 0.3.6. | Owner directive, #2468. |

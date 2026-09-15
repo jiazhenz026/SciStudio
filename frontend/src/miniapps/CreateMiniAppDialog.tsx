@@ -16,43 +16,26 @@
  *   the request - what the user wants to see or do, in their own words. It
  *                 becomes the MiniApp's `description` and the agent's brief
  *                 (FR-024), so it is prose, not a name.
- *   the agent   - provider and permission mode, AS "Bring in my work" DOES.
- *                 Not "like": the same two components, through the same
- *                 availability payload and the same helpers. See below.
+ *   the agent   - provider and permission mode, exactly as AI Chat offers them.
  *
- * WHY THE AGENT CONTROLS ARE IMPORTED RATHER THAN REWRITTEN. FR-023 says the
- * dialog offers the provider and permission mode as "Bring in my work" does,
- * and ADR-053 FR-042 already settled what that means for the work-import
- * dialog: provider selection and permission semantics belong to ADR-034, and a
- * second copy drifts the moment a provider joins the registry. This dialog is
- * the third surface to start an agent session, so it consumes the same
- * `useAgentAvailability` probe, the same `isUsable` / `resolveSelectedProvider`
- * rules, and the same `AgentSetup` / `AvailabilityGuidance` pair. Nothing about
- * agents is decided in this file.
- *
- * WHY THE PROBE RUNS ON OPEN. FR-024 makes the ORDER normative on the backend:
- * `POST /api/panels/miniapps` probes availability first and creates nothing
- * when the chosen provider cannot start a session. A first graded probe is a
- * live call per provider and can take seconds, so the dialog fetches it when it
- * opens - while the user is still typing - and the submit does not wait on it.
- * The backend still probes; this is not a substitute for the server's check,
- * which is why a 409 `agent_unavailable` is rendered here verbatim rather than
- * being treated as impossible.
+ * THE AGENT CONTROLS ARE AI CHAT'S (#2454, owner directive). `AgentLaunchSetup`
+ * and `useAgentStatus` are the AI Chat setup screen's own code: the same
+ * `GET /api/ai/status` payload, the same pickers, the same launch rule. There is
+ * no availability probe before or on submit; the route runs the AI Chat launch
+ * check, and a refusal is shown here verbatim.
  */
 import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import type { PermissionMode } from "../components/AIChat/SetupScreen.parts/types";
-import { AgentSetup } from "../components/BringInMyWorkDialog.parts/AgentSetup";
-import { AvailabilityGuidance } from "../components/BringInMyWorkDialog.parts/AvailabilityGuidance";
+import { AgentLaunchSetup } from "../components/AIChat/SetupScreen.parts/AgentLaunchSetup";
 import {
-  hasUsableProvider,
-  resolveSelectedProvider,
-} from "../components/BringInMyWorkDialog.parts/availability";
-import {
-  useAgentAvailability,
-  type AvailabilityFetcher,
-} from "../components/BringInMyWorkDialog.parts/useAgentAvailability";
+  agentLaunchProblem,
+  useAgentStatus,
+} from "../components/AIChat/SetupScreen.parts/agentStatus";
+import type {
+  PermissionMode,
+  TerminalProvider,
+} from "../components/AIChat/SetupScreen.parts/types";
 import { fromBackendPermissionMode, toBackendPermissionMode } from "../lib/api/workImport";
 import { useAppStore } from "../store";
 
@@ -73,7 +56,6 @@ export const DATA_HELP = "Select an output from a completed block.";
 export const NO_OUTPUTS =
   "No block in the project has produced an output yet. Run a block first, then come back.";
 export const NO_PROJECT = "Open a project first.";
-export const PROBING = "Checking which agents can run this...";
 
 /** One choosable block output of the open workflow. */
 export interface OutputChoice {
@@ -101,19 +83,11 @@ export interface CreateMiniAppDialogProps {
   /** Pre-filled when the dialog was opened from a block's context menu (FR-023). */
   presetTarget?: MiniAppTarget | null;
   onCreated(result: CreateMiniAppResult): void;
-  /** Test seam for the graded availability probe; production uses the shared client. */
-  fetchAvailability?: AvailabilityFetcher;
   /** Test seam for `POST /api/panels/miniapps`. */
   create?: typeof miniAppsApi.create;
 }
 
-/**
- * Mounted only while `open`, so the availability probe fires when the dialog
- * opens rather than when its parent mounts (FR-024). A parent that keeps this
- * component mounted with `open: false` - which every call site does, because
- * that is how the pinned props read - would otherwise probe on workspace load
- * and serve a stale report to a dialog opened ten minutes later.
- */
+/** Mounted only while `open`, so the provider status is read when the dialog opens. */
 export function CreateMiniAppDialog(props: CreateMiniAppDialogProps) {
   const projectPath = useAppStore((s) => s.currentProject?.path ?? "");
   if (!props.open) return null;
@@ -124,7 +98,6 @@ function CreateMiniAppDialogBody({
   onOpenChange,
   presetTarget,
   onCreated,
-  fetchAvailability,
   create = miniAppsApi.create,
 }: CreateMiniAppDialogProps) {
   const projectOpen = useAppStore((s) => s.currentProject !== null);
@@ -169,29 +142,18 @@ function CreateMiniAppDialogBody({
     }
   }, [options, projectChoices, selectedKey]);
   const [request, setRequest] = useState("");
-  const [provider, setProvider] = useState<string | null>(null);
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>("safe");
+  const [provider, setProvider] = useState<TerminalProvider | null>(null);
+  const [permissionMode, setPermissionMode] = useState<PermissionMode | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    loading: probing,
-    availability,
-    probeError,
-    retry,
-    retrying,
-  } = useAgentAvailability(fetchAvailability);
-  const agentUsable = hasUsableProvider(availability);
-
-  // FR-043's rule, reused: one usable provider is selected, not offered.
-  useEffect(() => {
-    setProvider((prev) => resolveSelectedProvider(availability, prev));
-  }, [availability]);
+  const agentStatus = useAgentStatus();
+  const agentReady = agentLaunchProblem(agentStatus.providers, provider, permissionMode) === null;
 
   const target = options.find((c) => targetKey(c.target) === selectedKey)?.target ?? null;
   const trimmed = request.trim();
   const submittable =
-    projectOpen && target !== null && trimmed.length > 0 && !submitting && !probing && agentUsable;
+    projectOpen && target !== null && trimmed.length > 0 && !submitting && agentReady;
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange]);
 
@@ -204,7 +166,7 @@ function CreateMiniAppDialogBody({
   }, [close]);
 
   const submit = useCallback(async () => {
-    if (!target || !trimmed) return;
+    if (!target || !trimmed || !provider || !permissionMode) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -238,9 +200,9 @@ function CreateMiniAppDialogBody({
       onOpenChange(false);
     } catch (err) {
       /*
-       * FR-024 / US1 acceptance 4 - when the route refuses with
-       * `agent_unavailable` it carries the GRADED REASON, and that sentence is
-       * the only thing that tells the user what to fix. `ApiError` keeps the
+       * FR-024 / US1 acceptance 4 - when the route refuses the chosen agent it
+       * carries the launch check's own sentence, and that sentence is the only
+       * thing that tells the user what to fix. `ApiError` keeps the
        * panels envelope's `message` and drops its `code`, so what is shown is
        * that message verbatim rather than a generic failure line of our own.
        */
@@ -330,38 +292,15 @@ function CreateMiniAppDialogBody({
             />
           </div>
 
-          {/* FR-023 - the agent half, exactly as "Bring in my work" offers it. */}
-          {probing ? (
-            <div className="grid gap-2">
-              <p className="text-xs italic text-stone-500" data-testid="miniapp-create-probing">
-                {PROBING}
-              </p>
-              <AgentSetup
-                availability={availability}
-                probing
-                provider={provider}
-                permissionMode={permissionMode}
-                onProviderChange={setProvider}
-                onPermissionModeChange={setPermissionMode}
-              />
-            </div>
-          ) : agentUsable ? (
-            <AgentSetup
-              availability={availability}
-              probing={false}
-              provider={provider}
-              permissionMode={permissionMode}
-              onProviderChange={setProvider}
-              onPermissionModeChange={setPermissionMode}
-            />
-          ) : (
-            <AvailabilityGuidance
-              availability={availability}
-              probeError={probeError}
-              onRetry={retry}
-              retrying={retrying}
-            />
-          )}
+          {/* FR-023 - the agent half, exactly as AI Chat offers it (#2454). */}
+          <AgentLaunchSetup
+            tabId="miniapp-create"
+            agentStatus={agentStatus}
+            provider={provider}
+            permissionMode={permissionMode}
+            onProviderChange={setProvider}
+            onPermissionModeChange={setPermissionMode}
+          />
         </div>
 
         <div className="mt-4 grid gap-3 border-t border-stone-200 pt-4">

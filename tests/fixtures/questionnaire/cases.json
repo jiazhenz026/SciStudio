@@ -1,0 +1,531 @@
+{
+  "_comment": "Shared questionnaire spec cases: scistudio.panels.questionnaire.validate_spec (pytest) and Questionnaire in panel-ui.js (vitest) must agree on 'valid' for every case (#2447).",
+  "cases": [
+    {
+      "name": "full valid spec",
+      "valid": true,
+      "spec": {
+        "title": "What should this MiniApp show?",
+        "intro": "Answer what you like; skip the rest.",
+        "submit_label": "Build my MiniApp",
+        "questions": [
+          {
+            "id": "chart",
+            "type": "single",
+            "prompt": "Which view?",
+            "help": "Pick one.",
+            "options": [
+              {
+                "value": "umap",
+                "label": "UMAP",
+                "description": "2-D embedding"
+              },
+              {
+                "value": "pca",
+                "label": "PCA"
+              }
+            ],
+            "allow_other": true
+          },
+          {
+            "id": "colour_by",
+            "type": "multiple",
+            "prompt": "Colour by?",
+            "options": [
+              {
+                "value": "cluster",
+                "label": "Cluster"
+              },
+              {
+                "value": "sample",
+                "label": "Sample"
+              },
+              {
+                "value": "qc",
+                "label": "QC metric"
+              }
+            ]
+          },
+          {
+            "id": "notes",
+            "type": "text",
+            "prompt": "Anything else?",
+            "multiline": true,
+            "placeholder": "Free text"
+          },
+          {
+            "id": "top_genes",
+            "type": "number",
+            "prompt": "How many genes?",
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "unit": "genes"
+          },
+          {
+            "id": "opacity",
+            "type": "range",
+            "prompt": "Point opacity",
+            "min": 0,
+            "max": 1,
+            "step": 0.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "not an object",
+      "valid": false,
+      "spec": []
+    },
+    {
+      "name": "missing title",
+      "valid": false,
+      "spec": {
+        "questions": [
+          {
+            "id": "chart",
+            "type": "single",
+            "prompt": "Which view?",
+            "help": "Pick one.",
+            "options": [
+              {
+                "value": "umap",
+                "label": "UMAP",
+                "description": "2-D embedding"
+              },
+              {
+                "value": "pca",
+                "label": "PCA"
+              }
+            ],
+            "allow_other": true
+          },
+          {
+            "id": "colour_by",
+            "type": "multiple",
+            "prompt": "Colour by?",
+            "options": [
+              {
+                "value": "cluster",
+                "label": "Cluster"
+              },
+              {
+                "value": "sample",
+                "label": "Sample"
+              },
+              {
+                "value": "qc",
+                "label": "QC metric"
+              }
+            ]
+          },
+          {
+            "id": "notes",
+            "type": "text",
+            "prompt": "Anything else?",
+            "multiline": true,
+            "placeholder": "Free text"
+          },
+          {
+            "id": "top_genes",
+            "type": "number",
+            "prompt": "How many genes?",
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "unit": "genes"
+          },
+          {
+            "id": "opacity",
+            "type": "range",
+            "prompt": "Point opacity",
+            "min": 0,
+            "max": 1,
+            "step": 0.1
+          }
+        ]
+      }
+    },
+    {
+      "name": "no questions",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": []
+      }
+    },
+    {
+      "name": "unknown top key",
+      "valid": false,
+      "spec": {
+        "title": "What should this MiniApp show?",
+        "intro": "Answer what you like; skip the rest.",
+        "submit_label": "Build my MiniApp",
+        "questions": [
+          {
+            "id": "chart",
+            "type": "single",
+            "prompt": "Which view?",
+            "help": "Pick one.",
+            "options": [
+              {
+                "value": "umap",
+                "label": "UMAP",
+                "description": "2-D embedding"
+              },
+              {
+                "value": "pca",
+                "label": "PCA"
+              }
+            ],
+            "allow_other": true
+          },
+          {
+            "id": "colour_by",
+            "type": "multiple",
+            "prompt": "Colour by?",
+            "options": [
+              {
+                "value": "cluster",
+                "label": "Cluster"
+              },
+              {
+                "value": "sample",
+                "label": "Sample"
+              },
+              {
+                "value": "qc",
+                "label": "QC metric"
+              }
+            ]
+          },
+          {
+            "id": "notes",
+            "type": "text",
+            "prompt": "Anything else?",
+            "multiline": true,
+            "placeholder": "Free text"
+          },
+          {
+            "id": "top_genes",
+            "type": "number",
+            "prompt": "How many genes?",
+            "min": 1,
+            "max": 100,
+            "step": 1,
+            "unit": "genes"
+          },
+          {
+            "id": "opacity",
+            "type": "range",
+            "prompt": "Point opacity",
+            "min": 0,
+            "max": 1,
+            "step": 0.1
+          }
+        ],
+        "theme": "dark"
+      }
+    },
+    {
+      "name": "duplicate id",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "notes",
+            "type": "text",
+            "prompt": "Anything else?",
+            "multiline": true,
+            "placeholder": "Free text"
+          },
+          {
+            "id": "notes",
+            "type": "text",
+            "prompt": "Anything else?",
+            "multiline": true,
+            "placeholder": "Free text"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad id",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "Chart",
+            "type": "text",
+            "prompt": "p"
+          }
+        ]
+      }
+    },
+    {
+      "name": "required flag",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "text",
+            "prompt": "p",
+            "required": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "decide_for_me disabled",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "text",
+            "prompt": "p",
+            "decide_for_me": false
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown type",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "dropdown",
+            "prompt": "p"
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing prompt",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "text"
+          }
+        ]
+      }
+    },
+    {
+      "name": "choice without options",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "single",
+            "prompt": "p"
+          }
+        ]
+      }
+    },
+    {
+      "name": "choice with one option",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "multiple",
+            "prompt": "p",
+            "options": [
+              {
+                "value": "x",
+                "label": "X"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "option missing label",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "single",
+            "prompt": "p",
+            "options": [
+              {
+                "value": "x"
+              },
+              {
+                "value": "y",
+                "label": "Y"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "reserved option value",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "single",
+            "prompt": "p",
+            "options": [
+              {
+                "value": "decide_for_me",
+                "label": "D"
+              },
+              {
+                "value": "y",
+                "label": "Y"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "repeated option value",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "single",
+            "prompt": "p",
+            "options": [
+              {
+                "value": "y",
+                "label": "A"
+              },
+              {
+                "value": "y",
+                "label": "Y"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "key not for type",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "text",
+            "prompt": "p",
+            "options": []
+          }
+        ]
+      }
+    },
+    {
+      "name": "range without max",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "range",
+            "prompt": "p",
+            "min": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "min not below max",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "number",
+            "prompt": "p",
+            "min": 5,
+            "max": 5
+          }
+        ]
+      }
+    },
+    {
+      "name": "non-positive step",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "number",
+            "prompt": "p",
+            "step": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "allow_other not boolean",
+      "valid": false,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "single",
+            "prompt": "p",
+            "allow_other": "yes",
+            "options": [
+              {
+                "value": "x",
+                "label": "X"
+              },
+              {
+                "value": "y",
+                "label": "Y"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "minimal text question",
+      "valid": true,
+      "spec": {
+        "title": "T",
+        "questions": [
+          {
+            "id": "a",
+            "type": "text",
+            "prompt": "p"
+          }
+        ]
+      }
+    }
+  ]
+}

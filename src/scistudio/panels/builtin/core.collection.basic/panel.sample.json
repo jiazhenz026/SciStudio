@@ -10,7 +10,6 @@
       { "ref": "sample-collection/item-1", "type_name": "Image", "kind": "data_ref" }
     ],
     "next_cursor": "c1",
-    "sampled": true,
     "truncated": true,
     "complete": false
   },
@@ -20,7 +19,6 @@
       "item_type": "Image",
       "items": [{ "ref": "sample-collection/item-2", "type_name": "Image", "kind": "data_ref" }],
       "next_cursor": null,
-      "sampled": false,
       "truncated": false,
       "complete": true
     }

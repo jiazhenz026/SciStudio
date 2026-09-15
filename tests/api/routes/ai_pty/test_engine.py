@@ -75,7 +75,7 @@ def test_open_engine_initiated_tab_rejects_empty_provider(tmp_path: Path) -> Non
 
 def test_open_engine_initiated_tab_rejects_invalid_permission_mode(tmp_path: Path) -> None:
     """``permission_mode`` is restricted to ``safe`` | ``bypass``."""
-    with pytest.raises(RuntimeError, match="permission_mode must be"):
+    with pytest.raises(RuntimeError, match="Invalid permission_mode"):
         ai_pty.open_engine_initiated_tab(
             title="t",
             provider="claude-code",

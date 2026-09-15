@@ -81,4 +81,4 @@ Followup: https://github.com/jiazhenz026/SciStudio/issues/2293.
 The scoped local gate records only the checks actually executed. Sentrux MCP
 is unavailable. Full integration gate, pre-PR reconciliation, CI, issue closure
 and release status belong to the manager and are not claimed by this report.
-Phases B–D remain unstarted (#2294, #2295, #2354); 0.6 removal stays in #2288.
+Phases B–D remain unstarted (#2294, #2295, #2354); 0.3.6 removal stays in #2288.

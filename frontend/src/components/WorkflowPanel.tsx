@@ -13,6 +13,8 @@ import { api } from "../lib/api";
 import { useAppStore } from "../store";
 import { cn } from "@/lib/utils";
 
+import { SectionReloadButton } from "./SectionReloadButton";
+
 interface WorkflowListItem {
   id: string;
   description: string;
@@ -89,14 +91,7 @@ export function WorkflowPanel({ projectId, activeWorkflowId, onOpenWorkflow }: W
         <p className="font-display text-xl text-ink">Workflows</p>
         {/* "Reload" matches the Blocks palette's affordance (#2090 owner
             note); the project tree uses the same wording. */}
-        <button
-          className="toolbar-button"
-          disabled={loading}
-          onClick={() => void refresh()}
-          type="button"
-        >
-          {loading ? "..." : "Reload"}
-        </button>
+        <SectionReloadButton loading={loading} onClick={() => void refresh()} />
       </div>
 
       <div className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 scrollbar-thin">

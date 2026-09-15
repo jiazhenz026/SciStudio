@@ -454,6 +454,34 @@ def test_ordinary_docs_change_does_not_trip_the_architecture_guard(git_repo: Pat
     assert "admin-approved:architecture-doc" not in result.required_obligations.admin_labels
 
 
+def test_agent_docs_change_blocks_ci_and_names_the_label(git_repo: Path) -> None:
+    """#2438 end-to-end: a provisioned agent document in the diff requires the label."""
+
+    _add_change(git_repo, "src/scistudio/_agent_reference/block-contract.md")
+    ledger = _ledger(task_kind="feature", declared_scope=DeclaredScope(include=["src/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.agent_docs_guard" in result.unsatisfied
+    assert "admin-approved:agent-docs" in result.required_obligations.admin_labels
+    hints = [h for h in result.repair_hints if h.startswith("- guard.agent_docs_guard")]
+    assert hints, result.repair_hints
+    assert "admin-approved:agent-docs" in hints[0]
+    assert "src/scistudio/_agent_reference/block-contract.md" in hints[0]
+
+
+def test_hook_template_change_does_not_trip_the_agent_docs_guard(git_repo: Path) -> None:
+    """Hook script templates are code, not owner-maintained agent documents."""
+
+    _add_change(git_repo, "src/scistudio/agent_provisioning/templates/hook_protect_data_dir.py")
+    ledger = _ledger(task_kind="feature", declared_scope=DeclaredScope(include=["src/**"]))
+    result = evaluator.reconcile(
+        ledger=ledger, repo_root=git_repo, base="HEAD~1", head="HEAD", mode="ci", run_checks=False
+    )
+    assert "guard.agent_docs_guard" not in result.unsatisfied
+    assert "admin-approved:agent-docs" not in result.required_obligations.admin_labels
+
+
 def test_guard_repair_hint_uses_finding_message_when_no_action_mapped() -> None:
     # The helper falls back to the finding's own message/remediation; the
     # ``- guard.<name>`` header is always present.

@@ -62,7 +62,7 @@ def test_the_debounce_is_five_hundred_milliseconds() -> None:
     assert DEBOUNCE_SECONDS == 0.5
 
 
-@pytest.mark.parametrize("name", ["panel.json", "panel.py", "index.html", "app.js", "theme.css", "icon.svg"])
+@pytest.mark.parametrize("name", ["panel.py", "index.html", "app.js", "theme.css", "icon.svg"])
 def test_page_files_count(tmp_path: Path, name: str) -> None:
     assert counts(tmp_path, tmp_path / name) is True
 

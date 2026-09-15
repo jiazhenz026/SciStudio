@@ -6,10 +6,11 @@ pinned here:
 
 1. **Freeze test** (``test_public_surface_frozen``). The live public surface —
    every symbol in each canonical root's ``__all__``, with its stability tier
-   and ``Since`` — is recomputed and diffed against the committed golden
+   and ``Since``, and its deprecation (start and removal versions) when it is
+   deprecated — is recomputed and diffed against the committed golden
    snapshot ``public_surface.snapshot.json``. Accidental drift (a refactor that
-   adds, removes, renames, re-tiers, or re-dates a public symbol) makes the diff
-   non-empty and fails CI. Intentional change means editing the snapshot, which
+   adds, removes, renames, re-tiers, re-dates, deprecates, or un-deprecates a
+   public symbol) makes the diff non-empty and fails CI. Intentional change means editing the snapshot, which
    is an owner-reviewed, human-readable diff (ADR-052 §15).
 
 2. **No-internal-leak test** (``test_no_internal_or_undecorated_in_all``). Every
@@ -42,7 +43,7 @@ from typing import Any, cast
 
 import pytest
 
-from scistudio.stability import get_stability
+from scistudio.stability import get_deprecation, get_stability
 
 # ---------------------------------------------------------------------------
 # Canonical public roots (ADR-052 §3 / §3.10 / §4 / §5 / §6 / §7 / §7A / §8;
@@ -65,12 +66,14 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     # composes on, provisional since 0.3.5.
     "scistudio.api.app",
     "scistudio.api.seam",
+    # ADR-054 panels (#2426): discovery and validation, provisional since 0.3.5.
+    "scistudio.panels",
 )
 
 _SNAPSHOT_PATH = Path(__file__).parent / "public_surface.snapshot.json"
 
 # ---------------------------------------------------------------------------
-# Non-markable public symbols (ADR-052 §15). These twelve are ``str`` constants,
+# Non-markable public symbols (ADR-052 §15). These thirteen are ``str`` constants,
 # ``frozenset`` constants, or ``Literal`` / ``Callable`` / union type-aliases that
 # cannot carry a runtime
 # ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
@@ -95,20 +98,38 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.tutorials", "Action"),
         ("scistudio.tutorials", "VOCABULARY"),
         ("scistudio.api.seam", "AUDIENCE_EXTERNAL_TAG"),
+        ("scistudio.panels", "PANEL_API_VERSION"),
     }
 )
 
 
-def _load_snapshot() -> dict[str, dict[str, dict[str, str]]]:
+def _load_snapshot() -> dict[str, dict[str, dict[str, Any]]]:
     # The document is a ``_meta`` block plus one block per canonical root; once
     # ``_meta`` is removed the remainder matches the declared shape.
     raw: dict[str, Any] = json.loads(_SNAPSHOT_PATH.read_text(encoding="utf-8"))
     raw.pop("_meta", None)
-    return cast("dict[str, dict[str, dict[str, str]]]", raw)
+    return cast("dict[str, dict[str, dict[str, Any]]]", raw)
 
 
 def _import_root(name: str) -> ModuleType:
     return importlib.import_module(name)
+
+
+def _live_deprecations_for(root: str) -> dict[str, dict[str, str]]:
+    """Recompute the effective deprecation of every public symbol of one root.
+
+    A symbol is deprecated when it carries its own ``@deprecated`` marker or when
+    its root module is deprecated as a whole (the module-wide marker is what
+    covers non-markable constants and type aliases). Only the version facts are
+    frozen; the replacement wording is prose and free to improve.
+    """
+    module = _import_root(root)
+    result: dict[str, dict[str, str]] = {}
+    for name in sorted(getattr(module, "__all__", [])):
+        info = get_deprecation(getattr(module, name)) or get_deprecation(module)
+        if info is not None:
+            result[name] = {"since": info.since, "removed_in": info.removed_in}
+    return result
 
 
 def _live_surface_for(root: str) -> dict[str, dict[str, Any] | None]:
@@ -130,7 +151,7 @@ def _live_surface_for(root: str) -> dict[str, dict[str, Any] | None]:
 
 
 def test_snapshot_covers_exactly_the_canonical_roots() -> None:
-    """The golden snapshot must describe the 9 canonical roots and no others."""
+    """The golden snapshot must describe the canonical roots and no others."""
     snapshot = _load_snapshot()
     assert set(snapshot) == set(CANONICAL_ROOTS), (
         "snapshot roots drifted from the canonical set:\n"
@@ -160,7 +181,13 @@ def test_public_surface_frozen(root: str) -> None:
     tier_changed: list[str] = []
     since_changed: list[str] = []
     undecorated: list[str] = []
+    deprecation_changed: list[str] = []
+    live_deprecations = _live_deprecations_for(root)
     for name in sorted(expected_names & live_names):
+        if live_deprecations.get(name) != expected[name].get("deprecated"):
+            deprecation_changed.append(
+                f"{name}: {expected[name].get('deprecated')!r} -> {live_deprecations.get(name)!r}"
+            )
         live_info = live[name]
         if live_info is None:
             if (root, name) in NON_MARKABLE_PUBLIC_SYMBOLS:
@@ -185,6 +212,8 @@ def test_public_surface_frozen(root: str) -> None:
         problems.append("  ~tier-changed: " + "; ".join(tier_changed))
     if since_changed:
         problems.append("  ~since-changed: " + "; ".join(since_changed))
+    if deprecation_changed:
+        problems.append("  ~deprecation-changed: " + "; ".join(deprecation_changed))
     if undecorated:
         problems.append(f"  !undecorated (no @stable/@provisional marker): {undecorated}")
 
@@ -372,3 +401,35 @@ def test_block_cancelled_by_app_error_reexported_from_blocks_app() -> None:
         "BlockCancelledByAppError must be re-exported from blocks.app.__all__ (§4.7/§7)"
     )
     assert hasattr(app_root, "BlockCancelledByAppError")
+
+
+def test_deprecated_symbols_keep_a_public_tier() -> None:
+    """ADR-052 §5: deprecation does not change the tier until removal.
+
+    Every deprecated ``__all__`` symbol that can carry a marker still reads back
+    ``stable`` or ``provisional``, and every recorded removal version is later
+    than the version the deprecation started in.
+    """
+    bad: list[str] = []
+    for root in CANONICAL_ROOTS:
+        module = _import_root(root)
+        for name, deprecation in _live_deprecations_for(root).items():
+            if (root, name) not in NON_MARKABLE_PUBLIC_SYMBOLS:
+                info = get_stability(getattr(module, name))
+                if info is None or info.tier not in {"stable", "provisional"}:
+                    bad.append(f"{root}.{name}: deprecated but tier is {None if info is None else info.tier!r}")
+            since = tuple(int(part) for part in deprecation["since"].split("."))
+            removed = tuple(int(part) for part in deprecation["removed_in"].split("."))
+            if removed <= since:
+                bad.append(f"{root}.{name}: removed_in {deprecation['removed_in']} is not after {deprecation['since']}")
+    assert not bad, "deprecation metadata inconsistent with ADR-052 §5:\n  " + "\n  ".join(bad)
+
+
+def test_every_previewer_root_symbol_is_deprecated() -> None:
+    """ADR-054 §8: the whole public previewer surface is deprecated, removed in 0.3.6."""
+    for root in ("scistudio.previewers.models", "scistudio.previewers.data_access"):
+        module = _import_root(root)
+        deprecations = _live_deprecations_for(root)
+        missing = sorted(set(module.__all__) - set(deprecations))
+        assert not missing, f"{root}: public symbols not deprecated: {missing}"
+        assert {d["removed_in"] for d in deprecations.values()} == {"0.3.6"}

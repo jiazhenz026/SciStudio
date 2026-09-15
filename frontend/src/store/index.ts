@@ -86,7 +86,9 @@ export const useAppStore = create<AppStore>()(
       partialize: (state) => ({
         activeBottomTab: state.activeBottomTab,
         paletteCollapsed: state.paletteCollapsed,
-        previewCollapsed: state.previewCollapsed,
+        // #2456 — a collapse a MiniApp tab made is layout, not preference: the
+        // column the user left open is persisted open.
+        previewCollapsed: state.previewCollapsed && !state.previewCollapsedByMiniApp,
         bottomPanelCollapsed: state.bottomPanelCollapsed,
         panelSizes: state.panelSizes,
         // #2361 — whether a markdown tab opens split. Persisted so closing the

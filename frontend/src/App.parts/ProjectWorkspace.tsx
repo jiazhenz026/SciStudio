@@ -36,6 +36,7 @@ import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
 import { MiniAppPalette } from "../miniapps/MiniAppPalette";
 import {
   MiniAppTabLayer,
+  recordPreviewColumnSize,
   useMiniAppPreviewColumn,
   usePreviewColumnState,
 } from "../miniapps/MiniAppTab";
@@ -338,7 +339,6 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   // #2113 — a previewer choice change re-routes the open session here exactly
   // as it does in the sidebar preview.
-  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
   const openAs = tab.openAs;
   return (
     /*
@@ -382,7 +382,6 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
           panelId={tab.panelId}
           previewSessionId={tab.previewSessionId}
           initialViewState={tab.viewState}
-          routingEpoch={previewerChoiceVersion}
           getCachedEnvelope={(key) => previewEnvelopeCache[key]}
           cacheEnvelope={cachePreviewEnvelope}
           buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}
@@ -545,6 +544,11 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
   // FR-035 — refresh compatible actions together with the sidebar catalogue.
   const { miniapps: miniAppCatalogue } = useMiniAppCatalog();
+  // #2457 — a `panel.json` rename refreshes this catalogue; open MiniApp tabs
+  // take the new name from it (a no-op when no name changed).
+  useEffect(() => {
+    useAppStore.getState().syncMiniAppTabNames(miniAppCatalogue);
+  }, [miniAppCatalogue, miniAppTabs]);
   const [presetTarget, setPresetTarget] = useState<MiniAppTarget | null>(null);
 
   const miniApps: MiniAppWiring = {
@@ -800,12 +804,7 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
         {!isAi && (
           <ResizablePanel
             panelRef={previewPanelRef}
-            onResize={(size) => {
-              const collapsed = size.asPercentage === 0;
-              if (collapsed !== useAppStore.getState().previewCollapsed) {
-                useAppStore.setState({ previewCollapsed: collapsed });
-              }
-            }}
+            onResize={recordPreviewColumnSize}
             id="workspace-preview"
             defaultSize="22%"
             minSize="15%"

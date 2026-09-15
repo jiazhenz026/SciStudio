@@ -728,10 +728,12 @@ async def delete_project_path(
         file_ids = [(path, project_relative_entity_id(project_root, path)) for path in files]
         for path, file_id in file_ids:
             absorb_unobserved_disk_edit(runtime, file_id, path)
+        deleted_workflows = _workflow_files(project_root, [] if link else files)
         try:
             await asyncio.to_thread(_delete_on_disk, target, link=link)
         except Exception as exc:
             raise ProjectFileWriteError(f"delete failed: {exc}") from exc
+        _remove_workflow_pause_dirs(project_root, deleted_workflows)
 
         changes: list[FileChange] = []
         for path, file_id in file_ids:
@@ -822,6 +824,9 @@ async def move_project_path(
         # ``id:`` follows the new name. Rewritten before the change events so
         # their versions describe the final bytes.
         moved_workflows = _moved_workflow_files(project_root, pairs)
+        # #2448: the moved file runs under a new identity; the checkpoint of the
+        # old identity describes a file that no longer exists there.
+        _remove_workflow_pause_dirs(project_root, _workflow_files(project_root, [old for old, _new in pairs]))
         for _old, new in moved_workflows:
             try:
                 await asyncio.to_thread(_rewrite_moved_workflow_id, new)
@@ -889,6 +894,36 @@ def _moved_workflow_files(project_root: Path, pairs: list[tuple[Path, Path]]) ->
         if relative.parts and relative.parts[0] in _WORKFLOW_FILE_DIRS:
             moved.append((old, new))
     return moved
+
+
+def _workflow_files(project_root: Path, paths: list[Path]) -> list[Path]:
+    """The *paths* that name workflow YAML files under ``workflows/`` or ``subworkflows/``."""
+    from scistudio.workflow.identity import WORKFLOW_SUFFIXES
+
+    found: list[Path] = []
+    for path in paths:
+        if not path.name.lower().endswith(WORKFLOW_SUFFIXES):
+            continue
+        try:
+            relative = path.relative_to(project_root)
+        except ValueError:
+            continue
+        if relative.parts and relative.parts[0] in _WORKFLOW_FILE_DIRS:
+            found.append(path)
+    return found
+
+
+def _remove_workflow_pause_dirs(project_root: Path, workflow_files: list[Path]) -> None:
+    """Delete the pause checkpoint directory of each removed or moved workflow file."""
+    # Development references: #2448.
+    from scistudio.api.runtime._workflows import remove_pause_dir
+    from scistudio.workflow.identity import workflow_identity_for_path
+
+    for path in workflow_files:
+        try:
+            remove_pause_dir(project_root, workflow_identity_for_path(project_root, path))
+        except Exception:
+            logger.warning("#2448: could not remove the pause checkpoint of %s", path, exc_info=True)
 
 
 def _rewrite_moved_workflow_id(path: Path) -> bool:

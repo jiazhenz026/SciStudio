@@ -26,7 +26,17 @@ from scistudio.api.runtime._file_writes import (
     FileWriteConflictError,
     ProjectFileWriteError,
 )
-from scistudio.api.schemas import ActiveProjectResponse, ProjectCreate, ProjectResponse, ProjectUpdate
+from scistudio.api.runtime._runs import ProjectRunsLiveError
+from scistudio.api.schemas import (
+    ActiveProjectResponse,
+    EndProjectRunsRequest,
+    EndProjectRunsResponse,
+    LiveRunResponse,
+    ProjectCreate,
+    ProjectResponse,
+    ProjectRunsResponse,
+    ProjectUpdate,
+)
 from scistudio.tutorials.projects import is_tutorial_entry
 
 _API_SOURCES = {"canvas", "agent", "gitRestore", "import", "external"}
@@ -36,6 +46,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
+#: The 409 ``detail.code`` a request that would leave a project with live runs gets.
+PROJECT_RUNS_LIVE = "project_runs_live"
+
+
+def _runs_live_conflict(exc: ProjectRunsLiveError) -> HTTPException:
+    """The 409 a switch that would end live runs answers."""
+    return HTTPException(
+        status_code=409,
+        detail={"code": PROJECT_RUNS_LIVE, "message": str(exc), "run_ids": exc.run_ids},
+    )
+
 
 @router.post("/", response_model=ProjectResponse)
 async def create_project(request: Request, body: ProjectCreate, runtime: RuntimeDep) -> ProjectResponse:
@@ -44,6 +65,8 @@ async def create_project(request: Request, body: ProjectCreate, runtime: Runtime
         project = runtime.create_project(body.name, body.description, body.path)
     except FileExistsError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ProjectRunsLiveError as exc:
+        raise _runs_live_conflict(exc) from exc
     await ensure_project_mcp_server(request.app, runtime, Path(project.path))
     return ProjectResponse(**runtime.project_response(project))
 
@@ -96,6 +119,64 @@ async def get_active_project(runtime: RuntimeDep) -> ActiveProjectResponse:
         project=ProjectResponse(**runtime.project_response(project)),
         active_workflow_id=runtime.active_workflow_id,
     )
+
+
+@router.get("/active/runs", response_model=ProjectRunsResponse)
+async def get_active_project_runs(runtime: RuntimeDep) -> ProjectRunsResponse:
+    """List the active project's workflow runs that have not finished.
+
+    Switching to another project ends every one of them, so the GUI reads this
+    before a switch and asks the user to confirm when it is not empty. Declared
+    before the greedy ``/{project_id:path}`` handlers.
+    """
+    # Development references: #2433.
+    runs = [
+        LiveRunResponse(run_id=run.run_id, workflow_id=workflow_id)
+        for workflow_id, run in list(runtime.workflow_runs.items())
+        if not run.task.done()
+    ]
+    project = runtime.active_project
+    return ProjectRunsResponse(project_id=project.id if project is not None else None, runs=runs)
+
+
+@router.post("/active/end-runs", response_model=EndProjectRunsResponse)
+async def end_active_project_runs(body: EndProjectRunsRequest, runtime: RuntimeDep) -> EndProjectRunsResponse:
+    """Cancel every live run of the active project and wait until each has ended.
+
+    The GUI calls this once the user has confirmed leaving a project with live
+    runs, then switches. The request names the project and the runs the user was
+    shown; it is refused with 409 when another client has since opened a
+    different project, or started a run the user did not confirm. The wait is
+    bounded: a run that ignores cancellation is recorded as ``cancelled`` and the
+    call returns. Closing a browser never reaches this; only an explicit switch
+    does.
+    """
+    # Development references: #2433, #2327.
+    project = runtime.active_project
+    if project is None or project.id != body.project_id:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "project_changed",
+                "message": "Another window opened a different project; nothing was cancelled.",
+                "active_project_id": project.id if project is not None else None,
+            },
+        )
+    if body.run_ids is not None:
+        unconfirmed = sorted(
+            str(run.run_id) for run in runtime.live_workflow_runs() if str(run.run_id) not in set(body.run_ids)
+        )
+        if unconfirmed:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "project_runs_changed",
+                    "message": "A run started after you confirmed; nothing was cancelled.",
+                    "run_ids": unconfirmed,
+                },
+            )
+    ended = await runtime.end_project_runs()
+    return EndProjectRunsResponse(ended_run_ids=ended)
 
 
 # ---------------------------------------------------------------------------
@@ -417,6 +498,8 @@ async def get_project(request: Request, project_id: str, runtime: RuntimeDep) ->
         project = runtime.open_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ProjectRunsLiveError as exc:
+        raise _runs_live_conflict(exc) from exc
     await ensure_project_mcp_server(request.app, runtime, Path(project.path))
     # ADR-034 Phase 2: refresh the workflow filesystem watcher to point at
     # the newly active project. ``start_for_project`` is idempotent 鈥?if the
@@ -473,5 +556,7 @@ async def delete_project(project_id: str, runtime: RuntimeDep) -> None:
         runtime.delete_project(project_id)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ProjectRunsLiveError as exc:
+        raise _runs_live_conflict(exc) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

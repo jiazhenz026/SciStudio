@@ -124,22 +124,11 @@ describe("a MiniApp tab's lifetime in the tab list (ADR-054 FR-019)", () => {
   });
 });
 
-describe("the realtime seams the /ws dispatcher calls (ADR-054 FR-013 / FR-022)", () => {
+describe("the realtime seam the /ws dispatcher calls (ADR-054 FR-013)", () => {
   it("remembers the workspace client id", () => {
     expect(useAppStore.getState().wsClientId).toBeNull();
     useAppStore.getState().setWsClientId("ws-abc123");
     expect(useAppStore.getState().wsClientId).toBe("ws-abc123");
-  });
-
-  it("counts file changes per panel so two events in one tick are two events", () => {
-    const notify = useAppStore.getState().notifyPanelFilesChanged;
-    notify("lab.threshold");
-    notify("lab.threshold");
-    notify("lab.other");
-    expect(useAppStore.getState().panelFilesChangedSeq).toEqual({
-      "lab.threshold": 2,
-      "lab.other": 1,
-    });
   });
 });
 
@@ -197,5 +186,51 @@ describe("MiniApps preserve upstream workflow-copy isolation (#2362)", () => {
     ).toBe("miniapp");
     useAppStore.getState().syncActiveTab();
     expect(descriptions()).toEqual(["first"]);
+  });
+});
+
+describe("syncMiniAppTabNames (#2457)", () => {
+  beforeEach(() => {
+    useAppStore.setState({ tabs: [], activeTabId: null });
+  });
+
+  const open = (panelId: string, name: string, port = "image") =>
+    useAppStore.getState().openMiniAppTab({ panelId, name, target: { ...TARGET, port } });
+  const miniApps = () =>
+    useAppStore.getState().tabs.filter((tab): tab is MiniAppTab => tab.kind === "miniapp");
+
+  it("renames every open tab on a panel to its catalogue name, keeping ids", () => {
+    open("lab.threshold", "threshold the nuclei image");
+    open("lab.threshold", "threshold the nuclei image", "mask");
+    const ids = miniApps().map((tab) => tab.id);
+    useAppStore
+      .getState()
+      .syncMiniAppTabNames([{ panel_id: "lab.threshold", name: "Threshold explorer" }]);
+    expect(miniApps().map((tab) => tab.displayName)).toEqual([
+      "Threshold explorer",
+      "Threshold explorer",
+    ]);
+    expect(miniApps().map((tab) => tab.id)).toEqual(ids);
+    // FR-018 — reopening the same target still focuses the renamed tab.
+    open("lab.threshold", "stale name");
+    expect(miniApps()).toHaveLength(2);
+    expect(useAppStore.getState().activeTabId).toBe(ids[0]);
+  });
+
+  it("keeps the stored name of a panel the catalogue does not list", () => {
+    open("lab.gone", "Gone app");
+    useAppStore.getState().syncMiniAppTabNames([{ panel_id: "lab.other", name: "Other" }]);
+    expect(miniApps()[0].displayName).toBe("Gone app");
+    useAppStore.getState().syncMiniAppTabNames([{ panel_id: "lab.gone", name: "" }]);
+    expect(miniApps()[0].displayName).toBe("Gone app");
+  });
+
+  it("writes nothing when no name changed", () => {
+    open("lab.threshold", "Threshold explorer");
+    const before = useAppStore.getState().tabs;
+    useAppStore
+      .getState()
+      .syncMiniAppTabNames([{ panel_id: "lab.threshold", name: "Threshold explorer" }]);
+    expect(useAppStore.getState().tabs).toBe(before);
   });
 });

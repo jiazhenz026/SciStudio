@@ -46,6 +46,7 @@ skill location. A missing skill receives a notice in place of its content.
 #   8. scistudio-write-miniapp    — author a MiniApp panel (ADR-054 MiniApp FR-028)
 #   9. scistudio-use-gui          — operate the existing GUI
 #  10. scistudio-write-panel      — author preview and interactive panels
+#  11. scistudio-write-type       — author a custom data type
 #
 # Source resolution (I40c):
 #
@@ -90,6 +91,7 @@ _SKILL_NAMES = (
     "scistudio-write-miniapp",
     "scistudio-use-gui",
     "scistudio-write-panel",
+    "scistudio-write-type",
 )
 
 _DEST_TREES = (

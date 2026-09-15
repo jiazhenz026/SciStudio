@@ -1,0 +1,1211 @@
+{
+  "base_ref": null,
+  "branch": "feat/2415-activity-bar-order",
+  "check_events": [
+    {
+      "at": "2026-09-15T07:44:49.538324Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:50aab9e5af1c9137b06d2811ecf61f17803c368999e8e1c4498f600813bf7077",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:44:49.915830Z",
+      "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T07:45:05.362259Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 2,
+      "input_fingerprint": "sha256:eaaa9ef77bc663642e829c378fb5eeaa5756091d8d5e588e00d779345f853eea",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 2",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:45:12.548903Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:63f7a406e53a9b2f49a9daaa18cd2fc90daa704fe70958424975d33913b56325",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:45:12.679879Z",
+      "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T07:45:45.901034Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 2,
+      "input_fingerprint": "sha256:eaaa9ef77bc663642e829c378fb5eeaa5756091d8d5e588e00d779345f853eea",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 2",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:46:28.511043Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 2,
+      "input_fingerprint": "sha256:eaaa9ef77bc663642e829c378fb5eeaa5756091d8d5e588e00d779345f853eea",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 2",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:47:52.451212Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:432cd9874c2fc7127cd0e15802fcc91392a0f554ae742dfd7a237bbb9dc09e4c",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:48:34.799295Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cab626c85a075fb5dd9973f91b9de9cdab60812610d64b38f9b5055388dbf4b2",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "01ca778d5d6ffaf98f875d88fa48c69451b6abb7",
+    "shas": [
+      "01ca778d5d6ffaf98f875d88fa48c69451b6abb7"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/**",
+      "frontend/src/miniapps/**",
+      "frontend/src/lib/**",
+      ".workflow/records/2415-activity-bar-order.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T07:37:54.822474Z",
+      "owner_directive": "Add a reload icon to every page's reload control.",
+      "reason": "second owner directive in #2415"
+    },
+    {
+      "at": "2026-09-15T07:37:54.983353Z",
+      "owner_directive": "Allow users to manually drag to reorder the tabs.",
+      "reason": "third owner directive in #2415"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T07:45:54.457159Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-15T07:45:12.809534Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.834919Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.846804Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/components/ActivityBar.test.tsx",
+              "frontend/src/components/ActivityBar.tsx",
+              "frontend/src/components/BlockPalette.test.tsx",
+              "frontend/src/components/BlockPalette.tsx",
+              "frontend/src/components/PreviewerPalette.tsx",
+              "frontend/src/components/ProjectTree.tsx",
+              "frontend/src/components/SectionReloadButton.tsx",
+              "frontend/src/components/TypePalette.tsx",
+              "frontend/src/components/WorkflowPanel.test.tsx",
+              "frontend/src/components/WorkflowPanel.tsx",
+              "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+              "frontend/src/components/__tests__/ProjectTree.test.tsx",
+              "frontend/src/components/__tests__/TypePalette.test.tsx",
+              "frontend/src/lib/activityBarOrder.test.ts",
+              "frontend/src/lib/activityBarOrder.ts",
+              "frontend/src/miniapps/MiniAppPalette.test.tsx",
+              "frontend/src/miniapps/MiniAppPalette.tsx"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T07:45:12.862803Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.890514Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.911251Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.928947Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.951694Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.964906Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.976186Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:12.995384Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.029658Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.051834Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.085460Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {
+            "governed_files": [
+              "frontend/src/components/ActivityBar.test.tsx",
+              "frontend/src/components/ActivityBar.tsx",
+              "frontend/src/components/BlockPalette.test.tsx",
+              "frontend/src/components/BlockPalette.tsx",
+              "frontend/src/components/PreviewerPalette.tsx",
+              "frontend/src/components/ProjectTree.tsx",
+              "frontend/src/components/SectionReloadButton.tsx",
+              "frontend/src/components/TypePalette.tsx",
+              "frontend/src/components/WorkflowPanel.test.tsx",
+              "frontend/src/components/WorkflowPanel.tsx",
+              "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+              "frontend/src/components/__tests__/ProjectTree.test.tsx",
+              "frontend/src/components/__tests__/TypePalette.test.tsx",
+              "frontend/src/lib/activityBarOrder.test.ts",
+              "frontend/src/lib/activityBarOrder.ts",
+              "frontend/src/miniapps/MiniAppPalette.test.tsx",
+              "frontend/src/miniapps/MiniAppPalette.tsx"
+            ]
+          },
+          "expected": null,
+          "file": "",
+          "finding_class": "docs_landing",
+          "git_evidence": null,
+          "id": "docs_landing.missing-landing",
+          "line": null,
+          "message": "governed change requires docs/changelog/checklist landing evidence or an explicit N/A rationale",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "docs_landing.missing-landing",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "docs_landing",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T07:45:46.113567Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.132714Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.149331Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.169722Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.198857Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.234159Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.251789Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:45:46.282632Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.567830Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.581865Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.595885Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.610826Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.626591Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.643808Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.656436Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.669110Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.682274Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.695444Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:46:28.711567Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.848983Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.860008Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.870700Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.881448Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.892245Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.902553Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.913528Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.924466Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.935353Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.945850Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:34.961161Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.326172Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.339080Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.351296Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.363272Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.375829Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.395497Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.410142Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.445792Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.470067Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.482123Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.499015Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.936502Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.948744Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.967411Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.982617Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:44.994532Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.005972Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.017728Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.029830Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.042727Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.062364Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:45.078805Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.602669Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.614956Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.628094Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.641114Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.653129Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.665707Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.677716Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.689747Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.701731Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.713056Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:48:57.730553Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:05.995020Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.006464Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.017737Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.028628Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.040569Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.051892Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.062803Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.074162Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.085689Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.096984Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:49:06.113091Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2415,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "443a1853c10fdcc32d376c3116a48478326ecaea",
+    "base_sha": "443a1853",
+    "changed_files": [
+      ".workflow/records/2415-activity-bar-order.json",
+      "CHANGELOG.md",
+      "frontend/src/components/ActivityBar.test.tsx",
+      "frontend/src/components/ActivityBar.tsx",
+      "frontend/src/components/BlockPalette.test.tsx",
+      "frontend/src/components/BlockPalette.tsx",
+      "frontend/src/components/PreviewerPalette.tsx",
+      "frontend/src/components/ProjectTree.tsx",
+      "frontend/src/components/SectionReloadButton.tsx",
+      "frontend/src/components/TypePalette.tsx",
+      "frontend/src/components/WorkflowPanel.test.tsx",
+      "frontend/src/components/WorkflowPanel.tsx",
+      "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "frontend/src/components/__tests__/ProjectTree.test.tsx",
+      "frontend/src/components/__tests__/TypePalette.test.tsx",
+      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
+      "frontend/src/lib/activityBarOrder.test.ts",
+      "frontend/src/lib/activityBarOrder.ts",
+      "frontend/src/miniapps/MiniAppPalette.test.tsx",
+      "frontend/src/miniapps/MiniAppPalette.tsx"
+    ],
+    "diff_fingerprint": "sha256:250c8ce44c94dac35dc1b5f394f2af09e800f2d3ea78f5a8484145cc29195d86",
+    "head": "HEAD",
+    "head_sha": "01ca778d",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 18,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 18,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 18,
+      "test": 9,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "MiniApps default third in the left tab rail, below Blocks and Workflows.",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2415
+    ],
+    "number": 2419,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2419"
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T07:45:12.995496Z",
+      "diff_fingerprint": "sha256:40cad89a0bee80932a318bd826ebf7ae35f3e7c1d26e23ee6f650268b87f4bd8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-15T07:45:46.282737Z",
+      "diff_fingerprint": "sha256:40cad89a0bee80932a318bd826ebf7ae35f3e7c1d26e23ee6f650268b87f4bd8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend",
+        "docs.docs_required_or_na",
+        "guard.docs_landing",
+        "scope.out-of-scope",
+        "tests.changed_test_required"
+      ]
+    },
+    {
+      "at": "2026-09-15T07:46:28.711605Z",
+      "diff_fingerprint": "sha256:40cad89a0bee80932a318bd826ebf7ae35f3e7c1d26e23ee6f650268b87f4bd8",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-15T07:48:34.961214Z",
+      "diff_fingerprint": "sha256:ce361da13ad6ba20bdcdd8d18af367a0cf708ea3559ffb503f38cebd33f0f732",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:48:44.499064Z",
+      "diff_fingerprint": "sha256:ce361da13ad6ba20bdcdd8d18af367a0cf708ea3559ffb503f38cebd33f0f732",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:48:45.078836Z",
+      "diff_fingerprint": "sha256:ce361da13ad6ba20bdcdd8d18af367a0cf708ea3559ffb503f38cebd33f0f732",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:48:57.730603Z",
+      "diff_fingerprint": "sha256:250c8ce44c94dac35dc1b5f394f2af09e800f2d3ea78f5a8484145cc29195d86",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:49:06.113128Z",
+      "diff_fingerprint": "sha256:250c8ce44c94dac35dc1b5f394f2af09e800f2d3ea78f5a8484145cc29195d86",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2415-activity-bar-order",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "lint_format"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:45:54.457024Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "CHANGELOG entry for the user-visible change; vitest coverage"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:47:44.291947Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
+      "reason": "origin/main frontend typecheck is broken by the #2392/#2397 merge race (dispatchMiniApp.test.ts mock still named setInteractivePrompt); the ci.yml-owned frontend check cannot be waived, so apply the same one-line rename open PR #2414 carries"
+    }
+  ],
+  "session_id": "d0583618-a1e9-486f-ae08-909b7071ffc0",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T07:45:54.457165Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/ActivityBar.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:45:54.457168Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/activityBarOrder.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

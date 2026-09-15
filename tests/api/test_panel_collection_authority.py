@@ -8,15 +8,15 @@ import pytest
 
 from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.targets import PanelError, collection_store, freeze_target, register_collection
-from tests.panels.conftest import make_runtime
+from tests.panels.conftest import make_runtime, use_panels
 
 
 def test_collection_snapshot_ignores_client_group_and_survives_new_outputs(tmp_path):
     runtime, store = make_runtime(tmp_path)
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     panels = PanelRegistry()
-    panels.register(replace(service.registry.panels.get("lab.text"), types=("Text", "Collection[Text]")))
-    service.registry.install_panels(panels)
+    panels.register(replace(service.panel("lab.text"), types=("Text", "Collection[Text]")))
+    use_panels(runtime, panels)
     old = register_collection(
         runtime,
         {
@@ -43,6 +43,11 @@ def test_collection_snapshot_ignores_client_group_and_survives_new_outputs(tmp_p
     assert store.get(ctx.context_id) is ctx
     runtime.data_catalog = {}
     assert not collection_store(runtime)
+    # #2465: reopening the open project keeps its contexts; the replaced catalog
+    # still revokes every data reference the snapshot pointed at.
+    with pytest.raises(PanelError):
+        store.authorize(ctx, "data-a")
+    runtime.active_project = type(runtime.active_project)(id="other", path="/other")
     with pytest.raises(PanelError):
         store.get(ctx.context_id)
 
@@ -53,10 +58,8 @@ def test_collection_ancestry_and_empty_snapshot(tmp_path):
     frozen = freeze_target(runtime, collection["collection_ref"])
     assert frozen.target.type_chain == ("DataObject", "Array", "Image")
     panels = PanelRegistry()
-    panels.register(
-        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Collection[Array]",))
-    )
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Collection[Array]",)))
+    use_panels(runtime, panels)
     ctx = store.create({"kind": "preview", "target": {"ref": collection["collection_ref"]}})
     assert ctx.input["count"] == 0 and ctx.input["items"] == []
 

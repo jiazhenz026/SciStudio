@@ -498,6 +498,40 @@ class TestValidateRestore:
         assert r.status_code == 200, r.text
         assert r.json()["run_id"] == "run-anchored"
 
+    def test_run_id_from_another_commit_is_rejected(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """#2425 — a run recorded elsewhere must not stand in for this commit."""
+        anchored_run["store"].insert_run(_make_run("run-elsewhere", workflow_git_commit="b" * 40))
+        r = client.get(
+            "/api/runs/validate-restore",
+            params={"commit_sha": anchored_run["commit"], "run_id": "run-elsewhere"},
+        )
+        assert r.status_code == 400, r.text
+        assert "run-elsewhere" in r.json()["detail"]
+
+    def test_checks_every_workflow_at_the_commit(self, client: TestClient, anchored_run: dict[str, Any]) -> None:
+        """#2425 — a later run of another workflow does not hide this one's drift."""
+        anchored_run["store"].insert_run(
+            _make_run(
+                "run-other-workflow",
+                workflow_id="other_workflow",
+                started_at="2027-01-01T00:00:00Z",
+                workflow_git_commit=anchored_run["commit"],
+                environment_snapshot={"key_packages": {}},
+            )
+        )
+        anchored_run["input_file"].unlink()
+
+        body = client.get("/api/runs/validate-restore", params={"commit_sha": anchored_run["commit"]}).json()
+
+        assert body["run_id"] == "run-other-workflow"
+        assert [(e["workflow_id"], e["run_id"]) for e in body["runs"]] == [
+            ("other_workflow", "run-other-workflow"),
+            ("image_pipeline", "run-anchored"),
+        ]
+        assert len(body["input_warnings"]) == 1
+        assert body["input_warnings"][0]["workflow_id"] == "image_pipeline"
+        assert "no longer exists" in body["input_warnings"][0]["reason"]
+
     def test_rerun_route_is_gone(self, client: TestClient, seeded_project: dict[str, Any]) -> None:
         """ADR-038 Addendum 1 §11.1 — Re-run is withdrawn, not merely hidden."""
         r = client.post("/api/runs/run-A/rerun", json={})

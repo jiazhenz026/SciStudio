@@ -26,7 +26,7 @@ from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _ensure_error_subscriber,
-    _run_block_errors,
+    forget_workflow_errors,
 )
 from scistudio.ai.agent.mcp.tools_workflow._helpers import (
     _LOCK_TIMEOUT_SECONDS,
@@ -41,6 +41,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     RunWorkflowResult,
     WriteWorkflowResult,
 )
+from scistudio.ai.agent.mcp.tools_workflow._run_lookup import require_run, run_identity
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
 from scistudio.workflow.identity import WORKFLOW_SUFFIXES, workflow_identity_for_path
 
@@ -523,8 +524,9 @@ async def run_workflow(
       - Inspect run progress — poll ``get_run_status`` with the returned
         ``run_id``.
 
-    Returns immediately with status='queued'. Progress is observable via
-    ``get_run_status``.
+    Returns immediately with status='queued'. ``run_id`` names this one run:
+    pass it to ``get_run_status``, ``get_block_output``, ``get_block_logs`` and
+    ``cancel_run``, which then act on this run only.
     """
     runtime = _get_workflow_runtime()
     _ensure_error_subscriber()
@@ -545,12 +547,15 @@ async def run_workflow(
         raise ValueError(
             f"run_workflow: {path!r} resolves to run identity {workflow_id!r}, which names a different file."
         )
-    # Clear stale errors from a prior failed run with the same id.
-    for key in list(_run_block_errors.keys()):
-        if key[0] == workflow_id:
-            del _run_block_errors[key]
+    # Clear stale errors from a prior failed run of this workflow.
+    forget_workflow_errors(workflow_id)
     result = runtime.start_workflow(workflow_id)
-    run_id = result.get("workflow_id", workflow_id) if isinstance(result, dict) else workflow_id
+    # #2401: the run's own id, not the workflow id every run of it shares. A
+    # runtime that reports no run id falls back to the workflow id, which the
+    # run tools still accept as "the latest run of this workflow".
+    run_id = workflow_id
+    if isinstance(result, dict):
+        run_id = result.get("run_id") or result.get("workflow_id") or workflow_id
     logger.info("run_workflow: started run %s for %s", run_id, resolved)
     return RunWorkflowStartedResult(
         run_id=str(run_id),
@@ -569,7 +574,9 @@ async def run_workflow(
 
 @mcp.tool(name="cancel_run", tags={"category:workflow", "write"})
 async def cancel_run(
-    run_id: str = Field(description="Identifier returned by run_workflow."),
+    run_id: str = Field(
+        description="Run id returned by run_workflow. A workflow id means that workflow's latest run.",
+    ),
 ) -> CancelRunResult:
     """Request cancellation of an in-flight workflow run.
 
@@ -587,18 +594,21 @@ async def cancel_run(
     from scistudio.engine.events import CANCEL_WORKFLOW_REQUEST, EngineEvent
 
     runtime = _get_workflow_runtime()
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict) or run_id not in runs:
-        raise KeyError(f"Unknown run: {run_id}")
+    workflow_id, run = require_run(getattr(runtime, "workflow_runs", None), run_id)
+    resolved_run_id = run_identity(run, workflow_id)
 
-    run = runs[run_id]
     event_bus = getattr(run.scheduler, "_event_bus", None) if hasattr(run, "scheduler") else None
     if event_bus is None:
         if hasattr(run, "task") and not run.task.done():
             run.task.cancel()
         cancel_requested = True
     else:
-        coro = event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data={"workflow_id": run_id}))
+        # #2433: addressed to this run, so a later run of the workflow (the
+        # user's own GUI run, say) never takes a cancel meant for this one.
+        scope: dict[str, Any] = {"workflow_id": workflow_id}
+        if getattr(run, "run_id", None):
+            scope["run_id"] = run.run_id
+        coro = event_bus.emit(EngineEvent(event_type=CANCEL_WORKFLOW_REQUEST, data=scope))
         try:
             loop = asyncio.get_running_loop()
             run._cancel_task = loop.create_task(coro)  # type: ignore[attr-defined]
@@ -606,8 +616,8 @@ async def cancel_run(
             await coro
         cancel_requested = True
 
-    logger.info("cancel_run: requested cancellation for %s", run_id)
-    return CancelRunResult(run_id=run_id, cancel_requested=cancel_requested)
+    logger.info("cancel_run: requested cancellation for %s", resolved_run_id)
+    return CancelRunResult(run_id=resolved_run_id, cancel_requested=cancel_requested)
 
 
 __all__: list[str] = [

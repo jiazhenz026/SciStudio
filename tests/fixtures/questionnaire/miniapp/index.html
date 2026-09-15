@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Questionnaire</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script type="module">
+      import { html, render } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+      import { Panel, Questionnaire } from "../../sdk/1/panel-ui.js";
+
+      const scistudio = await window.scistudio.ready();
+      const spec = await (await fetch("questionnaire.json")).json();
+      render(
+        html`<${Panel}><${Questionnaire} spec=${spec} onSubmit=${scistudio.submitAnswers} /><//>`,
+        document.getElementById("root"),
+      );
+    </script>
+  </body>
+</html>

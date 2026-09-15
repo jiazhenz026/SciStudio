@@ -154,10 +154,13 @@ class TestAppBlockExchangeDir:
                 "app_command": "echo hello",
                 "project_dir": str(project_dir),
                 "block_id": "block_123",
+                "workflow_id": "main",
+                "run_id": "run-1",
             }
         )
 
-        expected_dir = project_dir / "data" / "exchange" / "block_123"
+        # #2424: one exchange folder per (workflow, block, run).
+        expected_dir = project_dir / "data" / "exchange" / "main" / "block_123" / "run-1"
 
         # Patch bridge and watcher to avoid real subprocess execution.
         with (
@@ -748,10 +751,12 @@ class TestAppBlockTempDirCleanup:
                 "app_command": "echo hello",
                 "project_dir": str(project_dir),
                 "block_id": "block_123",
+                "workflow_id": "main",
+                "run_id": "run-1",
             }
         )
 
-        exchange_dir = project_dir / "data" / "exchange" / "block_123"
+        exchange_dir = project_dir / "data" / "exchange" / "main" / "block_123" / "run-1"
 
         with (
             patch("scistudio.blocks.app.app_block.FileExchangeBridge") as mock_bridge_cls,

@@ -47,6 +47,11 @@ Ports and config:
     - The ``app_command`` config field (the path to the executable) is
       required; the optional ``output_dir`` field chooses where results are
       saved.
+    - Inside a project each run gets its own exchange folder,
+      ``data/exchange/<workflow>/<block>/<run>/`` (inputs in ``inputs/``,
+      results in ``outputs/`` unless ``output_dir`` is set), so re-running
+      the node or running a same-named node in another workflow never
+      reuses or overwrites an earlier run's files.
 
 Example:
     >>> class FijiBlock(AppBlock):

@@ -11,8 +11,11 @@ import {
 import { TextView } from "../../sdk/1/renderer-text.js";
 const api = window.scistudio;
 
-/** Guard against a reader that never advances, so a read loop always ends. */
-const MAX_CHUNKS = 512;
+/**
+ * Chunks read in one go before the panel pauses and offers Read more. A pause,
+ * not a cap: the rest of the document stays one press away (#2460).
+ */
+const CHUNKS_PER_BATCH = 512;
 
 /** The text a chunk carries; the read names it both ways. */
 export function chunkText(chunk) {
@@ -21,11 +24,10 @@ export function chunkText(chunk) {
 }
 
 /**
- * Where the next read should start, or null when the document is fully read.
+ * Where the next read should start, or null when there is no forward read.
  *
  * A chunk that is not truncated is the end. A ``next_offset`` that does not move
- * forward is a reader that cannot advance, and is treated as the end rather than
- * being asked again.
+ * forward is a reader that cannot advance; the panel reports it as a failure.
  */
 export function nextOffset(chunk, readSoFar) {
   if (!chunk || chunk.truncated !== true) return null;
@@ -38,6 +40,7 @@ function TextPanel() {
   const [text, setText] = useState("");
   const [meta, setMeta] = useState(null);
   const [done, setDone] = useState(false);
+  const [resume, setResume] = useState(null);
   const [error, setError] = useState(null);
   const cancelled = useRef(false);
 
@@ -47,40 +50,56 @@ function TextPanel() {
     api.reportError(message);
   }, []);
 
+  const readBatch = useCallback(
+    (start) => {
+      setResume(null);
+      let offset = start;
+      let chunks = 0;
+      const readFrom = (from) => {
+        api
+          .read("text.chunk", from ? { offset: from } : {})
+          .then((chunk) => {
+            if (cancelled.current) return;
+            setText((prev) => prev + chunkText(chunk));
+            setMeta(chunk);
+            chunks += 1;
+            if (chunk?.truncated !== true) {
+              setDone(true);
+              return;
+            }
+            const next = nextOffset(chunk, offset);
+            // A reader that cannot advance is a failure, not the end of the text.
+            if (next === null) throw new Error("The text read did not advance");
+            offset = next;
+            if (chunks >= CHUNKS_PER_BATCH) {
+              setResume(next);
+              return;
+            }
+            readFrom(next);
+          })
+          .catch((err) => {
+            if (!cancelled.current) fail(err);
+          });
+      };
+      readFrom(start);
+    },
+    [fail],
+  );
+
   useEffect(() => {
     cancelled.current = false;
-    let offset = 0;
-    let chunks = 0;
-    const readFrom = (from) => {
-      api
-        .read("text.chunk", from ? { offset: from } : {})
-        .then((chunk) => {
-          if (cancelled.current) return;
-          setText((prev) => prev + chunkText(chunk));
-          setMeta(chunk);
-          chunks += 1;
-          const next = nextOffset(chunk, offset);
-          if (next === null || chunks >= MAX_CHUNKS) {
-            setDone(true);
-            return;
-          }
-          offset = next;
-          readFrom(next);
-        })
-        .catch((err) => {
-          if (!cancelled.current) fail(err);
-        });
-    };
-    readFrom(0);
+    readBatch(0);
     return () => {
       cancelled.current = true;
     };
-  }, [fail]);
+  }, [readBatch]);
 
   return html`<${TextView}
     text=${text}
     meta=${meta}
     done=${done}
+    hasMore=${resume !== null}
+    onReadMore=${() => resume !== null && readBatch(resume)}
     error=${error}
   />`;
 }

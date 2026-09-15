@@ -501,9 +501,7 @@ def test_lineage_and_logs_trace_the_normalized_table(agent: Agent, tutorial_run:
     assert unresolvable["nodes"] == [] and unresolvable["edges"] == []
     assert unresolvable["note"], unresolvable
 
-    # get_block_logs is exercised with the id the backend's run history records
-    # for this run; with the id run_workflow returned it fails.
-    # TODO(#2401): use the run_workflow run_id here once get_block_logs accepts it.
+    # The id the backend's run history records is the id run_workflow returned.
     lineage_run_id = agent.latest_lineage_run("main")["run"]["run_id"]
     logs = agent.call("get_block_logs", run_id=lineage_run_id, block_id="norm").ok()
     assert logs["source"] == "run_log"
@@ -1163,6 +1161,77 @@ def test_open_miniapp_reaches_a_connected_workspace_and_says_so_when_none_is(
     agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
 
 
+def test_list_panels_lists_every_kind_and_what_open_miniapp_opens(agent: Agent) -> None:
+    write_panel(agent, f"panels/{MINIAPP_ID}", MINIAPP_DESCRIPTOR)
+    write_panel(
+        agent,
+        "panels/plate_preview",
+        dict(
+            MINIAPP_DESCRIPTOR,
+            id="plate_preview",
+            contexts=["preview"],
+            name="Plate preview",
+            description="Wells as a grid.",
+            priority=5,
+        ),
+    )
+    agent.call("write_file", path="panels/half_written/panel.json", content="{not json", create_parents=True).ok()
+
+    # No registry reload: the tool reads discovery afresh, as open_miniapp does.
+    listed = agent.call("list_panels").ok()
+    panels = {panel["panel_id"]: panel for panel in listed["panels"]}
+    assert MINIAPP_ID in panels, listed
+    app = panels[MINIAPP_ID]
+    assert app["kinds"] == ["miniapp"]
+    assert app["name"] == "Table explorer"
+    assert app["description"] == "Page through the normalized plate table."
+    assert app["tier"] == "project" and app["package"] is None
+    assert app["types"] == ["DataFrame"]
+    assert app["entry"] == "index.html"
+    assert app["has_python"] is False
+    assert app["path"] == f"panels/{MINIAPP_ID}"
+    assert app["priority"] is None
+    preview = panels["plate_preview"]
+    assert preview["kinds"] == ["preview"]
+    assert preview["description"] == "Wells as a grid."
+    assert preview["priority"] == 5
+    # The core tier's interactive and preview panels are listed alongside.
+    core = [panel for panel in listed["panels"] if panel["tier"] == "core"]
+    assert any("interactive" in panel["kinds"] for panel in core), core
+    assert any("preview" in panel["kinds"] for panel in core), core
+    assert listed["kind"] is None and listed["data_type"] is None
+    invalid = {entry["panel_id"]: entry for entry in listed["invalid"]}
+    assert "half_written" in invalid, listed["invalid"]
+    assert invalid["half_written"]["path"] == "panels/half_written"
+    assert invalid["half_written"]["diagnostics"], invalid
+
+    # Filtered by kind.
+    miniapps = agent.call("list_panels", kind="miniapp").ok()
+    assert miniapps["kind"] == "miniapp"
+    assert MINIAPP_ID in {panel["panel_id"] for panel in miniapps["panels"]}, miniapps
+    assert all("miniapp" in panel["kinds"] for panel in miniapps["panels"]), miniapps
+    interactive = agent.call("list_panels", kind="interactive").ok()
+    assert interactive["panels"] and all("interactive" in panel["kinds"] for panel in interactive["panels"])
+    agent.call("list_panels", kind="previewer").raised()
+
+    # Filtered by the type of a block output.
+    tables = agent.call("list_panels", data_type="DataFrame").ok()
+    table_ids = {panel["panel_id"] for panel in tables["panels"]}
+    assert {MINIAPP_ID, "plate_preview"} <= table_ids, tables
+    assert tables["data_type"] == "DataFrame"
+    collections = agent.call("list_panels", kind="miniapp", data_type="Collection[DataFrame]").ok()
+    assert MINIAPP_ID not in {panel["panel_id"] for panel in collections["panels"]}, collections
+
+    # Every listed MiniApp is one open_miniapp accepts (no workspace is connected
+    # here); a listed panel of another kind is refused.
+    target = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
+    for panel in listed["panels"]:
+        if "miniapp" in panel["kinds"]:
+            opened = agent.call("open_miniapp", dict(target, panel_id=panel["panel_id"])).ok()
+            assert opened["panel_id"] == panel["panel_id"], opened
+    agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
+
+
 def test_screenshot_gui_is_refused_over_the_text_only_webmcp_bridge(agent: Agent) -> None:
     # screenshot_gui needs a connected SciStudio desktop window and local MCP; the
     # external WebMCP host is documented as unsupported (it carries text, not
@@ -1245,35 +1314,143 @@ def test_validate_workflow_is_invalid_when_it_reports_errors(agent: Agent) -> No
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_block_logs does not accept the run_id run_workflow returned — TODO(#2401)",
-)
 def test_get_block_logs_accepts_the_run_id_run_workflow_returned(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     logs = agent.call("get_block_logs", run_id=tutorial_run["started"]["run_id"], block_id="norm")
     assert not logs.is_error, logs.text
     assert "block_done block_id=norm" in logs.data["stderr"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="get_project_info.recent_runs stays empty after completed runs — TODO(#2401)",
-)
 def test_get_project_info_lists_recent_runs(agent: Agent, tutorial_run: dict[str, Any]) -> None:
     recent = agent.call("get_project_info").ok()["recent_runs"]
     assert "main" in {row["workflow_id"] for row in recent}, recent
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="a validated MiniApp is missing from the MiniApps list until a manual reload — TODO(#2421)",
-)
 def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     before = agent.observed["miniapps_before_reload"]
     assert MINIAPP_ID in [app["panel_id"] for app in before], before
+
+
+def _miniapp_process(agent: Agent, context_id: str) -> httpx.Response:
+    return agent.backend.http.get(f"/api/panels/contexts/{context_id}/process")
+
+
+def _open_miniapp_context(agent: Agent, panel_id: str, source: dict[str, str]) -> dict[str, Any]:
+    """Open a MiniApp context the way the workspace's MiniApp tab does."""
+    created: dict[str, Any] = agent.backend.call(
+        "POST", "/api/panels/contexts", json={"kind": "miniapp", "panel_id": panel_id, "source": source}
+    )
+    return created
+
+
+def _await_process_running(agent: Agent, context_id: str) -> None:
+    deadline = time.monotonic() + 60
+    status = _miniapp_process(agent, context_id).json()
+    while status.get("state") != "running" and time.monotonic() < deadline:
+        time.sleep(0.25)
+        status = _miniapp_process(agent, context_id).json()
+    assert status.get("state") == "running", status
+
+
+def test_opening_a_new_miniapp_leaves_the_open_ones_running(
+    agent: Agent, serve: ServeProcess, tutorial_run: dict[str, Any]
+) -> None:
+    """#2455: an agent writing and opening a MiniApp must not close the ones already open."""
+    source = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
+    open_id, new_id = "resident_explorer", "second_explorer"
+    write_panel(agent, f"panels/{open_id}", dict(MINIAPP_DESCRIPTOR, id=open_id, name="Resident explorer"))
+    agent.call("write_file", path=f"panels/{open_id}/panel.py", content="def setup(data):\n    return None\n").ok()
+
+    # A MiniApp the user already has open, with its resident process.
+    context_id = str(_open_miniapp_context(agent, open_id, source)["context_id"])
+    try:
+        _await_process_running(agent, context_id)
+
+        # The agent writes another MiniApp and opens it into the workspace.
+        write_panel(agent, f"panels/{new_id}", dict(MINIAPP_DESCRIPTOR, id=new_id, name="Second explorer"))
+        events = EventStream(serve.base_url)
+        try:
+            assert agent.call("open_miniapp", dict(source, panel_id=new_id)).ok()["opened"] is True
+            events.wait_for(
+                lambda m: m.get("type") == "panel.open_miniapp", what="the open-MiniApp request", timeout=30
+            )
+        finally:
+            events.close()
+        # What the workspace does on that request: list the MiniApps and open a
+        # context on the new one. Both read a catalog that follows the panel
+        # folders, and following the new one only adds it (#2465).
+        listed = agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]
+        assert new_id in [app["panel_id"] for app in listed], listed
+        opened = _open_miniapp_context(agent, new_id, source)
+        agent.backend.http.delete(f"/api/panels/contexts/{opened['context_id']}")
+
+        still = _miniapp_process(agent, context_id)
+        assert still.status_code == 200, still.text
+        assert still.json()["state"] == "running", still.json()
+        assert agent.backend.http.post(f"/api/panels/contexts/{context_id}/renew").status_code == 200
+    finally:
+        agent.backend.http.delete(f"/api/panels/contexts/{context_id}")
+
+
+def test_a_preview_context_is_still_readable_after_another_miniapp_is_written(
+    agent: Agent, tutorial_run: dict[str, Any]
+) -> None:
+    """#2465: a panel folder change revokes only the contexts on the changed panel."""
+    source = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
+    host_id = "preview_host_probe"
+    write_panel(agent, f"panels/{host_id}", dict(MINIAPP_DESCRIPTOR, id=host_id, name="Preview host probe"))
+    miniapp = _open_miniapp_context(agent, host_id, source)
+    ref = str(miniapp["input"]["ref"])
+    agent.backend.http.delete(f"/api/panels/contexts/{miniapp['context_id']}")
+
+    context = agent.backend.open_panel(ref)
+    try:
+        assert agent.backend.panel_read(context, ref, "table.page", {"page": 1, "page_size": 5})["total"] == 12
+
+        write_panel(agent, "panels/written_later", dict(MINIAPP_DESCRIPTOR, id="written_later", name="Written later"))
+        listed = agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]
+        assert "written_later" in [app["panel_id"] for app in listed], listed
+
+        page = agent.backend.panel_read(context, ref, "table.page", {"page": 1, "page_size": 5})
+        assert page["total"] == 12
+    finally:
+        agent.backend.http.delete(f"/api/panels/contexts/{context}")
+
+
+QUESTIONNAIRE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "questionnaire" / "miniapp"
+
+
+def test_agent_checks_a_questionnaire_and_waits_for_its_answers(agent: Agent) -> None:
+    """#2447: validate_panel exercises a questionnaire; wait_for_answers returns the submit."""
+    directory = "panels/ask_first"
+    write_panel(
+        agent,
+        directory,
+        dict(MINIAPP_DESCRIPTOR, id="ask_first", name="Ask first"),
+        page=(QUESTIONNAIRE_FIXTURE / "index.html").read_text(encoding="utf-8"),
+    )
+    spec = (QUESTIONNAIRE_FIXTURE / "questionnaire.json").read_text(encoding="utf-8")
+    agent.call("write_file", path=f"{directory}/questionnaire.json", content=spec).ok()
+
+    checked = agent.call("validate_panel", path=directory).ok()
+    assert checked["valid"] is True, checked
+    assert checked["questionnaire"]["round_trip"] is True, checked
+    assert checked["questionnaire"]["statuses_exercised"] == ["answered", "decide_for_me", "skipped"]
+
+    waited = agent.call("wait_for_answers", panel_id="ask_first", timeout_seconds=1).ok()
+    assert waited["status"] == "timed_out" and waited["answers"] == [], waited
+
+    document = {
+        "version": 1,
+        "panel_id": "ask_first",
+        "title": json.loads(spec)["title"],
+        "submitted_at": "2026-09-15T12:00:00Z",
+        "answers": [{"id": "chart", "type": "single", "prompt": "Which view?", "status": "decide_for_me"}],
+    }
+    agent.call("write_file", path=f"{directory}/answers.json", content=json.dumps(document)).ok()
+    submitted = agent.call("wait_for_answers", panel_id="ask_first", timeout_seconds=5).ok()
+    assert submitted["status"] == "submitted", submitted
+    assert submitted["answers_path"] == f"{directory}/answers.json"
+    assert submitted["answers"][0]["status"] == "decide_for_me"
 
 
 # ---------------------------------------------------------------------------
