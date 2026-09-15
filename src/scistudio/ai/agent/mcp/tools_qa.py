@@ -683,7 +683,10 @@ def _index_asset_class(
                     "SciStudio provisions agent assets when a project is created or opened; they may "
                     "also have been removed."
                     if asset_class != "project_docs"
-                    else "The project has no docs/ directory; get_doc and search_docs have nothing to read."
+                    else (
+                        "The project has no docs/ directory, so nothing is indexed for this class; "
+                        "search_docs and get_doc still read .md/.rst/.txt files across the whole project."
+                    )
                 ),
             ),
             [],

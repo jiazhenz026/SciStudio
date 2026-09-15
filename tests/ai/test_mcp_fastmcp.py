@@ -436,22 +436,23 @@ def test_docs_tools_no_dev_leak_when_no_project_docs(tmp_path: Path, monkeypatch
     ADRs — violating ADR-040 §2.1's dev/prod boundary and leaking
     absolute developer-machine paths.
 
-    Post-fix: with the active project carrying no ``docs/``,
-    ``search_docs`` returns ``[]`` and ``get_doc`` raises
-    ``FileNotFoundError``. The source-tree parents-walk is gone.
+    Post-fix: the docs tools read only the active project directory
+    (#2375). With a project carrying no matching docs, ``search_docs``
+    returns ``[]`` and ``get_doc`` raises ``FileNotFoundError``. The
+    source-tree parents-walk is gone.
     """
     from scistudio.ai.agent.mcp import _context, tools_qa
 
     # Defensive: ensure no stale env override is in play.
     monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
 
-    # A project workspace with no docs/ subdirectory (matches the e2e
+    # A project workspace with no doc files (matches the e2e
     # report: fresh project at ``C:\\temp\\scistudio-e2e-adr-040\\...``).
     runtime = _StubRuntime(_project_dir=tmp_path)
     _context.set_context(runtime)
     try:
         results = _run(tools_qa.search_docs("ADR", scope=None))
-        assert results == [], f"search_docs must return [] when the project has no docs/. Got: {results!r}"
+        assert results == [], f"search_docs must return [] when the project has no matching docs. Got: {results!r}"
         with pytest.raises(FileNotFoundError):
             _run(tools_qa.get_doc("adr/ADR-040.md"))
     finally:
@@ -472,14 +473,14 @@ def test_docs_tools_no_env_var_backdoor_into_source_tree(tmp_path: Path, monkeyp
     ``SCISTUDIO_DEV=1`` and silently re-disclose developer source paths.
 
     Regression guard: even with ``SCISTUDIO_DEV=1`` set and the active
-    project carrying no ``docs/``, the MCP docs tools must NOT reach
+    project carrying no doc files, the MCP docs tools must NOT reach
     into the SciStudio source repository.
     """
     from scistudio.ai.agent.mcp import _context, tools_qa
 
     monkeypatch.setenv("SCISTUDIO_DEV", "1")
 
-    runtime = _StubRuntime(_project_dir=tmp_path)  # no docs/ in the project
+    runtime = _StubRuntime(_project_dir=tmp_path)  # no doc files in the project
     _context.set_context(runtime)
     try:
         results = _run(tools_qa.search_docs("ADR-040", scope=None))

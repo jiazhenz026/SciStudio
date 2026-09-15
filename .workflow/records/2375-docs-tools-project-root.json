@@ -153,6 +153,11 @@
       "at": "2026-09-15T03:00:08.123289Z",
       "owner_directive": "Implement per issue #2375: project-root docs tools, .md/.rst/.txt only, no ADR/spec change.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T03:20:27.351546Z",
+      "owner_directive": "Keep the data/ root-only pruning and 10 MB cap; also fix the stale get_agent_context text that says get_doc/search_docs have nothing to read.",
+      "reason": "owner asked to fix stale get_agent_context diagnostic"
     }
   ],
   "docs_events": [
