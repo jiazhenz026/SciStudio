@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useMemo, useState } from "reac
 import { api } from "../lib/api";
 import type { InstalledPackage, PackageUpdateStatus } from "../types/api";
 import { useAppStore } from "../store";
+import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 interface PackageManagerDialogProps {
   open: boolean;
@@ -157,13 +158,7 @@ export function PackageManagerDialog({ open, onClose }: PackageManagerDialogProp
             <p className="text-xs uppercase tracking-[0.28em] text-stone-500">Packages</p>
             <h2 className="mt-2 font-display text-2xl text-ink">Package Manager</h2>
           </div>
-          <button
-            className="rounded-full border border-stone-300 px-3 py-1 text-sm"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
+          <DialogCloseButton onClick={onClose} />
         </div>
 
         {relaunchPrompt ? (

@@ -410,7 +410,6 @@ export const NO_PROVIDERS_BODY =
 
 export const START_LABEL = "Start session";
 export const STARTING_LABEL = "Starting…";
-export const CANCEL_LABEL = "Cancel";
 
 /*
  * THE START ACTION EXPLAINS ITSELF, so there is no help line under it.
