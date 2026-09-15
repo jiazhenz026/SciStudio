@@ -436,12 +436,38 @@ def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
     versioned ``workflow.changed`` ``kind="deleted"`` event so a user-initiated delete is attributed to ``source="canvas"``
     rather than being mis-tagged ``source="external"`` by the FS watcher.
     """
-    # Development references: #1462, ADR-045.
+    # Development references: #1462, #2448, ADR-045.
     path = self.workflow_path(workflow_id)
     if path.exists():
+        identity = self.canonical_workflow_identity(workflow_id)
         path.unlink()
+        # #2448: the pause checkpoint belongs to the deleted file; a new
+        # workflow later saved under the same name must not inherit it.
+        self.remove_workflow_pause_state(identity)
         return True
     return False
+
+
+def remove_workflow_pause_state(self: ApiRuntime, workflow_id: str) -> None:
+    """Delete the pause/resume checkpoint directory of a workflow identity.
+
+    Called when the workflow file is deleted or moved: the checkpoint
+    describes that file's last run, and "Run from here" must not reuse it for
+    whatever later takes the identity. A missing directory is not an error.
+    """
+    # Development references: #2448.
+    project = self.require_active_project()
+    remove_pause_dir(project.path, workflow_id)
+
+
+def remove_pause_dir(project_root: str | Path, workflow_id: str) -> None:
+    """Delete ``<project_root>/.scistudio/pause/<workflow_id>/`` when it exists."""
+    # Development references: #2448.
+    from ._runs import pause_dir_for
+
+    pause_dir = pause_dir_for(project_root, workflow_id)
+    if pause_dir.is_dir():
+        shutil.rmtree(pause_dir, ignore_errors=True)
 
 
 def _upload_destination(self: ApiRuntime, filename: str) -> Path:

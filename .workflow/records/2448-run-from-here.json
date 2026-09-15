@@ -1,0 +1,138 @@
+{
+  "base_ref": null,
+  "branch": "fix/2448-run-from-here",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/engine/checkpoint.py",
+      "src/scistudio/engine/run_from_here.py",
+      "src/scistudio/engine/scheduler/**",
+      "src/scistudio/api/runtime/**",
+      "src/scistudio/api/routes/workflows.py",
+      "tests/engine/**",
+      "tests/api/**",
+      "frontend/src/lib/api/**",
+      "frontend/src/App.parts/**",
+      "tests/contracts/openapi.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T12:03:42.461073Z",
+      "owner_directive": "Check each needed upstream output for the target and all descendants: present in checkpoint, data exists, definition fingerprint unchanged; otherwise refuse and list each node with its reason. Never re-run upstream automatically.",
+      "reason": "owner decision on #2448"
+    },
+    {
+      "at": "2026-09-15T12:03:42.651690Z",
+      "owner_directive": "Checkpoints record per-node definition fingerprints; deleting a workflow removes its pause directory.",
+      "reason": "owner decision on #2448"
+    },
+    {
+      "at": "2026-09-15T12:03:42.835473Z",
+      "owner_directive": "Protected-path changes under src/scistudio/engine/** are authorised.",
+      "reason": "protected engine paths authorised"
+    },
+    {
+      "at": "2026-09-15T12:03:43.035806Z",
+      "owner_directive": "Do not change any documentation (owner is revising docs separately).",
+      "reason": "owner is revising docs separately"
+    },
+    {
+      "at": "2026-09-15T12:20:48.067379Z",
+      "owner_directive": "Implement #2448 per owner decisions",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T12:03:43.035972Z",
+      "class": "behavior",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner directive on #2448: do not change any documentation; the owner is revising docs separately.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2448,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Run from here: a target with no upstream runs directly; remove the 'run the full workflow first' refusal.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2448-run-from-here",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:20:48.067507Z",
+      "pattern": "frontend/src/lib/api/__tests__/**",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "a611fb76-595b-4586-8bbd-ea98a7a8a78f",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T12:20:48.067514Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_run_from_here.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:20:48.067527Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_run_from_here_api.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:20:48.067529Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/useWorkflowExecutionActions.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:20:48.067530Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/api/__tests__/api-surface.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

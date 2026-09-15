@@ -832,6 +832,7 @@ class ApiRuntime:
     _relativify_node_config = _workflows._relativify_node_config
     _absolutify_node_config = _workflows._absolutify_node_config
     delete_workflow = _workflows.delete_workflow
+    remove_workflow_pause_state = _workflows.remove_workflow_pause_state
     _upload_destination = _workflows._upload_destination
     stage_upload_file = _workflows.stage_upload_file
     discard_staged_upload = _workflows.discard_staged_upload

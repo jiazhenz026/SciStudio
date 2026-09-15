@@ -30,6 +30,7 @@ from scistudio.api.schemas import (
 )
 from scistudio.blocks.base.state import BlockState
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
+from scistudio.engine.run_from_here import RunFromHereRefusedError
 
 logger = logging.getLogger(__name__)
 
@@ -809,6 +810,18 @@ async def execute_from_workflow(
         # #1525: a live run already exists; reject instead of silently
         # orphaning it by starting a second scheduler.
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except RunFromHereRefusedError as exc:
+        # #2448: an upstream output the run needs cannot be reused. The detail
+        # lists each upstream block and why, so the client can show them.
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "run_from_here_unmet",
+                "message": str(exc),
+                "block_id": exc.block_id,
+                "unmet": [item.to_dict() for item in exc.unmet],
+            },
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return ExecuteFromResponse(**result)
