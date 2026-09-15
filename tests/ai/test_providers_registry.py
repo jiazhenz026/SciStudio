@@ -27,7 +27,6 @@ from scistudio.ai.agent.providers_registry import (
     McpStrategy,
     ProviderDescriptor,
     ProviderKind,
-    SystemPromptStrategy,
 )
 from scistudio.cli import install
 
@@ -62,11 +61,6 @@ def _spawn_argv(
         "resolve_binary",
         lambda desc, **_kwargs: Path(f"/fake/bin/{desc.binary_candidates[0]}"),
     )
-    monkeypatch.setattr(
-        terminal,
-        "_write_system_prompt_tempfile",
-        lambda pd: pd / "prompt.md",
-    )
     terminal.spawn_agent(
         descriptor,
         project_dir=project_dir,
@@ -83,8 +77,6 @@ def _declared_flags(descriptor: ProviderDescriptor) -> set[str]:
     flags = set(descriptor.bypass_argv)
     if descriptor.mcp.strategy is McpStrategy.FLAG and descriptor.mcp.flag:
         flags.add(descriptor.mcp.flag)
-    if descriptor.system_prompt.strategy is SystemPromptStrategy.FLAG_FILE and descriptor.system_prompt.flag:
-        flags.add(descriptor.system_prompt.flag)
     return flags
 
 
@@ -147,18 +139,6 @@ def test_agent_descriptor_is_a_complete_adapter_definition(descriptor: ProviderD
     if descriptor.mcp.strategy is McpStrategy.PROJECT_FILE:
         assert descriptor.mcp.project_file, "a project-file strategy must name its file"
 
-    if descriptor.system_prompt.strategy is SystemPromptStrategy.FLAG_FILE:
-        assert descriptor.system_prompt.flag
-        assert descriptor.system_prompt.supports_file_indirection
-    else:
-        # Ambient providers must be discoverable through a provisioned skills
-        # tree, otherwise the composed prompt never reaches them (FR-019).
-        assert descriptor.system_prompt.skill_dirs
-        if descriptor.system_prompt.flag:
-            # A provider with a prompt flag that is nonetheless ambient must
-            # record why, so the choice is not mistaken for an oversight.
-            assert descriptor.system_prompt.ambient_only_reason
-
     assert descriptor.credentials is not None
     assert descriptor.credentials.credential_path
 
@@ -218,24 +198,9 @@ def test_qoder_channels_share_every_strategy_field() -> None:
     china = registry.get("qoder-cn")
 
     assert intl.mcp == china.mcp
-    assert intl.system_prompt == china.system_prompt
     assert intl.bypass_argv == china.bypass_argv
     assert intl.credentials == china.credentials
     assert intl.kind == china.kind
-
-
-def test_qoder_prompt_flag_is_declared_but_never_used() -> None:
-    """Spec §4.1: ``--append-system-prompt`` takes literal text on Qoder.
-
-    The composed SciStudio prompt is unbounded, so it would land on the command
-    line. Both channels receive it through ``.agents/skills`` like Codex.
-    """
-    for key in ("qoder", "qoder-cn"):
-        descriptor = registry.get(key)
-        assert descriptor.system_prompt.strategy is SystemPromptStrategy.AMBIENT
-        assert descriptor.system_prompt.supports_file_indirection is False
-        assert ".agents/skills" in descriptor.system_prompt.skill_dirs
-        assert descriptor.system_prompt.ambient_only_reason
 
 
 # ---------------------------------------------------------------------------
@@ -291,8 +256,6 @@ def test_claude_argv_snapshot(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     argv = _spawn_argv(monkeypatch, registry.get("claude-code"), tmp_path)
     assert argv == [
         _fake_binary("claude"),
-        "--append-system-prompt",
-        f"@{tmp_path / 'prompt.md'}",
         "--mcp-config",
         str(tmp_path / ".scistudio" / "mcp.json"),
         "--dangerously-skip-permissions",
@@ -395,20 +358,18 @@ def test_no_prompt_means_no_trailing_separator(
     assert "--" not in _spawn_argv(monkeypatch, descriptor, tmp_path)
 
 
-def test_only_flag_file_providers_write_a_system_prompt_tempfile(
+def test_no_provider_writes_a_system_prompt_tempfile(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    """A prompt file nothing consumes is an orphaned-file leak (FR-013)."""
+    """Project AGENTS.md replaces provider-specific prompt files (#2383)."""
     for descriptor in AGENTS:
         project_dir = tmp_path / descriptor.key
         project_dir.mkdir()
         _spawn_argv(monkeypatch, descriptor, project_dir)
         cleanup = _FakePtyProcess.last["kwargs"]["cleanup_paths"]
-        if descriptor.system_prompt.strategy is SystemPromptStrategy.FLAG_FILE:
-            assert cleanup == [project_dir / "prompt.md"]
-        else:
-            assert cleanup == []
+        assert cleanup == []
+        assert "--append-system-prompt" not in _FakePtyProcess.last["argv"]
 
 
 # ---------------------------------------------------------------------------

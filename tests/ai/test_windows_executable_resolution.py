@@ -410,7 +410,6 @@ def test_spawn_agent_uses_only_its_own_descriptors_binary(
     """
     monkeypatch.setattr(terminal, "PtyProcess", _FakePtyProcess)
     monkeypatch.setattr(terminal, "resolve_binary", lambda desc, **_k: Path(desc.binary_candidates[0]))
-    monkeypatch.setattr(terminal, "_write_system_prompt_tempfile", lambda pd: pd / "prompt.md")
 
     terminal.spawn_agent(descriptor, project_dir=tmp_path, dangerous=True)
     argv = _FakePtyProcess.spawned["argv"]

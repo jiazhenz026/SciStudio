@@ -9,403 +9,185 @@ description: |
 
 # scistudio-build-workflow
 
-You are designing a SciStudio workflow — a DAG of typed blocks expressed
-as a YAML file under `workflows/`. The runtime is the source of truth;
-the GUI canvas is an editor and viewer. Workflows are validated
-structurally and type-wise before they run, so a well-formed YAML is
-the contract you have to satisfy on the first try if you want a smooth
-user experience. This skill teaches the YAML schema verbatim, the
-canonical tool-call sequence, and the pitfalls that account for most
-validation failures.
+## 1. What a workflow is
 
-## 1. Canonical workflow YAML shape
+A workflow is a graph of typed blocks saved as `workflows/<id>.yaml`. It holds
+the steps of an analysis that are settled, so they can be rerun on new data,
+reused, and traced back through lineage. The runtime validates structure and
+types before a run, and the GUI canvas shows and edits the same file.
 
-```yaml
-workflow:                            # REQUIRED top-level key
-  id: my-pipeline                    # slug, unique within the project
-  version: "1.0.0"                   # semver string
-  description: One-line summary.     # optional but recommended for the GUI
-  nodes:                             # list of block instances
-    - id: load                       # node id (referenced by edges; must be unique)
-      block_type: load_data          # core Load — one block, configured by core_type (§1.1)
-      config:                        # passes the block's config_schema
-        core_type: Image             # the type to read; the enum covers package types too
-        path: data/raw/beads.tif
-    - id: thr
-      block_type: imaging.threshold
-      config:
-        method: otsu
-    - id: save
-      block_type: save_data          # core Save — configured by core_type
-      config:
-        core_type: Image
-        path: data/processed/mask.tif
-  edges:                             # connections between node ports
-    - source: "load:data"            # MUST be "<node_id>:<port_name>" — colon, not dot
-      target: "thr:image"
-    - source: "thr:mask"
-      target: "save:data"
-  metadata: {}                       # optional free-form dict
+Build a workflow when the user knows the steps. When the next step is still
+unclear and the user wants to try things on a result, offer a MiniApp first
+(`scistudio-write-miniapp`), then build the settled step into the workflow.
+
+## 2. Steps to build a workflow
+
+1. **Understand the analysis.** Confirm the input data, the steps, and the
+   outputs the user wants. Ask only about the science.
+2. **Find the blocks.** Call `list_blocks`, then `get_block_schema` for each
+   candidate to read its exact ports and config. If no block fits a step, write
+   one with `scistudio-write-block`.
+3. **Check the types.** Where blocks with unfamiliar types meet, call
+   `list_types` to confirm each edge connects compatible types.
+4. **Write the workflow.** Create it with `write_workflow` at
+   `workflows/<id>.yaml`; change an existing one with `edit_workflow` or
+   `update_block_config`.
+5. **Validate.** Call `validate_workflow` and fix every error before running.
+6. **Run and confirm.** Call `run_workflow`, poll `get_run_status` until a
+   terminal state, then check the outputs with `get_block_output` and
+   `inspect_data` / `preview_data`.
+7. **Report.** Tell the user what the workflow does, where its outputs are, and
+   which parameters they can tune in each block's config.
+
+## 3. Anti-patterns
+
+- Guessing port names or block types instead of reading `get_block_schema`.
+- Putting a block's display name in `block_type`; use its `type_name`.
+- Using the canvas four-field edge shape; workflow edges are two strings,
+  `"node_id:port_name"`.
+- Putting a package IO block or a self-written IO block in a workflow as its own
+  node; every read and write goes through core `load_data` / `save_data`.
+- Re-emitting a whole existing workflow through `write_workflow` for a small
+  change; it drops the user's block config and comments.
+- Running an unvalidated workflow, or declaring done while a run is `running`.
+- Re-running a failed workflow without diagnosing the failure first.
+- Editing `workflows/*.yaml` with file tools instead of the workflow tools.
+
+## 4. Defaults, tool sequence, and failure handling
+
+**Always load and save with the core blocks.** Every read uses `load_data` and
+every write uses `save_data`, configured with `core_type` (the data type) and the
+format: the file extension of the path, or `capability_id` to pick one registered
+format capability explicitly. The MCP tools list the registered format
+capabilities with their `capability_id`s. Both blocks use a port named `data`. Never put a
+package IO block or a self-written IO block in the workflow as its own node.
+
+The core blocks route to whichever registered capability handles the type and
+format, including package readers and writers and IO blocks written in this
+project. When no capability covers a format the user needs, write an IO block for
+it with `scistudio-write-block`, reload, and then read or write through core
+`load_data` / `save_data`, which runs that block's code.
+
+**Tool sequence.**
+
+```
+list_blocks
+get_block_schema(block_type)          # each candidate block
+list_types                            # only for unfamiliar type pairs
+write_workflow(path, content)         # create; edit_workflow / update_block_config to change
+validate_workflow(path)
+run_workflow(path)                    # returns run_id
+get_run_status(run_id)                # poll until terminal
+get_block_output(run_id, block_id, port)
+inspect_data(ref) / preview_data(ref, fmt)
 ```
 
-**Top-level keys**
+Every write-class result carries `next_step`; read it and follow it.
+`write_workflow` refuses a file name whose stem differs from the workflow `id`,
+so always write `workflows/{id}.yaml`.
 
-| Key | Type | Required | Notes |
-|---|---|---|---|
-| `workflow.id` | string | yes | Slug; unique per project; used as run output prefix |
-| `workflow.version` | string | yes | Semver; runtime checks compatibility |
-| `workflow.description` | string | no | Shown in GUI; recommended |
-| `workflow.nodes` | list[node] | yes | Block instances |
-| `workflow.edges` | list[edge] | yes | Empty list `[]` is legal for a single-block workflow |
-| `workflow.metadata` | dict | no | Free-form; reserved for tool-specific extensions |
+**Changing an existing workflow.** `write_workflow` replaces the whole file, so
+use it only to create a workflow. To change part of one, call `get_workflow` and
+copy the exact text to replace, then call
+`edit_workflow(workflow_path, edits=[{old_string, new_string}])`: each
+`old_string` must match exactly once, or set `replace_all` to replace every
+occurrence. To change only one block's parameters, use
+`update_block_config(workflow_path, block_id, params)`. Validate after either.
 
-**Node shape**
+**When validation fails.** `validate_workflow` returns
+`ValidateWorkflowResult(valid: bool, errors: list[str])`. On `valid=False`, read
+every error, check `get_block_schema` for port errors and `list_types` for type
+errors, fix them all in one edit, and validate again. After three failed rounds,
+stop and explain the blocker to the user.
 
-| Key | Type | Required | Notes |
-|---|---|---|---|
-| `id` | string | yes | Unique within the workflow |
-| `block_type` | string | yes | A registered block's canonical `type_name` from `list_blocks` — NOT its display `name`. The GUI resolves nodes by `type_name`. |
-| `config` | dict | yes (may be `{}`) | Validated against the block's `config_schema` |
+**When a run fails.** `get_run_status` returns `GetRunStatusResult` with
+per-block states under `progress.block_states` and failures in `errors`, a list
+of `BlockErrorEntry(block_id, error, summary)`. Terminal states are `succeeded`,
+`failed`, and `cancelled`; keep polling while the state is `queued`, `running`,
+or `unknown`. Load `scistudio-debug-run` to diagnose before changing
+and re-running.
 
-**Edge shape** — two strings only:
+## 5. Contracts (MUST follow)
 
-| Key | Type | Required | Notes |
-|---|---|---|---|
-| `source` | string | yes | `"<node_id>:<port_name>"` — single colon |
-| `target` | string | yes | `"<node_id>:<port_name>"` — single colon |
+- Workflow YAML shape: `user-guide/api-reference/workflow-yaml.md`.
+- A block's ports and config: `get_block_schema(block_type)`.
+- Type hierarchy: `list_types`.
+- Tool names and arguments: the live MCP tool schemas.
+- AI Agent block providers: `get_block_schema("ai.agent")`, whose `provider`
+  enum lists the providers that can run an AI block.
 
-## 1.1 Loading and saving data: one core block, configured by `core_type`
+## 6. Examples
 
-SciStudio ships a single built-in **Load** (`load_data`) and **Save**
-(`save_data`) block. You do NOT pick a different loader per data type — you
-pick the *type* on the one core block via its `core_type` config:
+Block types other than `load_data`, `save_data`, and `ai.agent` below are
+placeholders; copy real `type_name`s and port names from `list_blocks` and
+`get_block_schema`.
 
-- `core_type` is an enum computed live from the type registry, so it lists
-  the six built-in core types (Array, DataFrame, Series, Text, Artifact,
-  CompositeData) **and** every package-registered type that has an IO
-  capability — e.g. `Image`, `Spectrum`, `SpectralDataset`, `Mask`. Call
-  `get_block_schema("load_data")` / `get_block_schema("save_data")` to read
-  the live enum for the installed packages.
-- Under the hood the core block delegates to the owning package's
-  loader/saver (the imaging TIFF reader, the spectroscopy reader, …). The
-  delegation is invisible: the workflow YAML, the canvas node, and the port
-  colour all stay on the one stable core Load/Save block.
-
-A package MAY also register its own dedicated IO block
-(`imaging.load_image`, `spectroscopy.load_spectrum`). It reads the same
-data, but it shows up as a *different* node in the GUI — so a project that
-mixes them ends up with inconsistent Load/Save nodes for the same job.
-**Default to core `load_data` / `save_data` + `core_type` for UI
-consistency.** Reach for a package-specific IO block ONLY when no
-`core_type` value covers the type/format you need. The worked examples below
-all use the core blocks.
-
-Port names: the core Load output port is `data` (retyped + recoloured to the
-chosen `core_type`); the core Save input port is also `data`. Wire edges to
-`<node>:data` — not to a package loader's port name.
-
-## 2. Common authoring pitfalls
-
-These ten failure modes account for most rejections from
-`validate_workflow` / `write_workflow`. Read them before drafting any
-YAML.
-
-1. **Wrong edge shape — the 4-field form.** The frontend canvas API
-   (`POST /api/blocks/validate-connection`) uses `{source, source_port,
-   target, target_port}`. Workflow YAML edges are TWO strings:
-   `source` and `target`, each containing `node_id:port_name`. Using
-   the canvas shape causes a `pydantic.ValidationError` listing
-   missing `source: str` field.
-2. **Wrong port separator.** `"load.images"`, `"load/images"`,
-   `"load-images"` all fail. The character is a single colon.
-3. **Hallucinated port names.** Agents guess `"image"` when the block
-   exposes `"images"` (plural) or vice versa. Cure: call
-   `get_block_schema(block_type)` and copy the exact
-   `input_ports[].name` / `output_ports[].name` strings. Never type
-   from memory.
-4. **Wrong `block_type`: display name instead of `type_name`.** Put a
-   block's canonical `type_name` in `block_type` (`load_data`,
-   `imaging.threshold`), never its display `name` (`Load`, `Threshold`).
-   `list_blocks` returns both fields — copy `type_name`. The GUI resolves
-   nodes by `type_name`, and `write_workflow` hard-fails an unregistered
-   `block_type` with the nearest valid suggestion.
-5. **Missing required config field.** Each block's `config_schema`
-   has a `required` list. `write_workflow` validates and rejects with
-   the specific JSON-Schema error.
-6. **Path escape.** `path: ../foo.tif` in a config is rejected at
-   runtime — MCP context refuses paths outside the project root. Use
-   project-relative paths.
-7. **Circular edges (DAG violation).** The runtime rejects cycles at
-   validation time. Most often introduced by re-targeting an edge to
-   an upstream node; `validate_workflow` reports the cycle.
-8. **Type-incompatible edges.** Connecting an `output_port` of type
-   `DataFrame` to an `input_port` of type `Image` fails edge-time type
-   checking. `get_block_schema` exposes the types; `list_types`
-   exposes the hierarchy. Use both when wiring an unfamiliar pair of
-   blocks.
-9. **Missing `workflow:` top-level key.** A common slip: writing
-   `id: ...` at the file root instead of nesting under `workflow:`.
-   Schema validation rejects.
-10. **`metadata` confused with `config`.** `metadata` is
-    workflow-level free-form. Block config goes under each node's
-    `config`.
-
-## 3. Three worked examples
-
-### Example A — simple linear (load → threshold → save)
+**Linear: load, process, save.**
 
 ```yaml
 workflow:
-  id: otsu-mask
+  id: normalize-counts
   version: "1.0.0"
-  description: Load a TIFF, Otsu-threshold, save the binary mask.
+  description: Load a count table, normalize it, save the result.
   nodes:
     - id: load
       block_type: load_data
-      config:
-        core_type: Image
-        path: data/raw/beads.tif
-    - id: thr
-      block_type: imaging.threshold
-      config:
-        method: otsu
+      config: {core_type: DataFrame, path: data/raw/counts.csv}
+    - id: norm
+      block_type: normalize_counts        # placeholder
+      config: {method: cpm}
     - id: save
       block_type: save_data
-      config:
-        core_type: Image
-        path: data/processed/beads_mask.tif
+      config: {core_type: DataFrame, path: data/processed/counts_cpm.csv}
   edges:
-    - source: "load:data"
-      target: "thr:image"
-    - source: "thr:mask"
-      target: "save:data"
+    - {source: "load:data", target: "norm:table"}
+    - {source: "norm:table", target: "save:data"}
 ```
 
-### Example B — parallel fan-out (load → [denoise, threshold] → composite)
+**Fan-out: one output feeds two steps.** Give the same `source` to two edges;
+no tee block is needed.
 
 ```yaml
-workflow:
-  id: fanout-compare
-  version: "1.0.0"
-  description: Side-by-side denoised vs raw thresholded mask.
-  nodes:
-    - id: load
-      block_type: load_data
-      config:
-        core_type: Image
-        path: data/raw/sample.tif
-    - id: denoise
-      block_type: imaging.denoise
-      config:
-        method: gaussian
-        sigma: 1.0
-    - id: thr_raw
-      block_type: imaging.threshold
-      config: {method: otsu}
-    - id: thr_denoised
-      block_type: imaging.threshold
-      config: {method: otsu}
-    - id: composite
-      block_type: imaging.compare_masks
-      config:
-        labels: [raw, denoised]
   edges:
-    - source: "load:data"
-      target: "thr_raw:image"
-    - source: "load:data"
-      target: "denoise:image"
-    - source: "denoise:image"
-      target: "thr_denoised:image"
-    - source: "thr_raw:mask"
-      target: "composite:mask_a"
-    - source: "thr_denoised:mask"
-      target: "composite:mask_b"
+    - {source: "load:data", target: "qc:table"}
+    - {source: "load:data", target: "norm:table"}
 ```
 
-Note `load:data` appears as the source of two edges — fan-out is
-just multiple edges with the same `source`. The runtime handles
-ref-counting; you do not need a "tee" block.
-
-### Example C — AI block in a pipeline
+**AI Agent block.** When the run reaches this node, the runtime opens an agent
+tab in the GUI with the chosen provider. The agent uses the same MCP tools, writes
+the declared outputs, and ends the step once with
+`finish_ai_block(outputs={port_name: path})`; `scistudio-debug-run` covers what to
+do when it does not finish.
 
 ```yaml
-workflow:
-  id: ai-assisted-segment
-  version: "1.0.0"
-  description: AI block paused for manual segmentation review before downstream stats.
-  nodes:
-    - id: load
-      block_type: load_data
+    - id: summarise
+      block_type: ai.agent
       config:
-        core_type: Image
-        path: data/raw/microplastics.tif
-    - id: pre
-      block_type: imaging.normalize
-      config: {method: percentile, low_pct: 1.0, high_pct: 99.0}
-    - id: seg
-      block_type: ai.assisted_segmenter   # an AI Agent block
-      config:
-        provider: claude-code             # see the provider list below
-        initial_prompt: "Segment each microplastic particle."
-        timeout_sec: 600
-    - id: stats
-      block_type: imaging.intensity_stats
-      config:
-        output_path: data/processed/microplastics_stats.csv
-  edges:
-    - source: "load:data"
-      target: "pre:image"
-    - source: "pre:image"
-      target: "seg:image"
-    - source: "seg:mask"
-      target: "stats:mask"
-    - source: "pre:image"
-      target: "stats:image"
+        provider: claude-code
+        user_prompt: Summarise each CSV into one row of statistics.
+        output_ports:
+          - {name: result, types: [DataFrame], expected_path: ./summary.csv}
 ```
 
-The `ai.assisted_segmenter` block is an AI Agent block. When the
-runtime hits it, the engine spawns an embedded agent CLI inside a PTY
-tab in the GUI. The embedded agent uses the same MCP tool surface and
-terminates cleanly via
-`mcp__scistudio__finish_ai_block(run_id, output_refs)`. See
-`scistudio-debug-run` for the full `finish_ai_block` operational
-contract.
+## 7. Available tools
 
-The `provider` config accepts any agent CLI that can run an AI Block task:
+The live MCP tool list is the source of truth; these are the tools this task
+uses.
 
-| Value | Label | Binary |
+| Tool | What it does | When to use it |
 |---|---|---|
-| `claude-code` | Claude Code (default) | `claude` |
-| `codex` | Codex | `codex` |
-| `qoder` | Qoder CLI — international channel | `qodercli` |
-| `qoder-cn` | Qoder CLI (China) — China channel | `qoderclicn` |
-
-`kimi-code` is deliberately absent (#2014): Kimi Code has no positional
-prompt argument, so it cannot receive an AI Block task and the block refuses
-it at config time. It remains available for hand-launched chat tabs.
-
-The two Qoder channels are separate providers, not aliases: they have
-separate binaries, config roots, and credentials, and a user may have
-both installed. Picking one never falls back to the other.
-
-Do not treat this table as the authority. The enum is generated from
-`scistudio.ai.agent.providers_registry` (filtered to providers that can
-carry an AI Block prompt), so
-`get_block_schema("ai.assisted_segmenter")` is always current and this
-table may lag a newly added provider. Existing workflows using
-`provider: claude-code` are unaffected — the enum only widened.
-
-## 4. Canonical tool-call sequence
-
-For any new workflow, the canonical sequence is:
-
-```
-list_blocks                            # discover what blocks exist
-get_block_schema(block_type)  ×3-5     # for each candidate, get exact ports + config_schema
-list_types                             # only if connecting unfamiliar types
-write_workflow(path, content)          # writes YAML, pre-validates against schema
-validate_workflow(path)                # second pass: edges, type compat, DAG
-run_workflow(path)                     # returns run_id
-get_run_status(run_id)                 # poll until terminal
-get_block_output(run_id, block_id, port)       # returns {ref, type, produced_at}
-inspect_data(ref)                      # shape, dtype, axes
-preview_data(ref, fmt)                 # thumbnail / first rows
-```
-
-Every write-class tool (`write_workflow`, `edit_workflow`,
-`run_workflow`, `cancel_run`, `update_block_config`, `finish_ai_block`)
-returns a result envelope with a `next_step: str` field. Read it and follow.
-
-### 4.1 Creating vs editing an existing workflow
-
-`write_workflow` replaces the whole file — use it only to CREATE a new
-workflow. To change part of an *existing* workflow, do NOT re-emit the
-full YAML through `write_workflow`: re-emitting drops the user's GUI-set
-block `config` and comments. Instead:
-
-- Use `edit_workflow(workflow_path, edits=[{old_string, new_string}])` for
-  any partial edit (add or remove a node, rewire an edge, change a
-  description). It applies search/replace patches to the file and
-  preserves everything you do not touch; each `old_string` must match
-  exactly once (set `replace_all` to replace every occurrence). Call
-  `get_workflow` first to copy the exact text to replace, then
-  `validate_workflow` after.
-- Use `update_block_config(workflow_path, block_id, params)` when you only
-  need to change one block's config params.
-
-## 5. When validation fails
-
-`validate_workflow` returns `ValidateWorkflowResult(valid: bool, errors:
-list[str])` — `valid=False` with a list of human-readable error strings.
-(Note: this read-class tool does not carry a `next_step` field; the
-canonical follow-up is documented here.) When `valid=False`:
-
-1. Read **every** error, not just the first. They are independent.
-2. If an error mentions a port name, call
-   `get_block_schema(block_type)` for that block before retrying —
-   never guess.
-3. If an error mentions a type mismatch, call `list_types` to confirm
-   the type hierarchy and find a valid bridge block if needed.
-4. Fix all issues in **one** rewrite, then re-call `validate_workflow`.
-5. Repeat at most three times. If still failing on the third attempt,
-   stop and ask the user.
-
-`write_workflow` itself is the write-class tool; its result envelope
-carries `next_step` pointing at `validate_workflow`. Always follow it.
-It rejects any write whose file-name stem differs from the workflow's
-internal `id`: always write to `workflows/{id}.yaml`. A divergent pair
-(e.g. `foo_bar.yaml` holding `id: foo-bar`) breaks `run_workflow`,
-save, and import, because the runtime resolves a workflow by its id.
-
-## 6. When a run fails
-
-`get_run_status` returns
-`GetRunStatusResult(run_id, state, progress={"block_states": {node_id: state, ...}}, errors=[BlockErrorEntry(block_id, error, summary), ...])`
-when a block fails. The per-block state map is nested under
-`progress.block_states` (NOT at the top level); per-block tracebacks
-live in the top-level `errors` list (plural — multiple blocks may
-fail). Terminal states are `succeeded` / `failed` / `cancelled`;
-non-terminal states are `queued` / `running` / `unknown`. Pivot to
-the **scistudio-debug-run** skill — it teaches the log-retrieval and
-lineage-navigation steps. Do not re-run the workflow without
-changing something; the failure mode will recur.
-
-## Mandatory rules
-
-- Default to the core `Load` (`load_data`) / `Save` (`save_data`) blocks
-  configured with a `core_type` for reading and writing data — see §1.1 for
-  the mechanism (the enum covers package types like `Spectrum`,
-  `SpectralDataset`, `Image`, `Mask`; the core block delegates to the right
-  package loader/saver under the hood, keeping one consistent GUI node).
-  Reach for a package-specific IO block (e.g. `spectroscopy.load_spectrum`,
-  `imaging.load_image`) ONLY when no `core_type` value covers the type/format
-  you need. Do not default to the package-specific IO loader when core
-  `Load`/`Save` can do the job.
-- Always call `list_blocks` + `get_block_schema` for each block before
-  writing a workflow.
-- Always call `validate_workflow` after `write_workflow` or
-  `edit_workflow`. NEVER call `run_workflow` on an unvalidated YAML.
-- Use `write_workflow` only to CREATE a workflow. To change an existing
-  one, use `edit_workflow` (partial edit) or `update_block_config` (config
-  only) so the user's block config and comments survive (§4.1).
-- Never edit `workflows/*.yaml` with Bash/Edit/Write; those are blocked by
-  the protect_workflow_yaml hook. Go through the MCP tools.
-- Edge port format is `"node_id:port_name"` (single colon, two
-  strings) — NOT the canvas 4-field shape.
-- Always poll `get_run_status` until terminal (`succeeded` / `failed`
-  / `cancelled`). Do not declare "done" before terminal.
-- Read every `next_step` field on write-class result envelopes.
-
-## Anti-patterns
-
-- Reaching for a package-specific IO loader/saver (e.g.
-  `imaging.load_image`, `spectroscopy.load_spectrum`) when the core `Load` /
-  `Save` block with the matching `core_type` reads/writes the same type.
-- Using the 4-field edge shape from the canvas API.
-- Skipping `validate_workflow` ("looks fine to me").
-- Polling `get_run_status` once and declaring done on `running`.
-- Hallucinating port names instead of calling `get_block_schema`.
-- Re-running a failed workflow without diagnosing the failure first.
-- Re-emitting a whole existing workflow through `write_workflow` for a
-  small change — it clobbers the user's block config and comments. Use
-  `edit_workflow` or `update_block_config` instead.
+| `list_blocks` | Lists registered blocks with category, package, and a one-line I/O signature. | First, to find blocks for each step and to reuse before writing a new one. |
+| `get_block_schema` | Returns one block's ports and config schema. | Before wiring or configuring any block; copy port names and config keys from it. |
+| `list_types` | Returns the data-type hierarchy. | When an edge joins unfamiliar types. |
+| `get_active_workflow_context` | Returns the workflow the user has open in the GUI. | When the user says "this workflow" without naming it. |
+| `get_workflow` | Loads a workflow file. | Before editing an existing workflow, to copy exact text. |
+| `write_workflow` | Writes a whole workflow file after schema validation. | Only to create a new workflow. |
+| `edit_workflow` | Applies search/replace patches to an existing workflow. | For any partial change: add or remove nodes, rewire edges. |
+| `get_block_config` / `update_block_config` | Reads or patches one block's config in a workflow. | To inspect or change a single block's parameters. |
+| `validate_workflow` | Checks structure, edges, types, and the graph. | After every write or edit, before running. |
+| `run_workflow` | Starts a run and returns its `run_id`. | Once the workflow validates. |
+| `get_run_status` | Returns run and per-block state and errors. | Poll after starting a run until it is terminal. |
+| `cancel_run` | Cancels an in-flight run. | When the user asks to stop, or a run must be restarted. |
+| `get_block_output` | Resolves a block port's output from a run. | After a run, to find what a block produced. |
+| `inspect_data` / `preview_data` | Return metadata or a bounded preview of stored data. | To confirm outputs look right before reporting. |
+| `get_block_logs` | Returns a block's captured output. | When a block fails or behaves unexpectedly; then load `scistudio-debug-run`. |

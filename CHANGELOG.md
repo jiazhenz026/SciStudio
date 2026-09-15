@@ -506,6 +506,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2383] Use each project's provisioned `AGENTS.md` as the common instruction
+  and navigation entry for every embedded AI provider. Claude launch no longer
+  creates a composed prompt tempfile or passes `--append-system-prompt`;
+  provider routers stay short, while current project facts and exact tool
+  contracts come from the live MCP server.
+
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say
   "the assistant". Mio is also the guide in the Learning Center dialogue, so the

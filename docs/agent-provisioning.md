@@ -25,14 +25,14 @@ the first time it is created or opened:
       remind_poll_status.py                # PostToolUse / run_workflow — stderr reminder to poll
       mark_list_blocks_called.py           # PostToolUse / list_blocks — writes session marker
       enforce_concrete_port_types.py       # PostToolUse — stderr-warns on DataObject ports
-    skills/                                  # 6 task-scoped Claude Code skills (flat — one level only)
-      scistudio/SKILL.md                     # base index
+    skills/                                  # provider-discovered skills (flat — one level only)
+      scistudio/SKILL.md                     # short router to AGENTS.md
       scistudio-build-workflow/SKILL.md
       scistudio-write-block/SKILL.md
       scistudio-debug-run/SKILL.md
       scistudio-inspect-data/SKILL.md
       scistudio-project-qa/SKILL.md
-  .agents/skills/                            # 6 task-scoped Codex skills (mirror of .claude/skills/)
+  .agents/skills/                            # mirrored provider-discovered skills
     scistudio/SKILL.md
     ... (5 more)
   .codex/
@@ -49,6 +49,12 @@ the first time it is created or opened:
 ```
 
 All filesystem-only — no network, no daemons, no external binaries.
+
+`AGENTS.md` is the common instruction and navigation body for every embedded
+provider. `CLAUDE.md` and each copied base `scistudio/SKILL.md` route to it;
+they do not carry a second copy. Agent launch does not compose or inject a
+provider-specific system prompt. Current project facts and exact tool schemas
+come from the running MCP server when the agent needs them.
 
 Installed package docs are discovered from each installed package module's
 `_scistudio_docs/` directory. Core does not build package docs at project-open

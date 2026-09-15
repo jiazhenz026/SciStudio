@@ -1,0 +1,449 @@
+{
+  "base_ref": null,
+  "branch": "guided/2295-phase-c-docs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/architecture/ARCHITECTURE.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T06:14:21.403004Z",
+      "owner_directive": "Lead the ARCHITECTURE.md introduction with the README positioning: an interactive workflow orchestration system where you and your AI partner work together interactively on the same canvas; SciStudio is now positioned as an interactive human-AI co-creation space.",
+      "reason": "Owner clarified product positioning for the intro"
+    },
+    {
+      "at": "2026-09-15T06:18:23.315723Z",
+      "owner_directive": "Add MiniApps to ARCHITECTURE.md section 1: human-AI analysis needs interactivity and hands-on data manipulation that code and workflow orchestration cannot give; exploring data is poorly served by workflows. MiniApps are peers of workflows: workflows for pipelines, reuse, reproduction; MiniApps for exploration and interaction.",
+      "reason": "Owner added MiniApps to the introduction"
+    },
+    {
+      "at": "2026-09-15T06:20:21.823518Z",
+      "owner_directive": "Add to the MiniApp rationale in ARCHITECTURE.md section 1: users often do not know the next step until the previous result is in, so a workflow is inherently incomplete at that point; this is why MiniApps exist.",
+      "reason": "Owner added a MiniApp rationale"
+    },
+    {
+      "at": "2026-09-15T06:22:51.996022Z",
+      "owner_directive": "Revision method: do not patch existing text; rewrite sections so the new philosophy (human-AI co-creation space, workflows and MiniApps as peers) is written through them coherently. Rewrite ARCHITECTURE.md section 1.1 as one narrative.",
+      "reason": "Owner set the revision method"
+    },
+    {
+      "at": "2026-09-15T06:26:34.076304Z",
+      "owner_directive": "Add a new ARCHITECTURE.md chapter 'Panels and MiniApps' as section 10, before Plot System; renumber later sections (10-15 become 11-16) and update section 1.2 accordingly; stale section-number references elsewhere are updated in this PR.",
+      "reason": "Owner added a new top-level chapter"
+    },
+    {
+      "at": "2026-09-15T06:29:24.776321Z",
+      "owner_directive": "Rewrite ARCHITECTURE.md section 2 Scope around three problems: (1) fragmented, non-unified tools for multimodal data analysis; (2) low operability, low interactivity, and low reusability of AI-assisted data analysis; (3) the direction of AI-native apps: a human-AI co-creation space.",
+      "reason": "Owner directed a rewrite of the Scope chapter"
+    },
+    {
+      "at": "2026-09-15T06:33:04.783873Z",
+      "owner_directive": "Reframe Scope problems: (1) multimodal analysis tools are scattered, legacy tools support AI poorly, multimodal workflows interact poorly with AI, and efficiency is low; (2) AI-assisted analysis lacks the strengths of the legacy tools: operability, interactivity, reproducibility.",
+      "reason": "Owner reframed Scope problems 1 and 2"
+    },
+    {
+      "at": "2026-09-15T06:36:07.157732Z",
+      "owner_directive": "Scope problem 2 also includes reusability: AI-assisted analysis lacks operability, interactivity, reproducibility, and reusability.",
+      "reason": "Owner added reusability to Scope problem 2"
+    },
+    {
+      "at": "2026-09-15T06:38:27.666907Z",
+      "owner_directive": "Scope problem 1's established tools explicitly include domain-specific GUI tools such as Fiji.",
+      "reason": "Owner clarified the tools in Scope problem 1"
+    },
+    {
+      "at": "2026-09-15T06:40:21.218830Z",
+      "owner_directive": "Do not name Claude Code and Codex specifically in the ARCHITECTURE.md positioning text; SciStudio supports more AI providers than those two.",
+      "reason": "Owner removed provider-specific naming"
+    },
+    {
+      "at": "2026-09-15T06:41:16.047351Z",
+      "owner_directive": "Revise ARCHITECTURE.md chapter 3 Architecture Overview: the current architecture is drawn for the workflow engine only; add the MiniApp and panel parts.",
+      "reason": "Owner directed chapter 3 revision"
+    },
+    {
+      "at": "2026-09-15T06:50:04.249578Z",
+      "owner_directive": "Replace every 'previewer' in ARCHITECTURE.md with the preview panel terminology; legacy previewer forms are described once in section 10.4 (deprecated, removed in 0.6, #2288); section 9.6 content moves to section 10.2; the project layout lists panels/ (creating previewers/ at project creation is a code bug).",
+      "reason": "Owner unified preview terminology"
+    },
+    {
+      "at": "2026-09-15T06:51:06.568547Z",
+      "owner_directive": "ARCHITECTURE.md describes panels only and does not mention legacy previewer forms at all; code fixes (project layout creating previewers/) are handled by the owner elsewhere.",
+      "reason": "Owner narrowed the terminology directive"
+    },
+    {
+      "at": "2026-09-15T06:55:42.890119Z",
+      "owner_directive": "Revise ARCHITECTURE.md chapter 7 AI Agents: add the two forms in which AI uses SciStudio together with a person: AI CLI tools running in the SciStudio desktop app, and SciStudio collaborating through WebMCP with AI tools working inside desktop AI apps.",
+      "reason": "Owner directed chapter 7 revision"
+    },
+    {
+      "at": "2026-09-15T07:06:29.034534Z",
+      "owner_directive": "Chapter 7 must list the extra tools provided to WebMCP AI; verify the MCP tool set and the hooks against the code; confirm how hooks are installed/applied under WebMCP.",
+      "reason": "Owner asked for accuracy of chapter 7"
+    },
+    {
+      "at": "2026-09-15T07:12:07.420198Z",
+      "owner_directive": "Add the Phase D (#2392) MCP tools screenshot_gui, validate_panel, and open_miniapp to ARCHITECTURE.md chapter 7; screenshot_gui is local-MCP only.",
+      "reason": "Owner approved documenting Phase D MCP tools"
+    },
+    {
+      "at": "2026-09-15T07:18:05.024626Z",
+      "owner_directive": "Revise ARCHITECTURE.md chapter 9 Frontend to reflect the latest frontend layout.",
+      "reason": "Owner directed chapter 9 revision"
+    },
+    {
+      "at": "2026-09-15T07:27:05.643200Z",
+      "owner_directive": "Write ARCHITECTURE.md chapter 10 Panels: panels serve data visualization and data interaction, in three forms (preview panels, interactive blocks' panels, MiniApps), each expanded in turn.",
+      "reason": "Owner directed chapter 10 structure"
+    },
+    {
+      "at": "2026-09-15T07:38:17.207922Z",
+      "owner_directive": "Revise ARCHITECTURE.md chapters 12-14 accordingly: chapter 12 project workspace covers panels; chapter 13 covers panel extensibility; chapter 14 desktop app adds Linux desktop support and running inside AI apps.",
+      "reason": "Owner directed chapters 12-14 revision"
+    },
+    {
+      "at": "2026-09-15T07:47:38.352803Z",
+      "owner_directive": "Update ARCHITECTURE.md chapters 15 Dependencies and 16 Technology Stack to current manifests; then read the whole architecture document and list changes from recent PRs not yet applied (report only).",
+      "reason": "Owner directed final chapters and an audit"
+    },
+    {
+      "at": "2026-09-15T07:50:08.545996Z",
+      "owner_directive": "Revise the project README; tagline becomes 'Scientific data workbench with your AI partner.'",
+      "reason": "Owner started README revision"
+    },
+    {
+      "at": "2026-09-15T07:52:20.561761Z",
+      "owner_directive": "Also update README.zh-CN.md tagline; change the Discord link to https://discord.gg/KGJfkM6EQN; shorten 'What is SciStudio?' and rewrite its bullets to the latest framing (human-AI co-creation space, workflows and MiniApps as peers).",
+      "reason": "Owner README directives"
+    },
+    {
+      "at": "2026-09-15T07:54:20.289094Z",
+      "owner_directive": "README 'What is SciStudio?' must open with a definition of SciStudio before the co-creation sentence.",
+      "reason": "Owner README directive"
+    },
+    {
+      "at": "2026-09-15T07:58:45.018844Z",
+      "owner_directive": "Architecture doc records why, not implementation detail; of the audit list only the chapter 7 skill table needs updating.",
+      "reason": "Owner reviewed audit"
+    },
+    {
+      "at": "2026-09-15T07:59:47.388042Z",
+      "owner_directive": "Remove scistudio.runners from ARCHITECTURE.md section 13.4 and chapter 16; then list the remaining ADR-054 Phase C documents to revise.",
+      "reason": "Owner approved removing stale runners group"
+    },
+    {
+      "at": "2026-09-15T08:01:55.956674Z",
+      "owner_directive": "Package-development guides are out of scope this session (to be restructured later). Tutorials are not migrated this session. Do part B: agent references, skills, and user guide; first survey the complete change list, then go through items one by one.",
+      "reason": "Owner scoped remaining Phase C work"
+    },
+    {
+      "at": "2026-09-15T08:09:41.964776Z",
+      "owner_directive": "Ignore the 'All Previewers' UI label question: no frontend rename in this session and no special handling in docs.",
+      "reason": "Owner decision on UI label"
+    },
+    {
+      "at": "2026-09-15T08:12:10.966897Z",
+      "owner_directive": "Remove scistudio.previewers.models and .data_access from _agent_reference/public-api.md and add that panels and MiniApps are folders (no Python import), pointing to scistudio-write-panel / scistudio-write-miniapp.",
+      "reason": "Owner decision on public-api.md"
+    },
+    {
+      "at": "2026-09-15T08:22:04.500024Z",
+      "owner_directive": "Apply the three _agent_reference/README.md edits: renderer row wording, gui-debug row points to scistudio-use-gui, add a row routing panel/MiniApp authoring to the skills.",
+      "reason": "Owner approved agent-reference README edits"
+    },
+    {
+      "at": "2026-09-15T08:29:30.287745Z",
+      "owner_directive": "Keep three layers: skills = brief what-it-is + how-to guidance; agent reference = agent-specific notes + routing to the user guide and generated API reference; user guide = what xxx is; generated API reference = the complete contract. Revise part B to this model.",
+      "reason": "Owner set the agent documentation model"
+    },
+    {
+      "at": "2026-09-15T08:31:40.800073Z",
+      "owner_directive": "Panel JS SDK/renderer/descriptor docs to be generated by a separate agent PR. Order for part B: skills first, then user guide, agent reference last.",
+      "reason": "Owner sequencing"
+    },
+    {
+      "at": "2026-09-15T08:36:32.790834Z",
+      "owner_directive": "Apply base SKILL.md edits: new positioning, WebMCP get_agent_context line, MiniApp routing in inspect-data/build-workflow entries, reference-docs section (user guide + agent reference = what it is and routing to API docs; API reference = contract; skills = how), AGENTS.md mirror, tool counts 39 and Panels (3) with screenshot_gui.",
+      "reason": "Owner approved base SKILL.md edits"
+    },
+    {
+      "at": "2026-09-15T08:42:27.139571Z",
+      "owner_directive": "Pull the #2383 changes (unify embedded provider instructions through AGENTS.md; base SKILL.md becomes a router) into this branch and PR.",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "at": "2026-09-15T08:42:51.240027Z",
+      "owner_directive": "Move the approved base-skill framing edits (positioning, WebMCP get_agent_context, MiniApp routing, three-layer reference docs) into the AGENTS.md template.",
+      "reason": "Apply approved framing edits to AGENTS.md template (base SKILL.md is now a router)"
+    },
+    {
+      "at": "2026-09-15T08:50:07.087573Z",
+      "owner_directive": "AGENTS.md has three parts: identity and basic concepts (kept), basic rules (one bullet, at most two sentences each; include UX rules: ship a complete product \u2014 MiniApps usable, workflows run, blocks reusable; ensure UX \u2014 fitting block icons, interactive blocks and MiniApps when needed, expose user-tunable parameters in block config, take extra steps that greatly improve UX), and reference routing.",
+      "reason": "Owner restructured AGENTS.md"
+    },
+    {
+      "at": "2026-09-15T08:54:13.448203Z",
+      "owner_directive": "Rewrite AGENTS.md part 3 as reference routing in three subsections (how to do: skills; what something is: user guide + agent reference + layout; the contract: generated API reference, live MCP schemas and project state).",
+      "reason": "Owner approved routing structure"
+    },
+    {
+      "at": "2026-09-15T08:57:29.445303Z",
+      "owner_directive": "Add AGENTS.md rules: ask the user only what they alone can decide (self-diagnose framework errors); keep the user in the loop step by step instead of working silently; say one thing at a time instead of piling many items on the user.",
+      "reason": "Owner added user-facing rules"
+    },
+    {
+      "at": "2026-09-15T09:00:43.093953Z",
+      "owner_directive": "Add a rule to keep own memory updated; drop 'ask the user if a skill conflicts'; state that the skills actually loadable and their descriptions are the truth; routing has three categories: skills, tools, docs (user guide and agent reference in one subsection).",
+      "reason": "Owner refined AGENTS.md"
+    },
+    {
+      "at": "2026-09-15T09:12:52.609475Z",
+      "owner_directive": "Restructure scistudio-build-workflow as: 1 what a workflow is and what it is for; 2 step-by-step how to write one; 3 anti-patterns; 4 defaults, tool sequence, failure handling; 5 routing to contracts; 6 examples.",
+      "reason": "Owner set skill structure"
+    },
+    {
+      "at": "2026-09-15T09:14:30.179767Z",
+      "owner_directive": "Generate the workflow YAML schema reference from code via a separate agent PR.",
+      "reason": "Owner delegated workflow schema generation"
+    },
+    {
+      "at": "2026-09-15T09:15:17.823159Z",
+      "owner_directive": "Restructure scistudio-write-block with the same six-part structure; include rules moved from AGENTS.md (DataObject, canonical imports, AIBlock not an extension point, scaffold warnings) and UX guidance (icon, config parameters).",
+      "reason": "Apply the six-part skill structure to write-block"
+    },
+    {
+      "at": "2026-09-15T09:16:07.678220Z",
+      "owner_directive": "The generated workflow YAML schema belongs in the API reference so users can read it; skills route there.",
+      "reason": "Owner routed workflow schema to API reference"
+    },
+    {
+      "at": "2026-09-15T09:17:32.887850Z",
+      "owner_directive": "Loading and saving must always use core load_data / save_data configured with the type and format; never use package or self-written IO blocks directly. Do not rewrite scistudio-write-block yet (owner reviews it item by item).",
+      "reason": "Owner tightened IO rule; write-block reverted for item-by-item review"
+    },
+    {
+      "at": "2026-09-15T09:19:54.471399Z",
+      "owner_directive": "Core load_data/save_data are configured with type and format (capability_id); agents may write their own IO block when no capability covers a format, and core load/save route to it and run its code; never place package or self-written IO blocks as workflow nodes.",
+      "reason": "Owner corrected IO routing facts"
+    },
+    {
+      "at": "2026-09-15T09:21:35.525283Z",
+      "owner_directive": "State in the build-workflow skill that the MCP tools list format capabilities with capability_id; the owner will ship a separate PR making capability ids readable and editable through MCP.",
+      "reason": "Owner directive; capability_id listing/editing lands in the owner's separate PR"
+    },
+    {
+      "at": "2026-09-15T09:28:12.392946Z",
+      "owner_directive": "Restore in build-workflow: edit_workflow usage details, non-terminal run states, and AI Agent block runtime behavior.",
+      "reason": "Owner approved restoring useful how-to content"
+    },
+    {
+      "at": "2026-09-15T09:29:00.768664Z",
+      "owner_directive": "Add section 7 to skills: available tools, each with a one-line description and when to use it.",
+      "reason": "Owner added a section"
+    },
+    {
+      "at": "2026-09-15T09:31:04.037384Z",
+      "owner_directive": "Every skill gets section 7: available tools with one-line description and when to use.",
+      "reason": "Owner extended structure to all skills"
+    },
+    {
+      "at": "2026-09-15T09:31:37.761170Z",
+      "owner_directive": "Put the generated workflow YAML reference file name in the skill so agents need no search.",
+      "reason": "Name the generated page (PR #2436)"
+    },
+    {
+      "at": "2026-09-15T09:33:18.615690Z",
+      "owner_directive": "Restructure scistudio-write-block into the seven sections; keep the 'Make it usable' table entirely; tell the agent it may pick a good-looking icon/color (ui_icon, ui_color).",
+      "reason": "Owner write-block decisions"
+    },
+    {
+      "at": "2026-09-15T09:35:19.144053Z",
+      "owner_directive": "Rewrite the scistudio-write-block description (drop the nonexistent imaging.threshold example) and update its pinning test.",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T09:39:18.319202Z",
+      "owner_directive": "State explicitly in write-block that setting base_category has no effect; the category comes only from the inherited class.",
+      "reason": "Owner wording"
+    },
+    {
+      "at": "2026-09-15T09:41:52.234077Z",
+      "owner_directive": "Do not subclass CodeBlock (fix section 1). Add a 'Use interactive blocks' subsection parallel to 'Make it usable': what an interactive block is, basic writing, routing to scistudio-write-panel.",
+      "reason": "Owner write-block directives"
+    },
+    {
+      "at": "2026-09-15T09:47:49.710748Z",
+      "owner_directive": "Restructure scistudio-inspect-data into the seven-section skill structure.",
+      "reason": "Next skill in seven-section structure"
+    },
+    {
+      "at": "2026-09-15T09:49:24.385639Z",
+      "owner_directive": "Restore in write-block: fill EDIT THIS / replace Describe placeholders; read parameters with config.get.",
+      "reason": "Owner approved restoring two write-block details"
+    },
+    {
+      "at": "2026-09-15T09:54:04.809268Z",
+      "owner_directive": "Tell the agent in inspect-data when to use lineage.",
+      "reason": "Owner directive"
+    },
+    {
+      "at": "2026-09-15T10:17:27.290118Z",
+      "owner_directive": "Commit the current work, then merge the latest origin/main into this worktree.",
+      "reason": "owner directive before continuing with the write-plot skill"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2295,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2383,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Unified ADR-054 Phase C documentation revision session; owner directly authorized editing ARCHITECTURE.md live (admin-approved:architecture-doc). First: revise the ARCHITECTURE.md introduction to match the latest README.md.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2295-phase-c-docs",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:architecture-doc"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:50:08.546208Z",
+      "pattern": "README.md",
+      "reason": "Owner started README revision"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:52:20.561905Z",
+      "pattern": "README.zh-CN.md",
+      "reason": "Owner README directives"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:52:44.207482Z",
+      "pattern": "CONTRIBUTING.md",
+      "reason": "Discord link also appears in CONTRIBUTING.md"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:01:55.956850Z",
+      "pattern": "src/scistudio/_agent_reference/**",
+      "reason": "Owner scoped remaining Phase C work"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:01:55.956854Z",
+      "pattern": "src/scistudio/_skills/**",
+      "reason": "Owner scoped remaining Phase C work"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:01:55.956856Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "Owner scoped remaining Phase C work"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139727Z",
+      "pattern": "src/scistudio/ai/agent/**",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139734Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139736Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/engine.py",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139737Z",
+      "pattern": "src/scistudio/api/routes/work_import.py",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139738Z",
+      "pattern": "tests/**",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139739Z",
+      "pattern": "docs/adr/ADR-034.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139744Z",
+      "pattern": "docs/adr/ADR-040.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139745Z",
+      "pattern": "docs/agent-provisioning.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139747Z",
+      "pattern": "docs/specs/adr-034-multi-provider-agent-chat.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139748Z",
+      "pattern": "docs/specs/embedded-coding-agent-spec.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:42:27.139749Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Owner directed folding #2383 into this branch"
+    }
+  ],
+  "session_id": "1d22997b-42d5-4465-90a0-51273cdb4455",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

@@ -68,8 +68,7 @@ logger = logging.getLogger(__name__)
 #
 # Tool modules (``tools_workflow.py`` etc.) import this and decorate their
 # functions with ``@mcp.tool(name=..., tags={...})``. FastMCP auto-discovers
-# them and exposes via ``await mcp.list_tools()`` (used by
-# :mod:`scistudio.ai.agent.system_prompt._render_tool_catalog`).
+# them and exposes via ``await mcp.list_tools()``.
 # ---------------------------------------------------------------------------
 
 mcp: FastMCP = FastMCP(name="scistudio-mcp", version="0.1.0")
