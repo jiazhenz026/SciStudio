@@ -874,7 +874,7 @@ class WorkflowWatcher:
             logger.warning("workflow_watcher: observer stop raised", exc_info=True)
 
     def _schedule_panel_catalog(self, observer: Any, project_dir: Path, loop: asyncio.AbstractEventLoop) -> Any:
-        """Watch the panel tiers so a new or changed MiniApp reaches the catalog (#2421).
+        """Watch the panel tiers so a new or changed MiniApp reaches the catalog.
 
         The project tier sits under ``project_dir``, which the observer already
         watches recursively; the user tier gets its own schedule when it exists
@@ -883,6 +883,7 @@ class WorkflowWatcher:
         the refresher, or ``None`` when the watch could not be set up, which
         leaves the read-side staleness check as the only mechanism.
         """
+        # Development references: #2421.
         if self._runtime is None:
             return None
         refresher = None

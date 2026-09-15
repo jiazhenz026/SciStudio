@@ -109,8 +109,8 @@ def panel_sources_fingerprint(project_dir: Path | None = None) -> PanelSourcesFi
     """Summarize the directory tiers :func:`discover_panels` scans, cheaply.
 
     Two scans of unchanged directories give equal fingerprints, so a holder of a
-    discovered registry can tell it has gone stale without discovering again
-    (#2421). The summary covers what decides the catalog: which panel directories
+    discovered registry can tell it has gone stale without discovering again.
+    The summary covers what decides the catalog: which panel directories
     exist, the size and modification time of each ``panel.json`` and
     ``panel.py``, and the names of the page files (the asset suffixes the panel
     routes serve). Page file content is left out on purpose. Editing an open
@@ -122,6 +122,7 @@ def panel_sources_fingerprint(project_dir: Path | None = None) -> PanelSourcesFi
 
     Only stats and directory listings, no file reads.
     """
+    # Development references: #2421.
     from scistudio.panels.files import ASSET_SUFFIXES
 
     entries: list[tuple[object, ...]] = []

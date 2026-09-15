@@ -324,7 +324,8 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
 
 
 def _current_panels(request: Request) -> Any:
-    """The panel registry, rediscovered first when the panel directories changed (#2421)."""
+    """The panel registry, rediscovered first when the panel directories changed."""
+    # Development references: #2421.
     from scistudio.panels.catalog_refresh import current_preview_service
 
     return current_preview_service(request.app.state.runtime).registry.panels
