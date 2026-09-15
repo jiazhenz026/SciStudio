@@ -1,7 +1,174 @@
 {
   "base_ref": null,
   "branch": "feat/2426-deprecate-previewers-api",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T08:28:54.346566Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8c4755e96e6bd1bcbb02eadce28531b380bf25a9b4426938f4c927ac5588999a",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:28:55.486282Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:34228e9a629c19bf03120de5fb356c3f306a75cb6cf640578d14c50585d25782",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:28:56.916632Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:68d8f7c689f33ae5d3a3d28b7cc861e731decbb0b186f40644924a928e876343",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:28:57.276464Z",
+      "command": "ruff format scripts/docs/build_reference.py src/scistudio/panels/__init__.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/registry.py src/scistudio/panels/validation.py src/scistudio/previewers/__init__.py src/scistudio/previewers/_deprecation.py src/scistudio/previewers/data_access.py src/scistudio/previewers/helpers.py src/scistudio/previewers/models.py src/scistudio/stability/__init__.py tests/api/test_public_surface.py tests/docs/test_build_reference_deprecation.py tests/panels/test_public_root.py tests/stability/test_stability.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0ddf5a40f43818d3c5e2ac2157e82f5ddf6265c736f24ecfa9213cd668e6ff31",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T08:29:03.853613Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e230aae53d4130c1344877827bea20d935b74deeb54063ea96d6e768b37030a7",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:29:04.370020Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:067dba9c0d797ba0b2b0fd5de9e6b918e91d3c41edc4776132e52635068dfa01",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:29:04.383984Z",
+      "command": "ruff check scripts/docs/build_reference.py src/scistudio/panels/__init__.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/registry.py src/scistudio/panels/validation.py src/scistudio/previewers/__init__.py src/scistudio/previewers/_deprecation.py src/scistudio/previewers/data_access.py src/scistudio/previewers/helpers.py src/scistudio/previewers/models.py src/scistudio/stability/__init__.py tests/api/test_public_surface.py tests/docs/test_build_reference_deprecation.py tests/panels/test_public_root.py tests/stability/test_stability.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:cd5392363f84ccc61566a8d53c5078dfdd9000e941409d37378449e6de557092",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T08:30:41.161483Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/adr052_contract/test_accessor_dataflow_guard.py tests/adr052_contract/test_deprecations.py tests/adr052_contract/test_ergonomic_accessors.py tests/adr052_contract/test_no_internal_leak.py tests/adr052_contract/test_plot_render_contract.py tests/adr052_contract/test_reexports.py tests/adr052_contract/test_signatures.py tests/adr052_contract/test_stability_semantics.py tests/adr052_contract/test_surface_inventory.py tests/ai/test_mcp_gui_tools.py tests/api/test_accessor_dataflow_guard.py tests/api/test_agent_availability.py tests/api/test_ai_active_context.py tests/api/test_ai_pty.py tests/api/test_ai_pty_audit_fixes.py tests/api/test_ai_pty_engine_spawn.py tests/api/test_api_docstrings_user_facing.py tests/api/test_app.py tests/api/test_attached_project.py tests/api/test_block_origin_tiers.py tests/api/test_blocks.py tests/api/test_blocks_template.py tests/api/test_blocks_template_skeleton.py tests/api/test_data.py tests/api/test_data_open_as.py tests/api/test_data_register_path.py tests/api/test_deps.py tests/api/test_diagnostics_routes.py tests/api/test_ergonomic_accessors.py tests/api/test_file_endpoints.py tests/api/test_file_endpoints_skeleton.py tests/api/test_file_version_vector.py tests/api/test_filesystem.py tests/api/test_filesystem_browse.py tests/api/test_filesystem_dialog.py tests/api/test_git_endpoints.py tests/api/test_identity_seam.py tests/api/test_interactive_panels.py tests/api/test_known_project_registry.py tests/api/test_legacy_endpoints_gone.py tests/api/test_lineage_set_pending_git_commit.py tests/api/test_lint_endpoint.py tests/api/test_logging_middleware.py tests/api/test_mcp_transport_publish.py tests/api/test_miniapp_create.py tests/api/test_native_dialog.py tests/api/test_open_project_degraded_modes.py tests/api/test_packages.py tests/api/test_panel_call_route.py tests/api/test_panel_collection_authority.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_panel_security.py tests/api/test_plot_preview_wiring.py tests/api/test_plot_render_contract.py tests/api/test_preview_plot_jobs.py tests/api/test_previewer_choice_routes.py tests/api/test_previewer_discovery.py tests/api/test_previewers.py tests/api/test_project_layout.py tests/api/test_projects.py tests/api/test_provider_discovery.py tests/api/test_provider_discovery_agreement.py tests/api/test_provider_propagation_chain.py tests/api/test_provider_registry_extensibility.py tests/api/test_public_surface.py tests/api/test_registry_provisioning_parity.py tests/api/test_registry_reload_symmetry.py tests/api/test_reload_on_save.py tests/api/test_root_path.py tests/api/test_runs_routes.py tests/api/test_runtime_active_workflow.py tests/api/test_runtime_artifact_retention.py tests/api/test_runtime_backend_stop.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_bounded_registries.py tests/api/test_runtime_data_registration.py tests/api/test_runtime_import_surface.py tests/api/test_runtime_lineage_finalize_status.py tests/api/test_runtime_mcp_pointer.py tests/api/test_runtime_package_repair.py tests/api/test_runtime_project_scoped_runs.py tests/api/test_runtime_rerun_parent_id.py tests/api/test_runtime_run_lifetime.py tests/api/test_runtime_stop_request.py tests/api/test_runtime_subworkflow_flatten.py tests/api/test_runtime_workflow_validation_gate.py tests/api/test_spa_fallback.py tests/api/test_spa_mount.py tests/api/test_sse.py tests/api/test_stability_decorators.py tests/api/test_system_vertical.py tests/api/test_tutorial_library_write.py tests/api/test_tutorial_package_lifecycle.py tests/api/test_tutorial_product_state_workflow_scope.py tests/api/test_tutorial_project_visibility.py tests/api/test_tutorial_replay.py tests/api/test_tutorial_routes.py tests/api/test_types_routes.py tests/api/test_user_docs.py tests/api/test_user_library_panel_promotion.py tests/api/test_user_library_write.py tests/api/test_webmcp.py tests/api/test_work_import_session.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflow_id_conflict.py tests/api/test_workflow_management.py tests/api/test_workflow_run_git.py tests/api/test_workflow_run_identity.py tests/api/test_workflow_version_vector.py tests/api/test_workflow_watcher.py tests/api/test_workflow_watcher_git.py tests/api/test_workflow_watcher_macos.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/architecture/test_placement.py tests/docs/test_build_reference_deprecation.py tests/fixtures/test_images.py tests/fixtures/test_noop_block.py tests/packaging/test_gui_capture.py tests/panels tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_descriptor.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_registry.py tests/panels/test_panel_routing.py tests/panels/test_panel_sdk.py tests/panels/test_panel_skill_examples.py tests/panels/test_panel_watcher.py tests/panels/test_plot_artifact_reads.py tests/panels/test_public_root.py tests/previewers tests/previewers/test_fallback_array.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py tests/previewers/test_preview_security.py tests/qa/test_guard_calculators.py tests/stability tests/stability/test_stability.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 1,
+      "input_fingerprint": "sha256:90ca3c898f0526f59997100fbd631f5dbbfacc782fb88c123584f7788c07aa0f",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T08:30:44.480672Z",
+      "command": "mypy src/scistudio/panels/__init__.py src/scistudio/panels/descriptor.py src/scistudio/panels/files.py src/scistudio/panels/registry.py src/scistudio/panels/validation.py src/scistudio/previewers/__init__.py src/scistudio/previewers/_deprecation.py src/scistudio/previewers/data_access.py src/scistudio/previewers/helpers.py src/scistudio/previewers/models.py src/scistudio/stability/__init__.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:861b62f642397e3b267de33943e23cc8268bcc96f885f09ced03502e14f89041",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -71,7 +238,96 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T08:30:44.585406Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.598425Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.608772Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.619529Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.630134Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.639937Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.649462Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.659020Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.672412Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.682350Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:30:44.699551Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -81,25 +337,121 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "25a378c0",
+    "changed_files": [
+      ".workflow/records/2426-feat-2426-deprecate-previewers-api.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-052.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "docs/user/reference/index.md",
+      "docs/user/reference/scistudio.panels.md",
+      "docs/user/reference/scistudio.previewers.data_access.md",
+      "docs/user/reference/scistudio.previewers.models.md",
+      "mkdocs.yml",
+      "scripts/docs/build_reference.py",
+      "src/scistudio/_agent_reference/public-api.md",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.panels.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
+      "src/scistudio/_user_guide/api-reference/scistudio.previewers.models.md",
+      "src/scistudio/panels/__init__.py",
+      "src/scistudio/panels/descriptor.py",
+      "src/scistudio/panels/files.py",
+      "src/scistudio/panels/registry.py",
+      "src/scistudio/panels/validation.py",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/previewers/_deprecation.py",
+      "src/scistudio/previewers/data_access.py",
+      "src/scistudio/previewers/helpers.py",
+      "src/scistudio/previewers/models.py",
+      "src/scistudio/stability/__init__.py",
+      "tests/api/public_surface.snapshot.json",
+      "tests/api/test_public_surface.py",
+      "tests/docs/test_build_reference_deprecation.py",
+      "tests/panels/test_public_root.py",
+      "tests/stability/test_stability.py"
+    ],
+    "diff_fingerprint": "sha256:556dfe8970c127c34a0c159669098e1f4ac4d957a1ea4b86122dc31fcc73092c",
+    "head": "HEAD",
+    "head_sha": "2ffa2aab",
+    "surfaces": {
+      "docs": 6,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 16,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 23,
+      "test": 5,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Mark every public scistudio.previewers API symbol deprecated (replacement: ADR-054 panels; supported and deprecated through 0.5, removed in 0.6, tracked in #2288) in code and in the generated API reference; add the scistudio.panels Python API as a canonical public root with author-facing symbols provisional; regenerate the reference with scripts/docs/build_reference.py; submit a separate PR.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T08:30:44.699580Z",
+      "diff_fingerprint": "sha256:556dfe8970c127c34a0c159669098e1f4ac4d957a1ea4b86122dc31fcc73092c",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests"
+      ]
+    }
+  ],
   "record_id": "2426-feat-2426-deprecate-previewers-api",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:31:05.616209Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "The user-guide navigation test pins the api-reference page list; the new scistudio.panels reference page adds a row."
+    }
+  ],
   "session_id": "1df2ee70-de72-4866-bf17-888062f8e792",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
@@ -131,6 +483,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/docs/test_build_reference_deprecation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:31:05.616379Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
       "rationale": null,
       "verified_in_diff": null
     }
