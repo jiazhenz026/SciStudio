@@ -22,9 +22,10 @@ rules: they keep the live GUI, the registry, and lineage consistent.
   `data/` — it holds the user's raw inputs and run outputs. Produce new data only
   by running blocks/workflows through the MCP tools, which write to the managed
   store. (A hook intercepts direct writes to `data/`.)
-- Your only interface to SciStudio is the `mcp__scistudio__*` tool surface —
-  blocks, workflows, runs, and data all go through these tools. There is no
-  command-line tool; do not try to drive SciStudio from Bash.
+- Use `mcp__scistudio__*` tools for blocks, workflows, runs, and data. For GUI
+  operation, follow `scistudio-use-gui` with the available browser or
+  computer-use tools; this does not replace validated runtime operations.
+  There is no command-line tool; do not try to drive SciStudio from Bash.
 - Do NOT directly Edit/Write `workflows/*.yaml`. Use
   `mcp__scistudio__write_workflow` / `update_block_config` so the
   runtime sees changes through the validated path. (Hooks block direct
@@ -106,7 +107,7 @@ provisioned identically into every skills tree the assistant CLIs
 discover (`.agents/skills/`, `.claude/skills/`), so every provider sees
 the same teaching surface. Each skill
 lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
-`<root>/scistudio/`; the six task skills sit beside it).
+`<root>/scistudio/`; the task skills sit beside it).
 
 - `scistudio-build-workflow` — design a new workflow (YAML schema,
   validation, run lifecycle).
@@ -120,6 +121,17 @@ lives at `<root>/<name>/SKILL.md` (the `scistudio` base skill is at
   / lineage) without materialising.
 - `scistudio-project-qa` — answer the user's SciStudio / project
   questions, grounded in the reference docs below + MCP tools.
+- `scistudio-write-panel` — create or repair an HTML preview panel or an
+  interactive workflow decision page. Pair the latter with
+  `scistudio-write-block`; the panel skill covers SDK contracts and live checks.
+- `scistudio-use-gui` — operate the running interface using available browser
+  or computer-use tools, when the user requests GUI operation or an authoring
+  skill calls for a live check.
+
+Panel authoring routes to the GUI skill for a brief rendered-view and main
+interaction check. Plot authoring, workflow authoring, and ordinary run
+debugging do not automatically invoke GUI checks; an explicit user request
+for GUI operation still applies.
 
 The skill body is the canonical teaching surface. This file is the
 identity + non-negotiable-rules index. If a rule here conflicts with
@@ -145,6 +157,8 @@ before authoring or answering; they are the contract, not your memory:
 - `data/` — raw inputs and persisted outputs (zarr, parquet,
   artifacts).
 - `types/` — user-registered data type schemas, managed via MCP.
+- `panels/<panel_id>/` — user-authored HTML panels; follow
+  `scistudio-write-panel` for preview and interactive decision pages.
 - `user-guide/` — provisioned human user guide + the generated API
   reference (`user-guide/api-reference/`). Read-only docs; safe to read.
 - `.scistudio/` — runtime state (lineage.db, session markers) plus the

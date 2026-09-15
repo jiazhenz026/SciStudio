@@ -257,10 +257,11 @@ class _StubRuntimeWithWorkflow(_StubRuntime):
     active_workflow_id: str | None = None
 
 
-@pytest.fixture
-def gui_url(monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:54321/")
-    return "http://127.0.0.1:54321"
+@pytest.fixture(params=["http://127.0.0.1:54321/", "  http://127.0.0.1:54321/lab/session/  "])
+def gui_url(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> str:
+    published = str(request.param)
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", published)
+    return published.strip().rstrip("/")
 
 
 def _open_gui_with(runtime: object | None):
@@ -281,8 +282,9 @@ def test_open_gui_deep_links_project_and_active_workflow(gui_url: str, tmp_path:
     project = tmp_path / "Demo"
     out = _open_gui_with(_StubRuntimeWithWorkflow(_project_dir=project, active_workflow_id="main"))
     parsed = urlsplit(out.url)
-    assert f"{parsed.scheme}://{parsed.netloc}" == gui_url
-    assert parsed.path == "/"
+    expected_base = urlsplit(gui_url)
+    assert (parsed.scheme, parsed.netloc) == (expected_base.scheme, expected_base.netloc)
+    assert parsed.path == f"{expected_base.path}/"
     assert parse_qs(parsed.query) == {"project": [str(project)], "workflow": ["main"]}
     assert out.base_url == gui_url
     assert "loopback" in out.hint

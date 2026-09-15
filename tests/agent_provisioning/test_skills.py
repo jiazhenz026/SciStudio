@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from importlib.resources import files
 from pathlib import Path
+
+import pytest
 
 from scistudio.agent_provisioning.skills import write_skills
 
@@ -14,13 +17,15 @@ _SKILL_NAMES = (
     "scistudio-inspect-data",
     "scistudio-project-qa",
     "scistudio-write-plot",
+    "scistudio-use-gui",
+    "scistudio-write-panel",
 )
 
 
 def test_write_skills_cross_installs_both_trees(tmp_project_dir: Path) -> None:
-    """All 7 skills land in both .claude/skills/ and .agents/skills/ (1 base + 6 task)."""
+    """The complete skill bundle lands identically in both provider trees."""
     written = write_skills(tmp_project_dir, force=False)
-    assert len(written) == 14
+    assert len(written) == 2 * len(_SKILL_NAMES)
 
     for name in _SKILL_NAMES:
         claude = tmp_project_dir / ".claude" / "skills" / name / "SKILL.md"
@@ -29,6 +34,29 @@ def test_write_skills_cross_installs_both_trees(tmp_project_dir: Path) -> None:
         assert agents.is_file(), f"missing agents skill: {name}"
         # Pair-wise content identity.
         assert claude.read_bytes() == agents.read_bytes(), f"content mismatch for: {name}"
+
+
+@pytest.mark.parametrize("skill_name", ["scistudio-use-gui", "scistudio-write-panel"])
+def test_missing_skill_is_added_on_reopen_without_overwriting_custom_skills(
+    tmp_project_dir: Path, skill_name: str
+) -> None:
+    """Existing projects gain the real bundled skill while retaining user edits."""
+    from scistudio.agent_provisioning import install_project_agent_assets
+
+    install_project_agent_assets(tmp_project_dir)
+    for tree in (".claude/skills", ".agents/skills"):
+        (tmp_project_dir / tree / skill_name / "SKILL.md").unlink()
+    custom_path = tmp_project_dir / ".agents/skills/scistudio-write-block/SKILL.md"
+    custom_body = "# My project-specific block instructions\n"
+    custom_path.write_text(custom_body, encoding="utf-8")
+
+    reopened = install_project_agent_assets(tmp_project_dir)
+    source = files("scistudio") / f"_skills/scistudio/{skill_name}/SKILL.md"
+    for tree in (".claude/skills", ".agents/skills"):
+        relative_path = f"{tree}/{skill_name}/SKILL.md"
+        assert relative_path in reopened.written
+        assert (tmp_project_dir / relative_path).read_bytes() == source.read_bytes()
+    assert custom_path.read_text(encoding="utf-8") == custom_body
 
 
 def test_write_skills_idempotent(tmp_project_dir: Path) -> None:
