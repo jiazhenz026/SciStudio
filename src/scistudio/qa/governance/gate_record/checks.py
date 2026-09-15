@@ -411,8 +411,9 @@ def select_python_tests(repo_root: Path, changed_files: Sequence[str]) -> Python
     deferred to CI. Nothing widens: a global input (pytest/coverage config, a CI
     workflow, the root ``conftest.py``), an asset no test references, or a module
     with no mirrored or importing test is deferred, while the rest of the diff
-    still selects its tests (ADR-042 Addendum 7 §2.2, #2386).
+    still selects its tests.
     """
+    # Development references: ADR-042 Addendum 7 §2.2, #2386.
 
     corpus = _TestCorpus(repo_root)
     targets: set[str] = set()
@@ -490,9 +491,10 @@ def assert_bounded_python_test_argv(argv: Sequence[str]) -> None:
 
     The chokepoint for local Python test execution: a target-less invocation, or
     one naming the whole ``tests/`` tree or the repository root, runs the full
-    suite, which is forbidden outside CI (#2386). Raises
+    suite, which is forbidden outside CI. Raises
     :class:`FullPythonSuiteRefusedError`.
     """
+    # Development references: #2386.
 
     if running_in_ci():
         return
@@ -831,7 +833,7 @@ def run_check(
     ran, never which one was requested.
 
     ``python_tests`` is the exception: outside CI it never runs at repository
-    scope, whatever scope was requested (#2386). It runs the bounded diff-derived
+    scope, whatever scope was requested. It runs the bounded diff-derived
     selection; when that selection is empty no test process starts, and the event
     passes with ``coverage_deferred_to_ci`` set. Any invocation that still reaches
     the runner without explicit targets raises
@@ -841,6 +843,7 @@ def run_check(
     # Raw stdout/stderr go ONLY to ``.workflow/local/**`` (gitignored). The
     # committed event carries a sanitized one-line summary plus a repo-relative
     # ``raw_log_ref`` (§8).
+    # Development references: #2386.
 
     spec = CHECK_CATALOG[name]
     selection: PythonTestSelection | None = None
@@ -871,9 +874,9 @@ def run_check(
     }
 
     if selection is not None and not selection.targets:
-        # Nothing selectable: no local test process at all. The full suite is
-        # ci.yml's job on the same PR; this event records the deferral and
-        # satisfies the local/pre-PR obligation (ADR-042 Addendum 7 §2.2).
+        # Nothing selectable: no local test process at all. ci.yml runs the full
+        # suite on the same PR; this event records the deferral and satisfies
+        # the local/pre-PR obligation (ADR-042 Addendum 7 §2.2).
         return CheckEvent(
             **{**common, "command": f"{repo_relative_command} (no targets; not executed)"},
             exit_code=None,

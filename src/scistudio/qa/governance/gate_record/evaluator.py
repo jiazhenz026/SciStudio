@@ -965,8 +965,9 @@ def execution_scope_for(name: str, *, mode: EvaluatorMode, force_checks: bool) -
 
     ``ci`` mode runs the repository-scoped mirror. ``--force-checks`` does the
     same locally for every check except the diff-selected Python tests, which
-    never widen to the whole suite outside CI (ADR-042 Addendum 7 §2.2, #2386).
+    never widen to the whole suite outside CI.
     """
+    # Development references: ADR-042 Addendum 7 §2.2, #2386.
 
     if mode == "ci":
         return "repo"

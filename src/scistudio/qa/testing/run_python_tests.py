@@ -60,9 +60,10 @@ def main(argv: list[str] | None = None) -> int:
 
     ``argv`` defaults to ``sys.argv[1:]``; every forwarded arg is applied to both
     phases. Outside CI the args must name explicit test targets, else the run is
-    refused with exit code 4 before any pytest process starts (#2386). Returns a
+    refused with exit code 4 before any pytest process starts. Returns a
     process exit code suitable for ``SystemExit``.
     """
+    # Development references: #2386.
     forwarded = list(sys.argv[1:] if argv is None else argv)
     # Imported here so the runner module stays importable on its own; the guard
     # is the same chokepoint the gate's ``python_tests`` check uses.
