@@ -149,7 +149,13 @@ def checkpoint_dir_for(self: ApiRuntime, workflow_id: str) -> Path:
     # ``<project>/.scistudio/pause/<workflow_id>/``.
     # Development references: ADR-038.
     project = self.require_active_project()
-    return Path(project.path) / ".scistudio" / "pause" / workflow_id
+    return pause_dir_for(project.path, workflow_id)
+
+
+def pause_dir_for(project_root: str | Path, workflow_id: str) -> Path:
+    """Return ``<project>/.scistudio/pause/<workflow_id>/`` for *project_root*."""
+    # Development references: #2448, ADR-038.
+    return Path(project_root) / ".scistudio" / "pause" / workflow_id
 
 
 def _build_lineage_recorder(
@@ -623,9 +629,23 @@ def start_workflow(
                 if isinstance(params, dict):
                     params["overwrite"] = True
     checkpoint_manager = CheckpointManager(self.checkpoint_dir_for(workflow_id))
-    checkpoint = checkpoint_manager.load(workflow_id) if execute_from is not None else None
-    if execute_from is not None and checkpoint is None:
-        raise ValueError("Run the full workflow at least once before using 'Run from here'")
+    run_from_here_plan = None
+    if execute_from is not None:
+        # #2448: refuse before anything records the run when an upstream output
+        # the target or its descendants need cannot be reused. A target that
+        # needs no upstream output runs without an earlier run.
+        from scistudio.engine.run_from_here import plan_run_from_here
+
+        run_from_here_plan = plan_run_from_here(
+            workflow,
+            execute_from,
+            checkpoint_manager.load(workflow_id),
+            registry=self.block_registry,
+            project_dir=str(self.active_project.path) if self.active_project else None,
+        )
+        if not run_from_here_plan.required:
+            # Nothing is reused, so the run builds on no earlier run.
+            parent_run_id = None
 
     # #2433: the run's identity is assigned here, before anything records the
     # run, so the lineage row, the run log, the scheduler's events and the
@@ -724,9 +744,7 @@ def start_workflow(
         project_id=self.active_project.id if self.active_project else None,
     )
 
-    reused_blocks: list[str] = []
-    if execute_from is not None:
-        reused_blocks = sorted(self._ancestors_of(workflow, execute_from))
+    reused_blocks: list[str] = sorted(run_from_here_plan.reused) if run_from_here_plan is not None else []
 
     reset_blocks = sorted(set(node.id for node in workflow.nodes) - set(reused_blocks))
     return {

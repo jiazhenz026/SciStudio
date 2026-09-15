@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.base.state import BlockState
-from scistudio.engine.dag import build_dag, get_downstream_blocks, topological_sort
+from scistudio.engine.dag import build_dag, topological_sort
 from scistudio.engine.events import (
     BLOCK_DONE,
     BLOCK_ERROR,
@@ -158,6 +158,13 @@ class DAGScheduler:
         self._block_states: dict[str, BlockState] = {n: BlockState.IDLE for n in self._dag.nodes}
         self._block_outputs: dict[str, Any] = {}
         self.skip_reasons: dict[str, str] = {}
+
+        # #2448: outputs ``execute_from`` restored from the checkpoint, with the
+        # fingerprint entry the checkpoint recorded for each (``None`` when it
+        # recorded none). An entry applies only while that exact output object
+        # is still the block's output; a re-run replaces the object.
+        self._reused_outputs: dict[str, tuple[Any, dict[str, str] | None]] = {}
+        self._definition_fingerprints: dict[str, str] | None = None
 
         # Active asyncio.Task per block (ADR-018 Addendum 1). Populated by
         # ``_dispatch`` when a block's ``_run_and_finalize`` task is created
@@ -435,69 +442,114 @@ class DAGScheduler:
             block_states={k: v.value for k, v in self._block_states.items()},
             intermediate_refs=serialize_intermediate_refs(self._block_outputs),
             skip_reasons=dict(self.skip_reasons),
+            node_fingerprints=self._output_fingerprints(),
         )
         checkpoint_manager.save(checkpoint)
 
+    def _output_fingerprints(self) -> dict[str, dict[str, str]]:
+        """Return the fingerprint entry of every block output this scheduler holds.
+
+        An output produced by this run is described by the current definition.
+        An output reused from the checkpoint keeps the entry recorded with it;
+        a reused output with no recorded entry gets none, and outputs computed
+        from it can never match a current lineage fingerprint.
+        """
+        # Development references: #2448.
+        from scistudio.engine.run_from_here import definition_fingerprints, lineage_fingerprints
+
+        if self._definition_fingerprints is None:
+            self._definition_fingerprints = definition_fingerprints(
+                self._workflow, registry=self._registry, dag=self._dag
+            )
+        reused: dict[str, dict[str, str] | None] = {
+            node_id: entry
+            for node_id, (output, entry) in self._reused_outputs.items()
+            if self._block_outputs.get(node_id) is output
+        }
+        recorded = {
+            node_id: (entry.get("lineage") or "unknown") if entry else "unknown" for node_id, entry in reused.items()
+        }
+        lineage = lineage_fingerprints(self._dag, self._definition_fingerprints, recorded=recorded)
+        result: dict[str, dict[str, str]] = {}
+        for node_id in self._block_outputs:
+            if node_id not in self._dag.nodes:
+                continue
+            if node_id in reused:
+                entry = reused[node_id]
+                if entry:
+                    result[node_id] = dict(entry)
+                continue
+            result[node_id] = {"definition": self._definition_fingerprints[node_id], "lineage": lineage[node_id]}
+        return result
+
     async def execute_from(self, block_id: str) -> None:
-        """Re-run the workflow from *block_id* using checkpointed upstream outputs."""
+        """Re-run *block_id* and everything downstream of it.
+
+        Inputs those blocks take from blocks outside that set are reused from
+        the checkpoint. :func:`scistudio.engine.run_from_here.plan_run_from_here`
+        refuses the run, listing each upstream block and its reason, when any
+        of those outputs is missing, stale or of unknown definition. A block
+        with no such inputs runs without a checkpoint.
+        """
+        # Development references: #424, #2448.
+        from scistudio.engine.run_from_here import plan_run_from_here
+
         if block_id not in self._block_states:
             raise ValueError(f"Unknown block: {block_id}")
-        if self._checkpoint_manager is None:
-            raise ValueError("Selective execution requires a checkpoint manager.")
 
-        checkpoint = self._checkpoint_manager.load(self._workflow.id)
-        if checkpoint is None:
-            raise FileNotFoundError("No checkpoint is available for this workflow.")
-
-        ancestors = self._ancestors_of(block_id)
-        missing = [ancestor for ancestor in ancestors if ancestor not in checkpoint.intermediate_refs]
-        if missing:
-            raise ValueError("Cannot execute from block without cached upstream outputs: " + ", ".join(sorted(missing)))
-
-        descendants = set(get_downstream_blocks(self._dag, block_id)) | {block_id}
+        checkpoint = self._checkpoint_manager.load(self._workflow.id) if self._checkpoint_manager is not None else None
+        plan = plan_run_from_here(
+            self._workflow,
+            block_id,
+            checkpoint,
+            registry=self._registry,
+            project_dir=self._project_dir,
+            dag=self._dag,
+        )
 
         # Cancel any active tasks for the target block and its descendants
         # before resetting them (#424).
-        for node_id in descendants:
+        for node_id in plan.run_set:
             await self._cancel_if_active(node_id)
 
         self._completed_event = asyncio.Event()
 
-        # ADR-027 Addendum 1 / #408: Wire-format dicts ({"backend": ...,
-        # "path": ..., "format": ..., "metadata": {"type_chain": [...], ...}})
-        # are assigned directly to _block_outputs WITHOUT calling
-        # deserialize_intermediate_refs().  This is intentional:
-        #
-        #   1. Wire-format dicts are already JSON-serialisable and can be
-        #      shipped to a worker subprocess via spawn_block_process() / stdin.
-        #   2. The worker's _reconstruct_one() reads metadata.type_chain and
-        #      reconstructs the correct typed DataObject instance inside the
-        #      sandboxed subprocess, preserving plugin type identity.
-        #   3. deserialize_intermediate_refs() is not called here because
-        #      the wire-format dicts must remain JSON-serialisable for
-        #      spawn_block_process().
-        #
-        # See checkpoint.py for the deprecated deserialize_intermediate_refs()
-        # function and the full rationale.
-        # #404 / #408 / ADR-027 Addendum 1 / ADR-031 D8: Wire-format dicts
-        # from the checkpoint are assigned directly to _block_outputs
-        # WITHOUT calling deserialize_intermediate_refs().  The wire-format
-        # dict carries a metadata.type_chain field that _reconstruct_one()
-        # inside the worker subprocess uses to instantiate the correct
-        # typed DataObject.
+        # ADR-027 Addendum 1 / #408 / ADR-031 D8: wire-format dicts
+        # ({"backend": ..., "path": ..., "format": ..., "metadata":
+        # {"type_chain": [...], ...}}) from the checkpoint are assigned directly
+        # to _block_outputs WITHOUT calling deserialize_intermediate_refs(). They
+        # stay JSON-serialisable for spawn_block_process(), and the worker's
+        # _reconstruct_one() rebuilds the typed DataObject from
+        # metadata.type_chain inside the sandboxed subprocess. See checkpoint.py
+        # for the deprecated deserialize_intermediate_refs() and its rationale.
+        refs = checkpoint.intermediate_refs if checkpoint is not None else {}
+        recorded_states = checkpoint.block_states if checkpoint is not None else {}
+        recorded_fingerprints = checkpoint.node_fingerprints if checkpoint is not None else {}
+        terminal = {BlockState.DONE, BlockState.ERROR, BlockState.CANCELLED, BlockState.SKIPPED}
+        self._reused_outputs = {}
         for node_id in self._order:
-            if node_id in ancestors:
-                self._block_states[node_id] = BlockState.DONE
-                self._block_outputs[node_id] = checkpoint.intermediate_refs[node_id]
-                self.skip_reasons.pop(node_id, None)
-            elif node_id in descendants:
+            self.skip_reasons.pop(node_id, None)
+            if node_id in plan.run_set:
                 self._block_states[node_id] = BlockState.IDLE
                 self._block_outputs.pop(node_id, None)
-                self.skip_reasons.pop(node_id, None)
+                continue
+            if node_id in plan.reused:
+                state = BlockState.DONE
             else:
-                self._block_states[node_id] = BlockState(checkpoint.block_states.get(node_id, "idle"))
-                if node_id in checkpoint.intermediate_refs:
-                    self._block_outputs[node_id] = checkpoint.intermediate_refs[node_id]
+                try:
+                    state = BlockState(recorded_states.get(node_id, "idle"))
+                except ValueError:
+                    state = BlockState.SKIPPED
+                # A block outside the run that never finished must not hold the
+                # run open: completion waits for every block to be terminal.
+                if state not in terminal:
+                    state = BlockState.SKIPPED
+            self._block_states[node_id] = state
+            if node_id in refs:
+                self._block_outputs[node_id] = refs[node_id]
+                self._reused_outputs[node_id] = (refs[node_id], recorded_fingerprints.get(node_id))
+            else:
+                self._block_outputs.pop(node_id, None)
 
         # ADR-038 §5.2 (supersedes ADR-032 Phase 2a): backfill lineage
         # ``data_objects`` from checkpoint data on resume. Only inserts

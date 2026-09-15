@@ -160,7 +160,48 @@ describe("apiFetch error handling (#1422 split: core.ts)", () => {
       name: "ApiError",
       status: 422,
       message: "field bad",
+      detail: { message: "field bad", errors: [] },
     });
+  });
+
+  it("keeps a structured detail on the error so callers can read its fields (#2448)", async () => {
+    const detail = {
+      error: "run_from_here_unmet",
+      message: "Cannot run from 'final'",
+      block_id: "final",
+      unmet: [
+        { node_id: "transform", block_type: "process_block", reason: "never_ran", detail: "x" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        statusText: "Conflict",
+        json: () => Promise.resolve({ detail }),
+      }),
+    );
+    await expect(api.executeFrom("main", "final")).rejects.toMatchObject({
+      status: 409,
+      message: "Cannot run from 'final'",
+      detail,
+    });
+  });
+
+  it("leaves detail undefined for a plain-string error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: "Bad Request",
+        json: () => Promise.resolve({ detail: "nope" }),
+      }),
+    );
+    const error = await api.listProjects().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).detail).toBeUndefined();
   });
 
   it("appends the HTTP status code to opaque server errors", async () => {
