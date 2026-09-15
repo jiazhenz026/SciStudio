@@ -151,11 +151,11 @@ def test_run_standalone_mode_returns_tools_list(tmp_path: Path, monkeypatch: pyt
     assert response.get("id") == 1
     tools = response.get("result", {}).get("tools")
     assert isinstance(tools, list), response
-    assert len(tools) == 40, (
-        f"expected 40 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
+    assert len(tools) == 41, (
+        f"expected 41 tools (26 baseline + get_active_workflow_context per ADR-040 Addendum 5 "
         f"+ 6 ADR-048 SPEC 2 plot tools + edit_workflow #1912 + open_gui #1947 "
         f"+ promote_to_user_library per ADR-053 FR-011 "
-        f"+ validate_panel and open_miniapp per ADR-054 MiniApp FR-029/FR-030 + list_miniapps #2441), got {len(tools)}"
+        f"+ validate_panel and open_miniapp per ADR-054 MiniApp FR-029/FR-030 + list_miniapps #2441 + wait_for_answers #2447), got {len(tools)}"
     )
 
 
@@ -226,7 +226,7 @@ def test_run_attached_mode_proxies_to_backend(tmp_path: Path, monkeypatch: pytes
         assert response.get("id") == 99
         tools = response.get("result", {}).get("tools")
         assert (
-            isinstance(tools, list) and len(tools) == 40
+            isinstance(tools, list) and len(tools) == 41
         )  # ADR-040 Addendum 5 + ADR-048 SPEC 2 plot + #1912 + #1947 + ADR-053 FR-011 + ADR-054 FR-029/FR-030 + #2441
     finally:
         _shutdown.set()

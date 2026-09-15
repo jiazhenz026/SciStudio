@@ -1,0 +1,176 @@
+{
+  "base_ref": null,
+  "branch": "feat/2447-miniapp-questionnaire",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [
+      "src/scistudio/_skills/**",
+      "docs/architecture/ARCHITECTURE.md",
+      "src/scistudio/_agent_reference/**"
+    ],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/ai_pty/**",
+      "frontend/src/panels/**",
+      "frontend/src/lib/api/panels.ts",
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "scripts/docs/build_panel_reference.py",
+      "src/scistudio/_user_guide/api-reference/panels-*.md",
+      "src/scistudio/_user_guide/miniapps.md",
+      "docs/specs/adr-054-*.md",
+      "CHANGELOG.md",
+      "tests/**"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T12:06:06.900777Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900911Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/miniapps.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900913Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900914Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-sdk.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900915Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-renderers.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900916Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panel-descriptor.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900922Z",
+      "class": "architecture",
+      "kind": "na",
+      "path": null,
+      "rationale": "ARCHITECTURE.md MCP tool table needs explicit owner approval and is out of this dispatch scope; it was already stale before #2441",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900931Z",
+      "class": "skill",
+      "kind": "na",
+      "path": null,
+      "rationale": "scistudio-write-miniapp and the scistudio SKILL.md catalog are owned by the owner live session and are must-not-touch here; the owner integrates this API",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2447,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Provide standard MiniApp questionnaire components (all answers optional, each with Decide for me), an SDK submit that persists answers and notifies the in-app agent PTY, a questionnaire check usable by the AI, a waiting MCP tool for WebMCP mode, and update the MiniApp create brief to the questionnaire flow.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2447-miniapp-questionnaire",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "1a84aeed-500e-46b4-8a57-31da3aa3bdcc",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-15T12:06:06.900935Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_questionnaire.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900937Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_miniapp_create.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900938Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_panels_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900940Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/questionnaire.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900940Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/bridge.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T12:06:06.900941Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/sdk.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

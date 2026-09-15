@@ -93,6 +93,8 @@ tests:
   - tests/api/test_miniapp_create.py
   - tests/api/test_user_library_panel_promotion.py
   - tests/ai/test_mcp_panels_tools.py
+  - tests/panels/test_questionnaire.py
+  - frontend/src/panels/questionnaire.test.ts
   - tests/agent_provisioning/test_skills.py
   - frontend/src/miniapps/MiniAppTab.test.tsx
   - frontend/src/miniapps/MiniAppPalette.test.tsx
@@ -953,3 +955,76 @@ data shapes, styles and local library dependencies. Data acquisition, bounded
 reads and persistence remain in the caller. This is component composition,
 without an iframe or previewer-id embedding service. Interactive-only writeBack
 panels and domain-specific plugin Image renderers retain their own contracts.
+
+
+## Extension: MiniApp questionnaires (#2447)
+
+Owner directive, 2026-09-15: before an agent builds a MiniApp it asks the user
+what they want through a standard questionnaire, the user submits, and the
+agent builds from the answers. Any answer may be left out, every question can be
+handed back to the agent with "Decide for me", and a questionnaire the agent
+writes is checked before the user sees it.
+
+- **FR-049**: A MiniApp MAY declare a questionnaire in `questionnaire.json`
+  beside `panel.json`: `{title, intro?, submit_label?, questions}`. A question
+  has a unique lowercase `id`, a `type` of `single`, `multiple`, `text`,
+  `number`, or `range`, a `prompt`, and optional `help`. `single` and `multiple`
+  take `options` (at least two `{value, label, description?}`, values unique and
+  never `decide_for_me`) and `allow_other`; `text` takes `multiline` and
+  `placeholder`; `number` takes `min`, `max`, `step`, `unit`, `placeholder`;
+  `range` needs `min` < `max` and takes `step` and `unit`. Unknown keys,
+  `required`, and any key that would hide "Decide for me" MUST be refused.
+  `scistudio.panels.questionnaire.validate_spec` is the one authority on these
+  rules; `sdk/1/panel-ui.js` mirrors them only to show an error state, and the
+  cases in `tests/fixtures/questionnaire/cases.json` MUST be judged alike by
+  both.
+- **FR-050**: SDK major 1 MUST provide the questionnaire components
+  `Questionnaire`, `Question`, `SingleChoiceQuestion`, `MultipleChoiceQuestion`,
+  `TextQuestion`, `NumberQuestion`, and `SubmitBar` in `panel-ui.js`, styled from
+  the host theme tokens in `panel.css`. Every question MUST render a "Decide for
+  me" choice recorded as `{status: "decide_for_me"}`; an answer is otherwise
+  `{status: "answered", value, other?}` or `{status: "skipped"}`. Submit MUST be
+  enabled with any subset answered. A spec that breaks FR-049 MUST render a
+  visible error state listing its problems instead of a form. Every `miniapp`
+  context MUST be granted the `submitAnswers` operation, and the SDK MUST expose
+  `scistudio.submitAnswers(answers)` there only; in sample mode it resolves
+  without saving (`reason: "sample_mode"`).
+- **FR-051**: `POST /api/panels/contexts/{context_id}/answers` MUST refuse a
+  context that is not `miniapp` (400 `unsupported`), a package or core MiniApp
+  (400 `unsupported`), a MiniApp without a valid questionnaire (409
+  `no_questionnaire`), and answers that do not fit it (422 `invalid_answers`).
+  Otherwise it MUST write `answers.json` atomically — `{version: 1, panel_id,
+  title, submitted_at, answers: [{id, type, prompt, status, value?, label?,
+  labels?, other?}]}`, one entry per question in order, left-out questions
+  `skipped` — before any notification, and answer `{saved, path, submitted_at,
+  notified, reason, message}`. When the MiniApp's create or convert session is
+  a live PTY in the same project directory the route MUST type the single line
+  "The user submitted the questionnaire for MiniApp `<id>`. Read the answers in
+  `<path>` and build the MiniApp from them." and then Enter as a separate
+  keystroke, and MUST NOT send any interrupt; otherwise `notified` is false with
+  `reason` `no_session` or `session_ended` and the page asks the user to return
+  to their AI chat. Writing `answers.json` MUST NOT reload the MiniApp tab
+  (FR-022). A line arriving while the agent is busy follows the provider's own
+  input behaviour: Claude Code queues it until its turn ends; Codex adds it to
+  the running turn as steering.
+- **FR-052**: `validate_panel` MUST run the questionnaire check whenever the
+  directory holds `questionnaire.json` or a page using `Questionnaire`: the spec
+  is valid, the panel declares `miniapp`, the page mentions `Questionnaire`,
+  `questionnaire.json`, `submitAnswers`, and the SDK script, and three sample
+  submits (mixed statuses, "Decide for me" everywhere, nothing answered) each
+  produce a well-formed answers document without writing to disk. Each problem
+  MUST name the file, the question, what is wrong, and the fix; any problem
+  makes `valid` false. The result carries `questionnaire: {questions,
+  statuses_exercised, round_trip}`.
+- **FR-053**: A read-only MCP tool `wait_for_answers(panel_id, timeout_seconds=300)`
+  (1 to 1800 seconds), visible on the local transport and the WebMCP bridge, MUST
+  return `status: "submitted"` with the answers document as soon as
+  `answers.json` is newer than `questionnaire.json`, including a submit made
+  before the call, and `status: "timed_out"` with no answers when the wait ends
+  first. Its description MUST tell the agent, on timeout, to tell the user its
+  watch on the questionnaire timed out and to ask them to say when they have
+  submitted. It only reads the file, so cancelling it loses nothing.
+- **FR-054**: The create brief (FR-027) MUST point the agent at the flow: look
+  at the data, write a questionnaire and pass `validate_panel`, wait for the
+  submit (the chat notice, or `wait_for_answers`), then build from the answers.
+

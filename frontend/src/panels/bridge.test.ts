@@ -30,7 +30,7 @@ const PROVIDES = {
   preview: { operations: ["read"], services: ["open", "save"] },
   interactive: { operations: ["writeBack"], services: ["save"] },
   // ADR-054 FR-004 — a miniapp reads AND calls, and has no `open`.
-  miniapp: { operations: ["read", "call"], services: ["save"] },
+  miniapp: { operations: ["read", "call", "submitAnswers"], services: ["save"] },
 } as const;
 
 function setup(kind: "preview" | "interactive" | "miniapp" = "preview") {
@@ -40,6 +40,7 @@ function setup(kind: "preview" | "interactive" | "miniapp" = "preview") {
     open: vi.fn().mockResolvedValue(null),
     writeBack: vi.fn().mockResolvedValue(null),
     call: vi.fn().mockResolvedValue({ ok: true }),
+    submitAnswers: vi.fn().mockResolvedValue({ saved: true, notified: true }),
     save: vi.fn().mockResolvedValue(null),
     viewState: vi.fn(),
     resize: vi.fn(),
@@ -108,6 +109,32 @@ describe("panel port bridge", () => {
     }
     expect(handlers.open).not.toHaveBeenCalled();
     expect(handlers.writeBack).not.toHaveBeenCalled();
+  });
+  it("forwards a miniapp questionnaire submit and refuses it elsewhere (#2447)", async () => {
+    const last = (port: MessagePort) =>
+      (port.postMessage as unknown as { mock: { lastCall: unknown[] } }).mock.lastCall[0];
+    const miniapp = setup("miniapp");
+    await miniapp.send("ready");
+    await miniapp.send("submitAnswers", { answers: { chart: { status: "decide_for_me" } } });
+    expect(miniapp.handlers.submitAnswers).toHaveBeenCalledWith({
+      chart: { status: "decide_for_me" },
+    });
+    expect(last(miniapp.port)).toMatchObject({
+      type: "result",
+      payload: { saved: true, notified: true },
+    });
+    await miniapp.send("submitAnswers", { answers: ["not", "an", "object"] }, "bad");
+    expect(last(miniapp.port)).toMatchObject({
+      type: "error",
+      payload: { code: "invalid_request" },
+    });
+    for (const kind of ["preview", "interactive"] as const) {
+      const other = setup(kind);
+      await other.send("ready");
+      await other.send("submitAnswers", { answers: {} });
+      expect(other.handlers.submitAnswers).not.toHaveBeenCalled();
+      expect(last(other.port)).toMatchObject({ type: "error", payload: { code: "unsupported" } });
+    }
   });
   it("refuses a call without a function name", async () => {
     const { send, port, handlers } = setup("miniapp");

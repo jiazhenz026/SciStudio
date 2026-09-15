@@ -573,7 +573,12 @@ def test_the_panel_tools_are_registered_on_the_local_transport() -> None:
     from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 
     by_name = {tool.name: tool for tool in _run(mcp.list_tools())}
-    for name, mutation in (("validate_panel", "read"), ("open_miniapp", "write"), ("list_miniapps", "read")):
+    for name, mutation in (
+        ("validate_panel", "read"),
+        ("open_miniapp", "write"),
+        ("list_miniapps", "read"),
+        ("wait_for_answers", "read"),
+    ):
         tool = by_name[name]
         tags = set(tool.tags or set())
         assert "category:panels" in tags
@@ -592,3 +597,111 @@ def test_the_presence_module_the_tool_reads_has_the_pinned_surface() -> None:
     assert callable(gui_presence.any_connected)
     assert callable(gui_presence.connected)
     assert isinstance(gui_presence.any_connected(), bool)
+
+
+# ---------------------------------------------------------------------------
+# Questionnaires (#2447, MiniApp FR-052/FR-053).
+# ---------------------------------------------------------------------------
+
+_QUESTIONNAIRE = Path(__file__).resolve().parents[1] / "fixtures" / "questionnaire" / "miniapp"
+
+
+def _write_questionnaire_miniapp(project: Path, panel_id: str = "ask") -> Path:
+    import shutil
+
+    directory = project / "panels" / panel_id
+    shutil.copytree(_QUESTIONNAIRE, directory)
+    body = json.loads((directory / "panel.json").read_text(encoding="utf-8"))
+    body.update(id=panel_id, types=["Image"])
+    (directory / "panel.json").write_text(json.dumps(body), encoding="utf-8")
+    return directory
+
+
+def test_validate_panel_runs_the_questionnaire_check(project: Path, runtime: Any) -> None:
+    _write_questionnaire_miniapp(project)
+    result = _run(tools_panels.validate_panel(path="panels/ask"))
+    assert result.valid is True, result.errors
+    assert result.questionnaire is not None
+    assert result.questionnaire.questions == 5
+    assert result.questionnaire.round_trip is True
+    assert result.questionnaire.statuses_exercised == ["answered", "decide_for_me", "skipped"]
+
+
+def test_a_miniapp_without_a_questionnaire_has_no_report(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    assert _run(tools_panels.validate_panel(path="panels/demo.threshold")).questionnaire is None
+
+
+def test_validate_panel_fails_a_broken_questionnaire_with_actionable_errors(project: Path, runtime: Any) -> None:
+    directory = _write_questionnaire_miniapp(project)
+    spec = json.loads((directory / "questionnaire.json").read_text(encoding="utf-8"))
+    spec["questions"][1]["required"] = True
+    (directory / "questionnaire.json").write_text(json.dumps(spec), encoding="utf-8")
+    page = (directory / "index.html").read_text(encoding="utf-8").replace("scistudio.submitAnswers", "null")
+    (directory / "index.html").write_text(page, encoding="utf-8")
+
+    result = _run(tools_panels.validate_panel(path="panels/ask"))
+
+    assert result.valid is False
+    assert result.questionnaire is not None and result.questionnaire.round_trip is False
+    assert any('(id "colour_by")' in e and "remove 'required'" in e for e in result.errors)
+    assert any("submit is not reachable" in e for e in result.errors)
+
+
+def _submit(directory: Path) -> None:
+    from scistudio.panels.questionnaire import answers_document, write_answers
+
+    spec = json.loads((directory / "questionnaire.json").read_text(encoding="utf-8"))
+    write_answers(directory, answers_document("ask", spec, {"chart": {"status": "answered", "value": "pca"}}))
+
+
+def test_wait_for_answers_returns_a_submit_that_arrives_while_waiting(project: Path, runtime: Any) -> None:
+    directory = _write_questionnaire_miniapp(project)
+
+    async def scenario() -> Any:
+        waiting = asyncio.create_task(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=10))
+        await asyncio.sleep(0.2)
+        assert not waiting.done()
+        _submit(directory)
+        return await waiting
+
+    result = _run(scenario())
+    assert result.status == "submitted"
+    assert result.answers_path == "panels/ask/answers.json"
+    assert result.answers[0]["value"] == "pca"
+    assert [a["status"] for a in result.answers][1:] == ["skipped"] * 4
+
+
+def test_wait_for_answers_does_not_miss_a_submit_made_before_the_call(project: Path, runtime: Any) -> None:
+    _submit(_write_questionnaire_miniapp(project))
+    result = _run(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=1))
+    assert result.status == "submitted" and result.waited_seconds < 1
+
+
+def test_wait_for_answers_ignores_answers_to_an_older_questionnaire(
+    project: Path, runtime: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    directory = _write_questionnaire_miniapp(project)
+    _submit(directory)
+    older = (directory / "questionnaire.json").stat().st_mtime - 10
+    os.utime(directory / "answers.json", (older, older))
+    monkeypatch.setattr(tools_panels, "_WAIT_POLL_SECONDS", 0.05)
+
+    result = _run(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=1))
+
+    assert result.status == "timed_out"
+    assert result.answers == []
+    assert "timed out" in result.next_step and "pressed Submit" in result.next_step
+
+
+def test_wait_for_answers_tells_the_agent_what_to_do_on_timeout() -> None:
+    doc = tools_panels.wait_for_answers.__doc__ or ""
+    assert "your watch on the questionnaire timed out" in doc
+    assert "tell you once" in doc and "pressed Submit" in doc
+
+
+def test_wait_for_answers_refuses_an_unknown_miniapp(project: Path, runtime: Any) -> None:
+    with pytest.raises(KeyError):
+        _run(tools_panels.wait_for_answers(panel_id="missing", timeout_seconds=1))

@@ -41,7 +41,8 @@
    * @errors
    * A rejected promise carries an `Error` whose `code` names the failure. The
    * host adds its own codes for refused requests (for example
-   * `invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`); a
+   * `invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`,
+   * `invalid_answers`, `no_questionnaire`); a
    * failed `call` uses the Python exception's type name as its code.
    *
    * @error disposed The host disposed the panel; pending operations reject with this.
@@ -50,7 +51,7 @@
    * @error not_found Sample mode has no `reads` or `calls` entry for the request.
    * @error unsupported Sample mode cannot perform the request (no host `save` or `open`), or the sample's `context` is not a panel context.
    * @error already_used `writeBack` was already called once for this decision.
-   * @error invalid_request `call` was given no function name.
+   * @error invalid_request `call` was given no function name, or `submitAnswers` was given something other than an object.
    * @error sample_missing Sample mode could not load `panel.sample.json`.
    */
   function failure(code, message) {
@@ -415,6 +416,39 @@
         });
       };
     }
+    // ADR-054 MiniApp FR-050: a questionnaire submit exists only in miniapp,
+    // the only context whose page is a MiniApp the agent is still building.
+    if (api.context === "miniapp" && operations.indexOf("submitAnswers") >= 0) {
+      /**
+       * @member submitAnswers
+       * @group Questionnaire
+       * @context miniapp
+       * @param {object} answers One answer per question id: `{status: "answered", value, other?}`, `{status: "decide_for_me"}`, or `{status: "skipped"}`. A question left out counts as skipped.
+       * @returns {Promise<object>} `{saved, path, submitted_at, notified, reason, message}`.
+       * Submit the MiniApp's questionnaire. The host checks the answers against
+       * `questionnaire.json`, writes them to `answers.json` in the MiniApp's
+       * folder (replacing an earlier submit), and, when the agent session that
+       * is building this MiniApp is still open in SciStudio, types one line into
+       * it saying the answers are ready; `notified` is then `true`. Otherwise
+       * `notified` is `false`, `reason` is `no_session`, and `message` asks the
+       * user to go back to their AI chat. Answers that do not fit the
+       * questionnaire reject with `invalid_answers`. The `Questionnaire`
+       * component calls this for you when given it as `onSubmit`.
+       *
+       * In sample mode nothing is saved: it resolves with `saved: false`,
+       * `notified: false`, and `reason: "sample_mode"`.
+       */
+      api.submitAnswers = function (answers) {
+        if (!answers || typeof answers !== "object" || Array.isArray(answers)) {
+          return Promise.reject(failure("invalid_request", "submitAnswers needs an object keyed by question id"));
+        }
+        if (sample) {
+          return Promise.resolve({ saved: false, path: null, submitted_at: null, notified: false, reason: "sample_mode",
+            message: "Sample mode: the answers were not saved.", answers: answers });
+        }
+        return request("submitAnswers", { answers: answers });
+      };
+    }
     // sync is deliberately absent in every context in this SDK major.
     applyTheme(payload.theme);
     initializedResolve(api);
@@ -532,9 +566,9 @@
    * @sample
    * `panel.sample.json` sits beside the panel page and stands in for the host
    * when the page is opened directly. The SDK gives the sample context the
-   * operations and services of a real context of that kind, with `call`
-   * always present for `miniapp`; without a host, `open` and `save` reject
-   * with `unsupported`.
+   * operations and services of a real context of that kind, with `call` and
+   * `submitAnswers` always present for `miniapp`; without a host, `open` and
+   * `save` reject with `unsupported`.
    *
    * @property {"preview" | "interactive" | "miniapp"} context Required. The context to simulate.
    * @property {object} [input] Becomes `scistudio.input`; give `ref` for `preview` and `miniapp`. Defaults to `{}`.
@@ -550,7 +584,7 @@
     }).then(function (loaded) {
       sample = loaded;
       var kind = loaded.context;
-      var ops = { preview: ["read"], interactive: ["writeBack"], miniapp: ["read", "call"] };
+      var ops = { preview: ["read"], interactive: ["writeBack"], miniapp: ["read", "call", "submitAnswers"] };
       var svc = { preview: ["open", "save"], interactive: ["save"], miniapp: ["save"] };
       if (!ops[kind]) throw failure("unsupported", "Sample context must be preview, interactive or miniapp");
       configure({ context: kind, input: loaded.input || {}, viewState: loaded.viewState,

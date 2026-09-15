@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -71,7 +72,7 @@ class ContextResponse(BaseModel):
     context_id: str
     panel: PanelIdentity
     kind: Literal["preview", "interactive", "miniapp"]
-    operations: list[Literal["read", "writeBack", "call"]]
+    operations: list[Literal["read", "writeBack", "call", "submitAnswers"]]
     services: list[Literal["open", "save"]]
     input: dict[str, Any]
     view_state: Any = None
@@ -116,6 +117,27 @@ class ContextCallError(BaseModel):
     # client turns this body into a rejected promise.
 
     error: ContextCallErrorDetail
+
+
+class ContextAnswers(BaseModel):
+    """A MiniApp page submits its questionnaire (MiniApp FR-050)."""
+
+    model_config = ConfigDict(extra="forbid")
+    answers: dict[str, Any] = Field(description="One answer per question id; a question left out is skipped.")
+
+
+class SubmitAnswersResult(BaseModel):
+    """What a questionnaire submit did (MiniApp FR-050/FR-051)."""
+
+    saved: bool
+    path: str | None = Field(description="Where answers.json was written: project-relative inside the project.")
+    submitted_at: str | None = None
+    notified: bool = Field(description="True when the line reached the MiniApp's open agent session.")
+    reason: Literal["no_session", "session_ended"] | None = Field(
+        default=None,
+        description="Why no session was notified: none was recorded for this MiniApp, or it has ended.",
+    )
+    message: str = Field(description="What the page shows the user under the Submit button.")
 
 
 class ReadResult(BaseModel):
@@ -469,6 +491,20 @@ async def _agent_for_session(provider: str | None, permission_mode: str | None) 
     return chosen.key, mode
 
 
+#: The agent session last started for each MiniApp, keyed by panel id, with the
+#: project directory it runs in (MiniApp FR-051). In memory only: the sessions
+#: are PTYs of this process and do not outlive it either.
+_MINIAPP_SESSION_TABS: dict[str, tuple[str, Path]] = {}
+
+_NOTIFIED_MESSAGE = "Sent. The agent is building your MiniApp from these answers."
+_RETURN_MESSAGE = "Your answers are saved. Go back to your AI chat and tell it you have submitted the questionnaire."
+
+
+def _remember_session(panel_id: str, tab_id: str | None, project_dir: Path) -> None:
+    if tab_id:
+        _MINIAPP_SESSION_TABS[panel_id] = (tab_id, project_dir)
+
+
 def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permission_mode: str) -> str | None:
     """Spawn the agent session, or report that it did not start.
 
@@ -578,6 +614,7 @@ def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: s
         brief_relpath=brief_path.relative_to(project_dir).as_posix(),
         permission_mode=mode,
     )
+    _remember_session(panel_id, tab_id, project_dir)
     return {
         "panel_id": panel_id,
         "name": name,
@@ -630,16 +667,14 @@ def _convert_miniapp(runtime: Any, panel: Any, payload: MiniAppConvert, provider
         )
     except OSError as exc:
         raise PanelError(500, "write_failed", f"Could not write the conversion brief: {exc}") from exc
-    return {
-        "provider": provider,
-        "permission_mode": mode,
-        "session_tab_id": _session_tab(
-            provider=provider,
-            project_dir=project_dir,
-            brief_relpath=brief_path.relative_to(project_dir).as_posix(),
-            permission_mode=mode,
-        ),
-    }
+    tab_id = _session_tab(
+        provider=provider,
+        project_dir=project_dir,
+        brief_relpath=brief_path.relative_to(project_dir).as_posix(),
+        permission_mode=mode,
+    )
+    _remember_session(panel.id, tab_id, project_dir)
+    return {"provider": provider, "permission_mode": mode, "session_tab_id": tab_id}
 
 
 @router.post("/miniapps/{panel_id}/convert", response_model=MiniAppConverted, status_code=201, responses=_ERRORS)
@@ -722,6 +757,87 @@ async def panel_call(context_id: str, payload: ContextCall, request: Request) ->
         # two different codes, and a limit no configuration could raise.
         _bounded_json(result, limit=max_result_bytes())
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
+    except PanelError as exc:
+        raise _failure(exc) from exc
+    except (ValueError, TypeError) as exc:
+        raise _failure(PanelError(422, "invalid_request", str(exc))) from exc
+
+
+_WRITABLE_TIERS = ("project", "user")
+
+
+def _save_answers(context: PanelContext, answers: dict[str, Any]) -> tuple[str, str, str | None]:
+    """Normalize and write one submit; return ``(display path, submitted_at, project dir)``."""
+    from scistudio.panels.questionnaire import QuestionnaireError, answers_document, load_spec, write_answers
+
+    panel = context.panel
+    if panel.owner_kind.value not in _WRITABLE_TIERS:
+        raise PanelError(400, "unsupported", "Only a project or user MiniApp can take questionnaire answers")
+    directory = Path(panel.root)
+    spec, problems = load_spec(directory)
+    if spec is None:
+        detail = "; ".join(problems) if problems else "This MiniApp has no questionnaire.json"
+        raise PanelError(409, "no_questionnaire", detail)
+    try:
+        document = answers_document(panel.id, spec, answers)
+    except QuestionnaireError as exc:
+        raise PanelError(422, "invalid_answers", str(exc)) from exc
+    try:
+        written = write_answers(directory, document)
+    except OSError as exc:
+        raise PanelError(500, "write_failed", f"Could not save the answers: {exc}") from exc
+    project_dir = context.project_dir
+    display = str(written)
+    if project_dir:
+        with contextlib.suppress(ValueError):
+            display = written.resolve().relative_to(Path(project_dir).resolve()).as_posix()
+    return display, str(document["submitted_at"]), (str(project_dir) if project_dir else None)
+
+
+def _notify_session(panel_id: str, answers_path: str, project_dir: str | None) -> str | None:
+    """Type the submit line into the MiniApp's agent session; return why not, or None."""
+    from scistudio.api.routes.ai_pty import engine as _engine
+    from scistudio.panels.questionnaire import notification_text
+
+    recorded = _MINIAPP_SESSION_TABS.get(panel_id)
+    if recorded is None or project_dir is None or Path(recorded[1]).resolve() != Path(project_dir).resolve():
+        return "no_session"
+    tab_id, cwd = recorded
+    if not _engine.type_line_into_tab(tab_id, notification_text(panel_id, answers_path), expected_cwd=cwd):
+        _MINIAPP_SESSION_TABS.pop(panel_id, None)
+        return "session_ended"
+    return None
+
+
+@router.post(
+    "/contexts/{context_id}/answers",
+    response_model=SubmitAnswersResult,
+    responses={**_ERRORS, 500: {"model": PanelFailureResponse}},
+)
+async def submit_answers(context_id: str, payload: ContextAnswers, request: Request) -> dict[str, Any]:
+    """Save a MiniApp questionnaire submit and tell its agent session."""
+    # Save a MiniApp questionnaire submit and tell its agent session (MiniApp FR-050/FR-051).
+    #
+    # The answers file is written first and is the source of truth: a session
+    # that is gone, or an External AI mode with no session at all, still leaves
+    # the answers where ``wait_for_answers`` and the agent read them, and the
+    # page is told to send the user back to their AI chat.
+    try:
+        _bounded_json(payload.answers, limit=256 * 1024)
+        store = get_panel_contexts(request.app.state.runtime)
+        context = store.get(context_id)
+        if context.kind != "miniapp":
+            raise PanelError(400, "unsupported", "This context does not provide submitAnswers")
+        path, submitted_at, project_dir = await asyncio.to_thread(_save_answers, context, payload.answers)
+        reason = await asyncio.to_thread(_notify_session, context.panel.id, path, project_dir)
+        return {
+            "saved": True,
+            "path": path,
+            "submitted_at": submitted_at,
+            "notified": reason is None,
+            "reason": reason,
+            "message": _NOTIFIED_MESSAGE if reason is None else _RETURN_MESSAGE,
+        }
     except PanelError as exc:
         raise _failure(exc) from exc
     except (ValueError, TypeError) as exc:

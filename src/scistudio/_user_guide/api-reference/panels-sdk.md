@@ -29,7 +29,7 @@ What `window.scistudio` offers depends on the context. Operations and services a
 | --- | --- | --- |
 | `preview` | `read` | `open`, `save` |
 | `interactive` | `writeBack` | `save` |
-| `miniapp` | `read`, `call` (with `panel.py`) | `save` |
+| `miniapp` | `read`, `call` (with `panel.py`), `submitAnswers` | `save` |
 
 ## Lifecycle
 
@@ -229,6 +229,31 @@ the key `JSON.stringify({fn, args})`, then the key `fn`.
 
 **Returns:** `Promise<any>` — The function's JSON-safe return value.
 
+## Questionnaire
+
+### `scistudio.submitAnswers(answers)`
+
+**Contexts:** `miniapp`
+
+Submit the MiniApp's questionnaire. The host checks the answers against
+`questionnaire.json`, writes them to `answers.json` in the MiniApp's
+folder (replacing an earlier submit), and, when the agent session that
+is building this MiniApp is still open in SciStudio, types one line into
+it saying the answers are ready; `notified` is then `true`. Otherwise
+`notified` is `false`, `reason` is `no_session`, and `message` asks the
+user to go back to their AI chat. Answers that do not fit the
+questionnaire reject with `invalid_answers`. The `Questionnaire`
+component calls this for you when given it as `onSubmit`.
+
+In sample mode nothing is saved: it resolves with `saved: false`,
+`notified: false`, and `reason: "sample_mode"`.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `answers` | `object` | One answer per question id: `{status: "answered", value, other?}`, `{status: "decide_for_me"}`, or `{status: "skipped"}`. A question left out counts as skipped. |
+
+**Returns:** `Promise<object>` — `{saved, path, submitted_at, notified, reason, message}`.
+
 ## Services
 
 ### `scistudio.save(value)`
@@ -264,7 +289,8 @@ Save a file for the user through the host. An `ArrayBuffer` in
 
 A rejected promise carries an `Error` whose `code` names the failure. The
 host adds its own codes for refused requests (for example
-`invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`); a
+`invalid_request`, `unsupported`, `unauthorized_ref`, `read_budget`,
+`invalid_answers`, `no_questionnaire`); a
 failed `call` uses the Python exception's type name as its code.
 
 | Code | Meaning |
@@ -275,7 +301,7 @@ failed `call` uses the Python exception's type name as its code.
 | `not_found` | Sample mode has no `reads` or `calls` entry for the request. |
 | `unsupported` | Sample mode cannot perform the request (no host `save` or `open`), or the sample's `context` is not a panel context. |
 | `already_used` | `writeBack` was already called once for this decision. |
-| `invalid_request` | `call` was given no function name. |
+| `invalid_request` | `call` was given no function name, or `submitAnswers` was given something other than an object. |
 | `sample_missing` | Sample mode could not load `panel.sample.json`. |
 
 ## Shared libraries

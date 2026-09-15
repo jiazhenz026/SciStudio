@@ -51,7 +51,12 @@ function boot(standalone = false, sample = {}) {
         payload: {
           context: kind,
           input: { ref: "data-1" },
-          operations: kind === "preview" ? ["read"] : ["writeBack"],
+          operations:
+            kind === "preview"
+              ? ["read"]
+              : kind === "miniapp"
+                ? ["read", "submitAnswers"]
+                : ["writeBack"],
           services: ["open", "save"],
           theme: { mode: "dark", tokens: { "--ss-ink": "255 255 255" } },
         },
@@ -115,6 +120,37 @@ describe("dependency-free SDK", () => {
     expect(port.postMessage.mock.lastCall![1]).toEqual([data]);
     response();
     await saving;
+  });
+  it("submits questionnaire answers only in a miniapp context (#2447)", async () => {
+    const { api, port, init, response } = boot();
+    init("miniapp");
+    const ready = api.ready();
+    await Promise.resolve();
+    response();
+    await ready;
+    expect(api.writeBack).toBeUndefined();
+    await expect(api.submitAnswers([] as unknown)).rejects.toMatchObject({
+      code: "invalid_request",
+    });
+    const answers = { chart: { status: "answered", value: "pca" } };
+    const submitting = api.submitAnswers(answers);
+    const sent = port.postMessage.mock.lastCall![0];
+    expect(sent).toMatchObject({ type: "submitAnswers", payload: { answers } });
+    response({ saved: true, notified: false, reason: "no_session" });
+    expect(await submitting).toMatchObject({ notified: false, reason: "no_session" });
+
+    const preview = boot();
+    preview.init("preview");
+    expect(preview.api.submitAnswers).toBeUndefined();
+  });
+  it("resolves a sample-mode submit without saving anything", async () => {
+    const { api } = boot(true, { context: "miniapp", input: { ref: "example" } });
+    await api.ready();
+    expect(await api.submitAnswers({})).toMatchObject({
+      saved: false,
+      notified: false,
+      reason: "sample_mode",
+    });
   });
   it("loads panel.sample.json and answers read fixtures without any host", async () => {
     const { api, fetch } = boot(true, {

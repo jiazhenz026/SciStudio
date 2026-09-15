@@ -1,6 +1,6 @@
-"""MCP tools for panels and MiniApps (3 tools)."""
+"""MCP tools for panels and MiniApps (4 tools)."""
 # Maintainer context (kept outside generated API documentation):
-# Category (g) MCP tools — the agent's half of the MiniApp loop (3 tools).
+# Category (g) MCP tools — the agent's half of the MiniApp loop (4 tools).
 #
 # ``docs/specs/adr-054-miniapp.md`` FR-029/FR-030. The MiniApp skill tells the
 # agent to write a panel directory, check it, and then put it in front of the
@@ -25,6 +25,15 @@
 #   listed. ``GET /api/panels/miniapps`` reads the runtime's cached registry; the
 #   refresh that keeps that cache in step with disk belongs to the catalog
 #   (#2421), and a fresh discovery here already sees what is on disk.
+# * ``wait_for_answers`` (#2447, MiniApp FR-053) waits for the user to submit a
+#   MiniApp questionnaire and returns the answers. An agent in a SciStudio
+#   terminal is told about a submit in its own chat; an agent in the user's own
+#   AI app (External AI / WebMCP) has no such channel, so it waits here. It only
+#   reads ``answers.json``, the source of truth the submit route writes, so a
+#   cancelled or timed-out wait loses nothing.
+#
+# ``validate_panel`` also runs the questionnaire check whenever the directory
+# holds a questionnaire, so a questionnaire cannot pass validation untested.
 #
 # **Why the no-workspace case is a result rather than a silent success.**
 # ``broadcast_blocks_reloaded`` swallows a missing event bus, and it is right to:
@@ -47,7 +56,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import time
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -59,6 +71,7 @@ from scistudio.core.dropins import panel_scan_dirs
 from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
 from scistudio.panels.files import validate_external_references
 from scistudio.panels.miniapp import declared_type
+from scistudio.panels.questionnaire import ANSWERS_FILE, QUESTIONNAIRE_FILE, check_questionnaire
 from scistudio.panels.registry import PanelRegistry, discover_panels
 from scistudio.panels.targets import type_chain
 from scistudio.previewers.models import OwnerKind
@@ -85,6 +98,31 @@ _MAX_DIAGNOSTICS_PER_DIRECTORY = 5
 _MAX_DIAGNOSTIC_CHARS = 500
 
 
+#: ``wait_for_answers`` bounds, in seconds.
+WAIT_DEFAULT_SECONDS = 300
+WAIT_MAX_SECONDS = 1800
+_WAIT_POLL_SECONDS = 1.0
+
+SUBMITTED = "submitted"
+TIMED_OUT = "timed_out"
+
+
+class QuestionnaireReport(BaseModel):
+    """What ``validate_panel``'s questionnaire check exercised."""
+
+    questions: int = Field(description="How many questions questionnaire.json declares (0 when it did not parse).")
+    statuses_exercised: list[str] = Field(
+        default_factory=list,
+        description="Answer statuses the sample submits produced: answered, decide_for_me, skipped.",
+    )
+    round_trip: bool = Field(
+        description=(
+            "True when sample submits — mixed answers, 'Decide for me' on every question, and nothing "
+            "answered — each produced a well-formed answers.json document with one entry per question."
+        )
+    )
+
+
 class ValidatePanelResult(BaseModel):
     """Result envelope for ``validate_panel``."""
 
@@ -104,6 +142,13 @@ class ValidatePanelResult(BaseModel):
     )
     entry: str | None = Field(default=None, description="The page the host loads, relative to the directory.")
     has_python: bool = Field(default=False, description="True when the directory carries a panel.py.")
+    questionnaire: QuestionnaireReport | None = Field(
+        default=None,
+        description=(
+            "Present when the directory holds questionnaire.json or a page using the Questionnaire component; "
+            "its problems are in errors."
+        ),
+    )
     errors: list[str] = Field(
         default_factory=list,
         description=(
@@ -330,9 +375,19 @@ async def validate_panel(
       - A MiniApp does not appear in the MiniApps tab and you need to know
         which descriptor rule the directory fails.
 
+      - You have written or changed a MiniApp questionnaire. When the directory
+        holds ``questionnaire.json`` (or a page using the ``Questionnaire``
+        component) this also runs the questionnaire check: the spec is valid,
+        every question has a type the component draws and "Decide for me",
+        no question is required, the page wires ``Questionnaire``,
+        ``questionnaire.json`` and ``scistudio.submitAnswers`` together, and
+        sample submits produce a well-formed ``answers.json``. Fix every error
+        it names and run it again until ``valid`` is True.
+
     Do NOT use to:
-      - Check a page's JavaScript — this reads ``panel.json`` and scans the page
-        files for external references; it never runs the page.
+      - Check a page's JavaScript in general — beyond the questionnaire wiring
+        this reads ``panel.json`` and scans the page files for external
+        references; it never runs the page.
       - List MiniApps — use ``list_miniapps``.
       - Check a block — use ``run_block_tests``.
 
@@ -375,14 +430,26 @@ async def validate_panel(
             errors=[f"{directory}: {exc}"],
         )
 
+    checked = check_questionnaire(directory, panel_id=panel.id, contexts=tuple(panel.contexts), entry=panel.entry)
+    report = (
+        QuestionnaireReport(
+            questions=checked.question_count,
+            statuses_exercised=checked.statuses_exercised,
+            round_trip=checked.round_trip,
+        )
+        if checked.present
+        else None
+    )
     return ValidatePanelResult(
         path=str(directory),
-        valid=True,
+        valid=not checked.errors,
         panel_id=panel.id,
         contexts=list(panel.contexts),
         types=list(panel.types),
         entry=panel.entry,
         has_python=panel.has_python,
+        questionnaire=report,
+        errors=[f"{directory}: {error}" for error in checked.errors],
         warnings=[f"{directory}: {note}" for note in notes],
     )
 
@@ -443,6 +510,135 @@ async def list_miniapps(
     ]
     invalid, truncated = _invalid_directories(ctx, registry, project_root)
     return ListMiniAppsResult(miniapps=miniapps, data_type=wanted, invalid=invalid, invalid_truncated=truncated)
+
+
+class WaitForAnswersResult(BaseModel):
+    """Result envelope for ``wait_for_answers``."""
+
+    status: str = Field(description="'submitted' when answers are ready; 'timed_out' when the wait ended first.")
+    panel_id: str = Field(description="The MiniApp whose questionnaire was waited on.")
+    answers_path: str = Field(description="answers.json: project-relative when inside the project, absolute otherwise.")
+    waited_seconds: float = Field(description="How long this call waited.")
+    submitted_at: str | None = Field(default=None, description="When the user submitted (UTC, ISO 8601).")
+    title: str | None = Field(default=None, description="The questionnaire title.")
+    answers: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description=(
+            "One entry per question, in order: {id, type, prompt, status, value?, label?, labels?, other?}. "
+            "status is 'answered', 'decide_for_me' (choose for the user), or 'skipped' (choose sensibly). "
+            "Empty unless status is 'submitted'."
+        ),
+    )
+    detail: str = Field(description="What happened.")
+    next_step: str = Field(description="What to do now.")
+
+
+def _questionnaire_dir(ctx: Any, panel_id: str) -> Path:
+    panel = _discover(ctx).get(panel_id)
+    if panel is not None:
+        return Path(panel.root)
+    candidate = _resolve_project_root(ctx) / "panels" / panel_id
+    if candidate.is_dir():
+        return candidate
+    raise KeyError(
+        f"No MiniApp with id '{panel_id}' was found. Pass the directory name under panels/, "
+        "and run validate_panel on it first."
+    )
+
+
+def _fresh_answers(directory: Path) -> dict[str, Any] | None:
+    """The answers document when it was submitted after the questionnaire was last written."""
+    answers, spec = directory / ANSWERS_FILE, directory / QUESTIONNAIRE_FILE
+    try:
+        if not answers.is_file() or (spec.is_file() and answers.stat().st_mtime < spec.stat().st_mtime):
+            return None
+        document = json.loads(answers.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return document if isinstance(document, dict) and isinstance(document.get("answers"), list) else None
+
+
+@mcp.tool(name="wait_for_answers", tags={"category:panels", "read"})
+async def wait_for_answers(
+    panel_id: Annotated[
+        str,
+        Field(
+            description="Id of the MiniApp whose questionnaire the user is filling in — the directory name under panels/."
+        ),
+    ],
+    timeout_seconds: Annotated[
+        int,
+        Field(
+            ge=1,
+            le=WAIT_MAX_SECONDS,
+            description=f"How long to wait for the submit, in seconds. Defaults to {WAIT_DEFAULT_SECONDS}.",
+        ),
+    ] = WAIT_DEFAULT_SECONDS,
+) -> WaitForAnswersResult:
+    """Wait for the user to submit a MiniApp questionnaire, then return the answers.
+
+    Use when:
+      - You have written a MiniApp questionnaire, ``validate_panel`` passes, and
+        the user has it open. Call this right away; it returns as soon as they
+        press Submit.
+      - You are working from the user's own AI app (External AI mode). An agent
+        in a SciStudio terminal session is told about the submit in its chat and
+        does not need this.
+
+    Do NOT use to:
+      - Check the questionnaire — that is ``validate_panel``.
+      - Read answers you were already told about — read ``answers.json``.
+
+    Returns immediately when ``answers.json`` is newer than
+    ``questionnaire.json``, so a submit made before this call is not missed and
+    answers to an older questionnaire are not mistaken for new ones.
+
+    If the result is ``timed_out`` the user has not finished yet. Tell the user
+    that your watch on the questionnaire timed out, and ask them to tell you once
+    they have filled it in and pressed Submit; then read the answers (call this
+    again, or read ``answers.json``). Nothing is lost by the timeout or by
+    cancelling this call: the submit writes ``answers.json`` whenever it happens.
+    Raises ``KeyError`` for an unknown MiniApp and ``RuntimeError`` when no
+    project is open.
+    """
+    ctx = get_context()
+    project_root = _resolve_project_root(ctx)
+    directory = _questionnaire_dir(ctx, panel_id)
+    display = _display_path(directory / ANSWERS_FILE, project_root)
+    started = time.monotonic()
+    deadline = started + timeout_seconds
+    while True:
+        document = _fresh_answers(directory)
+        if document is not None:
+            return WaitForAnswersResult(
+                status=SUBMITTED,
+                panel_id=panel_id,
+                answers_path=display,
+                waited_seconds=round(time.monotonic() - started, 1),
+                submitted_at=document.get("submitted_at"),
+                title=document.get("title"),
+                answers=document["answers"],
+                detail=f"The user submitted the questionnaire for '{panel_id}'.",
+                next_step=(
+                    "Build the MiniApp from these answers. Where status is 'decide_for_me' or 'skipped', choose "
+                    "sensibly yourself. Then run validate_panel."
+                ),
+            )
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        await asyncio.sleep(min(_WAIT_POLL_SECONDS, remaining))
+    return WaitForAnswersResult(
+        status=TIMED_OUT,
+        panel_id=panel_id,
+        answers_path=display,
+        waited_seconds=round(time.monotonic() - started, 1),
+        detail=f"No submit arrived for '{panel_id}' within {timeout_seconds} seconds.",
+        next_step=(
+            "Tell the user your watch on the questionnaire timed out, and ask them to tell you once they have "
+            "filled it in and pressed Submit. Then call wait_for_answers again or read answers_path."
+        ),
+    )
 
 
 @mcp.tool(name="open_miniapp", tags={"category:panels", "write"})
@@ -572,8 +768,11 @@ __all__ = [
     "ListMiniAppsResult",
     "MiniAppSummary",
     "OpenMiniAppResult",
+    "QuestionnaireReport",
     "ValidatePanelResult",
+    "WaitForAnswersResult",
     "list_miniapps",
     "open_miniapp",
     "validate_panel",
+    "wait_for_answers",
 ]

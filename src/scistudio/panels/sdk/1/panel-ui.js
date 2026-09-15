@@ -21,8 +21,31 @@
  * Components take plain props and children; nothing here talks to the host —
  * data comes from the SDK (`window.scistudio`) in the panel's own code. Props a
  * component does not name are passed to its root element.
+ *
+ * The questionnaire components ask the user what a MiniApp should do before it
+ * is built. The questions are data: `panels/<id>/questionnaire.json`, rendered
+ * by `Questionnaire`, submitted through `scistudio.submitAnswers`, and checked
+ * by the `validate_panel` agent tool. Every question is optional and every
+ * question offers "Decide for me"; a spec cannot change either.
+ *
+ * ```javascript
+ * import { Questionnaire } from "../../sdk/1/panel-ui.js";
+ *
+ * await scistudio.ready();
+ * const spec = await (await fetch("questionnaire.json")).json();
+ * render(html`<${Panel}><${Questionnaire} spec=${spec} onSubmit=${scistudio.submitAnswers} /><//>`, root);
+ * ```
+ *
+ * `questionnaire.json` is `{title, intro?, submit_label?, questions}`. Each
+ * question has `id` (lowercase, unique), `type`, `prompt`, and optional `help`:
+ * `single` and `multiple` take `options` (at least two `{value, label,
+ * description?}`) and `allow_other`; `text` takes `multiline` and
+ * `placeholder`; `number` takes `min`, `max`, `step`, `unit`, `placeholder`;
+ * `range` is a slider and needs `min` and `max`. An answer is `{status:
+ * "answered", value, other?}`, `{status: "decide_for_me"}`, or `{status:
+ * "skipped"}`.
  */
-import { html } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+import { html, useState } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
 
 function cx(...parts) {
   return parts.filter(Boolean).join(" ");
@@ -356,4 +379,338 @@ export function LoadingState({ class: cls, children, ...rest }) {
  */
 export function EmptyState({ class: cls, children, ...rest }) {
   return html`<div class=${cx("panel-empty", cls)} ...${rest}>${children}</div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Questionnaire (ADR-054 MiniApp FR-049 to FR-052)
+// ---------------------------------------------------------------------------
+
+const DECIDE = "decide_for_me";
+const QUESTION_TYPES = ["single", "multiple", "text", "number", "range"];
+const TYPE_KEYS = {
+  single: ["options", "allow_other"],
+  multiple: ["options", "allow_other"],
+  text: ["multiline", "placeholder"],
+  number: ["min", "max", "step", "unit", "placeholder"],
+  range: ["min", "max", "step", "unit"],
+};
+const TOP_KEYS = ["title", "intro", "submit_label", "questions"];
+const OPTION_KEYS = ["value", "label", "description"];
+const SKIPPED = { status: "skipped" };
+
+const isText = (v) => typeof v === "string" && v.trim() !== "";
+const isNumber = (v) => typeof v === "number" && Number.isFinite(v);
+const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+/*
+ * The spec rules, mirrored from scistudio.panels.questionnaire.validate_spec so
+ * a broken questionnaire shows its problems instead of a half-drawn form. The
+ * Python side is the authority (the submit route and validate_panel use it);
+ * tests/fixtures/questionnaire/cases.json holds the cases both must agree on.
+ */
+function questionnaireProblems(spec) {
+  if (!isObject(spec)) return ["questionnaire.json: the top level must be an object with 'title' and 'questions'."];
+  const out = [];
+  for (const key of Object.keys(spec)) if (!TOP_KEYS.includes(key)) out.push(`unknown top-level key '${key}'`);
+  if (!isText(spec.title)) out.push("'title' is missing or empty");
+  for (const key of ["intro", "submit_label"]) if (key in spec && typeof spec[key] !== "string") out.push(`'${key}' must be a string`);
+  if (!Array.isArray(spec.questions) || spec.questions.length === 0) {
+    out.push("'questions' must be a non-empty list");
+    return out;
+  }
+  if (spec.questions.length > 50) out.push("more than 50 questions");
+  const ids = new Set();
+  spec.questions.forEach((q, i) => {
+    const where = `questions[${i}]`;
+    if (!isObject(q)) { out.push(`${where}: must be an object`); return; }
+    if (typeof q.id !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(q.id)) out.push(`${where}: invalid 'id'`);
+    else if (ids.has(q.id)) out.push(`${where}: id '${q.id}' is repeated`);
+    else ids.add(q.id);
+    if ("required" in q) out.push(`${where}: remove 'required' — every question is optional`);
+    if (DECIDE in q || "decideForMe" in q) out.push(`${where}: remove '${DECIDE}' — it is always shown`);
+    if (!QUESTION_TYPES.includes(q.type)) { out.push(`${where}: unknown type ${JSON.stringify(q.type)}`); return; }
+    if (!isText(q.prompt)) out.push(`${where}: 'prompt' is missing`);
+    if ("help" in q && typeof q.help !== "string") out.push(`${where}: 'help' must be a string`);
+    const allowed = ["id", "type", "prompt", "help", ...TYPE_KEYS[q.type]];
+    for (const key of Object.keys(q)) {
+      if (!allowed.includes(key) && key !== "required" && key !== DECIDE && key !== "decideForMe") out.push(`${where}: '${key}' does not apply to ${q.type}`);
+    }
+    if (q.type === "single" || q.type === "multiple") {
+      if ("allow_other" in q && typeof q.allow_other !== "boolean") out.push(`${where}: 'allow_other' must be a boolean`);
+      if (!Array.isArray(q.options) || q.options.length < 2) { out.push(`${where}: needs at least two options`); return; }
+      if (q.options.length > 30) out.push(`${where}: more than 30 options`);
+      const values = new Set();
+      q.options.forEach((o, j) => {
+        if (!isObject(o)) { out.push(`${where}.options[${j}]: must be an object`); return; }
+        for (const key of Object.keys(o)) if (!OPTION_KEYS.includes(key)) out.push(`${where}.options[${j}]: unknown key '${key}'`);
+        if (!isText(o.value)) out.push(`${where}.options[${j}]: 'value' is missing`);
+        else if (o.value === DECIDE) out.push(`${where}.options[${j}]: '${DECIDE}' is reserved`);
+        else if (values.has(o.value)) out.push(`${where}.options[${j}]: value '${o.value}' is repeated`);
+        else values.add(o.value);
+        if (!isText(o.label)) out.push(`${where}.options[${j}]: 'label' is missing`);
+        if ("description" in o && typeof o.description !== "string") out.push(`${where}.options[${j}]: 'description' must be a string`);
+      });
+    } else if (q.type === "text") {
+      if ("multiline" in q && typeof q.multiline !== "boolean") out.push(`${where}: 'multiline' must be a boolean`);
+      if ("placeholder" in q && typeof q.placeholder !== "string") out.push(`${where}: 'placeholder' must be a string`);
+    } else {
+      for (const key of ["min", "max", "step"]) if (key in q && !isNumber(q[key])) out.push(`${where}: '${key}' must be a number`);
+      for (const key of ["unit", "placeholder"]) if (key in q && typeof q[key] !== "string") out.push(`${where}: '${key}' must be a string`);
+      if (q.type === "range" && !(isNumber(q.min) && isNumber(q.max))) out.push(`${where}: a range needs 'min' and 'max'`);
+      if (isNumber(q.min) && isNumber(q.max) && q.min >= q.max) out.push(`${where}: 'min' must be less than 'max'`);
+      if (isNumber(q.step) && q.step <= 0) out.push(`${where}: 'step' must be greater than zero`);
+    }
+  });
+  return out;
+}
+
+function QuestionCard({ question, answer, onChange, children }) {
+  const status = (answer || SKIPPED).status;
+  const deciding = status === DECIDE;
+  return html`<div
+    class="panel-card panel-question"
+    data-question-id=${question.id}
+    data-status=${status}
+  >
+    <p class="panel-question-prompt">${question.prompt}<span class="panel-question-optional">optional</span></p>
+    ${question.help ? html`<p class="panel-question-help">${question.help}</p>` : null}
+    ${children}
+    <div class="panel-choices">
+      <button
+        type="button"
+        class="panel-choice panel-choice-decide"
+        aria-pressed=${deciding ? "true" : "false"}
+        data-decide-for-me=${question.id}
+        onClick=${() => onChange && onChange(deciding ? SKIPPED : { status: DECIDE })}
+      >Decide for me</button>
+    </div>
+  </div>`;
+}
+
+/**
+ * A single-choice question: one pill per option, plus "Decide for me". Choosing the chosen option again clears it back to skipped.
+ *
+ * @param {object} props.question The question from the spec: `{id, prompt, help?, options, allow_other?}`.
+ * @param {object} [props.answer] The current answer; skipped when absent.
+ * @param {function} [props.onChange] Receives the new answer.
+ */
+export function SingleChoiceQuestion({ question, answer, onChange }) {
+  const current = answer || SKIPPED;
+  const set = (next) => onChange && onChange(next);
+  const other = current.status === "answered" && current.other !== undefined ? current.other : "";
+  return html`<${QuestionCard} question=${question} answer=${current} onChange=${set}>
+    <div class="panel-choices" role="radiogroup" aria-label=${question.prompt}>
+      ${(question.options || []).map((option) => {
+        const chosen = current.status === "answered" && current.value === option.value;
+        return html`<button
+          type="button"
+          class="panel-choice"
+          aria-pressed=${chosen ? "true" : "false"}
+          data-option=${option.value}
+          onClick=${() => set(chosen ? SKIPPED : { status: "answered", value: option.value })}
+        >${option.label}${option.description ? html`<span class="panel-choice-description">${option.description}</span>` : null}</button>`;
+      })}
+    </div>
+    ${question.allow_other
+      ? html`<${Input}
+          class="panel-question-other"
+          placeholder="Something else…"
+          value=${other}
+          onInput=${(event) => {
+            const text = event.currentTarget.value;
+            set(text.trim() ? { status: "answered", other: text } : SKIPPED);
+          }}
+        />`
+      : null}
+  <//>`;
+}
+
+/**
+ * A multiple-choice question: pills that toggle independently, plus "Decide for me". Clearing every pill returns the question to skipped.
+ *
+ * @param {object} props.question The question from the spec: `{id, prompt, help?, options, allow_other?}`.
+ * @param {object} [props.answer] The current answer; skipped when absent.
+ * @param {function} [props.onChange] Receives the new answer.
+ */
+export function MultipleChoiceQuestion({ question, answer, onChange }) {
+  const current = answer || SKIPPED;
+  const chosen = current.status === "answered" && Array.isArray(current.value) ? current.value : [];
+  const other = current.status === "answered" && current.other !== undefined ? current.other : "";
+  const set = (values, text) => {
+    if (!onChange) return;
+    const next = { status: "answered", value: values };
+    if (text && text.trim()) next.other = text;
+    onChange(values.length || next.other ? next : SKIPPED);
+  };
+  return html`<${QuestionCard} question=${question} answer=${current} onChange=${onChange}>
+    <div class="panel-choices" role="group" aria-label=${question.prompt}>
+      ${(question.options || []).map((option) => {
+        const on = chosen.includes(option.value);
+        return html`<button
+          type="button"
+          class="panel-choice"
+          aria-pressed=${on ? "true" : "false"}
+          data-option=${option.value}
+          onClick=${() => set(on ? chosen.filter((v) => v !== option.value) : [...chosen, option.value], other)}
+        >${option.label}${option.description ? html`<span class="panel-choice-description">${option.description}</span>` : null}</button>`;
+      })}
+    </div>
+    ${question.allow_other
+      ? html`<${Input}
+          class="panel-question-other"
+          placeholder="Something else…"
+          value=${other}
+          onInput=${(event) => set(chosen, event.currentTarget.value)}
+        />`
+      : null}
+  <//>`;
+}
+
+/**
+ * A free-text question, one line or several, plus "Decide for me". Empty text is skipped.
+ *
+ * @param {object} props.question The question from the spec: `{id, prompt, help?, multiline?, placeholder?}`.
+ * @param {object} [props.answer] The current answer; skipped when absent.
+ * @param {function} [props.onChange] Receives the new answer.
+ */
+export function TextQuestion({ question, answer, onChange }) {
+  const current = answer || SKIPPED;
+  const value = current.status === "answered" ? current.value : "";
+  const onInput = (event) => {
+    const text = event.currentTarget.value;
+    if (onChange) onChange(text.trim() ? { status: "answered", value: text } : SKIPPED);
+  };
+  return html`<${QuestionCard} question=${question} answer=${current} onChange=${onChange}>
+    ${question.multiline
+      ? html`<textarea class="panel-input" placeholder=${question.placeholder || ""} value=${value} onInput=${onInput}></textarea>`
+      : html`<${Input} placeholder=${question.placeholder || ""} value=${value} onInput=${onInput} />`}
+  <//>`;
+}
+
+/**
+ * A number question — a number box, or a slider when the spec's type is `range` — plus "Decide for me". An empty box is skipped.
+ *
+ * @param {object} props.question The question from the spec: `{id, type, prompt, help?, min?, max?, step?, unit?, placeholder?}`.
+ * @param {object} [props.answer] The current answer; skipped when absent.
+ * @param {function} [props.onChange] Receives the new answer.
+ */
+export function NumberQuestion({ question, answer, onChange }) {
+  const current = answer || SKIPPED;
+  const answered = current.status === "answered" && isNumber(current.value);
+  const onInput = (event) => {
+    const raw = event.currentTarget.value;
+    const parsed = raw === "" ? NaN : Number(raw);
+    if (onChange) onChange(Number.isFinite(parsed) ? { status: "answered", value: parsed } : SKIPPED);
+  };
+  const slider = question.type === "range";
+  return html`<${QuestionCard} question=${question} answer=${current} onChange=${onChange}>
+    <${Field} readout=${slider ? (answered ? `${current.value}${question.unit ? ` ${question.unit}` : ""}` : "not set") : question.unit}>
+      ${slider
+        ? html`<input
+            type="range"
+            class="panel-field-range"
+            min=${question.min}
+            max=${question.max}
+            step=${question.step || "any"}
+            value=${answered ? current.value : question.min}
+            onInput=${onInput}
+          />`
+        : html`<${Input}
+            type="number"
+            min=${question.min}
+            max=${question.max}
+            step=${question.step || "any"}
+            placeholder=${question.placeholder || ""}
+            value=${answered ? current.value : ""}
+            onInput=${onInput}
+          />`}
+    <//>
+  <//>`;
+}
+
+/**
+ * One question of any type, drawn by the component for its `type`.
+ *
+ * @param {object} props.question The question from the spec.
+ * @param {object} [props.answer] The current answer; skipped when absent.
+ * @param {function} [props.onChange] Receives the new answer.
+ */
+export function Question({ question, answer, onChange }) {
+  const view = {
+    single: SingleChoiceQuestion,
+    multiple: MultipleChoiceQuestion,
+    text: TextQuestion,
+    number: NumberQuestion,
+    range: NumberQuestion,
+  }[question && question.type];
+  if (!view) return html`<${ErrorState}>Unknown question type ${JSON.stringify(question && question.type)}<//>`;
+  return html`<${view} question=${question} answer=${answer} onChange=${onChange} />`;
+}
+
+/**
+ * The bar under the questions: a Submit button that is enabled with any number of answers, and the message a submit left behind.
+ *
+ * @param {string} [props.label] The button text; defaults to `Submit`.
+ * @param {boolean} [props.busy] A submit is in flight; the button is disabled only then.
+ * @param {string} [props.message] Text beside the button, such as the submit result's `message`.
+ * @param {string} [props.kind] `"done"`, `"return"` (go back to your AI chat), or `"error"`; colours the message.
+ * @param {function} [props.onSubmit] Called when the button is pressed.
+ */
+export function SubmitBar({ label, busy, message, kind, onSubmit }) {
+  return html`<div class="panel-submit-bar" data-testid="questionnaire-submit-bar">
+    <${Button} primary disabled=${Boolean(busy)} onClick=${onSubmit} data-testid="questionnaire-submit">
+      ${busy ? "Sending…" : label || "Submit"}
+    <//>
+    ${message ? html`<span class="panel-submit-message" data-kind=${kind || "done"} role="status">${message}</span>` : null}
+  </div>`;
+}
+
+/**
+ * A whole questionnaire from its spec: title, intro, every question, and the submit bar. A spec that breaks a rule renders an error state that lists each problem instead of a form. Submitting sends one answer per question — `skipped` for those left alone — to `onSubmit` and shows the message it resolves with; the result's `notified: false` shows as a reminder to return to the AI chat.
+ *
+ * @param {object} props.spec The parsed `questionnaire.json`.
+ * @param {function} [props.onSubmit] Receives the answers keyed by question id and returns a promise; pass `scistudio.submitAnswers`.
+ * @param {object} [props.initialAnswers] Answers to start from, keyed by question id.
+ * @param {string} [props.class] Extra class names added to the root element.
+ */
+export function Questionnaire({ spec, onSubmit, initialAnswers, class: cls, ...rest }) {
+  const [answers, setAnswers] = useState(() => ({ ...(initialAnswers || {}) }));
+  const [state, setState] = useState({ busy: false, message: "", kind: "done" });
+  const problems = questionnaireProblems(spec);
+  if (problems.length) {
+    return html`<div class=${cx("panel-stack", "panel-questionnaire", cls)} ...${rest}>
+      <${ErrorState} data-testid="questionnaire-invalid">
+        <strong>This questionnaire cannot be shown.</strong> Fix questionnaire.json and run validate_panel:
+        <ul>${problems.map((p) => html`<li>${p}</li>`)}</ul>
+      <//>
+    </div>`;
+  }
+  const submit = async () => {
+    if (typeof onSubmit !== "function") {
+      setState({ busy: false, message: "This page has no submit handler; pass scistudio.submitAnswers as onSubmit.", kind: "error" });
+      return;
+    }
+    const payload = {};
+    for (const q of spec.questions) payload[q.id] = answers[q.id] || SKIPPED;
+    setState({ busy: true, message: "", kind: "done" });
+    try {
+      const result = await onSubmit(payload);
+      const notified = !result || result.notified !== false;
+      const message = (result && result.message) || (notified ? "Sent." : "Saved. Go back to your AI chat and say you have submitted.");
+      setState({ busy: false, message, kind: notified ? "done" : "return" });
+    } catch (error) {
+      setState({ busy: false, message: `Not sent: ${(error && error.message) || error}`, kind: "error" });
+    }
+  };
+  return html`<div class=${cx("panel-stack", "panel-questionnaire", cls)} ...${rest}>
+    <h1 class="panel-questionnaire-title">${spec.title}</h1>
+    ${spec.intro ? html`<p class="panel-questionnaire-intro">${spec.intro}</p>` : null}
+    ${spec.questions.map((q) => html`<${Question}
+      key=${q.id}
+      question=${q}
+      answer=${answers[q.id]}
+      onChange=${(next) => setAnswers((prev) => ({ ...prev, [q.id]: next }))}
+    />`)}
+    <${SubmitBar} label=${spec.submit_label} busy=${state.busy} message=${state.message} kind=${state.kind} onSubmit=${submit} />
+  </div>`;
 }
