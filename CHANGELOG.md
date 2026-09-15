@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   image, or its folder is not writable), it points you to the download page
   instead. Releases name the installer with
   `scripts/ota_publish.py --installer-release <tag>`.
+- MiniApps: create interactive tools on project data with optional resident Python,
+  reuse them across compatible outputs, and convert them into interactive workflow
+  blocks. Includes project-scoped source selection, reusable core data-view UI
+  components, and AI-accessible desktop GUI screenshots. (#2354)
 
 - [#2361] **A markdown file shows what it says while you write it.** Opening a
   `.md` file splits the centre stage: the editor on the left, a live preview on

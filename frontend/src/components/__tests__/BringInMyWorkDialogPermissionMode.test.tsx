@@ -25,6 +25,13 @@ function walkToStart(answers: PageAnswers = {}): void {
   walkTo(LAST_PAGE, answers);
 }
 
+async function selectedProvider(key: string): Promise<void> {
+  await settled();
+  // Provider selection follows availability in a separate effect. Checking
+  // only the probe indicator can observe the picker's initial disabled state.
+  await waitFor(() => expect(screen.getByTestId("setup-provider-select")).toHaveValue(key));
+}
+
 beforeEach(() => {
   useAppStore.setState({
     currentProject: {
@@ -48,7 +55,7 @@ afterEach(cleanup);
 describe("#2379 — Manual / Auto / Yolo/Bypass in Bring In My Work", () => {
   it("renders the same three buttons with no descriptive text", async () => {
     renderDialog(ready(CLAUDE));
-    await settled();
+    await selectedProvider("claude-code");
     const group = screen.getByTestId("setup-permission-group");
     expect(group.textContent).toBe("Permission modeManualAutoYolo/Bypass");
     expect(screen.getByTestId("setup-permission-auto")).not.toBeDisabled();
@@ -58,7 +65,7 @@ describe("#2379 — Manual / Auto / Yolo/Bypass in Bring In My Work", () => {
     renderDialog(
       ready(provider({ key: "no-auto-agent", label: "No Auto", supports_auto_mode: false })),
     );
-    await settled();
+    await selectedProvider("no-auto-agent");
     expect(screen.getByTestId("setup-permission-auto")).toBeDisabled();
     expect(screen.getByTestId("setup-permission-safe")).toBeChecked();
   });
@@ -68,7 +75,7 @@ describe("#2379 — Manual / Auto / Yolo/Bypass in Bring In My Work", () => {
       sessionResponse({ provider: "claude-code", permission_mode: "auto" }),
     );
     renderDialog(ready(CLAUDE), { startSession });
-    await settled();
+    await selectedProvider("claude-code");
 
     walkToStart({
       setup: () => {

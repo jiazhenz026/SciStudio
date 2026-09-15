@@ -108,3 +108,9 @@ preview-only (it is not a workflow block) and shows in the **plots** tab. See
 - [built-in-blocks.md](built-in-blocks.md) — the blocks you build with
 - [history-and-branches.md](history-and-branches.md) — restore past work and branch it
 - [ai-assistant.md](ai-assistant.md) — have the assistant do it for you
+
+## Explore with MiniApps
+
+See [MiniApps](miniapps.md) to create an interactive result explorer, reuse it on
+other data, manage its session, or convert it into a workflow block. The guide
+also explains when an AI can inspect the rendered interface with a screenshot.

@@ -13,20 +13,38 @@
 // ADR-048 same-origin dynamic-import path (`panel_manifest.module_url`) through
 // <DynamicPanel> (FR-007).
 
+import { useRef } from "react";
+
 import { submitPanelDecision } from "../panels/decisions";
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
 import { INTERACTIVE_MEMORY_KEY, readInteractiveMemory } from "../lib/interactiveMemory";
 import { useAppStore } from "../store";
+import { executionViewKey } from "../store/executionSlice.parts/eventReducer";
+import {
+  interactivePromptKey,
+  visibleInteractivePrompt,
+} from "../store/executionSlice.parts/interactivePrompts";
 
 import { InteractivePanel } from "../panels/InteractivePanel";
 import { DynamicPanel } from "./InteractiveModals.parts/DynamicPanel";
 
 export function InteractiveModals() {
-  const interactivePrompt = useAppStore((s) => s.interactivePrompt);
-  const setInteractivePrompt = useAppStore((s) => s.setInteractivePrompt);
+  // #2395: prompts are held per (workflow, block). The window shows one at a
+  // time — the one already shown while it is pending, else the oldest prompt of
+  // the workflow on screen, else the oldest of any workflow — and answering it
+  // surfaces the next (see `visibleInteractivePrompt`).
+  const shownKey = useRef<string | null>(null);
+  const interactivePrompt = useAppStore((s) =>
+    visibleInteractivePrompt(s.interactivePrompts, executionViewKey(s), shownKey.current),
+  );
+  const removeInteractivePrompt = useAppStore((s) => s.removeInteractivePrompt);
+  const promptKey = interactivePrompt
+    ? interactivePromptKey(interactivePrompt.workflowId, interactivePrompt.blockId)
+    : null;
+  shownKey.current = promptKey;
 
-  if (!interactivePrompt) return null;
+  if (!interactivePrompt || promptKey === null) return null;
 
   // ADR-051: scope the response/cancel to the workflow the PROMPT belongs to —
   // not the store's currently-active workflow, which may have changed if the
@@ -59,7 +77,8 @@ export function InteractiveModals() {
         send,
         signal,
       );
-      if (useAppStore.getState().interactivePrompt !== interactivePrompt) return;
+      const pending = useAppStore.getState().interactivePrompts;
+      if (pending[promptKey] !== interactivePrompt) return;
     } else send();
 
     // ADR-051 interaction memory (Addendum 1): if this node has "remember and
@@ -91,7 +110,7 @@ export function InteractiveModals() {
       }
     }
 
-    setInteractivePrompt(null);
+    removeInteractivePrompt(promptWorkflowId, interactivePrompt.blockId);
   };
 
   const onCancel = () => {
@@ -100,7 +119,7 @@ export function InteractiveModals() {
       block_id: interactivePrompt.blockId,
       workflow_id: promptWorkflowId,
     });
-    setInteractivePrompt(null);
+    removeInteractivePrompt(promptWorkflowId, interactivePrompt.blockId);
   };
 
   const manifest = interactivePrompt.panelManifest;
@@ -122,6 +141,8 @@ export function InteractiveModals() {
     if (!manifest.module_url) {
       return (
         <InteractivePanel
+          // #2395: a different pending prompt is a different window — remount.
+          key={promptKey}
           panelId={manifest.panel_id}
           workflowId={promptWorkflowId}
           blockId={interactivePrompt.blockId}
@@ -133,6 +154,7 @@ export function InteractiveModals() {
     }
     return (
       <DynamicPanel
+        key={promptKey}
         manifest={manifest}
         blockId={interactivePrompt.blockId}
         blockName={interactivePrompt.blockType}

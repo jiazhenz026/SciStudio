@@ -39,6 +39,7 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (0, "page", "Getting started with SciStudio"),
     (0, "page", "Run history and branches"),
     (0, "page", "How SciStudio works"),
+    (0, "page", "MiniApps: explore a result interactively"),
     (0, "page", "Using the canvas: build, run, preview"),
     (0, "page", "Using SciStudio in your AI app"),
     (0, "page", "Writing a block"),

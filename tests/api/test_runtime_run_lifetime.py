@@ -54,7 +54,7 @@ from scistudio.core.lineage.store import LineageStore
 from scistudio.engine.events import WORKFLOW_COMPLETED
 from scistudio.engine.run_logging import run_log_path
 from scistudio.workflow.definition import WorkflowDefinition
-from tests.api.helpers import build_linear_workflow, wait_for_condition, wait_for_workflow_completion
+from tests.api.helpers import build_linear_workflow, wait_for_condition, wait_for_workflow_completion, ws_hello
 
 _LOGGER = "scistudio.api.runtime._run_lifetime"
 
@@ -207,9 +207,10 @@ def test_gui_disconnect_keeps_run_going_and_a_reconnect_sees_history_and_later_e
     assert not gate.cancelled.is_set()
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         # What a reconnecting page gets: no snapshot of the states it missed
-        # (the first frame answers its ping), the run in Run history, and the
-        # run's events from here on.
+        # (after its identity greeting, the next frame answers its ping), the
+        # run in Run history, and the run's events from here on.
         websocket.send_json({"type": "ping"})
         assert websocket.receive_json() == {"type": "pong"}
         rows = _lineage_rows(client, "disconnect-flow")

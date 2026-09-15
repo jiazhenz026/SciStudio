@@ -5,6 +5,7 @@
  * Each helper returns the ReactFlow node object for one workflow node. The
  * mapper in WorkflowCanvas dispatches to the right helper by block_type.
  */
+import type { ReactNode } from "react";
 import type { Node } from "@xyflow/react";
 
 import { lossyOmeFields } from "../../api/capabilities";
@@ -234,6 +235,7 @@ interface BlockOpts {
   position: { x: number; y: number };
   params: Record<string, unknown>;
   summary?: BlockSummary;
+  detailActions?: ReactNode;
   schema?: BlockSchemaResponse;
   status: string;
   /** #1974 — epoch-ms start of the current run; undefined unless running. */
@@ -254,6 +256,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
     position,
     params,
     summary,
+    detailActions,
     schema,
     status,
     runStartedAt,
@@ -302,6 +305,7 @@ export function buildBlockNode(opts: BlockOpts): Node {
       unresolved,
       uiIconHint: inferred?.iconHint,
       summary,
+      detailActions,
       schema,
       config: params,
       inputPorts: resolveVariadicPorts(

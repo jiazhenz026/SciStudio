@@ -901,7 +901,12 @@ class ErrorResponse(BaseModel):
 #: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
 #: #2086), so promoting a project previewer resolves through the same route —
 #: and the same library-root swap — as blocks and types.
-UserLibraryTarget = Literal["blocks", "types", "previewers"]
+#: ADR-054 MiniApp FR-039: ``panels`` joined as the first **directory** target.
+#: A panel is a directory of a page, its assets, and optionally ``panel.py``,
+#: so it promotes through ``POST /api/user-library/directory`` rather than the
+#: single-file ``PUT /api/user-library/file`` — which accepts one bare ``.py``
+#: filename and can express no tree at all.
+UserLibraryTarget = Literal["blocks", "types", "previewers", "panels"]
 
 
 class MoveSourceRef(BaseModel):
@@ -1002,4 +1007,51 @@ class UserLibraryWriteResponse(BaseModel):
             "outcome is a copy rather than a move — which the UI reports rather than "
             "hides."
         ),
+    )
+
+
+class UserLibraryDirectoryRequest(BaseModel):
+    """Request body for ``POST /api/user-library/directory``."""
+
+    # Request body for ``POST /api/user-library/directory``.
+    #
+    # ADR-054 MiniApp FR-039. The project side is named by its directory rather
+    # than by a project id and a relative path, because the file-level resolver
+    # the single-file promotion reuses applies the ADR-036 editor extension
+    # allowlist — which has no ``.html``, ``.css``, or ``.js`` — and would refuse
+    # a panel's own page.
+
+    # Development references: ADR-053, FR-017; ADR-054 MiniApp, FR-039.
+
+    project_dir: str = Field(description="Absolute path of the project the directory is promoted out of.")
+    overwrite: bool = Field(
+        default=False,
+        description=(
+            "ADR-053 FR-008: replacing an existing library directory of the same name requires "
+            "this explicit opt-in. Without it an existing target is a 409 conflict."
+        ),
+    )
+
+
+class UserLibraryDirectoryResponse(BaseModel):
+    """Response body for ``POST /api/user-library/directory``."""
+
+    # Development references: ADR-054 MiniApp, FR-039.
+
+    target: UserLibraryTarget
+    name: str = Field(description="Directory name inside the tier, e.g. the panel id.")
+    path: str = Field(description="Absolute path of the directory inside the user library.")
+    moved: bool = Field(
+        description=(
+            "ADR-053 FR-017: true when the project copy was removed, so this was a move. "
+            "False means the library copy exists but the project copy could not be removed "
+            "and the promotion degraded to a copy — never a request failure."
+        )
+    )
+    move_error: str | None = Field(
+        default=None,
+        description="Why the project copy could not be removed, or None.",
+    )
+    registries_refreshed: bool = Field(
+        description="Whether the post-write registry refresh succeeded, so the panel is discoverable at once."
     )

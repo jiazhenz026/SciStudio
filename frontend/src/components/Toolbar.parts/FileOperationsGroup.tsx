@@ -9,8 +9,15 @@
  *     active editor tab is a project-level drop-in (§6.2). It is the shared
  *     `PromoteToLibraryAction`, not a toolbar-local reimplementation (FR-025),
  *     and it renders nothing at all for anything else (FR-019).
+ *
+ * ADR-054 addition:
+ *   - "New MiniApp" joins the New menu (FR-037). It opens the same
+ *     `CreateMiniAppDialog` the MiniApps tab and a block's context menu open
+ *     (FR-023); the toolbar route is the one that carries no data with it, so
+ *     the dialog asks for the block output itself.
  */
 import {
+  AppWindow,
   ChartLine,
   ChevronDown,
   FileCode2,
@@ -44,6 +51,15 @@ export interface FileOperationsGroupProps {
   onNewCustomBlock?: () => void;
   /** ADR-053 FR-032 — "New data type". */
   onNewDataType?: () => void;
+  /**
+   * ADR-054 FR-037 — "New MiniApp".
+   *
+   * The third way into the one create dialog (FR-023), beside the MiniApps tab
+   * and a block's context menu. It is here rather than only on the canvas
+   * because a user who has not yet learned that the agent can build them a tool
+   * looks in New, and because the dialog can ask for the data itself.
+   */
+  onNewMiniApp?: () => void;
   onNewNote?: () => void;
   onNewPlot?: () => void;
   onInstallPackage: () => void;
@@ -58,6 +74,7 @@ export function FileOperationsGroup({
   onNewWorkflow,
   onNewCustomBlock,
   onNewDataType,
+  onNewMiniApp,
   onNewNote,
   onNewPlot,
   onInstallPackage,
@@ -111,6 +128,13 @@ export function FileOperationsGroup({
           <DropdownMenuItem onClick={onNewDataType} disabled={!currentProject || !onNewDataType}>
             <Shapes className="size-4" />
             New data type
+          </DropdownMenuItem>
+          {/* ADR-054 FR-037 — disabled without a project, like every other
+           * entry here: a MiniApp is written into `<project>/panels/`, so
+           * there is nowhere to put one until a project is open. */}
+          <DropdownMenuItem onClick={onNewMiniApp} disabled={!currentProject || !onNewMiniApp}>
+            <AppWindow className="size-4" />
+            New MiniApp
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onNewNote} disabled={!currentProject || !onNewNote}>
             <FileText className="size-4" />

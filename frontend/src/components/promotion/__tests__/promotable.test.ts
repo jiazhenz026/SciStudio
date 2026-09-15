@@ -3,7 +3,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { FileTab } from "../../../store/types";
-import { isPromotable, promotableBlock, promotableFileTab, promotableType } from "../promotable";
+import {
+  isPromotable,
+  promotableBlock,
+  promotableFileTab,
+  promotableMiniApp,
+  promotableType,
+} from "../promotable";
 import { makeBlock, makeType } from "./fixtures";
 
 function fileTab(overrides: Partial<FileTab> & { filePath: string }): FileTab {
@@ -140,5 +146,41 @@ describe("promotableFileTab — entry point E1", () => {
 
   it("refuses when no tab is open", () => {
     expect(promotableFileTab(null, blocks)).toBeNull();
+  });
+});
+
+describe("promotableMiniApp — ADR-054 FR-039", () => {
+  it("targets the panels library and names the directory by its panel id", () => {
+    const item = promotableMiniApp({
+      panel_id: "threshold-explorer",
+      name: "Threshold explorer",
+      tier: "project",
+    });
+    expect(item).toEqual({
+      target: "panels",
+      kind: "miniapp",
+      label: "Threshold explorer",
+      origin: "project",
+      source: { from: "panelDirectory", panelId: "threshold-explorer" },
+    });
+  });
+
+  it("offers a project MiniApp", () => {
+    expect(isPromotable(promotableMiniApp({ panel_id: "p", name: "P", tier: "project" }))).toBe(
+      true,
+    );
+  });
+
+  it.each(["user", "package", "core"] as const)(
+    "refuses a %s MiniApp — it already lives in a library",
+    (tier) => {
+      expect(isPromotable(promotableMiniApp({ panel_id: "p", name: "P", tier }))).toBe(false);
+    },
+  );
+
+  it("does not treat a file inside a panel directory as a promotable drop-in", () => {
+    // A MiniApp only works whole; promoting one file out of its directory
+    // would put a broken half in the library.
+    expect(promotableFileTab(fileTab({ filePath: "panels/explorer/panel.py" }), [])).toBeNull();
   });
 });

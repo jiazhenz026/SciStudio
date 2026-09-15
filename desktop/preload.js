@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld("scistudioDesktop", {
   // the main process to relaunch, so a fresh Python interpreter imports the new
   // package code (already-imported modules are not re-imported in-process).
   relaunch: () => ipcRenderer.invoke("scistudio:relaunch"),
+  captureGui: (request) => ipcRenderer.invoke("scistudio:capture-gui", request),
+
+
   // #2361: links inside rendered project markdown must reach the user's default
   // browser. window.open would ask Electron for a child BrowserWindow the main
   // window has no handler for, so the renderer asks the main process, which

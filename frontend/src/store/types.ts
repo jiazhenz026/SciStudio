@@ -327,14 +327,25 @@ export interface ExecutionSlice {
   blockErrorSummaries: Record<string, string>;
   executionMessages: string[];
   logEntries: LogEntry[];
-  /** True while a workflow execution is in progress. */
+  /**
+   * True while the workflow on screen is running. #2395: a projection of that
+   * workflow's `executionByWorkflow` bucket, so another workflow's run starting
+   * or finishing never flips it.
+   */
   isRunning: boolean;
-  /** #591/#594: Active interactive prompt from a PAUSED block (DataRouter/PairEditor). */
-  interactivePrompt: InteractivePrompt | null;
+  /**
+   * #591/#594 + #2395: pending interactive prompts from PAUSED blocks, keyed by
+   * `interactivePromptKey(workflowId, blockId)` in arrival order. Two workflows
+   * paused at once each keep their own prompt.
+   */
+  interactivePrompts: Record<string, InteractivePrompt>;
   consumeEvent: (event: WorkflowEventMessage) => void;
   appendLog: (entry: LogEntry) => void;
   resetExecution: () => void;
-  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
+  /** Add a prompt, or replace the pending one for the same `(workflow, block)`. */
+  upsertInteractivePrompt: (prompt: InteractivePrompt) => void;
+  /** Remove the prompt of one block of one workflow (answered or cancelled). */
+  removeInteractivePrompt: (workflowId: string, blockId: string) => void;
 }
 
 /**
@@ -377,6 +388,21 @@ export interface UISlice {
   focusMode: FocusModeState;
   paletteCollapsed: boolean;
   previewCollapsed: boolean;
+  /**
+   * ADR-054 FR-013 — the `/ws` connection's id, announced by the backend in
+   * its first frame. Every MiniApp context is created against it so the
+   * backend can end the process once this workspace has been gone for its
+   * grace period. Session state: never persisted, `null` until `/ws` says
+   * hello.
+   */
+  wsClientId: string | null;
+  /**
+   * ADR-054 FR-022 — per-panel change counter, bumped on every
+   * `panel.files_changed` event. Open MiniApp tabs on that panel watch their
+   * own entry and reload (debounced) when it moves; a counter rather than a
+   * timestamp so two events in the same millisecond are still two events.
+   */
+  panelFilesChangedSeq: Record<string, number>;
   bottomPanelCollapsed: boolean;
   /**
    * When true, the bottom panel does not auto-collapse on canvas-pane
@@ -464,6 +490,10 @@ export interface UISlice {
   toggleMarkdownPreview: () => void;
   setPanelSize: (panel: "palette" | "preview" | "bottom", size: number) => void;
   setLastError: (message: string | null) => void;
+  /** ADR-054 FR-013 — called by the `/ws` dispatcher with the `hello` frame. */
+  setWsClientId: (id: string | null) => void;
+  /** ADR-054 FR-022 — called by the `/ws` dispatcher for `panel.files_changed`. */
+  notifyPanelFilesChanged: (panelId: string) => void;
   /**
    * Desktop application menu (desktop/menu.js) opens these dialogs from
    * outside the toolbar, so the open state lives in the store instead of
@@ -472,8 +502,15 @@ export interface UISlice {
    */
   packageManagerOpen: boolean;
   /** See `packageManagerOpen`; the dialog mounts only while open. */
+  /**
+   * ADR-054 FR-037 — the toolbar's New menu lives in `App.tsx` while the create
+   * dialog is mounted in `ProjectWorkspace`, so the request travels through the
+   * store, exactly as `bringInMyWorkOpen` does for the desktop menu.
+   */
+  createMiniAppOpen: boolean;
   bringInMyWorkOpen: boolean;
   setPackageManagerOpen: (open: boolean) => void;
+  setCreateMiniAppOpen: (open: boolean) => void;
   setBringInMyWorkOpen: (open: boolean) => void;
 }
 
@@ -1003,7 +1040,31 @@ export interface PreviewTab {
  * code that imported it during the transition; new code should use
  * ``TabState`` directly.
  */
-export type TabState = WorkflowTab | FileTab | PreviewTab;
+/**
+ * ADR-054 FR-018 — a MiniApp open on one block output.
+ *
+ * Unlike a preview tab it is NOT dropped when focus moves (FR-019): its pane
+ * stays mounted and its `panel.py` process keeps running. Like a preview tab
+ * it is never persisted — the `kind === "file"` filter in `store/index.ts`
+ * already excludes it, and it must stay excluded: a rehydrated MiniApp tab
+ * would name a context and a process that no longer exist.
+ */
+export interface MiniAppTab {
+  /** Discriminator. Always "miniapp". */
+  kind: "miniapp";
+  /** `miniapp:<panel_id>:<workflow_id>:<block_id>:<port>` (FR-018). */
+  id: string;
+  panelId: string;
+  /** The block output this MiniApp runs on, frozen at open time. */
+  source: { workflow_id: string; block_id: string; port: string };
+  displayName: string;
+  /** Workflow tab owning the live workflow slice while this MiniApp is focused. */
+  backingTabId?: string;
+  /** Epoch-ms open time; diagnostic only. */
+  openedAt?: number;
+}
+
+export type TabState = WorkflowTab | FileTab | PreviewTab | MiniAppTab;
 export type AnyTab = TabState;
 
 export interface TabSlice {
@@ -1092,6 +1153,15 @@ export interface TabSlice {
    *   4. On 4xx/5xx, surface a toast and leave dirty=true.
    *   5. Read-only tabs are a no-op.
    */
+  /**
+   * ADR-054 FR-018 — open a MiniApp on one block output, or focus the tab
+   * that is already open on it.
+   */
+  openMiniAppTab: (input: {
+    panelId: string;
+    name: string;
+    target: { workflow_id: string; block_id: string; port: string };
+  }) => void;
   saveFileTab: (id: string) => Promise<void>;
   /**
    * ADR-036 §3.10 — update the in-memory content for a file tab.

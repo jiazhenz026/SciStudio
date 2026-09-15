@@ -47,6 +47,11 @@ deep work in that area.
   quick figure in the preview panel. A plot job is NOT a workflow block
   and never becomes a DAG node; always bind by a discovered `target_id`,
   never by a block label.
+- **`scistudio-write-miniapp`** — author a MiniApp: a small HTML page in
+  `<project>/panels/<panel_id>/`, opened on one block output and
+  optionally backed by a `panel.py`. Use when the user wants to look at,
+  compare, or tune something interactively rather than be told once.
+  Offer one without being asked when the request is about looking.
 - **`scistudio-write-panel`** — create or repair an HTML preview panel or an
   interactive workflow decision page. Pair a decision page with
   `scistudio-write-block`; the panel skill covers its prepared JSON view,
@@ -55,8 +60,8 @@ deep work in that area.
   available browser or computer-use tools. Load it when the user asks for GUI
   operation or an authoring skill calls for a live check.
 
-Panel authoring routes to the GUI skill for a brief rendered-view and main
-interaction check. Plot authoring, workflow authoring, and ordinary run
+MiniApp and panel authoring route to the GUI skill for a brief rendered-view
+and main interaction check. Plot authoring, workflow authoring, and ordinary run
 debugging do not automatically invoke GUI checks; an explicit user request
 for GUI operation still applies.
 
@@ -127,11 +132,11 @@ shapes — call `mcp__scistudio__<tool>` and read FastMCP's error
 envelope if you need the exact signature, or load the relevant task
 skill (`scistudio-build-workflow`, `scistudio-write-block`,
 `scistudio-debug-run`, `scistudio-inspect-data`, `scistudio-project-qa`,
-`scistudio-write-plot`, `scistudio-write-panel`, `scistudio-use-gui`) for the
-documented call sequence.
+`scistudio-write-plot`, `scistudio-write-miniapp`, `scistudio-write-panel`,
+`scistudio-use-gui`) for the documented call sequence.
 
 <!-- tool_catalog:begin -->
-**Static fallback (35 tools — shown when the live catalog was not
+**Static fallback (38 tools — shown when the live catalog was not
 re-spliced at compose time).**
 
 - **Workflow (12)** — `list_blocks`, `get_block_schema`, `list_types`,
@@ -161,6 +166,14 @@ re-spliced at compose time).**
   seaborn / ggplot2) from a block output port. A plot job never becomes
   a workflow node and never claims lineage; bind by a discovered
   `target_id`, never a block label.
+- **Library (1)** — `promote_to_user_library`. Move a project-local
+  block into the user's personal library so it is available in every
+  project.
+- **Panels (2)** — `validate_panel`, `open_miniapp`. Check a panel or
+  MiniApp directory the way discovery checks it, and ask the open
+  workspace to open a MiniApp tab on a block output. `open_miniapp`
+  returns `opened=False` when no workspace is connected — never report
+  a tab that did not open.
 
 For each tool: every write-class result envelope carries `next_step`
 (read and follow it); `scaffold_block` additionally carries

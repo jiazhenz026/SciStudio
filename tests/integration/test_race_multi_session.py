@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from tests.api.helpers import build_linear_workflow
+from tests.api.helpers import build_linear_workflow, ws_hello
 
 
 def test_multi_session_workflow_write_broadcasts_same_version_to_all_tabs(
@@ -19,6 +19,8 @@ def test_multi_session_workflow_write_broadcasts_same_version_to_all_tabs(
     base_version = created.json()["state_version"]
 
     with client.websocket_connect("/ws") as tab_a, client.websocket_connect("/ws") as tab_b:
+        ws_hello(tab_a)
+        ws_hello(tab_b)
         payload["description"] = "tab A saved version N+1"
         response = client.put(
             "/api/workflows/multi-session-race",

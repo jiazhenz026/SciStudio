@@ -189,3 +189,22 @@ def test_panels_shadow_the_legacy_core_previewers() -> None:
         winners = [s for s in preview.all_specs() if s.previewer_id == pid]
         assert winners, f"{pid} not routable"
         assert all(getattr(s, "panel", None) for s in winners), f"{pid} legacy spec not shadowed by panel"
+
+
+def test_core_previews_share_the_public_presentation_components() -> None:
+    """Core shells must import the same host-independent components as MiniApps."""
+    sdk = BUILTIN_ROOT.parent / "sdk" / "1"
+    exports = (sdk / "renderers.js").read_text()
+    for panel_id in EXPECTED_TYPES:
+        shell = (BUILTIN_ROOT / panel_id / "panel.js").read_text()
+        kind = panel_id.split(".")[1]
+        module = f"renderer-{kind}.js"
+        assert module in shell
+        assert module in exports
+        presentation = (sdk / module).read_text()
+        assert "window.scistudio" not in presentation
+        assert "api.read(" not in presentation
+        assert "api.save(" not in presentation
+        assert "api.open(" not in presentation
+        assert "<iframe" not in presentation
+        assert "renderers.css" in (BUILTIN_ROOT / panel_id / "index.html").read_text()

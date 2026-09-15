@@ -26,6 +26,9 @@ const installer = require("./installer");
 const { MENU_ACTION_CHANNEL, buildMenuTemplate, buildTrayMenuTemplate } = require("./menu");
 const runtimePortModule = require("./runtime-port");
 const backgroundMode = require("./background-mode");
+const { captureGui } = require("./gui-capture");
+
+ipcMain.handle("scistudio:capture-gui", (event, request) => captureGui(mainWindow, event, request));
 
 // #1784: the in-app Package Manager stages a package update on disk (into the
 // scanned installed-packages dir) and then asks the main process to relaunch so

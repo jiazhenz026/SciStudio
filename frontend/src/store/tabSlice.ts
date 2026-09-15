@@ -19,6 +19,7 @@ import {
   createSyncActiveTab,
 } from "./tabSlice.parts/workflowTabActions";
 import { createOpenPreviewTab } from "./tabSlice.parts/previewTabActions";
+import { createOpenMiniAppTab } from "./tabSlice.parts/miniAppTabActions";
 
 export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, get) => ({
   tabs: [],
@@ -37,6 +38,9 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   openUserLibraryFileTab: createOpenUserLibraryFileTab(set, get),
   // #2112 — transient preview tab (frozen PreviewTarget, never persisted).
   openPreviewTab: createOpenPreviewTab(set, get),
+  // ADR-054 FR-018 — the MiniApp tab: id-keyed, focus-on-reopen, never
+  // persisted, and NOT dropped when focus moves (FR-019).
+  openMiniAppTab: createOpenMiniAppTab(set, get),
   saveFileTab: createSaveFileTab(set, get),
   updateFileTabContent: createUpdateFileTabContent(set, get),
   confirmFileVersion: createConfirmFileVersion(set, get),

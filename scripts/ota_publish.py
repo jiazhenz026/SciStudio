@@ -82,6 +82,7 @@ SHELL_FILES = (
     "background-mode.js",
     # #2396: required by main.js; the in-app installer's decisions and helper scripts.
     "installer.js",
+    "gui-capture.js",
     "preload.js",
     # #2280: the external-AI connection window and its sandboxed preload.
     "connection-preload.js",

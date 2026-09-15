@@ -1,0 +1,203 @@
+{
+  "base_ref": "origin/feat/2294-panels-phase-b",
+  "branch": "feat/2354-miniapp-phase-d",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/api/routes/panels.py",
+      "frontend/src/**",
+      "tests/**",
+      "src/scistudio/ai/agent/system_prompt.py",
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "docs/planning/adr-054-phase-d-checklist.md",
+      "docs/specs/adr-054-miniapp.md",
+      "docs/audit/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-12T03:10:16.074245Z",
+      "owner_directive": "Owner (2026-09-11, manager session): deliver ADR-054 Phase D MiniApps front-to-back \u2014 full backend and frontend implementation per docs/specs/adr-054-miniapp.md FR-001..FR-040 / T-001..T-014. Run audits and tests in the background and tell the owner when they start; then start a backend and frontend so the owner can test the feature personally. Phases C and E (docs, tutorials) are a separate guided session.",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-12T04:29:12.072367Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-323/popen-gw8/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-12T04:29:14.458648Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-323/popen-gw8/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-12T04:36:00.816984Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-347/popen-gw6/test_hook_payload_blocks_main_0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-12T04:36:01.639044Z",
+      "findings": [
+        {
+          "message": "AI-authored edits must happen in a dedicated worktree, not the main working tree (/private/var/folders/mk/xk0dqvn934l5425gwb19rsqc0000gn/T/pytest-of-jiazhenz/pytest-347/popen-gw6/test_hook_payload_extracts_mul0/main). Create one with `git worktree add ../<name> <branch>` and run your edits there.",
+          "rule_id": "worktree.main-checkout-write"
+        }
+      ],
+      "guard": "worktree_write_guard",
+      "status": "fail"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2354,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "ADR-054 Phase D: MiniApp panel-Python workspace (T-001..T-014 of adr-054-miniapp.md). Skill/user-guide/tutorial-copy docs deferred to the final combined doc pass (Phase C). Implement subsystem + frontend + MCP + tests + packaging. Stacked on Phase B.",
+  "persona": "manager",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2354-feat-2354-miniapp-phase-d",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.074670Z",
+      "pattern": "src/scistudio/_skills/**",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075012Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075021Z",
+      "pattern": "src/scistudio/tutorials/**",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075024Z",
+      "pattern": "src/scistudio/api/routes/**",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075029Z",
+      "pattern": "docs/planning/adr-054-phase-d-checklist.md",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075031Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-12T03:10:16.075333Z",
+      "pattern": "docs/specs/adr-054-miniapp.md",
+      "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.246955Z",
+      "pattern": "src/scistudio/engine/runners/process_handle.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247089Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247091Z",
+      "pattern": "src/scistudio/api/routes/user_library.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247092Z",
+      "pattern": "src/scistudio/ai/agent/mcp/**",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247093Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247094Z",
+      "pattern": "src/scistudio/api/routes/projects.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247095Z",
+      "pattern": "src/scistudio/engine/gui_presence.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247099Z",
+      "pattern": "src/scistudio/ai/agent/system_prompt.py",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-13T16:33:29.247160Z",
+      "pattern": "docs/cli-integration.md",
+      "reason": "Audit F-006: restore inherited integration declarations and include already-integrated presence and catalogue documentation surfaces"
+    }
+  ],
+  "session_id": "73a3e1af-6de5-4f9e-896d-3a5df339e253",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": []
+}

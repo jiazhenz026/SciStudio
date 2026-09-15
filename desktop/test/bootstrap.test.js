@@ -37,6 +37,7 @@ test("the asar carries the loader and a complete baseline shell", () => {
     "runtime-port.js",
     "background-mode.js",
     "installer.js",
+    "gui-capture.js",
     "preload.js",
     "connection-preload.js",
     "splash.html",

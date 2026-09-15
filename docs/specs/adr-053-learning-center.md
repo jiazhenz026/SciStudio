@@ -1531,6 +1531,16 @@ Workflows and Previewers tabs, named the way the product names them to the user
 — a highlight on a panel the reader is not looking at draws a ring around
 nothing, so the two grow together.
 
+*Amended by ADR-054 FR-040.* `previewers` no longer names a left-panel tab. The
+activity bar's Previewers section was replaced by MiniApps, and the previewer
+list moved into the preview column behind its All Previewers control, so the
+route opens that list there — expanding the column first when the reader has it
+collapsed — and `previewer_palette` rings the same list in its new place. The
+vocabulary is untouched on purpose: `route_to: previewers` and
+`highlight: previewer_palette` mean what they always meant, and every published
+tutorial that names them keeps working. What changed is where this spec says
+they land.
+
 **The bottom panel's tabs are one target, not seven** (#2135). Every other
 singleton is a control with a name of its own; the tab strip is seven of the
 same control, and a step pointing at one of them is almost always pointing at

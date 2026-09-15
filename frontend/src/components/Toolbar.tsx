@@ -44,13 +44,19 @@ interface ToolbarProps {
    * "preview" (#2112)   → transient preview tab; treated like "workflow" (the
    *                       frozen snapshot has no file or canvas actions of its
    *                       own, and the underlying workflow is still loaded).
+   * "miniapp" (ADR-054 FR-018)
+   *                     → MiniApp tab; treated like "workflow" for the same
+   *                       reason as "preview". Its own process controls live on
+   *                       the tab's toolbar, inside the pane.
    */
-  activeTabKind?: "workflow" | "file" | "preview";
+  activeTabKind?: "workflow" | "file" | "preview" | "miniapp";
   onNewProject: () => void;
   onOpenProject: () => void;
   onOpenRecent: (project: ProjectResponse) => void;
   onCloseProject: () => void;
   onNewWorkflow: () => void;
+  /** ADR-054 FR-037 — open the MiniApp create dialog. */
+  onNewMiniApp?: () => void;
   /** ADR-036 §3.7 / §3.12 — optional. */
   onNewCustomBlock?: () => void;
   /** ADR-053 FR-032 — optional. "New data type", the type-side twin. */
@@ -97,6 +103,7 @@ export function Toolbar(props: ToolbarProps) {
     onOpenRecent,
     onCloseProject,
     onNewWorkflow,
+    onNewMiniApp,
     onNewCustomBlock,
     onNewDataType,
     onNewNote,
@@ -192,6 +199,7 @@ export function Toolbar(props: ToolbarProps) {
             currentProject={currentProject}
             isFileTab={isFileTab}
             onNewWorkflow={onNewWorkflow}
+            onNewMiniApp={onNewMiniApp}
             onNewCustomBlock={onNewCustomBlock}
             onNewDataType={onNewDataType}
             onNewNote={onNewNote}
@@ -202,7 +210,7 @@ export function Toolbar(props: ToolbarProps) {
             onSaveAs={onSaveAs}
           />
 
-          {!isFileTab && (
+          {!isFileTab && activeTabKind !== "miniapp" && (
             <WorkflowGroups
               currentProject={currentProject}
               workflowId={workflowId}
