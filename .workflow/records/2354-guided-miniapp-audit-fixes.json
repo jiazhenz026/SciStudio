@@ -5,7 +5,9 @@
     {
       "at": "2026-09-13T16:19:40.110699Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:f758b128a156a5cae07d13248d2c2af1e66530353ec499d0b3c1f253cf095526",
       "name": "commit_hygiene",
@@ -21,7 +23,9 @@
     {
       "at": "2026-09-13T16:19:40.491040Z",
       "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
       "name": "format_check",
@@ -39,7 +43,9 @@
     {
       "at": "2026-09-13T16:19:50.285448Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
       "name": "full_audit",
@@ -55,7 +61,9 @@
     {
       "at": "2026-09-13T16:19:50.386576Z",
       "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
       "name": "lint_format",
@@ -73,7 +81,9 @@
     {
       "at": "2026-09-13T16:25:55.873917Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/process.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:6f6657faaec909d25f8ff1928d28c5696d989278ee88435ea901e2369400fa7f",
       "name": "format_check",
@@ -91,7 +101,9 @@
     {
       "at": "2026-09-13T16:26:20.032380Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:a8471aa430d20e35e7656a02f459d6427df00637e003dc8fb805ad85ebca654c",
       "name": "frontend",
@@ -107,7 +119,9 @@
     {
       "at": "2026-09-13T16:26:33.418650Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:668a947769a13f31262026d3e7f6ea2dc16f6db621d35ecf8d7c1099c01c920b",
       "name": "full_audit",
@@ -123,7 +137,9 @@
     {
       "at": "2026-09-13T16:26:34.117154Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:6d60110a3ccc826301c27525f7de9c6dc5e027e6a7a919c7e94c635d4a075acd",
       "name": "import_contracts",
@@ -139,7 +155,9 @@
     {
       "at": "2026-09-13T16:26:34.181268Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/process.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:9fa03415ece28470c5575da56d1d5809a5caeb1bd0d8951da539b7887dd02513",
       "name": "lint_format",
@@ -157,7 +175,9 @@
     {
       "at": "2026-09-13T16:26:42.364746Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/process.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:c13537137fe3e78b25b341893d6abdba543d4901d0dad731486e6307f165f010",
       "name": "type_check",
@@ -173,7 +193,9 @@
     {
       "at": "2026-09-13T16:28:00.223001Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 2,
       "input_fingerprint": "sha256:6802ff738d704c842a4437af5e76b07fcae5db3ba3268153a8ecf04331a08797",
       "name": "frontend",
@@ -189,7 +211,9 @@
     {
       "at": "2026-09-13T16:30:09.630168Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/api tests/api/routes tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:723704c11c0adb5e8e8e055cf2408f4cefccb8118a30204300869ff587393121",
       "name": "python_tests",
@@ -205,7 +229,9 @@
     {
       "at": "2026-09-13T16:30:10.456256Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:37c4b3727507e34c463108b492728bc8edc0b8b735a756473ed90c642a6867d0",
       "name": "type_check",
@@ -221,7 +247,9 @@
     {
       "at": "2026-09-13T16:33:45.848156Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5ad855e2919d3792697a200baee3e6ab96eaba4df6a39d350066b29e9f9264d1",
       "name": "architecture_tests",
@@ -237,7 +265,9 @@
     {
       "at": "2026-09-13T16:33:47.764885Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:489d39ec14807bcd9f5bff70511292e073436714c0a05d182bf5223274e791e5",
       "name": "commit_hygiene",
@@ -253,7 +283,9 @@
     {
       "at": "2026-09-13T16:33:49.829111Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:690ea321229f178fb5f68ad22f53d1501d132ad685456f9de1fda3145c511100",
       "name": "deferral_discipline",
@@ -269,7 +301,9 @@
     {
       "at": "2026-09-13T16:33:49.899343Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b7d7f1ce1ef360f142dacd6b3024277ef37b087d5fb651db4398fb1c6c322230",
       "name": "format_check",
@@ -287,7 +321,9 @@
     {
       "at": "2026-09-13T16:35:25.071122Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b27e0b9b5f22a128b36465608fff4bd5e4da3f44f06e7148801f1a2e4615a7ab",
       "name": "frontend",
@@ -303,7 +339,9 @@
     {
       "at": "2026-09-13T16:35:32.369646Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:74da2951b03bbd01146587773de12d65b13c0910eaed55601c40428a4044243c",
       "name": "full_audit",
@@ -319,7 +357,9 @@
     {
       "at": "2026-09-13T16:35:32.513803Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:48cbbb0e5d9ed3924eda6b3051ee5d0add1f67d1a482e0af9591ab5ed62a65cf",
       "name": "import_contracts",
@@ -335,7 +375,9 @@
     {
       "at": "2026-09-13T16:35:32.565587Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b5f80aeeb5902711d66f68bf9d208be933d7a8bd503ca85f7adbe37eab39b4da",
       "name": "lint_format",
@@ -353,7 +395,9 @@
     {
       "at": "2026-09-13T16:38:15.349331Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:a022a8c40d266c6c7e6791543071136d9be1f8f0a7d762e4eb36be3d0ea34137",
       "name": "python_tests",
@@ -369,7 +413,9 @@
     {
       "at": "2026-09-13T16:38:16.067379Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:55c6243fb74706abc0845bf0c4bd8aeb35c05362764803df6c52398e6b3bb8c1",
       "name": "type_check",
@@ -385,7 +431,9 @@
     {
       "at": "2026-09-13T16:43:08.845252Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:c6d0a5a721313ccef03dbab57caabe79659cf8f37579176916c040cc8984e469",
       "name": "architecture_tests",
@@ -401,7 +449,9 @@
     {
       "at": "2026-09-13T16:43:09.772521Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d4aac23c36af9097d8158154602b82b5c17fab8b46a5af82b5b4808a2c3db10e",
       "name": "commit_hygiene",
@@ -417,7 +467,9 @@
     {
       "at": "2026-09-13T16:43:11.001442Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:dfa9cec30e15b2ef77b5f3a7bd5b8d883a49d6910fff59f7d70c0fe8db1dc790",
       "name": "deferral_discipline",
@@ -433,7 +485,9 @@
     {
       "at": "2026-09-13T16:43:11.049127Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:48d99522d875920bf06cafd776fab323b60c80187f832421e4d8b9bdfba76087",
       "name": "format_check",
@@ -451,7 +505,9 @@
     {
       "at": "2026-09-13T16:43:59.454884Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:ad159b330a4245a89e3685e08706fa24ecf22530bc0fdd8e9fc6d4f2596a3f79",
       "name": "frontend",
@@ -467,7 +523,9 @@
     {
       "at": "2026-09-13T16:44:05.932084Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3a8f6fb2642a8aa3857220c8b57fac6a70065871a3b277cf3a1ccfcb7171756e",
       "name": "full_audit",
@@ -483,7 +541,9 @@
     {
       "at": "2026-09-13T16:44:06.113135Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2b88f9377e22d26b07a501c468db5f66f460932bb8c3914f62dcd0f57a0cd428",
       "name": "import_contracts",
@@ -499,7 +559,9 @@
     {
       "at": "2026-09-13T16:44:06.159848Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:9bc85d8d579349a49c97a8134eb999ed7bfbeec2fd32b9905cef4b1abb660644",
       "name": "lint_format",
@@ -517,7 +579,9 @@
     {
       "at": "2026-09-13T16:46:38.648258Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:f3cbce290223bb02d4d9a07a0abda569c026c0285e09e3bbd276a1f9c6cc0962",
       "name": "python_tests",
@@ -533,7 +597,9 @@
     {
       "at": "2026-09-13T16:46:39.123104Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:ac6ca5454aa5edd8c7f07a3f8b6475abb88ee2c1adf53bba6ca7d6e01fd9e3d4",
       "name": "type_check",
@@ -549,7 +615,9 @@
     {
       "at": "2026-09-13T16:48:32.890870Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3690afbb08add9827ca40ccee1555d217cee920e221e1fc9b32f7239705af273",
       "name": "architecture_tests",
@@ -565,7 +633,9 @@
     {
       "at": "2026-09-13T16:48:33.756594Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:884f174f0e480f1b4ac3f1b9c82d62a535b9be128ba15e33a66ce645d8632254",
       "name": "commit_hygiene",
@@ -581,7 +651,9 @@
     {
       "at": "2026-09-13T16:48:35.049935Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:101aa1ade2f5e281c18af0f76b8a314c4f64a15b9a40429125df8407fb818b84",
       "name": "deferral_discipline",
@@ -597,7 +669,9 @@
     {
       "at": "2026-09-13T16:48:35.059553Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e0b03867187eb7bde8b96f39e2a5f859d6c9bf785b6f9b2f277051e3b50ccff3",
       "name": "format_check",
@@ -615,7 +689,9 @@
     {
       "at": "2026-09-13T16:48:41.666112Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:73ba506088687a29f9843a75a8e2e4268f03c64d2cf858b64cb90d1c416f64e1",
       "name": "full_audit",
@@ -631,7 +707,9 @@
     {
       "at": "2026-09-13T16:48:41.777926Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3c938521e832c24040b2a4379a04d709098410980c1fc8b595f7d8d4470db14f",
       "name": "import_contracts",
@@ -647,7 +725,9 @@
     {
       "at": "2026-09-13T16:48:41.788759Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e795cae0f262b6f10e5c4117b9318874fef2ac134bf669c66a8d9f618a114379",
       "name": "lint_format",
@@ -665,7 +745,9 @@
     {
       "at": "2026-09-13T17:03:24.303599Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:4cac6c8e295ac3e72fb5ca89ef36726075b727a19f281c1093fd9ee65bf05b29",
       "name": "python_tests",
@@ -681,7 +763,9 @@
     {
       "at": "2026-09-13T17:03:24.775961Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:bb46159ffc56b78af69cda7e1630b5849294b820829a65f677d3c7d00e8f5e2f",
       "name": "type_check",
@@ -697,7 +781,9 @@
     {
       "at": "2026-09-15T01:34:54.650365Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:616bf818315a73aa911772c6750061625b9701f374e56b379798c783b3763b2d",
       "name": "commit_hygiene",
@@ -713,7 +799,9 @@
     {
       "at": "2026-09-15T01:35:01.429302Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5198cf68488462efa7bdbbb16901e6faf92aaa8713d24faf5bc595c294d40c1f",
       "name": "full_audit",
@@ -729,7 +817,9 @@
     {
       "at": "2026-09-15T01:37:53.449963Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:4cac6c8e295ac3e72fb5ca89ef36726075b727a19f281c1093fd9ee65bf05b29",
       "name": "python_tests",
@@ -745,7 +835,9 @@
     {
       "at": "2026-09-15T01:40:55.574532Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b8641306687d29d678e7973588b499d72a7ecece819d0d0349515137b34b7413",
       "name": "architecture_tests",
@@ -761,7 +853,9 @@
     {
       "at": "2026-09-15T01:40:56.467179Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:bbf6fe587ff43c569d13a2e067960754d1d8626afdcb82c6232af313710d57b1",
       "name": "commit_hygiene",
@@ -777,7 +871,9 @@
     {
       "at": "2026-09-15T01:40:57.886435Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:465838e998b1a02b7e306f5308ca755b74ef8fc9b8f42de5e09814ef6732d922",
       "name": "deferral_discipline",
@@ -793,7 +889,9 @@
     {
       "at": "2026-09-15T01:40:57.895469Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e129f6aa3c99372404c4aaecab28035b0ca2ba150906a64419e297f2c7dfbe78",
       "name": "format_check",
@@ -811,7 +909,9 @@
     {
       "at": "2026-09-15T01:41:44.059440Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:50bb1b814685d0cec4616b69b48bb6ed8855716f5802962351cd2df44ec7b6e2",
       "name": "frontend",
@@ -827,7 +927,9 @@
     {
       "at": "2026-09-15T01:41:51.177753Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2b2768c6ccab6999ce3152cf110a9c03ad370bf61d06147a3bf116b36a18a603",
       "name": "full_audit",
@@ -843,7 +945,9 @@
     {
       "at": "2026-09-15T01:41:51.343919Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d0ba4dec24ace0f565933d0d7e3dca9ed2629c7ec2486dea644dfe4ef359a1b1",
       "name": "import_contracts",
@@ -859,7 +963,9 @@
     {
       "at": "2026-09-15T01:41:51.378792Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d26977a5bd2573caa65ecb18fddce1be6212b27fd062654d6e0c31856d753e63",
       "name": "lint_format",
@@ -877,7 +983,9 @@
     {
       "at": "2026-09-15T01:44:13.518180Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2354e80db8712671e76ad82ffb85d79564fa080b2e30b6a8702869514ed756f8",
       "name": "python_tests",
@@ -893,7 +1001,9 @@
     {
       "at": "2026-09-15T01:44:14.271811Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2fe5449a17e2c78adbf8428ac524e32ab167421fa1ffc4482c40f5f064c8a924",
       "name": "type_check",
@@ -909,7 +1019,9 @@
     {
       "at": "2026-09-15T01:45:37.457532Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:aa32e105c3ce5fb5c51f090b7905892b598a72945eb1bb6ee2e5135e3eb9a4af",
       "name": "architecture_tests",
@@ -925,7 +1037,9 @@
     {
       "at": "2026-09-15T01:45:38.312099Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:1b299b003561846d96b95dd68c10ee2c806b20bd2d5be731f23385866efa311f",
       "name": "commit_hygiene",
@@ -941,7 +1055,9 @@
     {
       "at": "2026-09-15T01:46:21.858418Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2121321db5f3f706a88a1c1d67df8e6fa75776f73b89f911bd32f0c537304ee1",
       "name": "frontend",
@@ -957,7 +1073,9 @@
     {
       "at": "2026-09-15T01:46:28.007022Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:02b2e3724db59da48af99af8e336dc17d03b25bc43222b9f32b37ccbdcc0498a",
       "name": "full_audit",
@@ -973,7 +1091,9 @@
     {
       "at": "2026-09-15T01:54:24.246817Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5827bdeaaca4bf2c0f852bc5043aedab206e21ba843fbd6417955dbb1f5541b5",
       "name": "architecture_tests",
@@ -989,7 +1109,9 @@
     {
       "at": "2026-09-15T01:54:25.543738Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:32bbd4547282d1dfb75acdc3268f580938c4a0faf8a22ef0dd610e6acc5faa95",
       "name": "commit_hygiene",
@@ -1005,7 +1127,9 @@
     {
       "at": "2026-09-15T01:54:26.715354Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:070270696e29351951ab844f88e356808aadeeb764ca4eb74c4137487f413c21",
       "name": "deferral_discipline",
@@ -1021,7 +1145,9 @@
     {
       "at": "2026-09-15T01:54:26.758946Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3c464847388cab97eff544c403f4669dc569a8b70a3c4fda4884d1a0e0e62be9",
       "name": "format_check",
@@ -1039,7 +1165,9 @@
     {
       "at": "2026-09-15T01:54:32.994253Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:ad074f903f94cf805079d5cfe5396e6947b67e0fc31447e1e895c5f42513d5c4",
       "name": "frontend",
@@ -1055,7 +1183,9 @@
     {
       "at": "2026-09-15T01:54:39.637775Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:f64dd1d34ccf9e033f7ff4f00adbd273c6e572c090374932393d73f368e5744a",
       "name": "full_audit",
@@ -1071,7 +1201,9 @@
     {
       "at": "2026-09-15T01:54:39.823279Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e076a005d37b93ee62995cb46fbc84915d0bfe085c4c3d04971895b5624f105d",
       "name": "import_contracts",
@@ -1087,7 +1219,9 @@
     {
       "at": "2026-09-15T01:54:39.844248Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2246078d5d12f435a6749b2fff8767b253e36da45922737bd41d232817f96db4",
       "name": "lint_format",
@@ -1105,7 +1239,9 @@
     {
       "at": "2026-09-15T01:57:23.569064Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:86d870f4e5e33a488c6f6075631a188c023920f9ced113b225cacf73cbff472d",
       "name": "python_tests",
@@ -1121,7 +1257,9 @@
     {
       "at": "2026-09-15T01:57:24.200284Z",
       "command": "mypy src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:feb29109057ea597e0d0fc25f79ba9fe4d86f1c3549ff1495e214f60cf918623",
       "name": "type_check",
@@ -1137,7 +1275,9 @@
     {
       "at": "2026-09-15T01:58:36.140645Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:8843f8b96876df07e0be644d6c6827e6216fd02224e51496e15f60110b60084b",
       "name": "architecture_tests",
@@ -1153,7 +1293,9 @@
     {
       "at": "2026-09-15T01:58:37.054672Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:fbe13938a37a237751eb39140ef4e339d5ce179638774db99503acf7e6f65832",
       "name": "commit_hygiene",
@@ -1169,7 +1311,9 @@
     {
       "at": "2026-09-15T01:59:15.553304Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:70b33ae938a313bde7477d791ad8ba10e3cdb365382f70596390355875c60e5f",
       "name": "frontend",
@@ -1185,7 +1329,9 @@
     {
       "at": "2026-09-15T01:59:23.167131Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5a5b76d79fbf4aa6478451bc7109bf3316b228b92227b955bfe98cb8c0bf162c",
       "name": "full_audit",
@@ -1201,7 +1347,9 @@
     {
       "at": "2026-09-15T02:00:06.760171Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:7d426e47faffc8ff6f23ac3bc38c32d13cc4399203d9de38d03e04a8c7ed22d3",
       "name": "commit_hygiene",
@@ -1217,7 +1365,9 @@
     {
       "at": "2026-09-15T02:01:00.097961Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:ffdab83b35f6329047e280e7cc22b223aaf24887c8e836054f8a873367e7faaf",
       "name": "frontend",
@@ -1233,7 +1383,9 @@
     {
       "at": "2026-09-15T02:01:59.106783Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:232f02f62bcad83dec1263d46f559accd2e2f1ffd034b0383be76731b9ebcdcf",
       "name": "architecture_tests",
@@ -1249,7 +1401,9 @@
     {
       "at": "2026-09-15T02:02:00.056429Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2c67dcd438d86fe56fe600d97fac11d38053979a5246d0945cce833f76aad51e",
       "name": "commit_hygiene",
@@ -1265,7 +1419,9 @@
     {
       "at": "2026-09-15T02:02:52.737198Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:a1a33e52900264f4e555c8cb4945f572820c93c164eea439abd9fc600bfb91e0",
       "name": "frontend",
@@ -1281,7 +1437,9 @@
     {
       "at": "2026-09-15T02:02:59.367867Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:83b760f9107b36adf3ac9b6ae7c301d95706b85a36d57cfa0896217fa24534ef",
       "name": "full_audit",
@@ -1297,7 +1455,9 @@
     {
       "at": "2026-09-15T02:12:27.432415Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b8eb82eb624c24d03490c7d7a9968d6df9dc0cdeafc18c5cb4593c15651c22cc",
       "name": "architecture_tests",
@@ -1313,7 +1473,9 @@
     {
       "at": "2026-09-15T02:12:28.439569Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:f53ce157496a787daf42a15760c9e83f2e8c0b0c5d28e0eca1d8da26abcc38b6",
       "name": "commit_hygiene",
@@ -1329,7 +1491,9 @@
     {
       "at": "2026-09-15T02:13:17.574294Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:c38bf0f66733e4bdf0f0f19b6018fd80a8fb2f9ac08cd63132b849e561480c32",
       "name": "frontend",
@@ -1345,7 +1509,9 @@
     {
       "at": "2026-09-15T02:13:23.982226Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:b29a3a58fd56cf4e324ef2fab2a3879b1353726bd4710f32a7de31d528310f24",
       "name": "full_audit",
@@ -1361,7 +1527,9 @@
     {
       "at": "2026-09-15T02:15:10.512378Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:352beb74758a60e7c1b914dbd5550e9ad19da2678316aef85771e773c124c543",
       "name": "architecture_tests",
@@ -1377,7 +1545,9 @@
     {
       "at": "2026-09-15T02:15:11.562560Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3d8a7d3ffd2f1e98e30e5edc801c7c2b2c22f11c142d999a4b3c32bddfe1bb99",
       "name": "commit_hygiene",
@@ -1393,7 +1563,9 @@
     {
       "at": "2026-09-15T02:16:02.237006Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2cd712028b8d850b5878001692f10b596f37c6abc90aa40bb6ea68ab80a5cae9",
       "name": "frontend",
@@ -1409,7 +1581,9 @@
     {
       "at": "2026-09-15T02:16:08.758173Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3ea527f0c6fc61961f1010753a85371d44d05ae81a780cdb56322fafc75edafe",
       "name": "full_audit",
@@ -1425,7 +1599,9 @@
     {
       "at": "2026-09-15T02:48:26.638499Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:f582e560e8e49a8a104e93c4be3de51871f6cb95a2c1d5a9a167d56c93a71e55",
       "name": "architecture_tests",
@@ -1441,7 +1617,9 @@
     {
       "at": "2026-09-15T02:48:27.573626Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:79782f2a6808e55f7b916dd3954f5a9816757990f17b177ff9b47db95a397bae",
       "name": "commit_hygiene",
@@ -1457,7 +1635,9 @@
     {
       "at": "2026-09-15T02:48:27.615419Z",
       "command": "ruff format src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:bef9a847e67a282ed93ed0cbda1cf30646736247c0d88fd542d396c75a3b5f69",
       "name": "format_check",
@@ -1475,7 +1655,9 @@
     {
       "at": "2026-09-15T02:48:38.094487Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:046349acbb729351347ff3827958375ec1563527e4680a2c5355554e3d5ecc46",
       "name": "frontend",
@@ -1491,7 +1673,9 @@
     {
       "at": "2026-09-15T02:48:44.627699Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:1da82adc70168980268d176c56beb75bf8dba16c20a4a1551d80c77f489c4cca",
       "name": "full_audit",
@@ -1507,7 +1691,9 @@
     {
       "at": "2026-09-15T02:48:44.637574Z",
       "command": "ruff check src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/watcher.py tests/ai/test_system_prompt.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/integration/test_race_external_editor.py tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:a91063bb2ad3ae0afee6189bf9c7e49639a754b6b50292bbd68e37000956079d",
       "name": "lint_format",
@@ -1525,7 +1711,9 @@
     {
       "at": "2026-09-15T02:51:24.265263Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/ai/agent tests/ai/agent/mcp tests/ai/test_system_prompt.py tests/api tests/api/routes tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/engine tests/integration/test_race_external_editor.py tests/panels tests/panels/test_miniapp_context.py tests/panels/test_panel_process.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:9ead03f05e6c165e5f02af95605951c8ca0103024d3b9045cf57f75bcd85947a",
       "name": "python_tests",
@@ -1541,7 +1729,9 @@
     {
       "at": "2026-09-15T02:52:37.675472Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:3ee8ad839c128efbdd07ca978c3c4ad6fb8e98bf5e55f4c2516a4cd2df16f064",
       "name": "frontend",
@@ -1557,7 +1747,9 @@
     {
       "at": "2026-09-15T02:56:46.494836Z",
       "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:bee0017f30f552d2df2de1173f9ac14b9aee5192ca5e5c1de574bb119512b275",
       "name": "format_check",
@@ -1575,7 +1767,9 @@
     {
       "at": "2026-09-15T02:56:53.902017Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d2016153ffe72f6d9588cf72b647d8f545261ca64eb63f312f104e3c66e7d074",
       "name": "full_audit",
@@ -1591,7 +1785,9 @@
     {
       "at": "2026-09-15T02:56:53.924645Z",
       "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e31351abfc33f0b3c0f28bc9f2f3d59ae3bc5d4925dc1159a7f931aa932441ed",
       "name": "lint_format",
@@ -1609,7 +1805,9 @@
     {
       "at": "2026-09-15T03:04:09.243378Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:026b2c5630a070fe57302b691dcf8b37d11ccffc2fe356b3ef66bb1b1e4d4778",
       "name": "commit_hygiene",
@@ -1625,7 +1823,9 @@
     {
       "at": "2026-09-15T03:06:00.089110Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 2,
       "input_fingerprint": "sha256:a9b3edc4b4ac170bdb0d45a1e3f8612a908ffa17e97ce30aa89fb40bcc2938f0",
       "name": "frontend",
@@ -1641,7 +1841,9 @@
     {
       "at": "2026-09-15T03:06:28.574369Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:8db3cb4b1b79f89ee3340719de5f577f8ff78bf793c6d12830ec304d83ff3a36",
       "name": "full_audit",
@@ -1657,7 +1859,9 @@
     {
       "at": "2026-09-15T03:06:53.638167Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5a511c99152bc25749e0654d87ca752fa1d5e8d3fefc7a343cae661eed45220d",
       "name": "commit_hygiene",
@@ -1673,7 +1877,9 @@
     {
       "at": "2026-09-15T03:08:19.672112Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:ad068694cbb89361b8fd5686a09764d1c3119524578b2e6b27a49a1655830510",
       "name": "frontend",
@@ -1689,7 +1895,9 @@
     {
       "at": "2026-09-15T03:52:11.086668Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:e3ab5dbe6c2b3f88811f1f9624ea03a141c34e39bb12acd0a089bafd69e1c604",
       "name": "commit_hygiene",
@@ -1705,7 +1913,9 @@
     {
       "at": "2026-09-15T03:52:11.388835Z",
       "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:29b18177ed1e8fa714ffa4e39cc2f5328b0cf10e4af92b1ef1753c04c9828920",
       "name": "format_check",
@@ -1723,7 +1933,9 @@
     {
       "at": "2026-09-15T03:52:57.630407Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:0426e3fdbcf65ed2bf84c4240416359cc51993baac62b704f078e32126ddaeeb",
       "name": "full_audit",
@@ -1739,7 +1951,9 @@
     {
       "at": "2026-09-15T03:52:57.747321Z",
       "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5ad7d5273eed5fab2b97e794b35046dd6ae9e0221dbe2c27240b93c98f1f279e",
       "name": "lint_format",
@@ -1757,7 +1971,9 @@
     {
       "at": "2026-09-15T03:59:12.153480Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:9aa51e50af4a7b17e211fc52677dc6d82d43377ee2008079e881b723fcbd87b1",
       "name": "architecture_tests",
@@ -1773,7 +1989,9 @@
     {
       "at": "2026-09-15T03:59:19.782690Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:12345947e4c85394f60534943f4303ea26443cbc116b0b83284dfdee4dfeccca",
       "name": "commit_hygiene",
@@ -1789,7 +2007,9 @@
     {
       "at": "2026-09-15T03:59:29.228848Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:72bf3ea0585b90667b3ce9b9d3533181445dec4e6ee99717388a5bf9546ca136",
       "name": "deferral_discipline",
@@ -1805,7 +2025,9 @@
     {
       "at": "2026-09-15T03:59:29.444573Z",
       "command": "ruff format scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d72d997c3913fcd0f65acb1ea73b6c6aa732d6ba307e0267b3f8f12f90750795",
       "name": "format_check",
@@ -1823,7 +2045,9 @@
     {
       "at": "2026-09-15T04:07:20.693902Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 1,
       "input_fingerprint": "sha256:737c81759c264d576ea757c78c6aff4deaa998893681d9f8cc046185e15c9943",
       "name": "frontend",
@@ -1839,7 +2063,9 @@
     {
       "at": "2026-09-15T04:07:35.691043Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:4a834b3e1a9b6ab5aa0ad512396a59f260995287c70edb66f1ed925ee6e9264d",
       "name": "full_audit",
@@ -1855,7 +2081,9 @@
     {
       "at": "2026-09-15T04:07:35.919328Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:6ac3641eed9f13c08f4e21c7270fe2dde662dd71bb59596d1977ab33ab34686f",
       "name": "import_contracts",
@@ -1871,7 +2099,9 @@
     {
       "at": "2026-09-15T04:07:35.994269Z",
       "command": "ruff check scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:d2c6914dd5cec0c1bdb0c9afd4958ebff4510f8e621e19f9c2910d16a73441b3",
       "name": "lint_format",
@@ -1889,7 +2119,9 @@
     {
       "at": "2026-09-15T04:17:36.119861Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": null,
       "input_fingerprint": "sha256:7a88961e7b7f30c660758d14571ce0f30de5b7f55878ce03e6736cf1c93040e3",
       "name": "python_tests",
@@ -1905,7 +2137,9 @@
     {
       "at": "2026-09-15T04:17:46.217331Z",
       "command": "mypy src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:8cc6866a04b31c8d46130f6908476f4510f9f69cd89b2450d8819ff4c69b80b1",
       "name": "type_check",
@@ -1921,7 +2155,9 @@
     {
       "at": "2026-09-15T04:25:05.623359Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:737c81759c264d576ea757c78c6aff4deaa998893681d9f8cc046185e15c9943",
       "name": "frontend",
@@ -1937,7 +2173,9 @@
     {
       "at": "2026-09-15T04:36:04.748237Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": null,
       "input_fingerprint": "sha256:7a88961e7b7f30c660758d14571ce0f30de5b7f55878ce03e6736cf1c93040e3",
       "name": "python_tests",
@@ -1953,7 +2191,9 @@
     {
       "at": "2026-09-15T04:42:01.242612Z",
       "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "architecture",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:cd17b20975884d542f0eb607457e42070c14c4e47bf5cebbdf27e6f4d6ff47ee",
       "name": "architecture_tests",
@@ -1969,7 +2209,9 @@
     {
       "at": "2026-09-15T04:42:02.451672Z",
       "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "hygiene",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:41af2541a962211a47abf7eea9072d52a2b414856541acc4edaabc7ecc1827e2",
       "name": "commit_hygiene",
@@ -1985,7 +2227,9 @@
     {
       "at": "2026-09-15T04:42:03.752718Z",
       "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_deferrals",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:4ff2555a81f190e3b543601d2ee583d32d3149e9d2d37d0c07c49df01c038b46",
       "name": "deferral_discipline",
@@ -2001,7 +2245,9 @@
     {
       "at": "2026-09-15T04:42:03.812239Z",
       "command": "ruff format scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_run_lifetime.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:1c06c3d80b8e2f75058be4a0fbb03ca7777aff510670d9db1fbcce1f821eafc6",
       "name": "format_check",
@@ -2019,7 +2265,9 @@
     {
       "at": "2026-09-15T04:43:43.770383Z",
       "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "frontend",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:2fa27b26a9563ac3d6bcc099c1db5da09c9a0a18eb61565c97b50eb602623a69",
       "name": "frontend",
@@ -2035,7 +2283,9 @@
     {
       "at": "2026-09-15T04:43:50.891950Z",
       "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "governance",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:cd268920c2497b68d377d6e37a18a6e716768e6736df51c313a5e859abcf6c97",
       "name": "full_audit",
@@ -2051,7 +2301,9 @@
     {
       "at": "2026-09-15T04:43:51.045192Z",
       "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_imports",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:5855c2a3f6965b65881ef31b8c5b6f0f9fa4ff83e484cf6e62f60a451ac59e9e",
       "name": "import_contracts",
@@ -2067,7 +2319,9 @@
     {
       "at": "2026-09-15T04:43:51.097571Z",
       "command": "ruff check scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_runtime_backend_streams.py tests/api/test_runtime_run_lifetime.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_lint",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:7b336729ad7e94c68b33bb574332cea43d4c990ad840c3455e50a4feff0b6388",
       "name": "lint_format",
@@ -2085,7 +2339,9 @@
     {
       "at": "2026-09-15T04:44:32.761951Z",
       "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_tests",
+      "deferred_reason": null,
       "exit_code": -15,
       "input_fingerprint": "sha256:765bd5aa8fc29dcc1833f8ac7637b48f1ef2f57f0c746975ba89dcb4d46792f4",
       "name": "python_tests",
@@ -2101,7 +2357,9 @@
     {
       "at": "2026-09-15T04:44:33.825698Z",
       "command": "mypy src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
       "covered_surface": "python_types",
+      "deferred_reason": null,
       "exit_code": 0,
       "input_fingerprint": "sha256:892f8b8dedce5f5000b3831bcb96c7fa359cb6d5bc987e5169644586d4a4d88b",
       "name": "type_check",
@@ -6642,6 +6900,12 @@
       "at": "2026-09-15T05:51:49.302306Z",
       "pattern": "tests/contracts/openapi.json",
       "reason": "Record integrated upstream Auto compatibility, generated OpenAPI snapshot, and focused validation in the Phase D checklist."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:58:27.857788Z",
+      "pattern": "frontend/src/components/__tests__/BringInMyWorkDialogPermissionMode.test.tsx",
+      "reason": "Investigated latest frontend CI failure: upstream Auto permission test asserts before provider selection settles; previous #2381 flaky-test files all passed. Tighten only asynchronous test readiness."
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -6973,6 +7237,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_miniapp_create.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:58:27.858297Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialogPermissionMode.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

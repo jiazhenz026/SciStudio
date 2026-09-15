@@ -306,3 +306,14 @@ Before the final push, upstream advanced to `72c039dd` (#2393, bounded local
 Python gate execution). That update merged without conflicts or edits to its
 implementation; no additional test execution was needed for the unchanged
 upstream code.
+
+### Frontend CI readiness fix (2026-09-15)
+
+On `8624f128`, frontend CI passed 2742 tests and failed only the upstream
+Bring In My Work Auto-permission test. The #2381 OpenAsDialog, Array panel, and
+tutorial-report regression files all passed. The Auto test waited for the probe
+indicator to disappear, but provider auto-selection runs in a separate effect.
+The three permission cases now wait for the expected provider selection before
+checking or clicking permissions, including the unsupported-provider case.
+All three focused tests, changed-file ESLint and Prettier checks passed. No
+product behavior or test timeouts changed, and no full suite was run locally.
