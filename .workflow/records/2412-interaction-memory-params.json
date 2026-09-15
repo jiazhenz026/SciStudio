@@ -611,9 +611,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "19894458b20867f76ef14622c02709e7b4add36e",
+    "sha": "774409e5abe2834334d10931f836158c3c0c1595",
     "shas": [
-      "19894458b20867f76ef14622c02709e7b4add36e"
+      "774409e5abe2834334d10931f836158c3c0c1595"
     ],
     "trailers": []
   },
@@ -2157,6 +2157,116 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.460904Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.489325Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/base/interactive.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/base/interactive.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.502603Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.521306Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.542032Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.564361Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.598911Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.613908Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.629747Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.646331Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T16:28:35.681319Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2169,8 +2279,8 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "561259fd",
+    "base": "9e75224d27b0a2e91f13a7319be60a9b8c475335",
+    "base_sha": "9e75224d",
     "changed_files": [
       ".workflow/records/2412-interaction-memory-params.json",
       "frontend/src/App.parts/InteractiveModals.memory.test.tsx",
@@ -2186,9 +2296,9 @@
       "tests/ai/test_mcp_tools_inspection.py",
       "tests/blocks/test_interactive_mixin.py"
     ],
-    "diff_fingerprint": "sha256:464ccfa6d08005da72b8c9ff2214328290d9ffa534824a9df3188770dbbe25dc",
+    "diff_fingerprint": "sha256:e71a422c7c49c2068dce5cc286649be1311d433a0d949db49f529bbdb8830351",
     "head": "HEAD",
-    "head_sha": "19894458",
+    "head_sha": "774409e5",
     "surfaces": {
       "docs": 0,
       "frontend": 8,
@@ -2333,6 +2443,14 @@
     {
       "at": "2026-09-15T16:27:41.406073Z",
       "diff_fingerprint": "sha256:464ccfa6d08005da72b8c9ff2214328290d9ffa534824a9df3188770dbbe25dc",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T16:28:35.681419Z",
+      "diff_fingerprint": "sha256:e71a422c7c49c2068dce5cc286649be1311d433a0d949db49f529bbdb8830351",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
