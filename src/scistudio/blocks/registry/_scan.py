@@ -84,15 +84,49 @@ def _evict_cached_package_modules(module_name: str) -> None:
     process already holds (running block instances) keep their old class
     object; only new imports see the new code.
 
-    ``*.types`` modules stay cached: they carry :class:`DataObject` classes
-    whose identity must remain stable across block-package refreshes.
+    Type modules stay cached: a ``types`` module *and everything below it*
+    (``plugin.types``, ``plugin.types.image``) carries :class:`DataObject`
+    classes whose identity must remain stable across block-package refreshes.
+
+    Evicting ``sys.modules`` alone is not enough: CPython accepts a cached
+    ``.pyc`` whose recorded source mtime (whole seconds) and size match, so a
+    plugin edited within one second of its last load to the same length would
+    re-import the previous bytecode. The evicted modules' cached bytecode is
+    therefore dropped as well, through the same
+    :func:`~scistudio.core.dropins.evict_cached_bytecode` the drop-in scans use
+    (ADR-053 personal-tool-library spec FR-062 / FR-062a).
     """
+    root = sys.modules.get(module_name)
     stale = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
     for name in stale:
-        if name.endswith(".types"):
+        if _is_type_module(name):
             continue
-        sys.modules.pop(name, None)
+        module = sys.modules.pop(name, None)
+        module_file = getattr(module, "__file__", None)
+        if isinstance(module_file, str) and module_file.endswith(".py"):
+            evict_cached_bytecode(Path(module_file))
+    # Also cover submodules this process has not imported yet: another
+    # process (a worker, an earlier session) may have written their .pyc.
+    for package_dir in getattr(root, "__path__", None) or ():
+        _evict_package_dir_bytecode(Path(package_dir))
     importlib.invalidate_caches()
+
+
+def _is_type_module(name: str) -> bool:
+    """Return whether *name* is a ``types`` module or lives below one.
+
+    The top-level segment is the plugin's own package name and never counts.
+    """
+    return "types" in name.split(".")[1:]
+
+
+def _evict_package_dir_bytecode(package_dir: Path) -> None:
+    """Drop cached bytecode for every non-type source file under *package_dir*."""
+    with suppress(OSError):
+        for py_file in package_dir.rglob("*.py"):
+            if "types" in py_file.relative_to(package_dir).with_suffix("").parts:
+                continue
+            evict_cached_bytecode(py_file)
 
 
 def _evict_entry_point_package(ep: Any) -> None:

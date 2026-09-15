@@ -37,7 +37,7 @@ scope:
     - The palette tips strip (#1997), which moves to the Learning Center spec because it teaches features unrelated to the library.
     - Learning Center entries, the tutorial registry, progress, and first-run landing (the Learning Center system spec).
     - Codebase import, agent transcription, and differential tests (the import spec).
-    - Any change to block discovery tier semantics themselves, the registry data model, or type serialization.
+    - Any change to block discovery tier semantics themselves, the registry data model, or type serialization. **Amended:** #1791 extended the reload events of FR-062 to installed and packaged plugins; FR-062a records that contract. Tier discovery order and the registry data model are unchanged.
     - Sandboxing drop-in execution (deferred by #1531 and unchanged here).
 governs:
   modules:
@@ -72,6 +72,8 @@ tests:
   - tests/blocks/test_dropin_type_import.py
   - tests/api/test_registry_provisioning_parity.py
   - tests/api/test_registry_reload_symmetry.py
+  - tests/blocks/test_desktop_package_discovery.py
+  - tests/blocks/test_registry.py
   - frontend/src/components/BlockPalette.parts/__tests__/paletteModel.test.ts
   - frontend/src/components/__tests__/TypePalette.test.tsx
 acceptance_source: adr
@@ -1029,6 +1031,34 @@ while both surfaces still rebuild the same world. The broadcast stays
 "`refresh_all_registries()` ran, re-read both catalogues" and a second event for
 one fact is the drift this spec exists to remove.
 
+**FR-062a.** The three `BlockRegistry.hot_reload()` events of FR-062 MUST
+reach installed and packaged plugins as well as drop-in files (#1791). A reload
+that re-scans only the drop-in directories leaves an edited entry-point plugin
+(Tier 2) or packaged source directory (Tier 3) running its first import until
+the process restarts, which is the failure FR-062 exists to remove. A reload
+therefore MUST:
+
+- drop every Tier 2 and Tier 3 block spec, with its aliases, before the
+  re-scan, so the re-scan registers the classes now on disk and does not skip
+  them as already registered;
+- evict each plugin's modules from `sys.modules` before importing it again, and
+  evict their cached bytecode too, for the one-second, same-size reason FR-062
+  gives for drop-ins;
+- leave a plugin's `types` module and every module below it (`plugin.types`,
+  `plugin.types.image`) cached, because the `DataObject` classes they define
+  are held by live objects and other registries and MUST keep their identity
+  across a block refresh;
+- never evict core's own `scistudio` modules, since the plugin entry-point
+  group is reserved for third-party packages and the process holds core
+  objects throughout;
+- remove from the registry, and from `packages()`, a plugin that no longer
+  resolves (uninstalled, deleted, or failing to import), so the catalogue
+  users see matches what is installed.
+
+Built-in blocks are not re-scanned. Objects the process already holds, such
+as running block instances, keep the class they were created from; only new
+imports see the edited code.
+
 **FR-063.** Package install and uninstall MUST refresh the type registry. A
 package can ship types; today installing one leaves them undiscovered until the
 next project switch. This is a pre-existing defect, fixed here because the Data
@@ -1086,6 +1116,8 @@ promoted through the agent MUST become visible in the palette without a restart.
 | Tier condition | User-tier blocks and types are discovered with no project open, at all four sites; project-tier discovery still requires one (FR-060) |
 | Reload events | Each of the palette Reload button, a `{project}/types/*.py` save, and the MCP `reload_blocks` tool makes a newly written type resolvable (FR-062) |
 | Reload runs current source | A drop-in edited within one second to the same size registers its new definition after a rescan, not the cached one, in both the type registry and the block registry (FR-062) |
+| Plugin reload | `hot_reload()` registers an edited Tier 2 or Tier 3 plugin, including a same-size edit within one second, and drops one that was removed, with no restart (FR-062a) |
+| Plugin type identity | A plugin's `types` package and its submodules keep their class identity across `hot_reload()` (FR-062a) |
 | Type catalogue invalidation | The frontend type listing is re-read on a registry-reload event and after a user-library write, without a manual reload (FR-010, FR-027, FR-062) |
 | Package reload | Installing a package that ships types makes them discoverable without a project switch (FR-063) |
 | Branch switch reload | Switching to a branch with different `{project}/types/` refreshes the type registry (FR-064) |

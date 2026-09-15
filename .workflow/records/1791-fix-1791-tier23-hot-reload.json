@@ -240,6 +240,11 @@
       "at": "2026-08-26T00:53:00.549787Z",
       "owner_directive": "Plan: (1) hot_reload() drops Tier 2/3 specs (source entry_point/package_src) + aliases + orphan package infos, then re-runs _scan_tier2/_scan_package_src_dirs in addition to _scan_tier1; (2) _scan_tier2 evicts the entry point's top-level package modules from sys.modules (mirroring Tier 3's existing eviction, keeping *.types modules) so edited installed plugins re-import; (3) regression tests for Tier 3 edit/removal and Tier 2 eviction via hot_reload. MCP reload_blocks and standalone sync_dropins call hot_reload, so both paths are fixed by the same change.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T04:54:23.619780Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "address Codex review"
     }
   ],
   "docs_events": [
@@ -257,6 +262,14 @@
       "kind": "na",
       "path": null,
       "rationale": "hot_reload keeps its public contract (re-scan + apply changes); ADR-033/047 only list the method name, no tier-scope statement to update",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:54:23.619936Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-053-personal-tool-library.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -1142,6 +1155,24 @@
       "at": "2026-08-26T00:56:19.114688Z",
       "pattern": "tests/blocks/test_desktop_package_discovery.py",
       "reason": "Test files are part of the fix's regression evidence (declared as test-path in plan but missing from include scope). Registry files are protected core paths; owner authorized this core change in chat by directing the #1791 fix and PR."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:54:23.619925Z",
+      "pattern": "docs/specs/adr-053-personal-tool-library.md",
+      "reason": "address Codex review"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:54:23.619930Z",
+      "pattern": "tests/blocks/test_desktop_package_discovery.py",
+      "reason": "address Codex review"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T04:54:23.619933Z",
+      "pattern": "tests/blocks/test_registry.py",
+      "reason": "address Codex review"
     }
   ],
   "session_id": "45994902-f6d9-4349-a211-5a82470f74e8",
@@ -1158,6 +1189,14 @@
     },
     {
       "at": "2026-08-26T00:53:00.549830Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_desktop_package_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:54:23.619939Z",
       "class": null,
       "kind": "path",
       "path": "tests/blocks/test_desktop_package_discovery.py",

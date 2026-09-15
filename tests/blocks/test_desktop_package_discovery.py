@@ -422,3 +422,93 @@ def test_hot_reload_drops_removed_source_package(tmp_path: Path) -> None:
 
     assert registry.get_spec("HotReloadGoneBlock") is None
     assert "Hot Reload Gone" not in registry.packages()
+
+
+def test_hot_reload_runs_same_second_same_size_edit_not_cached_bytecode(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """#1791 / PR #2185 review: a same-length edit inside one mtime second re-imports.
+
+    CPython accepts a cached ``.pyc`` whose recorded source mtime (whole
+    seconds) and size both match, so evicting ``sys.modules`` alone would
+    re-register the previous class. The edit below keeps the byte length and
+    restores the original mtime, which is exactly that key.
+    """
+    import importlib.util
+
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
+    packages_dir = tmp_path / "installed-packages"
+    dist_name = "scistudio-blocks-samesecond"
+    module_name = "scistudio_blocks_samesecond"
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name=module_name,
+        block_name="SameSecondBlockV1",
+        package_name="Same Second",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+    assert registry.get_spec("SameSecondBlockV1") is not None
+
+    init_file = packages_dir / dist_name / "src" / module_name / "__init__.py"
+    assert Path(importlib.util.cache_from_source(str(init_file))).exists()
+    before = init_file.stat()
+    edited = init_file.read_text(encoding="utf-8").replace("V1", "V2")
+    assert len(edited.encode("utf-8")) == before.st_size
+    init_file.write_text(edited, encoding="utf-8")
+    os.utime(init_file, ns=(before.st_atime_ns, before.st_mtime_ns))
+
+    registry.hot_reload()
+
+    assert registry.get_spec("SameSecondBlockV1") is None
+    assert registry.get_spec("SameSecondBlockV2") is not None
+
+
+def test_hot_reload_keeps_nested_type_module_identity(tmp_path: Path) -> None:
+    """#1791 / PR #2185 review: ``plugin.types.*`` descendants survive eviction.
+
+    Type classes must keep their identity across a block-package refresh, so a
+    types *package* (``plugin.types.image``) is exempt along with ``plugin.types``.
+    """
+    packages_dir = tmp_path / "installed-packages"
+    dist_name = "scistudio-blocks-nestedtypes"
+    module_name = "scistudio_blocks_nestedtypes"
+    _write_source_package(
+        packages_dir,
+        dist_name=dist_name,
+        module_name=module_name,
+        block_name="NestedTypesBlock",
+        package_name="Nested Types",
+    )
+    module_dir = packages_dir / dist_name / "src" / module_name
+    (module_dir / "types").mkdir()
+    (module_dir / "types" / "__init__.py").write_text("", encoding="utf-8")
+    (module_dir / "types" / "image.py").write_text("class NestedImage:\n    pass\n", encoding="utf-8")
+    init_file = module_dir / "__init__.py"
+    init_file.write_text(
+        f"from {module_name}.types.image import NestedImage  # noqa: F401\n" + init_file.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    registry = BlockRegistry()
+    registry.add_package_src_dir(packages_dir)
+    registry.scan()
+    original = sys.modules[f"{module_name}.types.image"].NestedImage
+
+    registry.hot_reload()
+
+    assert registry.get_spec("NestedTypesBlock") is not None
+    assert sys.modules[f"{module_name}.types.image"].NestedImage is original
+    assert sys.modules[f"{module_name}.types"] is not None
+
+
+def test_is_type_module_covers_types_descendants() -> None:
+    from scistudio.blocks.registry._scan import _is_type_module
+
+    assert _is_type_module("plugin.types")
+    assert _is_type_module("plugin.types.image")
+    assert _is_type_module("plugin.sub.types.image")
+    assert not _is_type_module("plugin")
+    assert not _is_type_module("plugin.typesetting")
+    assert not _is_type_module("types")
