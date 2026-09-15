@@ -78,6 +78,7 @@ from typing import Any
 
 from scistudio.ai.agent.providers_registry import (
     McpStrategy,
+    PermissionMode,
     ProviderDescriptor,
     ProviderKind,
     SystemPromptStrategy,
@@ -707,11 +708,25 @@ def _write_system_prompt_tempfile(project_dir: Path) -> Path:
     return Path(name)
 
 
+def permission_mode_from_flags(*, dangerous: bool, auto: bool) -> PermissionMode:
+    """Map the spawner's two permission flags onto one :data:`PermissionMode`.
+
+    Raises ``ValueError`` when both are set: Auto and Yolo/Bypass are exclusive.
+    """
+    # Development references: #2379.
+    if dangerous and auto:
+        raise ValueError("a session cannot start in both Auto and Yolo/Bypass permission mode")
+    if dangerous:
+        return "bypass"
+    return "auto" if auto else "safe"
+
+
 def spawn_agent(
     descriptor: ProviderDescriptor,
     *,
     project_dir: Path,
     dangerous: bool,
+    auto: bool = False,
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
@@ -729,7 +744,7 @@ def spawn_agent(
     Argv is assembled in a fixed order::
 
         <binary> [<system-prompt flag> @<file>] [<mcp argv>]
-                 [<bypass argv> | <manual argv>] [-- <prompt>]
+                 [<bypass argv> | <auto argv> | <manual argv>] [-- <prompt>]
 
     The ``--`` end-of-options separator before an AI Block prompt is required,
     not cosmetic: ``--mcp-config`` is variadic, so without it Claude
@@ -761,6 +776,10 @@ def spawn_agent(
         When ``True`` appends ``descriptor.bypass_argv``; when ``False``
         appends ``descriptor.manual_argv``. Must be a deliberate user opt-in
         upstream.
+    auto
+        When ``True`` appends ``descriptor.auto_argv``. Exclusive with
+        ``dangerous``; raises ``ValueError`` when both are set or when the
+        provider has no auto mode.
     cols, rows
         Initial viewport.
     extra_env
@@ -775,9 +794,14 @@ def spawn_agent(
         the provider needs regardless of argv — the system-prompt temp file and
         the MCP config write — still run, matching the previous behaviour.
     """
-    # Development references: #1789, #1994, FR-007.
+    # Development references: #1789, #1994, #2379, FR-007.
     if descriptor.kind is not ProviderKind.AGENT:
         raise ValueError(f"spawn_agent requires an agent provider; {descriptor.key!r} is {descriptor.kind.value}")
+
+    permission_mode = permission_mode_from_flags(dangerous=dangerous, auto=auto)
+    # Resolved before any side effect so an unsupported Auto request leaves no
+    # system-prompt temp file behind.
+    permission_argv = descriptor.permission_argv(permission_mode)
 
     cleanup_paths: list[Path] = []
     prompt_argv: list[str] = []
@@ -802,7 +826,8 @@ def spawn_agent(
         # previous ``if dangerous:`` left safe mode flagless, which reads as
         # "no opinion" to every one of these CLIs and lets a persisted
         # auto-accept mode win over the user's Manual Approve selection.
-        argv.extend(descriptor.bypass_argv if dangerous else descriptor.manual_argv)
+        # #2379 adds Auto as a third, equally explicit fragment.
+        argv.extend(permission_argv)
 
     if prompt:
         argv.extend(_initial_prompt_argv(descriptor, prompt, argv[0] if argv else ""))
@@ -953,6 +978,7 @@ def spawn_user_terminal(
     *,
     project_dir: Path,
     dangerous: bool,
+    auto: bool = False,
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
@@ -961,7 +987,7 @@ def spawn_user_terminal(
     _spawn_argv: list[str] | None = None,
 ) -> PtyProcess:
     """Spawn a desktop user shell with SciStudio's user dependency env."""
-    del dangerous
+    del dangerous, auto
     from scistudio.desktop.paths import user_python_terminal_env, user_terminal_post_rc_invocation
 
     env = user_python_terminal_env(sys.executable)

@@ -150,10 +150,10 @@ class WorkImportSessionRequest(BaseModel):
         description="Optional questions the user explicitly skipped.",
     )
     provider: str = Field(description="Agent provider registry key, e.g. 'claude-code'.")
-    permission_mode: Literal["safe", "bypass"] = Field(
+    permission_mode: Literal["safe", "auto", "bypass"] = Field(
         description=(
-            "Backend permission spelling. The frontend union is 'safe' | 'dangerous' and is mapped "
-            "to this one at the request boundary."
+            "Backend permission spelling. The frontend union is 'safe' | 'auto' | 'dangerous' and is "
+            "mapped to this one at the request boundary. 'auto' requires a provider with an auto mode."
         ),
     )
 
@@ -257,6 +257,14 @@ def create_work_import_session(request: WorkImportSessionRequest) -> WorkImportS
         raise HTTPException(
             status_code=400,
             detail=(f"Provider {request.provider!r} cannot run a Bring In My Work session. {unsupported}"),
+        )
+
+    # #2379: the dialog greys Auto out for these providers; this is the guard
+    # for any other caller, refused before a brief is written.
+    if request.permission_mode == "auto" and not get_descriptor(request.provider).supports_auto_mode:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{get_descriptor(request.provider).label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
         )
 
     # ``ImportSessionContext`` owns the answer-shape rules (contract C2): a

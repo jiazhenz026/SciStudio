@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from scistudio.ai.agent import providers_registry
 from scistudio.api.routes import ai as ai_routes
 
-_ENTRY_KEYS = {"name", "available", "version", "logged_in", "label"}
+_ENTRY_KEYS = {"name", "available", "version", "logged_in", "label", "supports_auto_mode"}
 
 
 @pytest.fixture

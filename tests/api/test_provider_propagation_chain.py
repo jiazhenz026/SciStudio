@@ -78,6 +78,7 @@ def spawned_providers(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         extra_env: dict[str, str] | None = None,
         prompt: str = "",
     ) -> PtyProcess:

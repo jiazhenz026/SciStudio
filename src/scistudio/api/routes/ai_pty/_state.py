@@ -44,7 +44,7 @@ _active_ptys: dict[str, PtyProcess] = {}
 _active_lock = asyncio.Lock()
 
 _ProviderSpawner = Callable[..., PtyProcess]
-"""Uniform spawner signature: keyword-only ``project_dir``, ``dangerous``, ``cols``,
+"""Uniform spawner signature: keyword-only ``project_dir``, ``dangerous``, ``auto``, ``cols``,
 ``rows``, ``extra_env``, ``prompt``, and the ``_spawn_argv`` test seam."""
 
 # ADR-034 FR-006: both of these are *derived* from the provider registry rather
@@ -112,6 +112,7 @@ def _spawn(
     provider: str,
     project_dir: Path,
     dangerous: bool,
+    auto: bool = False,
     cols: int = 120,
     rows: int = 30,
     extra_env: dict[str, str] | None = None,
@@ -123,6 +124,7 @@ def _spawn(
     return spawner(
         project_dir=project_dir,
         dangerous=dangerous,
+        auto=auto,
         cols=cols,
         rows=rows,
         extra_env=extra_env,

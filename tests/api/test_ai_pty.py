@@ -59,6 +59,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Non
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 80,
         rows: int = 24,
         extra_env: dict[str, str] | None = None,
@@ -207,6 +208,7 @@ def test_pty_ws_spawn_uses_initial_size_query(
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
@@ -241,6 +243,7 @@ def test_pty_ws_accepts_user_terminal_provider(
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
@@ -308,6 +311,7 @@ def test_pty_ws_whitelist_is_registry_derived(
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
@@ -390,3 +394,97 @@ def test_pty_ws_missing_project_dir(client: TestClient) -> None:
         frame = ws.receive_json()
         assert frame["type"] == "error"
         assert "project_dir" in frame["message"]
+
+
+# ---------------------------------------------------------------------------
+# #2379 — the ``permission_mode`` query parameter
+# ---------------------------------------------------------------------------
+
+
+def _capture_spawn(monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    captured: dict[str, object] = {}
+
+    def fake(
+        *,
+        provider: str,
+        project_dir: Path,
+        dangerous: bool,
+        auto: bool = False,
+        cols: int = 80,
+        rows: int = 24,
+        extra_env: dict[str, str] | None = None,
+        prompt: str = "",
+    ) -> PtyProcess:
+        captured.update(dangerous=dangerous, auto=auto)
+        return PtyProcess(_echo_argv(), cwd=project_dir, cols=cols, rows=rows, extra_env=extra_env)
+
+    monkeypatch.setattr(ai_pty._state, "_spawn", fake)
+    return captured
+
+
+def _drain_until_ready(ws) -> None:  # type: ignore[no-untyped-def]
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        frame = ws.receive_json()
+        assert frame["type"] != "error", frame
+        if frame["type"] == "stdout" and "READY" in frame.get("data", ""):
+            return
+    raise AssertionError("never received READY banner")
+
+
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("&permission_mode=auto", {"dangerous": False, "auto": True}),
+        ("&permission_mode=bypass", {"dangerous": True, "auto": False}),
+        ("&permission_mode=safe", {"dangerous": False, "auto": False}),
+        # Backward compatible: a client that predates Auto sends only ``dangerous``.
+        ("", {"dangerous": False, "auto": False}),
+    ],
+)
+def test_pty_ws_permission_mode_reaches_the_spawn(
+    query: str,
+    expected: dict[str, bool],
+    client: TestClient,
+    opened_project: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _capture_spawn(monkeypatch)
+    with client.websocket_connect(_ws_url("tab-perm", opened_project) + query) as ws:
+        _drain_until_ready(ws)
+    assert captured == expected
+
+
+def test_pty_ws_legacy_dangerous_flag_still_means_bypass(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    captured = _capture_spawn(monkeypatch)
+    with client.websocket_connect(_ws_url("tab-legacy", opened_project, dangerous=True)) as ws:
+        _drain_until_ready(ws)
+    assert captured == {"dangerous": True, "auto": False}
+
+
+def test_pty_ws_rejects_an_unknown_permission_mode(client: TestClient, opened_project: Path) -> None:
+    with client.websocket_connect(_ws_url("tab-bad-mode", opened_project) + "&permission_mode=dangerous") as ws:
+        frame = ws.receive_json()
+        assert frame["type"] == "error"
+        assert "Invalid permission_mode" in frame["message"]
+    assert not _active_ptys
+
+
+def test_pty_ws_rejects_auto_for_a_provider_without_one(
+    client: TestClient, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import dataclasses
+
+    from scistudio.api.routes.ai_pty import websocket as websocket_module
+
+    no_auto = dataclasses.replace(
+        providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture"
+    )
+    monkeypatch.setattr(websocket_module, "get_descriptor", lambda _key: no_auto)
+    with client.websocket_connect(_ws_url("tab-no-auto", opened_project) + "&permission_mode=auto") as ws:
+        frame = ws.receive_json()
+        assert frame["type"] == "error"
+        assert "no Auto permission mode" in frame["message"]
+    assert not _active_ptys

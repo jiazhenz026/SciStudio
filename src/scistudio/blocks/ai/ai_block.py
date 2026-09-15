@@ -173,8 +173,10 @@ class AIBlock(Block):
         selects any agent CLI in the provider registry that can carry an AI
         Block task — ``"claude-code"`` is the default, and chat-only CLIs
         with no positional prompt argument (Kimi Code) are not offered
-    ``permission_mode`` is ``"safe"`` (the agent asks before
-        sensitive tool use, default) or ``"bypass"`` (full filesystem access).
+    ``permission_mode`` is ``"safe"`` (Manual: the agent asks before
+        sensitive tool use, default), ``"auto"`` (Auto: the provider's own
+        reviewer decides, for providers that have an auto mode), or
+        ``"bypass"`` (Yolo/Bypass: full filesystem access, never asks).
         ``input_ports`` / ``output_ports`` declare the named ports and, for
         outputs, the file path where each result is expected.
 
@@ -303,22 +305,23 @@ class AIBlock(Block):
             },
             "permission_mode": {
                 "type": "string",
-                "enum": ["safe", "bypass"],
+                "enum": ["safe", "auto", "bypass"],
                 # Display labels are unified with the ADR-034 AI chat
-                # PermissionModePicker (FR-021e), which now reads
-                # "Manual Approve" / "Bypass Permission" in plain language
-                # with no CLI flag names. It is the same choice presented on
-                # the canvas, so it reads the same way in both places. The
-                # stored enum values stay ``safe``/``bypass``: this is a
-                # presentation change only (FR-021f) and the engine keys its
-                # descriptor-driven bypass argv on them.
-                "ui_enum_labels": {"safe": "Manual Approve", "bypass": "Bypass Permission"},
+                # PermissionModePicker, which reads Manual / Auto /
+                # Yolo/Bypass (ADR-034 Addendum 1, #2379). It is the same
+                # choice presented on the canvas, so it reads the same way in
+                # both places. ``safe`` and ``bypass`` keep their stored
+                # spelling (FR-021f), so saved workflows still validate;
+                # ``auto`` is new and is refused at config time for a provider
+                # whose registry descriptor has no auto mode.
+                "ui_enum_labels": {"safe": "Manual", "auto": "Auto", "bypass": "Yolo/Bypass"},
                 "default": "safe",
                 "title": "Permission mode",
                 "description": (
-                    "Manual Approve = the agent asks you before sensitive tool "
-                    "use (default); Bypass Permission = the agent runs "
-                    "unattended with full filesystem access."
+                    "Manual = the agent asks you before sensitive tool use "
+                    "(default); Auto = the agent's own reviewer approves "
+                    "routine actions and stops risky ones; Yolo/Bypass = the "
+                    "agent runs unattended with full filesystem access."
                 ),
                 "ui_priority": 3,
             },
@@ -559,7 +562,11 @@ class AIBlock(Block):
             # PtyTabSpec, kept for back-compat per ADR-038 §5.2). The
             # value is the per-block-execution identifier.
             block_run_id=block_execution_id,
-            permission_mode="bypass" if permission_mode == "bypass" else "safe",
+            # #2379: any value outside the three modes still collapses to the
+            # safe default, as it always has.
+            permission_mode=(
+                "auto" if permission_mode == "auto" else "bypass" if permission_mode == "bypass" else "safe"
+            ),
             run_dir_path=str(run_dir.path),
         )
         try:
@@ -654,6 +661,13 @@ class AIBlock(Block):
             raise ValueError(
                 f"AIBlock: provider {provider!r} ({descriptor.label}) cannot run as an AI Block. "
                 f"{descriptor.prompt_unsupported_reason}"
+            )
+        if str(config.get("permission_mode", "safe")) == "auto" and not descriptor.supports_auto_mode:
+            # #2379: refuse at config time, like the prompt check above,
+            # rather than letting the engine refuse the spawn mid-run.
+            raise ValueError(
+                f"AIBlock: provider {provider!r} ({descriptor.label}) has no Auto permission mode; "
+                "set permission_mode to 'safe' (Manual) or 'bypass' (Yolo/Bypass)."
             )
         prompt = config.get("user_prompt")
         if not isinstance(prompt, str) or not prompt.strip():

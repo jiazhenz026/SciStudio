@@ -574,7 +574,9 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
   ai_permission_modes: {
     args: {},
     render: () => {
-      render(<PermissionModePicker tabId="t1" permissionMode={null} onChange={vi.fn()} />);
+      render(
+        <PermissionModePicker tabId="t1" permissionMode={null} onChange={vi.fn()} autoSupported />,
+      );
     },
   },
 };

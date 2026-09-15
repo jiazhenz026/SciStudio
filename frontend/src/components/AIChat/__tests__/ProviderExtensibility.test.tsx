@@ -161,7 +161,10 @@ describe("ADR-034 User Story 7 — a provider the frontend has never heard of", 
 
     // The key reaches the launch payload unmodified — not normalised, not
     // mapped, not replaced by a default the frontend recognises.
-    expect(onLaunch).toHaveBeenCalledWith({ provider: "fixture-agent", dangerous: true });
+    expect(onLaunch).toHaveBeenCalledWith({
+      provider: "fixture-agent",
+      permissionMode: "dangerous",
+    });
   });
 
   it("keeps Launch disabled for an unknown provider that is not installed", async () => {

@@ -55,11 +55,14 @@ describe("permission-mode boundary (checklist §7.4)", () => {
   it("maps the frontend spelling to the backend spelling", () => {
     expect(toBackendPermissionMode("safe")).toBe("safe");
     expect(toBackendPermissionMode("dangerous")).toBe("bypass");
+    // #2379 — Auto is spelled the same on both sides.
+    expect(toBackendPermissionMode("auto")).toBe("auto");
   });
 
   it("maps the backend spelling back for the terminal tab", () => {
     expect(fromBackendPermissionMode("safe")).toBe("safe");
     expect(fromBackendPermissionMode("bypass")).toBe("dangerous");
+    expect(fromBackendPermissionMode("auto")).toBe("auto");
   });
 
   it("FR-044: the chosen mode reaches the request in backend spelling", () => {
@@ -67,6 +70,8 @@ describe("permission-mode boundary (checklist §7.4)", () => {
       "bypass",
     );
     expect(buildRequest(form({ permissionMode: "safe" }), "/p").permission_mode).toBe("safe");
+    expect(buildRequest(form({ permissionMode: "auto" }), "/p").permission_mode).toBe("auto");
+    expect(validateWorkImportRequest(validRequest({ permission_mode: "auto" }))).toEqual([]);
   });
 });
 

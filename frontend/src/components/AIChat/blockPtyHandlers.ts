@@ -51,7 +51,7 @@ export function handleBlockPtyOpened(payload: {
   title?: string;
   /** Optional initial status. Defaults to "paused" per §3.9. */
   status?: AiBlockStatus;
-  permission_mode?: "safe" | "bypass" | "dangerous";
+  permission_mode?: "safe" | "auto" | "bypass" | "dangerous";
 }): void {
   const { tab_id, block_run_id } = payload;
   if (!tab_id || !block_run_id) {
@@ -73,10 +73,13 @@ export function handleBlockPtyOpened(payload: {
   const rawName = payload.block_name ?? payload.title ?? "AI Block";
   const title = rawName.startsWith("🤖") ? rawName : `🤖 ${rawName}`;
   // Normalise permission_mode: backend uses "bypass", frontend tab uses "dangerous".
-  const permissionMode: "safe" | "dangerous" =
+  // #2379: "auto" is spelled the same on both sides; anything else is safe.
+  const permissionMode: "safe" | "auto" | "dangerous" =
     payload.permission_mode === "bypass" || payload.permission_mode === "dangerous"
       ? "dangerous"
-      : "safe";
+      : payload.permission_mode === "auto"
+        ? "auto"
+        : "safe";
   useAppStore.getState().addAiBlockTerminalTab({
     tabId: tab_id,
     title,
