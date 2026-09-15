@@ -203,6 +203,36 @@ function makeHarness(spec) {
     readJson: (name) => JSON.parse(fs.readFileSync(path.join(userData, name), "utf8")),
     writeJson: (name, value) => fs.writeFileSync(path.join(userData, name), JSON.stringify(value)),
     relaunchFromRenderer: () => stub.ipcMain.handlers["scistudio:relaunch"]({}),
+    // #2396: point the OTA client at a manifest URL (resources/ota-config.json).
+    writeOtaConfig(manifestUrl) {
+      fs.mkdirSync(path.join(tmp, "resources"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmp, "resources", "ota-config.json"),
+        JSON.stringify({ enabled: true, channel: "alpha", manifestUrl })
+      );
+    },
+    // #2396: serve one JSON document on 127.0.0.1; resolves { url(path), close() }.
+    serveJson(route, body) {
+      const http = require("node:http");
+      const server = http.createServer((req, res) => {
+        if (req.url === route) {
+          res.writeHead(200, { "content-type": "application/json" });
+          res.end(JSON.stringify(body));
+          return;
+        }
+        res.writeHead(404);
+        res.end();
+      });
+      return new Promise((resolve) => {
+        server.listen(0, "127.0.0.1", () => {
+          const { port } = server.address();
+          resolve({
+            url: (p) => `http://127.0.0.1:${port}${p}`,
+            close: () => server.close()
+          });
+        });
+      });
+    },
     async until(predicate, ms, label) {
       const end = Date.now() + ms;
       while (Date.now() < end) {
@@ -386,6 +416,88 @@ const SCENARIOS = {
 
       h.mainWin().close();
       assert.equal(stub.app.quitCalled, 1);
+    }
+  },
+
+  "install-outcome-before-mandatory-update": {
+    title: "#2396: a failed install is reported before a mandatory update is enforced again",
+    async run(h) {
+      const { stub } = h;
+      h.writeJson("launch-mode.json", { version: 1, mode: "desktop", askAtLaunch: false });
+      stub.state.pick = () => Promise.reject(new Error("the picker must not be shown"));
+      // The same mandatory base migration that sent the user to the installer.
+      const server = await h.serveJson("/manifest.json", {
+        channel: "alpha",
+        base: "0.3.5",
+        build: 40,
+        requires: { min_base: "0.3.5", min_build: 40 }
+      });
+      h.writeOtaConfig(server.url("/manifest.json"));
+      const releasePage = "https://github.com/o/r/releases/tag/v0.3.5-beta";
+      fs.mkdirSync(path.join(h.userData, "installer"), { recursive: true });
+      h.writeJson("installer/pending.json", { version: "0.3.5-beta-build0035", releasePage, startedAt: 1 });
+      h.writeJson("installer/result.json", { ok: false, stage: "mount" });
+
+      h.startMain();
+      await h.until(() => stub.app.quitCalled > 0, 15000, "the mandatory update quits");
+      server.close();
+
+      const [report, enforce] = stub.state.dialogs;
+      assert.equal(report.message, "SciStudio could not install the update.", "the failure is reported first");
+      assert.match(report.detail, /stage: mount/);
+      assert.equal(stub.state.externals[0], releasePage, "Open download page goes to the release page");
+      assert.equal(enforce.title, "Update required", "then the mandatory update is enforced");
+      assert.equal(fs.existsSync(path.join(h.userData, "installer", "pending.json")), false);
+      assert.equal(fs.existsSync(path.join(h.userData, "installer", "result.json")), false);
+    }
+  },
+
+  "installer-install-reuses-verified-download": {
+    title: "#2396: install uses the verified download even when the manifest can no longer be read",
+    async run(h) {
+      const { stub } = h;
+      h.writeJson("launch-mode.json", { version: 1, mode: "desktop", askAtLaunch: false });
+      stub.state.pick = () => Promise.reject(new Error("the picker must not be shown"));
+      const installer = require(path.join(DESKTOP, "installer.js"));
+      const key = installer.platformKey({ platform: process.platform, arch: process.arch });
+      assert.ok(key, "the harness platform has an installer key");
+      // The download is already on disk and intact, so nothing is fetched.
+      const bytes = Buffer.from("installer bytes");
+      const asset = {
+        url: "https://example.invalid/SciStudio-0.3.5-beta-build0035-installer.bin",
+        sha256: require("node:crypto").createHash("sha256").update(bytes).digest("hex"),
+        size: bytes.length
+      };
+      fs.mkdirSync(path.join(h.userData, "installer"), { recursive: true });
+      fs.writeFileSync(path.join(h.userData, "installer", installer.installerFileName(asset, key)), bytes);
+      // build 0 is up to date for this baseline, so neither update check prompts.
+      const server = await h.serveJson("/manifest.json", {
+        channel: "alpha",
+        base: "0.3.4",
+        build: 0,
+        installer: { version: "0.3.5-beta-build0035", assets: { [key]: asset } }
+      });
+      h.writeOtaConfig(server.url("/manifest.json"));
+      h.startMain();
+      await h.until(() => h.mainWin() && h.mainWin().visible, 30000, "main window");
+
+      const sender = { isDestroyed: () => false, send: () => {} };
+      const offer = await stub.ipcMain.handlers["scistudio:installer-offer"]({ sender });
+      assert.equal(offer.available, true);
+      const downloaded = await stub.ipcMain.handlers["scistudio:installer-download"]({ sender });
+      assert.deepEqual(downloaded, { ok: true });
+
+      // Offline now: the install must not go back to the manifest.
+      server.close();
+      h.writeOtaConfig("http://127.0.0.1:9/manifest.json");
+      const outcome = await stub.ipcMain.handlers["scistudio:installer-install"]({ sender });
+      assert.equal(outcome.ok, false);
+      assert.doesNotMatch(outcome.error, /no installer is on offer/, "the verified offer was reused");
+      // An unpackaged harness run is refused for its location, never for the manifest.
+      assert.match(outcome.error, /cannot install the update here \(not-packaged\)/);
+      assert.equal(stub.app.quitCalled, 0);
+
+      h.mainWin().close();
     }
   },
 
