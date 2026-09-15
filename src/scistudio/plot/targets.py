@@ -113,39 +113,49 @@ def _output_ports_for_block(ctx: Any, block_type: str, node_config: dict[str, An
 def workflow_run_keys(workflow_path: str, workflow_id: str | None) -> tuple[str, ...]:
     """Return the keys under which *this* workflow's run may be registered.
 
-    ``ctx.workflow_runs`` is a registry of runs keyed by the workflow's canonical
-    id — which is also the stem of its file, because ``ApiRuntime.workflow_path``
-    resolves an id to ``workflows/<id>.yaml``. A node id alone is NOT a key into
-    that registry: two workflows may legitimately contain a node with the same
-    name, so a lookup that omits the workflow resolves to whichever workflow
-    happens to come last in iteration order.
+    ``ctx.workflow_runs`` is a registry of runs keyed by the workflow's run
+    identity, which is derived from its file: ``workflows/main.yaml`` is
+    ``main`` and ``subworkflows/qc.yaml`` is ``@subworkflows@qc.yaml``. A node
+    id alone is NOT a key into that registry: two workflows may legitimately
+    contain a node with the same name, so a lookup that omits the workflow
+    resolves to whichever workflow happens to come last in iteration order.
 
-    The file stem is the primary key because it is what
-    ``ApiRuntime.start_workflow`` registered the run under. The declared
-    ``workflow_id`` is accepted as a secondary key for a workflow whose YAML
-    ``id:`` differs from its filename; the canonical invariant is that the two
-    are equal, so in practice this collapses to a single key.
+    The declared ``workflow_id`` is not a key: a copied file still declaring the
+    original's id would otherwise read the original's run.
 
     Args:
         workflow_path: Project-relative path of the workflow file.
-        workflow_id: The workflow's declared id, when the YAML records one.
+        workflow_id: The workflow's declared id; kept for callers, not used.
 
     Returns:
-        The candidate run-registry keys, most specific first, de-duplicated.
+        The run-registry keys for this file.
 
     Example:
         >>> workflow_run_keys("workflows/main.yaml", "main")
         ('main',)
         >>> workflow_run_keys("workflows/main.yaml", "renamed")
-        ('main', 'renamed')
+        ('main',)
+        >>> workflow_run_keys("subworkflows/qc.yaml", "main")
+        ('@subworkflows@qc.yaml',)
     """
-    # Development references: #2362.
-    keys: list[str] = []
-    stem = Path(workflow_path.replace("\\", "/")).stem
-    for candidate in (stem, workflow_id):
-        if candidate and candidate not in keys:
-            keys.append(candidate)
-    return tuple(keys)
+    # Development references: #2362, #2394.
+    from scistudio.workflow.identity import workflow_identity_for_relative_path
+
+    del workflow_id
+    normalised = workflow_path.replace("\\", "/")
+    try:
+        return (workflow_identity_for_relative_path(normalised),)
+    except ValueError:
+        return (Path(normalised).stem,)
+
+
+def target_workflow_identity(workflow_path: str) -> str:
+    """Return the run identity of the workflow a plot target is bound to.
+
+    Derived from the target's ``workflow_path``, so a manifest saved with a
+    declared id still files its previews under the workflow file's identity.
+    """
+    return workflow_run_keys(workflow_path, None)[0]
 
 
 def _latest_output_for(
@@ -242,9 +252,12 @@ def discover_targets(
         except Exception as exc:
             logger.debug("discover_targets: failed to load %s: %s", wf_file, exc)
             continue
-        workflow_id = definition.id or None
         # #2362: confine the recorded-output overlay to THIS workflow's run.
-        run_keys = workflow_run_keys(rel, workflow_id)
+        # #2394: the target carries the file's run identity (not the declared
+        # ``id:``), so its manifest, preview cache and source metadata are filed
+        # under the same key the run registry and the editor use.
+        run_keys = workflow_run_keys(rel, definition.id or None)
+        workflow_id = run_keys[0]
         for node in definition.nodes:
             ports = _output_ports_for_block(ctx, node.block_type, node.config)
             node_label = str(node.config.get("label", "")) if isinstance(node.config, dict) else ""
@@ -325,5 +338,6 @@ __all__ = [
     "discover_targets",
     "make_target_id",
     "resolve_target_by_id",
+    "target_workflow_identity",
     "workflow_run_keys",
 ]

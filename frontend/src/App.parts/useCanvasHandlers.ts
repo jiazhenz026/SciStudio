@@ -20,6 +20,7 @@ import type {
 } from "../types/api";
 import type { FileTab } from "../store/types";
 import { computeEffectivePorts } from "../utils/computeEffectivePorts";
+import { workflowIdentityPath } from "../lib/workflowIdentity";
 
 // Resolve a source node's effective output port type, mirroring how the canvas
 // colours edges: variadic blocks read their declared ``output_ports`` types,
@@ -255,7 +256,8 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
       console.warn("View source: saveWorkflow failed", error);
       return;
     }
-    openFileTab(`workflows/${workflowId}.yaml`, { readOnly: true });
+    // #2394: an expanded subworkflow tab's identity names its own file.
+    openFileTab(workflowIdentityPath(workflowId), { readOnly: true });
   }, [
     currentProject,
     selectedNodeId,
