@@ -922,11 +922,6 @@ def test_a_plot_asked_for_its_own_run_draws_that_run(backend: Backend, events: E
     assert plot_text(backend, plot, "beta", run_b) == ("B", run_b)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="#2429 (fixes #2424): AI block default outputs are keyed by node id alone, so same-named nodes "
-    "in different workflows share one output file and reuse each other's result",
-)
 def test_ai_block_outputs_are_filed_per_workflow_and_never_reused_across_workflows(
     backend: Backend, events: EventStream, projects_dir: Path
 ) -> None:
