@@ -12,6 +12,8 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - `provisional` — usable, may change in a minor release.
 - `internal` — excluded from this reference.
 
+A symbol marked **deprecated** keeps its tier and keeps working until the release its notice names removes it; the notice names the replacement.
+
 ## Canonical roots
 
 - [`scistudio.core.types`](scistudio.core.types.md) — 10 symbols
@@ -21,8 +23,9 @@ The public API you may rely on, generated from the code's docstrings and `scistu
 - [`scistudio.blocks.io`](scistudio.blocks.io.md) — 12 symbols
 - [`scistudio.blocks.app`](scistudio.blocks.app.md) — 7 symbols
 - [`scistudio.blocks.code`](scistudio.blocks.code.md) — 60 symbols
-- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols
-- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
+- [`scistudio.previewers.models`](scistudio.previewers.models.md) — 21 symbols — **deprecated**
+- [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols — **deprecated**
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
 - [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols
+- [`scistudio.panels`](scistudio.panels.md) — 7 symbols

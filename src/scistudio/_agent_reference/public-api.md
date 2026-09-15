@@ -18,12 +18,13 @@ unsupported, and liable to move or vanish without notice.
 | `scistudio.blocks.io` | `IOBlock`, `SimpleLoader`, `SimpleSaver`, `FormatCapability`, `MetadataFidelity` |
 | `scistudio.blocks.app` | `AppBlock`, `FileExchangeBridge`, `FileWatcher`, `validate_app_command` |
 | `scistudio.blocks.code` | `CodeBlock`, `CodeBlockConfig`, `PortFileConfig` |
-| `scistudio.previewers.models` | `PreviewerSpec`, `FrontendManifest`, owner-kind / API-version constants |
-| `scistudio.previewers.data_access` | bounded preview-read helpers |
+| `scistudio.previewers.models` | **deprecated** (removed in 0.6.0; use panels): `PreviewerSpec`, `FrontendManifest`, owner-kind / API-version constants |
+| `scistudio.previewers.data_access` | **deprecated** (removed in 0.6.0; use panels): bounded preview-read helpers |
 | `scistudio.tutorials` | tutorial authoring: `TutorialDriver`, `DriverContext`, `StepView`, the action and condition vocabulary |
 | `scistudio.api.app` | `create_app`, the backend factory an edition composes on (server composition, not block authoring) |
 | `scistudio.api.seam` | guard, lifespan-hook and capability types, the self-authenticating path registry, `workflow_runs_active`, the shared MCP registry (server composition, not block authoring) |
-| `scistudio.stability` | `stable`, `provisional`, `internal` decorators |
+| `scistudio.panels` | panel checks: `discover_panels`, `PanelRegistry`, `parse_descriptor`, `PanelDescriptor`, `validate_external_references`, `validate_interactive_panel`, `PANEL_API_VERSION` |
+| `scistudio.stability` | `stable`, `provisional`, `internal`, `deprecated` decorators |
 
 ```python
 # CORRECT — canonical roots
@@ -60,6 +61,11 @@ decorators, visible in the API reference):
   deprecation period.
 - `provisional` — usable, may change in a minor release.
 - `internal` — excluded from the public surface; never rely on it.
+
+A symbol can also be **deprecated**. It keeps its tier and keeps working until the
+release its notice names removes it; do not start new code on it, and use the
+replacement the notice names. The Python previewer surface is deprecated in
+favour of HTML panels.
 
 Prefer `stable` symbols. When you author a package's public symbols, mark them
 with the same decorators against the package's own version line.

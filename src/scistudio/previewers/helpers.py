@@ -7,6 +7,9 @@ previewer may import, alongside the two main author roots
 Today it exposes a single helper, :func:`sanitize_svg`, which a package SVG/plot
 previewer uses to scrub SVG text before returning it.
 
+**Deprecated** with the rest of the previewer surface: deprecated since 0.3.5,
+removed in 0.6.0, replaced by HTML panels (see :mod:`scistudio.panels`).
+
 Note: the authoritative security boundary for rendered SVG is the frontend's
 sandboxed ``<iframe>`` (no scripts, no same-origin access). This regex pass is a
 best-effort second layer, not the sole guarantee, because regex-based HTML
@@ -16,7 +19,9 @@ filtering can never be made fully robust.
 from __future__ import annotations
 
 import re
+import sys
 
+from scistudio.previewers._deprecation import PREVIEWERS_DEPRECATED
 from scistudio.stability import provisional
 
 __all__ = ["sanitize_svg"]
@@ -37,6 +42,7 @@ _SVG_EXTERNAL_HREF_RE = re.compile(
 )
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 def sanitize_svg(svg_text: str) -> tuple[str, bool]:
     """Strip scripts, event handlers, and remote links from SVG text.
@@ -65,3 +71,8 @@ def sanitize_svg(svg_text: str) -> tuple[str, bool]:
     sanitized, n_hrefs = _SVG_EXTERNAL_HREF_RE.subn("", sanitized)
     removed = sanitized != svg_text or n_events > 0 or n_hrefs > 0
     return sanitized, removed
+
+
+# Every name in __all__ above, including the constants and type aliases that cannot
+# carry a marker, is deprecated (ADR-054 §8; removal tracked in #2288).
+PREVIEWERS_DEPRECATED(sys.modules[__name__])

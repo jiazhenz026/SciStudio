@@ -10,8 +10,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from scistudio.previewers.models import OwnerKind, PreviewerSpec
-from scistudio.stability import internal
+from scistudio.stability import internal, provisional
 
+#: The panel descriptor ``api_version`` the host serves. A descriptor must declare
+#: the same major version, as ``MAJOR.MINOR``.
 PANEL_API_VERSION = "1.0"
 _ID = re.compile(r"[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*\Z")
 _VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
@@ -24,10 +26,21 @@ _KEYS = {"id", "api_version", "contexts", "types", "priority", "name", "descript
 _CORE_SENTINEL_TYPES = ("DataObject", "Collection", "PlotArtifact")
 
 
-@internal()
+# TODO(#2288): owner_kind uses OwnerKind from the deprecated previewer models root.
+#   Out of scope per #2426; the enum needs a non-deprecated home before 0.6.
+#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2288
+@provisional(since="0.3.5")
 @dataclass(frozen=True)
 class PanelDescriptor:
-    """Validated manifest of an HTML panel; paths are backend-only."""
+    """A validated ``panel.json`` descriptor and the folder it came from.
+
+    ``id``, ``api_version``, ``contexts``, ``types``, ``priority``, ``name``,
+    ``description``, ``version``, and ``entry`` are the descriptor's fields after
+    validation. ``root`` is the resolved panel folder, ``owner_kind`` and
+    ``owner_name`` record the tier and owner it was discovered under, and
+    ``has_python`` is true when a ``panel.py`` sits beside the descriptor. The
+    local ``root`` path never leaves the backend.
+    """
 
     id: str
     api_version: str
@@ -50,6 +63,7 @@ class PanelDescriptor:
             for key in ("id", "api_version", "priority", "name", "description", "version", "entry", "has_python")
         } | {"contexts": list(self.contexts), "types": list(self.types)}
 
+    @internal()
     def candidates(self) -> list[PreviewerSpec]:
         """Adapt each claimed preview type into the existing routing ladder."""
         if "preview" not in self.contexts:
@@ -73,10 +87,20 @@ class PanelDescriptor:
         return result
 
 
+@provisional(since="0.3.5")
 def parse_descriptor(
     directory: Path, *, owner_kind: OwnerKind, owner_name: str, registered_types: Collection[str]
 ) -> tuple[PanelDescriptor, list[str]]:
-    """Validate a panel descriptor or raise a diagnostic ValueError."""
+    """Validate the panel folder ``directory`` and return its descriptor.
+
+    ``registered_types`` is the set of data type names the panel may claim; a
+    claim outside it is refused. Returns the :class:`PanelDescriptor` and a list
+    of non-fatal notes, such as unknown keys that were ignored. Raises
+    ``ValueError`` with a diagnostic when the descriptor is invalid: the ``id``
+    does not equal the folder name, the ``api_version`` major is not served, the
+    contexts or types are malformed, or ``entry`` does not name an HTML file
+    inside the folder.
+    """
     # Development references: FR-002/003 and MiniApp FR-001/002.
     from scistudio.panels.files import resolve_panel_file
 

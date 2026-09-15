@@ -4,11 +4,15 @@
 
 Canonical import root: `from scistudio.previewers.models import ...`
 
+> **Deprecated.** Every symbol on this page is deprecated since `0.3.5` and is removed in `0.6.0`; each keeps working until then. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 Self-contained public-API reference — 21 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
 
-## `EnvelopeKind` — _enum_
+## `EnvelopeKind` — _enum_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class EnvelopeKind(StrEnum)
@@ -21,9 +25,11 @@ the older REST ``preview.kind`` strings (``table`` / ``image`` / ``chart`` /
 ``text`` / ``composite`` / ``artifact``); the API runtime maps between the
 two so existing callers and tests keep working.
 
-## `FrontendManifest` — _class_
+## `FrontendManifest` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class FrontendManifest
@@ -51,9 +57,11 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return the wire-shape dict sent to the frontend (``asset_root`` is omitted).
 
-## `OwnerKind` — _enum_
+## `OwnerKind` — _enum_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class OwnerKind(StrEnum)
@@ -66,15 +74,19 @@ precedence: a project-local previewer beats a user-library previewer, which
 beats a package previewer, which beats a built-in core fallback. The string
 values appear verbatim in the REST and session API payloads.
 
-## `PREVIEWER_API_VERSION` — _constant_
+## `PREVIEWER_API_VERSION` — _constant_ · deprecated
 
 **Stability:** _unmarked — no runtime stability marker_
 
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 _constant_ — see the module source for the value.
 
-## `PreviewEnvelope` — _class_
+## `PreviewEnvelope` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewEnvelope
@@ -104,9 +116,11 @@ Example:
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the whole envelope for the API/wire.
 - `with_session(self, session_id: 'str | None') -> 'PreviewEnvelope'` — _unmarked — no runtime stability marker_ — Return a copy bound to *session_id*.
 
-## `PreviewError` — _exception_
+## `PreviewError` — _exception_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewError(Exception)
@@ -127,9 +141,11 @@ Args:
 
 - `to_error_info(self) -> 'PreviewErrorInfo'` — _unmarked — no runtime stability marker_ — Convert this error into a `PreviewErrorInfo` for an envelope.
 
-## `PreviewErrorCode` — _enum_
+## `PreviewErrorCode` — _enum_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewErrorCode(StrEnum)
@@ -140,9 +156,11 @@ Stable, machine-readable codes describing why a preview failed.
 A failed envelope carries one of these on its ``error`` field so the
 frontend can react consistently instead of parsing a free-text message.
 
-## `PreviewErrorInfo` — _class_
+## `PreviewErrorInfo` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewErrorInfo
@@ -159,9 +177,11 @@ optional structured detail.
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the error payload.
 
-## `PreviewLimits` — _class_
+## `PreviewLimits` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewLimits
@@ -183,9 +203,11 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the budgets.
 
-## `PreviewMetadata` — _class_
+## `PreviewMetadata` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewMetadata
@@ -208,15 +230,19 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return the flags plus ``extra`` flattened into one JSON-safe dict.
 
-## `PreviewProvider` — _type-alias_
+## `PreviewProvider` — _type-alias_ · deprecated
 
 **Stability:** _unmarked — no runtime stability marker_
 
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 _type-alias_ — see the module source for the value.
 
-## `PreviewRequest` — _class_
+## `PreviewRequest` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewRequest
@@ -240,9 +266,11 @@ Example:
     ...         payload={"rows": page.rows},
     ...     )
 
-## `PreviewResource` — _class_
+## `PreviewResource` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewResource
@@ -266,15 +294,19 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the resource descriptor.
 
-## `PreviewResourceProvider` — _type-alias_
+## `PreviewResourceProvider` — _type-alias_ · deprecated
 
 **Stability:** _unmarked — no runtime stability marker_
 
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
+
 _type-alias_ — see the module source for the value.
 
-## `PreviewSource` — _class_
+## `PreviewSource` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewSource
@@ -296,9 +328,11 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of all three identity fields.
 
-## `PreviewTarget` — _class_
+## `PreviewTarget` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewTarget
@@ -327,9 +361,11 @@ Example:
 - `is_collection(self) -> 'bool'` — _unmarked — no runtime stability marker_ — Whether this target points at a collection (``kind`` is ``collection_ref``).
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the target for the API/wire payload.
 
-## `PreviewerEntryPoint` — _protocol_
+## `PreviewerEntryPoint` — _protocol_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewerEntryPoint(Protocol)
@@ -355,9 +391,11 @@ Example:
     ``get_previewers()`` that the registry discovers as a companion factory,
     in the same spirit as ``get_blocks`` / ``get_types``.
 
-## `PreviewerSpec` — _class_
+## `PreviewerSpec` — _class_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class PreviewerSpec
@@ -388,9 +426,11 @@ Example:
 
 - `to_dict(self) -> 'dict[str, Any]'` — _unmarked — no runtime stability marker_ — Return a JSON-safe dict of the spec (providers shown by name).
 
-## `PreviewerSpecList` — _type-alias_
+## `PreviewerSpecList` — _type-alias_ · deprecated
 
 **Stability:** _unmarked — no runtime stability marker_
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 _type-alias_ — see the module source for the value.
 
@@ -399,9 +439,11 @@ Built-in mutable sequence.
 If no argument is given, the constructor creates a new empty list.
 The argument must be an iterable if specified.
 
-## `ProviderError` — _exception_
+## `ProviderError` — _exception_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class ProviderError(PreviewError)
@@ -413,9 +455,11 @@ Use it when a provider genuinely cannot produce a payload and cannot turn
 the situation into a typed error envelope itself; the session layer catches
 it and renders a ``provider_exception`` error envelope.
 
-## `TargetKind` — _enum_
+## `TargetKind` — _enum_ · deprecated
 
 **Stability:** `provisional` · Since `0.3.1`
+
+**Deprecated** since `0.3.5`; still supported until it is removed in `0.6.0`. Use instead: HTML panels, each a folder with a `panel.json` descriptor and an HTML page, discovered and validated through `scistudio.panels`.
 
 ```python
 class TargetKind(StrEnum)

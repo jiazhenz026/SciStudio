@@ -1,0 +1,138 @@
+{
+  "base_ref": null,
+  "branch": "feat/2426-deprecate-previewers-api",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/stability/__init__.py",
+      "src/scistudio/previewers/**",
+      "src/scistudio/panels/**",
+      "scripts/docs/build_reference.py",
+      "docs/user/reference/**",
+      "src/scistudio/_user_guide/api-reference/**",
+      "mkdocs.yml",
+      "src/scistudio/_agent_reference/public-api.md",
+      "tests/stability/**",
+      "tests/api/test_public_surface.py",
+      "tests/api/public_surface.snapshot.json",
+      "tests/api/test_stability_decorators.py",
+      "tests/panels/**",
+      "tests/docs/**",
+      "tests/adr052_contract/**",
+      "docs/adr/ADR-052.md",
+      "docs/specs/adr-052-public-api-surface.md",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T08:28:15.195385Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-052.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195537Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-052-public-api-surface.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195539Z",
+      "class": null,
+      "kind": "path",
+      "path": "CHANGELOG.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195541Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/public-api.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195542Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/index.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2426,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Mark every public scistudio.previewers API symbol deprecated (replacement: ADR-054 panels; supported and deprecated through 0.5, removed in 0.6, tracked in #2288) in code and in the generated API reference; add the scistudio.panels Python API as a canonical public root with author-facing symbols provisional; regenerate the reference with scripts/docs/build_reference.py; submit a separate PR.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2426-feat-2426-deprecate-previewers-api",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "1df2ee70-de72-4866-bf17-888062f8e792",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-15T08:28:15.195548Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/stability/test_stability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195552Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_public_surface.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195559Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_public_root.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:28:15.195561Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_build_reference_deprecation.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

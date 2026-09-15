@@ -8,13 +8,17 @@ table (ADR-052 §7).
 
 What this script does:
 
-1. Imports the **twelve canonical public roots** (ADR-052 §3/§4; the SciStudio
+1. Imports the **thirteen canonical public roots** (ADR-052 §3/§4; the SciStudio
    freeze contract) and, for each, reads its declared ``__all__`` — the public
    surface. Symbols outside ``__all__`` (and ``internal``-tier class members) are
    excluded even if they have docstrings.
 2. For every public symbol it reads the stability tier and ``Since`` through the
    single read path :func:`scistudio.stability.get_stability` and renders a
-   badge next to the entry.
+   badge next to the entry. It reads deprecation through
+   :func:`scistudio.stability.get_deprecation`, on the symbol first and on its
+   canonical root module second (a module-wide deprecation also covers constants
+   and type aliases that cannot carry a marker), and renders a deprecation notice
+   on the root page, on each deprecated symbol, and in the index (#2426).
 3. Emits one Markdown page per root under ``docs/user/reference/`` plus a
    version-stamped ``index.md``. Each page contains an ``mkdocstrings``
    (``griffe``) autodoc directive per symbol, so ``mkdocstrings`` renders the
@@ -66,11 +70,13 @@ SRC = REPO_ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from scistudio.stability import get_stability  # noqa: E402
+from scistudio.stability import DeprecationInfo, get_deprecation, get_stability  # noqa: E402
 
-#: The twelve canonical public roots. Public surface = each root's ``__all__``
-#: (ADR-052 §3/§4; identical to the SciStudio freeze contract). The last two
-#: are the ADR-055 identity seam an edition composes on (#2304).
+#: The thirteen canonical public roots. Public surface = each root's ``__all__``
+#: (ADR-052 §3/§4; identical to the SciStudio freeze contract). ``api.app`` and
+#: ``api.seam`` are the ADR-055 identity seam an edition composes on (#2304);
+#: ``panels`` is the ADR-054 panels surface (#2426). The two ``previewers`` roots
+#: are deprecated as a whole and removed in 0.6 (ADR-054 §8, #2288).
 CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.core.types",
     "scistudio.core.meta",
@@ -84,6 +90,7 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.tutorials",
     "scistudio.api.app",
     "scistudio.api.seam",
+    "scistudio.panels",
 )
 
 REFERENCE_DIR = REPO_ROOT / "docs" / "user" / "reference"
@@ -136,6 +143,27 @@ def _symbol_kind(obj: object) -> str:
     if isinstance(obj, (types.GenericAlias, types.UnionType)) or "Alias" in type(obj).__name__:
         return "type-alias"
     return "constant"
+
+
+def _deprecation_of(module: types.ModuleType, obj: object) -> DeprecationInfo | None:
+    """Effective deprecation of a public symbol: its own marker, else its root's."""
+    return get_deprecation(obj) or get_deprecation(module)
+
+
+def _deprecation_sentence(info: DeprecationInfo) -> str:
+    """One sentence stating when a deprecation started, when it ends, and what replaces it."""
+    return (
+        f"**Deprecated** since `{info.since}`; still supported until it is removed in "
+        f"`{info.removed_in}`. Use instead: {info.replacement}"
+    )
+
+
+def _root_deprecation_sentence(info: DeprecationInfo) -> str:
+    """The root-page banner: the whole public surface of the root is deprecated."""
+    return (
+        f"Every symbol on this page is deprecated since `{info.since}` and is removed in "
+        f"`{info.removed_in}`; each keeps working until then. Use instead: {info.replacement}"
+    )
 
 
 def _badge(obj: object) -> str:
@@ -198,10 +226,15 @@ def _render_root_page(root: str) -> tuple[str, int, int]:
         _GENERATED_BANNER,
         f"# `{root}`\n",
         f"Canonical import root: `from {root} import ...`\n",
+    ]
+    root_deprecation = get_deprecation(module)
+    if root_deprecation is not None:
+        body.append(f'!!! warning "Deprecated"\n    {_root_deprecation_sentence(root_deprecation)}\n')
+    body.append(
         "Public surface — every symbol below is declared in this module's "
         f"`__all__` ({len(public)} symbols). Stability tier and `Since` are read "
         "from the `scistudio.stability` decorators.\n",
-    ]
+    )
 
     for name in public:
         obj = getattr(module, name)
@@ -210,11 +243,20 @@ def _render_root_page(root: str) -> tuple[str, int, int]:
             marked += 1
         is_class = inspect.isclass(obj)
         extra_filters = _internal_member_filters(obj) if is_class else []
-        body.append(f"## `{name}` — _{kind}_\n")
-        body.append(_badge(obj) + "\n")
+        deprecation = _deprecation_of(module, obj)
+        suffix = " · deprecated" if deprecation is not None else ""
+        body.append(f"## `{name}` — _{kind}_{suffix}\n")
+        badge = _badge(obj)
+        if deprecation is not None:
+            badge += f"\n>\n> {_deprecation_sentence(deprecation)}"
+        body.append(badge + "\n")
         body.append(_directive(f"{root}.{name}", is_class=is_class, extra_filters=extra_filters) + "\n")
 
     return "\n".join(body) + "\n", len(public), marked
+
+
+def _root_is_deprecated(root: str) -> bool:
+    return get_deprecation(importlib.import_module(root)) is not None
 
 
 def _render_index(stats: list[tuple[str, int, int]]) -> str:
@@ -234,6 +276,9 @@ def _render_index(stats: list[tuple[str, int, int]]) -> str:
         "- **`provisional`** — usable but still settling; may change in a minor "
         "release with a changelog note.\n"
         "- **`internal`** — excluded from this reference (no promise).\n",
+        "A symbol can also be **deprecated**. Deprecation does not change its "
+        "tier: the symbol keeps working as documented until the release named "
+        "in its notice removes it, and the notice names the replacement.\n",
         "A handful of public constants and type-aliases (a bare `str`, a "
         "`list[...]` or `collections.abc.Callable` alias) cannot carry a runtime "
         "stability marker and render as *unmarked*.\n",
@@ -241,7 +286,8 @@ def _render_index(stats: list[tuple[str, int, int]]) -> str:
     ]
     for root, public_count, marked in stats:
         page = f"{root}.md"
-        lines.append(f"- [`{root}`]({page}) — {public_count} public symbols ({marked} stability-marked)")
+        note = " — **deprecated**" if _root_is_deprecated(root) else ""
+        lines.append(f"- [`{root}`]({page}) — {public_count} public symbols ({marked} stability-marked){note}")
     lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -301,7 +347,11 @@ def _sc_public_members(cls: type) -> list[tuple[str, object]]:
 
 def _sc_render_symbol(root: str, name: str, obj: object) -> str:
     kind = _symbol_kind(obj)
-    out = [f"## `{name}` — _{kind}_", "", f"**Stability:** {_sc_badge(obj)}", ""]
+    deprecation = _deprecation_of(importlib.import_module(root), obj)
+    suffix = " · deprecated" if deprecation is not None else ""
+    out = [f"## `{name}` — _{kind}_{suffix}", "", f"**Stability:** {_sc_badge(obj)}", ""]
+    if deprecation is not None:
+        out += [_deprecation_sentence(deprecation), ""]
 
     if inspect.isclass(obj):
         bases = [b.__name__ for b in obj.__bases__ if b is not object]
@@ -351,6 +401,11 @@ def _sc_render_root_page(root: str) -> tuple[str, int]:
         _GENERATED_BANNER,
         f"# `{root}`\n",
         f"Canonical import root: `from {root} import ...`\n",
+    ]
+    root_deprecation = get_deprecation(module)
+    if root_deprecation is not None:
+        body.append(f"> **Deprecated.** {_root_deprecation_sentence(root_deprecation)}\n")
+    body += [
         f"Self-contained public-API reference — {len(public)} symbols from this "
         "module's `__all__`, with signatures and docstrings inlined. "
         "Generated; do not hand-edit.\n",
@@ -375,10 +430,14 @@ def _sc_render_index(stats: list[tuple[str, int]]) -> str:
         "without deprecation.\n"
         "- `provisional` — usable, may change in a minor release.\n"
         "- `internal` — excluded from this reference.\n",
+        "A symbol marked **deprecated** keeps its tier and keeps working until "
+        "the release its notice names removes it; the notice names the "
+        "replacement.\n",
         "## Canonical roots\n",
     ]
     for root, count in stats:
-        lines.append(f"- [`{root}`]({root}.md) — {count} symbols")
+        note = " — **deprecated**" if _root_is_deprecated(root) else ""
+        lines.append(f"- [`{root}`]({root}.md) — {count} symbols{note}")
     lines.append("")
     return "\n".join(lines) + "\n"
 
