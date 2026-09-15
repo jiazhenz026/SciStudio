@@ -34,7 +34,16 @@
       "reason": "owner directive 4: protected core paths"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T08:23:09.442945Z",
+      "class": "in-code-docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "No user guide, skill or reference page states these paths; the layout is documented in the AppBlock class docstring, the output_dir and reuse_last_output schema descriptions and RunDir docstrings, all updated in this diff",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [],
   "issues": [
@@ -69,9 +78,57 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:23:09.442808Z",
+      "pattern": "tests/blocks/test_app_block.py",
+      "reason": "scope: updated existing AppBlock test; test evidence; docs N/A"
+    }
+  ],
   "session_id": "16c9892f-bdc9-4175-ba2b-c84d3cf9b7e1",
   "strictness_tier": null,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T08:23:09.442950Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/app/test_appblock_exchange_dir_scoping.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:23:09.442953Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/ai/test_ai_block_skeleton.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:23:09.442954Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/ai/test_run_dir_skeleton.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:23:09.442955Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/engine/test_local_runner.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:23:09.442956Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_app_block.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
