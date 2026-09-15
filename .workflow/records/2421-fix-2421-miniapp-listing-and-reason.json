@@ -265,9 +265,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "3e90b954f71a306c7336c0177d1e6a4aeaeea5a3",
+    "sha": "d65013794224ef8426f62a69a99ee4607602da17",
     "shas": [
-      "3e90b954f71a306c7336c0177d1e6a4aeaeea5a3"
+      "d65013794224ef8426f62a69a99ee4607602da17"
     ],
     "trailers": []
   },
@@ -680,6 +680,182 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.199117Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.211215Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.222788Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.234104Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.247304Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.259628Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.271380Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.282564Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.293638Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.305289Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:08.321198Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.633984Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.647145Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.660154Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.678286Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.691765Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.705085Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.717990Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.731493Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.751637Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.806667Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T08:23:17.862051Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -698,7 +874,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
+    "base": "25a378c07bda2ecf285fad6673f085326aaef55d",
     "base_sha": "25a378c0",
     "changed_files": [
       ".workflow/records/2421-fix-2421-miniapp-listing-and-reason.json",
@@ -713,9 +889,9 @@
       "tests/ai/test_mcp_panels_tools.py",
       "tests/panels/test_panel_catalog_refresh.py"
     ],
-    "diff_fingerprint": "sha256:1fe610be2e8c674dec1bd3d5c8283225404af93bea84aa1a96bcd5ae2a24f174",
+    "diff_fingerprint": "sha256:89f70edf6ef763a1894a8be4626c0ecf1885cd1197963dfb082bbc039dc536c4",
     "head": "HEAD",
-    "head_sha": "3e90b954",
+    "head_sha": "d6501379",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
@@ -738,8 +914,8 @@
       2421,
       2422
     ],
-    "number": null,
-    "url": null
+    "number": 2428,
+    "url": "https://github.com/jiazhenz026/SciStudio/pull/2428"
   },
   "reconcile_events": [
     {
@@ -774,6 +950,22 @@
     {
       "at": "2026-09-15T08:22:54.148297Z",
       "diff_fingerprint": "sha256:1fe610be2e8c674dec1bd3d5c8283225404af93bea84aa1a96bcd5ae2a24f174",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T08:23:08.321237Z",
+      "diff_fingerprint": "sha256:89f70edf6ef763a1894a8be4626c0ecf1885cd1197963dfb082bbc039dc536c4",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T08:23:17.862161Z",
+      "diff_fingerprint": "sha256:89f70edf6ef763a1894a8be4626c0ecf1885cd1197963dfb082bbc039dc536c4",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 2,
