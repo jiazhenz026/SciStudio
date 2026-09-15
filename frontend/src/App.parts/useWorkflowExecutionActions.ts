@@ -25,6 +25,11 @@ export interface WorkflowExecutionDeps {
   workflowPayloadId: string;
   workflowNodes?: WorkflowNode[];
   blockSchemas?: Record<string, BlockSchemaResponse>;
+  /**
+   * #2394 — called once a run of the open workflow has started, so an expanded
+   * subworkflow tab (which just ran its own file) stops showing its parent's run.
+   */
+  onRunStarted?: () => void;
 }
 
 export interface WorkflowExecutionActions {
@@ -144,6 +149,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
     workflowPayloadId,
     workflowNodes = [],
     blockSchemas = {},
+    onRunStarted,
   } = deps;
 
   const runWorkflow = useCallback(async () => {
@@ -153,12 +159,22 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
       const overwriteNodeIds = await confirmOverwriteNodes(workflowNodes, blockSchemas);
       if (overwriteNodeIds.includes("__cancel__")) return;
       await api.executeWorkflow(workflowPayloadId, { overwriteNodeIds });
+      // #2394: an expanded subworkflow tab just ran its own file; show that run.
+      onRunStarted?.();
       setLastError(null);
       // #793: do NOT auto-switch to the Logs tab.
     } catch (error) {
       surfaceExecutionError(setLastError, error);
     }
-  }, [blockSchemas, currentProject, saveWorkflow, setLastError, workflowNodes, workflowPayloadId]);
+  }, [
+    blockSchemas,
+    currentProject,
+    onRunStarted,
+    saveWorkflow,
+    setLastError,
+    workflowNodes,
+    workflowPayloadId,
+  ]);
 
   const pauseWorkflow = useCallback(async () => {
     if (!workflowId) return;
@@ -182,11 +198,20 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
       const overwriteNodeIds = await confirmOverwriteNodes(workflowNodes, blockSchemas);
       if (overwriteNodeIds.includes("__cancel__")) return;
       await api.executeFrom(workflowId, selectedNodeId, { overwriteNodeIds });
+      onRunStarted?.();
       setLastError(null);
     } catch (error) {
       surfaceExecutionError(setLastError, error);
     }
-  }, [blockSchemas, saveWorkflow, selectedNodeId, setLastError, workflowId, workflowNodes]);
+  }, [
+    blockSchemas,
+    onRunStarted,
+    saveWorkflow,
+    selectedNodeId,
+    setLastError,
+    workflowId,
+    workflowNodes,
+  ]);
 
   // The canvas node toolbar's Run button. ADR-050 Addendum 1 §8.2 (#2033)
   // removed `handleRestartBlock`, which sat directly below this and had a
@@ -201,12 +226,13 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
         const overwriteNodeIds = await confirmOverwriteNodes(workflowNodes, blockSchemas);
         if (overwriteNodeIds.includes("__cancel__")) return;
         await api.executeFrom(workflowId, blockId, { overwriteNodeIds });
+        onRunStarted?.();
         setLastError(null);
       } catch (error) {
         surfaceExecutionError(setLastError, error);
       }
     },
-    [blockSchemas, saveWorkflow, setLastError, workflowId, workflowNodes],
+    [blockSchemas, onRunStarted, saveWorkflow, setLastError, workflowId, workflowNodes],
   );
 
   return {

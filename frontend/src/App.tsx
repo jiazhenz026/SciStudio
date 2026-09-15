@@ -214,6 +214,7 @@ export default function App() {
   const switchTab = useAppStore((state) => state.switchTab);
   const closeTab = useAppStore((state) => state.closeTab);
   const syncActiveTab = useAppStore((state) => state.syncActiveTab);
+  const showActiveTabOwnRun = useAppStore((state) => state.showActiveTabOwnRun);
   const saveFileTab = useAppStore((state) => state.saveFileTab);
   const updateFileTabContent = useAppStore((state) => state.updateFileTabContent);
   const openFileTab = useAppStore((state) => state.openFileTab);
@@ -312,6 +313,7 @@ export default function App() {
     workflowPayloadId: workflowPayload.id,
     workflowNodes,
     blockSchemas,
+    onRunStarted: showActiveTabOwnRun,
   });
   const { handleAddBlockFromPalette, handleCanvasConnect, handleViewSource, handleSave } =
     useCanvasHandlers({

@@ -279,7 +279,11 @@ Acceptance Scenarios:
 - A subworkflow file may be opened in its own editor tab and executed
   standalone via the normal run path. The `exposed_ports` section is
   ignored during standalone execution; the blocks list runs as a normal DAG
-  with user-supplied initial inputs.
+  with user-supplied initial inputs. The tab saves and runs the file by its
+  path-derived run identity (`subworkflows/qc.yaml` is
+  `@subworkflows@qc.yaml`, #2394), never by the `id:` the file declares, so a
+  subworkflow declaring the same id as a top-level workflow cannot overwrite
+  or run as that workflow.
 - An edge in the parent references `sw.<port>` for a port that is not in
   the referenced subworkflow's `exposed_ports` becomes a dangling edge
   after flattening. The validator rejects it at run start.
