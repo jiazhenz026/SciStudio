@@ -480,6 +480,11 @@
       "at": "2026-09-12T01:12:34.089846Z",
       "owner_directive": "Sweep broadened by the owner to every reachable instance of the partial-identity bug class. Fixed here: plot input resolution and target discovery (plot/runtime.py, plot/targets.py); per-workflow frontend execution state; project-scoped run registry with all_workflow_runs for backend-wide sweeps; run-scoped MCP block-error capture; workflow-scoped tutorial port_has_output and rendered_plots; workflow-scoped DataPreview plot match; project-scoped git history cache; prompt-scoped interactive memory write; unique workflow tab ids plus a preview tab's backingTabId. Deferred with rationale in #2364: the protected-core type-registry singleton and retention keying, the frontend catalog latches, and three cosmetic same-family matches.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T02:43:01.562562Z",
+      "owner_directive": "Sync latest main into PR #2365 and resolve conflicts while retaining new changes. Existing session instruction skips local preflight; run focused conflict regression tests.",
+      "reason": "Owner requested resolving PR #2365 conflicts and incorporating latest main; preserve workflow backing identity and ADR-054 panel snapshots together."
     }
   ],
   "docs_events": [
@@ -505,6 +510,14 @@
       "kind": "na",
       "path": null,
       "rationale": "no user-visible feature or API change; a bug fix restoring intended behaviour",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:44:24.284847Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Conflict resolution preserves ADR-054 FR-039 panel snapshots and existing issue #2362 backing-tab identity; no contract change.",
       "verified_in_diff": null
     }
   ],
@@ -1995,6 +2008,18 @@
       "at": "2026-09-12T01:12:34.090029Z",
       "pattern": "docs/specs/adr-053-learning-center.md",
       "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T02:43:01.562726Z",
+      "pattern": "frontend/src/store/tabSlice.parts/previewTabActions.ts",
+      "reason": "Owner requested resolving PR #2365 conflicts and incorporating latest main; preserve workflow backing identity and ADR-054 panel snapshots together."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T02:43:01.562731Z",
+      "pattern": "frontend/src/store/__tests__/compositeIdentity.test.ts",
+      "reason": "Owner requested resolving PR #2365 conflicts and incorporating latest main; preserve workflow backing identity and ADR-054 panel snapshots together."
     }
   ],
   "session_id": "5c815939-0edf-429d-8c05-f3e4892ba165",
@@ -2035,6 +2060,14 @@
     },
     {
       "at": "2026-09-12T01:12:34.090200Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/compositeIdentity.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:44:24.285043Z",
       "class": null,
       "kind": "path",
       "path": "frontend/src/store/__tests__/compositeIdentity.test.ts",

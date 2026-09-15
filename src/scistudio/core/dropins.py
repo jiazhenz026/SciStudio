@@ -201,6 +201,7 @@ __all__ = [
     "guard_dropin_type_roots",
     "is_tutorial_location",
     "library_root_for_project",
+    "panel_scan_dirs",
     "previewer_import_roots",
     "previewer_scan_dirs",
     "project_blocks_dir",
@@ -445,6 +446,11 @@ def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...
     """
     # Development references: FR-016, FR-031, FR-070.
     return _tier_dirs(TUTORIALS_DIR_NAME, project_dir)
+
+
+def panel_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
+    """Panel tiers with the same tutorial-library substitution as previewers."""
+    return _tier_dirs("panels", project_dir, library_root_for_project(project_dir))
 
 
 def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:

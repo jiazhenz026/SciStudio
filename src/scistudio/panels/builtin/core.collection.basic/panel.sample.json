@@ -1,0 +1,28 @@
+{
+  "context": "preview",
+  "input": {
+    "ref": "sample-collection",
+    "kind": "collection_ref",
+    "count": 3,
+    "item_type": "Image",
+    "items": [
+      { "ref": "sample-collection/item-0", "type_name": "Image", "kind": "data_ref" },
+      { "ref": "sample-collection/item-1", "type_name": "Image", "kind": "data_ref" }
+    ],
+    "next_cursor": "c1",
+    "sampled": true,
+    "truncated": true,
+    "complete": false
+  },
+  "reads": {
+    "collection.items": {
+      "count": 3,
+      "item_type": "Image",
+      "items": [{ "ref": "sample-collection/item-2", "type_name": "Image", "kind": "data_ref" }],
+      "next_cursor": null,
+      "sampled": false,
+      "truncated": false,
+      "complete": true
+    }
+  }
+}

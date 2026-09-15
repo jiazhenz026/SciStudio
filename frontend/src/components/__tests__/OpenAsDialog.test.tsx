@@ -107,7 +107,7 @@ describe("OpenAsDialog (#2112)", () => {
     expect(screen.getByText("built in")).toBeInTheDocument();
 
     // First candidate (project tier) is preselected.
-    expect(radioFor("SRSImage").checked).toBe(true);
+    await waitFor(() => expect(radioFor("SRSImage").checked).toBe(true));
   });
 
   it("opens the file as the picked type and remembers it when the box is checked", async () => {

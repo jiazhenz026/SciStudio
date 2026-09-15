@@ -1,0 +1,10 @@
+{
+  "id": "core.plot.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["PlotArtifact"],
+  "name": "Plot",
+  "description": "Renders a plot artifact: PNG/JPEG/SVG as an image, PDF via the local PDF.js, with zoom and save (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

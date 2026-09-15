@@ -36,6 +36,7 @@ from typing import Any, TypeVar, cast
 from urllib.parse import unquote_to_bytes
 from uuid import uuid4
 
+from scistudio.previewers._plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import (
     EnvelopeKind,
@@ -74,15 +75,8 @@ _PLOT_EXPORT_MIME = {
 # Canonical single-word plot formats a user may export to. ``jpg`` folds to
 # ``jpeg`` so the on-disk ``.jpg`` sibling and a ``jpeg`` request resolve to the
 # same file (#1918).
-_PLOT_EXPORT_FORMATS = frozenset({"svg", "pdf", "png", "jpeg"})
-# Format -> on-disk suffix used for the promoted ``current.<suffix>`` siblings.
-_PLOT_FORMAT_SUFFIX = {"svg": ".svg", "pdf": ".pdf", "png": ".png", "jpeg": ".jpg"}
-
-
-def _canonical_plot_format(suffix: str) -> str:
-    """Fold a ``.ext``/``ext`` suffix to a canonical plot format (``jpg``→``jpeg``)."""
-    ext = suffix.lower().lstrip(".")
-    return "jpeg" if ext == "jpg" else ext
+_PLOT_EXPORT_FORMATS = frozenset(EXPORT_FORMAT_ORDER)
+_canonical_plot_format = canonical_format
 
 
 def _export_group_stem(primary: Path) -> str:
@@ -98,9 +92,16 @@ def _sibling_for_format(primary: Path, fmt: str) -> Path:
     The plot run promotes one ``<stem>.<suffix>`` file per allowed format, so the
     sibling for a requested format shares the primary's directory and stem and
     only swaps the extension (``current.svg`` → ``current.pdf`` for ``pdf``).
+
+    Resolution goes through the shared plot-format authority, which accepts both
+    spellings of a JPEG suffix. The map this replaced looked only for ``.jpg``,
+    so a run that wrote ``.jpeg`` advertised a format in the Save menu that the
+    export then refused. When nothing was rendered for *fmt* the canonical
+    candidate is returned, so the caller's own ``is_file`` check still produces
+    the "not rendered for this plot" error naming the format asked for.
     """
-    suffix = _PLOT_FORMAT_SUFFIX.get(fmt, "." + fmt)
-    return primary.parent / (_export_group_stem(primary) + suffix)
+    found = sibling_for(primary, fmt)
+    return found if found is not None else primary.parent / f"{primary.stem}.{canonical_format(fmt)}"
 
 
 ChildContextResolver = Callable[[PreviewTarget, dict[str, Any]], tuple[PreviewTarget, dict[str, Any]]]
@@ -161,6 +162,8 @@ class PreviewSessionManager:
         self._registry = registry
         self._router = PreviewRouter(registry)
         self._sessions: OrderedDict[str, PreviewSession] = OrderedDict()
+        self._session_guards: dict[str, Callable[[], None]] = {}
+        self._session_authorities: dict[str, Any] = {}
         self._lock = threading.RLock()
         self._max_sessions = max(1, int(max_sessions))
         self._data_access_factory = data_access_factory or self._default_data_access
@@ -186,14 +189,23 @@ class PreviewSessionManager:
 
     # -- session lifecycle --------------------------------------------------
 
-    def create_session(self, target: PreviewTarget, query: dict[str, Any] | None = None) -> PreviewEnvelope:
+    def create_session(
+        self,
+        target: PreviewTarget,
+        query: dict[str, Any] | None = None,
+        *,
+        guard: Callable[[], None] | None = None,
+        authority: Any = None,
+    ) -> PreviewEnvelope:
         """Route *target*, create a session, and return the first envelope.
 
         A routing failure returns an error envelope (no session is created).
         """
         query = dict(query or {})
+        if guard is not None:
+            guard()
         try:
-            spec = self._router.resolve(target)
+            spec = self._select_spec(target, query)
         except PreviewError as exc:
             return self._error_envelope(target, exc.code, exc.message, previewer_id="", detail=exc.detail)
 
@@ -209,10 +221,38 @@ class PreviewSessionManager:
         )
         with self._lock:
             self._sessions[session.session_id] = session
+            if guard is not None:
+                self._session_guards[session_id] = guard
+                self._session_authorities[session_id] = authority
             self._trim_locked()
 
         envelope = self._render(spec, session.target, session.query, session.limits, session.session_id)
         return envelope
+
+    def _select_spec(self, target: PreviewTarget, query: dict[str, Any]) -> PreviewerSpec:
+        if query.get("core_only") is True:
+            core = PreviewerRegistry()
+            for spec in self._registry.all_specs():
+                if spec.owner_kind is OwnerKind.CORE:
+                    core.register(spec)
+            return PreviewRouter(core).resolve(target)
+        requested = query.get("panel_id")
+        if requested:
+            chain = self._router._specificity_chain(target)
+            for spec in self._registry.all_specs():
+                if spec.previewer_id != requested:
+                    continue
+                if bool(spec.supports_collection) != target.is_collection:
+                    continue
+                # An item-type previewer must claim a type in the item chain. The
+                # ``Collection`` sentinel is not an item type and never appears in
+                # the chain; it serves any collection, mirroring the router's core
+                # collection fallback (see PreviewRouter.resolve step 10).
+                serves_target = spec.target_type in chain or (target.is_collection and spec.target_type == "Collection")
+                if serves_target:
+                    return spec
+            raise UnknownPreviewerError(f"Previewer {requested!r} does not serve this target")
+        return self._router.resolve(target)
 
     def read_session(self, session_id: str) -> PreviewEnvelope:
         """Re-render the current envelope for *session_id*.
@@ -227,12 +267,9 @@ class PreviewSessionManager:
     def patch_session(self, session_id: str, query_patch: dict[str, Any]) -> PreviewEnvelope:
         """Merge *query_patch* into the session query state and re-render."""
         with self._lock:
-            session = self._sessions.get(session_id)
-            if session is None:
-                raise UnknownPreviewerError(
-                    f"Unknown preview session: {session_id}",
-                    detail={"session_id": session_id},
-                )
+            session = self._get_session(session_id)
+            if session_id in self._session_guards and any(key.startswith("_") for key in query_patch):
+                raise ValueError("Private preview query fields are backend-owned")
             session.query.update(query_patch)
             session.cache_key = self._cache_key(
                 self._registry.get(session.previewer_id) or _missing_spec(session.previewer_id),
@@ -385,6 +422,14 @@ class PreviewSessionManager:
         limits: PreviewLimits,
         session_id: str | None,
     ) -> PreviewEnvelope:
+        if spec.panel is not None:
+            return PreviewEnvelope(
+                previewer_id=spec.previewer_id,
+                target=target,
+                kind=EnvelopeKind.PANEL,
+                panel={"id": spec.previewer_id, "api_version": spec.api_version},
+                session_id=session_id,
+            )
         provider = self._resolve_provider(spec)
         if provider is None:
             return self._error_envelope(
@@ -497,6 +542,19 @@ class PreviewSessionManager:
             error=PreviewErrorInfo(code=code, message=message, detail=detail or {}),
         )
 
+    def frozen_session(self, session_id: str) -> PreviewSession:
+        """Snapshot server-owned target/query state for a panel context."""
+        from copy import deepcopy
+
+        with self._lock:
+            return deepcopy(self._get_session(session_id))
+
+    def session_authority(self, session_id: str) -> Any:
+        """Return validated internal authority for an independently opened child."""
+        with self._lock:
+            self._get_session(session_id)
+            return self._session_authorities.get(session_id)
+
     def _get_session(self, session_id: str) -> PreviewSession:
         with self._lock:
             session = self._sessions.get(session_id)
@@ -505,6 +563,15 @@ class PreviewSessionManager:
                     f"Unknown preview session: {session_id}",
                     detail={"session_id": session_id},
                 )
+            guard = self._session_guards.get(session_id)
+            if guard is not None:
+                try:
+                    guard()
+                except Exception as exc:
+                    self._sessions.pop(session_id, None)
+                    self._session_guards.pop(session_id, None)
+                    self._session_authorities.pop(session_id, None)
+                    raise UnknownPreviewerError("Preview source is no longer available") from exc
             self._sessions.move_to_end(session_id)
             return session
 
@@ -519,7 +586,9 @@ class PreviewSessionManager:
 
     def _trim_locked(self) -> None:
         while len(self._sessions) > self._max_sessions:
-            self._sessions.popitem(last=False)
+            session_id, _ = self._sessions.popitem(last=False)
+            self._session_guards.pop(session_id, None)
+            self._session_authorities.pop(session_id, None)
 
     @staticmethod
     def _cache_key(

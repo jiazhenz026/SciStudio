@@ -26,6 +26,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
+import { PanelPreview } from "../../panels/PanelPreview";
+import type { PanelSnapshot } from "../../panels/types";
 import { apiUrl } from "../../lib/api/base-path";
 import type {
   PreviewEnvelope,
@@ -45,6 +47,13 @@ import {
 } from "./previewerHostApi";
 
 export interface PreviewHostProps {
+  /** Backend-resolved child; never reconstructed from an untrusted child ref. */
+  initialEnvelope?: PreviewEnvelope;
+  /** Resume a frozen session, including composite-local targets, on maximize. */
+  previewSessionId?: string;
+  panelId?: string;
+  initialViewState?: unknown;
+  onPanelSnapshot?: (snapshot: PanelSnapshot | null) => void;
   /** The target to preview. A `null` target renders the empty state. */
   target: PreviewTarget | null;
   /** Optional initial query state (slice/page/sort). */
@@ -135,13 +144,21 @@ function cacheEnvelopeForQuery(
 }
 
 export function PreviewHost({
+  initialEnvelope,
+  previewSessionId,
   target,
   initialQuery,
   routingEpoch,
   cacheEnvelope,
   buildCacheKey,
   importer,
+  panelId,
+  initialViewState,
+  onPanelSnapshot,
 }: PreviewHostProps) {
+  const fallbackTargetKey = `${target?.kind}:${target?.ref}:${routingEpoch}`;
+  const [coreOnlyTarget, setCoreOnlyTarget] = useState<string | null>(null);
+  const coreOnly = coreOnlyTarget === fallbackTargetKey;
   const [status, setStatus] = useState<Status>("idle");
   const [envelope, setEnvelope] = useState<PreviewEnvelope | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -163,13 +180,23 @@ export function PreviewHost({
       setEnvelope(null);
       return;
     }
-    const query = { ...(initialQuery ?? {}) };
+    const query = {
+      ...(initialQuery ?? {}),
+      ...(coreOnly ? { core_only: true } : panelId ? { panel_id: panelId } : {}),
+    };
     queryRef.current = query;
 
     setStatus("loading");
     setRequestError(null);
-    api
-      .createPreviewSession(target, query)
+    const sessionId = initialEnvelope?.session_id ?? previewSessionId;
+    const resolved = sessionId
+      ? coreOnly
+        ? api.patchPreviewSession(sessionId, { core_only: true })
+        : initialEnvelope
+          ? Promise.resolve(initialEnvelope)
+          : api.getPreviewSession(sessionId)
+      : api.createPreviewSession(target, query);
+    resolved
       .then((env) => {
         if (cancelled) return;
         setEnvelope(env);
@@ -189,7 +216,16 @@ export function PreviewHost({
     // deliberate dep: a choice change must re-create the session so the new
     // routing applies to the preview already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.ref, target?.kind, initialQueryKey, routingEpoch]);
+  }, [
+    target?.ref,
+    target?.kind,
+    initialQueryKey,
+    routingEpoch,
+    coreOnly,
+    panelId,
+    initialEnvelope?.session_id,
+    previewSessionId,
+  ]);
 
   // -- patch query (slice/page/sort/slot) ----------------------------------
   const patchQuery = useCallback(
@@ -321,6 +357,14 @@ export function PreviewHost({
 
   // The envelope currently in focus (top of the drill-down stack, else root).
   const activeEnvelope = childStack[childStack.length - 1] ?? envelope;
+  useEffect(() => {
+    if (activeEnvelope && !activeEnvelope.panel) {
+      onPanelSnapshot?.({
+        target: activeEnvelope.target,
+        ...(activeEnvelope.session_id ? { previewSessionId: activeEnvelope.session_id } : {}),
+      });
+    }
+  }, [activeEnvelope, onPanelSnapshot]);
   const manifest = useMemo(() => readManifest(activeEnvelope), [activeEnvelope]);
   const manifestKey = useMemo(() => manifestIdentityKey(manifest), [manifest]);
   const dynamicMountKey =
@@ -357,7 +401,8 @@ export function PreviewHost({
         return currentEnvelope();
       },
       get kind() {
-        return currentEnvelope().kind;
+        const kind = currentEnvelope().kind;
+        return kind === "panel" ? "error" : kind;
       },
       get provider() {
         const current = currentEnvelope();
@@ -484,35 +529,31 @@ export function PreviewHost({
   }, [activeEnvelope]);
 
   // -- render --------------------------------------------------------------
-  if (!target || status === "idle") {
-    return (
-      <div className="rounded-[1.6rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
-        Nothing to preview yet
-      </div>
-    );
-  }
-  if (status === "loading") {
-    return (
-      <div
-        className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500"
-        data-testid="preview-host-loading"
-      >
-        Loading preview…
-      </div>
-    );
-  }
-  if (status === "error") {
-    return (
-      <div
-        className="rounded-[1.6rem] border border-red-300 bg-red-50 p-4 text-sm text-red-800"
-        data-testid="preview-host-request-error"
-        role="alert"
-      >
-        Could not create a preview session: {requestError}
-      </div>
-    );
-  }
+  if (!target || status !== "ready")
+    return <PreviewStatus status={target ? status : "idle"} requestError={requestError} />;
   if (!activeEnvelope) return null;
+
+  if (activeEnvelope.panel) {
+    return (
+      <MountedPanel
+        envelope={activeEnvelope}
+        panelId={activeEnvelope.panel.id}
+        initialViewState={initialViewState}
+        onPanelSnapshot={onPanelSnapshot}
+        importer={importer}
+        canPopChild={childStack.length > 0}
+        onPopChild={popChild}
+        onFallback={() => {
+          onPanelSnapshot?.(null);
+          if (activeEnvelope.session_id && childStack.length > 0) {
+            void patchQuery({ core_only: true }).catch((err: unknown) => {
+              setHostDiagnostics((value) => [...value, String(err)]);
+            });
+          } else setCoreOnlyTarget(fallbackTargetKey);
+        }}
+      />
+    );
+  }
 
   const useDynamic = !!manifest && !dynamicFailed;
 
@@ -548,6 +589,69 @@ export function PreviewHost({
           onExport={(r) => void exportResource(r)}
         />
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * A panel-backed envelope: the frame, and the way back out of a child.
+ *
+ * Extracted from `PreviewHost` rather than inlined because every wrapper
+ * between the stage and the iframe has to be a flex column that can shrink, or
+ * the frame falls back to its own minimum height and a figure takes a third of
+ * a focused tab. Keeping that chain in one readable place is the point.
+ */
+function MountedPanel({
+  envelope,
+  panelId,
+  initialViewState,
+  onPanelSnapshot,
+  importer,
+  canPopChild,
+  onPopChild,
+  onFallback,
+}: {
+  envelope: PreviewEnvelope;
+  panelId: string;
+  initialViewState?: PreviewHostProps["initialViewState"];
+  onPanelSnapshot?: PreviewHostProps["onPanelSnapshot"];
+  importer?: PreviewHostProps["importer"];
+  canPopChild: boolean;
+  onPopChild: () => void;
+  onFallback: () => void;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {canPopChild ? (
+        // `self-start`: the column stretches its children and the frame below
+        // has to be stretched, so without it this becomes a full-width bar
+        // whose centred label reads as a centred control.
+        <button
+          className="self-start"
+          type="button"
+          data-testid="preview-host-back"
+          onClick={onPopChild}
+        >
+          ← Back
+        </button>
+      ) : null}
+      <PanelPreview
+        key={`${envelope.session_id}:${panelId}`}
+        target={envelope.target}
+        panelId={panelId}
+        previewSessionId={envelope.session_id}
+        initialViewState={initialViewState}
+        onSnapshot={onPanelSnapshot}
+        renderChild={(child, onSnapshot) => (
+          <PreviewHost
+            target={child.target}
+            initialEnvelope={child}
+            onPanelSnapshot={onSnapshot}
+            importer={importer}
+          />
+        )}
+        onFallback={onFallback}
+      />
     </div>
   );
 }
@@ -654,4 +758,36 @@ function downloadDataUri(data: Record<string, unknown>, filename: string): void 
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+function PreviewStatus({ status, requestError }: { status: Status; requestError: string | null }) {
+  if (status === "idle") {
+    return (
+      <div className="rounded-[1.6rem] border border-dashed border-stone-300 px-4 py-6 text-sm text-stone-500">
+        Nothing to preview yet
+      </div>
+    );
+  }
+  if (status === "loading") {
+    return (
+      <div
+        className="rounded-[1.6rem] border border-stone-200 bg-white p-4 text-sm text-stone-500"
+        data-testid="preview-host-loading"
+      >
+        Loading preview…
+      </div>
+    );
+  }
+  if (status === "error") {
+    return (
+      <div
+        className="rounded-[1.6rem] border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+        data-testid="preview-host-request-error"
+        role="alert"
+      >
+        Could not create a preview session: {requestError}
+      </div>
+    );
+  }
+  return null;
 }

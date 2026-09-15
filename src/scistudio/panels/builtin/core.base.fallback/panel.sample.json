@@ -1,0 +1,15 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-object", "kind": "data_ref", "recorded_type": "DataObject" },
+  "reads": {
+    "metadata": {
+      "type_chain": ["DataObject", "MysteryType"],
+      "metadata": { "created_by": "some.block", "note": "no type-specific panel matched" },
+      "shape": null,
+      "dtype": null,
+      "sampled": false,
+      "truncated": false,
+      "complete": true
+    }
+  }
+}

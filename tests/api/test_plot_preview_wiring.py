@@ -17,11 +17,17 @@ These tests exercise the REAL wiring with NO mocks of the wiring itself:
         -> ApiRuntime.register_plot_artifact  (catalog registration)
           -> POST /api/previews/sessions  (routed PreviewService)
             -> PreviewRouter resolves core.plot.basic
-              -> plot_previewer renders a PLOT envelope  (the consumer)
+              -> the mounted plot panel reads the artifact  (the consumer)
+
+The last link ends one hop further on than it used to. ``core.plot.basic`` is a
+sandboxed HTML panel now (ADR-054 Phase B), so the session envelope names the
+panel to mount and the figure itself is fetched by the panel through
+``/api/panels/contexts`` reads. The chain being guarded is the same one; the
+proof that it reaches the figure is a read rather than a payload.
 
 If any link in that chain is missing or mis-wired, these tests fail. They are
 the mandatory end-to-end proof that a produced plot artifact actually reaches
-the PlotPreviewer at runtime (FR-031 / SC-010).
+its previewer at runtime (FR-031 / SC-010).
 """
 
 from __future__ import annotations
@@ -29,6 +35,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -148,17 +155,38 @@ def _write_workflow_and_plot(client: TestClient, project: Path) -> None:
     )
 
 
+def _panel_context(client: TestClient, *, ref: str, kind: str = "plot_artifact") -> str:
+    """Open the panel context a mounted plot panel reads through.
+
+    A core previewer is a panel now, so the figure a session used to carry in
+    its payload is fetched by the panel itself. Tests that pinned the rendered
+    format, the bytes, or the Save choice follow the same path the frame does.
+    """
+    response = client.post("/api/panels/contexts", json={"kind": "preview", "target": {"kind": kind, "ref": ref}})
+    assert response.status_code == 200, response.text
+    return str(response.json()["context_id"])
+
+
+def _panel_read(
+    client: TestClient, context_id: str, ref: str, op: str, params: dict[str, Any] | None = None
+) -> httpx.Response:
+    return client.post(
+        f"/api/panels/contexts/{context_id}/read",
+        json={"ref": ref, "op": op, "params": params or {}},
+    )
+
+
 def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     client: TestClient,
     runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    """The whole chain: run route -> catalog reg -> preview session -> PLOT envelope.
+    """The whole chain: run route -> catalog reg -> preview session -> the figure.
 
     This is the regression guard for the #1606 dead-wire: it fails if the run
     route does not exist, does not register the artifact, the record is not
     classified as a plot_artifact target, the router does not resolve
-    core.plot.basic, or the PlotPreviewer does not render the produced SVG.
+    core.plot.basic, or the produced SVG never reaches the panel that shows it.
     """
     _seed_block_output(runtime, opened_project)
     _write_workflow_and_plot(client, opened_project)
@@ -184,7 +212,7 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
 
     # 2. Consumer: open a routed preview session with the returned data_ref.
     #    This is the exact call the frontend PreviewHost makes; it must resolve
-    #    the core PlotPreviewer and render a PLOT envelope.
+    #    the core plot previewer and answer with the panel to mount.
     session = client.post(
         "/api/previews/sessions",
         json={
@@ -200,15 +228,41 @@ def test_plot_run_route_registers_artifact_and_preview_session_renders_plot(
     )
     assert session.status_code == 200, session.text
     env = session.json()
-    # The produced artifact reaches the PlotPreviewer at runtime (FR-031/SC-010).
+    # The produced artifact reaches the core plot previewer at runtime
+    # (FR-031/SC-010). The envelope names the panel to mount; the figure arrives
+    # through the panel's own reads, so the rest of the chain is checked there.
     assert env["previewer_id"] == "core.plot.basic", env
-    assert env["kind"] == "plot", env
-    assert env["payload"]["format"] == "svg"
-    # SVG is sanitized + embedded inline by the previewer (sandboxed).
-    assert env["payload"]["sandboxed"] is True
-    assert "svg" in env["payload"]
-    # Export resource is offered so the user can save the figure.
-    assert any(r["resource_id"] == "export" for r in env["resources"])
+    assert env["kind"] == "panel", env
+    assert env["panel"]["id"] == "core.plot.basic"
+
+    # 3. The panel opens a read context on the same target. Saving the figure
+    #    was an `export` session resource the envelope advertised; a sandboxed
+    #    frame cannot run a file dialog, so the host offers it as a context
+    #    service instead — the same capability, moved to the side that has it.
+    opened = client.post(
+        "/api/panels/contexts",
+        json={"kind": "preview", "target": {"kind": "plot_artifact", "ref": data_ref}},
+    )
+    assert opened.status_code == 200, opened.text
+    context = opened.json()
+    assert context["panel"]["id"] == "core.plot.basic"
+    assert "save" in context["services"]
+
+    # 4. The read reaches the SVG the render really produced: the preferred
+    #    format is the primary the panel is handed, and asking for it grants a
+    #    URL that serves those bytes. The scrubbing applied on the way out is
+    #    pinned against the serving route itself, in
+    #    tests/panels/test_plot_artifact_reads.py::TestServedSvg.
+    info = _panel_read(client, context["context_id"], data_ref, "artifact.info").json()
+    assert info["name"] == "current.svg"
+    assert info["mime_type"] == "image/svg+xml"
+
+    granted = _panel_read(client, context["context_id"], data_ref, "artifact.file", {"variant": "svg"})
+    assert granted.status_code == 200, granted.text
+    served = client.get(granted.json()["url"])
+    assert served.status_code == 200
+    assert served.headers["content-type"].startswith("image/svg+xml")
+    assert "<svg" in served.text
 
 
 def test_plot_list_route_filters_manifests_to_selected_block(
@@ -556,12 +610,25 @@ def test_plot_preview_exposes_available_formats(
     runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    """The PLOT envelope advertises the formats the run rendered (for the UI menu)."""
+    """The formats the run rendered are the ones the Save menu may offer.
+
+    The compiled viewer was handed the set in its payload. A panel cannot glob
+    the cache directory from inside its frame, so it asks: ``artifact.info``
+    reports the formats that exist beside the primary, in the order the menu
+    presents them. The promise the product makes is unchanged — the menu never
+    lists a format the run did not write.
+    """
     _seed_block_output(runtime, opened_project)
     _write_workflow_and_plot(client, opened_project)
     _sid, env = _run_and_open_session(client)
-    assert env["payload"]["format"] == "svg"
-    assert set(env["payload"]["available_formats"]) == {"svg", "pdf", "png", "jpeg"}
+    ref = env["target"]["ref"]
+
+    context = _panel_context(client, ref=ref)
+    info = _panel_read(client, context, ref, "artifact.info").json()
+    # Canonical Save-menu order rather than directory order, and the primary the
+    # panel shows is the manifest's preferred format.
+    assert info["formats"] == ["svg", "pdf", "png", "jpeg"]
+    assert info["name"] == "current.svg"
 
 
 @pytest.mark.parametrize(
@@ -654,7 +721,19 @@ def test_plot_save_unrendered_format_errors_cleanly(
         encoding="utf-8",
     )
     sid, env = _run_and_open_session(client)
-    assert set(env["payload"]["available_formats"]) == {"svg", "png"}
+    ref = env["target"]["ref"]
+
+    # The menu the panel can offer is bounded by what the run actually wrote,
+    # and the refusal now happens where the panel asks for the file: a format
+    # that was not rendered has no file to grant, so the read is a 404 rather
+    # than a grant pointing at the primary's bytes under the wrong name.
+    context = _panel_context(client, ref=ref)
+    info = _panel_read(client, context, ref, "artifact.info").json()
+    assert info["formats"] == ["svg", "png"]
+
+    refused = _panel_read(client, context, ref, "artifact.file", {"variant": "pdf"})
+    assert refused.status_code == 404, refused.text
+    assert "not rendered" in refused.text
 
     export_dir = opened_project / "exports"
     export_dir.mkdir()

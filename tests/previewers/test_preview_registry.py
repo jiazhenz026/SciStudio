@@ -40,7 +40,7 @@ def test_core_specs_load_unconditionally() -> None:
         "core.plot.basic",
         "core.base.fallback",
     } <= ids
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_duplicate_previewer_id_is_rejected_with_diagnostic() -> None:
@@ -108,7 +108,7 @@ def test_factory_discovers_get_previewers(monkeypatch: pytest.MonkeyPatch) -> No
 
     reg._register_from_factory("scistudio_blocks_fake", fake_module.get_previewers)
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_companion_package_entry_point_discovers_get_previewers(
@@ -142,7 +142,7 @@ def test_companion_package_entry_point_discovers_get_previewers(
     reg.load_packages()
 
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
 
 
 def test_load_packages_activates_installed_plugin_roots_for_entry_points(
@@ -194,7 +194,7 @@ def test_load_packages_activates_installed_plugin_roots_for_entry_points(
     # Discovered via the entry-point path — only possible if the plugin root was
     # activated on sys.path during the scan.
     assert reg.get("pkg.fake.viewer") is not None
-    assert reg.diagnostics == []
+    assert reg.diagnostics and all("deprecated" in note for note in reg.diagnostics)
     # The scoped activation must restore sys.path afterwards.
     assert sentinel not in sys.path
 
@@ -204,3 +204,33 @@ def test_project_default_declaration_roundtrips() -> None:
     reg.set_project_default("MyType", "project.mytype.viewer")
     assert reg.project_default_for("MyType") == "project.mytype.viewer"
     assert reg.project_default_for("Other") is None
+
+
+@pytest.mark.parametrize("owner", [OwnerKind.PROJECT, OwnerKind.USER, OwnerKind.PACKAGE])
+def test_noncore_legacy_registration_cannot_replace_or_mint_core_ids(owner):
+    registry = PreviewerRegistry()
+    registry.load_core()
+    original = registry.get("core.text.basic")
+    assert not registry.register(_spec("core.text.basic", owner, "Text"))
+    assert not registry.register(_spec("core.unregistered", owner, "Text"))
+    assert registry.get("core.text.basic") is original
+    assert registry.get("core.unregistered") is None
+    assert any("reserved" in note for note in registry.diagnostics)
+
+
+def test_legacy_entry_point_scan_preserves_core_namespace(monkeypatch):
+    import scistudio.previewers.registry as registry_module
+
+    def factory():
+        return [_spec("core.text.basic", target="Text"), _spec("lab.text.custom", target="Text")]
+
+    entry = importlib.metadata.EntryPoint(name="legacy", value="fake:factory", group="scistudio.previewers")
+    monkeypatch.setattr(registry_module, "enumerate_group", lambda *args, **kwargs: [entry])
+    monkeypatch.setattr(registry_module, "load_entry_point", lambda *args, **kwargs: factory)
+    registry = PreviewerRegistry()
+    registry.load_core()
+    original = registry.get("core.text.basic")
+    registry._scan_entry_points()
+    assert registry.get("core.text.basic") is original
+    assert registry.get("lab.text.custom").owner_kind is OwnerKind.PACKAGE
+    assert any("reserved" in note for note in registry.diagnostics)

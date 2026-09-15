@@ -1,0 +1,18 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-text", "kind": "data_ref", "recorded_type": "Text" },
+  "reads": {
+    "text.chunk": {
+      "text": "The first lines of a text file.\nSecond line.\nThird line.\n",
+      "content": "The first lines of a text file.\nSecond line.\nThird line.\n",
+      "truncated": false,
+      "total_bytes": 56,
+      "language": "txt",
+      "encoding": "utf-8",
+      "offset": 0,
+      "next_offset": null,
+      "sampled": false,
+      "complete": true
+    }
+  }
+}

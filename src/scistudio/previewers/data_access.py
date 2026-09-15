@@ -20,24 +20,69 @@ indexed with explicit slices (``arr[plane_index, y0:y1, x0:x1]``) rather than
 from __future__ import annotations
 
 import base64
+import datetime
+import decimal
 import math
 import mimetypes
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from scistudio.core.storage.ref import StorageReference
 from scistudio.stability import internal, provisional
+
+
+def _json_safe_value(value: Any) -> Any:
+    """Return one table cell in a form strict JSON can carry.
+
+    A stored table holds values JSON has no literal for: ``NaN`` and ``±inf``,
+    timestamps, dates, times, decimals, and raw bytes. Emitting them unchanged
+    made the whole page fail to serialise, so a single missing measurement or a
+    timestamp column took the preview down with it.
+
+    Non-finite numbers use the same sentinel strings the array reads use
+    (``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``), so a missing measurement is
+    shown as what it is rather than erased to an empty cell. Temporal and
+    decimal values become their ISO / decimal text, and bytes become base64 —
+    each readable, and none of them silently dropped.
+    """
+    # Development references: #1886 item E.
+    if isinstance(value, float):
+        if math.isnan(value):
+            return "NaN"
+        if math.isinf(value):
+            return "Infinity" if value > 0 else "-Infinity"
+        return value
+    if isinstance(value, (str, int, bool)) or value is None:
+        return value
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, datetime.timedelta):
+        return str(value)
+    if isinstance(value, decimal.Decimal):
+        return "NaN" if value.is_nan() else str(value)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return base64.b64encode(bytes(value)).decode("ascii")
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe_value(item) for item in value]
+    return str(value)
+
+
+if TYPE_CHECKING:
+    from scistudio.previewers._read_arrays import NumericRead
 
 # Default budgets (Internal, ADR-052 §8.2): runtime budget defaults, not an
 # author contract — providers read the applied budgets through
 # :class:`~scistudio.previewers.models.PreviewLimits` on ``request.limits``.
 # These are excluded from ``__all__`` and the generated reference. ``max_rows``
-# mirrors the legacy ``MAX_TABLE_PAGE_SIZE`` (200); ``max_bytes`` mirrors the MCP
-# 8 MiB cap (FR-027); ``max_dim`` / ``max_tile`` mirror the legacy 256-pixel
-# thumbnail bound.
+# mirrors the legacy ``MAX_TABLE_PAGE_SIZE`` (200); ``max_bytes`` is the 20 MiB
+# per-request/per-tile transport budget (ADR-054 / #1886 item G — raised from the
+# legacy 8 MiB so native-resolution tiles serve within one read); ``max_dim`` /
+# ``max_tile`` mirror the legacy 256-pixel thumbnail bound.
 DEFAULT_MAX_ROWS = 200
-DEFAULT_MAX_BYTES = 8 * 1024 * 1024
+DEFAULT_MAX_BYTES = 20 * 1024 * 1024
 DEFAULT_MAX_ITEMS = 100
 DEFAULT_MAX_TILE = 256
 DEFAULT_MAX_DIM = 256
@@ -122,10 +167,11 @@ class ArrayPlane:
     slice_axes: list[SliceAxis]
     """Every non-displayed axis with its selected index, one entry per extra
     axis."""
-    matrix: list[list[float | None]]
-    """The displayed plane's downsampled values. Non-finite cells (NaN / +-inf)
-    are ``None`` (JSON ``null``) so the payload stays valid JSON and the frontend
-    renders them as empty/transparent cells."""
+    matrix: list[list[float | str]]
+    """The displayed plane's downsampled values. Non-finite cells are conveyed
+    distinctly as the sentinel strings ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"``
+    (never erased to ``null``) so the payload stays strict JSON and the frontend
+    can render ``NaN`` / ``∞`` / ``-∞`` faithfully instead of a blank cell."""
     vmin: float | None
     """Finite minimum of the displayed plane, for a value-scale legend; ``None``
     when the plane has no finite values. A diverging/sequential colormap built
@@ -156,8 +202,10 @@ class ArrayTile:
     """Number of rows in the tile (capped at the tile budget)."""
     width: int
     """Number of columns in the tile (capped at the tile budget)."""
-    matrix: list[list[float]]
-    """The tile's numeric values, row-major."""
+    matrix: list[list[float | str]]
+    """The tile's numeric values, row-major. Non-finite cells are conveyed as the
+    sentinel strings ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"`` (see
+    :attr:`ArrayPlane.matrix`)."""
 
 
 @provisional(since="0.3.1")
@@ -165,8 +213,9 @@ class ArrayTile:
 class SeriesPoints:
     """The complete finite set of (x, y) chart points for a Series preview.
 
-    Unlike the bounded readers, this returns every plottable point so a line
-    preview and any point export match the stored data exactly.
+    Legacy calls return every plottable point. Explicit ``max_points`` opts
+    into bounded uniform-index decimation for panel display, with flags and
+    the method recorded so an export cannot mistake a sample for the source.
     """
 
     points: list[dict[str, float]]
@@ -174,9 +223,32 @@ class SeriesPoints:
     total: int
     """Total number of source values considered (including non-numeric ones)."""
     truncated: bool
-    """Always ``False`` — the point set is complete (kept for shape parity)."""
+    """True only when explicit decimation omitted source indices."""
     nonnumeric: int = 0
     """Count of values dropped because they were not finite numbers."""
+    sampled: bool = False
+    """Whether explicit panel decimation omitted source indices."""
+    complete: bool = True
+    """Whether every finite source point was included."""
+    decimation: str = "none"
+    """Applied decimation method; legacy complete reads use none."""
+    nonfinite_positions: list[int] = field(default_factory=list)
+    """0-based source positions of the points dropped for being non-finite
+    (NaN / +-inf), so the frontend can mark the gaps rather than let dropped
+    samples silently vanish. For a decimated read this list is bounded and may be
+    shorter than :attr:`nonnumeric`; :attr:`nonfinite_positions_complete` says
+    whether it lists every dropped position."""
+    nonfinite_positions_complete: bool = True
+    """True when :attr:`nonfinite_positions` lists every dropped position (always
+    True for a complete/faithful read; may be False for a bounded decimated read
+    with more drops than the position budget)."""
+    source_indices: list[int] = field(default_factory=list)
+    """0-based source position of each returned point, in the same order.
+
+    Without it a decimated read cannot be drawn honestly: the dropped positions
+    above are source positions, while the points are a sample, so a consumer
+    counting points has no way to tell where in the curve a gap belongs and
+    draws a continuous line across it."""
 
 
 @provisional(since="0.3.1")
@@ -198,6 +270,10 @@ class TableXYPoints:
     """Always ``False`` — every finite point is returned."""
     nonnumeric: int
     """Count of rows dropped because either value was not a finite number."""
+    nonfinite_positions: list[int] = field(default_factory=list)
+    """0-based row indices of the rows dropped because either the x or y value was
+    non-finite, so the frontend can mark the gaps rather than let dropped rows
+    silently vanish. A faithful table read reports every dropped row here."""
 
 
 @provisional(since="0.3.1")
@@ -212,8 +288,13 @@ class TextChunk:
     total_bytes: int
     """Total size of the source file in bytes."""
     language: str
-    """Language/format hint derived from the file extension (e.g. ``"py"``,
-    ``"txt"``)."""
+    """Language/format hint derived from the file extension."""
+    encoding: str = "utf-8"
+    """Encoding used for the decoded byte window."""
+    offset: int = 0
+    """Inclusive byte offset of this window."""
+    next_offset: int | None = None
+    """Next byte offset, or None at end of file."""
 
 
 @provisional(since="0.3.1")
@@ -258,6 +339,18 @@ class CollectionSample:
     """The sampled item descriptors (at most the item budget)."""
     sampled: bool
     """True when the collection has more items than the sample shows."""
+    next_cursor: str | None = None
+    """Cursor for the next page; None when every item has been reached."""
+    page: int | None = None
+    """1-based page index when read with ``page``/``page_size`` (dataframe-style
+    paging); ``None`` for a legacy cursor read or a partial sample."""
+    page_size: int | None = None
+    """Items per page actually used (capped at the item budget) when read with
+    ``page``/``page_size``; ``None`` otherwise."""
+    total_pages: int | None = None
+    """Total number of pages at this page size (at least 1) when read with
+    ``page``/``page_size``; ``None`` otherwise. With ``count`` as the total item
+    count, every item is reachable by requesting each page 1..``total_pages``."""
 
 
 @provisional(since="0.3.1")
@@ -358,7 +451,7 @@ class PreviewDataAccess:
         effective_page = max(1, min(int(page), total_pages))
         offset = (effective_page - 1) * effective_page_size
         page_table = table.slice(offset, effective_page_size)
-        rows = page_table.to_pylist()
+        rows = [{key: _json_safe_value(value) for key, value in row.items()} for row in page_table.to_pylist()]
         return DataFramePage(
             columns=columns,
             rows=rows,
@@ -422,6 +515,8 @@ class PreviewDataAccess:
 
         points: list[dict[str, float]] = []
         nonnumeric = 0
+        nonfinite_positions: list[int] = []
+        row_index = 0
         batch_size = max(1, self.series_batch_size)
         for batch in pf.iter_batches(batch_size=batch_size, columns=[resolved_x, resolved_y]):
             xs = batch.column(0).to_pylist()
@@ -433,6 +528,8 @@ class PreviewDataAccess:
                     points.append({"x": x_val, "y": y_val})
                 else:
                     nonnumeric += 1
+                    nonfinite_positions.append(row_index)
+                row_index += 1
 
         return TableXYPoints(
             columns=columns,
@@ -442,6 +539,7 @@ class PreviewDataAccess:
             total=total,
             truncated=False,
             nonnumeric=nonnumeric,
+            nonfinite_positions=nonfinite_positions,
         )
 
     # -- Array --------------------------------------------------------------
@@ -576,48 +674,105 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage format is not a supported array store.
         """
+        result = self.panel_array_tile(
+            ref,
+            slice_index=slice_index,
+            y0=y0,
+            x0=x0,
+            height=height,
+            width=width,
+        )
+        meta = result.metadata
+        return ArrayTile(
+            y0=meta["y0"], x0=meta["x0"], height=meta["height"], width=meta["width"], matrix=result.to_json()["values"]
+        )
+
+    @internal()
+    def panel_array_plane(
+        self,
+        ref: StorageReference,
+        *,
+        slice_index: int = 0,
+        axis_indices: dict[int, int] | None = None,
+    ) -> NumericRead:
+        """Read a bounded dtype-preserving plane for the panel transport."""
+        from scistudio.previewers._read_arrays import read_plane
+
+        return read_plane(self, ref, slice_index, axis_indices)
+
+    @internal()
+    def panel_array_tile(
+        self,
+        ref: StorageReference,
+        *,
+        slice_index: int = 0,
+        axis_indices: dict[int, int] | None = None,
+        y0: int = 0,
+        x0: int = 0,
+        height: int | None = None,
+        width: int | None = None,
+    ) -> NumericRead:
+        """Read a tile directly from storage without materializing its plane."""
+        from scistudio.previewers._read_arrays import read_tile
+
+        return read_tile(
+            self, ref, slice_index=slice_index, axis_indices=axis_indices, y0=y0, x0=x0, height=height, width=width
+        )
+
+    @internal()
+    def panel_series_points(
+        self,
+        ref: StorageReference,
+        metadata: dict[str, Any],
+        *,
+        max_points: int = 4096,
+    ) -> NumericRead:
+        """Return interleaved x/y float64 values with explicit decimation flags."""
+        from dataclasses import asdict
+
         import numpy as np
 
-        handle, full_shape, _dtype = self._open_array_handle(ref)
-        axes = self._axes_from_ref(ref, full_shape)
-        ndim = len(full_shape)
-        if ndim <= 2:
-            y_idx, x_idx = (0, 1) if ndim == 2 else (0, 0)
-        elif axes and "y" in axes and "x" in axes:
-            y_idx, x_idx = axes.index("y"), axes.index("x")
-        else:
-            y_idx, x_idx = ndim - 2, ndim - 1
-        extra_dims = [i for i in range(ndim) if i not in (y_idx, x_idx)]
-        slice_axis_idx = extra_dims[0] if extra_dims else None
-        tile_axis_indices = {slice_axis_idx: int(slice_index)} if slice_axis_idx is not None else {}
+        from scistudio.previewers._read_arrays import numeric_read
 
-        plane = self._read_bounded_plane(
-            handle,
-            full_shape=full_shape,
-            y_idx=y_idx,
-            x_idx=x_idx,
-            axis_indices=tile_axis_indices,
-            no_downsample=True,
-        )
-        plane = np.asarray(plane)
-        ph, pw = (int(plane.shape[0]), int(plane.shape[1])) if plane.ndim >= 2 else (int(plane.shape[0]), 1)
-        eff_h = min(self.max_tile, ph - y0 if height is None else min(int(height), self.max_tile, ph - y0))
-        eff_w = min(self.max_tile, pw - x0 if width is None else min(int(width), self.max_tile, pw - x0))
-        eff_h = max(0, eff_h)
-        eff_w = max(0, eff_w)
-        tile = plane[y0 : y0 + eff_h, x0 : x0 + eff_w] if plane.ndim >= 2 else plane[y0 : y0 + eff_h]
-        return ArrayTile(
-            y0=int(y0),
-            x0=int(x0),
-            height=int(eff_h),
-            width=int(eff_w),
-            matrix=np.asarray(tile, dtype=float).tolist(),
+        result = self.series_points(ref, metadata, max_points=max_points)
+        meta = asdict(result)
+        meta.pop("points")
+        values = np.asarray([[p["x"], p["y"]] for p in result.points], dtype="<f8").reshape(-1, 2)
+        return numeric_read(values, {**meta, "columns": ["x", "y"]}, self.max_bytes)
+
+    @internal()
+    def panel_table_xy(
+        self,
+        ref: StorageReference,
+        *,
+        x_column: str | None = None,
+        y_column: str | None = None,
+        max_points: int = 2000,
+    ) -> NumericRead:
+        """Read a bounded x/y table sample without changing legacy exports."""
+        import pyarrow.parquet as pq
+
+        from scistudio.previewers._read_arrays import NumericRead
+
+        path = Path(ref.path)
+        if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
+            raise ValueError("Table x/y preview expects Arrow/Parquet storage; got Zarr/directory storage")
+        columns = list(pq.ParquetFile(path).schema_arrow.names)
+        if len(columns) < 2:
+            raise ValueError("Table x/y preview requires at least two columns")
+        x_name = x_column if x_column in columns else columns[0]
+        y_name = y_column if y_column in columns else columns[1]
+        result = self.panel_series_points(ref, {"index_name": x_name, "value_name": y_name}, max_points=max_points)
+        return NumericRead(
+            result.values, {**result.metadata, "columns": columns, "x_column": x_name, "y_column": y_name}
         )
 
     # -- Series -------------------------------------------------------------
 
     @provisional(since="0.3.1")
-    def series_points(self, ref: StorageReference, metadata: dict[str, Any]) -> SeriesPoints:
+    def series_points(
+        self, ref: StorageReference, metadata: dict[str, Any], *, max_points: int | None = None
+    ) -> SeriesPoints:
         """Return the complete set of chart points for a Series.
 
         Use this to plot a 1-D series. It prefers in-memory values supplied on
@@ -629,6 +784,8 @@ class PreviewDataAccess:
             ref: Storage reference for the Series payload.
             metadata: Recorded Series metadata; may carry ``values``,
                 ``index_name``, and ``value_name``.
+            max_points: Opt-in display cap (at most 16384 and the byte budget).
+                None preserves the complete legacy provider/export behavior.
 
         Returns:
             A :class:`SeriesPoints` with every finite point.
@@ -636,6 +793,20 @@ class PreviewDataAccess:
         Raises:
             ValueError: If the storage is Zarr/directory storage.
         """
+        if max_points is not None:
+            from scistudio.previewers._read_series import decimate
+
+            if max_points < 1:
+                raise ValueError("max_points must be positive")
+            limit = min(max_points, 16384, self.max_bytes // 16)
+            if limit < 1:
+                raise ValueError("Series byte budget is smaller than one point")
+            return SeriesPoints(
+                **decimate(
+                    ref, metadata, max_points=limit, batch_size=min(self.series_batch_size, 4096, self.max_bytes // 16)
+                )
+            )
+
         path = Path(ref.path)
         if ref.backend == "zarr" or path.suffix.lower() == ".zarr" or path.is_dir():
             raise ValueError("Series preview expects Arrow/Parquet storage; got Zarr/directory storage")
@@ -671,10 +842,17 @@ class PreviewDataAccess:
                     total=xy.total,
                     truncated=False,
                     nonnumeric=xy.nonnumeric,
+                    nonfinite_positions=xy.nonfinite_positions,
                 )
             if len(columns) >= 2:
                 xy = self.table_xy_points(ref, x_column=columns[0], y_column=columns[1])
-                return SeriesPoints(points=xy.points, total=xy.total, truncated=False, nonnumeric=xy.nonnumeric)
+                return SeriesPoints(
+                    points=xy.points,
+                    total=xy.total,
+                    truncated=False,
+                    nonnumeric=xy.nonnumeric,
+                    nonfinite_positions=xy.nonfinite_positions,
+                )
 
             collected: list[Any] = []
             for batch in pf.iter_batches(batch_size=max(1, self.series_batch_size), columns=[columns[0]]):
@@ -687,13 +865,21 @@ class PreviewDataAccess:
         """Build indexed y-values from in-memory/Parquet Series values."""
         points: list[dict[str, float]] = []
         nonnumeric = 0
+        nonfinite_positions: list[int] = []
         for i, value in enumerate(values):
             y_val = self._finite_number(value)
             if y_val is None:
                 nonnumeric += 1
+                nonfinite_positions.append(i)
                 continue
             points.append({"x": float(i), "y": y_val})
-        return SeriesPoints(points=points, total=len(values), truncated=False, nonnumeric=nonnumeric)
+        return SeriesPoints(
+            points=points,
+            total=len(values),
+            truncated=False,
+            nonnumeric=nonnumeric,
+            nonfinite_positions=nonfinite_positions,
+        )
 
     # -- Text ---------------------------------------------------------------
 
@@ -707,7 +893,7 @@ class PreviewDataAccess:
         return out if math.isfinite(out) else None
 
     @provisional(since="0.3.1")
-    def text_chunk(self, ref: StorageReference) -> TextChunk:
+    def text_chunk(self, ref: StorageReference, *, offset: int = 0, length: int | None = None) -> TextChunk:
         """Return a bounded chunk of text plus a truncation marker.
 
         Use this to preview a text file. It reads at most ``text_chars`` bytes
@@ -716,21 +902,26 @@ class PreviewDataAccess:
 
         Args:
             ref: Storage reference for the text file.
+            offset: Inclusive byte offset; use the returned next_offset to page.
+            length: Requested byte count, capped at the text and byte budgets.
+                The window carries a partial trailing UTF-8 character forward.
 
         Returns:
             A :class:`TextChunk` with the leading content and a truncation flag.
         """
+        from scistudio.previewers._read_chunks import text_window
+
         path = Path(ref.path)
-        suffix = path.suffix.lower()
-        total_bytes = path.stat().st_size if path.exists() else 0
-        with path.open("rb") as fh:
-            raw = fh.read(self.text_chars)
-        content = raw.decode("utf-8", errors="replace")
+        budget = min(self.text_chars, self.max_bytes, self.text_chars if length is None else length)
+        content, next_offset, total_bytes = text_window(path, offset=offset, length=budget)
         return TextChunk(
             content=content,
-            truncated=total_bytes > self.text_chars,
+            truncated=next_offset is not None,
             total_bytes=total_bytes,
-            language=suffix.lstrip(".") or "text",
+            language=path.suffix.lstrip(".") or "text",
+            encoding="utf-8",
+            offset=offset,
+            next_offset=next_offset,
         )
 
     # -- Artifact -----------------------------------------------------------
@@ -769,6 +960,28 @@ class PreviewDataAccess:
     # -- Composite ----------------------------------------------------------
 
     @provisional(since="0.3.1")
+    @staticmethod
+    def _slot_type_name(value: Any) -> str:
+        """Return the type name a recorded composite slot holds.
+
+        A slot is recorded either as a bare type name or as the wire-format
+        envelope the serializer writes — ``{backend, path, format, metadata}``,
+        whose ``metadata.type_chain`` runs general to specific. Stringifying that
+        envelope is what put a whole JSON mapping on screen as the slot's "type"
+        and left it matching no previewer, so read the chain instead.
+        """
+        if not isinstance(value, dict):
+            return str(value)
+        meta = value.get("metadata")
+        chain = meta.get("type_chain") if isinstance(meta, dict) else None
+        if isinstance(chain, (list, tuple)) and chain:
+            return str(chain[-1])
+        for key in ("type_name", "type"):
+            name = value.get(key)
+            if isinstance(name, str) and name:
+                return name
+        return ""
+
     def composite_slots(self, metadata: dict[str, Any]) -> CompositeSlots:
         """Return a composite's slot inventory without rendering any child.
 
@@ -779,8 +992,9 @@ class PreviewDataAccess:
             A :class:`CompositeSlots` mapping slot name to its type name.
         """
         slots_raw = metadata.get("slots", {}) if isinstance(metadata, dict) else {}
-        slots = {str(k): str(v) for k, v in slots_raw.items()} if isinstance(slots_raw, dict) else {}
-        return CompositeSlots(slots=slots)
+        if not isinstance(slots_raw, dict):
+            return CompositeSlots(slots={})
+        return CompositeSlots(slots={str(name): self._slot_type_name(value) for name, value in slots_raw.items()})
 
     @provisional(since="0.3.1")
     def composite_slot_ref(self, ref: StorageReference, slot_name: str) -> StorageReference | None:
@@ -829,6 +1043,19 @@ class PreviewDataAccess:
         except Exception:
             return None
 
+    @provisional(since="0.3.5")
+    def artifact_file(self, ref: StorageReference) -> Path:
+        """Resolve an existing artifact for the host's streaming file response.
+
+        The host must authorize the storage reference before calling this and
+        issue a context-bound token URL; this server path is never a panel URL.
+        No inline limit applies, and no payload is loaded into memory.
+        """
+        path = Path(ref.path).resolve(strict=True)
+        if not path.is_file():
+            raise ValueError("Artifact storage must name a regular file")
+        return path
+
     # -- Collection ---------------------------------------------------------
 
     @provisional(since="0.3.1")
@@ -838,33 +1065,94 @@ class PreviewDataAccess:
         count: int,
         item_type: str | None,
         items: list[dict[str, Any]],
+        cursor: str | None = None,
+        limit: int | None = None,
+        page: int | None = None,
+        page_size: int | None = None,
     ) -> CollectionSample:
-        """Return a bounded sample of a collection's item references.
+        """Return a bounded page of a collection's item references.
 
-        Only the first ``max_items`` items are surfaced, so iterating a large
-        collection stays bounded.
+        Two paging styles are supported and every item is reachable by either:
+
+        * ``page`` / ``page_size`` — dataframe-style paging (mirrors
+          :meth:`dataframe_page`). Any page ``1..total_pages`` can be requested
+          directly, and the result carries ``page`` / ``page_size`` /
+          ``total_pages`` alongside ``count`` (the total item count). This is the
+          faithful reading contract: nothing is silently capped — page through to
+          reach every item.
+        * ``cursor`` / ``limit`` — sequential cursor paging. ``next_cursor`` walks
+          forward until it is ``None``.
+
+        With no paging argument, the first ``max_items`` items are surfaced as a
+        legacy bounded sample.
 
         Args:
             count: Total number of items in the collection.
             item_type: Type name shared by the items, when known.
             items: The already-registered item descriptors (each a
                 ``{data_ref, type_name, ...}`` mapping).
+            cursor: Opaque cursor from a previous page of this inventory.
+            limit: Requested cursor page size, capped at max_items.
+            page: 1-based page number (dataframe-style); clamped to range.
+            page_size: Items per page (dataframe-style); capped at max_items.
 
         Returns:
-            A :class:`CollectionSample` holding the bounded sample.
+            A :class:`CollectionSample` holding the bounded page. Page/cursor
+            paging both require the full registered inventory; a legacy partial
+            sample (no paging argument) stays valid.
+
+        Raises:
+            ValueError: If paging is requested without the full inventory, if
+                both a cursor and page are given, or if a paging bound is not
+                positive.
         """
-        bounded = list(items[: self.max_items])
+        from scistudio.previewers._read_chunks import collection_offset, next_collection_cursor
+
+        paged = page is not None or page_size is not None
+        cursored = cursor is not None or limit is not None
+        if (paged or cursored) and (count < 0 or len(items) != count):
+            raise ValueError("Paginated collection count must match the registered item inventory")
+        if paged and cursored:
+            raise ValueError("Use either page/page_size or a cursor, not both")
+        if limit is not None and limit < 1:
+            raise ValueError("Collection limit must be positive")
+        if page is not None and page < 1:
+            raise ValueError("Collection page must be positive")
+        if page_size is not None and page_size < 1:
+            raise ValueError("Collection page_size must be positive")
+
+        if paged:
+            effective_page_size = min(page_size if page_size is not None else self.max_items, self.max_items)
+            total_pages = max(1, (int(count) + effective_page_size - 1) // effective_page_size)
+            effective_page = max(1, min(page if page is not None else 1, total_pages))
+            offset = (effective_page - 1) * effective_page_size
+            bounded = list(items[offset : offset + effective_page_size])
+            return CollectionSample(
+                count=int(count),
+                item_type=item_type,
+                items=bounded,
+                sampled=count > len(bounded),
+                next_cursor=next_collection_cursor(offset + len(bounded), count),
+                page=effective_page,
+                page_size=effective_page_size,
+                total_pages=total_pages,
+            )
+
+        offset = collection_offset(cursor, count)
+        budget = self.max_items if limit is None else min(limit, self.max_items)
+        bounded = list(items[offset : offset + budget])
         return CollectionSample(
             count=int(count),
             item_type=item_type,
             items=bounded,
             sampled=count > len(bounded),
+            next_cursor=(next_collection_cursor(offset + len(bounded), count) if count == len(items) else None),
         )
 
     # -- PNG helper (Internal, legacy-compat) -------------------------------
 
     @internal()
-    def png_data_uri(self, matrix: list[list[float | None]]) -> str:
+    def png_data_uri(self, matrix: list[list[float | str]]) -> str:
         """Encode a 2-D matrix as a grayscale PNG data URI (legacy-compat only).
 
         Internal: the legacy grayscale-PNG path used by the REST
@@ -872,9 +1160,10 @@ class PreviewDataAccess:
         generated reference; new previewers return the numeric ``matrix`` from
         :meth:`array_plane` and let the frontend render the heatmap.
 
-        Non-finite cells (encoded as ``None``) are coerced to ``0`` since the
-        legacy grayscale encoder only consumes finite floats; this path feeds
-        the REST compatibility adapter, not the new numeric viewer.
+        Non-finite cells (conveyed as the sentinel strings ``"NaN"`` /
+        ``"Infinity"`` / ``"-Infinity"``, or a legacy ``None``) are coerced to
+        ``0`` since the legacy grayscale encoder only consumes finite floats; this
+        path feeds the REST compatibility adapter, not the new numeric viewer.
         """
         # Development references: ADR-052.
         from scistudio.previewers._raster import _image_data_uri_from_matrix
@@ -973,7 +1262,7 @@ class PreviewDataAccess:
             return None, None
         return float(finite.min()), float(finite.max())
 
-    def _downsample(self, matrix: Any) -> list[list[float | None]]:
+    def _downsample(self, matrix: Any) -> list[list[float | str]]:
         import numpy as np
 
         from scistudio.previewers._raster import _downsample_matrix
@@ -985,17 +1274,19 @@ class PreviewDataAccess:
         return self._json_safe_matrix(result)
 
     @staticmethod
-    def _json_safe_matrix(rows: list[list[float]]) -> list[list[float | None]]:
-        """Replace non-finite cells (NaN / +-inf) with ``None`` (JSON ``null``).
+    def _json_safe_matrix(rows: list[list[float]]) -> list[list[float | str]]:
+        """Encode non-finite cells (NaN / +-inf) as distinct JSON-safe sentinels.
 
         The numeric matrix is the primary preview payload and must serialize as
-        strict JSON; ``NaN`` / ``Infinity`` are not valid JSON, so masked
-        scientific arrays would otherwise break the session response. The
-        frontend renders ``null`` cells as empty/transparent.
+        strict JSON; ``NaN`` / ``Infinity`` are not valid JSON tokens. Rather than
+        erase the distinction by mapping every non-finite cell to ``null``, each
+        non-finite float is conveyed via :func:`~scistudio.previewers._read_arrays.encode_nonfinite`
+        as ``"NaN"`` / ``"Infinity"`` / ``"-Infinity"`` so the frontend can render
+        ``NaN`` / ``∞`` / ``-∞`` faithfully. Finite numbers pass through unchanged.
         """
-        import math
+        from scistudio.previewers._read_arrays import encode_nonfinite
 
-        return [[(v if isinstance(v, (int, float)) and math.isfinite(v) else None) for v in row] for row in rows]
+        return [[encode_nonfinite(v) for v in row] for row in rows]
 
     def _axes_from_ref(self, ref: StorageReference, full_shape: list[int]) -> list[str]:
         axes_raw = ref.metadata.get("axes") if ref.metadata else None

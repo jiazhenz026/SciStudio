@@ -1,0 +1,15 @@
+{
+  "context": "preview",
+  "input": { "ref": "sample-composite", "kind": "data_ref", "recorded_type": "CompositeData" },
+  "reads": {
+    "composite.slots": {
+      "slots": [
+        { "name": "raster", "type_name": "Array", "ref": "sample-composite#raster" },
+        { "name": "labels", "type_name": "DataFrame", "ref": "sample-composite#labels" }
+      ],
+      "sampled": false,
+      "truncated": false,
+      "complete": true
+    }
+  }
+}

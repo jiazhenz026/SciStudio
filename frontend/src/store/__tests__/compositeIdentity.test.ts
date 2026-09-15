@@ -167,45 +167,65 @@ describe("a workflow tab id identifies one tab (#2362)", () => {
 });
 
 describe("a preview tab captures into the tab it came from (#2362)", () => {
-  it("does not clobber a second workflow tab that shares the same workflowId", () => {
-    // Two imported copies of one subworkflow: distinct `tabKey` (their ref
-    // paths), identical internal `workflowId` — the case `openTab` dedups on
-    // `tabKey` precisely because the id is not unique.
-    const store = useAppStore.getState();
-    store.openTab(workflow("shared"), "copy A", undefined, "subworkflows/a.yaml");
-    store.openTab(
-      { ...workflow("shared"), nodes: [{ id: "only_in_b" }] as never },
-      "copy B",
-      undefined,
-      "subworkflows/b.yaml",
-    );
-
-    const tabs = useAppStore.getState().tabs.filter((t) => t.kind === "workflow");
-    expect(tabs).toHaveLength(2);
-    expect(new Set(tabs.map((t) => (t as { workflowId: string }).workflowId))).toEqual(
-      new Set(["shared"]),
-    );
-    const [tabA, tabB] = tabs;
-
-    // Focus copy A, then open a preview over it and sync.
-    useAppStore.getState().switchTab(tabA.id);
-    useAppStore
-      .getState()
-      .openPreviewTab(
-        { kind: "data_ref", ref: "data-1", recorded_type: "Array", type_chain: ["Array"] },
-        "data-1",
+  it.each([false, true])(
+    "keeps panel state and backing workflow identity (reopen=%s)",
+    (reopen) => {
+      // Two imported copies of one subworkflow: distinct `tabKey` (their ref
+      // paths), identical internal `workflowId` — the case `openTab` dedups on
+      // `tabKey` precisely because the id is not unique.
+      const store = useAppStore.getState();
+      store.openTab(workflow("shared"), "copy A", undefined, "subworkflows/a.yaml");
+      store.openTab(
+        { ...workflow("shared"), nodes: [{ id: "only_in_b" }] as never },
+        "copy B",
+        undefined,
+        "subworkflows/b.yaml",
       );
-    useAppStore.setState({ workflowNodes: [{ id: "only_in_a" }] as never });
-    useAppStore.getState().syncActiveTab();
 
-    const after = useAppStore.getState().tabs;
-    const capturedA = after.find((t) => t.id === tabA.id) as {
-      workflowNodes: { id: string }[];
-    };
-    const capturedB = after.find((t) => t.id === tabB.id) as {
-      workflowNodes: { id: string }[];
-    };
-    expect(capturedA.workflowNodes.map((n) => n.id)).toEqual(["only_in_a"]);
-    expect(capturedB.workflowNodes.map((n) => n.id)).toEqual(["only_in_b"]);
-  });
+      const tabs = useAppStore.getState().tabs.filter((t) => t.kind === "workflow");
+      expect(tabs).toHaveLength(2);
+      expect(new Set(tabs.map((t) => (t as { workflowId: string }).workflowId))).toEqual(
+        new Set(["shared"]),
+      );
+      const [tabA, tabB] = tabs;
+
+      // Focus copy A, then open a preview over it and sync.
+      useAppStore.getState().switchTab(tabA.id);
+      if (reopen) {
+        useAppStore
+          .getState()
+          .openPreviewTab({ kind: "data_ref", ref: "previous-data", type_chain: ["Array"] });
+      }
+      const panelSnapshot = {
+        panelId: "builtin.array",
+        previewSessionId: "session-array-1",
+        viewState: { zoom: 3 },
+      };
+      useAppStore
+        .getState()
+        .openPreviewTab(
+          { kind: "data_ref", ref: "data-1", recorded_type: "Array", type_chain: ["Array"] },
+          "data-1",
+          undefined,
+          undefined,
+          panelSnapshot,
+        );
+      expect(useAppStore.getState().tabs.find((t) => t.id === "preview:data-1")).toMatchObject({
+        ...panelSnapshot,
+        backingTabId: tabA.id,
+      });
+      useAppStore.setState({ workflowNodes: [{ id: "only_in_a" }] as never });
+      useAppStore.getState().syncActiveTab();
+
+      const after = useAppStore.getState().tabs;
+      const capturedA = after.find((t) => t.id === tabA.id) as {
+        workflowNodes: { id: string }[];
+      };
+      const capturedB = after.find((t) => t.id === tabB.id) as {
+        workflowNodes: { id: string }[];
+      };
+      expect(capturedA.workflowNodes.map((n) => n.id)).toEqual(["only_in_a"]);
+      expect(capturedB.workflowNodes.map((n) => n.id)).toEqual(["only_in_b"]);
+    },
+  );
 });

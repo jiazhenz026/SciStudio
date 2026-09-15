@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import base64
 import importlib.metadata
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -67,6 +66,28 @@ def _create_session(
     )
 
 
+def _panel_context(client: TestClient, *, ref: str, kind: str = "data_ref") -> str:
+    """Open the panel context a mounted panel reads through.
+
+    A core previewer is a panel now, so the data a session used to carry in its
+    payload is fetched by the panel itself. Tests that pinned paging, sorting,
+    or child navigation follow the same path the frame does rather than
+    asserting against a payload that no longer exists.
+    """
+    response = client.post("/api/panels/contexts", json={"kind": "preview", "target": {"kind": kind, "ref": ref}})
+    assert response.status_code == 200, response.text
+    return str(response.json()["context_id"])
+
+
+def _panel_read(
+    client: TestClient, context_id: str, ref: str, op: str, params: dict[str, Any] | None = None
+) -> httpx.Response:
+    return client.post(
+        f"/api/panels/contexts/{context_id}/read",
+        json={"ref": ref, "op": op, "params": params or {}},
+    )
+
+
 def test_adr048_viewer_category_sweep(
     client: TestClient,
     runtime: ApiRuntime,
@@ -95,7 +116,8 @@ def test_adr048_viewer_category_sweep(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
+        runtime.refresh_preview_service()
 
     def _record(
         name: str,
@@ -192,19 +214,24 @@ def test_adr048_viewer_category_sweep(
         ),
     }
 
+    # Every core previewer is a panel now (ADR-054 Phase B), so its envelope is
+    # a `panel` one naming the panel to mount rather than a per-type payload the
+    # frontend switches on. A package previewer that is still a compiled module
+    # keeps the category it always had, which is what the two fixture viewers
+    # here are for: this sweep is the one place both kinds are checked together.
     cases = [
-        ("dataframe", "data_ref", "DataFrame", ["DataObject", "DataFrame"], "core.dataframe.basic", "dataframe"),
-        ("array", "data_ref", "Array", ["DataObject", "Array"], "core.array.basic", "array"),
-        ("series", "data_ref", "Series", ["DataObject", "Series"], "core.series.basic", "series"),
-        ("text", "data_ref", "Text", ["DataObject", "Text"], "core.text.basic", "text"),
-        ("artifact", "artifact", "Artifact", ["DataObject", "Artifact"], "core.artifact.basic", "artifact"),
+        ("dataframe", "data_ref", "DataFrame", ["DataObject", "DataFrame"], "core.dataframe.basic", "panel"),
+        ("array", "data_ref", "Array", ["DataObject", "Array"], "core.array.basic", "panel"),
+        ("series", "data_ref", "Series", ["DataObject", "Series"], "core.series.basic", "panel"),
+        ("text", "data_ref", "Text", ["DataObject", "Text"], "core.text.basic", "panel"),
+        ("artifact", "artifact", "Artifact", ["DataObject", "Artifact"], "core.artifact.basic", "panel"),
         (
             "composite",
             "data_ref",
             "CompositeData",
             ["DataObject", "CompositeData"],
             "core.composite.basic",
-            "composite",
+            "panel",
         ),
         ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "fixture.image.viewer", "array"),
         (
@@ -215,7 +242,7 @@ def test_adr048_viewer_category_sweep(
             "fixture.label.viewer",
             "composite",
         ),
-        ("plot", "plot_artifact", "PlotArtifact", ["DataObject", "PlotArtifact"], "core.plot.basic", "plot"),
+        ("plot", "plot_artifact", "PlotArtifact", ["DataObject", "PlotArtifact"], "core.plot.basic", "panel"),
     ]
 
     observed: dict[str, tuple[str, str]] = {}
@@ -235,19 +262,25 @@ def test_adr048_viewer_category_sweep(
         assert body["session_id"]
         if name in {"image", "label"}:
             assert body["frontend_manifest"]["module_url"] == f"/api/previews/assets/{previewer_id}/viewer.js"
-        if name == "plot":
-            assert "<script" not in body["payload"]["svg"]
+        if envelope_kind == "panel":
+            # The envelope's job is now to name the panel and the session it may
+            # read through; the data itself arrives through the panel's reads.
+            assert body["panel"]["id"] == previewer_id
+        # The plot's SVG is no longer inlined in a payload, so there is no
+        # payload to scrub here. That the served bytes are scrubbed is pinned
+        # against the route that serves them, in
+        # tests/panels/test_plot_artifact_reads.py::TestServedSvg.
 
     assert observed == {
-        "dataframe": ("core.dataframe.basic", "dataframe"),
-        "array": ("core.array.basic", "array"),
-        "series": ("core.series.basic", "series"),
-        "text": ("core.text.basic", "text"),
-        "artifact": ("core.artifact.basic", "artifact"),
-        "composite": ("core.composite.basic", "composite"),
+        "dataframe": ("core.dataframe.basic", "panel"),
+        "array": ("core.array.basic", "panel"),
+        "series": ("core.series.basic", "panel"),
+        "text": ("core.text.basic", "panel"),
+        "artifact": ("core.artifact.basic", "panel"),
+        "composite": ("core.composite.basic", "panel"),
         "image": ("fixture.image.viewer", "array"),
         "label": ("fixture.label.viewer", "composite"),
-        "plot": ("core.plot.basic", "plot"),
+        "plot": ("core.plot.basic", "panel"),
     }
 
 
@@ -261,14 +294,20 @@ def test_create_session_for_dataframe(client: TestClient, opened_project: Path) 
     assert resp.status_code == 200
     body = resp.json()
     assert body["previewer_id"] == "core.dataframe.basic"
-    assert body["kind"] == "dataframe"
+    # The envelope names the panel to mount; the rows arrive through its read.
+    assert body["kind"] == "panel"
+    assert body["panel"]["id"] == "core.dataframe.basic"
     assert body["session_id"]
-    assert body["payload"]["total_rows"] == 2
     # FR-011: metadata carries the mandatory display flags.
     for flag in ("sampled", "truncated", "cached", "derived", "complete", "failed"):
         assert flag in body["metadata"]
-    # #1579: a core fallback has no frontend manifest → first-class field is null.
+    # #1579: a core fallback has no compiled frontend module → the field is null.
     assert body["frontend_manifest"] is None
+
+    context = _panel_context(client, ref=ref)
+    page = _panel_read(client, context, ref, "table.page").json()
+    assert page["total"] == 2
+    assert [row["a"] for row in page["rows"]] == [1, 3]
 
 
 def test_read_and_patch_session_repaginate(client: TestClient, opened_project: Path) -> None:
@@ -277,16 +316,17 @@ def test_read_and_patch_session_repaginate(client: TestClient, opened_project: P
     upload = client.post("/api/data/upload", files={"file": ("p.csv", (header + body).encode(), "text/csv")})
     ref = upload.json()["ref"]
     created = _create_session(client, ref=ref, recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"]).json()
-    sid = created["session_id"]
+    assert created["session_id"]
 
-    read = client.get(f"/api/previews/sessions/{sid}")
-    assert read.status_code == 200
-    assert read.json()["payload"]["page"] == 1
+    # Paging is the panel's own read now: it asks for the page it wants rather
+    # than patching a session query and re-rendering the whole envelope.
+    context = _panel_context(client, ref=ref)
+    first = _panel_read(client, context, ref, "table.page").json()
+    assert first["page"] == 1
 
-    patched = client.patch(f"/api/previews/sessions/{sid}", json={"query": {"page": 3, "page_size": 50}})
-    assert patched.status_code == 200
-    assert patched.json()["payload"]["page"] == 3
-    assert len(patched.json()["payload"]["rows"]) == 37
+    third = _panel_read(client, context, ref, "table.page", {"page": 3, "page_size": 50}).json()
+    assert third["page"] == 3
+    assert len(third["rows"]) == 37
 
 
 def test_paginated_dataframe_is_not_flagged_truncated(client: TestClient, opened_project: Path) -> None:
@@ -299,43 +339,46 @@ def test_paginated_dataframe_is_not_flagged_truncated(client: TestClient, opened
     ref = upload.json()["ref"]
     created = _create_session(client, ref=ref, recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"]).json()
     meta = created["metadata"]
-    assert created["payload"]["total_pages"] > 1  # genuinely spans multiple pages
     assert meta["truncated"] is False
     assert meta["complete"] is True
 
+    # The same rule holds on the read the panel actually pages with: a table
+    # that spans pages is complete, because every row is reachable.
+    context = _panel_context(client, ref=ref)
+    page = _panel_read(client, context, ref, "table.page").json()
+    assert page["total_pages"] > 1  # genuinely spans multiple pages
+    assert page["truncated"] is False
+    assert page["complete"] is True
 
-def test_patch_session_sorts_dataframe(client: TestClient, opened_project: Path) -> None:
-    """#1604: sort flows through the routed session PATCH (was the legacy GET
-    /api/data/{ref}/preview ?sort_by/sort_dir adapter, now removed)."""
+
+def test_panel_read_sorts_dataframe(client: TestClient, opened_project: Path) -> None:
+    """#1604 / ADR-054: sorting is the table read's own parameter.
+
+    It arrived through the legacy ``GET /api/data/{ref}/preview`` adapter, then
+    through a session PATCH, and now through the read the panel issues — three
+    transports for one behaviour, which is why the behaviour is what this
+    asserts and the transport is only how it gets there.
+    """
     csv = "score\n3\n1\n2\n"
     upload = client.post("/api/data/upload", files={"file": ("s.csv", csv.encode(), "text/csv")})
     ref = upload.json()["ref"]
-    sid = _create_session(client, ref=ref, recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"]).json()[
-        "session_id"
-    ]
+    context = _panel_context(client, ref=ref)
 
-    desc = client.patch(
-        f"/api/previews/sessions/{sid}",
-        json={"query": {"sort_by": "score", "sort_dir": "desc"}},
-    )
+    desc = _panel_read(client, context, ref, "table.page", {"sort_by": "score", "sort_dir": "desc"})
     assert desc.status_code == 200, desc.text
-    desc_payload = desc.json()["payload"]
-    assert desc_payload["sort_by"] == "score"
-    assert desc_payload["sort_dir"] == "desc"
-    assert [row["score"] for row in desc_payload["rows"]] == [3, 2, 1]
+    desc_page = desc.json()
+    # The read echoes the sort it applied, so a panel can render the indicator
+    # from the answer rather than from what it asked for.
+    assert desc_page["sort"] == {"by": "score", "direction": "desc"}
+    assert [row["score"] for row in desc_page["rows"]] == [3, 2, 1]
 
-    asc = client.patch(
-        f"/api/previews/sessions/{sid}",
-        json={"query": {"sort_by": "score", "sort_dir": "asc"}},
-    )
-    assert [row["score"] for row in asc.json()["payload"]["rows"]] == [1, 2, 3]
+    asc = _panel_read(client, context, ref, "table.page", {"sort_by": "score", "sort_dir": "asc"})
+    assert [row["score"] for row in asc.json()["rows"]] == [1, 2, 3]
 
     # A missing sort column is ignored (no crash, original order preserved).
-    bogus = client.patch(
-        f"/api/previews/sessions/{sid}",
-        json={"query": {"sort_by": "does_not_exist"}},
-    )
+    bogus = _panel_read(client, context, ref, "table.page", {"sort_by": "does_not_exist"})
     assert bogus.status_code == 200, bogus.text
+    assert [row["score"] for row in bogus.json()["rows"]] == [3, 1, 2]
 
 
 def test_read_unknown_session_returns_404(client: TestClient, opened_project: Path) -> None:
@@ -363,8 +406,11 @@ def test_create_session_unknown_target_returns_error_envelope(client: TestClient
     resp = _create_session(client, ref="missing-ref", recorded_type="DataFrame", type_chain=["DataObject", "DataFrame"])
     assert resp.status_code == 200
     body = resp.json()
-    # Provider could not read the missing file -> error envelope (FR-028).
-    assert body["kind"] in {"error", "artifact"}
+    # The route resolves and the API does not crash. A panel-backed previewer
+    # accepts the target and reports the missing file when it reads, so the
+    # degraded answer is a panel envelope rather than an error payload — the
+    # failure surfaces where the read happens, not before it is attempted.
+    assert body["kind"] in {"error", "artifact", "panel"}
     assert body["metadata"]["failed"] in {True, False}
 
 
@@ -405,14 +451,24 @@ def test_array_session_resource_tile(
         type_name="Array",
     )
     created = _create_session(client, ref=record.id, recorded_type="Array", type_chain=["DataObject", "Array"]).json()
-    sid = created["session_id"]
-    assert created["kind"] == "array"
+    assert created["kind"] == "panel"
+    assert created["panel"]["id"] == "core.array.basic"
 
-    # The array envelope advertises a 'tile' resource.
-    assert any(r["resource_id"] == "tile" for r in created["resources"])
-    res = client.get(f"/api/previews/sessions/{sid}/resources/tile")
-    assert res.status_code == 200
-    assert "matrix" in res.json()["data"]
+    # Tiles were a session resource the envelope advertised; they are the array
+    # panel's own read now, which is what lets it fetch a tile per scroll
+    # position instead of one whole plane per render.
+    context = _panel_context(client, ref=record.id)
+    tile = _panel_read(client, context, record.id, "array.tile", {"y0": 0, "x0": 0, "height": 2, "width": 2})
+    assert tile.status_code == 200, tile.text
+    body = tile.json()
+    # The tile is the real values at their own resolution, with the geometry
+    # that says where in the plane they came from (#1886 item A).
+    # The read reports the window it was asked for and returns the values for
+    # it. (The stand-in zarr here ignores slicing and hands back its whole
+    # plane, so the geometry is what this can honestly assert; the values are
+    # sized against a real array in tests/panels.)
+    assert body["height"] == 2 and body["width"] == 2
+    assert body["values"]
 
 
 def test_image_session_serializes_first_class_frontend_manifest(
@@ -448,7 +504,8 @@ def test_image_session_serializes_first_class_frontend_manifest(
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
     # Rebuild the preview service so the fixture previewers are registered.
-    runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
+        runtime.refresh_preview_service()
 
     matrix = np.arange(16 * 16, dtype=np.uint16).reshape(16, 16)
 
@@ -524,112 +581,91 @@ def test_collection_session_lists_items(
     assert resp.status_code == 200
     body = resp.json()
     assert body["previewer_id"] == "core.collection.basic"
-    assert body["kind"] == "collection"
-    assert body["payload"]["count"] == 10
-    assert body["payload"]["item_type"] == "DataFrame"
-    assert len(body["payload"]["items"]) == 10
+    assert body["kind"] == "panel"
+    assert body["panel"]["id"] == "core.collection.basic"
 
 
-def test_collection_resource_uses_descriptor_params(
-    client: TestClient,
-    opened_project: Path,
-) -> None:
-    items = [{"data_ref": "child-0", "type_name": "DataFrame"}]
-    resp = client.post(
-        "/api/previews/sessions",
-        json={
-            "target": {
-                "kind": "collection_ref",
-                "ref": "coll-params",
-                "recorded_type": "DataFrame",
-                "type_chain": ["DataObject", "DataFrame"],
-                "collection_item_type": "DataFrame",
-            },
-            "query": {
-                "_collection_items": items,
-                "_collection_count": 1,
-                "_collection_item_type": "DataFrame",
-            },
+def _registered_collection(
+    client: TestClient, runtime: ApiRuntime, *, count: int = 2, columns: int = 1
+) -> tuple[str, list[str]]:
+    """A collection of real catalog refs, the way a run's output produces one."""
+    from scistudio.panels.targets import register_collection
+
+    header = ",".join(f"col_{i}" for i in range(columns))
+    row = ",".join(str(i) for i in range(columns))
+    refs: list[str] = []
+    for n in range(count):
+        upload = client.post(
+            "/api/data/upload",
+            files={"file": (f"c{n}.csv", f"{header}\n{row}\n".encode(), "text/csv")},
+        )
+        assert upload.status_code == 200, upload.text
+        refs.append(upload.json()["ref"])
+    group = register_collection(
+        runtime,
+        {
+            "kind": "collection",
+            "count": len(refs),
+            "item_type": "DataFrame",
+            "items": [{"data_ref": ref, "type_name": "DataFrame"} for ref in refs],
         },
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    sid = body["session_id"]
-    resource = body["resources"][0]
-
-    res = client.get(
-        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
-        params={"params": json.dumps(resource["params"])},
-    )
-
-    assert res.status_code == 200
-    child = res.json()["data"]
-    assert child["target"]["ref"] == "child-0"
-    assert child["target"]["recorded_type"] == "DataFrame"
+    return str(group["collection_ref"]), refs
 
 
-def test_collection_wide_item_child_resource_opens(
+def test_collection_panel_lists_and_opens_its_items(
     client: TestClient,
+    runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    """#1837: a wide/rich collection item must still open its child preview.
+    """Listing a collection and opening one member, through the panel's own path.
 
-    The collection fallback previously round-tripped the entire item
-    descriptor through ``PreviewResource.params``; for a wide table (many
-    columns / rich metadata) that exceeded the API resource-param node-count
-    guard (256 entries) and the child GET failed with HTTP 422
-    ("resource params contain too many entries"). The params now embed only
-    ``ref`` + ``type_name``, so they stay small and constant-size regardless
-    of table width.
+    The compiled viewer got both from the envelope: the members in its payload
+    and a per-member ``PreviewResource`` to open one. A panel reads the members
+    and asks the host to open one by reference, which is the same two
+    capabilities with the descriptor left on the backend.
     """
-    wide_item = {
-        "data_ref": "wide-child",
-        "type_name": "DataFrame",
-        # Descriptor content that scales with table width — well over the
-        # 256-entry guard that used to fail the child round-trip.
-        "columns": [f"col_{i}" for i in range(300)],
-        "dtypes": {f"col_{i}": "float64" for i in range(300)},
-    }
-    resp = client.post(
-        "/api/previews/sessions",
-        json={
-            "target": {
-                "kind": "collection_ref",
-                "ref": "coll-wide",
-                "recorded_type": "DataFrame",
-                "type_chain": ["DataObject", "DataFrame"],
-                "collection_item_type": "DataFrame",
-            },
-            "query": {
-                "_collection_items": [wide_item],
-                "_collection_count": 1,
-                "_collection_item_type": "DataFrame",
-            },
-        },
-    )
-    assert resp.status_code == 200
-    body = resp.json()
-    sid = body["session_id"]
-    resource = body["resources"][0]
+    ref, children = _registered_collection(client, runtime, count=3)
+    context = _panel_context(client, ref=ref, kind="collection_ref")
 
-    # Params must be the minimal flat form, not the full wide descriptor.
-    assert resource["params"] == {
-        "index": 0,
-        "ref": "wide-child",
-        "type_name": "DataFrame",
-    }
-    assert "item" not in resource["params"]
+    page = _panel_read(client, context, ref, "collection.items").json()
+    assert page["count"] == 3
+    assert page["item_type"] == "DataFrame"
+    assert [item["ref"] for item in page["items"]] == children
 
-    res = client.get(
-        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
-        params={"params": json.dumps(resource["params"])},
-    )
-
-    # Pre-fix this returned 422 "resource params contain too many entries".
-    assert res.status_code == 200
-    child = res.json()["data"]
-    assert child["target"]["ref"] == "wide-child"
+    opened = client.post(f"/api/panels/contexts/{context}/open", json={"ref": children[0]})
+    assert opened.status_code == 200, opened.text
+    child = opened.json()
+    assert child["target"]["ref"] == children[0]
     assert child["target"]["recorded_type"] == "DataFrame"
+
+
+def test_a_wide_collection_item_still_opens(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """#1837: a wide or richly-described member must still open.
+
+    The collection fallback round-tripped a member's whole descriptor through
+    ``PreviewResource.params``; for a table with many columns that crossed the
+    API's 256-entry param guard and opening the member failed with HTTP 422.
+    The panel path cannot regress that way by construction — a member is
+    addressed by its reference, and the descriptor never leaves the backend —
+    so what this pins is that the listing really does carry identity only,
+    which is the property that keeps it constant-size however wide the table.
+    """
+    ref, children = _registered_collection(client, runtime, count=2, columns=300)
+    context = _panel_context(client, ref=ref, kind="collection_ref")
+
+    page = _panel_read(client, context, ref, "collection.items").json()
+    item = page["items"][0]
+    assert set(item) <= {"ref", "type_name", "kind", "display_name"}
+    assert item["ref"] == children[0]
+
+    opened = client.post(f"/api/panels/contexts/{context}/open", json={"ref": item["ref"]})
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["target"]["ref"] == children[0]
 
 
 def test_collection_image_child_resource_uses_catalog_storage(
@@ -656,7 +692,8 @@ def test_collection_image_child_resource_uses_catalog_storage(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
+        runtime.refresh_preview_service()
 
     image_path = opened_project / "images" / "child.tif"
     image_path.parent.mkdir(parents=True, exist_ok=True)
@@ -671,36 +708,28 @@ def test_collection_image_child_resource_uses_catalog_storage(
         type_name="Image",
     )
 
-    resp = client.post(
-        "/api/previews/sessions",
-        json={
-            "target": {
-                "kind": "collection_ref",
-                "ref": "image-collection",
-                "recorded_type": "Image",
-                "type_chain": ["DataObject", "Array", "Image"],
-                "collection_item_type": "Image",
-            },
-            "query": {
-                "_collection_items": [{"data_ref": record.id, "type_name": "Image"}],
-                "_collection_count": 1,
-                "_collection_item_type": "Image",
-            },
+    from scistudio.panels.targets import register_collection
+
+    group = register_collection(
+        runtime,
+        {
+            "kind": "collection",
+            "count": 1,
+            "item_type": "Image",
+            "items": [{"data_ref": record.id, "type_name": "Image"}],
         },
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    resource = body["resources"][0]
+    ref = str(group["collection_ref"])
+    context = _panel_context(client, ref=ref, kind="collection_ref")
 
-    res = client.get(
-        f"/api/previews/sessions/{body['session_id']}/resources/{resource['resource_id']}",
-        params={"params": json.dumps(resource["params"])},
-    )
+    page = _panel_read(client, context, ref, "collection.items").json()
+    assert [item["ref"] for item in page["items"]] == [record.id]
 
-    assert res.status_code == 200
-    child = res.json()["data"]
-    assert child["session_id"]
-    assert child["session_id"] != body["session_id"]
+    opened = client.post(f"/api/panels/contexts/{context}/open", json={"ref": record.id})
+    assert opened.status_code == 200, opened.text
+    child = opened.json()
+    # The member routes on its own recorded type, through the catalog storage
+    # the backend froze — not through anything the collection listing carried.
     assert child["previewer_id"] == "fixture.image.viewer"
     assert child["kind"] == "array"
     assert child["target"]["ref"] == record.id
@@ -735,7 +764,8 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
+        runtime.refresh_preview_service()
 
     spec = runtime.get_preview_service().registry.get("fixture.image.viewer")
     assert spec is not None
@@ -748,35 +778,63 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
     assert b"mount" in resp.content
 
 
-def test_composite_resource_uses_descriptor_params(
+def test_composite_panel_lists_and_opens_a_slot(
     client: TestClient,
+    runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    resp = client.post(
-        "/api/previews/sessions",
-        json={
-            "target": {
-                "kind": "data_ref",
-                "ref": "comp-params",
-                "recorded_type": "CompositeData",
+    """A composite's slots are read by the panel and opened by slot reference.
+
+    The compiled viewer advertised one ``PreviewResource`` per slot carrying the
+    slot descriptor; the panel reads the inventory and opens a slot by the
+    reference the backend minted for it, which is the same navigation with the
+    descriptor kept on the backend.
+    """
+    # A composite is a directory holding its slots and a manifest naming them;
+    # the slot has to live inside it, which is the confinement the reader checks
+    # before it will open a child.
+    composite = opened_project / "composite"
+    composite.mkdir()
+    raster = composite / "raster"
+    raster.mkdir()
+    (composite / "manifest.json").write_text(
+        json.dumps({"slots": {"raster": {"backend": "filesystem", "path": str(raster), "format": "npy"}}}),
+        encoding="utf-8",
+    )
+    record = runtime.register_data_ref(
+        StorageReference(
+            backend="filesystem",
+            path=str(composite),
+            metadata={
                 "type_chain": ["DataObject", "CompositeData"],
+                # The recorded slot carries the wire envelope a serializer
+                # writes; its own chain is the only authority for the slot type.
+                "slots": {
+                    "raster": {
+                        "backend": "filesystem",
+                        "path": str(raster),
+                        "format": "npy",
+                        "metadata": {"type_chain": ["DataObject", "Array"]},
+                    }
+                },
             },
-            "query": {"_record_metadata": {"slots": {"raster": "Array"}}},
-        },
+        ),
+        type_name="CompositeData",
     )
-    assert resp.status_code == 200
-    body = resp.json()
-    sid = body["session_id"]
-    resource = body["resources"][0]
+    context = _panel_context(client, ref=record.id)
 
-    res = client.get(
-        f"/api/previews/sessions/{sid}/resources/{resource['resource_id']}",
-        params={"params": json.dumps(resource["params"])},
-    )
+    response = _panel_read(client, context, record.id, "composite.slots")
+    assert response.status_code == 200, response.text
+    slots = response.json()
+    assert [slot["name"] for slot in slots["slots"]] == ["raster"]
+    # The slot's type comes from its own recorded chain, so it routes; a
+    # stringified storage descriptor here is what once matched no previewer.
+    assert slots["slots"][0]["type_name"] == "Array"
 
-    assert res.status_code == 200
-    child = res.json()["data"]
-    assert child["target"]["ref"] == "comp-params#raster"
+    opened = client.post(f"/api/panels/contexts/{context}/open", json={"ref": slots["slots"][0]["ref"]})
+    assert opened.status_code == 200, opened.text
+    child = opened.json()
+    assert child["target"]["ref"] == f"{record.id}#raster"
     assert child["target"]["recorded_type"] == "Array"
 
 
@@ -817,22 +875,21 @@ def test_plot_export_resource_returns_bounded_sanitized_svg(
         type_chain=["DataObject", "PlotArtifact"],
         kind="plot_artifact",
     ).json()
-    sid = created["session_id"]
-    export_resource = next(r for r in created["resources"] if r["resource_id"] == "export")
+    assert created["kind"] == "panel"
+    assert created["panel"]["id"] == "core.plot.basic"
 
-    res = client.get(
-        f"/api/previews/sessions/{sid}/resources/export",
-        params={"params": json.dumps(export_resource["params"])},
-    )
+    # Saving was an `export` session resource that returned a scrubbed data URI.
+    # It is the plot panel's artifact read and the token route that serves it
+    # now; what must not change is that the bytes a reader ends up saving carry
+    # no script.
+    context = _panel_context(client, ref=record.id, kind="plot_artifact")
+    granted = _panel_read(client, context, record.id, "artifact.file", {"variant": "svg"})
+    assert granted.status_code == 200, granted.text
+    assert granted.json()["formats"] == ["svg"]
 
-    assert res.status_code == 200
-    data = res.json()["data"]
-    assert data["format"] == "svg"
-    assert data["mime_type"] == "image/svg+xml"
-    assert data["filename"] == "plot.svg"
-    assert data["data_uri"].startswith("data:image/svg+xml;base64,")
-    decoded = base64.b64decode(data["data_uri"].split(",", 1)[1]).decode("utf-8")
-    assert "<script" not in decoded
-    assert "alert(1)" not in decoded
-    assert "<rect" in decoded
-    assert data["sanitized"] is True
+    served = client.get(granted.json()["url"])
+    assert served.status_code == 200
+    assert served.headers["content-type"].startswith("image/svg+xml")
+    assert "<script" not in served.text
+    assert "alert(1)" not in served.text
+    assert "<rect" in served.text
