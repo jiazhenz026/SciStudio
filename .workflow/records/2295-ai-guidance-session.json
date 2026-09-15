@@ -659,6 +659,11 @@
       "at": "2026-09-15T04:47:09.768166Z",
       "owner_directive": "\u5176\u4ed6\u7684\u5185\u5bb9\u63a8 PR\u3002\u672c\u5730 SCISTUDIO_SKIP_PREFLIGHT=1\u3002MiniApp skill \u4fdd\u6301 Phase D \u6240\u6709\u6743\u3002",
       "reason": "Owner requests a PR for remaining changes and explicitly skips local preflight; isolate the net Phase C changes on main without Phase D implementation"
+    },
+    {
+      "at": "2026-09-15T05:11:39.838253Z",
+      "owner_directive": "\u67e5\u770b Codex \u4e24\u6761 audit\uff1b\u4fdd\u7559\u672a ship \u7684 Phase D \u5f15\u7528\u5e76\u4e0e open PR \u4e00\u81f4\uff0c\u4fee\u6b63\u65e0\u4f9d\u636e\u8def\u5f84\uff1b\u8865\u9f50\u7f3a\u5931\u8def\u7531\u3002\u6cbf\u7528\u672c\u5730 skip preflight\u3002",
+      "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
     }
   ],
   "docs_events": [
@@ -707,6 +712,22 @@
       "class": null,
       "kind": "path",
       "path": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:11:39.838431Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:11:39.838448Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -1925,6 +1946,30 @@
       "at": "2026-09-15T04:19:36.502654Z",
       "pattern": "tests/panels/test_panel_skill_examples.py",
       "reason": "Validate the shipped panel examples through descriptor parser and SDK sample mode"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:11:39.838418Z",
+      "pattern": "src/scistudio/_skills/scistudio/SKILL.md",
+      "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:11:39.838423Z",
+      "pattern": "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:11:39.838424Z",
+      "pattern": "tests/packaging/test_wheel_skills.py",
+      "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:11:39.838426Z",
+      "pattern": "tests/agent_provisioning/test_claude_agents_md.py",
+      "reason": "Address both Codex review findings while preserving verified Phase D dependencies"
     }
   ],
   "session_id": "ff5ef558-8c6d-4bcd-9367-1aef06c2bdc6",
@@ -1969,6 +2014,22 @@
       "kind": "na",
       "path": null,
       "rationale": "This follow-up restores the Phase D-owned SKILL.md byte-for-byte and corrects ownership notes only. No code or skill delivery behavior changes; the unchanged implementation retains its 172-test evidence. No additional test is warranted for this documentation-only revert.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:11:39.838450Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/packaging/test_wheel_skills.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:11:39.838451Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_claude_agents_md.py",
+      "rationale": null,
       "verified_in_diff": null
     }
   ]

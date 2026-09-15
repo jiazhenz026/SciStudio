@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from scistudio.agent_provisioning.claude_agents_md import write_claude_agents_md
+from scistudio.agent_provisioning.skills import _SKILL_NAMES
 
 
 def test_writes_agents_md_full_guide_and_claude_md_router(tmp_project_dir: Path) -> None:
@@ -74,8 +75,8 @@ def test_creates_parent_dir_if_missing(tmp_path: Path) -> None:
 # Content assertions read AGENTS.md, the canonical entry point (#2137).
 
 
-def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
-    """The AGENTS.md template must reference all 5 task skills.
+def test_template_indexes_all_registered_task_skills(tmp_project_dir: Path) -> None:
+    """The AGENTS.md template must reference every registered task skill.
 
     Cross-discoverability rule: the project-level AGENTS.md is the
     agent's entry point on each turn; if a task skill is not indexed
@@ -83,14 +84,10 @@ def test_template_indexes_all_five_task_skills(tmp_project_dir: Path) -> None:
     """
     write_claude_agents_md(tmp_project_dir, force=False)
     body = (tmp_project_dir / "AGENTS.md").read_text(encoding="utf-8")
-    for task_skill in (
-        "scistudio-build-workflow",
-        "scistudio-write-block",
-        "scistudio-debug-run",
-        "scistudio-inspect-data",
-        "scistudio-project-qa",
-    ):
-        assert task_skill in body, f"AGENTS.md template must reference {task_skill}."
+    index = body.split("## Skills available", 1)[1].split("\n## ", 1)[0]
+    for task_skill in _SKILL_NAMES:
+        if task_skill != "scistudio":
+            assert f"`{task_skill}`" in index, f"AGENTS.md skill index must reference {task_skill}."
 
 
 def test_template_carries_non_negotiable_rules(tmp_project_dir: Path) -> None:

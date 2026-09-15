@@ -62,8 +62,9 @@ before editing. Historical audit reports remain historical evidence.
   evidence of a real browser test.
 - [x] Register and verify delivery of the GUI skill to both provider trees,
   including adding it on reopen without overwriting customized skills.
-- [ ] Add focused GUI-skill navigation to the unified `AGENTS.md` after #2383;
-  avoid competing edits to that agent's template/base-skill work.
+- [x] Add panel/GUI routing to the base skill and generated `AGENTS.md` guide
+  in response to #2391 review; keep automatic GUI checks at the authoring/router
+  layer. Reconcile with #2383's independent prompt consolidation at integration.
 - [x] Add `scistudio-write-panel` with working preview and interactive examples,
   descriptor validation, local libraries/CDN limits, sample mode, and live checks.
 - [x] Connect panel authoring to the GUI guide, referencing the Phase D MiniApp
@@ -133,8 +134,9 @@ parts consistently with final A/B/D behavior, without rewriting unaffected copy.
 
 ## 8. Existing Related Work And Final Verification
 
-- [ ] Reconcile Phase D #2354 when its final PR is available; visibility PR #2368
-  is not the final delivery. Do not infer completion from that visibility PR.
+- [ ] Reconcile final Phase D #2354 via PR #2392 before merge. Its published
+  head `bdc765a4c4efb7a36549cd79374815c80df9e8bb` was inspected for this review;
+  the earlier visibility PR #2368 is not the final delivery.
 - [ ] Inspect #2375 / PR #2377 (documentation tools reading the project) before
   changing documentation lookup guidance; do not implement a duplicate fix.
 - [ ] Inspect #2376 / PR #2380 (core IO steering) before revising related guidance.
@@ -192,3 +194,33 @@ parts consistently with final A/B/D behavior, without rewriting unaffected copy.
 - Owner boundary: edit only this worktree. The desktop implementation is
   Electron; unsupported Qt wording introduced during drafting was removed from
   all four affected guidance/spec files before the implementation commit.
+
+## 10. PR Review And Reference Verification
+
+Owner direction: retain unshipped Phase D references when they match its open
+PR; fix unsupported paths instead of deleting valid dependencies. Inspect the
+published git objects only; do not edit the Phase D worktree or MiniApp skill.
+
+- #2391 review [dependency finding](https://github.com/jiazhenz026/SciStudio/pull/2391#discussion_r4012042811):
+  retain the references. Their implementation is in Phase D
+  [PR #2392](https://github.com/jiazhenz026/SciStudio/pull/2392), inspected at
+  `bdc765a4c4efb7a36549cd79374815c80df9e8bb`. This is a merge dependency, not a
+  claim that the current main branch already serves those resources.
+- #2391 review [routing finding](https://github.com/jiazhenz026/SciStudio/pull/2391#discussion_r4012042815):
+  add panel/GUI entries to the base skill and the template that produces
+  `AGENTS.md`. The matching packaging/provisioning tests now require every
+  registered task skill to appear in each actual Skills section.
+
+| Authored reference | Verified implementation / delivery in #2392 |
+|---|---|
+| `../../sdk/1/renderers.js`, `../../sdk/1/renderers.css` | Both exist under `src/scistudio/panels/sdk/1/` and are allowlisted by `_SDK_FILES` in `src/scistudio/api/routes/panels.py`. The token-scoped SDK route serves them. CSS guidance now spells out the full relative path. |
+| `../../sdk/1/panel-ui.js` and the pinned Preact module path | The SDK route includes `panel-ui.js`; that module itself imports `../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js`. |
+| `.scistudio/agent-reference/miniapp-renderers.md` | Source is `src/scistudio/_agent_reference/miniapp-renderers.md`; `agent_provisioning/docs.py` maps `_agent_reference` into this project destination. |
+| `validate_panel(path="panels/<panel_id>")` | Registered in `ai/agent/mcp/tools_panels.py`, imported by the MCP package; accepts the panel-directory path and checks descriptor/external references without executing JavaScript. |
+| `screenshot_gui(target="workspace" or "miniapp")` | Registered in `ai/agent/mcp/tools_gui.py`; local MCP returns an image from the connected desktop application. Browser capture uses client tooling. |
+| `scistudio-write-miniapp` and its GUI-guide routing | The Phase D skill exists at `src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md`; Step 5 already routes through `scistudio-use-gui`. No Phase C edit to it. |
+| `user-guide/using-the-gui.md`, `.scistudio/agent-reference/block-contract.md` | Both source documents exist in main and #2392; their project destinations match the provisioning map. |
+
+No invented file path was found in the audited references. The Phase D-only
+references remain intact. Local preflight stays skipped per owner direction;
+new-head CI, rather than prior-head results, validates this follow-up.

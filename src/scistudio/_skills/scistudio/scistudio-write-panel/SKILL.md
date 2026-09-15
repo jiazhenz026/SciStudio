@@ -90,8 +90,9 @@ blocks include `Panel`, `Stack`, `Row`, `Card`, `Field`, `Input`, `Select`,
 `Button`, `Table`, `Legend`, `Pager`, `LoadingState`, `EmptyState`, and
 `ErrorState`. Use `Input type="range"` for a slider; there is no `Slider` export.
 
-For data views, import `../../sdk/1/renderers.js` and load `renderers.css` beside
-it. Read `.scistudio/agent-reference/miniapp-renderers.md` for the shared
+For data views, import `../../sdk/1/renderers.js` and load
+`../../sdk/1/renderers.css`. Read `.scistudio/agent-reference/miniapp-renderers.md`
+for the shared
 renderer props. These renderers also work in preview/interactive panels:
 callers supply SDK results or prepared JSON and own reads, state, and callbacks.
 An `ArrayView` does not implement domain-specific masks or image channels.
