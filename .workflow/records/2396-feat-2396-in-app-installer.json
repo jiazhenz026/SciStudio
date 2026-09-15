@@ -548,7 +548,13 @@
       "CHANGELOG.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T07:27:02.038471Z",
+      "owner_directive": "\u4feeCI\uff0cwheel release smoke\u6302\u4e86",
+      "reason": "Owner directed fixing PR CI: origin/main's dispatchMiniApp.test.ts (#2392) still mocks setInteractivePrompt after #2397 renamed the DispatchDeps field to upsertInteractivePrompt, failing tsc in Frontend and Wheel Release Smoke"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T06:28:16.552820Z",
@@ -1549,6 +1555,12 @@
       "at": "2026-09-15T06:57:16.275017Z",
       "pattern": "desktop/test/harness/**",
       "reason": "Codex review fixes touch the main.js orchestration harness"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:27:02.038600Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
+      "reason": "Owner directed fixing PR CI: origin/main's dispatchMiniApp.test.ts (#2392) still mocks setInteractivePrompt after #2397 renamed the DispatchDeps field to upsertInteractivePrompt, failing tsc in Frontend and Wheel Release Smoke"
     }
   ],
   "session_id": "2fd9bf55-2592-4baf-984c-e7bd607de73e",
