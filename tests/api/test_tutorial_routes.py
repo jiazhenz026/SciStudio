@@ -1278,6 +1278,9 @@ def test_only_a_write_into_a_scanned_directory_asks_for_a_re_scan(tmp_path: Path
     # The third scanned tier (#2086): a tutorial-written previewer must be
     # registered before the step's text is readable, so its directory settles.
     assert wrote("previewers/image_viewer.py") is True
+    # Panels joined beside previewers (#2411): a panel folder written by a step
+    # must be discovered before the step's text is readable too.
+    assert wrote("panels/probe_panel/panel.yaml") is True
     # One block among data files is still a block.
     assert wrote("data/raw/cells.csv", "blocks/probe.py") is True
 
