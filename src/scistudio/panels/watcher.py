@@ -308,6 +308,7 @@ class PanelSourceWatcher:
         self._roots: tuple[Path, ...] = ()
         self._missing: tuple[Path, ...] = ()
         self._stopped = True
+        self._generation = 0
 
     @property
     def roots(self) -> tuple[Path, ...]:
@@ -350,11 +351,13 @@ class PanelSourceWatcher:
             self._roots = resolved
             self._missing = tuple(missing)
             self._stopped = False
+            self._generation += 1
         return True
 
     def stop(self) -> None:
         with self._lock:
             self._stopped = True
+            self._generation += 1
             observer, self._observer = self._observer, None
             timer, self._timer = self._timer, None
         if timer is not None:
@@ -369,13 +372,25 @@ class PanelSourceWatcher:
         with self._lock:
             if self._stopped:
                 return
-            roots, missing = self._roots, self._missing
-        if any(path == root for root in missing) and path.is_dir():
-            # A tier directory appeared: watch it recursively from now on.
-            threading.Thread(target=self.start, args=(roots,), name="panel-source-rearm", daemon=True).start()
-            self.changed()
+            roots, missing, generation = self._roots, self._missing, self._generation
+        # A non-recursive watch on a parent may report the parent itself rather
+        # than the child created in it, so look at the missing tiers directly.
+        if any((path == root or path in root.parents) and root.is_dir() for root in missing):
+            # A tier directory appeared: watch it recursively from now on. The
+            # observer cannot be stopped from its own thread, and re-arming
+            # cancels a pending rescan, so the rescan is requested after it.
+            threading.Thread(
+                target=self._rearm, args=(roots, generation), name="panel-source-rearm", daemon=True
+            ).start()
             return
         if is_panel_source_change(roots, path, is_directory=is_directory):
+            self.changed()
+
+    def _rearm(self, roots: tuple[Path, ...], generation: int) -> None:
+        with self._lock:
+            if self._stopped or generation != self._generation:
+                return
+        if self.start(roots):
             self.changed()
 
     def changed(self) -> None:

@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tests.panels.conftest import install_panel_service
 
 from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
@@ -25,9 +26,6 @@ from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import OwnerKind, PreviewTarget
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.router import PreviewRouter
-from scistudio.previewers.session import PreviewSessionManager
 
 pytestmark = pytest.mark.serial
 
@@ -67,12 +65,6 @@ def _make(
             panel_dir, owner_kind=owner_kind, owner_name=owner_kind.value, registered_types={"Text", "DataFrame"}
         )[0]
     )
-    registry = PreviewerRegistry()
-    registry.load_core()
-    registry.install_panels(panels)
-    service = SimpleNamespace(
-        registry=registry, router=PreviewRouter(registry), sessions=PreviewSessionManager(registry)
-    )
     record = DataRecord(
         "data-a",
         StorageReference(
@@ -97,7 +89,6 @@ def _make(
     )
     runtime.event_bus.runtime = runtime
     runtime.get_data_record = lambda ref: runtime.data_catalog[ref]
-    runtime.get_preview_service = lambda: service
     runtime.resolve_session_target = lambda target: PreviewTarget(
         kind=target.kind,
         ref=target.ref,
@@ -108,6 +99,9 @@ def _make(
         resolve=lambda name: SimpleNamespace(base_type={"Text": "DataObject"}.get(name, ""))
     )
     proc_registry = ProcessRegistry()
+    # A test swaps ``runtime.test_panels[0]`` and rescans to change the catalog.
+    runtime.test_panels = [panels]
+    install_panel_service(runtime, lambda: runtime.test_panels[0])
     return runtime, get_panel_contexts(runtime), proc_registry, panel_dir
 
 
@@ -226,7 +220,8 @@ def test_type_mismatch_is_refused(tmp_path: Path) -> None:
     panels.register(
         parse_descriptor(panel_dir, owner_kind=OwnerKind.PROJECT, owner_name="p", registered_types={"DataFrame"})[0]
     )
-    runtime.get_preview_service().registry.install_panels(panels)
+    runtime.test_panels[0] = panels
+    runtime.get_panel_service().rescan(force=True)
     with pytest.raises(PanelError) as exc:
         store.create(dict(_SOURCE), process_registry=registry)
     assert exc.value.code == "type_mismatch"
@@ -275,7 +270,6 @@ def test_interactive_context_provides_no_call() -> None:
         panel=None,  # type: ignore[arg-type]
         kind="interactive",
         project=(),
-        preview_service=None,
         token="t",
         expires_at=0.0,
         input={},
@@ -422,13 +416,15 @@ def test_restart_rebuilds_the_setup_payload_from_the_revalidated_target(tmp_path
 def test_an_open_project_miniapp_watches_its_directory(tmp_path: Path) -> None:
     _runtime, store, registry, panel_dir = _make(tmp_path, with_python=False)
     context = store.create(dict(_SOURCE), process_registry=registry)
+    watches = _runtime.get_panel_service().file_watches
     try:
-        assert context.watcher is not None
-        assert context.watcher.panel_id == "lab.explorer"
-        assert context.watcher.directory == panel_dir.resolve()
+        assert context.watched is True
+        assert watches.watched() == {"lab.explorer": 1}
+        assert watches._watches["lab.explorer"][0].directory == panel_dir.resolve()
     finally:
         store.close(context.context_id)
-    assert context.watcher is None
+    assert context.watched is False
+    assert watches.watched() == {}
 
 
 def test_a_package_miniapp_is_not_watched(tmp_path: Path) -> None:
@@ -436,7 +432,7 @@ def test_a_package_miniapp_is_not_watched(tmp_path: Path) -> None:
     _runtime, store, registry, _ = _make(tmp_path, with_python=False, owner_kind=OwnerKind.PACKAGE)
     context = store.create(dict(_SOURCE), process_registry=registry)
     try:
-        assert context.watcher is None
+        assert context.watched is False
     finally:
         store.close(context.context_id)
 
@@ -552,3 +548,130 @@ def test_html_only_miniapp_does_not_advertise_call(tmp_path: Path) -> None:
             store.stop_process(context.context_id)
     finally:
         store.close_all()
+
+
+# -- #2455 / #2465: catalog changes leave unrelated contexts open ------------
+
+
+def _write_miniapp(root: Path, panel_id: str, **fields: object) -> Path:
+    import json
+
+    folder = root / panel_id
+    folder.mkdir(parents=True)
+    (folder / "index.html").write_text("<p>other</p>", encoding="utf-8")
+    descriptor = {"id": panel_id, "api_version": "1.0", "contexts": ["miniapp"], "types": ["Text"], **fields}
+    (folder / "panel.json").write_text(json.dumps(descriptor), encoding="utf-8")
+    return folder
+
+
+def _with(runtime, *folders: Path) -> PanelRegistry:
+    panels = PanelRegistry()
+    for folder in folders:
+        panels.register(
+            parse_descriptor(folder, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Text"})[0]
+        )
+    runtime.test_panels[0] = panels
+    return panels
+
+
+def test_writing_a_new_miniapp_leaves_every_open_miniapp_running(tmp_path: Path) -> None:
+    # #2455: an agent wrote a MiniApp and opened it; the catalog refresh used to
+    # rebuild the preview service and close every MiniApp already open.
+    runtime, store, registry, panel_dir = _make(tmp_path)
+    service = runtime.get_panel_service()
+    first = store.create(dict(_SOURCE, ws_client_id="ws-1"), process_registry=registry)
+    second = store.create(dict(_SOURCE, ws_client_id="ws-1"), process_registry=registry)
+    try:
+        assert _await_running(first.process) == process_mod.RUNNING
+        assert _await_running(second.process) == process_mod.RUNNING
+        _with(runtime, panel_dir, _write_miniapp(tmp_path / "more", "lab.second"))
+        diff = service.rescan(force=True)
+        assert diff.added == {"lab.second"} and not diff.invalidated
+        opened = store.create(dict(_SOURCE, panel_id="lab.second"), process_registry=registry)
+        store.close(opened.context_id)
+
+        for context in (first, second):
+            assert store.get(context.context_id) is context
+            assert store.by_token(context.token) is context
+            assert context.process.state == process_mod.RUNNING
+            assert context.process.call("double", {"x": 4}).header["result"] == 8
+        assert set(store.contexts) == {first.context_id, second.context_id}
+    finally:
+        store.close_all()
+
+
+def test_a_legacy_reload_leaves_miniapp_contexts_open(tmp_path: Path) -> None:
+    runtime, store, registry, _ = _make(tmp_path, with_python=False)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    runtime.get_panel_service().refresh()
+    assert store.get(context.context_id) is context
+    store.close_all()
+
+
+def test_changing_the_open_miniapp_descriptor_revokes_only_its_contexts(tmp_path: Path) -> None:
+    import json
+
+    runtime, store, registry, panel_dir = _make(tmp_path, with_python=False)
+    other = _write_miniapp(tmp_path / "more", "lab.other")
+    _with(runtime, panel_dir, other)
+    service = runtime.get_panel_service()
+    service.rescan(force=True)
+    seen: list = []
+    runtime.event_bus.subscribe("panel.contexts_revoked", seen.append)
+    changed = store.create(dict(_SOURCE), process_registry=registry)
+    kept = store.create(dict(_SOURCE, panel_id="lab.other"), process_registry=registry)
+    descriptor = json.loads((panel_dir / "panel.json").read_text())
+    (panel_dir / "panel.json").write_text(json.dumps(descriptor | {"name": "Renamed"}), encoding="utf-8")
+    _with(runtime, panel_dir, other)
+    diff = service.rescan(force=True)
+    assert diff.changed == {"lab.explorer"} and diff.miniapps_changed
+    assert changed.context_id not in store.contexts
+    assert store.get(kept.context_id) is kept
+    assert [event.data for event in seen] == [
+        {"context_ids": [changed.context_id], "panel_ids": ["lab.explorer"], "reason": "panel_changed"}
+    ]
+    store.close_all()
+
+
+def test_the_first_answers_file_changes_nothing(tmp_path: Path) -> None:
+    # MiniApp FR-051: the host writes answers.json into the MiniApp folder; the
+    # catalog does not look at it, so nothing is rediscovered or revoked.
+    from scistudio.panels.registry import panel_sources_fingerprint
+
+    runtime, store, registry, panel_dir = _make(tmp_path, with_python=False)
+    service = runtime.get_panel_service()
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    before = panel_sources_fingerprint(tmp_path)
+    (panel_dir / "answers.json").write_text("{}", encoding="utf-8")
+    (panel_dir / ".answers-123.tmp").write_text("{}", encoding="utf-8")
+    assert panel_sources_fingerprint(tmp_path) == before
+    assert service.rescan().empty
+    assert store.get(context.context_id) is context
+    store.close_all()
+
+
+def test_closing_the_project_ends_miniapps_at_once(tmp_path: Path) -> None:
+    # MiniApp FR-013 / #2465: leaving a project closes its contexts immediately,
+    # not on the next panel request.
+    import psutil
+
+    runtime, store, registry, _ = _make(tmp_path)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    assert _await_running(context.process) == process_mod.RUNNING
+    pid = context.process._popen.pid
+    closed = runtime.get_panel_service().close_project()
+    assert closed == [context.context_id]
+    assert not store.contexts
+    deadline = time.time() + 10
+    while time.time() < deadline and psutil.pid_exists(pid):
+        time.sleep(0.05)
+    assert not psutil.pid_exists(pid)
+
+
+def test_reopening_the_open_project_keeps_its_miniapps(tmp_path: Path) -> None:
+    runtime, store, registry, _ = _make(tmp_path, with_python=False)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    runtime.active_project = SimpleNamespace(id="p", path=str(tmp_path))
+    runtime.get_panel_service().refresh()
+    assert store.get(context.context_id) is context
+    store.close_all()

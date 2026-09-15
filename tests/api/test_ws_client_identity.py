@@ -79,7 +79,7 @@ def _store() -> tuple[Any, list[str]]:
 
 def _event_bus_with(store: Any) -> EventBus:
     event_bus = EventBus()
-    event_bus.runtime = SimpleNamespace(_panel_contexts=store)
+    event_bus.runtime = SimpleNamespace(_panel_service=SimpleNamespace(contexts=store))
     return event_bus
 
 

@@ -182,11 +182,14 @@ def test_panels_shadow_the_legacy_core_previewers() -> None:
     legacy_ids = {spec.previewer_id for spec in core_previewer_specs()}
     assert REGISTRY_DISCOVERABLE.issubset(legacy_ids)
 
+    from scistudio.panels.router import merge_candidates
+
     preview = PreviewerRegistry()
     preview.load_core()
-    preview.install_panels(discover_panels())
+    panels = discover_panels()
+    merged = merge_candidates(panels=panels.panels, shadowed_panels=panels.shadowed, legacy_specs=preview.all_specs())
     for pid in REGISTRY_DISCOVERABLE:
-        winners = [s for s in preview.all_specs() if s.previewer_id == pid]
+        winners = [s for s in merged.routable if s.previewer_id == pid]
         assert winners, f"{pid} not routable"
         assert all(getattr(s, "panel", None) for s in winners), f"{pid} legacy spec not shadowed by panel"
 

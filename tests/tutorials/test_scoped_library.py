@@ -225,10 +225,10 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     nothing new in the ladder. Both halves are held: the scoped previewer wins
     for its type, and a project previewer for the same type shadows it.
     """
+    from scistudio.panels.router import PanelRouter
     from scistudio.previewers.models import OwnerKind, PreviewTarget, TargetKind
     from scistudio.previewers.project import load_project_previewers, load_user_previewers
     from scistudio.previewers.registry import PreviewerRegistry
-    from scistudio.previewers.router import PreviewRouter
 
     library_previewers = dropins.tutorial_library_dir() / "previewers"
     library_previewers.mkdir(parents=True)
@@ -242,7 +242,7 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     scoped = registry.get("tutorial.image.viewer")
     assert scoped is not None
     assert scoped.owner_kind is OwnerKind.USER
-    assert PreviewRouter(registry).resolve(target).previewer_id == "tutorial.image.viewer"
+    assert PanelRouter.over_registry(registry).resolve(target).previewer_id == "tutorial.image.viewer"
 
     (tutorial_project / "previewers").mkdir()
     (tutorial_project / "previewers" / "project_image_previewer.py").write_text(
@@ -252,7 +252,7 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     load_project_previewers(shadowing, tutorial_project)
     load_user_previewers(shadowing, tutorial_project)
 
-    assert PreviewRouter(shadowing).resolve(target).previewer_id == "project.image.viewer"
+    assert PanelRouter.over_registry(shadowing).resolve(target).previewer_id == "project.image.viewer"
 
 
 def test_import_roots_carry_the_swap(home: Path, tutorial_project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
