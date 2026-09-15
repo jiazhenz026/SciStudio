@@ -209,9 +209,23 @@
       "at": "2026-09-15T07:21:01.819912Z",
       "owner_directive": "Protected-path changes under src/scistudio/blocks/** are authorised for this PR.",
       "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T07:31:28.506292Z",
+      "owner_directive": "Fix the dispatchMiniApp.test.ts mock rename (setInteractivePrompt -> upsertInteractivePrompt) left by the #2392/#2397 merge race, which breaks frontend typecheck on main and would block this PR's frontend check.",
+      "reason": "tests, docs N/A, and a main-breaking typecheck fix"
     }
   ],
-  "docs_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T07:31:28.506472Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR-051 Addendum 1 names the node config without an inner location; ADR/docs edits are out of scope for this PR (owner scope), wording proposal reported to the owner; no skill or agent reference text names where interactive_memory is written",
+      "verified_in_diff": null
+    }
+  ],
   "governance_touch": false,
   "guard_events": [
     {
@@ -629,9 +643,49 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:31:28.506462Z",
+      "pattern": "frontend/src/**",
+      "reason": "tests, docs N/A, and a main-breaking typecheck fix"
+    }
+  ],
   "session_id": "f3d46b7a-804f-4cbe-ad04-6b74a45cc1bb",
   "strictness_tier": 1,
   "task_kind": "guided",
-  "test_events": []
+  "test_events": [
+    {
+      "at": "2026-09-15T07:31:28.506477Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_interactive_mixin.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:31:28.506480Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_inspection.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:31:28.506481Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.memory.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:31:28.506482Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.parts/ConfigPanel.memory.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
 }
