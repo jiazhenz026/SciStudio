@@ -195,6 +195,36 @@ describe("useWorkflowSync", () => {
     expect(apiMocks.listBlocks).not.toHaveBeenCalled();
   });
 
+  it("saves an expanded subworkflow tab under its path identity, outside the workflow list (#2394)", async () => {
+    const subworkflow: WorkflowResponse = { ...workflow, id: "@subworkflows@imported.yaml" };
+    apiMocks.updateWorkflow.mockResolvedValueOnce(subworkflow);
+    apiMocks.listProjects.mockResolvedValueOnce([project]);
+    const deps = {
+      currentProject: project,
+      setCurrentProject: vi.fn(),
+      setBlocks: vi.fn(),
+      setBlockSchema: vi.fn(),
+      setProjects: vi.fn(),
+      markWorkflowSaved: vi.fn(),
+      setLastError: vi.fn(),
+      workflowPayload: subworkflow,
+      workflowId: subworkflow.id,
+    };
+    const hook = renderHook(() => useWorkflowSync(deps));
+
+    await act(async () => {
+      await hook.result.current.saveWorkflow();
+    });
+
+    // Never `main`, the id the subworkflow file declares.
+    expect(apiMocks.updateWorkflow).toHaveBeenCalledWith(
+      "@subworkflows@imported.yaml",
+      subworkflow,
+    );
+    expect(deps.setCurrentProject).toHaveBeenCalledWith(project);
+    expect(deps.markWorkflowSaved).toHaveBeenCalled();
+  });
+
   it("falls back to create only when update returns 404", async () => {
     const { ApiError } = await import("../lib/api");
     apiMocks.updateWorkflow.mockRejectedValueOnce(new ApiError("Not found", 404));

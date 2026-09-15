@@ -7,6 +7,7 @@
 import type { StoreApi } from "zustand";
 
 import type { VersionedWorkflowResponse } from "../../lib/api";
+import { workflowIdentityLabel } from "../../lib/workflowIdentity";
 import type { AppStore, TabSlice, TabState, WorkflowTab } from "../types";
 import { executionViewKey, projectExecution } from "../executionSlice.parts/eventReducer";
 import {
@@ -63,7 +64,9 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     // default of "" — if a YAML omits the id field, workflow.id arrives empty
     // and the tab label + top-left title render blank. Fall back to the caller-
     // supplied displayName (typically the filename stem), then "Untitled".
-    const effectiveName = workflow.id || displayName || "Untitled";
+    // #2394: a subworkflow opened by path carries its path identity as its id;
+    // `workflowIdentityLabel` turns that into the file name.
+    const effectiveName = workflowIdentityLabel(workflow.id) || displayName || "Untitled";
 
     // ADR-044 — dedup identity. Defaults to the workflow id (legacy behavior);
     // a subworkflow open passes its unique ref.path so copies sharing one id do
@@ -137,6 +140,23 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       tabs: dropInactivePreviewTabs([...updatedTabs, newTab], newTab.id),
       ...restoreTab(newTab),
       ...projectForTab(state, newTab),
+    });
+  };
+}
+
+export function createShowActiveTabOwnRun(
+  set: StoreSetter,
+  get: StoreGetter,
+): TabSlice["showActiveTabOwnRun"] {
+  return () => {
+    const state = get();
+    const active = state.tabs.find((t) => t.id === state.activeTabId);
+    if (active?.kind !== "workflow") return;
+    if (active.runPrefix === undefined && active.runWorkflowId === undefined) return;
+    const ownRunTab: WorkflowTab = { ...active, runPrefix: undefined, runWorkflowId: undefined };
+    set({
+      tabs: state.tabs.map((t) => (t.id === active.id ? ownRunTab : t)),
+      ...projectExecution(state.executionByWorkflow, state.workflowId),
     });
   };
 }

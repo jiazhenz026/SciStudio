@@ -36,7 +36,7 @@ from scistudio.plot.models import (
     PlotRunResult,
     PlotStatus,
 )
-from scistudio.plot.targets import workflow_run_keys
+from scistudio.plot.targets import target_workflow_identity, workflow_run_keys
 from scistudio.plot.validation import LoadedPlot, load_plot
 
 logger = logging.getLogger(__name__)
@@ -680,7 +680,8 @@ def run_plot_job(
     if timeout_seconds is not None:
         timeout = min(float(timeout_seconds), ABSOLUTE_MAX_TIMEOUT_SECONDS)
 
-    workflow_id = manifest.target.workflow_id or Path(manifest.target.workflow_path).stem
+    # #2394: previews are filed under the bound file's run identity.
+    workflow_id = target_workflow_identity(manifest.target.workflow_path)
     cache_dir = preview_cache_dir(root, workflow_id, manifest.target.node_id, manifest.target.output_port, plot_id)
     cache_key = cache_key_for(workflow_id, manifest.target.node_id, manifest.target.output_port, plot_id)
     _clear_current_artifacts(cache_dir)
