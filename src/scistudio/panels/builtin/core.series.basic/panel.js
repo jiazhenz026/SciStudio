@@ -13,6 +13,7 @@ export {
   gapNotice,
   readPoints,
   lineData,
+  inferSourceIndices,
 } from "../../sdk/1/renderer-series.js";
 
 function SeriesPanel({ initialView }) {

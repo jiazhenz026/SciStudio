@@ -50,6 +50,16 @@ interface Reported {
   frame: HTMLIFrameElement;
 }
 
+/**
+ * What each asker wants, not what the last one wanted.
+ *
+ * More than one tracker runs at a time — a step points at its own target and
+ * the dialogue follows the stage it is drawn on — so a single slot means the
+ * later tracker overwrites the earlier one's request and either one's cleanup
+ * clears the other's. The panel would then be measuring the stage while the
+ * step pointed at a collection item, and the ring would never appear.
+ */
+const requests = new Map<symbol, PanelHighlightRequest>();
 let wanted: PanelHighlightRequest | null = null;
 const listeners = new Set<(request: PanelHighlightRequest | null) => void>();
 /** Keyed by frame, so closing one panel cannot leave another's box behind. */
@@ -61,15 +71,25 @@ function sameRequest(a: PanelHighlightRequest | null, b: PanelHighlightRequest |
 }
 
 /**
- * Say which target the step is pointing at, or `null` while it points at none.
+ * Say what one asker wants, or `null` when it wants nothing.
  *
- * Idempotent: repeating the current request notifies nobody, which matters
+ * Only targets the host document does not contain should be asked for: a frame
+ * cannot hold an element the host already found, and asking for one would spend
+ * every frame measuring something that is not there.
+ *
+ * Idempotent: a request that changes nothing notifies nobody, which matters
  * because the caller is a per-frame loop.
  */
-export function requestPanelHighlight(request: PanelHighlightRequest | null): void {
-  if (sameRequest(wanted, request)) return;
-  wanted = request;
-  if (request === null) reported.clear();
+export function requestPanelHighlight(owner: symbol, request: PanelHighlightRequest | null): void {
+  if (request === null) requests.delete(owner);
+  else requests.set(owner, request);
+  // The first asker still wanting something wins, deterministically by the
+  // order they first asked, so the answer does not depend on render order.
+  const next = requests.values().next();
+  const resolved = next.done ? null : next.value;
+  if (sameRequest(wanted, resolved)) return;
+  wanted = resolved;
+  if (resolved === null) reported.clear();
   for (const listener of listeners) listener(wanted);
 }
 
@@ -126,6 +146,7 @@ export function panelHighlightRect(target: string, key: string | null): PanelHig
 /** Test seam: drop every request and report. */
 export function resetPanelHighlights(): void {
   wanted = null;
+  requests.clear();
   reported.clear();
   listeners.clear();
 }

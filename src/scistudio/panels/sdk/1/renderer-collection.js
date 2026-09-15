@@ -2,6 +2,8 @@
 import { html } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
 
 import {
+  Button,
+  Row,
   EmptyState,
   ErrorState,
   Item,
@@ -63,6 +65,8 @@ export function CollectionView({
   count = items.length,
   itemType = "items",
   loading = false,
+  hasMore = false,
+  onLoadMore,
   error,
   onOpen,
 }) {
@@ -84,7 +88,7 @@ export function CollectionView({
 
   return html`<${Panel}>
     <div class="panel-label" data-testid="collection-summary">
-      ${count} ${itemType} (showing ${items.length})
+      ${count} ${itemType} (showing ${items.length} of ${count})
     </div>
     <${ItemGrid} data-testid="collection-grid">
       ${items.map((item, idx) => {
@@ -101,9 +105,15 @@ export function CollectionView({
         />`;
       })}
     <//>
-    ${loading
-      ? html`<${LoadingState} data-testid="collection-loading-more">
-          Loading the remaining items…
+    ${hasMore
+      ? html`<${Row} class="collection-more">
+          <${Button}
+            data-testid="collection-more"
+            disabled=${loading}
+            onClick=${onLoadMore}
+          >
+            ${loading ? "Loading…" : "Show more"}
+          <//>
         <//>`
       : null}
   <//>`;

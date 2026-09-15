@@ -51,6 +51,11 @@ class LoadImageFixture(IOBlock):
     name: ClassVar[str] = "Load Image (fixture)"
     description: ClassVar[str] = "Fixture-only TIFF loader for core IO machinery tests."
     subcategory: ClassVar[str] = "io"
+    # #2355: this loader reads a multi-file ``path`` list itself and returns the
+    # combined Collection, mirroring the imaging package's ``LoadImage``. The
+    # declaration keeps the whole list arriving in one ``load`` call now that
+    # fanning out is the default for loaders that do not ask for the batch.
+    accepts_path_list: ClassVar[bool] = True
 
     format_capabilities: ClassVar[tuple[FormatCapability, ...]] = (
         FormatCapability(

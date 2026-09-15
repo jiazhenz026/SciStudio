@@ -79,6 +79,10 @@ function stubHost(opts: HostOptions = {}) {
 }
 
 const root = () => document.getElementById("root") as HTMLElement;
+/** The control that reaches the next page, or null when there is none. */
+const more = () =>
+  document.querySelector("[data-testid=collection-more]") as HTMLButtonElement | null;
+
 const card = (i: number) =>
   root().querySelector(`[data-testid=collection-item-${i}]`) as HTMLButtonElement | null;
 
@@ -238,7 +242,7 @@ describe("core.collection.basic — drill-down", () => {
 });
 
 describe("core.collection.basic — every item is reachable (#1886 B)", () => {
-  it("pages past the first batch until the collection is fully listed", async () => {
+  it("reaches past the first batch when the reader asks for more", async () => {
     const { ops } = stubHost({
       input: {
         ref: "c",
@@ -252,18 +256,55 @@ describe("core.collection.basic — every item is reachable (#1886 B)", () => {
       },
     });
     await loadPanelModule();
+    await vi.waitFor(() => expect(card(99)).toBeTruthy());
 
-    // The viewer this replaces stopped at 100 and showed a "sampled" badge.
-    await vi.waitFor(() => expect(card(149)).toBeTruthy());
-    expect(card(100)).toBeTruthy();
+    /*
+     * The viewer this replaces stopped at 100 and flagged the rest as sampled,
+     * with no way to reach them. Chasing the cursor to the end instead made
+     * every item reachable and a large collection unusable, so the rest is one
+     * press away and the count says plainly how much is not on screen.
+     */
+    expect(more()).toBeTruthy();
+    expect(ops.filter((o) => o.op === "collection.items").length).toBe(0);
     expect(root().querySelector("[data-testid=collection-summary]")?.textContent).toContain(
-      "showing 150",
+      "showing 100 of 150",
     );
     expect(root().textContent?.toLowerCase()).not.toContain("sampled");
-    expect(ops.filter((o) => o.op === "collection.items").length).toBeGreaterThan(0);
+
+    more()!.click();
+    await vi.waitFor(() => expect(card(149)).toBeTruthy());
+    expect(root().querySelector("[data-testid=collection-summary]")?.textContent).toContain(
+      "showing 150 of 150",
+    );
+    // Nothing more to reach, so nothing more to press.
+    expect(more()).toBeNull();
   });
 
-  it("stops when a cursor returns no further items", async () => {
+  it("asks once however fast the reader presses", async () => {
+    const { ops } = stubHost({
+      input: {
+        ref: "c",
+        count: 300,
+        item_type: "Image",
+        items: makeItems(0, 100),
+        next_cursor: "c1",
+      },
+      reads: {
+        "collection.items": { count: 300, items: makeItems(100, 200), next_cursor: "c2" },
+      },
+    });
+    await loadPanelModule();
+    await vi.waitFor(() => expect(more()).toBeTruthy());
+
+    // Two presses in the same tick both see the old state; only the request
+    // guard stops the second from starting its own read.
+    more()!.click();
+    more()!.click();
+    await vi.waitFor(() => expect(card(199)).toBeTruthy());
+    expect(ops.filter((o) => o.op === "collection.items").length).toBe(1);
+  });
+
+  it("stops offering more when a cursor returns no further items", async () => {
     const { ops } = stubHost({
       input: {
         ref: "c",
@@ -273,12 +314,14 @@ describe("core.collection.basic — every item is reachable (#1886 B)", () => {
         next_cursor: "c1",
       },
       // A cursor that keeps pointing forward while returning nothing must not
-      // spin: an empty page ends the walk.
+      // leave a control that does nothing.
       reads: { "collection.items": { count: 500, items: [], next_cursor: "c2" } },
     });
     await loadPanelModule();
-    await vi.waitFor(() => expect(card(0)).toBeTruthy());
-    await new Promise((r) => setTimeout(r, 60));
+    await vi.waitFor(() => expect(more()).toBeTruthy());
+
+    more()!.click();
+    await vi.waitFor(() => expect(more()).toBeNull());
     expect(ops.filter((o) => o.op === "collection.items").length).toBe(1);
   });
 
@@ -294,6 +337,9 @@ describe("core.collection.basic — every item is reachable (#1886 B)", () => {
       reads: {},
     });
     await loadPanelModule();
+    await vi.waitFor(() => expect(more()).toBeTruthy());
+
+    more()!.click();
     await vi.waitFor(() => expect(root().querySelector(".panel-error")).toBeTruthy());
     expect(root().textContent).toContain("Could not read collection");
     expect(api.reportError).toHaveBeenCalled();

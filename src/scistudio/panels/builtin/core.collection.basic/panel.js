@@ -3,7 +3,7 @@ import {
   html,
   render,
   useCallback,
-  useEffect,
+  useRef,
   useState,
 } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
 
@@ -15,6 +15,9 @@ function CollectionPanel({ input }) {
   const [items, setItems] = useState(() => [...(input.items ?? [])]);
   const [cursor, setCursor] = useState(input.next_cursor ?? null);
   const [loading, setLoading] = useState(false);
+  // Guards the request itself, which a state flag cannot: two presses in the
+  // same tick both see the old state and both start a read.
+  const loadingRef = useRef(false);
   const [error, setError] = useState(null);
 
   const count = typeof input.count === "number" ? input.count : items.length;
@@ -26,32 +29,40 @@ function CollectionPanel({ input }) {
     api.reportError(message);
   }, []);
 
-  // Pages are pulled in the background until the collection is fully listed, so
-  // the reader simply sees their items — the viewer this replaces stopped at the
-  // first page and flagged the rest as "sampled" (#1886 item B).
-  useEffect(() => {
-    if (!cursor || loading) return;
-    let cancelled = false;
+  /*
+   * Every item is reachable, one page at a time.
+   *
+   * The viewer this replaces stopped at the first hundred and flagged the rest
+   * as "sampled" — a collection whose tail the reader could not get to at all
+   * (#1886 item B). Chasing the cursor to the end instead makes every item
+   * reachable, but for a collection of tens of thousands it is an unbounded
+   * run of requests, an unbounded backend child-authority cache, and an
+   * unbounded grid: reachable in principle, unusable in practice.
+   *
+   * So the reader asks for the next page. Nothing is hidden — the count says
+   * how many there are and how many are on screen — and nothing is fetched that
+   * nobody looked for.
+   */
+  const loadMore = useCallback(() => {
+    if (!cursor || loadingRef.current) return;
+    loadingRef.current = true;
     setLoading(true);
     api
       .read("collection.items", { cursor })
       .then((page) => {
-        if (cancelled) return;
         const got = page.items ?? [];
         setItems((prev) => [...prev, ...got]);
         // A cursor that returns nothing is a stalled cursor, not more data.
         setCursor(got.length ? (page.next_cursor ?? null) : null);
+        loadingRef.current = false;
         setLoading(false);
       })
       .catch((err) => {
-        if (cancelled) return;
+        loadingRef.current = false;
         setLoading(false);
         fail(err);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [cursor, fail]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cursor, fail]);
 
   const open = useCallback(
     (ref) => {
@@ -67,7 +78,9 @@ function CollectionPanel({ input }) {
     items=${items}
     count=${count}
     itemType=${itemType}
-    loading=${Boolean(cursor)}
+    loading=${loading}
+    hasMore=${Boolean(cursor)}
+    onLoadMore=${loadMore}
     error=${error}
     onOpen=${open}
   />`;

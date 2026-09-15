@@ -242,6 +242,13 @@ class SeriesPoints:
     """True when :attr:`nonfinite_positions` lists every dropped position (always
     True for a complete/faithful read; may be False for a bounded decimated read
     with more drops than the position budget)."""
+    source_indices: list[int] = field(default_factory=list)
+    """0-based source position of each returned point, in the same order.
+
+    Without it a decimated read cannot be drawn honestly: the dropped positions
+    above are source positions, while the points are a sample, so a consumer
+    counting points has no way to tell where in the curve a gap belongs and
+    draws a continuous line across it."""
 
 
 @provisional(since="0.3.1")

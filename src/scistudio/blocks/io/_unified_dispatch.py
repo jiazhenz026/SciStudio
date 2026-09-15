@@ -16,6 +16,7 @@ from typing import Any, cast
 
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.blocks.io.capabilities import FormatCapability
+from scistudio.blocks.io.io_block import _collect_load_batch
 from scistudio.core.dropins import (
     project_dir_from_env,
     register_block_scan_dirs,
@@ -324,28 +325,28 @@ def _effective_params(config: BlockConfig) -> dict[str, Any]:
     return merged
 
 
-def _reads_one_file_at_a_time(loader_cls: type[Any]) -> bool:
-    """True when *loader_cls* leaves multi-file handling to its caller.
+def _accepts_path_list(loader_cls: type[Any]) -> bool:
+    """True when *loader_cls* declared that it takes a multi-path list whole.
 
-    :class:`~scistudio.blocks.io.SimpleLoader` is deliberately a single-file
-    base class: an author sets three class attributes and implements
-    ``load_file(path, config)`` for one file, and the inherited ``load`` resolves
-    exactly one ``path``. Handing such a loader a list is a runtime error, so the
-    list is fanned out for it here — the same division of labour the six core
-    types already have, where ``_load_array`` and friends each read one file and
-    ``LoadData`` loops.
+    The declaration is :attr:`~scistudio.blocks.io.IOBlock.accepts_path_list`, a
+    documented ClassVar the loader author sets. It defaults to ``False``, so a
+    loader reads one file per call unless it says otherwise, and the fan-out is
+    what a multi-path config gets by default — the same division of labour the
+    six core types already have, where ``_load_array`` and friends each read one
+    file and ``LoadData`` loops.
 
-    A block that implements ``load`` by hand is the other case. It receives the
-    config as written, list included, because it may well want the whole batch at
-    once — to order a z-stack, or to align across files. Fanning that out would
-    quietly take the batch away from it, so this returns ``False`` for anything
-    that overrides ``load``, including a :class:`SimpleLoader` subclass that
-    chooses to.
+    The declaration replaces an inference. The fan-out used to be reserved for
+    loaders whose ``load`` was *identically* ``SimpleLoader.load``, which made
+    the general documented pattern — subclass
+    :class:`~scistudio.blocks.io.IOBlock`, implement ``load`` — the broken one:
+    it silently received the whole list, and stringifying it produced a
+    ``FileNotFoundError`` naming a path like ``"['a.jpg', 'b.jpg']"`` from
+    inside whatever library the loader called. A loader that genuinely consumes
+    a batch — to order a z-stack, or to align across files — now says so, rather
+    than being detected by which base class it inherits.
     """
-    # Development references: #2146.
-    from scistudio.blocks.io.simple_io import SimpleLoader
-
-    return getattr(loader_cls, "load", None) is SimpleLoader.load
+    # Development references: #2146, #2355.
+    return bool(getattr(loader_cls, "accepts_path_list", False))
 
 
 def delegate_load(
@@ -356,11 +357,13 @@ def delegate_load(
 ) -> DataObject | Collection:
     """Load through the package block selected by a core Load capability.
 
-    Returns a :class:`Collection` when ``path`` is a list and the selected loader
-    reads one file at a time; the core ``Load`` block's output port
-    declares that Collection for the same config.
+    Returns a :class:`Collection` when ``path`` is a list, which is what the core
+    ``Load`` block's output port declares for the same config. The list is fanned
+    out across one call per path unless the loader declared
+    :attr:`~scistudio.blocks.io.IOBlock.accepts_path_list`, in which case it is
+    passed through whole and the loader returns the Collection itself.
     """
-    # Development references: #2146.
+    # Development references: #2146, #2355.
     from scistudio.blocks.registry import AmbiguousCapabilityError
 
     data_type = resolve_type_class(core_type)
@@ -376,7 +379,7 @@ def delegate_load(
     loader_cls = capability_owner_class(registry, capability)
     params = delegate_params(effective, capability)
     raw_path = params.get("path")
-    if isinstance(raw_path, list) and _reads_one_file_at_a_time(loader_cls):
+    if isinstance(raw_path, list) and not _accepts_path_list(loader_cls):
         return _delegate_load_each(
             raw_path,
             loader_cls=loader_cls,
@@ -404,25 +407,27 @@ def _delegate_load_each(
     which treats a Collection as one file per item on the way out. Import roots
     are activated once around the whole batch rather than per file.
 
-    The item type is inferred from what the loader returned rather than declared
-    from the registry. A drop-in type imported by path is a distinct class object
-    with the same ``__name__`` as the registry's, and ``Collection``
-    compares item types by identity — declaring the registry's class here fails
-    with ``item[0] is Image, expected Image``. Only an empty list needs a type
-    stated, and it comes from the capability, whose ``data_type`` is the class
-    the loader itself declared.
+    The loop itself — one call per path, per-path Collections flattened into
+    the batch, the item type inferred from what the loader returned — is shared
+    with the direct-execution route through
+    :func:`~scistudio.blocks.io.io_block._collect_load_batch`, so
+    :attr:`~scistudio.blocks.io.IOBlock.accepts_path_list` has the same
+    semantics whether the core ``Load`` block delegates to the loader or the
+    loader runs as its own user-facing block. Only an empty batch needs
+    a type stated, and it comes from the capability, whose ``data_type`` is the
+    class the loader itself declared.
     """
-    # Development references: #1950.
-    items: list[DataObject] = []
+    # Development references: #1950, #2355, #2357.
+
+    def load_one(single_path: str) -> DataObject | Collection:
+        single = dict(params)
+        single["path"] = single_path
+        loader = loader_cls(config={"params": single})
+        loaded: DataObject | Collection = loader.load(BlockConfig(params=single), output_dir)
+        return loaded
+
     with _activated_package_import_roots():
-        for single_path in path_list:
-            single = dict(params)
-            single["path"] = str(single_path)
-            loader = loader_cls(config={"params": single})
-            items.append(cast(DataObject, loader.load(BlockConfig(params=single), output_dir)))
-    if not items:
-        return Collection(items=[], item_type=empty_item_cls)
-    return Collection(items=items)
+        return _collect_load_batch(path_list, load_one, empty_item_type=empty_item_cls)
 
 
 def delegate_save(

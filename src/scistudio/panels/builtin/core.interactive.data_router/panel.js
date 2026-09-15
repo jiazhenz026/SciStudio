@@ -89,7 +89,14 @@ function RouterPanel({ inputPorts, outputPorts, itemsPerPort, items }) {
     return map;
   }, [items]);
 
-  const done = waiting.length === 0 && items.length > 0;
+  /*
+   * Nothing left to route is done, including when there was nothing to route in
+   * the first place. Requiring at least one item leaves a block whose inputs all
+   * arrived empty with a Confirm that can never be pressed, and a run paused on
+   * it until someone cancels — and submitting the empty assignment is valid:
+   * every declared output port is present and produces an empty collection.
+   */
+  const done = waiting.length === 0;
 
   const onDragStart = useCallback((event, ref) => {
     event.dataTransfer.setData("text/plain", ref);

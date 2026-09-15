@@ -322,7 +322,7 @@ function ArraySurface({
   }
   // Reading a large array takes a moment; say so rather than showing an empty
   // surface until the first plane lands.
-  if (!meta) {
+  if (!meta || (meta.scalar && !tile)) {
     return html`<${Panel}
       ><${LoadingState} data-testid="array-loading">Loading array…<//><//
     >`;

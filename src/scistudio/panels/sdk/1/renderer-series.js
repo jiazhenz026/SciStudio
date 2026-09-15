@@ -69,39 +69,74 @@ export function readPoints(data) {
 }
 
 /**
+ * Where each returned point sat in the source, when the read did not say.
+ *
+ * A complete read returns every finite point in order, so a point's source
+ * position is its own position plus the dropped ones before it. A decimated
+ * read cannot be reconstructed this way, which is why it reports the positions
+ * itself.
+ */
+export function inferSourceIndices(count, gaps) {
+  const ordered = [...(gaps ?? [])].sort((a, b) => a - b);
+  const out = [];
+  let source = 0;
+  let g = 0;
+  for (let i = 0; i < count; i += 1) {
+    while (g < ordered.length && ordered[g] === source) {
+      source += 1;
+      g += 1;
+    }
+    out.push(source);
+    source += 1;
+  }
+  return out;
+}
+
+/**
  * Build the plotted line, breaking it where samples are missing.
  *
- * Plotly renders null as a gap, so inserting one at each dropped position shows
- * the curve as it is rather than drawing a straight segment over the absence.
+ * Plotly renders null as a gap, so a break between two points shows the absence
+ * between them rather than a straight segment drawn over it.
+ *
+ * The dropped positions are *source* positions, and for a series longer than
+ * the read's budget the points are a sample of the source — so counting
+ * returned points to find a gap puts it in the wrong place, or never reaches it
+ * at all, and the curve is drawn continuous across data that is missing. Each
+ * point's own source position is what the two are compared in.
  */
-export function lineData(points, positions) {
+export function lineData(points, positions, sourceIndices) {
   const xs = [];
   const ys = [];
-  const gaps = new Set(positions ?? []);
-  const sorted = [...(points ?? [])];
-  let index = 0;
-  for (const point of sorted) {
-    // Positions are indices into the source values; emit a break before any
-    // sample whose source index was dropped.
-    while (gaps.has(index)) {
-      xs.push(null);
-      ys.push(null);
-      index += 1;
+  const rows = points ?? [];
+  const gaps = [...(positions ?? [])].sort((a, b) => a - b);
+  const sources =
+    Array.isArray(sourceIndices) && sourceIndices.length === rows.length
+      ? sourceIndices
+      : inferSourceIndices(rows.length, gaps);
+  let g = 0;
+  rows.forEach((point, i) => {
+    if (i > 0) {
+      const previous = sources[i - 1];
+      // Both lists ascend, so the cursor only moves forward.
+      while (g < gaps.length && gaps[g] <= previous) g += 1;
+      if (g < gaps.length && gaps[g] < sources[i]) {
+        xs.push(null);
+        ys.push(null);
+      }
     }
     xs.push(point.x);
     ys.push(point.y);
-    index += 1;
-  }
+  });
   return { xs, ys };
 }
 
-function SeriesChart({ points, positions, plotly }) {
+function SeriesChart({ points, positions, sourceIndices, plotly }) {
   const node = useRef(null);
   useLayoutEffect(() => {
     const Plotly = plotly;
     const element = node.current;
     if (!Plotly || !element) return;
-    const { xs, ys } = lineData(points, positions);
+    const { xs, ys } = lineData(points, positions, sourceIndices);
     Plotly.react(
       element,
       [
@@ -123,7 +158,7 @@ function SeriesChart({ points, positions, plotly }) {
       { displayModeBar: false, responsive: true },
     );
     return () => Plotly.purge(element);
-  }, [points, positions, plotly]);
+  }, [points, positions, sourceIndices, plotly]);
   return html`<div
     class="series-chart"
     data-testid="series-chart"
@@ -204,6 +239,7 @@ export function SeriesView({
         ? html`<${SeriesChart}
             points=${points}
             positions=${data.nonfinite_positions}
+            sourceIndices=${data.source_indices}
             plotly=${plotly}
           />`
         : html`<${SeriesTable} points=${points} />`}
