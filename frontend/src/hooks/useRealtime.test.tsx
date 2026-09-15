@@ -69,6 +69,10 @@ describe("realtime hooks", () => {
   });
 
   it("updates store state from websocket and SSE events", async () => {
+    // #2362: the node-keyed maps are held per workflow and projected onto the
+    // one on screen, so the run the harness watches has to be the open one —
+    // which is what it is in the product.
+    useAppStore.setState({ workflowId: "wf-1" });
     render(<Harness />);
 
     MockWebSocket.instance?.onmessage?.(

@@ -155,7 +155,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
 
   const handleLaunch = useCallback(
     (config: SetupLaunchConfig) => {
-      launchTerminalTab(tabId, config.provider, config.dangerous ? "dangerous" : "safe");
+      launchTerminalTab(tabId, config.provider, config.permissionMode);
     },
     [launchTerminalTab, tabId],
   );
@@ -237,6 +237,7 @@ export function TerminalTab({ tabId }: TerminalTabProps) {
           projectDir={projectPath}
           provider={tab.provider}
           dangerous={tab.permissionMode === "dangerous"}
+          auto={tab.permissionMode === "auto"}
           onExit={handleExit}
           onError={handleError}
         />

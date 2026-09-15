@@ -399,6 +399,28 @@ describe("useWorkflowWebSocket — workflow.changed routing (ADR-034 Phase 2)", 
     );
   });
 
+  it("#2379: registers `permission_mode=auto` as an Auto tab", () => {
+    const addAiBlockTab = vi.fn();
+    useAppStore.setState({
+      addAiBlockTerminalTab: addAiBlockTab,
+    });
+    renderHook(() => useWorkflowWebSocket(true));
+
+    pushMessage({
+      type: "block_pty_opened",
+      tab_id: "tab-auto",
+      block_run_id: "rid-auto",
+      title: "🤖 demo",
+      permission_mode: "auto",
+      provider: "codex",
+      timestamp: "2026-05-14T00:00:00Z",
+    });
+
+    expect(addAiBlockTab).toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: "tab-auto", permissionMode: "auto", provider: "codex" }),
+    );
+  });
+
   it("clears the canvas when the loaded workflow is deleted on disk", async () => {
     useAppStore.setState({
       workflowId: "demo",

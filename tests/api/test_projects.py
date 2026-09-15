@@ -84,6 +84,42 @@ def test_workflow_save_without_active_project_returns_session_conflict(client: T
     assert updated.json()["detail"] == "No project is currently open."
 
 
+def test_active_project_is_null_when_no_project_is_open(client: TestClient) -> None:
+    """``GET /api/projects/active`` reports no project rather than 404 (#2385)."""
+    response = client.get("/api/projects/active")
+    assert response.status_code == 200
+    assert response.json() == {"project": None, "active_workflow_id": None}
+
+
+def test_active_project_attaches_without_reopening(
+    client: TestClient, runtime: ApiRuntime, opened_project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The attach read returns the open project and never re-opens it (#2385).
+
+    A second GUI client (the ``open_gui`` deep link) reads through this route.
+    Re-opening would reset the data catalog and rebuild the registries under the
+    user's desktop window, so the route must not reach ``open_project``.
+    """
+    assert client.post("/api/ai/active-context", json={"workflow_id": "main"}).status_code == 200
+    sentinel = object()
+    runtime.data_catalog = {"kept": sentinel}  # type: ignore[dict-item]
+
+    def fail_open(*_args: Any, **_kwargs: Any) -> None:
+        raise AssertionError("GET /api/projects/active must not re-open the project")
+
+    monkeypatch.setattr(runtime, "open_project", fail_open)
+
+    response = client.get("/api/projects/active")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["active_workflow_id"] == "main"
+    assert payload["project"]["path"] == str(opened_project)
+    assert payload["project"]["id"] == runtime.active_project.id
+    assert "main" in payload["project"]["workflows"]
+    assert runtime.data_catalog.get("kept") is sentinel
+
+
 def test_execute_workflow_sets_engine_api_url_for_workers(
     client: TestClient,
     runtime: ApiRuntime,

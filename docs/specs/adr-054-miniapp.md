@@ -458,6 +458,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   id MUST focus it.
 - **FR-019**: A MiniApp tab MUST stay open when another tab becomes active, MUST
   NOT be persisted across restarts, and closing it MUST close its context.
+  While focused, workflow snapshot updates MUST target the exact backing
+  workflow tab, not every tab sharing a workflow id. Revisiting a MiniApp
+  updates that backing identity to the workflow slice currently in memory;
+  the MiniApp's frozen data source and running context remain unchanged.
 - **FR-020**: When a MiniApp tab becomes active the right preview column MUST
   collapse, and when a tab of another kind becomes active the column MUST return to
   the size it had before; a column the user had already collapsed stays collapsed.

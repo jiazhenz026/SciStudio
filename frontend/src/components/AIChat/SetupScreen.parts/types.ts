@@ -24,4 +24,9 @@ export {
   USER_TERMINAL_PROVIDER,
 } from "../../../store/types";
 
-export type PermissionMode = "safe" | "dangerous";
+/**
+ * How a launched session starts: `safe` is Manual, `auto` is Auto, and
+ * `dangerous` is Yolo/Bypass (ADR-034 Addendum 1, #2379). The backend spells
+ * `dangerous` as `bypass`; the mapping happens at each request boundary.
+ */
+export type PermissionMode = "safe" | "auto" | "dangerous";

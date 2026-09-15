@@ -126,6 +126,129 @@ export function nextBlockOutputs(
 }
 
 /**
+ * #2362 — the five node-keyed maps, held per workflow.
+ *
+ * A node id is not unique across the project: two workflows may legitimately
+ * contain a node with the same name, and the user can have both open as tabs.
+ * Keyed by node id alone, running workflow B overwrote workflow A's entry for
+ * every shared name, so A's canvas showed B's status and A's preview resolved
+ * B's data ref — a `.npy` deliberately loaded as an `Artifact` opened in the
+ * array previewer because the ref it was handed came from the other workflow's
+ * node of the same name.
+ *
+ * Every block event already carries `workflow_id` (the engine stamps it in
+ * `_build_block_done_data` / `_build_block_terminal_data`), so the identity was
+ * available all along and simply discarded. These maps now live under it.
+ */
+export interface WorkflowExecutionState {
+  blockStates: Record<string, string>;
+  blockRunStartedAt: Record<string, number>;
+  blockOutputs: Record<string, Record<string, unknown>>;
+  blockErrors: Record<string, string>;
+  blockErrorSummaries: Record<string, string>;
+}
+
+export type ExecutionByWorkflow = Record<string, WorkflowExecutionState>;
+
+/** The zero value for a workflow that has not produced an event yet. */
+export function emptyWorkflowExecution(): WorkflowExecutionState {
+  return {
+    blockStates: {},
+    blockRunStartedAt: {},
+    blockOutputs: {},
+    blockErrors: {},
+    blockErrorSummaries: {},
+  };
+}
+
+/**
+ * Which workflow an event's node-keyed facts belong to.
+ *
+ * Block events carry their own `workflow_id` and are always attributed to it,
+ * whichever workflow the user happens to be looking at. Only an event that
+ * carries none at all falls back to the active workflow — that is the
+ * degenerate path (no block event reaches it), and the fallback preserves the
+ * pre-#2362 behaviour for it rather than dropping the event on the floor.
+ */
+export function executionWorkflowKey(
+  event: ExecutionEvent,
+  activeWorkflowId: string | null,
+): string {
+  return event.workflow_id ?? activeWorkflowId ?? "";
+}
+
+/**
+ * Fold one event into the per-workflow execution state.
+ *
+ * Only the bucket of the event's own workflow is rebuilt; every other
+ * workflow's entry is carried through by reference, so a run of workflow B
+ * cannot disturb what workflow A recorded.
+ */
+export function nextExecutionByWorkflow(
+  event: ExecutionEvent,
+  current: ExecutionByWorkflow,
+  activeWorkflowId: string | null,
+  now: number = Date.now(),
+): ExecutionByWorkflow {
+  if (!event.block_id) return current;
+  const key = executionWorkflowKey(event, activeWorkflowId);
+  const bucket = current[key] ?? emptyWorkflowExecution();
+  const extraction = extractBlockError(event);
+  const { nextErrors, nextSummaries } = nextErrorMaps(
+    event,
+    extraction,
+    bucket.blockErrors,
+    bucket.blockErrorSummaries,
+  );
+  return {
+    ...current,
+    [key]: {
+      blockStates: nextBlockStates(event, bucket.blockStates),
+      blockRunStartedAt: nextBlockRunStarts(event, bucket.blockRunStartedAt, now),
+      blockOutputs: nextBlockOutputs(event, bucket.blockOutputs),
+      blockErrors: nextErrors,
+      blockErrorSummaries: nextSummaries,
+    },
+  };
+}
+
+/**
+ * The flat, node-keyed view of ONE workflow — what the canvas and the preview
+ * panels read. Consumers keep addressing blocks by node id; the workflow they
+ * mean is the one on screen, resolved here rather than guessed by a global map.
+ */
+export function projectExecution(
+  byWorkflow: ExecutionByWorkflow,
+  activeWorkflowId: string | null,
+): WorkflowExecutionState {
+  return byWorkflow[activeWorkflowId ?? ""] ?? emptyWorkflowExecution();
+}
+
+/**
+ * #2362 — which workflow's execution bucket the screen shows.
+ *
+ * Normally the workflow on the canvas. An expanded subworkflow tab is the
+ * exception: its canvas is the child file (`workflowId` is the child's internal
+ * id) but its status and outputs come from the parent's run, whose events carry
+ * the top-level workflow id — so the tab's `runWorkflowId` wins.
+ */
+export function executionViewKey(state: {
+  tabs: ReadonlyArray<{ id: string; kind: string; workflowId?: string; runWorkflowId?: string }>;
+  activeTabId: string | null;
+  workflowId: string | null;
+}): string | null {
+  const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (
+    active?.kind === "workflow" &&
+    active.runWorkflowId &&
+    active.workflowId === state.workflowId
+  ) {
+    return active.runWorkflowId;
+  }
+  return state.workflowId;
+}
+
+/**
  * Build the per-block error/summary maps from a block_error event. Pass
  * through the existing maps when the event is not a block_error.
  */

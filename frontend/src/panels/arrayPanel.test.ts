@@ -332,8 +332,12 @@ describe("core.array.basic — display forms", () => {
       "array.tile": { y0: 0, x0: 0, height: 1, width: 1, values: [[7.5]] },
     });
     await loadPanelModule();
-    await vi.waitFor(() => expect(root().querySelector("[data-testid=array-scalar]")).toBeTruthy());
-    expect(root().querySelector("[data-testid=array-scalar]")?.textContent?.trim()).toBe("7.500");
+    // The scalar card mounts as soon as `array.plane` lands and is filled when
+    // the separate `array.tile` read resolves, so wait for the value itself —
+    // not only for the card — or the assertion races the second read (#2381).
+    await vi.waitFor(() =>
+      expect(root().querySelector("[data-testid=array-scalar]")?.textContent?.trim()).toBe("7.500"),
+    );
   });
 
   it("renders a 1-D array as a single row with no vertical scroll", async () => {

@@ -126,7 +126,7 @@ def test_router_paths_match_pre_refactor() -> None:
 def test_spawn_signature_unchanged() -> None:
     """``_spawn`` test seam must keep the exact kwargs the fakes use.
 
-    Tests call ``_spawn(provider=..., project_dir=..., dangerous=...,
+    Tests call ``_spawn(provider=..., project_dir=..., dangerous=..., auto=...,
     cols=..., rows=..., extra_env=..., prompt=...)``; a signature drift would
     make the fake replacement accept wrong arguments and mask real bugs.
     ``prompt`` was added in #1789 to deliver the AI Block prompt as a CLI arg.
@@ -138,12 +138,13 @@ def test_spawn_signature_unchanged() -> None:
         "provider",
         "project_dir",
         "dangerous",
+        "auto",
         "cols",
         "rows",
         "extra_env",
         "prompt",
     ]
-    for name in ("provider", "project_dir", "dangerous", "cols", "rows", "extra_env", "prompt"):
+    for name in ("provider", "project_dir", "dangerous", "auto", "cols", "rows", "extra_env", "prompt"):
         assert sig.parameters[name].kind == inspect.Parameter.KEYWORD_ONLY
 
 

@@ -108,6 +108,12 @@ export interface ProjectResponse {
   current_workflow_id?: string | null;
 }
 
+/** #2385 — `GET /api/projects/active`: the open project, read without re-opening it. */
+export interface ActiveProjectResponse {
+  project: ProjectResponse | null;
+  active_workflow_id: string | null;
+}
+
 /*
  * ADR-053 FR-001 — `RunFirstWorkflowBootstrapRequest` / `...Response` were the
  * wire types of the single hardcoded tutorial's bootstrap route, removed with

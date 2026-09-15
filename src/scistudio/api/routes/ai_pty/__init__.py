@@ -4,7 +4,10 @@
 #
 # This package exposes a single endpoint:
 #
-#     ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<provider-key>&dangerous=<true|false>[&cols=<n>&rows=<n>]``
+#     ``ws://host/api/ai/pty/{tab_id}?project_dir=<urlencoded>&provider=<provider-key>&dangerous=<true|false>[&permission_mode=<safe|auto|bypass>][&cols=<n>&rows=<n>]``
+#
+# ``permission_mode`` (#2379) wins over ``dangerous`` when present; ``auto`` is
+# refused for a provider whose registry descriptor declares no auto mode.
 #
 # ``provider`` accepts **every** key in the ADR-034 provider registry
 # (:data:`scistudio.api.routes.ai_pty._state._VALID_PROVIDERS`, derived from

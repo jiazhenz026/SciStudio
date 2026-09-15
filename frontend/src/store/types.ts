@@ -20,6 +20,7 @@ import type {
   WorkflowResponse,
 } from "../types/api";
 import type { DeclaredTypeColors } from "../config/typeColorMap";
+import type { WorkflowExecutionState } from "./executionSlice.parts/eventReducer";
 import type {
   TutorialCatalogueResponse,
   TutorialSessionResponse,
@@ -300,6 +301,18 @@ export interface InteractivePrompt {
 }
 
 export interface ExecutionSlice {
+  /**
+   * #2362 — every node-keyed execution fact, held under the workflow that
+   * produced it. The five flat maps below are the projection of this one onto
+   * the workflow currently on screen, and remain the only thing consumers read.
+   *
+   * A node id is not unique across a project: two workflows may legitimately
+   * contain a node with the same name, and the user can have both open as tabs.
+   * Keyed by node id alone, running one workflow overwrote the other's entries
+   * for every shared name, so a plot or preview bound to a node resolved the
+   * wrong workflow's data.
+   */
+  executionByWorkflow: Record<string, WorkflowExecutionState>;
   blockStates: Record<string, string>;
   /**
    * #1974 — epoch-ms instant at which each block entered the running state,
@@ -656,6 +669,11 @@ export interface ProviderStatus {
   logged_in: boolean;
   /** Backend-supplied display label. The frontend never maps keys to labels. */
   label: string;
+  /**
+   * #2379 — whether the CLI has an Auto permission mode, read off the backend
+   * registry. Absent (an older backend) is treated as unsupported.
+   */
+  supports_auto_mode?: boolean;
 }
 
 export interface AiStatusResponse {
@@ -699,7 +717,7 @@ export interface TerminalTab {
   id: string;
   title: string;
   provider: TerminalProvider | null;
-  permissionMode: "safe" | "dangerous" | null;
+  permissionMode: "safe" | "auto" | "dangerous" | null;
   state: "setup" | "running" | "closed";
   exitCode?: number;
   errorMessage?: string;
@@ -739,7 +757,7 @@ export interface TerminalTabsSlice {
   launchTerminalTab: (
     id: string,
     provider: TerminalProvider,
-    permissionMode: "safe" | "dangerous",
+    permissionMode: "safe" | "auto" | "dangerous",
   ) => void;
   markTerminalTabExited: (id: string, code: number) => void;
   markTerminalTabErrored: (id: string, message: string) => void;
@@ -758,7 +776,7 @@ export interface TerminalTabsSlice {
     tabId: string;
     title: string;
     blockRunId: string;
-    permissionMode: "safe" | "dangerous";
+    permissionMode: "safe" | "auto" | "dangerous";
     /**
      * ADR-034 FR-020c / FR-022 — the provider the engine actually spawned,
      * forwarded from the `block_pty_opened` frame. Required: the store must
@@ -789,7 +807,7 @@ export interface TerminalTabsSlice {
     title: string;
     /** ADR-034 FR-020c — the provider the backend actually spawned. Never defaulted. */
     provider: TerminalProvider;
-    permissionMode: "safe" | "dangerous";
+    permissionMode: "safe" | "auto" | "dangerous";
   }) => void;
   /**
    * ADR-053 FR-061a (#2083) — adopt a tutorial replay tab.
@@ -868,6 +886,15 @@ export interface WorkflowTab {
    * its flattened run id. Absent/`""` for a top-level workflow opened directly.
    */
   runPrefix?: string;
+  /**
+   * #2362 — the workflow whose run this expanded child tab shows. Engine events
+   * carry the TOP-LEVEL workflow id (the parser flattens the subworkflow into
+   * the parent's run), while `workflowId` here is the child file's own internal
+   * id. Execution state is held per workflow id, so the tab projects this key's
+   * bucket; `runPrefix` then maps each inner node to its flattened id. Set with
+   * `runPrefix` when a subworkflow node is expanded; absent otherwise.
+   */
+  runWorkflowId?: string;
 }
 
 /**
@@ -972,6 +999,19 @@ export interface PreviewTab {
   /** Set when the tab came from a Data-tree double-click (#2112). */
   openAs?: PreviewTabOpenAs;
   /**
+   * #2362 — id of the workflow tab whose snapshot the live workflow slice
+   * belongs to while this preview owns focus.
+   *
+   * `syncActiveTab` has to write that slice back somewhere, and it used to find
+   * the destination by `workflowId`. Two workflow tabs may legitimately carry
+   * the same `workflowId` — imported subworkflow copies share an internal id,
+   * which is exactly why `openTab` dedups on `tabKey` and not on it — so the
+   * capture landed in every one of them and clobbered the others' canvases,
+   * which autosave then wrote to the wrong files. Undefined only when the
+   * preview was opened while a non-workflow tab held focus.
+   */
+  backingTabId?: string;
+  /**
    * Collection targets carry their item snapshot through the session query
    * (see `refEntries.ts`), so the initial query must freeze alongside the
    * target; a bare ref would resolve to an empty collection.
@@ -1007,6 +1047,8 @@ export interface MiniAppTab {
   /** The block output this MiniApp runs on, frozen at open time. */
   source: { workflow_id: string; block_id: string; port: string };
   displayName: string;
+  /** Workflow tab owning the live workflow slice while this MiniApp is focused. */
+  backingTabId?: string;
   /** Epoch-ms open time; diagnostic only. */
   openedAt?: number;
 }

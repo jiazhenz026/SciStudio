@@ -485,3 +485,75 @@ def test_project_switch_excludes_retained_runs(
     assert response.status_code == 200, response.text
     assert client.get("/api/panels/miniapps/sources").json()["sources"] == []
     assert not runtime.data_catalog
+
+
+@pytest.mark.parametrize("provider", [None, "claude-code"])
+@pytest.mark.parametrize(
+    "mode,expected", [("safe", "safe"), ("auto", "auto"), ("bypass", "bypass"), ("dangerous", "bypass")]
+)
+def test_create_preserves_supported_permission_modes(
+    tmp_path: Path, agent: dict[str, Any], provider: str | None, mode: str, expected: str
+) -> None:
+    response = _create(_client(tmp_path), provider=provider, permission_mode=mode)
+    assert response.status_code == 201, response.text
+    assert response.json()["permission_mode"] == expected
+    assert agent["provider"] == "claude-code"
+    assert agent["permission_mode"] == expected
+
+
+@pytest.mark.parametrize("provider", [None, "claude-code"])
+def test_create_refuses_unsupported_auto_before_writes_or_session(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch, provider: str | None
+) -> None:
+    from dataclasses import replace
+
+    from scistudio.ai.agent import providers_registry
+
+    unsupported = replace(providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="test fixture")
+    monkeypatch.setattr(providers_registry, "get", lambda _key: unsupported)
+    response = _create(_client(tmp_path), provider=provider, permission_mode="auto")
+
+    assert response.status_code == 400
+    assert "has no Auto permission mode" in response.json()["detail"]["message"]
+    assert "opening_message" not in agent
+    assert not (tmp_path / "panels").exists()
+    assert not (tmp_path / ".scistudio" / "miniapps").exists()
+
+
+@pytest.mark.parametrize("supported", [True, False])
+def test_convert_validates_auto_before_writing_brief_or_spawning(
+    tmp_path: Path, agent: dict[str, Any], monkeypatch: pytest.MonkeyPatch, supported: bool
+) -> None:
+    from dataclasses import replace
+
+    from scistudio.ai.agent import providers_registry
+
+    client = _client(tmp_path)
+    created = _create(client).json()
+    directory = Path(created["directory"])
+    original = {p.name: p.read_bytes() for p in directory.iterdir()}
+    briefs_before = set((tmp_path / ".scistudio" / "miniapps").glob("*.md"))
+    agent.clear()
+    if not supported:
+        descriptor = replace(
+            providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="test fixture"
+        )
+        monkeypatch.setattr(providers_registry, "get", lambda _key: descriptor)
+
+    response = client.post(
+        f"/api/panels/miniapps/{created['panel_id']}/convert",
+        json={"outputs": [{"name": "mask", "type": "Mask", "port": "out"}], "permission_mode": "auto"},
+    )
+
+    assert {p.name: p.read_bytes() for p in directory.iterdir()} == original
+    new_briefs = set((tmp_path / ".scistudio" / "miniapps").glob("*.md")) - briefs_before
+    if supported:
+        assert response.status_code == 201, response.text
+        assert response.json()["permission_mode"] == "auto"
+        assert agent["permission_mode"] == "auto"
+        assert len(new_briefs) == 1
+    else:
+        assert response.status_code == 400
+        assert "has no Auto permission mode" in response.json()["detail"]["message"]
+        assert "opening_message" not in agent
+        assert new_briefs == set()

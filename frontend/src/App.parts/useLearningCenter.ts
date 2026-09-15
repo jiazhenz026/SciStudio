@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { openAllPreviewers } from "../components/DataPreview";
 import { applyStepRoute } from "../components/LearningCenter.parts/targets";
+import { isAttachedProjectView } from "../lib/projectDeepLink";
 import { useAppStore } from "../store";
 import { hasRecordedTutorialProgress } from "../store/learningCenterSlice";
 
@@ -94,6 +95,8 @@ export function useLearningCenter({
   const firstRunLandingShown = useRef(false);
   useEffect(() => {
     if (firstRunLandingShown.current) return;
+    // #2385 — an attached `open_gui` view shows the user's project, not a landing.
+    if (isAttachedProjectView()) return;
     if (!learningCenterCatalogue) return;
     if (learningCenterFirstRunDismissed) return;
     if (hasRecordedTutorialProgress(learningCenterCatalogue)) return;
@@ -139,6 +142,9 @@ export function useLearningCenter({
       return;
     }
     if (tutorialProjectId === currentProjectId) return;
+    // #2385 — an attached `open_gui` view must not re-open a project: that
+    // resets the backend session the user's own window is working in.
+    if (isAttachedProjectView()) return;
     if (openingTutorialProject.current === tutorialProjectId) return;
     openingTutorialProject.current = tutorialProjectId;
     void openProject(tutorialProjectId);

@@ -11,7 +11,7 @@
 import type { StoreApi } from "zustand";
 
 import type { AppStore, MiniAppTab, TabSlice } from "../types";
-import { captureActiveTab, dropInactivePreviewTabs } from "./tabHelpers";
+import { backingWorkflowTabId, captureActiveTab, dropInactivePreviewTabs } from "./tabHelpers";
 import { miniAppTabId } from "../../miniapps/types";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
@@ -48,6 +48,7 @@ export function createOpenMiniAppTab(
       id,
       panelId,
       source: target,
+      backingTabId: backingWorkflowTabId(state),
       displayName: name || panelId,
       openedAt: Date.now(),
     };

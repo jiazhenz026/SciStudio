@@ -142,3 +142,60 @@ describe("the realtime seams the /ws dispatcher calls (ADR-054 FR-013 / FR-022)"
     });
   });
 });
+
+describe("MiniApps preserve upstream workflow-copy isolation (#2362)", () => {
+  function twoCopies() {
+    const first = { ...workflowTab("copy-a"), workflowDescription: "first", tabKey: "a.yaml" };
+    const second = { ...workflowTab("copy-b"), workflowDescription: "second", tabKey: "b.yaml" };
+    useAppStore.setState({ tabs: [first, second], activeTabId: null });
+    useAppStore.getState().switchTab(first.id);
+    useAppStore
+      .getState()
+      .openMiniAppTab({ panelId: "lab.threshold", name: "Threshold", target: TARGET });
+    return useAppStore.getState().activeTabId!;
+  }
+
+  function descriptions() {
+    return useAppStore
+      .getState()
+      .tabs.filter((tab): tab is WorkflowTab => tab.kind === "workflow")
+      .map((tab) => tab.workflowDescription);
+  }
+
+  it("captures only the exact backing workflow while a MiniApp has focus", () => {
+    twoCopies();
+    useAppStore.setState({ workflowDescription: "first edited" });
+    useAppStore.getState().syncActiveTab();
+    expect(descriptions()).toEqual(["first edited", "second"]);
+  });
+
+  it("updates the backing identity when revisiting a persistent MiniApp", () => {
+    const miniappId = twoCopies();
+    useAppStore.getState().switchTab("copy-b");
+    useAppStore.getState().switchTab(miniappId);
+    useAppStore.setState({ workflowDescription: "second edited" });
+    useAppStore.getState().syncActiveTab();
+    expect(descriptions()).toEqual(["first", "second edited"]);
+  });
+
+  it("carries the backing identity through MiniApp and preview opens", () => {
+    twoCopies();
+    useAppStore.getState().openMiniAppTab({ panelId: "lab.other", name: "Other", target: TARGET });
+    useAppStore.getState().openPreviewTab({ kind: "data_ref", ref: "image" }, "Image");
+    useAppStore.setState({ workflowDescription: "first edited" });
+    useAppStore.getState().syncActiveTab();
+    expect(descriptions()).toEqual(["first edited", "second"]);
+  });
+
+  it("does not write a closed workflow's state into another copy on fallback", () => {
+    twoCopies();
+    useAppStore.getState().switchTab("copy-b");
+    useAppStore.getState().closeTab("copy-b");
+    expect(
+      useAppStore.getState().tabs.find((tab) => tab.id === useAppStore.getState().activeTabId)
+        ?.kind,
+    ).toBe("miniapp");
+    useAppStore.getState().syncActiveTab();
+    expect(descriptions()).toEqual(["first"]);
+  });
+});

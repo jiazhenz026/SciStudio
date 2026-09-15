@@ -38,7 +38,14 @@ const fakeProject: ProjectResponse = {
  * per-provider states (installed + logged in, installed + logged out, absent).
  */
 const ALL_PROVIDERS: ProviderStatus[] = [
-  { name: "claude-code", available: true, version: "2.1.0", logged_in: true, label: "Claude Code" },
+  {
+    name: "claude-code",
+    available: true,
+    version: "2.1.0",
+    logged_in: true,
+    label: "Claude Code",
+    supports_auto_mode: true,
+  },
   { name: "codex", available: false, version: null, logged_in: false, label: "Codex" },
   { name: "kimi-code", available: true, version: "0.33.0", logged_in: false, label: "Kimi Code" },
   { name: "qoder", available: false, version: null, logged_in: false, label: "Qoder" },
@@ -208,10 +215,10 @@ describe("SetupScreen provider select (FR-021)", () => {
     selectProvider("future-agent");
     act(() => fireEvent.click(screen.getByTestId("setup-permission-safe")));
     act(() => fireEvent.click(screen.getByTestId("setup-launch")));
-    expect(onLaunch).toHaveBeenCalledWith({ provider: "future-agent", dangerous: false });
+    expect(onLaunch).toHaveBeenCalledWith({ provider: "future-agent", permissionMode: "safe" });
   });
 
-  it("invokes onLaunch with the chosen provider + dangerous flag (FR-021f)", async () => {
+  it("invokes onLaunch with the chosen provider + Yolo/Bypass mode (FR-021f)", async () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
     const onLaunch = vi.fn();
     render(<SetupScreen tabId="t1" onLaunch={onLaunch} onCancel={vi.fn()} />);
@@ -221,7 +228,7 @@ describe("SetupScreen provider select (FR-021)", () => {
     act(() => fireEvent.click(screen.getByTestId("setup-permission-dangerous")));
     act(() => fireEvent.click(screen.getByTestId("setup-launch")));
 
-    expect(onLaunch).toHaveBeenCalledWith({ provider: "qoder-cn", dangerous: true });
+    expect(onLaunch).toHaveBeenCalledWith({ provider: "qoder-cn", permissionMode: "dangerous" });
   });
 
   it("invokes onCancel when Cancel is clicked", async () => {
@@ -327,32 +334,79 @@ describe("SetupScreen zero-install notice (FR-021c / FR-021d)", () => {
   });
 });
 
-describe("SetupScreen permission picker (FR-021e / FR-021f)", () => {
-  it("uses the plain-language labels and leaks no CLI flag name", async () => {
+describe("SetupScreen permission picker (ADR-034 Addendum 1 / FR-021f)", () => {
+  it("renders one row of three buttons with no descriptive text or CLI flag name", async () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
 
     const group = await screen.findByTestId("setup-permission-group");
-    expect(group.textContent).toContain("Manual Approve");
-    expect(group.textContent).toContain("Bypass Permission");
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("data-value"))).toEqual(["safe", "auto", "dangerous"]);
+    // The labels are the whole text: legend plus the three names, nothing more.
+    expect(group.textContent).toBe("Permission modeManualAutoYolo/Bypass");
 
     // FR-021e: a `--` substring is the cheapest proof no flag name survived,
     // and it blocks a future edit from reintroducing one.
     expect(group.textContent ?? "").not.toContain("--");
-    expect(group.textContent ?? "").not.toMatch(/dangerously|skip-permissions|sandbox mode/i);
+    expect(group.textContent ?? "").not.toMatch(/dangerously|skip-permissions|sandbox/i);
+  });
 
-    // Plain-language caution stays on the bypass option.
-    expect(group.textContent).toMatch(/sandbox/i);
+  it("disables Auto until a provider with an auto mode is selected", async () => {
+    mockStatusOnce({ providers: ALL_PROVIDERS });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    const auto = screen.getByTestId("setup-permission-auto");
+    expect(auto).toBeDisabled();
+
+    // qoder-cn's status row omits supports_auto_mode, which reads as unsupported.
+    selectProvider("qoder-cn");
+    expect(auto).toBeDisabled();
+
+    selectProvider("claude-code");
+    expect(auto).not.toBeDisabled();
+    expect(screen.getByTestId("setup-permission-safe")).not.toBeDisabled();
+    expect(screen.getByTestId("setup-permission-dangerous")).not.toBeDisabled();
+  });
+
+  it("launches in Auto mode for a provider that supports it", async () => {
+    mockStatusOnce({ providers: ALL_PROVIDERS });
+    const onLaunch = vi.fn();
+    render(<SetupScreen tabId="t1" onLaunch={onLaunch} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    selectProvider("claude-code");
+    act(() => fireEvent.click(screen.getByTestId("setup-permission-auto")));
+    expect(screen.getByTestId("setup-permission-auto")).toBeChecked();
+    act(() => fireEvent.click(screen.getByTestId("setup-launch")));
+
+    expect(onLaunch).toHaveBeenCalledWith({ provider: "claude-code", permissionMode: "auto" });
+  });
+
+  it("falls back to Manual when switching to a provider without an auto mode", async () => {
+    mockStatusOnce({ providers: ALL_PROVIDERS });
+    const onLaunch = vi.fn();
+    render(<SetupScreen tabId="t1" onLaunch={onLaunch} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    selectProvider("claude-code");
+    act(() => fireEvent.click(screen.getByTestId("setup-permission-auto")));
+    selectProvider("qoder-cn");
+
+    expect(screen.getByTestId("setup-permission-safe")).toBeChecked();
+    expect(screen.getByTestId("setup-permission-auto")).not.toBeChecked();
+    act(() => fireEvent.click(screen.getByTestId("setup-launch")));
+    expect(onLaunch).toHaveBeenCalledWith({ provider: "qoder-cn", permissionMode: "safe" });
   });
 
   it("keeps the stored safe / dangerous values unchanged (FR-021f)", async () => {
     mockStatusOnce({ providers: ALL_PROVIDERS });
     render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
 
-    const safe = (await screen.findByTestId("setup-permission-safe")) as HTMLInputElement;
-    const dangerous = screen.getByTestId("setup-permission-dangerous") as HTMLInputElement;
-    expect(safe.value).toBe("safe");
-    expect(dangerous.value).toBe("dangerous");
+    const safe = await screen.findByTestId("setup-permission-safe");
+    const dangerous = screen.getByTestId("setup-permission-dangerous");
+    expect(safe.getAttribute("data-value")).toBe("safe");
+    expect(dangerous.getAttribute("data-value")).toBe("dangerous");
   });
 });
 
@@ -373,5 +427,39 @@ describe("SetupScreen action bar", () => {
     expect(scrollBody.contains(actions)).toBe(false);
     expect(actions.contains(screen.getByTestId("setup-cancel"))).toBe(true);
     expect(actions.contains(launch)).toBe(true);
+  });
+});
+
+describe("SetupScreen permission picker keyboard (radiogroup)", () => {
+  it("has one Tab stop and arrow keys move and select, skipping a disabled Auto", async () => {
+    mockStatusOnce({ providers: ALL_PROVIDERS });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    const safe = screen.getByTestId("setup-permission-safe");
+    const auto = screen.getByTestId("setup-permission-auto");
+    const yolo = screen.getByTestId("setup-permission-dangerous");
+
+    // Nothing selected yet: the first segment is the only Tab stop.
+    expect([safe, auto, yolo].map((b) => b.tabIndex)).toEqual([0, -1, -1]);
+
+    // qoder-cn has no auto mode, so ArrowRight from Manual lands on Yolo/Bypass.
+    selectProvider("qoder-cn");
+    act(() => fireEvent.keyDown(safe, { key: "ArrowRight" }));
+    expect(yolo).toHaveAttribute("aria-checked", "true");
+    expect(document.activeElement).toBe(yolo);
+    expect([safe, auto, yolo].map((b) => b.tabIndex)).toEqual([-1, -1, 0]);
+
+    // Wraps forward back to Manual.
+    act(() => fireEvent.keyDown(yolo, { key: "ArrowDown" }));
+    expect(safe).toHaveAttribute("aria-checked", "true");
+
+    // With Auto available, ArrowLeft from Yolo/Bypass selects Auto.
+    selectProvider("claude-code");
+    act(() => fireEvent.keyDown(safe, { key: "ArrowLeft" }));
+    expect(yolo).toHaveAttribute("aria-checked", "true");
+    act(() => fireEvent.keyDown(yolo, { key: "ArrowLeft" }));
+    expect(auto).toHaveAttribute("aria-checked", "true");
+    expect(document.activeElement).toBe(auto);
   });
 });

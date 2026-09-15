@@ -1,12 +1,12 @@
 """Install bundled skills for Claude Code and Codex.
 
-The base ``scistudio`` skill and seven task skills are installed as siblings
+The base ``scistudio`` skill and nine task skills are installed as siblings
 under ``<project>/.claude/skills/`` and ``<project>/.agents/skills/``. Each
 skill has its own ``<name>/SKILL.md`` so both providers can discover it.
 
 The task skills cover building workflows, writing blocks, debugging runs,
-inspecting data, project questions, writing preview plots, and writing
-MiniApps.
+inspecting data, project questions, writing preview plots, MiniApps, panels,
+and operating the GUI with the client's browser/computer-use tools.
 
 Content is loaded from packaged resources first, then the repository's
 ``_skills`` and ``src/scistudio/_skills`` directories, then the legacy base
@@ -16,9 +16,9 @@ skill location. A missing skill receives a notice in place of its content.
 # Write multi-skill split to both provider trees (ADR-040 §3.4 + §3.5 + §3.8).
 #
 # Per ADR §3.4, the monolithic ``SKILL.md`` is split into 1 base index +
-# task-scoped skills. ADR-048 SPEC 2 adds ``scistudio-write-plot`` and
-# ADR-054 MiniApp FR-028 adds ``scistudio-write-miniapp``, taking the bundle
-# to 1 base + 7 task-scoped skills (8 total). Per ADR §3.8, all
+# task-scoped skills. ADR-048 SPEC 2 adds ``scistudio-write-plot``.
+# ADR-054 adds MiniApp and panel authoring plus the GUI operation guide
+# (#2354, #2295), giving 1 base + 9 task skills. Per ADR §3.8, all
 # are auto-installed under both:
 #
 #   - ``<project>/.claude/skills/<name>/SKILL.md`` (Claude Code)
@@ -44,6 +44,8 @@ skill location. A missing skill receives a notice in place of its content.
 #   6. scistudio-project-qa       — project structure / docs Q&A
 #   7. scistudio-write-plot       — author a preview-only plot job (ADR-048 SPEC 2)
 #   8. scistudio-write-miniapp    — author a MiniApp panel (ADR-054 MiniApp FR-028)
+#   9. scistudio-use-gui          — operate the existing GUI
+#  10. scistudio-write-panel      — author preview and interactive panels
 #
 # Source resolution (I40c):
 #
@@ -86,6 +88,8 @@ _SKILL_NAMES = (
     "scistudio-project-qa",
     "scistudio-write-plot",
     "scistudio-write-miniapp",
+    "scistudio-use-gui",
+    "scistudio-write-panel",
 )
 
 _DEST_TREES = (
@@ -175,15 +179,14 @@ def write_skills(
 ) -> list[str]:
     """Cross-install the SciStudio skill bundle to both provider trees.
 
-    With 8 skill names (1 base + 7 task skills, including the
-    ``scistudio-write-plot`` plot skill and the ``scistudio-write-miniapp``
-    MiniApp skill) cross-installed to both
-    ``.claude/skills`` and ``.agents/skills``, a fresh install writes 16
+    With 10 skill names (1 base + 9 task skills, including MiniApp and panel
+    authoring and the ``scistudio-use-gui`` operation guide) cross-installed to both
+    ``.claude/skills`` and ``.agents/skills``, a fresh install writes 20
     files. Existing files are refreshed when unchanged since SciStudio last
     wrote them and preserved when the user edited them.
 
     Returns:
-      List of project-relative paths actually written (max 16 entries).
+      List of project-relative paths actually written (max 20 entries).
     """
     # Development references: #1860, #2354, ADR-048, ADR-054, FR-028.
     project_dir.mkdir(parents=True, exist_ok=True)

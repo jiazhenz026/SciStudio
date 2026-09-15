@@ -547,7 +547,13 @@ async def shutdown_workflow_runs(self: ApiRuntime, *, timeout_sec: float | None 
         finish within the bound.
     """
     bound = _SHUTDOWN_RUN_TIMEOUT_SEC if timeout_sec is None else timeout_sec
-    pending = [run.task for run in list(self.workflow_runs.values()) if not run.task.done()]
+    # #2362: every run this process holds, including one a project switch
+    # detached from ``workflow_runs`` — it is still executing and still needs a
+    # terminal lineage row before the process exits. A runtime stand-in without
+    # the accessor falls back to the mapping.
+    everything = getattr(self, "all_workflow_runs", None)
+    runs = everything() if callable(everything) else list(self.workflow_runs.values())
+    pending = [run.task for run in runs if not run.task.done()]
     if not pending:
         return []
     for task in pending:

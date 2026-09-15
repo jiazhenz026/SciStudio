@@ -184,7 +184,7 @@ class MiniAppCreate(BaseModel):
     provider: str | None = Field(default=None, description="Agent provider key; the first ready one when omitted.")
     permission_mode: str | None = Field(
         default=None,
-        description="'safe' or 'bypass'; the frontend's 'dangerous' is accepted and means 'bypass'. Defaults to safe.",
+        description="'safe', 'auto', or 'bypass'; 'dangerous' means 'bypass'. Auto requires provider support. Defaults to safe.",
     )
     name: str | None = Field(default=None, description="Display name; derived from the request when omitted.")
 
@@ -339,10 +339,9 @@ def catalog(request: Request) -> dict[str, Any]:
 # MiniApps (ADR-054 MiniApp FR-024, FR-026, FR-027, FR-034, FR-036)
 # ---------------------------------------------------------------------------
 
-#: The backend spells permission modes ``safe``/``bypass``; the frontend union
-#: is ``safe``/``dangerous``. Accepting both here means one mapping, at the
-#: request boundary, rather than a 422 for a caller that used the other name.
-_PERMISSION_MODES = {"safe": "safe", "bypass": "bypass", "dangerous": "bypass"}
+#: Normalize the frontend bypass alias at the request boundary. Auto remains
+#: distinct and is accepted only when the selected provider supports it.
+_PERMISSION_MODES = {"safe": "safe", "auto": "auto", "bypass": "bypass", "dangerous": "bypass"}
 
 
 def _miniapps(request: Request) -> dict[str, Any]:
@@ -433,6 +432,7 @@ async def _agent_for_session(provider: str | None, permission_mode: str | None) 
     # cannot take, and no amount of signing in changes that.
     from scistudio.ai.agent import availability as agent_availability
     from scistudio.ai.agent.availability import AvailabilityState
+    from scistudio.ai.agent.providers_registry import get as get_descriptor
     from scistudio.api.routes.ai import _status_rows
 
     def usable(row: Any) -> bool:
@@ -441,15 +441,23 @@ async def _agent_for_session(provider: str | None, permission_mode: str | None) 
     mode = _permission_mode(permission_mode)
     report = await agent_availability.probe_availability(_status_rows)
     if provider is None:
-        ready = next((row for row in report.providers if usable(row)), None)
-        if ready is None:
+        chosen = next((row for row in report.providers if usable(row)), None)
+        if chosen is None:
             raise PanelError(409, "agent_unavailable", _graded_reason(None, report))
-        return ready.key, mode
-    chosen = next((row for row in report.providers if row.key == provider), None)
-    if chosen is None:
-        raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
-    if not usable(chosen):
-        raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
+    else:
+        chosen = next((row for row in report.providers if row.key == provider), None)
+        if chosen is None:
+            raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
+        if not usable(chosen):
+            raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
+    if mode == "auto":
+        descriptor = get_descriptor(chosen.key)
+        if not descriptor.supports_auto_mode:
+            raise PanelError(
+                400,
+                "invalid_request",
+                f"{descriptor.label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
+            )
     return chosen.key, mode
 
 

@@ -50,6 +50,7 @@ import { useWorkspaceSections } from "./App.parts/useWorkspaceSections";
 import { usePromptInput } from "./App.parts/usePromptInput";
 import { useBlockCatalogSync } from "./App.parts/useBlockCatalogSync";
 import { useProjectActions } from "./App.parts/useProjectActions";
+import { useProjectDeepLink } from "./App.parts/useProjectDeepLink";
 import { useWorkflowExecutionActions } from "./App.parts/useWorkflowExecutionActions";
 import { useWorkflowSync } from "./App.parts/useWorkflowSync";
 
@@ -347,6 +348,8 @@ export default function App() {
     workflowEdges,
     syncActiveTab,
   });
+  // #2385 — an `open_gui` deep link attaches to the backend's open project.
+  useProjectDeepLink({ setCurrentProject, openTab, setLastError });
   useFileTabsAutosave({
     currentProject,
     tabs: tabs as AnyTab[],

@@ -280,3 +280,24 @@ CI remains required; no CI checks or thresholds are changed for this exception.
   worker checkout, including failed landing/rollback, concurrent writers,
   cleanup failure, and overlapping reconnects. Changed Python files passed
   Ruff lint and format checks. Integration reviewed the worker implementation.
+
+### Latest-main integration (2026-09-15)
+
+Merged upstream `8ff9b9fe` into the PR branch. The skill installation conflict
+resolutions retain all ten skills (twenty files across Claude/Codex), upstream
+protection for user-edited skills, and MiniApp runtime/user-guide references.
+MiniApp focus handling now carries the exact backing workflow tab identity,
+preserving upstream #2362 isolation for copies sharing a workflow id, including
+revisits, chained preview opens, and closing a workflow into a MiniApp.
+
+Focused validation: 70 frontend tests across tab state, composite identity,
+version vectors and MiniApp dialogs passed; frontend type checking and changed
+store-file lint passed. Provisioning/package checks passed 31 tests in the
+resolution worktree; six orchestrator tests passed again after reference-copy
+assertions were added. No local full suite was run.
+
+The shared upstream permission picker exposes Auto. MiniApp creation and
+conversion now accept it only for providers declaring Auto support, rejecting
+unsupported requests before filesystem/session side effects. All 31 focused
+MiniApp API tests passed in the resolution worktree. The OpenAPI snapshot was
+regenerated from the integrated tree.

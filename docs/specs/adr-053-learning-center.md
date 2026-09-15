@@ -992,6 +992,13 @@ validation. This is the same selector convention `node_exists`, `config_equals`,
 and `config_matches` already use, extended in #2062 so the level designs can
 address "the Load block" without knowing the node id a reader's drag produced.
 
+A node selector addresses the workflow the reader is editing, and nothing else.
+A node id is unique only inside one workflow — generated ids like `load_data_1`
+repeat in every workflow of a project — so a term that asked its question of any
+workflow could be satisfied by a namesake in one the reader had already
+finished. `port_has_output` and `plot_rendered` read the same active workflow
+the graph terms read (#2362).
+
 The two run terms additionally accept `since_step_entry: true` (#2066), which
 scopes the records they read to runs started since the current step was
 entered, judged against the entry time FR-046's evaluation context supplies. A

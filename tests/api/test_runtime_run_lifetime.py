@@ -273,6 +273,7 @@ def test_switching_projects_mid_run_keeps_the_run_and_its_history(
     first_id = runtime.active_project.id
     first_store = runtime.lineage_store
     (run_id,) = first_store.runs_in_progress()
+    run = runtime.workflow_runs["switch-flow"]
 
     other = client.post(
         "/api/projects/", json={"name": "Other Project", "description": "", "path": str(project_parent)}
@@ -280,13 +281,21 @@ def test_switching_projects_mid_run_keeps_the_run_and_its_history(
     assert other.status_code == 200
     assert runtime.active_project.id != first_id
     assert runtime.lineage_store is not first_store
-    assert not runtime.workflow_runs["switch-flow"].task.done(), "a project switch does not end the run"
+    assert not run.task.done(), "a project switch does not end the run"
+    # #2362: the other project cannot address it by workflow id, but the
+    # backend still holds it.
+    assert "switch-flow" not in runtime.workflow_runs
+    assert run in runtime.all_workflow_runs()
 
     assert client.get(f"/api/projects/{first_id}").status_code == 200
+    assert runtime.workflow_runs["switch-flow"] is run, "switching back hands the run back"
     assert [row["status"] for row in _lineage_rows(client, "switch-flow")] == ["running"]
     assert client.get(f"/api/projects/{other.json()['id']}").status_code == 200
 
-    _finish(runtime, gate, "switch-flow", run_id)
+    gate.release.set()
+    wait_for_condition(run.task.done, timeout=60)
+    assert run.task.exception() is None
+    wait_for_condition(lambda: run_id not in _run_lifetime.live_run_ids(), timeout=10)
 
     store = LineageStore(_run_lifetime.lineage_db_path(opened_project))
     try:

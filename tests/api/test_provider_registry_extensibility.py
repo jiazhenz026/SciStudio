@@ -237,6 +237,8 @@ def test_status_endpoint_serves_the_sixth_provider(
         "version": None,
         "logged_in": False,
         "label": "Fixture Agent CLI",
+        # #2379: the fixture declares no auto_argv, so Auto is greyed out.
+        "supports_auto_mode": False,
     }
 
 

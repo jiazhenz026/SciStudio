@@ -2582,6 +2582,30 @@
       "path": "docs/planning/adr-054-phase-d-checklist.md",
       "rationale": null,
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:50:19.200919Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:50:19.200923Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:51:49.302493Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -6600,6 +6624,24 @@
       "at": "2026-09-15T05:19:55.987697Z",
       "pattern": ".workflow/records/2354-backend-audit-fixes.json",
       "reason": "Integrate reviewed backend audit repair 03a828f2 with 28 focused regression passes; record FR013/FR039 contracts and combined follow-up evidence without additional full-suite runs."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:50:19.200393Z",
+      "pattern": "frontend/src/store/tabSlice.parts/**",
+      "reason": "Resolve latest-main skill provisioning and workflow-instance conflicts; preserve MiniApp persistence and adapt upstream Auto permission mode without changing provider controls."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:50:19.200911Z",
+      "pattern": "frontend/src/store/types.ts",
+      "reason": "Resolve latest-main skill provisioning and workflow-instance conflicts; preserve MiniApp persistence and adapt upstream Auto permission mode without changing provider controls."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:51:49.302306Z",
+      "pattern": "tests/contracts/openapi.json",
+      "reason": "Record integrated upstream Auto compatibility, generated OpenAPI snapshot, and focused validation in the Phase D checklist."
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -6907,6 +6949,30 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_ws_client_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:50:19.200926Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/miniAppTab.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:50:19.200929Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/agent_provisioning/test_orchestrate.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:51:49.302498Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_miniapp_create.py",
       "rationale": null,
       "verified_in_diff": null
     }

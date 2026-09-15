@@ -100,8 +100,9 @@ class PtyTabSpec:
         Opaque ID linking this tab back to the AI Block run for lineage
         and for routing completion events back to the right worker.
     permission_mode
-        ``"safe"`` or ``"bypass"``. The engine's descriptor-driven spawn
-        translates this into the provider's own bypass flag spelling, and
+        ``"safe"``, ``"auto"`` or ``"bypass"``. The engine's descriptor-driven
+        spawn translates this into the provider's own permission flag spelling
+        (``auto`` is refused for a provider without an auto mode), and
         labels the tab UI badge with it.
     run_dir_path
         Absolute path to the AI Block run dir under
@@ -120,7 +121,7 @@ class PtyTabSpec:
     cwd: str
     initial_stdin: str
     block_run_id: str
-    permission_mode: Literal["safe", "bypass"]
+    permission_mode: Literal["safe", "auto", "bypass"]
     run_dir_path: str | None = None
 
 

@@ -75,8 +75,9 @@ def test_every_agent_declares_a_manual_mode_or_says_why_not(descriptor: Provider
     [
         # `claude --permission-mode manual --help` exits 0; a bogus value exits 1.
         ("claude-code", ["--permission-mode", "manual"]),
-        # `codex --ask-for-approval untrusted --help` exits 0; bogus exits 2.
-        ("codex", ["--ask-for-approval", "untrusted"]),
+        # #2379: `untrusted` was retired in codex 0.149.0 and now exits 2;
+        # `codex -a on-request -s read-only --help` exits 0 at 0.154.0.
+        ("codex", ["--ask-for-approval", "on-request", "--sandbox", "read-only"]),
         # `qoderclicn --permission-mode default --list-sessions` exits 0; a bogus
         # value exits 1 and prints the choice list.
         ("qoder", ["--permission-mode", "default"]),

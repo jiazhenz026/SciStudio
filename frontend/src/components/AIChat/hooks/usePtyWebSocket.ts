@@ -6,6 +6,7 @@
  *          ?project_dir=<urlencoded_abs_path>
  *          &provider=<agent provider key | user-terminal>
  *          &dangerous=<true|false>
+ *          &permission_mode=<safe|auto|bypass>   (#2379; wins over `dangerous`)
  *
  *   ADR-034 FR-020a: the agent provider keys accepted here come from the
  *   backend provider registry and are validated server-side against it. The
@@ -43,6 +44,8 @@ export interface UsePtyWebSocketParams {
   /** ADR-034 FR-020 — imported from the single source; not redeclared here. */
   provider: TerminalProvider;
   dangerous: boolean;
+  /** #2379 — start the CLI in its Auto permission mode. Exclusive with `dangerous`. */
+  auto?: boolean;
   /** Delay launch until the terminal has enough layout state to spawn cleanly. */
   enabled?: boolean;
   /** Optional initial PTY dimensions, sent in the spawn handshake. */
@@ -68,6 +71,7 @@ export function buildPtyUrl({
   projectDir,
   provider,
   dangerous,
+  auto = false,
   cols,
   rows,
   baseOrigin,
@@ -76,6 +80,7 @@ export function buildPtyUrl({
   projectDir: string;
   provider: string;
   dangerous: boolean;
+  auto?: boolean;
   cols?: number | null;
   rows?: number | null;
   baseOrigin?: string;
@@ -84,6 +89,7 @@ export function buildPtyUrl({
     project_dir: projectDir,
     provider,
     dangerous: dangerous ? "true" : "false",
+    permission_mode: dangerous ? "bypass" : auto ? "auto" : "safe",
   });
   if (Number.isFinite(cols) && cols && cols > 0) {
     params.set("cols", String(Math.trunc(cols)));
@@ -114,6 +120,7 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
     projectDir,
     provider,
     dangerous,
+    auto = false,
     enabled = true,
     initialCols,
     initialRows,
@@ -150,6 +157,7 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
       projectDir,
       provider,
       dangerous,
+      auto,
       cols: initialCols,
       rows: initialRows,
     });
@@ -206,7 +214,7 @@ export function usePtyWebSocket(params: UsePtyWebSocketParams): UsePtyWebSocketR
       }
       wsRef.current = null;
     };
-  }, [tabId, projectDir, provider, dangerous, enabled, initialCols, initialRows]);
+  }, [tabId, projectDir, provider, dangerous, auto, enabled, initialCols, initialRows]);
 
   const send = useCallback((frame: PtyClientFrame) => {
     const ws = wsRef.current;

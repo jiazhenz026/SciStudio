@@ -68,7 +68,7 @@ inferring.
 - **Ports:** you declare them (each output names where the agent writes its
   result).
 - **Settings:** the **user prompt**, the **provider**, and the **permission
-  mode** (Manual Approve / Bypass Permission).
+  mode** (Manual / Auto / Yolo/Bypass).
 
 **Provider** accepts `claude-code`, `codex`, `qoder`, or `qoder-cn`.
 
@@ -80,9 +80,10 @@ to hand it the job — and its one prompt option answers once and exits rather t
 holding the session the block needs. Use Kimi Code for chat and pick one of the
 other four here.
 
-**Permission mode** is **Manual Approve** (the agent asks you before doing
-anything sensitive) or **Bypass Permission** (it runs unattended with full access
-and never asks).
+**Permission mode** is **Manual** (the agent asks you before doing anything
+sensitive), **Auto** (the provider's own reviewer approves routine steps and
+stops risky ones; the block rejects it for a provider that has no auto mode), or
+**Yolo/Bypass** (it runs unattended with full access and never asks).
 
 See [ai-assistant.md](ai-assistant.md) for a worked metadata-inference example.
 

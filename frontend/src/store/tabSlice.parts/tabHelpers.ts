@@ -9,6 +9,18 @@
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import type { AppStore, FileTab, TabState, WorkflowTab } from "../types";
 
+/** Resolve the workflow snapshot behind the active view without matching copies by name. */
+export function backingWorkflowTabId(state: AppStore): string | undefined {
+  const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (active?.kind === "workflow") return active.id;
+  if ((active?.kind === "miniapp" || active?.kind === "preview") && active.backingTabId)
+    return active.backingTabId;
+  const matches = state.tabs.filter(
+    (tab) => tab.kind === "workflow" && tab.workflowId === state.workflowId,
+  );
+  return matches.length === 1 ? matches[0].id : undefined;
+}
+
 /**
  * Capture the current workflow + UI state into a WorkflowTab snapshot.
  */
@@ -36,11 +48,17 @@ export function captureWorkflowTab(state: AppStore): WorkflowTab {
 
 export function captureActiveTab(state: AppStore, tab: TabState): TabState {
   if (tab.kind === "workflow") {
-    // ADR-044 — `tabKey` and `runPrefix` are per-tab identity fields, not part
+    // ADR-044 — `tabKey` and `runPrefix` (and #2362's `runWorkflowId`) are
+    // per-tab identity fields, not part
     // of the workflow slice that `captureWorkflowTab` rebuilds from. Preserve
     // them from the existing tab object so a capture cycle (switch/open) does
     // not blank the tab's dedup identity or its expanded-view run prefix.
-    return { ...captureWorkflowTab(state), tabKey: tab.tabKey, runPrefix: tab.runPrefix };
+    return {
+      ...captureWorkflowTab(state),
+      tabKey: tab.tabKey,
+      runPrefix: tab.runPrefix,
+      runWorkflowId: tab.runWorkflowId,
+    };
   }
   // File, preview and miniapp tabs hold no workflow-slice state, so there is
   // nothing to capture; the tab passes through unchanged. A MiniApp's own

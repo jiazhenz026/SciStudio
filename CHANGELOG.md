@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the app — in your default browser from the desktop app, in a new tab from the
   browser build. HTML written into the document stays visible as text and never
   becomes part of the app's own page.
+- [#2295] **Agents receive a shared GUI operation guide.**
+  `scistudio-use-gui` is provisioned to both agent skill trees and teaches how to
+  open the running instance, navigate its workspace, and operate controls with
+  available browser/computer-use tools. `open_gui` points to this guide and
+  explains its address-only result. The new `scistudio-write-panel` skill covers
+  preview and interactive authoring with runnable SDK examples and calls the
+  GUI guide for focused live checks.
+
 - [#2293] **Panels share a sandboxed host and a standalone SDK.** Preview and
   interactive pages communicate through a private MessageChannel, retain view
   state, and expose explicit remount/fallback recovery. Requests preserve the

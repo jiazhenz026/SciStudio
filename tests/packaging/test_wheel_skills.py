@@ -7,7 +7,7 @@ in **both** editable installs and wheel installs (per the
 
 Skill bodies authored by I40b in Phase 2c (ADR-040). The base SKILL.md
 carries the agent identity + skill index + the ``<!-- project_context -->``
-and ``<!-- tool_catalog -->`` splice markers; the task skills carry
+and ``<!-- tool_catalog -->`` splice markers; task skills carry
 the task-scoped teaching surfaces.
 """
 
@@ -15,17 +15,10 @@ from __future__ import annotations
 
 from importlib.resources import files
 
-# Per ADR-040 §3.4 + ADR-048 SPEC 2 + ADR-054 MiniApp FR-028, these 7 task
-# skills MUST exist alongside the base ``scistudio`` skill.
-_TASK_SKILLS: tuple[str, ...] = (
-    "scistudio-build-workflow",
-    "scistudio-write-block",
-    "scistudio-debug-run",
-    "scistudio-inspect-data",
-    "scistudio-project-qa",
-    "scistudio-write-plot",
-    "scistudio-write-miniapp",
-)
+from scistudio.agent_provisioning.skills import _SKILL_NAMES
+
+# Every registered task skill must ship and be discoverable through the base index.
+_TASK_SKILLS = tuple(name for name in _SKILL_NAMES if name != "scistudio")
 
 
 def test_base_skill_loadable_via_importlib_resources() -> None:
@@ -50,7 +43,7 @@ def test_base_skill_loadable_via_importlib_resources() -> None:
 
 
 def test_all_task_skills_loadable_via_importlib_resources() -> None:
-    """Every task skill ``SKILL.md`` file is shipped with a real body."""
+    """All registered task skill ``SKILL.md`` files are shipped with real bodies."""
     base_dir = files("scistudio") / "_skills" / "scistudio"
     for task_skill in _TASK_SKILLS:
         skill_md = base_dir / task_skill / "SKILL.md"
@@ -63,7 +56,7 @@ def test_all_task_skills_loadable_via_importlib_resources() -> None:
 
 
 def test_base_skill_indexes_all_task_skills() -> None:
-    """The base ``SKILL.md`` must reference every task skill by name.
+    """The base ``SKILL.md`` must reference all registered task skills by name.
 
     Discoverability check: the agent reads the base first and uses its
     skill index to find the relevant task skill. If a task skill is
@@ -71,8 +64,9 @@ def test_base_skill_indexes_all_task_skills() -> None:
     """
     base = files("scistudio") / "_skills" / "scistudio" / "SKILL.md"
     content = base.read_text(encoding="utf-8")
+    index = content.split("## Skills available", 1)[1].split("\n## ", 1)[0]
     for task_skill in _TASK_SKILLS:
-        assert task_skill in content, f"Base SKILL.md must reference {task_skill} in its skill index."
+        assert f"`{task_skill}`" in index, f"Base SKILL.md must reference {task_skill} in its skill index."
 
 
 # --- Codex P1/P2 reconcile regression pins ---------------------------------

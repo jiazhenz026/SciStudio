@@ -73,6 +73,7 @@ def _fake_spawn(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         extra_env: dict[str, str] | None = None,
         prompt: str = "",
     ) -> PtyProcess:
@@ -198,6 +199,7 @@ def test_1789_engine_passes_prompt_to_spawn_not_stdin(
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         extra_env: dict[str, str] | None = None,
         prompt: str = "",
     ) -> PtyProcess:
@@ -244,6 +246,7 @@ def test_1789_engine_pty_resized_to_client_viewport_on_join(
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         extra_env: dict[str, str] | None = None,
         prompt: str = "",
     ) -> PtyProcess:
