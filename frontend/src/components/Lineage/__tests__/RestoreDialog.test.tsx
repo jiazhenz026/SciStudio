@@ -148,6 +148,62 @@ describe("RestoreDialog preflight states", () => {
     expect(card.textContent ?? "").toMatch(/no longer exists/);
   });
 
+  it("names every workflow checked and attributes input changes (#2425)", async () => {
+    const inputWarning = {
+      path: "data/a.csv",
+      reason: "size changed: 4 → 9 bytes",
+      workflow_id: "wf_a",
+      run_id: "run-a",
+    };
+    mockPreflight({
+      ...CLEAN,
+      run_id: "run-b",
+      input_warnings: [inputWarning],
+      runs: [
+        {
+          workflow_id: "wf_b",
+          run_id: "run-b",
+          run_started_at: "2026-05-15T15:00:00Z",
+          input_warnings: [],
+          env_warnings: [],
+        },
+        {
+          workflow_id: "wf_a",
+          run_id: "run-a",
+          run_started_at: "2026-05-15T14:00:00Z",
+          input_warnings: [inputWarning],
+          env_warnings: [],
+        },
+      ],
+    });
+    await renderDialog();
+    const summary = screen.getByTestId("restore-dialog-preflight-workflows");
+    expect(summary.textContent ?? "").toMatch(/2 workflows/);
+    expect(summary.textContent ?? "").toMatch(/wf_b, wf_a/);
+    expect(screen.getByTestId("restore-dialog-input-warning-workflow").textContent ?? "").toMatch(
+      /wf_a/,
+    );
+  });
+
+  it("does not add workflow labels when only one workflow ran", async () => {
+    mockPreflight({
+      ...CLEAN,
+      input_warnings: [{ path: "data/in.csv", reason: "no longer exists", workflow_id: "wf_a" }],
+      runs: [
+        {
+          workflow_id: "wf_a",
+          run_id: "run-1",
+          run_started_at: null,
+          input_warnings: [],
+          env_warnings: [],
+        },
+      ],
+    });
+    await renderDialog();
+    expect(screen.queryByTestId("restore-dialog-preflight-workflows")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("restore-dialog-input-warning-workflow")).not.toBeInTheDocument();
+  });
+
   it("never blocks the restore — warnings are advisory", async () => {
     mockPreflight({
       ...CLEAN,
