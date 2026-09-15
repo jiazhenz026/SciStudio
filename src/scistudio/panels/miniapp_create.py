@@ -25,6 +25,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+# ``PANELS_DIR_NAME`` is owned and scanned by core.dropins (#2411); it stays
+# importable from here, where the MiniApp create route first introduced it.
+from scistudio.core.dropins import PANELS_DIR_NAME
 from scistudio.panels.descriptor import PanelDescriptor
 from scistudio.panels.miniapp import _check_type, _output_ref
 from scistudio.panels.targets import FrozenTarget, PanelError, freeze_target
@@ -38,11 +41,6 @@ TEMPLATE_DIR = Path(__file__).resolve().parent / "template"
 #: ``.scistudio/`` so the default project ``.gitignore`` excludes it, as the
 #: Bring In My Work briefs are.
 BRIEF_DIR_PARTS = (".scistudio", "miniapps")
-
-#: The project tier's panel directory name. The bare literal
-#: :func:`scistudio.core.dropins.panel_scan_dirs` uses; there is no shared
-#: constant to import yet.
-PANELS_DIR_NAME = "panels"
 
 #: Type names a panel descriptor reserves for core panels. A MiniApp claiming
 #: one would never load, so the route refuses the source instead of writing a

@@ -1,0 +1,99 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2411-project-panels-dir",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/api/project_layout.py",
+      "src/scistudio/tutorials/projects.py",
+      "src/scistudio/api/routes/tutorials.py",
+      "tests/api/test_project_layout.py",
+      "tests/tutorials/test_scoped_library.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T07:27:54.113152Z",
+      "owner_directive": "Reuse PANELS_DIR_NAME from the merged ADR-054 Phase D work.",
+      "reason": "owner directive"
+    },
+    {
+      "at": "2026-09-15T07:27:54.619267Z",
+      "owner_directive": "Put PANELS_DIR_NAME in core/dropins.py (option A); core/** change authorised.",
+      "reason": "owner decision option A"
+    },
+    {
+      "at": "2026-09-15T07:27:54.978688Z",
+      "owner_directive": "Keep previewers in tutorial scan/library sets and add panels; no panel counting in library_entries; update work_import brief_template project tree; do not touch ARCHITECTURE.md.",
+      "reason": "owner decision"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2411,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "New projects create panels/ instead of previewers/; existing previewers/ still scanned until 0.6.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2411-project-panels-dir",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:27:54.620151Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "owner decision option A"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:27:54.620197Z",
+      "pattern": "src/scistudio/panels/miniapp_create.py",
+      "reason": "owner decision option A"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:27:54.979081Z",
+      "pattern": "src/scistudio/ai/work_import/brief_template.md",
+      "reason": "owner decision"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:29:35.086330Z",
+      "pattern": "tests/api/test_tutorial_routes.py",
+      "reason": "test for tutorial scanned-dir panels"
+    }
+  ],
+  "session_id": "018bcda3-998a-4c0e-b027-e78b06e6df08",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

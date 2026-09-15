@@ -49,6 +49,7 @@ from typing import Protocol, runtime_checkable
 
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PANELS_DIR_NAME,
     PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     is_tutorial_location,
@@ -310,10 +311,20 @@ def scoped_library_dirs() -> tuple[Path, ...]:
     ``previewers/`` sits beside ``blocks/`` and ``types/``: the level
     designs have one tutorial's previewer travel to the next tutorial's project,
     which needs the same swap the other two kinds already make.
+
+    ``panels/`` joins them because :func:`scistudio.core.dropins.panel_scan_dirs`
+    applies the same swap, so a panel saved to the library during a tutorial
+    lands in a directory that exists. ``previewers/`` stays while tutorials
+    still write previewer drop-ins (#2411).
     """
-    # Development references: #2086, FR-070.
+    # Development references: #2086, #2411, FR-070.
     root = tutorial_library_dir()
-    return (root / BLOCKS_DIR_NAME, root / TYPES_DIR_NAME, root / PREVIEWERS_DIR_NAME)
+    return (
+        root / BLOCKS_DIR_NAME,
+        root / TYPES_DIR_NAME,
+        root / PREVIEWERS_DIR_NAME,
+        root / PANELS_DIR_NAME,
+    )
 
 
 def ensure_scoped_library() -> Path:

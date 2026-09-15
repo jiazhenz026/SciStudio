@@ -133,8 +133,8 @@ def test_no_project_context_keeps_the_user_library(home: Path) -> None:
     assert dropins.library_root_for_project(None) == dropins.user_library_dir()
 
 
-def test_the_scoped_library_carries_all_three_tiers(home: Path) -> None:
-    """FR-070 names ``blocks/``, ``types/``, and ``previewers/`` (#2086).
+def test_the_scoped_library_carries_every_swapped_tier(home: Path) -> None:
+    """FR-070 names ``blocks/``, ``types/``, and ``previewers/`` (#2086); ``panels/`` joined in #2411.
 
     Eager creation matters for the same reason it does for the other two: the
     save-to-library action a tutorial teaches has to land somewhere, and a step
@@ -142,8 +142,20 @@ def test_the_scoped_library_carries_all_three_tiers(home: Path) -> None:
     """
     root = tutorial_projects.ensure_scoped_library()
 
-    assert [path.name for path in tutorial_projects.scoped_library_dirs()] == ["blocks", "types", "previewers"]
+    assert [path.name for path in tutorial_projects.scoped_library_dirs()] == [
+        "blocks",
+        "types",
+        "previewers",
+        "panels",
+    ]
     assert (root / "previewers").is_dir()
+    assert (root / "panels").is_dir()
+
+
+def test_tutorial_project_panels_use_the_scoped_library(home: Path, tutorial_project: Path) -> None:
+    """The ``panels/`` the scoped library creates is the user tier panel discovery scans (#2411)."""
+    library = dropins.tutorial_library_dir()
+    assert list(dropins.panel_scan_dirs(tutorial_project)) == [tutorial_project / "panels", library / "panels"]
 
 
 def test_a_teaching_type_resolves_inside_the_tutorial_and_nowhere_else(

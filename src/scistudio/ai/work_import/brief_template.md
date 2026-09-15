@@ -124,7 +124,8 @@ which, at the end of this document, before you write anything.
 
 *If they chose **this project only*** — everything goes in the project:
 `{project}/types/`, `{project}/blocks/`, `{project}/previewers/`. Nothing else to
-think about.
+think about. A new project has `blocks/`, `types/`, `panels/`, and `tutorials/`
+but no `previewers/` directory; create it if you write a previewer.
 
 *If they chose their **personal library*** — types and blocks go to
 `~/.scistudio/types/` and `~/.scistudio/blocks/`, so they are available in every

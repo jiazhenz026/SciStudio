@@ -62,6 +62,7 @@ from scistudio.api.runtime._helpers import _rmtree_force
 from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
+    PANELS_DIR_NAME,
     PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     previewer_scan_dirs,
@@ -1059,7 +1060,11 @@ class _TutorialWiring:
 #: ``previewers/*.py`` and then says "expand the preview" needs the previewer
 #: registered before the step's text is readable, exactly as blocks and types
 #: already settle — ``refresh_all_registries`` rebuilds the preview service too.
-_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME})
+#: ``panels/`` joined with #2411, beside ``previewers/`` rather than replacing it:
+#: new projects scaffold ``panels/``, and tutorials still write previewer drop-ins.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset(
+    {BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME, PANELS_DIR_NAME}
+)
 
 
 #: The project subdirectory holding workflow YAML, which the open canvas renders.
