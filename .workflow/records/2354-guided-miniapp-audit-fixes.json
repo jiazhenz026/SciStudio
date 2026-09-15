@@ -1753,6 +1753,202 @@
       "tool_versions": {
         "ruff": "0.15.15"
       }
+    },
+    {
+      "at": "2026-09-15T03:59:12.153480Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9aa51e50af4a7b17e211fc52677dc6d82d43377ee2008079e881b723fcbd87b1",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:59:19.782690Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:12345947e4c85394f60534943f4303ea26443cbc116b0b83284dfdee4dfeccca",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:59:29.228848Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "covered_surface": "python_deferrals",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:72bf3ea0585b90667b3ce9b9d3533181445dec4e6ee99717388a5bf9546ca136",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:59:29.444573Z",
+      "command": "ruff format scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d72d997c3913fcd0f65acb1ea73b6c6aa732d6ba307e0267b3f8f12f90750795",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T04:07:20.693902Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 1,
+      "input_fingerprint": "sha256:737c81759c264d576ea757c78c6aff4deaa998893681d9f8cc046185e15c9943",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 1",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:07:35.691043Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4a834b3e1a9b6ab5aa0ad512396a59f260995287c70edb66f1ed925ee6e9264d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:07:35.919328Z",
+      "command": "lint-imports",
+      "covered_surface": "python_imports",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:6ac3641eed9f13c08f4e21c7270fe2dde662dd71bb59596d1977ab33ab34686f",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:07:35.994269Z",
+      "command": "ruff check scripts/ota_publish.py src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py tests/agent_provisioning/test_claude_agents_md.py tests/agent_provisioning/test_orchestrate.py tests/agent_provisioning/test_skills.py tests/ai/test_finish_ai_block_skeleton.py tests/ai/test_mcp_fastmcp.py tests/ai/test_mcp_gui_tools.py tests/ai/test_mcp_panels_tools.py tests/ai/test_system_prompt.py tests/api/helpers.py tests/api/test_miniapp_create.py tests/api/test_panel_call_route.py tests/api/test_panel_interactive_ws.py tests/api/test_panel_routes.py tests/api/test_user_library_panel_promotion.py tests/api/test_workflow_changed_event_schema.py tests/api/test_workflows.py tests/api/test_ws.py tests/api/test_ws_client_identity.py tests/api/test_ws_git_events.py tests/cli/test_install.py tests/cli/test_mcp_bridge.py tests/contract/test_adr045_version_vector_contract.py tests/contracts/test_runtime_import_contract.py tests/integration/test_phase2_mcp_end_to_end.py tests/integration/test_race_agent_write.py tests/integration/test_race_autosave.py tests/integration/test_race_external_editor.py tests/integration/test_race_multi_session.py tests/packaging/test_gui_capture.py tests/packaging/test_wheel_skills.py tests/panels/test_builtin_panels.py tests/panels/test_gui_debug.py tests/panels/test_miniapp_context.py tests/panels/test_panel_contexts.py tests/panels/test_panel_process.py tests/panels/test_panel_python_detection.py tests/panels/test_panel_sdk.py tests/panels/test_panel_watcher.py tests/scripts/test_ota_publish.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d2c6914dd5cec0c1bdb0c9afd4958ebff4510f8e621e19f9c2910d16a73441b3",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T04:17:36.119861Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:7a88961e7b7f30c660758d14571ce0f30de5b7f55878ce03e6736cf1c93040e3",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:17:46.217331Z",
+      "command": "mypy src/scistudio/agent_provisioning/_orchestrate.py src/scistudio/agent_provisioning/skills.py src/scistudio/ai/agent/mcp/__init__.py src/scistudio/ai/agent/mcp/server.py src/scistudio/ai/agent/mcp/tools_gui.py src/scistudio/ai/agent/mcp/tools_panels.py src/scistudio/ai/agent/system_prompt.py src/scistudio/api/routes/panels.py src/scistudio/api/routes/user_library.py src/scistudio/api/schemas.py src/scistudio/api/ws.py src/scistudio/engine/gui_presence.py src/scistudio/panels/bootstrap.py src/scistudio/panels/contexts.py src/scistudio/panels/files.py src/scistudio/panels/gui_debug.py src/scistudio/panels/miniapp.py src/scistudio/panels/miniapp_create.py src/scistudio/panels/process.py src/scistudio/panels/process_config.py src/scistudio/panels/protocol.py src/scistudio/panels/template/panel.py src/scistudio/panels/watcher.py src/scistudio/tutorials/manifest.py --ignore-missing-imports",
+      "covered_surface": "python_types",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:8cc6866a04b31c8d46130f6908476f4510f9f69cd89b2450d8819ff4c69b80b1",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:25:05.623359Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:737c81759c264d576ea757c78c6aff4deaa998893681d9f8cc046185e15c9943",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T04:36:04.748237Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": null,
+      "input_fingerprint": "sha256:7a88961e7b7f30c660758d14571ce0f30de5b7f55878ce03e6736cf1c93040e3",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "repo",
+      "status": "unknown",
+      "summary": "execution error: TimeoutExpired",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -2133,6 +2329,22 @@
       "class": null,
       "kind": "path",
       "path": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:25:57.685597Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T04:25:57.686205Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -4316,6 +4528,336 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.661932Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.722011Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/gui_presence.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/gui_presence.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.744289Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.766682Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.812044Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.855537Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.905001Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.940540Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:46.983106Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:47.015337Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:17:47.537093Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.176135Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.218954Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/gui_presence.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/gui_presence.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.267266Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.314712Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.467018Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.538867Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.589544Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.636615Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.676620Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:06.712228Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:25:07.568896Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:05.739696Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:05.813722Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/gui_presence.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/gui_presence.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:05.892898Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:05.962219Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.046292Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.120131Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.198574Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.296603Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.362756Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:06.456447Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T04:36:07.412620Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -4328,31 +4870,257 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "HEAD",
-    "base_sha": "84715c2e",
+    "base": "origin/main",
+    "base_sha": "f70c0087",
     "changed_files": [
+      ".workflow/records/2354-codex-2354-adr054-doc-audit.json",
+      ".workflow/records/2354-codex-2354-canvas-hover-actions.json",
+      ".workflow/records/2354-codex-2354-core-renderer-components.json",
+      ".workflow/records/2354-feat-2354-miniapp-phase-d.json",
+      ".workflow/records/2354-guided-miniapp-audit-fixes.json",
+      ".workflow/records/2354-miniapp-gui-debug.json",
       "CHANGELOG.md",
+      "desktop/gui-capture.js",
+      "desktop/main.js",
+      "desktop/package.json",
+      "desktop/preload.js",
+      "desktop/test/bootstrap.test.js",
+      "desktop/test/gui-capture.test.js",
+      "desktop/test/harness/gui-capture-smoke.js",
       "docs/adr/ADR-054.md",
+      "docs/audit/2026-09-11-adr-054-phase-d-HANDOFF.md",
+      "docs/audit/2026-09-11-adr-054-phase-d-adversarial-verification.json",
+      "docs/audit/2026-09-11-adr-054-phase-d-audit-raw.json",
+      "docs/audit/2026-09-11-adr-054-phase-d-with-context.md",
+      "docs/audit/2026-09-13-adr-054-phase-d-guided-repairs.md",
+      "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      "docs/cli-integration.md",
       "docs/planning/adr-054-phase-d-checklist.md",
+      "docs/reference/miniapp-renderers.md",
+      "docs/specs/adr-053-learning-center.md",
       "docs/specs/adr-054-miniapp.md",
+      "docs/specs/adr-055-ai-host-presentation.md",
+      "docs/specs/frontend-block-palette.md",
+      "docs/user/miniapp-debugging.md",
+      "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "frontend/src/App.parts/closeProject.ts",
+      "frontend/src/App.parts/useActiveTab.ts",
+      "frontend/src/App.parts/useLearningCenter.ts",
+      "frontend/src/App.parts/useWorkspaceSidebar.test.tsx",
+      "frontend/src/App.parts/useWorkspaceSidebar.ts",
+      "frontend/src/App.tsx",
+      "frontend/src/components/ActivityBar.test.tsx",
+      "frontend/src/components/ActivityBar.tsx",
+      "frontend/src/components/BlockDetailPopover.tsx",
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/LearningCenter.parts/targets.ts",
+      "frontend/src/components/PresentationToggle.test.tsx",
+      "frontend/src/components/Toolbar.parts/FileOperationsGroup.test.tsx",
+      "frontend/src/components/Toolbar.parts/FileOperationsGroup.tsx",
+      "frontend/src/components/Toolbar.tsx",
+      "frontend/src/components/WorkflowCanvas.parts/__tests__/blockSourceEditor.test.ts",
+      "frontend/src/components/WorkflowCanvas.parts/blockSourceEditor.ts",
+      "frontend/src/components/WorkflowCanvas.parts/flowNodeBuilder.ts",
+      "frontend/src/components/WorkflowCanvas.parts/useFlowNodes.ts",
+      "frontend/src/components/WorkflowCanvas.test.tsx",
+      "frontend/src/components/WorkflowCanvas.tsx",
+      "frontend/src/components/__tests__/DataPreviewAllPreviewers.test.tsx",
+      "frontend/src/components/__tests__/tutorialTargets.test.tsx",
+      "frontend/src/components/nodes/BlockNode.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/hoverDetail.test.tsx",
+      "frontend/src/components/nodes/__tests__/BlockNode/test-utils.tsx",
+      "frontend/src/components/palette/DetailPopover.tsx",
+      "frontend/src/components/palette/tips/__tests__/tipPool.test.ts",
+      "frontend/src/components/palette/tips/tipPool.ts",
+      "frontend/src/components/promotion/UserLibraryDialogs.tsx",
+      "frontend/src/components/promotion/__tests__/promotable.test.ts",
+      "frontend/src/components/promotion/__tests__/promoteToUserLibrary.test.ts",
+      "frontend/src/components/promotion/promotable.ts",
+      "frontend/src/components/promotion/promoteToUserLibrary.ts",
+      "frontend/src/components/promotion/promotionIo.ts",
+      "frontend/src/components/promotion/runPromotion.ts",
+      "frontend/src/hooks/useRealtime.test.tsx",
+      "frontend/src/hooks/useWebSocket.parts/dispatchEvent.ts",
+      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
+      "frontend/src/hooks/useWebSocket.parts/handleMiniApp.test.ts",
+      "frontend/src/hooks/useWebSocket.parts/handleMiniApp.ts",
+      "frontend/src/hooks/useWebSocket.test.ts",
+      "frontend/src/hooks/useWebSocket.ts",
+      "frontend/src/lib/api/panels.test.ts",
+      "frontend/src/lib/api/panels.ts",
+      "frontend/src/miniapps/ConvertToBlockDialog.test.tsx",
+      "frontend/src/miniapps/ConvertToBlockDialog.tsx",
+      "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
+      "frontend/src/miniapps/CreateMiniAppDialog.tsx",
+      "frontend/src/miniapps/MiniAppPalette.test.tsx",
+      "frontend/src/miniapps/MiniAppPalette.tsx",
+      "frontend/src/miniapps/MiniAppTab.test.tsx",
+      "frontend/src/miniapps/MiniAppTab.tsx",
+      "frontend/src/miniapps/MiniAppTargetPicker.test.tsx",
+      "frontend/src/miniapps/MiniAppTargetPicker.tsx",
+      "frontend/src/miniapps/MiniAppToolbar.tsx",
+      "frontend/src/miniapps/api.ts",
+      "frontend/src/miniapps/types.ts",
+      "frontend/src/miniapps/useMiniAppProcess.ts",
+      "frontend/src/panels/PanelFrame.tsx",
+      "frontend/src/panels/arrayPanel.test.ts",
+      "frontend/src/panels/artifactPanel.test.ts",
+      "frontend/src/panels/bridge.test.ts",
+      "frontend/src/panels/bridge.ts",
+      "frontend/src/panels/collectionPanel.test.ts",
+      "frontend/src/panels/compositePanel.test.ts",
+      "frontend/src/panels/dataframePanel.test.ts",
+      "frontend/src/panels/fallbackPanel.test.ts",
+      "frontend/src/panels/guiDebug.test.ts",
+      "frontend/src/panels/guiDebug.ts",
+      "frontend/src/panels/panelHighlights.test.ts",
+      "frontend/src/panels/plotPanel.test.ts",
+      "frontend/src/panels/rendererTestModules.ts",
+      "frontend/src/panels/renderers.test.ts",
+      "frontend/src/panels/seriesPanel.test.ts",
+      "frontend/src/panels/textPanel.test.ts",
+      "frontend/src/panels/types.ts",
+      "frontend/src/store/__tests__/miniAppTab.test.ts",
+      "frontend/src/store/__tests__/tabState.test.ts",
+      "frontend/src/store/tabSlice.parts/miniAppTabActions.ts",
+      "frontend/src/store/tabSlice.parts/tabHelpers.ts",
+      "frontend/src/store/tabSlice.parts/workflowTabActions.ts",
+      "frontend/src/store/tabSlice.ts",
+      "frontend/src/store/types.ts",
+      "frontend/src/store/uiSlice.ts",
+      "frontend/src/types/api.ts",
+      "frontend/src/types/desktop.d.ts",
+      "frontend/src/types/ui.ts",
+      "scripts/ota_publish.py",
+      "src/scistudio/_agent_reference/README.md",
       "src/scistudio/_agent_reference/block-contract.md",
+      "src/scistudio/_agent_reference/gui-debug.md",
+      "src/scistudio/_agent_reference/miniapp-renderers.md",
+      "src/scistudio/_skills/scistudio/SKILL.md",
       "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
-      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md"
+      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "src/scistudio/_user_guide/README.md",
+      "src/scistudio/_user_guide/ai-assistant.md",
+      "src/scistudio/_user_guide/miniapps.md",
+      "src/scistudio/_user_guide/using-the-gui.md",
+      "src/scistudio/_user_guide/using-with-ai-apps.md",
+      "src/scistudio/agent_provisioning/_orchestrate.py",
+      "src/scistudio/agent_provisioning/skills.py",
+      "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+      "src/scistudio/ai/agent/mcp/__init__.py",
+      "src/scistudio/ai/agent/mcp/server.py",
+      "src/scistudio/ai/agent/mcp/tools_gui.py",
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "src/scistudio/ai/agent/system_prompt.py",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/user_library.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/api/ws.py",
+      "src/scistudio/engine/gui_presence.py",
+      "src/scistudio/panels/bootstrap.py",
+      "src/scistudio/panels/builtin/core.array.basic/index.html",
+      "src/scistudio/panels/builtin/core.array.basic/panel.js",
+      "src/scistudio/panels/builtin/core.artifact.basic/index.html",
+      "src/scistudio/panels/builtin/core.artifact.basic/panel.js",
+      "src/scistudio/panels/builtin/core.base.fallback/index.html",
+      "src/scistudio/panels/builtin/core.base.fallback/panel.js",
+      "src/scistudio/panels/builtin/core.collection.basic/index.html",
+      "src/scistudio/panels/builtin/core.collection.basic/panel.js",
+      "src/scistudio/panels/builtin/core.composite.basic/index.html",
+      "src/scistudio/panels/builtin/core.composite.basic/panel.js",
+      "src/scistudio/panels/builtin/core.dataframe.basic/index.html",
+      "src/scistudio/panels/builtin/core.dataframe.basic/panel.js",
+      "src/scistudio/panels/builtin/core.plot.basic/index.html",
+      "src/scistudio/panels/builtin/core.plot.basic/panel.js",
+      "src/scistudio/panels/builtin/core.series.basic/index.html",
+      "src/scistudio/panels/builtin/core.series.basic/panel.js",
+      "src/scistudio/panels/builtin/core.text.basic/index.html",
+      "src/scistudio/panels/builtin/core.text.basic/panel.js",
+      "src/scistudio/panels/contexts.py",
+      "src/scistudio/panels/files.py",
+      "src/scistudio/panels/gui_debug.py",
+      "src/scistudio/panels/miniapp.py",
+      "src/scistudio/panels/miniapp_create.py",
+      "src/scistudio/panels/process.py",
+      "src/scistudio/panels/process_config.py",
+      "src/scistudio/panels/protocol.py",
+      "src/scistudio/panels/sdk/1/renderer-array.js",
+      "src/scistudio/panels/sdk/1/renderer-artifact.js",
+      "src/scistudio/panels/sdk/1/renderer-base.js",
+      "src/scistudio/panels/sdk/1/renderer-collection.js",
+      "src/scistudio/panels/sdk/1/renderer-composite.js",
+      "src/scistudio/panels/sdk/1/renderer-dataframe.js",
+      "src/scistudio/panels/sdk/1/renderer-plot.js",
+      "src/scistudio/panels/sdk/1/renderer-series.js",
+      "src/scistudio/panels/sdk/1/renderer-text.js",
+      "src/scistudio/panels/sdk/1/renderers.css",
+      "src/scistudio/panels/sdk/1/renderers.js",
+      "src/scistudio/panels/sdk/1/scistudio-panel.js",
+      "src/scistudio/panels/template/index.html",
+      "src/scistudio/panels/template/panel.json",
+      "src/scistudio/panels/template/panel.py",
+      "src/scistudio/panels/watcher.py",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/tutorial.yaml",
+      "src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml",
+      "src/scistudio/tutorials/manifest.py",
+      "tests/agent_provisioning/test_claude_agents_md.py",
+      "tests/agent_provisioning/test_orchestrate.py",
+      "tests/agent_provisioning/test_skills.py",
+      "tests/ai/test_finish_ai_block_skeleton.py",
+      "tests/ai/test_mcp_fastmcp.py",
+      "tests/ai/test_mcp_gui_tools.py",
+      "tests/ai/test_mcp_panels_tools.py",
+      "tests/ai/test_system_prompt.py",
+      "tests/api/helpers.py",
+      "tests/api/test_miniapp_create.py",
+      "tests/api/test_panel_call_route.py",
+      "tests/api/test_panel_interactive_ws.py",
+      "tests/api/test_panel_routes.py",
+      "tests/api/test_user_library_panel_promotion.py",
+      "tests/api/test_workflow_changed_event_schema.py",
+      "tests/api/test_workflows.py",
+      "tests/api/test_ws.py",
+      "tests/api/test_ws_client_identity.py",
+      "tests/api/test_ws_git_events.py",
+      "tests/cli/test_install.py",
+      "tests/cli/test_mcp_bridge.py",
+      "tests/contract/test_adr045_version_vector_contract.py",
+      "tests/contracts/openapi.json",
+      "tests/contracts/test_runtime_import_contract.py",
+      "tests/integration/test_phase2_mcp_end_to_end.py",
+      "tests/integration/test_race_agent_write.py",
+      "tests/integration/test_race_autosave.py",
+      "tests/integration/test_race_external_editor.py",
+      "tests/integration/test_race_multi_session.py",
+      "tests/packaging/test_gui_capture.py",
+      "tests/packaging/test_wheel_skills.py",
+      "tests/panels/_sdk_call_harness.js",
+      "tests/panels/_sdk_harness.js",
+      "tests/panels/test_builtin_panels.py",
+      "tests/panels/test_gui_debug.py",
+      "tests/panels/test_miniapp_context.py",
+      "tests/panels/test_panel_contexts.py",
+      "tests/panels/test_panel_process.py",
+      "tests/panels/test_panel_python_detection.py",
+      "tests/panels/test_panel_sdk.py",
+      "tests/panels/test_panel_watcher.py",
+      "tests/scripts/test_ota_publish.py",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py"
     ],
-    "diff_fingerprint": "sha256:6a73c6a64f0568d1f612083fbbd4cbc315d62ac3f6a91c4d94568e0b51fc0911",
-    "head": "f4a5a7abf7b205dd24685762d14cb8e7939b3183",
-    "head_sha": "f4a5a7ab",
+    "diff_fingerprint": "sha256:dd4ebb53f12a3c2d658b2140f069088fba82d179ee44fa95e148eae8ae61861e",
+    "head": "HEAD",
+    "head_sha": "6b6838b6",
     "surfaces": {
-      "docs": 3,
-      "frontend": 0,
+      "docs": 15,
+      "frontend": 89,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 3,
+      "implementation": 160,
       "packaging": 0,
       "protected_architecture": 0,
-      "protected_core": 0,
-      "sentrux": 5,
-      "test": 0,
+      "protected_core": 1,
+      "sentrux": 208,
+      "test": 83,
       "workflow_ci": 0
     }
   },
@@ -4566,6 +5334,32 @@
       "unsatisfied": [
         "tests.changed_test_required"
       ]
+    },
+    {
+      "at": "2026-09-15T04:17:47.537596Z",
+      "diff_fingerprint": "sha256:4ca5d6b7cc65c946f49516a5fef526de503636a05f31f3b1c74a57094d2640ab",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.frontend"
+      ]
+    },
+    {
+      "at": "2026-09-15T04:25:07.569179Z",
+      "diff_fingerprint": "sha256:4ca5d6b7cc65c946f49516a5fef526de503636a05f31f3b1c74a57094d2640ab",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T04:36:07.413771Z",
+      "diff_fingerprint": "sha256:dd4ebb53f12a3c2d658b2140f069088fba82d179ee44fa95e148eae8ae61861e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2354-guided-miniapp-audit-fixes",
@@ -4578,12 +5372,20 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
     "checks": [
+      "architecture_tests",
       "commit_hygiene",
+      "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
-      "lint_format"
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
     ],
     "docs": [
       "docs_required_or_na"
@@ -5135,10 +5937,130 @@
       "at": "2026-09-15T03:38:51.591530Z",
       "pattern": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
       "reason": "Owner selected screenshots plus existing agent computer use instead of additional MiniApp interaction MCP tools"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.078767Z",
+      "pattern": "src/scistudio/ai/agent/mcp/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079628Z",
+      "pattern": "src/scistudio/_agent_reference/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079632Z",
+      "pattern": "src/scistudio/_skills/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079635Z",
+      "pattern": "src/scistudio/_user_guide/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079638Z",
+      "pattern": "src/scistudio/agent_provisioning/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079641Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079644Z",
+      "pattern": "src/scistudio/api/schemas.py",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079657Z",
+      "pattern": "src/scistudio/api/routes/user_library.py",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079660Z",
+      "pattern": "src/scistudio/engine/gui_presence.py",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079663Z",
+      "pattern": "src/scistudio/tutorials/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079666Z",
+      "pattern": "desktop/**",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079668Z",
+      "pattern": "scripts/ota_publish.py",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079672Z",
+      "pattern": "CHANGELOG.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079674Z",
+      "pattern": "docs/adr/ADR-054.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079677Z",
+      "pattern": "docs/reference/miniapp-renderers.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079680Z",
+      "pattern": "docs/user/miniapp-debugging.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079682Z",
+      "pattern": "docs/specs/adr-053-learning-center.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079685Z",
+      "pattern": "docs/specs/adr-055-ai-host-presentation.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079688Z",
+      "pattern": "docs/specs/frontend-block-palette.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:54:02.079690Z",
+      "pattern": "docs/cli-integration.md",
+      "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
-  "strictness_tier": 2,
+  "strictness_tier": 1,
   "task_kind": "guided",
   "test_events": [
     {

@@ -259,3 +259,20 @@ Phase C findings C1–C4 remain separately tracked by #2295. Updating the
 conversion-specific block contract does not imply the general panel guide,
 write-panel skill, architecture proposal, or all generated reference prose has
 been completed.
+
+
+## 6. Combined Source Reconciliation
+
+At integration commit `3e966a1b` with the `5a0cc503` renderer branch merged, the
+previously separate source and documentation repairs are present together.
+D1's tool registration, image transport and production instructions are included;
+D2's conversion recipe and D4's memory wording are included by `ce8c6ffb`.
+D3's guide now explicitly documents directory moves on promotion, exports versus
+workflow outputs, and All Previewers in the preview column.
+
+The renderer entry module, all nine component modules, styles, asset serving and
+contract tests are present in the combined tree. This resolves the missing-asset
+integration dependency identified in section 5. Source reconciliation closes the
+documentation gaps; runtime, native compositor, gate and CI outcomes are recorded
+separately in the integration checklist and gate ledger. It does not turn the
+prose review into execution evidence. Phase C findings remain on #2295.

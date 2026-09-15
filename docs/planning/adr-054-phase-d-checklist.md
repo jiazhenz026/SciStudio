@@ -185,10 +185,10 @@ desktop code change was required.
 
 - Project-wide source discovery replaces the previous FR-023 listing deferral.
 - Native Windows SC-004 evidence is not claimed on this macOS workstation.
-  TODO(#2354): verify suspended launch, Job Object assignment failure and full
+  TODO(#2288): verify suspended launch, Job Object assignment failure and full
   process-tree cleanup on a native Windows runner before cross-platform closure.
   Out of scope per the current macOS guided validation session.
-  Followup: https://github.com/jiazhenz026/SciStudio/issues/2354.
+  Followup: https://github.com/jiazhenz026/SciStudio/issues/2288.
 - This checkpoint is for desktop testing; final PR/CI readiness remains pending.
 
 
@@ -215,12 +215,12 @@ for its delivered features.
 | Audit fixes, project isolation, initial desktop UX | Integration | Implemented; original checkpoint and integration ledger |
 | MiniApp skill rewrite and unambiguous source labels | Integration | `d03d9cdc`; frontend tests passed |
 | Icon-only dialog close buttons | Integration | `3c1439d1`; frontend tests passed |
-| Nine reusable core UI components | Component worker | Implementation complete; upstream parity integration and final review in progress |
-| Desktop GUI screenshot and image transport | GUI worker | Implementation and validation in progress |
+| Nine reusable core UI components | Component worker | Integrated from `5a0cc503`; worker frontend 2631 tests/build and Python 121 tests passed |
+| Desktop GUI screenshot and image transport | GUI worker | Integrated as `3e966a1b`; combined/native validation in progress |
 | Hover actions and source editor entry | Canvas worker | Integrated as `048ab10a`; worker frontend 2625 tests and build passed |
-| ADR documentation completeness review | Documentation reviewer | Review in progress; final report required |
-| Production skill/reference consistency | Integration and GUI worker | In progress |
-| Combined desktop smoke, local gate, PR and CI | Integration | Pending completed worker commits |
+| ADR documentation completeness review | Documentation reviewer | Report and follow-up integrated as `63ba5c54` and `38242082`; final source reconciliation below |
+| Production skill/reference consistency | Integration and GUI worker | Integrated: `ce8c6ffb`, renderer reference and `3e966a1b` production guides |
+| Combined desktop smoke, local gate, PR and CI | Integration | All worker code integrated; gate recovery in progress |
 
 
 ### Desktop hover smoke
@@ -233,3 +233,23 @@ available. New MiniApp opened the creation dialog with the selected node instanc
 without creating an app. No workflow configuration or output was changed.
 Source-path editing and Escape/viewport invalidation are covered by the worker's
 focused frontend tests; this smoke does not claim a native edit/save test.
+
+
+### Documentation and verification reconciliation (2026-09-15)
+
+The combined tree contains `sdk/1/renderers.js`, all nine renderer modules,
+`renderers.css`, their asset allowlist entries and contract tests. The production
+MiniApp guide explains that library promotion moves the directory, distinguishes
+file exports from typed workflow outputs, and identifies All Previewers in the
+preview column. The D1–D4 document repairs in the documentation audit now land
+together with their implementations. General Phase C work stays on #2295.
+
+SciStudio supplies only `screenshot_gui`; authoring instructions use the agent's
+available computer use tools for interaction and require honest disclosure when
+interaction cannot be exercised. No additional interaction MCP is promised.
+
+The original development desktop was no longer running at final integration.
+The installed SciStudio application held the single-instance lock and had a live
+session, so it was left untouched. Final screenshot validation uses the isolated
+Electron compositor fixture and separate API/MCP/WebSocket regressions; it does
+not claim a screenshot round-trip through the installed application.
