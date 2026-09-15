@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   blocks. Includes project-scoped source selection, reusable core data-view UI
   components, and AI-accessible desktop GUI screenshots. (#2354)
 
+- [#2441] **Agents can list the MiniApps that already exist.** The new read-only
+  MCP tool `list_miniapps` returns every discovered MiniApp with its id, name,
+  owner tier (and package), declared type, entry page, whether it has Python, and
+  its directory, plus the directories under the project and user panels tiers that
+  discovery skipped, with their diagnostics. An optional `data_type` filter keeps
+  only the MiniApps that open on an output of that type, subtypes included. It
+  reads the same discovery `open_miniapp` reads, so every listed MiniApp opens.
+
 - [#2434] **The workflow YAML file format has a generated reference page.**
   `api-reference/workflow-yaml.md` lists every key of a workflow file with its
   type, whether it is required, its default, and its meaning; the rules checked
