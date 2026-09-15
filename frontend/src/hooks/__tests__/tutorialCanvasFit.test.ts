@@ -19,7 +19,7 @@ import { useAppStore } from "../../store";
 
 const DEPS = {
   appendLog: vi.fn(),
-  setInteractivePrompt: vi.fn(),
+  upsertInteractivePrompt: vi.fn(),
   setWorkflow: vi.fn(),
 };
 

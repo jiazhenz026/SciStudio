@@ -119,11 +119,19 @@ async function ensureNewNoteDirectory(
 
 interface WorkflowLoadHelpers {
   openTab: ProjectActionsDeps["openTab"];
-  resetExecution: ProjectActionsDeps["resetExecution"];
   setLastError: ProjectActionsDeps["setLastError"];
 }
 
-function useWorkflowLoaders({ openTab, resetExecution, setLastError }: WorkflowLoadHelpers) {
+/*
+ * #2395 — opening, creating or importing a workflow inside the open project
+ * does NOT reset execution state. That state is held per workflow and projected
+ * onto the one on screen (#2362), so the incoming workflow already shows only
+ * its own facts; a reset would instead wipe every OTHER workflow's bucket,
+ * including the running flag of a workflow still running — re-enabling its Run
+ * button while the backend rejects a second run with 409. Only a project
+ * boundary (open / create / delete project) resets it.
+ */
+function useWorkflowLoaders({ openTab, setLastError }: WorkflowLoadHelpers) {
   const loadWorkflowForProject = useCallback(
     async (project: ProjectResponse) => {
       if (project.current_workflow_id) {
@@ -143,13 +151,12 @@ function useWorkflowLoaders({ openTab, resetExecution, setLastError }: WorkflowL
       try {
         const workflow = await api.getWorkflow(wfId);
         openTab(workflow, displayName ?? wfId);
-        resetExecution();
         setLastError(null);
       } catch (error) {
         setLastError((error as Error).message);
       }
     },
-    [openTab, resetExecution, setLastError],
+    [openTab, setLastError],
   );
 
   return { loadWorkflowForProject, loadWorkflowById };
@@ -521,19 +528,11 @@ function useFileActions({ currentProject, openFileTab, promptInput }: FileAction
 }
 
 export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
-  const {
-    currentProject,
-    openTab,
-    openFileTab,
-    resetExecution,
-    setCurrentProject,
-    setLastError,
-    promptInput,
-  } = deps;
+  const { currentProject, openTab, openFileTab, setCurrentProject, setLastError, promptInput } =
+    deps;
 
   const { loadWorkflowForProject, loadWorkflowById } = useWorkflowLoaders({
     openTab,
-    resetExecution,
     setLastError,
   });
 
@@ -557,8 +556,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
     if (name === null) return; // cancelled
     const id = name.trim() || "Untitled";
     openTab(emptyWorkflow(id));
-    resetExecution();
-  }, [openTab, resetExecution, promptInput]);
+  }, [openTab, promptInput]);
 
   // ADR-044 §3 / US1 AS3 — double-click a (healthy) subworkflow node → open its
   // referenced file in a canvas tab. The ref path is project-relative and may
@@ -615,7 +613,6 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
       try {
         const workflow = await api.importWorkflowFile(file);
         openTab(workflow);
-        resetExecution();
         setLastError(null);
         setCurrentProject({
           ...currentProject,
@@ -629,7 +626,7 @@ export function useProjectActions(deps: ProjectActionsDeps): ProjectActions {
       }
     };
     input.click();
-  }, [currentProject, openTab, resetExecution, setCurrentProject, setLastError]);
+  }, [currentProject, openTab, setCurrentProject, setLastError]);
 
   return {
     loadWorkflowForProject,

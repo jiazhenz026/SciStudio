@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { dispatchWorkflowEvent } from "../hooks/useWebSocket.parts/dispatchEvent";
 import { submitPanelDecision } from "./decisions";
 const identity = { context_id: "pc-1", workflow_id: "wf-1", block_id: "b-1" };
-const deps = { appendLog: vi.fn(), setWorkflow: vi.fn(), setInteractivePrompt: vi.fn() };
+const deps = { appendLog: vi.fn(), setWorkflow: vi.fn(), upsertInteractivePrompt: vi.fn() };
 const dispatch = (patch: Record<string, unknown>) =>
   dispatchWorkflowEvent(
     {

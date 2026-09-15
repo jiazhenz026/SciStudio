@@ -327,14 +327,25 @@ export interface ExecutionSlice {
   blockErrorSummaries: Record<string, string>;
   executionMessages: string[];
   logEntries: LogEntry[];
-  /** True while a workflow execution is in progress. */
+  /**
+   * True while the workflow on screen is running. #2395: a projection of that
+   * workflow's `executionByWorkflow` bucket, so another workflow's run starting
+   * or finishing never flips it.
+   */
   isRunning: boolean;
-  /** #591/#594: Active interactive prompt from a PAUSED block (DataRouter/PairEditor). */
-  interactivePrompt: InteractivePrompt | null;
+  /**
+   * #591/#594 + #2395: pending interactive prompts from PAUSED blocks, keyed by
+   * `interactivePromptKey(workflowId, blockId)` in arrival order. Two workflows
+   * paused at once each keep their own prompt.
+   */
+  interactivePrompts: Record<string, InteractivePrompt>;
   consumeEvent: (event: WorkflowEventMessage) => void;
   appendLog: (entry: LogEntry) => void;
   resetExecution: () => void;
-  setInteractivePrompt: (prompt: InteractivePrompt | null) => void;
+  /** Add a prompt, or replace the pending one for the same `(workflow, block)`. */
+  upsertInteractivePrompt: (prompt: InteractivePrompt) => void;
+  /** Remove the prompt of one block of one workflow (answered or cancelled). */
+  removeInteractivePrompt: (workflowId: string, blockId: string) => void;
 }
 
 /**

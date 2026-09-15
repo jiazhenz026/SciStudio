@@ -1,0 +1,109 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2395-frontend-scoped-state",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/**",
+      ".workflow/records/2395-frontend-scoped-state.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T05:57:55.272908Z",
+      "owner_directive": "Support multiple different workflows running concurrently; the same workflow cannot run twice at once.",
+      "reason": "Owner product rule for concurrent runs"
+    },
+    {
+      "at": "2026-09-15T06:06:38.111808Z",
+      "owner_directive": "Stop fresh browser pages from clearing the agent's active workflow context on load; publish only on real workflow selection.",
+      "reason": "owner scope addition"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T06:09:43.301089Z",
+      "class": "user_docs",
+      "kind": "na",
+      "path": null,
+      "rationale": "Frontend state-scoping bugfix; no user guide, spec or ADR describes the running flag, prompt queue, plot/lineage project boundary or active-context sync timing (checked docs/user).",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2395,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix frontend F-group issues (isRunning per workflow, interactive prompts per (workflow, block), plot target/lineage scoped to project, active-context sync dedupe on (project, workflow), PlotsTab post-await selection) as a standalone PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2395-frontend-scoped-state",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "58815581-373b-4e21-b3ab-f1265f5bb49e",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T06:09:43.301228Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/scopedFrontendState.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:09:43.301232Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/activeContextSync.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:09:43.301234Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:09:43.301235Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/BottomPanel.parts/PlotsTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:09:43.301236Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/Lineage/__tests__/LineageTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

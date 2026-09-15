@@ -51,7 +51,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
 
 const DEPS = {
   appendLog: vi.fn(),
-  setInteractivePrompt: vi.fn(),
+  upsertInteractivePrompt: vi.fn(),
   setWorkflow: vi.fn(),
 };
 
