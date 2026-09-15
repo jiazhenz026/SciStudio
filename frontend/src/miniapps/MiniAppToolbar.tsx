@@ -2,6 +2,8 @@
  * ADR-054 FR-021 — the MiniApp tab's toolbar: process state, Restart, Stop,
  * and Convert to interactive block (FR-036).
  */
+import { Blocks, RotateCcw, Square } from "lucide-react";
+
 import type { PanelProcessStatus } from "../panels/types";
 
 /** The words FR-015 names, in the order a reader meets them. */
@@ -71,22 +73,31 @@ export function MiniAppToolbar(props: MiniAppToolbarProps) {
       <span className="flex-1" />
       <button
         type="button"
-        className="toolbar-button"
+        className="toolbar-button inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap"
         disabled={busy || processAbsent}
         onClick={props.onRestart}
       >
+        <RotateCcw size={14} aria-hidden="true" />
         Restart
       </button>
       <button
         type="button"
-        className="toolbar-button"
+        className="toolbar-button inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap"
         disabled={busy || processAbsent}
         onClick={props.onStop}
       >
+        <Square size={14} aria-hidden="true" />
         Stop
       </button>
-      <button type="button" className="toolbar-button" onClick={props.onConvert}>
-        Convert to interactive block
+      <button
+        type="button"
+        className="toolbar-button inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+        onClick={props.onConvert}
+        title="Convert to interactive block"
+        aria-label="Convert to interactive block"
+      >
+        <Blocks size={14} aria-hidden="true" />
+        Convert
       </button>
     </div>
   );

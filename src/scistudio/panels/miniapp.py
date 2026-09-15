@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 from scistudio.panels.descriptor import PanelDescriptor
@@ -44,6 +45,16 @@ def _output_ref(runtime: Any, value: Any) -> str:
     raise PanelError(409, "no_output", "The block output cannot be resolved to a data reference")
 
 
+def run_belongs_to_project(runtime: Any, run: Any) -> bool:
+    """Require the run's launch directory to match the active project."""
+    project = getattr(runtime, "active_project", None)
+    project_dir = getattr(project, "path", None)
+    run_dir = getattr(getattr(run, "scheduler", None), "_project_dir", None)
+    if not project_dir or not run_dir:
+        return False
+    return Path(project_dir).resolve() == Path(run_dir).resolve()
+
+
 def resolve_source(runtime: Any, source: dict[str, Any], panel: PanelDescriptor) -> FrozenTarget:
     """Freeze the block-output target for *source*, refusing a mismatched type."""
     workflow_id = source.get("workflow_id")
@@ -52,6 +63,8 @@ def resolve_source(runtime: Any, source: dict[str, Any], panel: PanelDescriptor)
     if not all(isinstance(v, str) and v for v in (workflow_id, block_id, port)):
         raise PanelError(422, "invalid_request", "source requires workflow_id, block_id and port")
     run = runtime.workflow_runs.get(workflow_id)
+    if not run_belongs_to_project(runtime, run):
+        raise PanelError(409, "no_output", "That workflow has no output in the current project")
     scheduler = getattr(run, "scheduler", None)
     if scheduler is None:
         raise PanelError(409, "no_output", "That workflow has no completed run in this session")

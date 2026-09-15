@@ -68,6 +68,7 @@ def _runtime(tmp_path: Path) -> SimpleNamespace:
         ],
     )
     scheduler = SimpleNamespace(
+        _project_dir=str(tmp_path),
         _workflow=definition,
         _block_outputs={"seg": {"out": {"data_ref": "data-text"}}, "tab": {"out": {"data_ref": "data-table"}}},
         _block_states={"seg": SimpleNamespace(value="done"), "tab": SimpleNamespace(value="done")},
@@ -426,3 +427,61 @@ def test_project_source_listing_does_not_require_an_existing_panel(tmp_path: Pat
     response = client.get("/api/panels/miniapps/sources")
     assert response.status_code == 200
     assert {row["type"] for row in response.json()["sources"]} == {"Text", "Table"}
+
+
+@pytest.mark.parametrize("missing_owner", [False, True])
+def test_previous_project_sources_cannot_be_listed_or_opened(
+    tmp_path: Path, agent: dict[str, Any], missing_owner: bool
+) -> None:
+    client = _client(tmp_path)
+    created = _create(client).json()
+    runtime = client.app.state.runtime
+    assert len(client.get("/api/panels/miniapps/sources").json()["sources"]) == 2
+    other = tmp_path / "empty-project"
+    other.mkdir()
+    runtime.active_project = SimpleNamespace(id="empty", path=str(other))
+    runtime.data_catalog = {}
+    # Keep old scheduler outputs and even resolvable catalog aliases around:
+    # ownership must reject them before they can be frozen or re-registered.
+    if missing_owner:
+        del runtime.workflow_runs["wf"].scheduler._project_dir
+    assert client.get("/api/panels/miniapps/sources").json()["sources"] == []
+    assert client.get(f"/api/panels/miniapps/{created['panel_id']}/sources").json()["sources"] == []
+    response = _create(client)
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "no_output"
+    response = client.post(
+        "/api/panels/contexts",
+        json={
+            "kind": "miniapp",
+            "panel_id": created["panel_id"],
+            "source": _SOURCE,
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "no_output"
+    assert not (other / "panels").exists()
+
+
+def test_project_switch_excludes_retained_runs(
+    client: TestClient, runtime: Any, opened_project: Path, project_parent: Path
+) -> None:
+    retained = _runtime(opened_project)
+    scheduler = retained.workflow_runs["wf"].scheduler
+    # Real scheduler outputs carry storage payloads which the source resolver
+    # can register again after open_project resets the data catalogue.
+    scheduler._block_outputs = {
+        "seg": {
+            "out": {
+                "backend": "filesystem",
+                "path": str(opened_project / "notes.txt"),
+                "metadata": {"type_chain": ["DataObject", "Text"]},
+            }
+        }
+    }
+    runtime.workflow_runs["wf"] = SimpleNamespace(scheduler=scheduler, task=SimpleNamespace(done=lambda: True))
+    assert client.get("/api/panels/miniapps/sources").json()["sources"]
+    response = client.post("/api/projects/", json={"name": "Empty B", "path": str(project_parent)})
+    assert response.status_code == 200, response.text
+    assert client.get("/api/panels/miniapps/sources").json()["sources"] == []
+    assert not runtime.data_catalog

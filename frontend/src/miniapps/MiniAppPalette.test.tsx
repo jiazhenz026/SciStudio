@@ -146,14 +146,16 @@ describe("MiniApps tab — the listing (FR-031)", () => {
 
   it("hands New MiniApp to the workspace, which owns the dialog", async () => {
     const { onCreate } = await renderPalette([]);
+    expect(screen.getByTestId("miniapp-new").textContent).toBe("New");
     fireEvent.click(screen.getByTestId("miniapp-new"));
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the MiniApp on a double click (the target picker is the workspace's)", async () => {
+  it("opens the MiniApp on a single click (the target picker is the workspace's)", async () => {
     const { onOpen } = await renderPalette([projectApp]);
-    fireEvent.doubleClick(await screen.findByTestId("miniapp-card-threshold-explorer"));
+    fireEvent.click(await screen.findByTestId("miniapp-card-threshold-explorer"));
     expect(onOpen).toHaveBeenCalledWith(projectApp);
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });
 

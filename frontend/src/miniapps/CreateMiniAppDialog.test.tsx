@@ -14,7 +14,7 @@
  * the dialog SENDS and SHOWS, which is the part that is this file's to get
  * wrong.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentAvailabilityResponse } from "../lib/api/agentAvailability";
@@ -24,7 +24,8 @@ import { resetAppStore } from "../testUtils";
 import type { BlockSchemaResponse, WorkflowNode } from "../types/api";
 
 import { CreateMiniAppDialog, type CreateMiniAppResult } from "./CreateMiniAppDialog";
-import type { MiniAppTarget } from "./types";
+import { miniAppsApi } from "./api";
+import type { MiniAppSource, MiniAppTarget } from "./types";
 
 const READY: AgentAvailabilityResponse = {
   state: "ready",
@@ -119,7 +120,20 @@ async function settled(): Promise<void> {
   await waitFor(() => expect(screen.queryByTestId("miniapp-create-probing")).toBeNull());
 }
 
+const SOURCES: MiniAppSource[] = [
+  { ...PRESET, workflow_name: "Main", block_name: "Segment", type: "Mask" },
+  {
+    workflow_id: "main",
+    workflow_name: "Main",
+    block_id: "table1",
+    block_name: "Table",
+    port: "table",
+    type: "DataFrame",
+  },
+];
+
 beforeEach(() => {
+  vi.spyOn(miniAppsApi, "projectSources").mockResolvedValue(SOURCES);
   resetAppStore();
   useAppStore.setState({
     currentProject: {
@@ -155,6 +169,11 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     const harness = renderDialog({ presetTarget: PRESET });
     await settled();
 
+    expect(screen.getByLabelText("Data source")).toBeTruthy();
+    expect(screen.getByLabelText("Instructions")).toHaveAttribute(
+      "placeholder",
+      "Show the image with a threshold slider. Update the mask as I adjust the threshold.",
+    );
     const select = screen.getByTestId("miniapp-create-target") as HTMLSelectElement;
     expect(select.value).toBe("main segment1 mask");
 
@@ -267,4 +286,41 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     expect(screen.queryByTestId("miniapp-create-dialog")).toBeNull();
     expect(fetchAvailability).not.toHaveBeenCalled();
   });
+});
+
+it("clears previous-project choices immediately and ignores a late source response", async () => {
+  let resolveOld!: (sources: MiniAppSource[]) => void;
+  vi.mocked(miniAppsApi.projectSources)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+    )
+    .mockResolvedValueOnce([]);
+  const harness = renderDialog({ presetTarget: PRESET });
+  await act(async () => {
+    useAppStore.setState({
+      currentProject: {
+        ...useAppStore.getState().currentProject!,
+        id: "p2",
+        path: "/projects/empty",
+      },
+    });
+  });
+  await waitFor(() => expect(screen.getByTestId("miniapp-create-no-outputs")).toBeTruthy());
+  await act(async () => {
+    resolveOld(SOURCES);
+  });
+  expect(screen.queryByTestId("miniapp-create-target")).toBeNull();
+  expect(screen.getByTestId("miniapp-create-submit")).toBeDisabled();
+  expect(harness.create).not.toHaveBeenCalled();
+});
+
+it("does not fall back to cached canvas data when source discovery fails", async () => {
+  vi.mocked(miniAppsApi.projectSources).mockRejectedValue(new Error("Cannot load project data"));
+  renderDialog({ presetTarget: PRESET });
+  expect(await screen.findByRole("alert")).toHaveTextContent("Cannot load project data");
+  expect(screen.queryByTestId("miniapp-create-target")).toBeNull();
+  expect(screen.getByTestId("miniapp-create-submit")).toBeDisabled();
 });

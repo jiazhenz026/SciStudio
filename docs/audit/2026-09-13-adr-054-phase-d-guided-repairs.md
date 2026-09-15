@@ -79,3 +79,21 @@ The pre-existing scalar Load error in the test workflow (zero-dimensional
 array indexed with one dimension) is outside the MiniApp audit scope and is
 recorded here for #2354 triage. Array explorer testing
 used the successful `load_one` output.
+
+
+## Subsequent owner feedback
+
+The owner found previous-project sources in a new project's create picker.
+`open_project` clears the data catalogue while retaining workflow runs; the
+MiniApp resolver had walked those retained runs without checking their launch
+project and could re-register raw storage outputs. Source discovery and source
+resolution now reject other-project or unowned runs before accessing outputs.
+Regression coverage exercises real project creation/switching as well as list,
+create, and context refusal with retained previous-project runs.
+
+The frontend no longer seeds creation from canvas output caches, clears picker
+state across projects, and ignores a superseded response. Labels identify node
+instances instead of repeating block type names. The sidebar New button stays
+on one line, and cards open with one click. Backend fixes require a desktop
+backend restart at a user-approved testing boundary; the active session was not
+interrupted while the owner continued testing.

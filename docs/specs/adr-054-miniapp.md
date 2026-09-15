@@ -262,7 +262,7 @@ only, and that All Previewers opens today's previewer list.
 
 ### User Story 6 - A MiniApp opens on data of its type (Priority: P2)
 
-The user double-clicks the threshold explorer's card, or right-clicks a block.
+The user clicks the threshold explorer's card, or right-clicks a block.
 
 **Why this priority**: Declaring one type is how a MiniApp is reused on other data.
 
@@ -527,8 +527,8 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
 
 - **FR-031**: The activity bar's Previewers entry MUST be replaced by a MiniApps
   entry. The MiniApps tab MUST list every panel declaring `miniapp`, grouped by
-  tier as the Previewers tab groups previewers, with a search box and a New MiniApp
-  button; a card shows the name and declared type, and a double-click opens the
+  tier as the Previewers tab groups previewers, with a search box and a plus-icon New
+  button; a card shows the name and declared type, and a single click opens the
   MiniApp (FR-034).
 - **FR-032**: Each MiniApp card MUST show the shared hover popover
   (`frontend/src/components/palette/DetailPopover.tsx`) with the description,
@@ -815,3 +815,30 @@ dependencies first, then add project and installed-package roots. This prevents
 a plugin's incompatible native dependency from replacing the runtime's copy.
 Setup/import exceptions appear in the process status and log. Create and Convert
 responses include the actual session provider and permission mode for UI adoption.
+
+
+### Guided project-isolation clarification (#2354)
+
+MiniApp sources MUST belong to the active project. A retained workflow run from
+another project, or a run without a recorded launch project, cannot supply a
+candidate, create request, or MiniApp context. The runtime retains live workflow
+runs for lifecycle management; MiniApp discovery must check scheduler ownership
+before registering any raw output into the active catalogue.
+
+The create and open pickers reset on project change and ignore superseded
+responses. Creation waits for current backend discovery; cached canvas outputs
+and unvalidated context-menu presets cannot substitute for it. Candidate labels
+identify the node instance, with a display name when available. The MiniApps
+sidebar uses a single-line plus-icon New button, and a single click opens a card.
+
+
+The owner-approved create-dialog copy is **Data source** with “Select an output
+from a completed block.” and **Instructions** with “Describe what to display and
+which controls you need.” The example is “Show the image with a threshold slider.
+Update the mask as I adjust the threshold.” Instructions continue to populate
+the MiniApp description and agent brief.
+
+
+MiniApp toolbar actions use icon-and-text controls: rotation arrow **Restart**,
+square **Stop**, and blocks **Convert**. Convert retains “Convert to interactive
+block” as its tooltip and accessible name. These controls keep neutral styling.

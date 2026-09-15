@@ -3,7 +3,7 @@
 // Spec: docs/specs/adr-054-miniapp.md
 //   FR-031 (this tab replaces the Previewers tab in the same slot: every panel
 //     declaring `miniapp`, grouped by tier, with a search box, a New MiniApp
-//     button, and a double-click that opens the MiniApp),
+//     button, and a single click that opens the MiniApp),
 //   FR-032 (the shared hover popover: description, declared type, tier,
 //     directory, and Promote to My Library for a project MiniApp only),
 //   FR-034 (opening asks for a target — the picker is the workspace's, reached
@@ -21,6 +21,8 @@
 // (FR-024) are dialogs mounted beside the whole workspace, not inside a
 // sidebar pane that a tab switch unmounts.
 
+import { Plus } from "lucide-react";
+
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { DetailPopover } from "../components/palette/DetailPopover";
@@ -30,6 +32,8 @@ import type { Section, SectionSlot } from "../components/palette/sections";
 import { useDialogChannel } from "../components/promotion/dialogChannel";
 import { PromoteToLibraryAction } from "../components/promotion/PromoteToLibraryAction";
 import { promotableMiniApp } from "../components/promotion/promotable";
+
+import { useAppStore } from "../store";
 
 import { miniAppsApi } from "./api";
 import type { MiniAppSummary } from "./types";
@@ -180,10 +184,8 @@ interface MiniAppCardProps {
 /**
  * One MiniApp card: the name, and the type it opens on (FR-031).
  *
- * A click opens the detail popover the hover opens, so the card's detail — and
- * the promotion action inside it — is reachable without a pointer; the double
- * click is what opens the MiniApp, matching the Data types tab's "double click
- * opens the source" vocabulary.
+ * A single click opens the MiniApp. Hover exposes details and promotion;
+ * those actions live in a separate popover and do not activate the card.
  */
 function MiniAppCard({ miniapp, onOpen, onEnter, onLeave }: MiniAppCardProps) {
   const anchorFrom = (element: HTMLElement) => onEnter(miniapp, element.getBoundingClientRect());
@@ -191,8 +193,7 @@ function MiniAppCard({ miniapp, onOpen, onEnter, onLeave }: MiniAppCardProps) {
     <div
       className="cursor-pointer rounded-xl border border-stone-200 bg-white p-3 shadow-sm transition hover:border-ink"
       data-testid={`miniapp-card-${miniapp.panel_id}`}
-      onClick={(event) => anchorFrom(event.currentTarget)}
-      onDoubleClick={() => onOpen(miniapp)}
+      onClick={() => onOpen(miniapp)}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
           onOpen(miniapp);
@@ -229,7 +230,12 @@ export interface MiniAppPaletteProps {
   onCreate: () => void;
 }
 
-export function MiniAppPalette({ onOpen, onCreate }: MiniAppPaletteProps) {
+export function MiniAppPalette(props: MiniAppPaletteProps) {
+  const projectPath = useAppStore((s) => s.currentProject?.path ?? "");
+  return <MiniAppPaletteBody key={projectPath} {...props} />;
+}
+
+function MiniAppPaletteBody({ onOpen, onCreate }: MiniAppPaletteProps) {
   const [miniapps, setMiniApps] = useState<MiniAppSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -289,12 +295,13 @@ export function MiniAppPalette({ onOpen, onCreate }: MiniAppPaletteProps) {
             of `Blocks` and `Data types`. */}
         <p className="font-display text-xl text-ink">MiniApps</p>
         <button
-          className="toolbar-button"
+          className="toolbar-button inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
           data-testid="miniapp-new"
           onClick={onCreate}
           type="button"
         >
-          New MiniApp
+          <Plus size={14} aria-hidden="true" />
+          New
         </button>
       </div>
 

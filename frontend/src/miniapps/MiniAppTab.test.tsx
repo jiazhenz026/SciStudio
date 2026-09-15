@@ -238,7 +238,10 @@ describe("MiniApp tab lifetime (ADR-054 FR-018 / FR-019)", () => {
     // only reports which MiniApp is being converted.
     const onConvert = vi.fn();
     render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={onConvert} />);
-    fireEvent.click(screen.getByRole("button", { name: "Convert to interactive block" }));
+    const convert = screen.getByRole("button", { name: "Convert to interactive block" });
+    expect(convert).toHaveAttribute("title", "Convert to interactive block");
+    expect(convert).toHaveTextContent(/^Convert$/);
+    fireEvent.click(convert);
     expect(onConvert).toHaveBeenCalledWith("lab.threshold");
   });
 

@@ -39,7 +39,7 @@
  * which is why a 409 `agent_unavailable` is rendered here verbatim rather than
  * being treated as impossible.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { PermissionMode } from "../components/AIChat/SetupScreen.parts/types";
 import { AgentSetup } from "../components/BringInMyWorkDialog.parts/AgentSetup";
@@ -63,14 +63,12 @@ export const REQUEST_MAX_LENGTH = 4000;
 
 export const CREATE_TITLE = "New MiniApp";
 export const CREATE_EYEBROW = "MiniApp";
-export const REQUEST_LABEL = "What do you want to see or do?";
-export const REQUEST_HELP =
-  "Describe it the way you would to a colleague. The agent writes the MiniApp from this, and it stays on the MiniApp as its description.";
+export const REQUEST_LABEL = "Instructions";
+export const REQUEST_HELP = "Describe what to display and which controls you need.";
 export const REQUEST_PLACEHOLDER =
-  "Let me drag a threshold across the stack and see the mask update.";
-export const DATA_LABEL = "Which data?";
-export const DATA_HELP =
-  "An output of a block that has run. The MiniApp opens on it, and takes its type from it.";
+  "Show the image with a threshold slider. Update the mask as I adjust the threshold.";
+export const DATA_LABEL = "Data source";
+export const DATA_HELP = "Select an output from a completed block.";
 export const NO_OUTPUTS =
   "No block in the project has produced an output yet. Run a block first, then come back.";
 export const NO_PROJECT = "Open a project first.";
@@ -83,39 +81,7 @@ export interface OutputChoice {
   label: string;
 }
 
-/**
- * The outputs the user may choose from.
- *
- * `blockOutputs` is the canvas's own record of what the latest run produced,
- * keyed by node id and then by output port - the same source the preview column
- * and the canvas context menu read. A port is offered because data exists at
- * it, never because a schema declares it: a block that has not run has nothing
- * to open a MiniApp on.
- *
- * Cached outputs seed the picker while the project-wide source list loads.
- */
-export function outputChoices(
-  workflowId: string | null,
-  nodes: { id: string; block_type: string }[],
-  blockOutputs: Record<string, Record<string, unknown>>,
-  labelOf: (nodeId: string) => string,
-  typeOf: (nodeId: string, port: string) => string | null,
-): OutputChoice[] {
-  if (!workflowId) return [];
-  const choices: OutputChoice[] = [];
-  for (const node of nodes) {
-    const outputs = blockOutputs[node.id];
-    if (!outputs) continue;
-    for (const port of Object.keys(outputs)) {
-      const declared = typeOf(node.id, port);
-      choices.push({
-        target: { workflow_id: workflowId, block_id: node.id, port },
-        label: `${labelOf(node.id)} - ${port}${declared ? ` (${declared})` : ""}`,
-      });
-    }
-  }
-  return choices;
-}
+const EMPTY_OUTPUT_CHOICES: OutputChoice[] = [];
 
 function targetKey(target: MiniAppTarget): string {
   return `${target.workflow_id} ${target.block_id} ${target.port}`;
@@ -148,8 +114,9 @@ export interface CreateMiniAppDialogProps {
  * and serve a stale report to a dialog opened ten minutes later.
  */
 export function CreateMiniAppDialog(props: CreateMiniAppDialogProps) {
+  const projectPath = useAppStore((s) => s.currentProject?.path ?? "");
   if (!props.open) return null;
-  return <CreateMiniAppDialogBody {...props} />;
+  return <CreateMiniAppDialogBody key={projectPath} {...props} />;
 }
 
 function CreateMiniAppDialogBody({
@@ -160,30 +127,8 @@ function CreateMiniAppDialogBody({
   create = miniAppsApi.create,
 }: CreateMiniAppDialogProps) {
   const projectOpen = useAppStore((s) => s.currentProject !== null);
-  const workflowId = useAppStore((s) => s.workflowId);
-  const nodes = useAppStore((s) => s.workflowNodes);
-  const blockOutputs = useAppStore((s) => s.blockOutputs);
-  const blocks = useAppStore((s) => s.blocks);
-  const schemas = useAppStore((s) => s.blockSchemas);
-
-  const cachedChoices = useMemo(() => {
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const labelOf = (nodeId: string) => {
-      const node = nodeById.get(nodeId);
-      if (!node) return nodeId;
-      const summary = blocks.find((b) => b.type_name === node.block_type);
-      return summary?.name ?? schemas[node.block_type]?.name ?? node.block_type;
-    };
-    const typeOf = (nodeId: string, port: string) => {
-      const node = nodeById.get(nodeId);
-      const schema = node ? schemas[node.block_type] : undefined;
-      const spec = schema?.output_ports?.find((p) => p.name === port);
-      return spec?.accepted_types?.[0] ?? null;
-    };
-    return outputChoices(workflowId, nodes, blockOutputs, labelOf, typeOf);
-  }, [blockOutputs, blocks, nodes, schemas, workflowId]);
-
   const [projectChoices, setProjectChoices] = useState<OutputChoice[] | null>(null);
+  const [sourceError, setSourceError] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     miniAppsApi
@@ -197,39 +142,31 @@ function CreateMiniAppDialogBody({
                 block_id: source.block_id,
                 port: source.port,
               },
-              label: `${source.workflow_name} / ${source.block_name} - ${source.port} (${source.type})`,
+              label: `${source.workflow_name} / ${source.block_name}${source.block_name !== source.block_id ? ` [${source.block_id}]` : ""} - ${source.port} (${source.type})`,
             })),
           );
       })
-      .catch(() => {
-        /* Keep the known canvas outputs available if discovery fails. */
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setSourceError(err instanceof Error ? err.message : String(err));
+          setProjectChoices([]);
+        }
       });
     return () => {
       cancelled = true;
     };
   }, []);
-  const choices = projectChoices ?? cachedChoices;
-
-  /*
-   * The preset is offered even when it is not in `choices` - it came from a
-   * block the user just right-clicked, and a dialog that silently dropped it
-   * would send the user hunting for the row they had already chosen.
-   */
-  const options = useMemo(() => {
-    if (!presetTarget) return choices;
-    if (choices.some((c) => targetKey(c.target) === targetKey(presetTarget))) return choices;
-    return [
-      { target: presetTarget, label: `${presetTarget.block_id} - ${presetTarget.port}` },
-      ...choices,
-    ];
-  }, [choices, presetTarget]);
+  const options = projectChoices ?? EMPTY_OUTPUT_CHOICES;
 
   const [selectedKey, setSelectedKey] = useState<string>(() =>
     presetTarget ? targetKey(presetTarget) : options[0] ? targetKey(options[0].target) : "",
   );
   useEffect(() => {
-    if (!selectedKey && options[0]) setSelectedKey(targetKey(options[0].target));
-  }, [options, selectedKey]);
+    if (projectChoices === null) return;
+    if (!options.some((option) => targetKey(option.target) === selectedKey)) {
+      setSelectedKey(options[0] ? targetKey(options[0].target) : "");
+    }
+  }, [options, projectChoices, selectedKey]);
   const [request, setRequest] = useState("");
   const [provider, setProvider] = useState<string | null>(null);
   const [permissionMode, setPermissionMode] = useState<PermissionMode>("safe");
@@ -345,6 +282,12 @@ function CreateMiniAppDialogBody({
             {!projectOpen ? (
               <p className="text-sm text-stone-600" data-testid="miniapp-create-no-project">
                 {NO_PROJECT}
+              </p>
+            ) : projectChoices === null ? (
+              <p className="text-sm text-stone-600">Looking for project data...</p>
+            ) : sourceError ? (
+              <p className="text-sm text-red-700" role="alert">
+                {sourceError}
               </p>
             ) : options.length === 0 ? (
               <p className="text-sm text-stone-600" data-testid="miniapp-create-no-outputs">

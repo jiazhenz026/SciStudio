@@ -109,9 +109,6 @@ def _block_name(scheduler: Any, block_id: str) -> str:
                 value = config.get(key)
                 if isinstance(value, str) and value:
                     return value
-        block_type = getattr(node, "block_type", "")
-        if isinstance(block_type, str) and block_type:
-            return block_type
     return block_id
 
 
@@ -128,7 +125,11 @@ def iter_source_candidates(runtime: Any) -> Iterator[SourceCandidate]:
     reference — is skipped rather than failing the listing. The picker offers
     only outputs that can be opened now.
     """
+    from scistudio.panels.miniapp import run_belongs_to_project
+
     for workflow_id, run in list(getattr(runtime, "workflow_runs", {}).items()):
+        if not run_belongs_to_project(runtime, run):
+            continue
         scheduler = getattr(run, "scheduler", None)
         if scheduler is None:
             continue

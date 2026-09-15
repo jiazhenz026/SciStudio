@@ -66,6 +66,7 @@ def _runtime(tmp_path: Path, *, contexts='["miniapp"]'):
         ["DataObject", "Text"],
     )
     scheduler = SimpleNamespace(
+        _project_dir=str(tmp_path),
         _block_outputs={"seg": {"out": {"data_ref": "data-a"}}},
         _block_states={"seg": SimpleNamespace(value="done")},
     )

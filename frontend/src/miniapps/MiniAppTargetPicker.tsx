@@ -23,6 +23,8 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
+import { useAppStore } from "../store";
+
 import { miniAppsApi } from "./api";
 import type { MiniAppSource, MiniAppSummary, MiniAppTarget } from "./types";
 
@@ -53,8 +55,9 @@ export interface MiniAppTargetPickerProps {
 }
 
 export function MiniAppTargetPicker(props: MiniAppTargetPickerProps) {
+  const projectPath = useAppStore((s) => s.currentProject?.path ?? "");
   if (!props.open || !props.summary) return null;
-  return <MiniAppTargetPickerBody {...props} summary={props.summary} />;
+  return <MiniAppTargetPickerBody key={projectPath} {...props} summary={props.summary} />;
 }
 
 function MiniAppTargetPickerBody({
