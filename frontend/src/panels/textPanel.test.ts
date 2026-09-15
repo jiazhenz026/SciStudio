@@ -204,7 +204,10 @@ describe("core.text.basic — a document longer than one batch (#2460)", () => {
         offset: 0,
         next_offset: 0,
         truncated: true,
+        complete: false,
         total_bytes: 10,
+        language: "txt",
+        encoding: "utf-8",
       });
     await loadPanelModule();
     await vi.waitFor(() => expect(root().querySelector(".panel-error")).toBeTruthy());
