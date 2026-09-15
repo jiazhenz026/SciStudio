@@ -39,21 +39,44 @@ class _StubRuntime:
 
 @pytest.fixture
 def project_dir(tmp_path: Path) -> Path:
-    """A project workspace with docs/, workflows/, data/ scaffolded."""
-    (tmp_path / "docs").mkdir()
-    (tmp_path / "docs" / "guide.md").write_text("# Guide\n\nThis explains workflow design.\n", encoding="utf-8")
-    (tmp_path / "docs" / "adr").mkdir()
-    (tmp_path / "docs" / "adr" / "ADR-001.md").write_text("# ADR 1\nDesign decision.\n", encoding="utf-8")
-    (tmp_path / "workflows").mkdir()
-    (tmp_path / "data" / "zarr").mkdir(parents=True)
-    (tmp_path / "data" / "parquet").mkdir(parents=True)
-    (tmp_path / "data" / "artifacts").mkdir(parents=True)
-    (tmp_path / "data" / "parquet" / "table.parquet").write_bytes(b"placeholder")
-    (tmp_path / "project.yaml").write_text(
-        "project:\n  id: test\n  name: Test Project\n  version: 0.1.0\n", encoding="utf-8"
+    """A provisioned-style project: user-guide/, hidden agent docs, workflows/, data/.
+
+    Projects have no ``docs/`` directory (#2375); the docs tools read the whole
+    project directory.
+    """
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "README.md").write_text("# Project readme\n\nRoot notes on workflow runs.\n", encoding="utf-8")
+    (project / "user-guide").mkdir()
+    (project / "user-guide" / "guide.md").write_text("# Guide\n\nThis explains workflow design.\n", encoding="utf-8")
+    (project / "user-guide" / "adr").mkdir()
+    (project / "user-guide" / "adr" / "ADR-001.md").write_text("# ADR 1\nDesign decision.\n", encoding="utf-8")
+    (project / "user-guide" / "notes.rst").write_text("Notes\n=====\n\nrstneedle here.\n", encoding="utf-8")
+    (project / "user-guide" / "log.TXT").write_text("txtneedle here.\n", encoding="utf-8")
+    (project / ".scistudio" / "agent-reference").mkdir(parents=True)
+    (project / ".scistudio" / "agent-reference" / "README.md").write_text(
+        "# Agent reference\n\nhiddenneedle contract.\n", encoding="utf-8"
     )
-    (tmp_path / "workflows" / "wf1.yaml").write_text("workflow: {}\n", encoding="utf-8")
-    return tmp_path
+    (project / "blocks").mkdir()
+    (project / "blocks" / "block.py").write_text("# codeneedle\n", encoding="utf-8")
+    (project / "workflows").mkdir()
+    (project / "data" / "zarr").mkdir(parents=True)
+    (project / "data" / "parquet").mkdir(parents=True)
+    (project / "data" / "artifacts").mkdir(parents=True)
+    (project / "data" / "parquet" / "table.parquet").write_bytes(b"not-a-real-parquet")
+    (project / "data" / "artifacts" / "report.md").write_text("prunedneedle in data\n", encoding="utf-8")
+    (project / ".git").mkdir()
+    (project / ".git" / "notes.txt").write_text("prunedneedle in git\n", encoding="utf-8")
+    (project / "env").mkdir()
+    (project / "env" / "pyvenv.cfg").write_text("home = /usr\n", encoding="utf-8")
+    (project / "env" / "LICENSE.txt").write_text("prunedneedle in venv\n", encoding="utf-8")
+    (project / "node_modules" / "pkg").mkdir(parents=True)
+    (project / "node_modules" / "pkg" / "README.md").write_text("prunedneedle in node_modules\n", encoding="utf-8")
+    (project / "project.yaml").write_text(
+        "project:\n  id: test\n  name: Test Project\n  version: 0.1.0\n  note: codeneedle\n", encoding="utf-8"
+    )
+    (project / "workflows" / "wf1.yaml").write_text("workflow: {}\n", encoding="utf-8")
+    return project
 
 
 @pytest.fixture
@@ -72,35 +95,64 @@ def test_search_docs_happy(ctx: _StubRuntime) -> None:
     assert results, "expected at least one match"
     # Results are SearchDocsHit Pydantic models with a .snippet attribute.
     assert all(r.snippet for r in results)
+    assert {r.path for r in results} == {"README.md", "user-guide/guide.md"}
 
 
 def test_search_docs_empty_query(ctx: _StubRuntime) -> None:
     assert _run(tools_qa.search_docs(query="", scope=None)) == []
 
 
+def test_search_docs_reads_md_rst_txt_including_hidden_dirs(ctx: _StubRuntime) -> None:
+    """#2375: the whole project directory is searched, hidden dirs included."""
+    assert [r.path for r in _run(tools_qa.search_docs(query="rstneedle", scope=None))] == ["user-guide/notes.rst"]
+    assert [r.path for r in _run(tools_qa.search_docs(query="txtneedle", scope=None))] == ["user-guide/log.TXT"]
+    hidden = _run(tools_qa.search_docs(query="hiddenneedle", scope=None))
+    assert [r.path for r in hidden] == [".scistudio/agent-reference/README.md"]
+    assert hidden[0].line == 3
+
+
+def test_search_docs_ignores_non_doc_suffixes(ctx: _StubRuntime) -> None:
+    assert _run(tools_qa.search_docs(query="codeneedle", scope=None)) == []
+
+
+def test_search_docs_skips_data_vcs_and_environment_dirs(ctx: _StubRuntime) -> None:
+    assert _run(tools_qa.search_docs(query="prunedneedle", scope=None)) == []
+
+
+def test_search_docs_no_project_returns_empty() -> None:
+    _context.set_context(_StubRuntime(_project_dir=None))
+    try:
+        assert _run(tools_qa.search_docs(query="workflow", scope=None)) == []
+    finally:
+        _context.set_context(None)
+
+
 def test_search_docs_scope(ctx: _StubRuntime) -> None:
-    results = _run(tools_qa.search_docs(query="design", scope="adr"))
-    assert results
-    # All results should be from the adr/ scope — .path is the relative path str.
-    assert all("adr" in r.path.lower() or r.path.endswith(".md") for r in results)
+    results = _run(tools_qa.search_docs(query="design", scope="user-guide/adr"))
+    assert [r.path for r in results] == ["user-guide/adr/ADR-001.md"]
+
+
+def test_search_docs_scope_hidden_dir(ctx: _StubRuntime) -> None:
+    results = _run(tools_qa.search_docs(query="contract", scope=".scistudio"))
+    assert [r.path for r in results] == [".scistudio/agent-reference/README.md"]
 
 
 def test_search_docs_scope_rejects_traversal(ctx: _StubRuntime) -> None:
-    """Codex P1 regression — ``scope`` containing ``..`` must not escape docs/.
+    """Codex P1 regression — ``scope`` containing ``..`` must not escape the project.
 
-    Previously a value like ``../../`` would silently resolve to a
-    path outside the docs tree and scan it. The guard now mirrors
-    ``get_doc``'s relative_to(root) check.
-    PR #744 discussion_r3231046696.
+    Before the fix, ``scope="../"`` resolved via ``root / scope`` to a
+    path outside the searched tree and scanned it. The guard mirrors
+    ``get_doc``'s containment check.
     """
+    outside = ctx.project_dir.parent / "outside.md"
+    outside.write_text("anything outside\n", encoding="utf-8")
     assert _run(tools_qa.search_docs(query="anything", scope="../")) == []
     assert _run(tools_qa.search_docs(query="anything", scope="../../")) == []
 
 
-def test_search_docs_scope_rejects_absolute_path(ctx: _StubRuntime, tmp_path: Path) -> None:
-    """An absolute path that points outside the docs/ tree is rejected."""
-    outsider = tmp_path / "outsider"
-    outsider.mkdir()
+def test_search_docs_scope_rejects_absolute_path(ctx: _StubRuntime, tmp_path_factory: pytest.TempPathFactory) -> None:
+    """An absolute path that points outside the project directory is rejected."""
+    outsider = tmp_path_factory.mktemp("outsider")
     (outsider / "f.md").write_text("workflow", encoding="utf-8")
     assert _run(tools_qa.search_docs(query="workflow", scope=str(outsider))) == []
 
@@ -109,16 +161,56 @@ def test_search_docs_scope_rejects_absolute_path(ctx: _StubRuntime, tmp_path: Pa
 
 
 def test_get_doc_happy(ctx: _StubRuntime) -> None:
-    out = _run(tools_qa.get_doc(path="guide.md"))
+    out = _run(tools_qa.get_doc(path="user-guide/guide.md"))
     # out is a GetDocResult Pydantic model.
     assert "Guide" in out.content
     assert out.bytes > 0
+    assert out.path == "user-guide/guide.md"
 
 
-def test_get_doc_escape_raises(ctx: _StubRuntime, tmp_path: Path) -> None:
-    # Walk out of docs/ — should fail closed.
-    with pytest.raises((PermissionError, FileNotFoundError)):
+def test_get_doc_reads_hidden_dir_doc(ctx: _StubRuntime) -> None:
+    out = _run(tools_qa.get_doc(path=".scistudio/agent-reference/README.md"))
+    assert "hiddenneedle" in out.content
+    assert out.path == ".scistudio/agent-reference/README.md"
+
+
+def test_get_doc_accepts_absolute_path_inside_project(ctx: _StubRuntime) -> None:
+    out = _run(tools_qa.get_doc(path=str(ctx.project_dir / "user-guide" / "notes.rst")))
+    assert out.path == "user-guide/notes.rst"
+
+
+def test_get_doc_escape_raises(ctx: _StubRuntime) -> None:
+    # Walk out of the project directory — should fail closed.
+    with pytest.raises(PermissionError):
         _run(tools_qa.get_doc(path="../../../etc/passwd"))
+
+
+def test_get_doc_absolute_path_outside_project_raises(
+    ctx: _StubRuntime, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outsider = tmp_path_factory.mktemp("outsider") / "secret.md"
+    outsider.write_text("secret", encoding="utf-8")
+    with pytest.raises(PermissionError):
+        _run(tools_qa.get_doc(path=str(outsider)))
+
+
+def test_get_doc_refuses_non_doc_suffix(ctx: _StubRuntime) -> None:
+    with pytest.raises(ValueError, match=r"\.md, \.rst, and \.txt"):
+        _run(tools_qa.get_doc(path="blocks/block.py"))
+
+
+def test_get_doc_missing_file_raises(ctx: _StubRuntime) -> None:
+    with pytest.raises(FileNotFoundError):
+        _run(tools_qa.get_doc(path="user-guide/missing.md"))
+
+
+def test_get_doc_no_project_raises() -> None:
+    _context.set_context(_StubRuntime(_project_dir=None))
+    try:
+        with pytest.raises(RuntimeError, match="No project"):
+            _run(tools_qa.get_doc(path="README.md"))
+    finally:
+        _context.set_context(None)
 
 
 # --- list_data -------------------------------------------------------------

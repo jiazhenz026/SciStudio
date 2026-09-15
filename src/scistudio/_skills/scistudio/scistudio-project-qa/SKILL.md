@@ -35,7 +35,7 @@ Two kinds of source, both authoritative. Read them; cite them.
 | The authoritative list of available blocks / data types | `list_blocks` / `list_types` |
 | A specific block's exact ports + config | `get_block_schema(block_type)` |
 | What data files exist | `list_data` |
-| Finding a doc by text, then reading it | `search_docs(query)` → `get_doc(path)` |
+| Finding a doc by text anywhere in the project (`.md`/`.rst`/`.txt`, including `user-guide/` and `.scistudio/agent-reference/`), then reading it | `search_docs(query)` → `get_doc(path)` |
 
 ## How to answer
 
