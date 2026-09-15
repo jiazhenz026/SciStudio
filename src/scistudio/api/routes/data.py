@@ -61,12 +61,10 @@ from scistudio.previewers import (
 )
 from scistudio.previewers.assets import resolve_asset, validate_manifest
 from scistudio.previewers.choices import (
-    clear_choice,
     load_choices,
     project_choices_path,
     read_choice_layer,
     user_choices_path,
-    write_choice,
 )
 from scistudio.previewers.models import MissingBundleError, OwnerKind, PreviewError
 from scistudio.previewers.open_as import (
@@ -501,9 +499,7 @@ async def list_previewers(
     broken entry point -- all were recorded and then only logged, so from the
     product they looked like a previewer that simply never appeared.
     """
-    service = runtime.get_preview_service()
-    registry = service.registry
-    specs = registry.catalog_specs()
+    specs, diagnostics = runtime.get_panel_service().previewer_catalog()
     if target_type is not None:
         specs = [
             (s, shadowed)
@@ -515,7 +511,7 @@ async def list_previewers(
     )
     return PreviewerListResponse(
         previewers=[_spec_model(s).model_copy(update={"shadowed": shadowed}) for s, shadowed in specs],
-        diagnostics=list(registry.diagnostics),
+        diagnostics=diagnostics,
     )
 
 
@@ -542,16 +538,14 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
     and the block registry really was rebuilt. A ``previewers.reloaded`` sibling
     would be a second event for one fact.
     """
-    # Development references: #2021, ADR-053, FR-027.
-    service = runtime.get_preview_service()
-    before = {s.previewer_id for s in service.registry.all_specs()}
+    # Development references: #2021, #2465, ADR-053, FR-027.
+    panels = runtime.get_panel_service()
+    before = {s.previewer_id for s in panels.all_specs()}
     blocks_before = set(runtime.block_registry.all_specs().keys())
 
     runtime.refresh_all_registries()
 
-    service = runtime.get_preview_service()
-    registry = service.registry
-    after = {s.previewer_id for s in registry.all_specs()}
+    after = {s.previewer_id for s in panels.all_specs()}
     blocks_after = set(runtime.block_registry.all_specs().keys())
     added = sorted(after - before)
     removed = sorted(before - after)
@@ -582,7 +576,7 @@ async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
         reloaded=len(after),
         added=added,
         removed=removed,
-        diagnostics=list(registry.diagnostics),
+        diagnostics=panels.previewer_catalog()[1],
     )
 
 
@@ -634,7 +628,7 @@ def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
     project_dir = _active_project_dir(runtime)
     project_layer = read_choice_layer(project_choices_path(project_dir)) if project_dir is not None else {}
     effective = load_choices(project_dir)
-    registry = runtime.get_preview_service().registry
+    panels = runtime.get_panel_service()
 
     return PreviewerChoiceListResponse(
         choices=[
@@ -642,7 +636,7 @@ def _effective_choices(runtime: ApiRuntime) -> PreviewerChoiceListResponse:
                 target_type=target_type,
                 previewer_id=previewer_id,
                 scope=_PROJECT_SCOPE if target_type in project_layer else _USER_SCOPE,
-                available=registry.get(previewer_id) is not None,
+                available=panels.previewer(previewer_id) is not None,
             )
             for target_type, previewer_id in sorted(effective.items())
         ]
@@ -678,16 +672,17 @@ async def set_previewer_choice(
     specs, and the type hierarchy belongs to the type registry.
     """
     path = _choices_path_for_scope(runtime, payload.scope)
-    registry = runtime.get_preview_service().registry
-    if registry.get(payload.previewer_id) is None:
+    panels = runtime.get_panel_service()
+    if panels.previewer(payload.previewer_id) is None:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown previewer {payload.previewer_id!r}. See GET /api/previews/previewers.",
         )
 
-    write_choice(path, target_type, payload.previewer_id)
+    # #2465: the panel service persists the choice and re-routes only the open
+    # previews of this type (``panel.choices_changed``); nothing is rebuilt.
+    panels.set_choice(path, target_type, payload.previewer_id)
     logger.info("PUT /api/previews/choices/%s: scope=%s", target_type, payload.scope)
-    runtime.refresh_all_registries()
     return _effective_choices(runtime)
 
 
@@ -702,9 +697,8 @@ async def clear_previewer_choice(
     only push every caller into checking first.
     """
     path = _choices_path_for_scope(runtime, scope)
-    clear_choice(path, target_type)
+    runtime.get_panel_service().clear_choice(path, target_type)
     logger.info("DELETE /api/previews/choices/%s: scope=%s", target_type, scope)
-    runtime.refresh_all_registries()
     return _effective_choices(runtime)
 
 
@@ -719,7 +713,6 @@ async def create_preview_session(payload: PreviewSessionCreate, runtime: Runtime
 
     if target.ref in collection_store(runtime):
         target = freeze_target(runtime, target.ref).target
-    service = runtime.get_preview_service()
     query = runtime.enrich_preview_query(target.ref, payload.query)
     snapshot = collection_store(runtime).get(target.ref)
     if snapshot is not None:
@@ -728,16 +721,16 @@ async def create_preview_session(payload: PreviewSessionCreate, runtime: Runtime
             _collection_count=snapshot["count"],
             _collection_item_type=snapshot.get("item_type"),
         )
-    envelope = service.sessions.create_session(target, query)
+    envelope = runtime.get_panel_service().create_preview_session(target, query, fresh=True)
     return PreviewEnvelopeModel(**envelope.to_dict())
 
 
 @previews_router.get("/sessions/{session_id}", response_model=PreviewEnvelopeModel)
 async def read_preview_session(session_id: str, runtime: RuntimeDep) -> PreviewEnvelopeModel:
     """Read the current envelope + provider metadata for a session."""
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     try:
-        envelope = service.sessions.read_session(session_id)
+        envelope = service.read_session(session_id)
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     return PreviewEnvelopeModel(**envelope.to_dict())
@@ -748,9 +741,9 @@ async def patch_preview_session(
     session_id: str, payload: PreviewSessionPatch, runtime: RuntimeDep
 ) -> PreviewEnvelopeModel:
     """Update query state (slice/page/sort/slot/item) and re-render the envelope."""
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     try:
-        envelope = service.sessions.patch_session(session_id, payload.query)
+        envelope = service.patch_session(session_id, payload.query)
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except ValueError as exc:
@@ -769,9 +762,9 @@ async def read_preview_resource(
     ] = None,
 ) -> PreviewResourceResponse:
     """Fetch a bounded provider resource (array tile or child preview)."""
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     try:
-        data = service.sessions.read_resource(session_id, resource_id, _parse_resource_params(params))
+        data = service.read_resource(session_id, resource_id, _parse_resource_params(params))
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except (UnknownTargetError, PreviewError) as exc:
@@ -802,9 +795,9 @@ async def save_preview_resource(
     if not destination.parent.is_dir():
         raise HTTPException(status_code=400, detail="save destination parent directory does not exist")
 
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     try:
-        result = service.sessions.save_resource(session_id, resource_id, destination, payload.params)
+        result = service.save_resource(session_id, resource_id, destination, payload.params)
     except UnknownPreviewerError as exc:
         raise HTTPException(status_code=404, detail=exc.message) from exc
     except (UnknownTargetError, PreviewError) as exc:
@@ -821,8 +814,7 @@ async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: Runti
     rejected with a 404 so the server never leaks arbitrary filesystem reads.
     """
     # Development references: FR-022, FR-024.
-    service = runtime.get_preview_service()
-    spec = service.registry.get(previewer_id)
+    spec = runtime.get_panel_service().previewer(previewer_id)
     if spec is None or spec.frontend_manifest is None:
         raise HTTPException(status_code=404, detail=f"no servable manifest for previewer {previewer_id!r}")
     validation = validate_manifest(spec.frontend_manifest)

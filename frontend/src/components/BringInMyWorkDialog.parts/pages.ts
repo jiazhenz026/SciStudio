@@ -38,6 +38,8 @@
  * payload as an explicitly skipped one, so a page the user simply moved past is
  * a skip in the request without any paging-specific handling.
  */
+import type { AgentLaunchProblem } from "../AIChat/SetupScreen.parts/agentStatus";
+
 import {
   Q1_STEP_TITLE,
   Q2_STEP_TITLE,
@@ -47,10 +49,9 @@ import {
   SETUP_STEP_TITLE,
 } from "./copy";
 import {
-  REASON_NO_AGENT,
+  agentReason,
   REASON_NO_DATA_KIND,
   REASON_NO_PROJECT,
-  REASON_NO_PROVIDER,
   REASON_NO_SOURCE,
   REASON_NO_WORKFLOW_DESCRIPTION,
   workflowDescriptionRequired,
@@ -100,15 +101,8 @@ export const LAST_PAGE_INDEX = WORK_IMPORT_PAGES.length - 1;
 
 export interface PageGateOptions {
   projectDir: string | null;
-  agentUsable: boolean;
-  /**
-   * True while the availability probe is still in flight. FR-035 — a probe that
-   * has not answered yet must never produce a stuck surface, so it does not
-   * block the user leaving page one. What it cannot do is let them START: the
-   * start action on the last page is gated on `agentUsable`, and the last page
-   * shows the probe's own state when it has not resolved.
-   */
-  probing: boolean;
+  /** The AI Chat launch rule's answer for the chosen provider and mode (#2454). */
+  agentProblem: AgentLaunchProblem | null;
 }
 
 export interface PageGate {
@@ -148,12 +142,11 @@ export function pageGate(
         focusId = "work-import-source";
       }
       // FR-005 — the agent is chosen here, so this is where a user learns that
-      // none can run the session, rather than at the end of the questions.
-      if (!opts.probing) {
-        if (!opts.agentUsable) {
-          reasons.push(REASON_NO_AGENT);
-        } else if (!state.provider) {
-          reasons.push(REASON_NO_PROVIDER);
+      // the choice is incomplete, rather than at the end of the questions.
+      const agent = agentReason(opts.agentProblem);
+      if (agent) {
+        reasons.push(agent);
+        if (opts.agentProblem !== "no_permission_mode") {
           focusId = focusId ?? "setup-provider-select-work-import";
         }
       }

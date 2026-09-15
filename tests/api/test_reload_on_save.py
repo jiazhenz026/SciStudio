@@ -69,6 +69,20 @@ def captured_events(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     return captured
 
 
+def _block_catalog_events(events: list[dict]) -> list[dict]:
+    """The hook's own ``blocks.reloaded`` events.
+
+    The panel service announces its own catalog on the same event type with
+    ``registry: "panels"`` (#2465), for the project open and for the legacy
+    previewer rescan every registry refresh includes; those are not the hook's.
+    """
+    return [
+        evt
+        for evt in events
+        if evt["type"] == "blocks.reloaded" and (evt.get("data") or {}).get("registry") != "panels"
+    ]
+
+
 def test_clean_block_save_triggers_reload_and_event(
     client: TestClient,
     project_parent: Path,
@@ -107,7 +121,7 @@ def test_clean_block_save_triggers_reload_and_event(
     assert file_changed[0]["data"]["version"] == saved["state_version"]
     assert file_changed[0]["data"]["entity_id"] == "blocks/clean_block.py"
 
-    blocks_reloaded = [evt for evt in captured_events if evt["type"] == "blocks.reloaded"]
+    blocks_reloaded = _block_catalog_events(captured_events)
     assert len(blocks_reloaded) == 1, (
         f"Expected exactly one blocks.reloaded event; saw types: {[evt['type'] for evt in captured_events]}"
     )
@@ -161,7 +175,7 @@ def test_broken_block_save_does_not_reload_or_emit(
     assert file_changed[0]["data"]["version"] == saved["state_version"]
     assert file_changed[0]["data"]["entity_id"] == "blocks/broken_block.py"
 
-    blocks_reloaded = [evt for evt in captured_events if evt["type"] == "blocks.reloaded"]
+    blocks_reloaded = _block_catalog_events(captured_events)
     assert blocks_reloaded == [], f"blocks.reloaded must NOT fire when lint flags the file; saw: {blocks_reloaded}"
 
 
@@ -189,7 +203,7 @@ def test_non_blocks_py_does_not_reload(
     )
     assert r.status_code == 200, r.text
     assert reload_calls["count"] == 0
-    assert not any(evt["type"] == "blocks.reloaded" for evt in captured_events)
+    assert not _block_catalog_events(captured_events)
 
 
 def test_is_under_project_blocks_dir_helper(tmp_path: Path) -> None:

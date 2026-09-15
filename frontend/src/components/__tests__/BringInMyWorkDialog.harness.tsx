@@ -23,39 +23,21 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { expect, vi, type Mock } from "vitest";
 
 import { BringInMyWorkDialog } from "../BringInMyWorkDialog";
-import type {
-  AgentAvailabilityResponse,
-  ProviderAvailability,
-} from "../../lib/api/agentAvailability";
+import {
+  CLAUDE_STATUS,
+  CODEX_STATUS,
+  mockAgentStatus,
+  providerStatus,
+} from "../AIChat/__tests__/agentStatusFixture";
+import type { ProviderStatus } from "../AIChat/SetupScreen.parts/types";
 
 /**
- * One provider row, with contract C1's optional fields defaulted to "nothing to
- * report". Written as a factory rather than as object literals so a field added
- * to C1 lands in one place — and so a test that cares about `next_step` or
- * `session_unsupported_reason` says so by naming it.
+ * #2454 — the dialog reads the AI Chat setup screen's `GET /api/ai/status`, so
+ * its fixtures are status rows, not a graded availability report.
  */
-export function provider(
-  overrides: Partial<ProviderAvailability> & { key: string },
-): ProviderAvailability {
-  return {
-    label: overrides.key,
-    state: "ready",
-    cause: null,
-    next_step: null,
-    session_unsupported_reason: null,
-    supports_auto_mode: true,
-    ...overrides,
-  };
-}
-
-export const CLAUDE = provider({ key: "claude-code", label: "Claude Code" });
-export const CODEX = provider({ key: "codex", label: "Codex" });
-
-export function ready(
-  ...providers: AgentAvailabilityResponse["providers"]
-): AgentAvailabilityResponse {
-  return { state: "ready", providers };
-}
+export const provider = providerStatus;
+export const CLAUDE = CLAUDE_STATUS;
+export const CODEX = CODEX_STATUS;
 
 export type StartSession = NonNullable<
   React.ComponentProps<typeof BringInMyWorkDialog>["startSession"]
@@ -79,27 +61,20 @@ export interface Harness {
 }
 
 export function renderDialog(
-  availability: AgentAvailabilityResponse | Error = ready(CLAUDE),
+  providers: readonly ProviderStatus[] | Error | "pending" = [CLAUDE],
   overrides: Partial<Harness> = {},
 ): Harness {
   const startSession: Mock<StartSession> =
     overrides.startSession ?? vi.fn<StartSession>(async () => sessionResponse());
   const onClose: Mock<() => void> = overrides.onClose ?? vi.fn<() => void>();
-  render(
-    <BringInMyWorkDialog
-      onClose={onClose}
-      fetchAvailability={() =>
-        availability instanceof Error ? Promise.reject(availability) : Promise.resolve(availability)
-      }
-      startSession={startSession}
-    />,
-  );
+  mockAgentStatus(providers);
+  render(<BringInMyWorkDialog onClose={onClose} startSession={startSession} />);
   return { startSession, onClose };
 }
 
-/** Wait for the availability probe to settle so the start action is decided. */
+/** Wait for the provider status to settle so the pickers are decided. */
 export async function settled(): Promise<void> {
-  await waitFor(() => expect(screen.queryByTestId("work-import-probing")).toBeNull());
+  await waitFor(() => expect(screen.queryByTestId("setup-provider-loading")).toBeNull());
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +114,16 @@ export type PageAnswers = Partial<Record<PageId, () => void>>;
  */
 const REQUIRED_ANSWERS: PageAnswers = {
   setup: () => {
+    // #2454 — provider and permission mode start unchosen, exactly as in AI Chat.
+    const select = screen.queryByTestId("setup-provider-select") as HTMLSelectElement | null;
+    if (select && !select.value) {
+      const option = Array.from(select.options).find((o) => o.value && !o.disabled);
+      if (option) fireEvent.change(select, { target: { value: option.value } });
+    }
+    const modes = screen.queryAllByRole("radio");
+    if (modes.length > 0 && !modes.some((m) => m.getAttribute("aria-checked") === "true")) {
+      fireEvent.click(screen.getByTestId("setup-permission-safe"));
+    }
     const noCodebase = screen.getByTestId("work-import-no-codebase") as HTMLInputElement;
     const input = screen.getByTestId("work-import-source-input") as HTMLInputElement;
     if (!noCodebase.checked && !input.value) {

@@ -584,7 +584,7 @@ class _ApiProductState:
         internal handle the user never sees.
         """
         # Development references: FR-047.
-        specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+        specs: list[Any] = _read_or(lambda: self.runtime.get_panel_service().all_specs(), [])
         return frozenset(str(spec.target_type) for spec in specs if getattr(spec, "target_type", None))
 
     # -- plots ------------------------------------------------------------
@@ -835,7 +835,7 @@ class _ApiProductState:
         if previewer_scan_dirs(self.project_dir)[-1] == library / PREVIEWERS_DIR_NAME:
             from scistudio.previewers.models import OwnerKind
 
-            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_preview_service().registry.all_specs(), [])
+            previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_panel_service().all_specs(), [])
             for spec in previewer_specs:
                 if getattr(spec, "owner_kind", None) is OwnerKind.USER:
                     entries.add(("previewer", str(spec.previewer_id)))

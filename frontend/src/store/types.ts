@@ -422,13 +422,6 @@ export interface UISlice {
    * hello.
    */
   wsClientId: string | null;
-  /**
-   * ADR-054 FR-022 — per-panel change counter, bumped on every
-   * `panel.files_changed` event. Open MiniApp tabs on that panel watch their
-   * own entry and reload (debounced) when it moves; a counter rather than a
-   * timestamp so two events in the same millisecond are still two events.
-   */
-  panelFilesChangedSeq: Record<string, number>;
   bottomPanelCollapsed: boolean;
   /**
    * When true, the bottom panel does not auto-collapse on canvas-pane
@@ -518,8 +511,6 @@ export interface UISlice {
   setLastError: (message: string | null) => void;
   /** ADR-054 FR-013 — called by the `/ws` dispatcher with the `hello` frame. */
   setWsClientId: (id: string | null) => void;
-  /** ADR-054 FR-022 — called by the `/ws` dispatcher for `panel.files_changed`. */
-  notifyPanelFilesChanged: (panelId: string) => void;
   /**
    * Desktop application menu (desktop/menu.js) opens these dialogs from
    * outside the toolbar, so the open state lives in the store instead of
@@ -610,16 +601,8 @@ export interface PreviewerCatalogSlice {
   previewerChoices: PreviewerChoice[];
   /** True once `GET /api/previews/choices` has landed at least once. */
   previewerChoicesLoaded: boolean;
-  /**
-   * Bumped on every choice mutation. `DataPreview` feeds it to `PreviewHost`
-   * as the routing epoch so an open preview re-creates its session — and thus
-   * re-routes through the new choice — instead of sitting on the envelope the
-   * old choice produced.
-   */
-  previewerChoiceVersion: number;
   setPreviewers: (previewers: PreviewerSpecSummary[], diagnostics: string[]) => void;
   setPreviewerChoices: (choices: PreviewerChoice[]) => void;
-  bumpPreviewerChoiceVersion: () => void;
 }
 
 /**

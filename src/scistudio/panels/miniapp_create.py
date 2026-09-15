@@ -3,7 +3,7 @@
 #
 # ADR-054 MiniApp FR-024/FR-026/FR-027/FR-034/FR-036. Everything here is the
 # filesystem and data half of the two create routes in
-# :mod:`scistudio.api.routes.panels`; the availability check and the agent
+# :mod:`scistudio.api.routes.panels`; the provider check and the agent
 # session stay in the route, so this module imports nothing from
 # :mod:`scistudio.api`.
 #

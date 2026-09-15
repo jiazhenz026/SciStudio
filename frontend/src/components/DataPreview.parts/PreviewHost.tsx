@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { api } from "../../lib/api";
 import { PanelPreview } from "../../panels/PanelPreview";
+import { previewIsAffected, subscribePreviewReroute } from "../../panels/panelEvents";
 import type { PanelSnapshot } from "../../panels/types";
 import { apiUrl } from "../../lib/api/base-path";
 import type {
@@ -58,14 +59,6 @@ export interface PreviewHostProps {
   target: PreviewTarget | null;
   /** Optional initial query state (slice/page/sort). */
   initialQuery?: Record<string, unknown>;
-  /**
-   * #2113 — routing epoch. Bumped by the store whenever a per-type previewer
-   * choice changes (#2049); the session-creation effect re-runs, so an open
-   * preview re-creates its session and the backend routes it through the new
-   * choice instead of sitting on the envelope the old choice produced.
-   * Omitting it keeps the host's pre-#2113 behaviour exactly.
-   */
-  routingEpoch?: number;
   /**
    * Optional session-keyed cache hooks (FR-021). The host writes rendered
    * envelopes only after the backend has resolved preview identity, so cache
@@ -148,7 +141,6 @@ export function PreviewHost({
   previewSessionId,
   target,
   initialQuery,
-  routingEpoch,
   cacheEnvelope,
   buildCacheKey,
   importer,
@@ -156,6 +148,14 @@ export function PreviewHost({
   initialViewState,
   onPanelSnapshot,
 }: PreviewHostProps) {
+  /*
+   * #2465 — this preview's routing epoch. The panel service names what changed
+   * (type claims whose candidates moved, one type whose choice moved, or a
+   * legacy previewer reload) and only a preview it concerns bumps its epoch;
+   * the session-creation effect then re-creates the session through the new
+   * routing. Every other open preview stays mounted untouched.
+   */
+  const [routingEpoch, setRoutingEpoch] = useState(0);
   const fallbackTargetKey = `${target?.kind}:${target?.ref}:${routingEpoch}`;
   const [coreOnlyTarget, setCoreOnlyTarget] = useState<string | null>(null);
   const coreOnly = coreOnlyTarget === fallbackTargetKey;
@@ -168,6 +168,16 @@ export function PreviewHost({
   const [childStack, setChildStack] = useState<PreviewEnvelope[]>([]);
 
   const queryRef = useRef<Record<string, unknown>>(initialQuery ?? {});
+  const routedEnvelope = useRef<PreviewEnvelope | null>(null);
+  routedEnvelope.current = envelope;
+  useEffect(
+    () =>
+      subscribePreviewReroute((signal) => {
+        const current = routedEnvelope.current;
+        if (current && previewIsAffected(current, signal)) setRoutingEpoch((value) => value + 1);
+      }),
+    [],
+  );
   const initialQueryKey = useMemo(() => JSON.stringify(initialQuery ?? {}), [initialQuery]);
 
   // -- session creation ----------------------------------------------------
@@ -194,7 +204,11 @@ export function PreviewHost({
         ? api.patchPreviewSession(sessionId, { core_only: true })
         : initialEnvelope
           ? Promise.resolve(initialEnvelope)
-          : api.getPreviewSession(sessionId)
+          : routingEpoch > 0
+            ? // #2465 Q5-b — a re-route after a legacy reload finds the frozen
+              // session gone; the preview recreates one instead of erroring.
+              api.getPreviewSession(sessionId).catch(() => api.createPreviewSession(target, query))
+            : api.getPreviewSession(sessionId)
       : api.createPreviewSession(target, query);
     resolved
       .then((env) => {
@@ -212,9 +226,9 @@ export function PreviewHost({
       cancelled = true;
     };
     // initialQuery is captured intentionally on target change only; later
-    // query updates go through patchQuery below. routingEpoch (#2113) is a
-    // deliberate dep: a choice change must re-create the session so the new
-    // routing applies to the preview already open.
+    // query updates go through patchQuery below. routingEpoch (#2113, #2465)
+    // is a deliberate dep: a routing change that concerns this preview must
+    // re-create the session so the new routing applies to it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     target?.ref,

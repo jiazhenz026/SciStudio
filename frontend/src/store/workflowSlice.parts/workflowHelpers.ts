@@ -8,6 +8,7 @@
  * `workflowSlice.versionVector` test for the invariants.
  */
 import type { VersionedWorkflowResponse } from "../../lib/api";
+import { INTERACTIVE_MEMORY_KEY } from "../../lib/interactiveMemory";
 import type { WorkflowNode } from "../../types/api";
 import type { AppStore, WorkflowHistoryEntry } from "../types";
 
@@ -78,6 +79,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * #2412 (PR #2414 review): config keys that are structural node metadata, not
+ * block parameters. ``label`` is the user-set display label read from
+ * ``node.config.label`` (backend ``plot/targets.py``, frontend
+ * ``plotTargetLabel.ts``); ``style`` carries GUI-only sizing. Folding them
+ * into ``params`` would erase them from every surface that reads them at the
+ * config top level, so normalization must keep them where they are.
+ */
+const NODE_CONFIG_METADATA_KEYS: ReadonlySet<string> = new Set(["label", "style"]);
+
 export function normalizeLoadedNodes(nodes: WorkflowNode[]): WorkflowNode[] {
   return nodes.map((node) => {
     // Annotation nodes carry GUI-only config (``params`` + ``style``) and are
@@ -87,6 +98,32 @@ export function normalizeLoadedNodes(nodes: WorkflowNode[]): WorkflowNode[] {
     }
     const config = isPlainObject(node.config) ? (node.config as Record<string, unknown>) : {};
     if (isPlainObject(config.params)) {
+      const paramKeys = Object.keys(config.params);
+      const flatKeys = Object.keys(config).filter((key) => key !== "params");
+      // #2412: the agent tool stores ``interactive_memory`` under ``params``
+      // even on a flat config, so ``{ path, ..., params: { interactive_memory } }``
+      // is still a flat node: fold its flat keys into ``params``. Structural
+      // metadata (``label``/``style``) is NOT a block parameter — it stays at
+      // the top level (PR #2414 review), and a config whose only flat keys are
+      // metadata is already canonical.
+      if (
+        paramKeys.length === 1 &&
+        paramKeys[0] === INTERACTIVE_MEMORY_KEY &&
+        flatKeys.some(
+          (key) => key !== INTERACTIVE_MEMORY_KEY && !NODE_CONFIG_METADATA_KEYS.has(key),
+        )
+      ) {
+        const { params, [INTERACTIVE_MEMORY_KEY]: _legacy, ...flat } = config;
+        const metadata: Record<string, unknown> = {};
+        const folded: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(flat)) {
+          (NODE_CONFIG_METADATA_KEYS.has(key) ? metadata : folded)[key] = value;
+        }
+        return {
+          ...node,
+          config: { ...metadata, params: { ...folded, ...(params as Record<string, unknown>) } },
+        };
+      }
       return node; // already canonical (GUI-created or previously normalized)
     }
     return { ...node, config: { params: { ...config } } };
@@ -94,10 +131,14 @@ export function normalizeLoadedNodes(nodes: WorkflowNode[]): WorkflowNode[] {
 }
 
 export function mergeNodeConfig(node: WorkflowNode, config: Record<string, unknown>): WorkflowNode {
+  const base: Record<string, unknown> = { ...node.config };
+  // #2412: interaction memory lives only under ``params``. Writing it drops a
+  // legacy top-level copy so the engine and the GUI read the same record.
+  if (INTERACTIVE_MEMORY_KEY in config) delete base[INTERACTIVE_MEMORY_KEY];
   return {
     ...node,
     config: {
-      ...node.config,
+      ...base,
       params: {
         ...((node.config.params as Record<string, unknown> | undefined) ?? {}),
         ...config,

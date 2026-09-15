@@ -124,22 +124,11 @@ describe("a MiniApp tab's lifetime in the tab list (ADR-054 FR-019)", () => {
   });
 });
 
-describe("the realtime seams the /ws dispatcher calls (ADR-054 FR-013 / FR-022)", () => {
+describe("the realtime seam the /ws dispatcher calls (ADR-054 FR-013)", () => {
   it("remembers the workspace client id", () => {
     expect(useAppStore.getState().wsClientId).toBeNull();
     useAppStore.getState().setWsClientId("ws-abc123");
     expect(useAppStore.getState().wsClientId).toBe("ws-abc123");
-  });
-
-  it("counts file changes per panel so two events in one tick are two events", () => {
-    const notify = useAppStore.getState().notifyPanelFilesChanged;
-    notify("lab.threshold");
-    notify("lab.threshold");
-    notify("lab.other");
-    expect(useAppStore.getState().panelFilesChangedSeq).toEqual({
-      "lab.threshold": 2,
-      "lab.other": 1,
-    });
   });
 });
 

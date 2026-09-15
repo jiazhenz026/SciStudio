@@ -832,6 +832,7 @@ class ApiRuntime:
     _relativify_node_config = _workflows._relativify_node_config
     _absolutify_node_config = _workflows._absolutify_node_config
     delete_workflow = _workflows.delete_workflow
+    remove_workflow_pause_state = _workflows.remove_workflow_pause_state
     _upload_destination = _workflows._upload_destination
     stage_upload_file = _workflows.stage_upload_file
     discard_staged_upload = _workflows.discard_staged_upload
@@ -847,9 +848,9 @@ class ApiRuntime:
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    # ADR-048 SPEC 1: previewer subsystem accessors.
+    # ADR-054 (#2465): the panel subsystem, and its deprecated previewer fallback.
+    get_panel_service = _data.get_panel_service
     get_preview_service = _data.get_preview_service
-    refresh_preview_service = _data.refresh_preview_service
     enrich_preview_query = _data.enrich_preview_query
     resolve_session_target = _data.resolve_session_target
     resolve_child_preview_context = _data.resolve_child_preview_context

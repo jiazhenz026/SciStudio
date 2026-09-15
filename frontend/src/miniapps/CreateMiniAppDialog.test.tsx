@@ -3,21 +3,22 @@
  *
  * US1 acceptance 1 and 4 live here: a dialog reached from a block's context
  * menu opens with that block's output pre-filled, and a route that refuses
- * because no agent can start a session shows the graded reason rather than a
- * generic failure.
+ * because the chosen agent cannot start shows the backend's reason verbatim.
  *
- * The route and the availability probe are supplied through the component's own
- * seams. Neither `POST /api/panels/miniapps` nor `GET /api/ai/availability` is
- * mocked at the transport: the first does not exist in the frozen OpenAPI
- * snapshot yet (agent B2 adds it in the same integration), and the second is
- * already proven by the work-import suite. What is being pinned here is what
- * the dialog SENDS and SHOWS, which is the part that is this file's to get
- * wrong.
+ * The create route is supplied through the component's own seam: it does not
+ * exist in the frozen OpenAPI snapshot. The agent controls are AI Chat's own
+ * (#2454), so `GET /api/ai/status` is faked with the shared fixture, which also
+ * fails any request to the removed `/api/ai/availability` endpoint.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentAvailabilityResponse } from "../lib/api/agentAvailability";
+import {
+  CODEX_STATUS,
+  mockAgentStatus,
+  providerStatus,
+  type AgentStatusMock,
+} from "../components/AIChat/__tests__/agentStatusFixture";
 import { ApiError } from "../lib/api/core";
 import { useAppStore } from "../store";
 import { resetAppStore } from "../testUtils";
@@ -26,20 +27,6 @@ import type { BlockSchemaResponse, WorkflowNode } from "../types/api";
 import { CreateMiniAppDialog, type CreateMiniAppResult } from "./CreateMiniAppDialog";
 import { miniAppsApi } from "./api";
 import type { MiniAppSource, MiniAppTarget } from "./types";
-
-const READY: AgentAvailabilityResponse = {
-  state: "ready",
-  providers: [
-    {
-      key: "claude-code",
-      label: "Claude Code",
-      state: "ready",
-      cause: null,
-      next_step: null,
-      session_unsupported_reason: null,
-    },
-  ],
-};
 
 function schema(name: string, ports: { name: string; types: string[] }[]): BlockSchemaResponse {
   return {
@@ -88,36 +75,45 @@ interface Harness {
   create: ReturnType<typeof vi.fn>;
   onCreated: ReturnType<typeof vi.fn>;
   onOpenChange: ReturnType<typeof vi.fn>;
-  fetchAvailability: ReturnType<typeof vi.fn>;
+  status: AgentStatusMock;
 }
 
 function renderDialog(
   options: {
     presetTarget?: MiniAppTarget | null;
     create?: Harness["create"];
-    availability?: AgentAvailabilityResponse;
+    providers?: Parameters<typeof mockAgentStatus>[0];
   } = {},
 ): Harness {
+  const status = mockAgentStatus(options.providers);
   const create = options.create ?? vi.fn(async () => created());
   const onCreated = vi.fn();
   const onOpenChange = vi.fn();
-  const fetchAvailability = vi.fn(async () => options.availability ?? READY);
   render(
     <CreateMiniAppDialog
       create={create as never}
-      fetchAvailability={fetchAvailability as never}
       onCreated={onCreated}
       onOpenChange={onOpenChange}
       open
       presetTarget={options.presetTarget ?? null}
     />,
   );
-  return { create, onCreated, onOpenChange, fetchAvailability };
+  return { create, onCreated, onOpenChange, status };
 }
 
-/** Wait for the availability probe to settle so the submit is decided. */
-async function settled(): Promise<void> {
-  await waitFor(() => expect(screen.queryByTestId("miniapp-create-probing")).toBeNull());
+/** Wait for `/api/ai/status` to arrive, so the provider options exist. */
+async function settled(provider = "claude-code"): Promise<void> {
+  await screen.findByTestId(`setup-provider-option-${provider}`);
+  await waitFor(() => expect(screen.getByTestId("setup-provider-select")).not.toBeDisabled());
+}
+
+/** Choose a provider and a permission mode through the UI, as AI Chat asks for. */
+async function chooseAgent(provider = "claude-code"): Promise<void> {
+  await settled(provider);
+  fireEvent.change(screen.getByTestId("setup-provider-select"), {
+    target: { value: provider },
+  });
+  fireEvent.click(screen.getByTestId("setup-permission-safe"));
 }
 
 const SOURCES: MiniAppSource[] = [
@@ -192,6 +188,7 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     fireEvent.change(screen.getByTestId("miniapp-create-request"), {
       target: { value: "Let me drag a threshold across the stack." },
     });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-create-submit"));
 
     await waitFor(() => expect(harness.create).toHaveBeenCalledTimes(1));
@@ -201,6 +198,22 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
       permission_mode: "safe",
       provider: "claude-code",
     });
+    expect(harness.status.availabilityCalls).toEqual([]);
+  });
+
+  it("sends the provider the user chose, not a default", async () => {
+    const harness = renderDialog({ presetTarget: PRESET, providers: [CODEX_STATUS] });
+    fireEvent.change(screen.getByTestId("miniapp-create-request"), {
+      target: { value: "Threshold explorer please." },
+    });
+    await chooseAgent("codex");
+    fireEvent.click(screen.getByTestId("miniapp-create-submit"));
+
+    await waitFor(() => expect(harness.create).toHaveBeenCalledTimes(1));
+    expect(harness.create.mock.calls[0][0]).toMatchObject({
+      provider: "codex",
+      permission_mode: "safe",
+    });
   });
 
   it("offers the open workflow's outputs when it was opened without one", async () => {
@@ -208,6 +221,7 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     // dialog has to ask (FR-023).
     renderDialog();
     await settled();
+    await screen.findByTestId("miniapp-create-target");
 
     const options = screen
       .getAllByRole("option")
@@ -220,11 +234,11 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     // FR-025 — the tab opens before the agent has written anything, so nothing
     // in this dialog waits for the MiniApp to exist on disk.
     const harness = renderDialog({ presetTarget: PRESET });
-    await settled();
     const previousRevision = useAppStore.getState().blockCatalogRefreshCounter;
     fireEvent.change(screen.getByTestId("miniapp-create-request"), {
       target: { value: "Threshold explorer please." },
     });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-create-submit"));
 
     await waitFor(() => expect(harness.onCreated).toHaveBeenCalledTimes(1));
@@ -240,7 +254,7 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     expect(useAppStore.getState().activeBottomTab).toBe("ai");
   });
 
-  it("shows the graded reason verbatim when the route says no agent can start", async () => {
+  it("shows the route's launch-check reason verbatim when the agent cannot start", async () => {
     // US1 acceptance 4 — nothing is created, and the user is told what is
     // wrong in the backend's own words rather than "request failed".
     const reason = "Claude Code is installed but not signed in. Run `claude login`.";
@@ -248,10 +262,10 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
       throw new ApiError(reason, 409);
     });
     const harness = renderDialog({ presetTarget: PRESET, create });
-    await settled();
     fireEvent.change(screen.getByTestId("miniapp-create-request"), {
       target: { value: "Threshold explorer please." },
     });
+    await chooseAgent();
     fireEvent.click(screen.getByTestId("miniapp-create-submit"));
 
     await waitFor(() =>
@@ -261,21 +275,20 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     expect(harness.onOpenChange).not.toHaveBeenCalledWith(false);
   });
 
-  it("probes availability once, when it opens", async () => {
-    // FR-024 — "which the dialog SHOULD fetch when it opens, so that a slow
-    // first check does not delay the submit".
+  it("reads /api/ai/status when it opens, never the removed availability probe", async () => {
     const harness = renderDialog({ presetTarget: PRESET });
-    expect(harness.fetchAvailability).toHaveBeenCalledTimes(1);
     await settled();
-    expect(harness.fetchAvailability).toHaveBeenCalledTimes(1);
+    expect(harness.status.statusCalls).toHaveLength(1);
+    expect(harness.status.availabilityCalls).toEqual([]);
   });
 
-  it("offers the provider and permission controls Bring in my work offers", async () => {
+  it("offers AI Chat's provider and permission controls", async () => {
     // FR-023 — the SAME controls, which is why these are the AI setup screen's
     // own test ids rather than ids of this dialog's own.
     renderDialog({ presetTarget: PRESET });
     await settled();
 
+    expect(screen.getByTestId("agent-launch-setup")).toBeInTheDocument();
     expect(screen.getByTestId("setup-provider-select")).toBeInTheDocument();
     expect(screen.getByTestId("setup-permission-safe")).toBeInTheDocument();
     expect(screen.getByTestId("setup-permission-dangerous")).toBeInTheDocument();
@@ -283,22 +296,45 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
 
   it("refuses to submit an empty request", async () => {
     renderDialog({ presetTarget: PRESET });
-    await settled();
+    await chooseAgent();
     expect(screen.getByTestId("miniapp-create-submit")).toBeDisabled();
   });
 
-  it("renders nothing while closed, so the probe does not run early", () => {
-    const fetchAvailability = vi.fn(async () => READY);
-    render(
-      <CreateMiniAppDialog
-        fetchAvailability={fetchAvailability as never}
-        onCreated={vi.fn()}
-        onOpenChange={vi.fn()}
-        open={false}
-      />,
-    );
+  it("starts with no provider or permission mode chosen and waits for both", async () => {
+    renderDialog({ presetTarget: PRESET });
+    await settled();
+    fireEvent.change(screen.getByTestId("miniapp-create-request"), {
+      target: { value: "Threshold explorer please." },
+    });
+    const select = screen.getByTestId("setup-provider-select") as HTMLSelectElement;
+    expect(select.value).toBe("");
+    const submit = screen.getByTestId("miniapp-create-submit");
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(select, { target: { value: "claude-code" } });
+    expect(submit).toBeDisabled();
+    fireEvent.click(screen.getByTestId("setup-permission-safe"));
+    expect(submit).not.toBeDisabled();
+  });
+
+  it("will not submit with a provider that is not installed", async () => {
+    renderDialog({
+      presetTarget: PRESET,
+      providers: [providerStatus({ name: "claude-code", available: false })],
+    });
+    fireEvent.change(screen.getByTestId("miniapp-create-request"), {
+      target: { value: "Threshold explorer please." },
+    });
+    await screen.findByTestId("setup-no-providers-notice");
+    expect(screen.getByTestId("miniapp-create-submit")).toBeDisabled();
+  });
+
+  it("renders nothing while closed, so provider status is not read early", () => {
+    const status = mockAgentStatus();
+    render(<CreateMiniAppDialog onCreated={vi.fn()} onOpenChange={vi.fn()} open={false} />);
     expect(screen.queryByTestId("miniapp-create-dialog")).toBeNull();
-    expect(fetchAvailability).not.toHaveBeenCalled();
+    expect(status.statusCalls).toEqual([]);
+    expect(status.availabilityCalls).toEqual([]);
   });
 });
 

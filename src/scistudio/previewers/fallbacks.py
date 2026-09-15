@@ -21,7 +21,7 @@
 # * ``core.base.fallback`` — :func:`base_fallback_previewer` (tier-8 universal)
 #
 # The collection and base fallbacks declare the sentinel ``target_type`` values
-# ``"Collection"`` / ``"DataObject"`` that :class:`PreviewRouter` matches for the
+# ``"Collection"`` / ``"DataObject"`` that :class:`scistudio.panels.router.PanelRouter` matches for the
 # core catch-all tiers.
 # Development references: ADR-048, FR-009, FR-010, FR-012, FR-013, FR-014, FR-015, FR-016, FR-017, FR-018,
 # FR-019, FR-028.

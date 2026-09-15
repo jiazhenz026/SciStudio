@@ -48,15 +48,18 @@ def test_discovery_project_user_package_tiers_and_diagnostics(tmp_path, monkeypa
 def test_nonpreview_panel_reserves_namespace_and_never_routes(panel_runtime):
     runtime, _ = panel_runtime
     from scistudio.panels.registry import PanelRegistry
+    from scistudio.panels.router import merge_candidates
 
-    panel = replace(runtime.get_preview_service().registry.panels.get("lab.text"), contexts=("interactive",), types=())
+    panel = replace(runtime.get_panel_service().panel("lab.text"), contexts=("interactive",), types=())
     panels = PanelRegistry()
     panels.register(panel)
     registry = PreviewerRegistry()
     registry.register(PreviewerSpec("lab.text", OwnerKind.USER, "user", "Text"))
-    registry.install_panels(panels)
-    assert registry.get("lab.text").panel is not None
-    assert registry.all_specs() == []
+    merged = merge_candidates(panels=panels.panels, legacy_specs=registry.all_specs())
+    assert merged.by_id["lab.text"].panel is not None
+    assert merged.routable == ()
+    # The legacy registry itself never holds a panel (#2465).
+    assert registry.get("lab.text").panel is None
 
 
 def test_panel_roots_share_tutorial_library_substitution(tmp_path, monkeypatch):
@@ -69,17 +72,16 @@ def test_panel_roots_share_tutorial_library_substitution(tmp_path, monkeypatch):
 
 def test_shared_catalog_keeps_shadowed_panel_cards_out_of_routing(tmp_path):
     from scistudio.panels.registry import PanelRegistry
+    from scistudio.panels.router import PanelRouter, merge_candidates
     from scistudio.previewers.models import PreviewTarget, TargetKind
-    from scistudio.previewers.router import PreviewRouter
 
     project = folder(tmp_path / "project", priority=5, types=["Text", "Collection[Text]"])
     user = folder(tmp_path / "user", priority=99, types=["Text"], contexts=["preview", "interactive"])
     panels = PanelRegistry()
     panels.load(user, OwnerKind.USER, {"Text"}, "user library")
     panels.load(project, OwnerKind.PROJECT, {"Text"}, "project")
-    registry = PreviewerRegistry()
-    registry.install_panels(panels)
-    cards = registry.catalog_specs()
+    merged = merge_candidates(panels=panels.panels, shadowed_panels=panels.shadowed)
+    cards = merged.catalog_specs()
     assert [(spec.owner_kind, shadowed) for spec, shadowed in cards] == [
         (OwnerKind.PROJECT, False),
         (OwnerKind.USER, True),
@@ -87,9 +89,9 @@ def test_shared_catalog_keeps_shadowed_panel_cards_out_of_routing(tmp_path):
     assert cards[0][0].panel["types"] == ["Text", "Collection[Text]"]
     assert cards[1][0].panel["contexts"] == ["preview", "interactive"]
     assert cards[1][0].priority == 99 and cards[1][0].owner_name == "user library"
-    assert all(spec.owner_kind is OwnerKind.PROJECT for spec in registry.all_specs())
+    assert all(spec.owner_kind is OwnerKind.PROJECT for spec in merged.routable)
     target = PreviewTarget(
         kind=TargetKind.DATA_REF, ref="text", recorded_type="Text", type_chain=("DataObject", "Text")
     )
-    assert PreviewRouter(registry).resolve(target).owner_kind is OwnerKind.PROJECT
-    assert registry.catalog_specs() == cards  # Listing does not accumulate duplicate cards.
+    assert PanelRouter(merged.routable).resolve(target).owner_kind is OwnerKind.PROJECT
+    assert merged.catalog_specs() == cards  # Listing does not accumulate duplicate cards.
