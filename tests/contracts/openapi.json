@@ -4157,6 +4157,7 @@
      "permission_mode": {
       "enum": [
        "safe",
+       "auto",
        "bypass"
       ],
       "type": "string"

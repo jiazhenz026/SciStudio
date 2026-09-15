@@ -115,7 +115,7 @@ export interface BringInMyWorkDialogProps {
     title: string;
     brief_path: string;
     provider: string;
-    permission_mode: "safe" | "bypass";
+    permission_mode: "safe" | "auto" | "bypass";
   }>;
 }
 

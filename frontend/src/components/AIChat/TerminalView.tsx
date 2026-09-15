@@ -76,6 +76,8 @@ export interface TerminalViewProps {
   projectDir: string;
   provider: TerminalProvider;
   dangerous: boolean;
+  /** #2379 — start the CLI in its Auto permission mode. Exclusive with `dangerous`. */
+  auto?: boolean;
   onExit: (code: number) => void;
   onError: (message: string) => void;
   /**
@@ -128,6 +130,7 @@ export function TerminalView({
   projectDir,
   provider,
   dangerous,
+  auto = false,
   onExit,
   onError,
   paced = false,
@@ -231,13 +234,14 @@ export function TerminalView({
     ptyOpenRef.current = false;
     lastSentResizeRef.current = null;
     setInitialSize(null);
-  }, [tabId, projectDir, provider, dangerous]);
+  }, [tabId, projectDir, provider, dangerous, auto]);
 
   const { send } = usePtyWebSocket({
     tabId,
     projectDir,
     provider,
     dangerous,
+    auto,
     enabled: initialSize !== null,
     initialCols: initialSize?.cols ?? null,
     initialRows: initialSize?.rows ?? null,

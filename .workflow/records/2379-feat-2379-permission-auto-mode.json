@@ -1,0 +1,299 @@
+{
+  "base_ref": null,
+  "branch": "feat/2379-permission-auto-mode",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/ai/agent/providers_registry.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T03:14:48.217260Z",
+      "owner_directive": "Protected-path changes (src/scistudio/engine/**, src/scistudio/blocks/**) approved for this PR.",
+      "reason": "Owner authorised protected-path changes for the auto permission mode"
+    },
+    {
+      "at": "2026-09-15T03:14:48.538852Z",
+      "owner_directive": "If a provider's CLI has no auto mode, grey out the Auto button.",
+      "reason": "Owner decision on providers without auto mode"
+    },
+    {
+      "at": "2026-09-15T03:14:48.947576Z",
+      "owner_directive": "Write a short ADR-034 addendum.",
+      "reason": "Owner requested ADR record"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T03:52:19.869456Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-034-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870459Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/ai-assistant.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870463Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/built-in-blocks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870465Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/tutorials/core/what-ai-can-do/tutorial.yaml",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2379,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Permission mode picker in AI chat and Bring in my work: one row of 3 buttons Manual / Auto / Yolo/Bypass, no explanatory text. Auto mode was recently added by all AI providers; research each CLI's auto-mode flag and wire it.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2379-feat-2379-permission-auto-mode",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:48.217691Z",
+      "pattern": "src/scistudio/engine/pty_control.py",
+      "reason": "Owner authorised protected-path changes for the auto permission mode"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:48.217729Z",
+      "pattern": "src/scistudio/blocks/ai/ai_block.py",
+      "reason": "Owner authorised protected-path changes for the auto permission mode"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:48.947732Z",
+      "pattern": "docs/adr/ADR-034-addendum1.md",
+      "reason": "Owner requested ADR record"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305146Z",
+      "pattern": "src/scistudio/api/routes/ai_pty/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305528Z",
+      "pattern": "src/scistudio/api/routes/work_import.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305555Z",
+      "pattern": "src/scistudio/ai/work_import/context.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305557Z",
+      "pattern": "src/scistudio/ai/agent/terminal.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305561Z",
+      "pattern": "src/scistudio/api/routes/ai.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305567Z",
+      "pattern": "src/scistudio/ai/agent/availability.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305568Z",
+      "pattern": "src/scistudio/tutorials/core/what-ai-can-do/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305579Z",
+      "pattern": "src/scistudio/tutorials/manifest.py",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305580Z",
+      "pattern": "frontend/src/components/AIChat/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305582Z",
+      "pattern": "frontend/src/components/BringInMyWorkDialog.parts/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305583Z",
+      "pattern": "frontend/src/components/BringInMyWorkDialog.tsx",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305599Z",
+      "pattern": "frontend/src/components/__tests__/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305611Z",
+      "pattern": "frontend/src/lib/api/workImport.ts",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305614Z",
+      "pattern": "frontend/src/store/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305616Z",
+      "pattern": "frontend/src/hooks/useWebSocket.parts/handleBlockPty.ts",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305617Z",
+      "pattern": "frontend/src/hooks/useWebSocket.test.ts",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:14:49.305622Z",
+      "pattern": "tests/**",
+      "reason": "Scope of the permission-mode plumbing across backend, frontend, tutorial, tests"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:52:19.018369Z",
+      "pattern": "frontend/src/lib/api/agentAvailability.ts",
+      "reason": "Codex 0.154.0 rejects the registry's Manual flag (-a untrusted, retired in 0.149.0), so the Manual button could not launch Codex; fixed alongside the Auto flag research in the same registry row, and the availability payload plus user guide carry the new mode"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:52:19.019574Z",
+      "pattern": "src/scistudio/_user_guide/ai-assistant.md",
+      "reason": "Codex 0.154.0 rejects the registry's Manual flag (-a untrusted, retired in 0.149.0), so the Manual button could not launch Codex; fixed alongside the Auto flag research in the same registry row, and the availability payload plus user guide carry the new mode"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:52:19.019578Z",
+      "pattern": "src/scistudio/_user_guide/built-in-blocks.md",
+      "reason": "Codex 0.154.0 rejects the registry's Manual flag (-a untrusted, retired in 0.149.0), so the Manual button could not launch Codex; fixed alongside the Auto flag research in the same registry row, and the availability payload plus user guide carry the new mode"
+    }
+  ],
+  "session_id": "52b7c259-274f-4c63-8f45-d7110ab47e8d",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T03:52:19.870474Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_permission_auto_mode.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870482Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870484Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_work_import_session.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870490Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty_engine_spawn.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870492Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/ai/test_ai_block_skeleton.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870493Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/SetupScreen.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:52:19.870497Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialogPermissionMode.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

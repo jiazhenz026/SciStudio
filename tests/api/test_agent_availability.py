@@ -40,7 +40,7 @@ from scistudio.ai.agent.availability import (
 )
 from scistudio.api.routes import ai as ai_routes
 
-_PROVIDER_KEYS = {"key", "label", "state", "cause", "next_step", "session_unsupported_reason"}
+_PROVIDER_KEYS = {"key", "label", "state", "cause", "next_step", "session_unsupported_reason", "supports_auto_mode"}
 _STATE_VALUES = {"not_installed", "not_authenticated", "call_failed", "ready"}
 
 
@@ -185,6 +185,7 @@ def test_response_matches_contract_c1(
         "cause": None,
         "next_step": None,
         "session_unsupported_reason": None,
+        "supports_auto_mode": True,
     }
 
 

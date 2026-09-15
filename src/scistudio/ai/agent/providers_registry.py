@@ -68,13 +68,16 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import Final, Literal
 
 __all__ = [
     "CONFIG_ROOT",
+    "PERMISSION_MODES",
     "REGISTRY",
     "CredentialProbe",
     "McpInjection",
     "McpStrategy",
+    "PermissionMode",
     "ProviderDescriptor",
     "ProviderKind",
     "ProviderRegistry",
@@ -99,6 +102,18 @@ CONFIG_ROOT = "<config-root>"
 #: both a bare Unix shell wrapper and a ``.cmd`` launcher on PATH; pywinpty's
 #: CreateProcess spawn path cannot execute the bare wrapper reliably.
 WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".bat", ".exe")
+
+PermissionMode = Literal["safe", "auto", "bypass"]
+"""How a spawned agent session starts: ask first, auto-review, or never ask.
+
+``safe`` is the picker's **Manual**, ``auto`` its **Auto**, and ``bypass`` its
+**Yolo/Bypass** (ADR-034 Addendum 1). The frontend spells ``bypass`` as
+``dangerous`` and maps it at the request boundary.
+"""
+# Development references: #2379, ADR-034.
+
+PERMISSION_MODES: Final[tuple[PermissionMode, ...]] = ("safe", "auto", "bypass")
+"""Every accepted :data:`PermissionMode` value, most restrictive first."""
 
 
 class ProviderKind(StrEnum):
@@ -266,6 +281,23 @@ class ProviderDescriptor:
     manual_argv_absent_reason: str | None = None
     """Why :attr:`manual_argv` is empty, when it is. ``None`` otherwise."""
 
+    auto_argv: tuple[str, ...] = ()
+    """Argv fragment appended when the user picks **Auto**.
+
+    Auto is the CLI's own reviewed-autonomy mode: routine actions run without a
+    prompt while a reviewer (a classifier model, or the CLI's own risk rules)
+    still stops or escalates risky ones. It sits between :attr:`manual_argv`
+    and :attr:`bypass_argv` and is exclusive with both.
+
+    Empty means the CLI has no such mode, which must be explained in
+    :attr:`auto_argv_absent_reason`; the picker then disables **Auto** for this
+    provider and every launch path rejects ``auto`` for it.
+    """
+    # Development references: #2379.
+
+    auto_argv_absent_reason: str | None = None
+    """Why :attr:`auto_argv` is empty, when it is. ``None`` otherwise."""
+
     prompt_argv_prefix: tuple[str, ...] | None = ("--",)
     """Argv placed before a positional initial prompt, or ``None``.
 
@@ -390,6 +422,32 @@ class ProviderDescriptor:
     @property
     def is_agent(self) -> bool:
         return self.kind is ProviderKind.AGENT
+
+    @property
+    def supports_auto_mode(self) -> bool:
+        """Whether this provider can start a session in **Auto** mode."""
+        # Development references: #2379.
+        return bool(self.auto_argv)
+
+    def permission_argv(self, mode: str) -> tuple[str, ...]:
+        """Return the argv fragment that starts this CLI in *mode*.
+
+        Raises
+        ------
+        ValueError
+            When *mode* is not a :data:`PermissionMode`, or is ``"auto"`` for a
+            provider without an auto mode. The message is user-facing.
+        """
+        # Development references: #1994, #2379.
+        if mode == "safe":
+            return self.manual_argv
+        if mode == "bypass":
+            return self.bypass_argv
+        if mode == "auto":
+            if not self.supports_auto_mode:
+                raise ValueError(f"{self.label} has no Auto permission mode; choose Manual or Yolo/Bypass.")
+            return self.auto_argv
+        raise ValueError(f"permission mode must be one of {PERMISSION_MODES!r}, got {mode!r}")
 
 
 class ProviderRegistry:
@@ -519,6 +577,12 @@ def _qoder_channel(
         # binary with a bogus value: default | plan | auto | bypass_permissions
         # | accept_edits | dont_ask. ``default`` is the ask-before-acting mode.
         manual_argv=("--permission-mode", "default"),
+        # #2379: ``auto`` is in the same 1.1.15 choice list, and Qoder's
+        # permissions page documents it as "authorization is decided by the
+        # agent": a classifier allows or denies each tool call, and denies
+        # rather than prompts when it is unreachable
+        # (https://docs.qoder.com/en/cli/permissions, read 2026-09-14).
+        auto_argv=("--permission-mode", "auto"),
         # The security-scan plugin's pinned internal copy, observed at 1.1.12
         # with ``{"channel": "global"}`` beside ``qodersec.exe``. Both channels
         # exclude it: it carries the international channel's binary name, so
@@ -568,6 +632,11 @@ _CLAUDE_CODE = ProviderDescriptor(
     # ``~/.claude/settings.json``, which is how a Manual Approve launch came up
     # in auto mode on the owner's machine (#1994 finding 2).
     manual_argv=("--permission-mode", "manual"),
+    # #2379: ``auto`` is in the same choice list, re-read from
+    # ``claude --help`` at 2.1.210. A classifier model reviews each action
+    # before it runs, letting safe ones through and blocking risky ones
+    # (https://code.claude.com/docs/en/permission-modes).
+    auto_argv=("--permission-mode", "auto"),
 )
 
 _CODEX = ProviderDescriptor(
@@ -603,7 +672,26 @@ _CODEX = ProviderDescriptor(
     # guarantees an escalation to the human for anything outside the trusted
     # command set; ``on-request`` delegates the decision to the model, which is
     # not what "Manual Approve" promises the user.
-    manual_argv=("--ask-for-approval", "untrusted"),
+    #
+    # #2379: re-verified at 0.154.0, where ``-a`` accepts only ``on-request``
+    # and ``never``. ``untrusted`` was retired in 0.149.0 and now exits 2, so
+    # the previous ``-a untrusted`` stopped Manual from launching at all.
+    # ``on-request`` is the only remaining policy that routes approvals to the
+    # human, and ``--sandbox read-only`` is what makes every write and every
+    # non-read command an approval request instead of leaving that to the
+    # model or to a persisted ``sandbox_mode`` — the pairing Codex's retirement
+    # notice recommends for the most cautious setup.
+    manual_argv=("--ask-for-approval", "on-request", "--sandbox", "read-only"),
+    # #2379: ``--approve-for-me`` (added 0.147.0, present at 0.154.0) routes
+    # approval requests to Codex's auto-review subagent under the
+    # workspace-write sandbox; genuinely risky actions still escalate to the
+    # human. It leaves ``approval_policy`` untouched, so ``-a on-request`` is
+    # stated too: a persisted ``never`` would otherwise mean nothing is ever
+    # sent for review. ``codex --approve-for-me -a on-request --help`` exits 0.
+    # It supersedes the deprecated ``--full-auto``. Sources: ``codex --help`` at
+    # 0.154.0; https://learn.chatgpt.com/docs/developer-commands?surface=cli
+    # (approval and sandbox values, read 2026-09-14).
+    auto_argv=("--approve-for-me", "--ask-for-approval", "on-request"),
     # #1994 finding 3. Codex 0.130+ gates project-scope hook *execution* behind
     # an interactive trust review: the TUI opens a panel reading
     # ``SessionStart 2 0 2 … Press t to trust all; enter to review hooks``
@@ -661,6 +749,13 @@ _KIMI_CODE = ProviderDescriptor(
     # ``--auto``, both of which *loosen* approval. There is no flag that
     # asserts interactive approval, so manual mode is the absence of both.
     manual_argv=(),
+    # #2379: Kimi's names run opposite to the picker's. ``kimi --help`` at
+    # 0.42.0 describes ``--auto`` as "Never Ask mode: ... everything runs and
+    # is decided automatically" — that is Yolo/Bypass, already above — and
+    # ``-y/--yolo`` as "Ask When Needed mode: routine edits and commands run
+    # automatically; risky actions, questions, and plans still ask", which is
+    # the picker's Auto.
+    auto_argv=("--yolo",),
     manual_argv_absent_reason=(
         "kimi 0.33.0 exposes only the loosening flags -y/--yolo and --auto; it "
         "has no flag that asserts interactive approval, so Manual Approve is "

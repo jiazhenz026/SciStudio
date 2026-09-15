@@ -141,7 +141,7 @@ steps:
     say:
       - "explain: The AI lives in the AI Chat tab, or inside an AI Block. Press **AI Chat** first."
       - "Every provider we support is listed here. One thing to know: the AI has to operate on your project, so a browser chat cannot be used — you need the provider's own client installed."
-      - "curious: Then pick how it may act. **Manual Approve** asks you before it runs a command or changes a file; **Bypass Permission** does neither. This is only how the session starts — the agent can change it from inside afterwards."
+      - "curious: Then pick how it may act. **Manual** asks you before it runs a command or changes a file; **Auto** lets the agent's own reviewer approve routine steps and stop risky ones; **Yolo/Bypass** never asks. This is only how the session starts — the agent can change it from inside afterwards."
 
   # ------------------------------------------------------- the conversation
 

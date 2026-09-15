@@ -681,3 +681,51 @@ def test_run_ignores_prior_output_when_toggle_off(project_dir: Path, stub_agent:
     assert "out" in result
     # Agent ran despite the pre-existing file (opt-in only).
     assert len(stub_agent.request_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# #2379 — the Auto permission mode
+# ---------------------------------------------------------------------------
+
+
+def test_permission_mode_schema_offers_manual_auto_and_yolo() -> None:
+    """#2379: three stored values, labelled like the AI chat picker, safe default."""
+    field = AIBlock.config_schema["properties"]["permission_mode"]
+    assert field["enum"] == ["safe", "auto", "bypass"]
+    assert field["ui_enum_labels"] == {"safe": "Manual", "auto": "Auto", "bypass": "Yolo/Bypass"}
+    assert field["default"] == "safe"
+
+
+def test_run_request_pty_tab_with_auto_permission(project_dir: Path, stub_agent: StubAgent) -> None:
+    stub_agent.outputs = {"out": ("out.csv", "x\n")}
+    block = _prepared_block(output_ports=[{"name": "out", "types": ["DataFrame"], "expected_path": "./out.csv"}])
+    cfg = _config(
+        user_prompt="hi",
+        provider="claude-code",
+        permission_mode="auto",
+        project_dir=str(project_dir),
+        timeout_sec=10,
+    )
+    block.run(inputs={}, config=cfg)
+    assert stub_agent.request_calls[0].permission_mode == "auto"
+
+
+def test_validate_rejects_auto_for_a_provider_without_an_auto_mode(
+    _provider_installed: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2379: refused at config time with the provider named, not mid-run."""
+    import dataclasses
+
+    from scistudio.blocks.ai import ai_block as mod
+
+    no_auto = dataclasses.replace(
+        providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture"
+    )
+    monkeypatch.setattr(mod, "_resolve_provider_descriptor", lambda _key: no_auto)
+
+    with pytest.raises(ValueError, match="no Auto permission mode") as excinfo:
+        AIBlock().validate_config(_config(provider="claude-code", permission_mode="auto", user_prompt="hi"))
+    assert "Claude Code" in str(excinfo.value)
+    # Manual and Yolo/Bypass stay valid for the same provider.
+    AIBlock().validate_config(_config(provider="claude-code", permission_mode="safe", user_prompt="hi"))
+    AIBlock().validate_config(_config(provider="claude-code", permission_mode="bypass", user_prompt="hi"))

@@ -109,6 +109,7 @@ class _SpawnRecorder:
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
@@ -122,6 +123,7 @@ class _SpawnRecorder:
                 "provider": provider,
                 "project_dir": project_dir,
                 "dangerous": dangerous,
+                "auto": auto,
                 "cols": cols,
                 "rows": rows,
                 "extra_env": extra_env,
@@ -548,15 +550,39 @@ def test_the_spawn_path_agrees_that_such_a_provider_cannot_be_launched(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("permission_mode", "dangerous"), [("safe", False), ("bypass", True)])
+@pytest.mark.parametrize(
+    ("permission_mode", "dangerous", "auto"),
+    [("safe", False, False), ("auto", False, True), ("bypass", True, False)],
+)
 def test_backend_permission_spelling_is_accepted_and_applied(
-    permission_mode: str, dangerous: bool, client: TestClient, opened_project: Path, spawn: _SpawnRecorder
+    permission_mode: str, dangerous: bool, auto: bool, client: TestClient, opened_project: Path, spawn: _SpawnRecorder
 ) -> None:
-    """The backend spelling is ``safe`` | ``bypass``, and it reaches the spawn."""
+    """The backend spelling is ``safe`` | ``auto`` | ``bypass``, and it reaches the spawn."""
     _body, data = _start(client, opened_project, permission_mode=permission_mode)
 
     assert data["permission_mode"] == permission_mode
     assert spawn.calls[0]["dangerous"] is dangerous
+    assert spawn.calls[0]["auto"] is auto
+
+
+def test_auto_is_refused_for_a_provider_without_an_auto_mode(
+    client: TestClient, opened_project: Path, spawn: _SpawnRecorder, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#2379: a 400 naming the provider, before any brief is written or agent spawned."""
+    import dataclasses
+
+    from scistudio.ai.agent.providers_registry import get
+
+    no_auto = dataclasses.replace(get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture")
+    monkeypatch.setattr(work_import, "get_descriptor", lambda _key: no_auto)
+
+    resp = client.post("/api/work-import/sessions", json=_payload(opened_project, permission_mode="auto"))
+
+    assert resp.status_code == 400
+    assert "no Auto permission mode" in resp.json()["detail"]
+    assert spawn.calls == []
+    brief_dir = opened_project.joinpath(*work_import.BRIEF_DIR_PARTS)
+    assert not brief_dir.exists() or not list(brief_dir.iterdir())
 
 
 def test_frontend_permission_spelling_is_rejected(

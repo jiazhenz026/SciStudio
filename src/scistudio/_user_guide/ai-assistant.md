@@ -194,9 +194,10 @@ panel has:
 - **Provider** — which assistant runs it: `claude-code`, `codex`, `qoder`, or
   `qoder-cn`. `kimi-code` is not available here; see
   [Kimi Code works in chat, not in an AI Agent block](#kimi-code-works-in-chat-not-in-an-ai-agent-block).
-- **Permission mode** — **Manual Approve** (the agent asks you before doing
-  anything sensitive) or **Bypass Permission** (it runs unattended with full
-  access and never asks).
+- **Permission mode** — **Manual** (the agent asks you before doing anything
+  sensitive), **Auto** (the provider's own reviewer approves routine steps and
+  stops risky ones; not every provider has it), or **Yolo/Bypass** (it runs
+  unattended with full access and never asks).
 - **Input / output ports** — you declare these in the port editor: name each
   port and give it a type. Inputs are handed to the agent as files; for each
   output you say where the agent should write its result and what type it is.

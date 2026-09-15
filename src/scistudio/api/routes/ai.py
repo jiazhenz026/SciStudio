@@ -103,15 +103,17 @@ async def provider_status() -> dict[str, Any]:
         {
           "providers": [
             {"name": "claude-code", "available": true,  "version": "2.1.141",
-             "logged_in": true,  "label": "Claude Code"},
+             "logged_in": true,  "label": "Claude Code", "supports_auto_mode": true},
             {"name": "kimi-code",   "available": false, "version": null,
-             "logged_in": false, "label": "Kimi Code"}
+             "logged_in": false, "label": "Kimi Code", "supports_auto_mode": true}
           ]
         }
 
     ``label`` is additive: display names come from the backend so
-    adding a provider needs no frontend edit. The other four fields keep their
-    original names, types, and meaning.
+    adding a provider needs no frontend edit. ``supports_auto_mode`` (#2379) is
+    additive too: whether the CLI has an Auto permission mode, read off the
+    registry descriptor. The other four fields keep their original names,
+    types, and meaning.
 
     All probes are best-effort and bounded by a
     :data:`_PROBE_TIMEOUT_SECONDS` subprocess timeout — the endpoint must never
@@ -150,10 +152,11 @@ async def agent_availability_report(
           "providers": [
             {"key": "claude-code", "label": "Claude Code",
              "state": "ready", "cause": null, "next_step": null,
-             "session_unsupported_reason": null},
+             "session_unsupported_reason": null, "supports_auto_mode": true},
             {"key": "codex", "label": "Codex",
              "state": "call_failed", "cause": "quota exceeded",
-             "next_step": null, "session_unsupported_reason": null}
+             "next_step": null, "session_unsupported_reason": null,
+             "supports_auto_mode": true}
           ]
         }
 
@@ -206,6 +209,8 @@ def _probe_provider(descriptor: ProviderDescriptor) -> dict[str, Any]:
         "version": version,
         "logged_in": _provider_logged_in(descriptor, binary),
         "label": descriptor.label,
+        # #2379: the AI Chat picker greys Auto out when this is false.
+        "supports_auto_mode": descriptor.supports_auto_mode,
     }
 
 

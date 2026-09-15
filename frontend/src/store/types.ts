@@ -622,6 +622,11 @@ export interface ProviderStatus {
   logged_in: boolean;
   /** Backend-supplied display label. The frontend never maps keys to labels. */
   label: string;
+  /**
+   * #2379 — whether the CLI has an Auto permission mode, read off the backend
+   * registry. Absent (an older backend) is treated as unsupported.
+   */
+  supports_auto_mode?: boolean;
 }
 
 export interface AiStatusResponse {
@@ -665,7 +670,7 @@ export interface TerminalTab {
   id: string;
   title: string;
   provider: TerminalProvider | null;
-  permissionMode: "safe" | "dangerous" | null;
+  permissionMode: "safe" | "auto" | "dangerous" | null;
   state: "setup" | "running" | "closed";
   exitCode?: number;
   errorMessage?: string;
@@ -705,7 +710,7 @@ export interface TerminalTabsSlice {
   launchTerminalTab: (
     id: string,
     provider: TerminalProvider,
-    permissionMode: "safe" | "dangerous",
+    permissionMode: "safe" | "auto" | "dangerous",
   ) => void;
   markTerminalTabExited: (id: string, code: number) => void;
   markTerminalTabErrored: (id: string, message: string) => void;
@@ -724,7 +729,7 @@ export interface TerminalTabsSlice {
     tabId: string;
     title: string;
     blockRunId: string;
-    permissionMode: "safe" | "dangerous";
+    permissionMode: "safe" | "auto" | "dangerous";
     /**
      * ADR-034 FR-020c / FR-022 — the provider the engine actually spawned,
      * forwarded from the `block_pty_opened` frame. Required: the store must
@@ -755,7 +760,7 @@ export interface TerminalTabsSlice {
     title: string;
     /** ADR-034 FR-020c — the provider the backend actually spawned. Never defaulted. */
     provider: TerminalProvider;
-    permissionMode: "safe" | "dangerous";
+    permissionMode: "safe" | "auto" | "dangerous";
   }) => void;
   /**
    * ADR-053 FR-061a (#2083) — adopt a tutorial replay tab.

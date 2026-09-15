@@ -94,6 +94,7 @@ export function toProviderStatuses(providers: ProviderAvailability[]): ProviderS
     version: null,
     logged_in: true,
     label: p.label || p.key,
+    supports_auto_mode: p.supports_auto_mode === true,
   }));
 }
 

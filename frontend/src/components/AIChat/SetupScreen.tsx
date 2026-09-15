@@ -21,7 +21,8 @@ import type {
 
 export interface SetupLaunchConfig {
   provider: TerminalProvider;
-  dangerous: boolean;
+  /** #2379 — Manual (`safe`), Auto (`auto`) or Yolo/Bypass (`dangerous`). */
+  permissionMode: PermissionMode;
 }
 
 export interface SetupScreenProps {
@@ -203,6 +204,7 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           tabId={tabId}
           permissionMode={permissionMode}
           onChange={setPermissionMode}
+          autoSupported={selectedProviderStatus?.supports_auto_mode === true}
         />
 
         <div
@@ -237,7 +239,7 @@ export function SetupScreen({ tabId, onLaunch, onCancel }: SetupScreenProps) {
           data-testid="setup-launch"
           onClick={() => {
             if (provider && permissionMode) {
-              onLaunch({ provider, dangerous: permissionMode === "dangerous" });
+              onLaunch({ provider, permissionMode });
             }
           }}
         >
