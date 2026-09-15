@@ -1293,6 +1293,134 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:12:27.432415Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b8eb82eb624c24d03490c7d7a9968d6df9dc0cdeafc18c5cb4593c15651c22cc",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:12:28.439569Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f53ce157496a787daf42a15760c9e83f2e8c0b0c5d28e0eca1d8da26abcc38b6",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:13:17.574294Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:c38bf0f66733e4bdf0f0f19b6018fd80a8fb2f9ac08cd63132b849e561480c32",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:13:23.982226Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b29a3a58fd56cf4e324ef2fab2a3879b1353726bd4710f32a7de31d528310f24",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:15:10.512378Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "covered_surface": "architecture",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:352beb74758a60e7c1b914dbd5550e9ad19da2678316aef85771e773c124c543",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:15:11.562560Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3d8a7d3ffd2f1e98e30e5edc801c7c2b2c22f11c142d999a4b3c32bddfe1bb99",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:16:02.237006Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2cd712028b8d850b5878001692f10b596f37c6abc90aa40bb6ea68ab80a5cae9",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T02:16:08.758173Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3ea527f0c6fc61961f1010753a85371d44d05ae81a780cdb56322fafc75edafe",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1362,6 +1490,21 @@
       "at": "2026-09-15T02:01:40.507377Z",
       "owner_directive": "Add rotation-arrow plus Restart, square-stop plus Stop, and blocks icon plus Convert using the existing icon library. Keep the full Convert to interactive block tooltip and accessible name, retain visible short text and neutral button styling.",
       "reason": "Owner requested icon-labelled MiniApp controls and a shorter Convert label."
+    },
+    {
+      "at": "2026-09-15T02:09:35.067877Z",
+      "owner_directive": "Simplify ConvertToBlockDialog to Create block with From and MiniApp display name, Outputs rows with persistent Name and Data type labels, catalogue-constrained type selection, generated unique legal ports without a Port input, plus Add output, optional Instructions with placeholder Use the current threshold as the default., and Create block submit. Keep Provider and Permission mode components, layout, copy and behavior unchanged; do not infer output defaults.",
+      "reason": "Owner approved a simpler conversion form while explicitly preserving provider and permission controls."
+    },
+    {
+      "at": "2026-09-15T02:11:29.943474Z",
+      "owner_directive": "Withdraw Create block title and submission wording. Retain approved simplified output fields and preserve Provider/Permission mode. Restore previous conversion wording until the owner confirms replacement copy; do not invent explanatory prose.",
+      "reason": "Owner rejected Create block wording; primary agent is discussing explanatory conversion copy."
+    },
+    {
+      "at": "2026-09-15T02:14:57.486984Z",
+      "owner_directive": "Use title Convert to interactive block. Explain: Use {MiniApp display name} as an interactive step in your workflow. Choose which results it should send to the next blocks. Bold the dynamic display name. Add Your MiniApp will remain available. Submit label Convert. Retain simplified fields and unchanged Provider/Permission components and behavior.",
+      "reason": "Owner approved the final explanatory conversion copy."
     }
   ],
   "docs_events": [
@@ -1431,6 +1574,14 @@
     },
     {
       "at": "2026-09-15T01:48:28.657990Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:09:35.068061Z",
       "class": null,
       "kind": "path",
       "path": "docs/specs/adr-054-miniapp.md",
@@ -2847,6 +2998,226 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.049655Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.062232Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/gui_presence.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/gui_presence.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.073169Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.085337Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.098063Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.111167Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.123662Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.136033Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.148556Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.160932Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:13:24.189692Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.872687Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.886581Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/engine/gui_presence.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/engine/gui_presence.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.897331Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.907895Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.919060Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.929822Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.940311Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.950863Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.961598Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.971851Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T02:16:08.997038Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -2914,9 +3285,9 @@
       "tests/panels/test_miniapp_context.py",
       "tests/panels/test_panel_process.py"
     ],
-    "diff_fingerprint": "sha256:ca47479749e7557e9548c8521dd18a2341aabd99acf7b21f4b51ff096b9fba58",
-    "head": "7cd30f263bdd8741e7422b1c38fb582ac6f98e50",
-    "head_sha": "7cd30f26",
+    "diff_fingerprint": "sha256:0ce4072225db764e73699307dc89d1e818932aa16cd732d1260595125e56a50e",
+    "head": "c8956a34f4d798c8584aa447e054b133037ee0f4",
+    "head_sha": "c8956a34",
     "surfaces": {
       "docs": 7,
       "frontend": 20,
@@ -3067,6 +3438,22 @@
     {
       "at": "2026-09-15T02:02:59.565396Z",
       "diff_fingerprint": "sha256:ca47479749e7557e9548c8521dd18a2341aabd99acf7b21f4b51ff096b9fba58",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T02:13:24.189774Z",
+      "diff_fingerprint": "sha256:908d6bb6a2f772929f26f89af6a9188ae23ead52a0c465a07449e09e10f12b71",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T02:16:08.997112Z",
+      "diff_fingerprint": "sha256:0ce4072225db764e73699307dc89d1e818932aa16cd732d1260595125e56a50e",
       "mode": "local",
       "result": "pass",
       "tier": 1,
@@ -3365,6 +3752,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/miniapps/MiniAppTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:09:35.068067Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/ConvertToBlockDialog.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

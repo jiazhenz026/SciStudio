@@ -842,3 +842,29 @@ the MiniApp description and agent brief.
 MiniApp toolbar actions use icon-and-text controls: rotation arrow **Restart**,
 square **Stop**, and blocks **Convert**. Convert retains “Convert to interactive
 block” as its tooltip and accessible name. These controls keep neutral styling.
+
+
+### Guided conversion-dialog simplification (#2354)
+
+The conversion form uses the title **Convert to interactive block** and asks
+for **Outputs** with persistent
+**Name** and **Data type** labels. The type choice uses the current project
+catalogue (native select with keyboard lookup), rather than arbitrary text.
+There is no separate Port field: names normalize to lower-case ASCII identifiers,
+leading digits receive an `output_` prefix, names without ASCII characters use
+`output`, and generated collisions receive numeric suffixes. Duplicate display
+names are rejected case-insensitively; every added row must be completed.
+
+**Add output** uses a plus icon. **Instructions** is marked Optional and uses
+“Use the current threshold as the default.” as its placeholder. Provider and Permission mode remain the existing shared
+components with their original layout, copy and behavior. Conversion still
+creates a separate block through the existing agent route and leaves the source
+MiniApp unchanged; outputs are not inferred or prefilled.
+
+
+The final owner-approved explanation is “Use **{MiniApp display name}** as an
+interactive step in your workflow. Choose which results it should send to the
+next blocks.” The dynamic MiniApp name is bold. A second short paragraph says
+“Your MiniApp will remain available.” Submission says **Convert**. The type
+control is the catalogue-backed native select with keyboard prefix lookup;
+this does not claim a searchable combobox.

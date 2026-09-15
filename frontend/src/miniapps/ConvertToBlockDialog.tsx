@@ -20,6 +20,8 @@
  * a session, and a session that cannot start should say so here rather than
  * failing inside the route.
  */
+import { Plus } from "lucide-react";
+
 import { useCallback, useEffect, useState } from "react";
 
 import type { PermissionMode } from "../components/AIChat/SetupScreen.parts/types";
@@ -40,13 +42,9 @@ import { miniAppsApi } from "./api";
 
 export const CONVERT_TITLE = "Convert to interactive block";
 export const CONVERT_EYEBROW = "MiniApp";
-export const OUTPUTS_LABEL = "What should the block output?";
-export const OUTPUTS_HELP =
-  "One row per output port. The name is how it appears on the block; the type is the SciStudio data type it produces.";
-export const NOTE_LABEL = "Anything else the agent should know? (optional)";
-export const NOTE_PLACEHOLDER = "The threshold should default to whatever the MiniApp last showed.";
-export const UNCHANGED_NOTE =
-  "The MiniApp is left exactly as it is. The agent writes a new block into the project.";
+export const OUTPUTS_LABEL = "Outputs";
+export const NOTE_LABEL = "Instructions";
+export const NOTE_PLACEHOLDER = "Use the current threshold as the default.";
 export const PROBING = "Checking which agents can run this...";
 
 /** One requested output port of the block being written. */
@@ -65,25 +63,32 @@ export function emptyRow(): OutputRow {
   return { id: `output-${nextRowId}`, name: "", type: "", port: "" };
 }
 
-/**
- * The rows that are complete enough to ask for.
- *
- * A half-filled row is dropped rather than sent: the brief is prose an agent
- * reads, and "an output called `mask` of type (blank)" is worse than one fewer
- * output. The submit is disabled until at least one row survives this, so
- * nothing is silently discarded from a request the user could still complete.
- */
+/** Generate stable, unique Python-style port names from display names. */
 export function completeRows(rows: OutputRow[]): { name: string; type: string; port: string }[] {
-  return rows
-    .map((row) => ({ name: row.name.trim(), type: row.type.trim(), port: row.port.trim() }))
-    .filter((row) => row.name !== "" && row.type !== "")
-    .map((row) => ({ ...row, port: row.port || row.name }));
+  const used = new Set<string>();
+  return rows.map((row) => {
+    const name = row.name.trim();
+    const stem =
+      name
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "") || "output";
+    const base = /^[a-z_]/.test(stem) ? stem : `output_${stem}`;
+    let port = base;
+    let suffix = 2;
+    while (used.has(port)) port = `${base}_${suffix++}`;
+    used.add(port);
+    return { name, type: row.type.trim(), port };
+  });
 }
 
 export interface ConvertToBlockDialogProps {
   open: boolean;
   onOpenChange(open: boolean): void;
   panelId: string;
+  panelName?: string;
   onStarted(sessionTabId: string | null): void;
   /** Test seam for the graded availability probe. */
   fetchAvailability?: AvailabilityFetcher;
@@ -100,6 +105,7 @@ export function ConvertToBlockDialog(props: ConvertToBlockDialogProps) {
 function ConvertToBlockDialogBody({
   onOpenChange,
   panelId,
+  panelName,
   onStarted,
   fetchAvailability,
   convert = miniAppsApi.convert,
@@ -137,14 +143,25 @@ function ConvertToBlockDialogBody({
   }, [close]);
 
   const outputs = completeRows(rows);
-  const submittable = outputs.length > 0 && !submitting && !probing && agentUsable;
+  const duplicateNames =
+    new Set(outputs.map((output) => output.name.toLowerCase())).size !== outputs.length;
+  const complete =
+    outputs.length > 0 &&
+    outputs.every(
+      (output) => output.name !== "" && types.some((type) => type.name === output.type),
+    );
+  const rowError =
+    duplicateNames && outputs.every((output) => output.name)
+      ? "Give each output a different name."
+      : null;
+  const submittable = complete && !rowError && !submitting && !probing && agentUsable;
 
   const patchRow = (id: string, patch: Partial<OutputRow>) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
   const submit = useCallback(async () => {
-    if (outputs.length === 0) return;
+    if (!submittable) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -172,7 +189,17 @@ function ConvertToBlockDialogBody({
       setError(err instanceof Error ? err.message : String(err));
       setSubmitting(false);
     }
-  }, [convert, note, onOpenChange, onStarted, outputs, panelId, permissionMode, provider]);
+  }, [
+    convert,
+    note,
+    onOpenChange,
+    onStarted,
+    outputs,
+    panelId,
+    permissionMode,
+    provider,
+    submittable,
+  ]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4">
@@ -189,7 +216,11 @@ function ConvertToBlockDialogBody({
             <h2 className="mt-2 font-display text-2xl text-ink" id="miniapp-convert-title">
               {CONVERT_TITLE}
             </h2>
-            <p className="mt-1 text-xs text-stone-500">{UNCHANGED_NOTE}</p>
+            <p className="mt-2 text-sm text-stone-600">
+              Use <strong>{panelName || panelId}</strong> as an interactive step in your workflow.
+              Choose which results it should send to the next blocks.
+            </p>
+            <p className="mt-1 text-sm text-stone-600">Your MiniApp will remain available.</p>
           </div>
           <button
             className="rounded-full border border-stone-300 px-3 py-1 text-sm"
@@ -204,43 +235,44 @@ function ConvertToBlockDialogBody({
         <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto pr-1">
           <div className="grid gap-1.5">
             <p className="text-sm font-medium text-ink">{OUTPUTS_LABEL}</p>
-            <p className="text-xs text-stone-500">{OUTPUTS_HELP}</p>
-            {/* The type catalogue is a suggestion list, not a constraint: a
-             * block may output a type a package registers later, and the
-             * agent resolves the name it is given. */}
-            <datalist id="miniapp-convert-types">
-              {types.map((type) => (
-                <option key={type.name} value={type.name} />
-              ))}
-            </datalist>
             <div className="grid gap-2">
               {rows.map((row, index) => (
-                <div className="flex flex-wrap items-center gap-2" key={row.id}>
-                  <input
-                    aria-label={`Output ${index + 1} name`}
-                    className="min-w-[8rem] flex-1 rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
-                    data-testid={`miniapp-convert-name-${index}`}
-                    onChange={(event) => patchRow(row.id, { name: event.target.value })}
-                    placeholder="Name, e.g. mask"
-                    value={row.name}
-                  />
-                  <input
-                    aria-label={`Output ${index + 1} type`}
-                    className="min-w-[8rem] flex-1 rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
-                    data-testid={`miniapp-convert-type-${index}`}
-                    list="miniapp-convert-types"
-                    onChange={(event) => patchRow(row.id, { type: event.target.value })}
-                    placeholder="Type, e.g. Mask"
-                    value={row.type}
-                  />
-                  <input
-                    aria-label={`Output ${index + 1} port`}
-                    className="min-w-[7rem] flex-1 rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
-                    data-testid={`miniapp-convert-port-${index}`}
-                    onChange={(event) => patchRow(row.id, { port: event.target.value })}
-                    placeholder="Port (defaults to the name)"
-                    value={row.port}
-                  />
+                <div className="flex items-end gap-2" key={row.id}>
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <label className="text-xs text-stone-600" htmlFor={`${row.id}-name`}>
+                      Name
+                    </label>
+                    <input
+                      id={`${row.id}-name`}
+                      aria-label={`Output ${index + 1} name`}
+                      className="min-w-0 rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
+                      data-testid={`miniapp-convert-name-${index}`}
+                      onChange={(event) => patchRow(row.id, { name: event.target.value })}
+                      value={row.name}
+                    />
+                  </div>
+                  <div className="grid min-w-0 flex-1 gap-1">
+                    <label className="text-xs text-stone-600" htmlFor={`${row.id}-type`}>
+                      Data type
+                    </label>
+                    <select
+                      id={`${row.id}-type`}
+                      aria-label={`Output ${index + 1} data type`}
+                      className="min-w-0 rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
+                      data-testid={`miniapp-convert-type-${index}`}
+                      onChange={(event) => patchRow(row.id, { type: event.target.value })}
+                      value={row.type}
+                    >
+                      <option value="" disabled>
+                        Select data type
+                      </option>
+                      {types.map((type) => (
+                        <option key={type.name} value={type.name}>
+                          {type.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                   {rows.length > 1 ? (
                     <button
                       className="rounded-full border border-stone-300 px-3 py-1 text-xs"
@@ -254,21 +286,27 @@ function ConvertToBlockDialogBody({
                 </div>
               ))}
             </div>
+            {rowError ? (
+              <p className="text-sm text-red-700" role="alert">
+                {rowError}
+              </p>
+            ) : null}
             <div>
               <button
-                className="rounded-full border border-stone-300 px-3 py-1 text-xs"
+                className="inline-flex items-center gap-1 rounded-full border border-stone-300 px-3 py-1 text-xs"
                 data-testid="miniapp-convert-add-output"
                 onClick={() => setRows((prev) => [...prev, emptyRow()])}
                 type="button"
               >
-                Add another output
+                <Plus size={14} aria-hidden="true" />
+                Add output
               </button>
             </div>
           </div>
 
           <div className="grid gap-1.5">
             <label className="text-sm font-medium text-ink" htmlFor="miniapp-convert-note">
-              {NOTE_LABEL}
+              {NOTE_LABEL} <span className="ml-2 font-normal text-stone-500">Optional</span>
             </label>
             <textarea
               className="min-h-[4rem] rounded-2xl border border-stone-300 bg-white px-3 py-2 text-sm text-ink"
@@ -332,7 +370,7 @@ function ConvertToBlockDialogBody({
               onClick={() => void submit()}
               type="button"
             >
-              {submitting ? "Starting..." : "Write the block"}
+              {submitting ? "Converting..." : "Convert"}
             </button>
           </div>
         </div>

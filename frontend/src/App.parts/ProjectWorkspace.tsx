@@ -872,6 +872,10 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
           if (!open) setConvertFor(null);
         }}
         panelId={convertFor ?? ""}
+        panelName={
+          miniAppTabs.find((tab) => tab.panelId === convertFor)?.displayName ??
+          miniAppCatalogue.find((app) => app.panel_id === convertFor)?.name
+        }
         onStarted={() => setConvertFor(null)}
       />
     </div>

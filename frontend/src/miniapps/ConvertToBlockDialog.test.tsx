@@ -15,7 +15,7 @@ import { ApiError } from "../lib/api/core";
 import { useAppStore } from "../store";
 import { resetAppStore } from "../testUtils";
 
-import { ConvertToBlockDialog } from "./ConvertToBlockDialog";
+import { completeRows, ConvertToBlockDialog } from "./ConvertToBlockDialog";
 
 const READY: AgentAvailabilityResponse = {
   state: "ready",
@@ -43,6 +43,7 @@ function renderDialog(options: { convert?: ReturnType<typeof vi.fn> } = {}) {
       onStarted={onStarted}
       open
       panelId="threshold"
+      panelName="Threshold explorer"
     />,
   );
   return { convert, onStarted, onOpenChange };
@@ -54,7 +55,10 @@ async function settled(): Promise<void> {
 
 beforeEach(() => {
   resetAppStore();
-  useAppStore.setState({ types: [], typesLoaded: true });
+  useAppStore.setState({
+    types: [{ name: "Mask" }, { name: "Value" }] as never,
+    typesLoaded: true,
+  });
 });
 
 afterEach(() => {
@@ -102,9 +106,6 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     fireEvent.change(screen.getByTestId("miniapp-convert-type-1"), {
       target: { value: "Value" },
     });
-    fireEvent.change(screen.getByTestId("miniapp-convert-port-1"), {
-      target: { value: "t" },
-    });
     fireEvent.change(screen.getByTestId("miniapp-convert-note"), {
       target: { value: "Default to what the MiniApp last showed." },
     });
@@ -114,7 +115,7 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     expect(harness.convert.mock.calls[0][1]).toMatchObject({
       outputs: [
         { name: "mask", type: "Mask", port: "mask" },
-        { name: "threshold", type: "Value", port: "t" },
+        { name: "threshold", type: "Value", port: "threshold" },
       ],
       note: "Default to what the MiniApp last showed.",
     });
@@ -148,13 +149,47 @@ describe("ConvertToBlockDialog (ADR-054 FR-036)", () => {
     expect(harness.onStarted).not.toHaveBeenCalled();
   });
 
-  it("says the MiniApp is left alone", async () => {
-    // FR-036 — "The MiniApp MUST be left unchanged". The dialog writes nothing
-    // itself, and it tells the user that before they commit.
+  it("shows the source and simplified fields while retaining shared agent controls", async () => {
     renderDialog();
     await settled();
-    expect(screen.getByTestId("miniapp-convert-dialog")).toHaveTextContent(
-      /left exactly as it is/i,
+    expect(screen.getByRole("heading", { name: "Convert to interactive block" })).toBeTruthy();
+    const displayName = screen.getByText("Threshold explorer");
+    expect(displayName.tagName).toBe("STRONG");
+    expect(displayName.parentElement).toHaveTextContent(
+      "Use Threshold explorer as an interactive step in your workflow. Choose which results it should send to the next blocks.",
     );
+    expect(screen.getByText("Your MiniApp will remain available.")).toBeTruthy();
+    expect(screen.getByTestId("miniapp-convert-submit")).toHaveTextContent(/^Convert$/);
+    expect(screen.queryByTestId("miniapp-convert-port-0")).toBeNull();
+    expect(screen.getByTestId("miniapp-convert-note")).toHaveAttribute(
+      "placeholder",
+      "Use the current threshold as the default.",
+    );
+    expect(screen.getByTestId("setup-provider-select")).toBeTruthy();
+    expect(screen.getByTestId("setup-permission-safe")).toBeTruthy();
+    expect(screen.getByTestId("setup-permission-dangerous")).toBeTruthy();
+  });
+
+  it("rejects duplicate output names and incomplete rows", async () => {
+    const harness = renderDialog();
+    await settled();
+    fireEvent.change(screen.getByTestId("miniapp-convert-name-0"), { target: { value: "Mask" } });
+    fireEvent.change(screen.getByTestId("miniapp-convert-type-0"), { target: { value: "Mask" } });
+    fireEvent.click(screen.getByTestId("miniapp-convert-add-output"));
+    expect(screen.getByTestId("miniapp-convert-submit")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("miniapp-convert-name-1"), { target: { value: "mask" } });
+    fireEvent.change(screen.getByTestId("miniapp-convert-type-1"), { target: { value: "Mask" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Give each output a different name.");
+    expect(screen.getByTestId("miniapp-convert-submit")).toBeDisabled();
+    expect(harness.convert).not.toHaveBeenCalled();
+  });
+
+  it("generates legal unique ports for punctuation, digits and non-Latin names", () => {
+    const names = ["Cell mask", "Cell-mask", "3D view", "图像"];
+    expect(
+      completeRows(
+        names.map((name, index) => ({ id: String(index), name, type: "Mask", port: "" })),
+      ).map((row) => row.port),
+    ).toEqual(["cell_mask", "cell_mask_2", "output_3d_view", "output"]);
   });
 });
