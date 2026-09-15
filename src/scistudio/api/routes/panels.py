@@ -120,14 +120,18 @@ class ContextCallError(BaseModel):
 
 
 class ContextAnswers(BaseModel):
-    """A MiniApp page submits its questionnaire (MiniApp FR-050)."""
+    """A MiniApp page submits its questionnaire."""
+
+    # MiniApp FR-050.
 
     model_config = ConfigDict(extra="forbid")
     answers: dict[str, Any] = Field(description="One answer per question id; a question left out is skipped.")
 
 
 class SubmitAnswersResult(BaseModel):
-    """What a questionnaire submit did (MiniApp FR-050/FR-051)."""
+    """What a questionnaire submit did."""
+
+    # MiniApp FR-050/FR-051.
 
     saved: bool
     path: str | None = Field(description="Where answers.json was written: project-relative inside the project.")

@@ -55,7 +55,14 @@ def test_normalize_keeps_order_and_marks_every_status() -> None:
         },
     )
     assert [e["id"] for e in entries] == [q["id"] for q in GOOD["questions"]]
-    assert entries[0] == {"id": "chart", "type": "single", "prompt": "Which view?", "status": "answered", "value": "umap", "label": "UMAP"}
+    assert entries[0] == {
+        "id": "chart",
+        "type": "single",
+        "prompt": "Which view?",
+        "status": "answered",
+        "value": "umap",
+        "label": "UMAP",
+    }
     assert entries[1]["status"] == DECIDE_FOR_ME and "value" not in entries[1]
     assert entries[2]["status"] == "skipped"  # left out of the submission
     assert entries[3]["value"] == 20

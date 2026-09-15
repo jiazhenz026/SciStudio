@@ -1027,4 +1027,3 @@ writes is checked before the user sees it.
 - **FR-054**: The create brief (FR-027) MUST point the agent at the flow: look
   at the data, write a questionnaire and pass `validate_panel`, wait for the
   submit (the chat notice, or `wait_for_answers`), then build from the answers.
-
