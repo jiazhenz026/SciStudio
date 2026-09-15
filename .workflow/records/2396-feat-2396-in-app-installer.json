@@ -589,6 +589,11 @@
       "at": "2026-09-15T07:27:02.038471Z",
       "owner_directive": "\u4feeCI\uff0cwheel release smoke\u6302\u4e86",
       "reason": "Owner directed fixing PR CI: origin/main's dispatchMiniApp.test.ts (#2392) still mocks setInteractivePrompt after #2397 renamed the DispatchDeps field to upsertInteractivePrompt, failing tsc in Frontend and Wheel Release Smoke"
+    },
+    {
+      "at": "2026-09-15T08:04:30.718837Z",
+      "owner_directive": "\u4f60\u628a\u524d\u7aef\u548cwheel release\u8fd9\u4e24\u4e2a\u7684\u4fee\u590d\u62bd\u5230\u5355\u72ec\u7684PR\u91cc",
+      "reason": "Owner directed extracting the Frontend/Wheel Release Smoke fix out of this PR. origin/main already carries it (a393a655, #2394; #2417/PR #2418 also track it), so merging main leaves dispatchMiniApp.test.ts identical to main and this PR no longer changes frontend/"
     }
   ],
   "docs_events": [
