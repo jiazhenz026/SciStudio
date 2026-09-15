@@ -259,3 +259,21 @@ def test_dropin_type_is_imported_by_file_stem(ctx: _StubRuntime) -> None:
     )
     result = _scaffold(name="use_spectrum", category="block", input_ports={"s": {"type": "SpectrumData"}})
     assert "from spectrum import SpectrumData" in Path(result.path).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("name", "inputs", "outputs"),
+    [("sink_only", {"a": {"type": "Array"}}, None), ("source_only", None, {"b": {"type": "Array"}})],
+)
+def test_one_sided_contract_does_not_keep_template_ports(
+    ctx: _StubRuntime, name: str, inputs: dict[str, Any] | None, outputs: dict[str, Any] | None
+) -> None:
+    """Codex review on #2387: an omitted side renders as no ports, not the template's example ports."""
+    result = _scaffold(name=name, category="block", input_ports=inputs, output_ports=outputs)
+    class_name = "".join(part.capitalize() for part in name.split("_"))
+    block = _load_class(result.path, class_name)
+    assert [p.name for p in block.input_ports] == list(inputs or {})
+    assert [p.name for p in block.output_ports] == list(outputs or {})
+    assert not BlockTestHarness(block).validate_block()
+    if outputs is None:
+        assert block().run({"a": None}, None) == {}

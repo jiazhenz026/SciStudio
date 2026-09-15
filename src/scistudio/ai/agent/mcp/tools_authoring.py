@@ -620,8 +620,11 @@ async def scaffold_block(
             warnings_list.append(io_warning)
 
     kind = _SCAFFOLD_KINDS[category]
-    render_inputs: dict[str, dict[str, Any]] | None = inputs_norm or None
-    render_outputs: dict[str, dict[str, Any]] | None = outputs_norm or None
+    # Once either side is declared, the other side is the caller's too: an
+    # omitted side renders as no ports rather than the template's example ports.
+    declared = bool(inputs_norm or outputs_norm)
+    render_inputs: dict[str, dict[str, Any]] | None = inputs_norm if declared else None
+    render_outputs: dict[str, dict[str, Any]] | None = outputs_norm if declared else None
     if category == "io":
         # Same direction rule as the core-IO steering warning (#2376): only
         # input ports -> saver; otherwise loader.

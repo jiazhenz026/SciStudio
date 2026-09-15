@@ -487,6 +487,11 @@
       "at": "2026-09-15T04:43:09.449577Z",
       "owner_directive": "For category=code, have the agent use a ProcessBlock instead of writing a script and referencing it from a code_block node.",
       "reason": "owner redirected category=code handling"
+    },
+    {
+      "at": "2026-09-15T04:51:06.018162Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "address Codex review"
     }
   ],
   "docs_events": [

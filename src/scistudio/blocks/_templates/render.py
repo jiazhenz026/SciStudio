@@ -116,10 +116,13 @@ def render_starter(kind: str, spec: StarterSpec) -> str:
     if spec.output_ports is not None:
         _replace_ports(lines, "output_ports", "OutputPort", spec.output_ports, kind)
 
-    _label_config_schema(lines, kind)
-
     if ports_overridden and template.body_method is not None:
+        # The template's example parameters are wired into the body being
+        # replaced; keeping them would leave inert controls in the GUI.
+        _clear_config_schema(lines, kind)
         _replace_body(lines, template.body_method, _body_for(kind, spec), kind)
+    else:
+        _label_config_schema(lines, kind)
 
     text = "\n".join(lines).rstrip("\n") + "\n"
     return _rewrite_core_types_import(text, spec, kind)
@@ -227,6 +230,23 @@ def _label_config_schema(lines: list[str], kind: str) -> None:
     rendered = _py_literal(schema, level=1).splitlines()
     rendered[0] = f"{first[: first.index('=') + 1]} {rendered[0]}"
     lines[start : end + 1] = rendered
+
+
+def _clear_config_schema(lines: list[str], kind: str) -> None:
+    """Replace ``config_schema`` with an empty schema that shows how to add a labelled parameter."""
+    span = _statement_span(lines, "config_schema", kind)
+    if span is None:
+        return
+    lines[span[0] : span[1] + 1] = [
+        f"{_INDENT}config_schema: ClassVar[dict[str, Any]] = {{",
+        f'{_INDENT * 2}"type": "object",',
+        f'{_INDENT * 2}"properties": {{',
+        f"{_INDENT * 3}# Add one entry per value users may change, and read it with config.get(), e.g.",
+        f'{_INDENT * 3}# "threshold": {{"type": "number", "title": "Threshold",',
+        f'{_INDENT * 3}#               "description": "Cut-off applied to each value.", "default": 0.5}},',
+        f"{_INDENT * 2}}},",
+        f"{_INDENT}}}",
+    ]
 
 
 def _replace_body(lines: list[str], method: str, body: list[str], kind: str) -> None:
@@ -351,7 +371,8 @@ _LOAD_SNIPPETS: dict[str, tuple[str, ...]] = {
 _SAVE_SNIPPETS: dict[str, tuple[str, ...]] = {
     "Text": ('path.write_text(obj.to_memory(), encoding="utf-8")',),
     "Artifact": ("path.write_bytes(obj.to_memory())",),
-    "Array": ("import numpy as np", "", "np.save(path, obj.to_memory())"),
+    # Write through a handle: np.save(path, ...) appends ".npy" to any other extension.
+    "Array": ("import numpy as np", "", 'with path.open("wb") as handle:', "    np.save(handle, obj.to_memory())"),
     "DataFrame": ("import pyarrow.csv as pa_csv", "", "pa_csv.write_csv(obj.to_memory(), path)"),
 }
 

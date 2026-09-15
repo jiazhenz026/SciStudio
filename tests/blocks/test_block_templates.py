@@ -257,3 +257,42 @@ def test_render_rejects_a_template_without_the_expected_layout(monkeypatch: pyte
     monkeypatch.setattr(render, "read_template", lambda kind: "class A(Block):\n    x = 1\n")
     with pytest.raises(ValueError, match="docstring"):
         render.render_starter("basic", StarterSpec(class_name="B", label="B", description="d"))
+
+
+def test_render_with_ports_clears_the_template_example_parameters() -> None:
+    """Codex review on #2387: replaced bodies must not leave inert template parameters in the GUI."""
+    port = (PortStub("signal", "Array", "the signal"),)
+    source = render_starter(
+        "process",
+        StarterSpec(
+            class_name="Passthrough", label="Passthrough", description="d", input_ports=port, output_ports=port
+        ),
+    )
+    block = _exec_block(source, "Passthrough")
+    assert block.__dict__["config_schema"]["properties"] == {}
+    assert "Gain" not in source.split("class Passthrough", 1)[1]
+    assert "config.get()" in source  # the empty schema still shows how to add a labelled parameter
+    # Without declared ports the worked body and its parameter stay together.
+    kept = render_starter("process", StarterSpec(class_name="Kept", label="Kept", description="d"))
+    assert "gain" in _exec_block(kept, "Kept").__dict__["config_schema"]["properties"]
+
+
+def test_rendered_array_saver_writes_the_requested_path(tmp_path: Path) -> None:
+    """Codex review on #2387: ``np.save(path)`` would append ``.npy`` to the claimed extension."""
+    import numpy as np
+
+    spec = StarterSpec(
+        class_name="SaveArr",
+        label="Save Arr",
+        description="d",
+        input_ports=(PortStub("data", "Array", "the array"),),
+        extension=".save_arr",
+        format_id="save_arr",
+        known_types=frozenset(core_types.__all__),
+    )
+    block = _exec_block(render_starter("io_save", spec), "SaveArr")
+    target = tmp_path / "result.save_arr"
+    block().save_file(core_types.Array(axes=["x"], data=np.arange(3)), target, {})
+    assert target.is_file()
+    assert not (tmp_path / "result.save_arr.npy").exists()
+    assert np.load(target).tolist() == [0, 1, 2]
