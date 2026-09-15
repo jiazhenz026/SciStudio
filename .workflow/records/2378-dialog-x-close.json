@@ -1,0 +1,124 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2378-dialog-x-close",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/BringInMyWorkDialog.tsx",
+      "frontend/src/components/BringInMyWorkDialog.parts/copy.ts",
+      "frontend/src/components/ProjectDialog.tsx",
+      "frontend/src/components/PackageManagerDialog.tsx",
+      "frontend/src/components/**/*.test.tsx"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T03:08:46.338147Z",
+      "owner_directive": "Manager note: on origin/main interactive blocks already go through DynamicPanel with an X; the remaining text header buttons are BringInMyWorkDialog, ProjectDialog, PackageManagerDialog. Footer Cancel buttons next to Confirm/OK are out of scope. Any other popup found with a visible-text top-right header close must be included.",
+      "reason": "Manager narrowed the directive to header close controls and asked to include any other popup with a text header close"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T03:10:55.811716Z",
+      "class": "presentational",
+      "kind": "na",
+      "path": null,
+      "rationale": "Header close controls change from a text pill to an icon-only X with the same accessible name and testids; no user guide, spec, or contract describes these buttons",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2378,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Replace the top-right Cancel button of all popup windows (e.g. Bring in my work, interactive blocks) with an X icon button, no text.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2378-dialog-x-close",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:08:46.338319Z",
+      "pattern": "frontend/src/components/Git/MergeFlow.tsx",
+      "reason": "Manager narrowed the directive to header close controls and asked to include any other popup with a text header close"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:08:46.338323Z",
+      "pattern": "frontend/src/components/Git/GitDiffModal.tsx",
+      "reason": "Manager narrowed the directive to header close controls and asked to include any other popup with a text header close"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:08:46.338324Z",
+      "pattern": "frontend/src/components/ui/DialogCloseButton.tsx",
+      "reason": "Manager narrowed the directive to header close controls and asked to include any other popup with a text header close"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T03:10:55.811508Z",
+      "pattern": "frontend/src/components/__tests__/BringInMyWorkDialogClose.test.tsx",
+      "reason": "Record final test files and docs impact"
+    }
+  ],
+  "session_id": "cb585130-38c2-42cf-8d59-93227831a2e0",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T03:08:46.338335Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/DialogCloseButton.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:10:55.811723Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/BringInMyWorkDialogClose.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:10:55.811725Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/ProjectDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:10:55.811726Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/PackageManagerDialog.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
