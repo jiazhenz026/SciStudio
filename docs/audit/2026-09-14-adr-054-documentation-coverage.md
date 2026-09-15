@@ -209,3 +209,53 @@ commit before claiming the documentation gaps closed.
 Evidence is source inspection, `rg` inventories, branch comparisons, and read-only
 issue queries. No GUI run, wheel installation, native Windows test, full test
 suite, or CI result is claimed by this report.
+
+## 5. Bounded Follow-Up Review Of Proposed Repairs
+
+This follow-up reviews the **uncommitted** consumer documentation supplied after
+the initial report: the integration branch's MiniApp/write-block skills,
+`block-contract.md`, and memory wording, plus the screenshot implementation
+worktree's `gui-debug.md`, `miniapp-renderers.md`, `miniapps.md`, and guide links.
+The original findings above remain the historical 3c1439d1 baseline. The table
+below assesses the proposed text, not final combined-commit or release evidence.
+
+| Finding | Follow-up result | Verified text / implementation anchor |
+| --- | --- | --- |
+| D1: screenshot tool and skill pairing | **Document contract repaired; integration pending.** The skill names `screenshot_gui(target="miniapp", panel_id=...)`. `gui-debug.md` gives matching optional `context_id`, `client_id`, and 0–5000 `wait_ms`, and text-plus-PNG result. Both distinguish screenshots from interaction testing and delegate interaction to the AI host's own computer use. | Integration `_skills/.../scistudio-write-miniapp/SKILL.md:95`; screenshot `_agent_reference/gui-debug.md:21`, 55; `ai/agent/mcp/tools_gui.py:18` and actual registration in `mcp/__init__.py:72` |
+| D2: legacy conversion recipe | **Document repair verified.** The new example uses `panels/<id>/panel.json`, ID-only `PanelManifest`, interactive context, prompt payload, one `writeBack` decision, and no live read/call. It preserves the source MiniApp and creates a separate interactive panel. The old mount API is explicitly labeled compatibility-only. | Integration `_agent_reference/block-contract.md:45`, 65, 84; `_skills/.../scistudio-write-block/SKILL.md:65`, 75; checked against descriptor validation, contexts prompt payload, and SDK `writeBack`/`cancel` |
+| D3: human guide and discoverability | **Guide and entrances now written; small omissions remain below.** It covers creation on current-project output, single-click opening, stop/restart, typed outputs, conversion, library reuse, and screenshot limitations. README, GUI and AI-assistant pages link it. Native type selection is described accurately; no invented combobox/search behavior. | Screenshot `_user_guide/miniapps.md:8`, 23, 32, 40, 57, 65; `_user_guide/README.md:38`, `using-the-gui.md:112`, `ai-assistant.md:244` |
+| D4: memory wording | **Document repair verified.** ADR now says measurements are for diagnostics and normal controls do not show figures; spec risk paragraph says process state and Stop/Restart instead of memory numbers. | Integration `docs/adr/ADR-054.md:738`; `docs/specs/adr-054-miniapp.md:729` |
+
+The human guide should still explicitly say that **Promote moves the directory
+out of the project into My Library**, rather than only saying it becomes reusable
+(`miniapps.md:59`). The implementation consumes the project directory after
+promotion (`api/routes/user_library.py:804`). Add a short distinction between a
+MiniApp file export and outputs produced by the converted workflow block, and
+identify **All Previewers** as the new location of the former sidebar list.
+These bounded follow-ups were sent to the guide's implementer; they do not
+require expanding into the full Phase C authoring guide. The guide's line 29
+should avoid suggesting persistent view settings are guaranteed when closing a
+tab: runtime state ends and reopening may reset controls.
+
+The renderer reference distinguishes pure, caller-controlled presentation
+components from SDK read orchestration and does not claim the core numeric
+Array renderer implements domain-specific imaging controls. The final paragraphs
+also include collection `hasMore`/`onLoadMore` and series `source_indices`, matching
+the MiniApp skill's current descriptions. However, `sdk/1/renderers.js` and its
+modules are not yet in either of the two reviewed worktree snapshots. The skill
+and block contract already import them. Their exported names, props, asset
+serving, package inclusion, and actual runtime behavior therefore remain a
+**final integration dependency**, not verified by this prose-only follow-up.
+
+The screenshot reference accurately limits availability to local MCP with the
+SciStudio desktop, describes browser-only/text-only WebMCP rejection, and avoids
+claiming that a ready handshake proves useful content or a correct calculation.
+Its 4 MiB PNG cap and bounded waits match the current tool implementation.
+No additional SciStudio interaction or inspection MCP is promised. This review
+did not use the GUI or execute the screenshot transport; final desktop/image
+delivery evidence belongs to the combined implementation validation.
+
+Phase C findings C1–C4 remain separately tracked by #2295. Updating the
+conversion-specific block contract does not imply the general panel guide,
+write-panel skill, architecture proposal, or all generated reference prose has
+been completed.

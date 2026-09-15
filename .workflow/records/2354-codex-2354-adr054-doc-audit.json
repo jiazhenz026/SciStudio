@@ -44,7 +44,13 @@
       ".workflow/records/**"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T03:53:27.087447Z",
+      "owner_directive": "Recheck MiniApp skill, conversion contract, screenshot/renderer references and user guide; report only, no product edits.",
+      "reason": "Owner-requested bounded recheck of D1-D4 against proposed consumer documentation in the integration and screenshot worktrees; implementation integration remains pending."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T02:19:30.934566Z",
