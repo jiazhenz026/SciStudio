@@ -91,6 +91,9 @@ governs:
     - src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md
     - src/scistudio/_skills/scistudio/scistudio-inspect-data/SKILL.md
     - src/scistudio/agent_provisioning/skills.py
+    - src/scistudio/agent_provisioning/_orchestrate.py
+    - src/scistudio/_skills/scistudio/scistudio-use-gui/SKILL.md
+    - src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md
     - src/scistudio/tutorials/core/what-is-a-type/**
     - scripts/audit/check_package_contract_tables.py
     - frontend/src/components/DataPreview.tsx
@@ -115,11 +118,14 @@ planned_governs:
   contracts: []
   entry_points: []
   files:
-    - src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md
     - docs/package-development/panels.md
   excludes: []
 tests:
   - tests/panels/test_panel_descriptor.py
+  - tests/panels/test_panel_skill_examples.py
+  - tests/ai/test_mcp_tools_qa.py
+  - tests/agent_provisioning/test_skills.py
+  - tests/agent_provisioning/test_orchestrate.py
   - tests/panels/test_panel_registry.py
   - tests/panels/test_panel_routing.py
   - tests/panels/test_panel_contexts.py
@@ -790,6 +796,27 @@ CDNs, and renders.
   and `scistudio-inspect-data` skills, and the `_agent_reference` pages MUST
   reference it where they mention previewers or panels. This supersedes the scope
   of #2013 and #2197.
+  Owner-guided refinement (#2295): provision `scistudio-use-gui` as a general
+  GUI operation guide using `open_gui` and the client's available browser or
+  computer-use tools. The guide teaches access, navigation, controls, and
+  observation; panel verification belongs in the calling authoring skills.
+  Panel authoring skills MUST route to it for a short live view and main
+  interaction check when creating or repairing preview panels, interactive
+  panels, or MiniApps. At the routing layer, plot,
+  workflow, and ordinary run-debugging skills MUST NOT automatically invoke GUI
+  checks. An explicit user request to operate the GUI remains supported. Missing
+  computer-use capability MUST be reported as a specific verification limit;
+  a screenshot alone MUST NOT be described as an interaction test.
+  The `open_gui` description and returned hint MUST point to this guide and
+  available browser/Chrome/computer-use tools, preserve the complete instance
+  URL, and explain that the tool returns an address without opening or
+  operating the GUI. The panel skill MUST distinguish preview reads from
+  interactive prepared views and one-shot decisions, route standalone apps to
+  `scistudio-write-miniapp`, and include executable preview/interactive examples.
+  Both authoring skills MUST distinguish descriptor checks, sample-mode checks,
+  live rendering, and actual interaction evidence. When available, local MCP
+  `screenshot_gui` captures the SciStudio application workspace/MiniApp; browser tabs use their own
+  screenshot tooling.
 - **FR-046**: When a panel page is opened directly rather than in a frame, the SDK
   MUST serve `context` and `input` from `panel.sample.json` beside the page and
   answer `read` from its `reads` map, so an author or the agent can check a page

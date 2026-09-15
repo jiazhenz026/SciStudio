@@ -103,10 +103,10 @@ class OpenGuiResult(BaseModel):
     # Development references: #1947.
 
     url: str = Field(
-        description="Base URL of the running SciStudio GUI. Open this in a browser tab.",
+        description="Complete running GUI address, including any deployment prefix; no browser is opened.",
     )
     hint: str = Field(
-        description="How to use the URL to inspect the live GUI.",
+        description="GUI skill and available browser/computer-use guidance for operating this instance.",
     )
 
 
@@ -435,26 +435,28 @@ async def get_project_info() -> GetProjectInfoResult:
 
 @mcp.tool(name="open_gui", tags={"category:qa", "read"})
 async def open_gui() -> OpenGuiResult:
-    """Return the URL of the running SciStudio GUI so you can open it in a browser.
+    """Get the running SciStudio GUI address for browser or computer use.
 
-    Use when:
-      You need to SEE the live rendered frontend — a plot, a previewer,
-        or an interactive block panel — to debug how it renders or behaves.
-      You want to drive the GUI yourself with your own browser tooling.
+    Use when you need to operate the interface or inspect its live rendered
+    state. This tool only returns an address and guidance; it does not open a
+    tab, capture the screen, or operate controls.
 
-    Do NOT use to:
-      Read a data payload — use ``inspect_data`` / ``preview_data``.
-      Render a plot artifact headlessly — use ``run_plot_job``.
+    Read the project's ``scistudio-use-gui`` skill for connecting, navigating,
+    interacting, and checking the result. Use whichever browser automation,
+    Chrome, or computer-use tools your AI client actually provides, following
+    their own instructions. Reuse a tab on this instance when possible, or
+    open the complete returned URL, preserving any deployment prefix. Computer
+    use can also operate the existing SciStudio desktop window. Confirm the
+    intended project and content: a new tab may have different selected items.
 
-    Open the returned URL in a browser tab (the frontend renders the same
-    in a plain browser as in the desktop app) and use your own browser
-    tools from there. SciStudio does not drive the browser for you.
+    If suitable tools are unavailable or cannot reach the instance, report
+    that specific limitation. Receiving a URL does not establish GUI access.
+    Use ``inspect_data`` / ``preview_data`` for data payloads and
+    ``run_plot_job`` for headless plot rendering.
 
-    The URL is read from the ``SCISTUDIO_ENGINE_API_URL`` the backend
-    publishes on startup; the SciStudio SPA is served at
-    that server's root. Raises ``RuntimeError`` when no GUI server is
-    running for this session — for example when the MCP bridge is in
-    standalone mode with no backend behind it.
+    Reads the backend-published ``SCISTUDIO_ENGINE_API_URL``. Raises
+    ``RuntimeError`` when the session has no published GUI address, such as a
+    standalone MCP bridge without a running backend.
     """
     # Development references: ADR-035.
     url = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip()
@@ -468,9 +470,14 @@ async def open_gui() -> OpenGuiResult:
     return OpenGuiResult(
         url=url.rstrip("/"),
         hint=(
-            "Open this URL in a browser tab and use your own browser tools to "
-            "inspect plots, previewers, and interactive block panels. "
-            "SciStudio does not control the browser for you."
+            "Read the project's scistudio-use-gui skill. Reuse a tab on this "
+            "instance or open the complete returned URL (including any path "
+            "prefix) using available browser, Chrome, or computer-use tools; "
+            "computer use can also operate the existing SciStudio desktop window. "
+            "Follow those tools' instructions and confirm the intended project "
+            "and content before acting. If no suitable tool can reach the GUI, "
+            "state that limitation. open_gui only returns this address; it does "
+            "not open a tab, take a screenshot, or operate controls."
         ),
     )
 

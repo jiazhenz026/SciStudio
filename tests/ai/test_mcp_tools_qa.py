@@ -251,16 +251,23 @@ def test_get_project_info_no_project_raises(tmp_path: Path) -> None:
 # --- open_gui (#1947) ------------------------------------------------------
 
 
-def test_open_gui_happy(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("published", "expected"),
+    [
+        ("http://127.0.0.1:54321/", "http://127.0.0.1:54321"),
+        ("  https://studio.example/lab/session/  ", "https://studio.example/lab/session"),
+    ],
+)
+def test_open_gui_happy(monkeypatch: pytest.MonkeyPatch, published: str, expected: str) -> None:
     """Returns the running GUI URL published by the backend on startup.
 
     open_gui reads the canonical ``SCISTUDIO_ENGINE_API_URL`` (ADR-035 §3.10);
     it needs no project context. A trailing slash is stripped so the agent
     gets a clean base URL to open in a browser.
     """
-    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", "http://127.0.0.1:54321/")
+    monkeypatch.setenv("SCISTUDIO_ENGINE_API_URL", published)
     out = _run(tools_qa.open_gui())
-    assert out.url == "http://127.0.0.1:54321"
+    assert out.url == expected
     assert out.hint  # non-empty usage guidance
 
 
