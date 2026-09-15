@@ -373,3 +373,95 @@ def test_get_block_logs_unknown_block_in_a_real_run_raises(ctx: _StubRuntime, tm
 
     with pytest.raises(KeyError, match="no log lines for block"):
         _run(tools_inspection.get_block_logs(run_id="run-78", block_id="not-a-block"))
+
+
+# --- update_block_config: interaction memory (#2412) -------------------------
+
+_MEMORY = {"enabled": True, "decision": {"routes": [1]}, "signature": {"x": ["a.tif"]}}
+
+
+def _load_node_config(p: Path) -> dict[str, Any]:
+    from ruamel.yaml import YAML
+
+    doc = YAML(typ="safe").load(p.read_text(encoding="utf-8"))
+    return doc["workflow"]["nodes"][0]["config"]
+
+
+def test_update_block_config_routes_interactive_memory_into_params(ctx: _StubRuntime, tmp_path: Path) -> None:
+    p = tmp_path / "wf.yaml"
+    p.write_text(
+        """\
+workflow:
+  id: test_wf
+  nodes:
+    - id: b1
+      block_type: data_router
+      config:
+        interactive_memory:
+          enabled: true
+          decision: null
+          signature: null
+        params:
+          backend: csv
+  edges: []
+""",
+        encoding="utf-8",
+    )
+    _run(
+        tools_inspection.update_block_config(
+            workflow_path=str(p), block_id="b1", params={"interactive_memory": _MEMORY, "note": "x"}
+        )
+    )
+    config = _load_node_config(p)
+    # The record lands under params and the legacy top-level copy is gone.
+    assert config["params"] == {"backend": "csv", "interactive_memory": _MEMORY}
+    assert "interactive_memory" not in config
+    # Other keys keep the existing top-level patch semantics.
+    assert config["note"] == "x"
+
+
+def test_update_block_config_interactive_memory_on_flat_config(ctx: _StubRuntime, tmp_path: Path) -> None:
+    p = tmp_path / "wf.yaml"
+    p.write_text(
+        """\
+workflow:
+  id: test_wf
+  nodes:
+    - id: b1
+      block_type: data_router
+      config:
+        mode: fast
+  edges: []
+""",
+        encoding="utf-8",
+    )
+    _run(
+        tools_inspection.update_block_config(
+            workflow_path=str(p), block_id="b1", params={"interactive_memory": _MEMORY}
+        )
+    )
+    assert _load_node_config(p) == {"mode": "fast", "params": {"interactive_memory": _MEMORY}}
+
+
+def test_update_block_config_params_patch_drops_legacy_memory(ctx: _StubRuntime, tmp_path: Path) -> None:
+    p = tmp_path / "wf.yaml"
+    p.write_text(
+        """\
+workflow:
+  id: test_wf
+  nodes:
+    - id: b1
+      block_type: data_router
+      config:
+        interactive_memory:
+          enabled: true
+  edges: []
+""",
+        encoding="utf-8",
+    )
+    _run(
+        tools_inspection.update_block_config(
+            workflow_path=str(p), block_id="b1", params={"params": {"interactive_memory": _MEMORY}}
+        )
+    )
+    assert _load_node_config(p) == {"params": {"interactive_memory": _MEMORY}}

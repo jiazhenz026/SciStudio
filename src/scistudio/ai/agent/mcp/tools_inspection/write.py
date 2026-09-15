@@ -20,8 +20,24 @@ from scistudio.ai.agent.mcp._context import _resolve_project_path
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_inspection._helpers import _LOCK_TIMEOUT_SECONDS
 from scistudio.ai.agent.mcp.tools_inspection._models import UpdateBlockConfigResult
+from scistudio.blocks.base.interactive import INTERACTIVE_MEMORY_KEY
 
 logger = logging.getLogger(__name__)
+
+_MISSING = object()
+
+
+def _write_interactive_memory(config_node: dict[str, Any], record: Any) -> None:
+    """Store an ``interactive_memory`` record under ``config.params`` (#2412).
+
+    Removes a legacy top-level copy so the engine and the GUI read one record.
+    """
+    params_node = config_node.get("params")
+    if not isinstance(params_node, dict):
+        config_node["params"] = {}
+        params_node = config_node["params"]
+    params_node[INTERACTIVE_MEMORY_KEY] = record
+    config_node.pop(INTERACTIVE_MEMORY_KEY, None)
 
 
 # ---------------------------------------------------------------------------
@@ -108,12 +124,22 @@ async def update_block_config(
                     break
             if target is None:
                 raise KeyError(f"Block '{block_id}' not found in workflow {p}")
+            # #2412: interaction memory is stored only under config.params, so
+            # route that one key there (other keys keep their existing
+            # semantics) and drop any legacy top-level copy.
+            patch = dict(params)
+            memory_patch = patch.pop(INTERACTIVE_MEMORY_KEY, _MISSING)
             config_node = target.get("config")
             if not isinstance(config_node, dict):
-                target["config"] = dict(params)
+                target["config"] = patch
+                config_node = target["config"]
             else:
-                for key, value in params.items():
+                for key, value in patch.items():
                     config_node[key] = value
+            if memory_patch is not _MISSING:
+                _write_interactive_memory(config_node, memory_patch)
+            elif isinstance(patch.get("params"), dict) and INTERACTIVE_MEMORY_KEY in patch["params"]:
+                config_node.pop(INTERACTIVE_MEMORY_KEY, None)
 
             if version_context is not None:
                 _, runtime = version_context

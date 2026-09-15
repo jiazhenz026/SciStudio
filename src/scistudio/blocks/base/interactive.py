@@ -68,8 +68,8 @@ INTERACTIVE_INTERMEDIATE_KEY = "interactive_intermediate"
 # future runs skip the dialog and compute directly. The record is
 # ``{"enabled": bool, "decision": <interactive_response>, "signature": <input
 # signature>}``; the frontend writes it on confirm (when the user opts in) and
-# the engine reads it on dispatch. Stored in node config (frontend owns the
-# workflow definition); the engine never writes it back.
+# the engine reads it on dispatch. Stored in node config under ``params``
+# (frontend owns the workflow definition); the engine never writes it back.
 INTERACTIVE_MEMORY_KEY = "interactive_memory"
 
 
@@ -348,17 +348,20 @@ def interactive_input_signature(inputs: dict[str, Any]) -> dict[str, list[str]]:
 def load_interactive_memory(config: Any) -> dict[str, Any] | None:
     """Read an enabled remembered-decision record from a block config.
 
-    Looks in ``config[INTERACTIVE_MEMORY_KEY]`` and
-    ``config['params'][INTERACTIVE_MEMORY_KEY]`` (block configs carry user
-    fields in either place). Returns the record dict
-    (``{enabled, decision, signature}``) or ``None`` when memory is absent or
-    disabled.
+    The record lives at ``config['params'][INTERACTIVE_MEMORY_KEY]`` (#2412):
+    the GUI and the agent tools both write it there. A legacy record at the
+    config top level is honoured only when ``params`` carries none, so a
+    params record (including a disabled or cleared one) always wins. Returns
+    the record dict (``{enabled, decision, signature}``) or ``None`` when
+    memory is absent or disabled.
     """
     record: Any = None
     if isinstance(config, dict):
-        record = config.get(INTERACTIVE_MEMORY_KEY)
-        if record is None and isinstance(config.get("params"), dict):
-            record = config["params"].get(INTERACTIVE_MEMORY_KEY)
+        params = config.get("params")
+        if isinstance(params, dict):
+            record = params.get(INTERACTIVE_MEMORY_KEY)
+        if record is None:
+            record = config.get(INTERACTIVE_MEMORY_KEY)
     if not isinstance(record, dict) or not record.get("enabled"):
         return None
     return record

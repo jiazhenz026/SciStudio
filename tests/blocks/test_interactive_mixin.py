@@ -120,13 +120,27 @@ class TestInteractiveInputSignature:
 class TestLoadInteractiveMemory:
     """:func:`load_interactive_memory` — enabled-record extraction."""
 
-    def test_reads_top_level_record(self) -> None:
-        rec = {"enabled": True, "decision": {"x": 1}, "signature": {"p": ["a"]}}
-        assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: rec}) == rec
-
-    def test_reads_params_nested_record(self) -> None:
+    def test_reads_params_record(self) -> None:
         rec = {"enabled": True, "decision": {}, "signature": {}}
         assert load_interactive_memory({"params": {INTERACTIVE_MEMORY_KEY: rec}}) == rec
+
+    def test_reads_legacy_top_level_record_when_params_has_none(self) -> None:
+        rec = {"enabled": True, "decision": {"x": 1}, "signature": {"p": ["a"]}}
+        assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: rec}) == rec
+        assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: rec, "params": {}}) == rec
+
+    def test_params_record_wins_over_legacy_top_level(self) -> None:
+        # #2412: the GUI saves under params; a stale top-level record (e.g. an
+        # earlier agent write) must not shadow the decision saved in the GUI.
+        legacy = {"enabled": True, "decision": None, "signature": None}
+        saved = {"enabled": True, "decision": {"routes": [1]}, "signature": {"x": ["a.tif"]}}
+        cfg = {INTERACTIVE_MEMORY_KEY: legacy, "params": {INTERACTIVE_MEMORY_KEY: saved}}
+        assert load_interactive_memory(cfg) == saved
+
+    def test_disabled_params_record_is_not_overridden_by_legacy(self) -> None:
+        legacy = {"enabled": True, "decision": {"x": 1}, "signature": {}}
+        cfg = {INTERACTIVE_MEMORY_KEY: legacy, "params": {INTERACTIVE_MEMORY_KEY: {"enabled": False}}}
+        assert load_interactive_memory(cfg) is None
 
     def test_disabled_returns_none(self) -> None:
         assert load_interactive_memory({INTERACTIVE_MEMORY_KEY: {"enabled": False}}) is None

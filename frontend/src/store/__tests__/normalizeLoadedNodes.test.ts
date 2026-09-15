@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkflowNode } from "../../types/api";
-import { normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
+import { mergeNodeConfig, normalizeLoadedNodes } from "../workflowSlice.parts/workflowHelpers";
 
 /**
  * Bug #11: a workflow YAML authored by the agent / by hand stores node config
@@ -63,5 +63,49 @@ describe("normalizeLoadedNodes (#11)", () => {
     const out = normalizeLoadedNodes(nodes);
     expect(out[0].config.params).toEqual({});
     expect(out[1].config.params).toEqual({});
+  });
+});
+
+describe("interaction memory lives under params (#2412)", () => {
+  const memory = { enabled: true, decision: { routes: [1] }, signature: { x: ["a.tif"] } };
+
+  it("folds a flat config whose params hold only the agent-written memory", () => {
+    const node = {
+      id: "r",
+      block_type: "data_router",
+      config: { mode: "fast", params: { interactive_memory: memory } },
+    } as unknown as WorkflowNode;
+
+    const [out] = normalizeLoadedNodes([node]);
+    expect(out.config).toEqual({ params: { mode: "fast", interactive_memory: memory } });
+  });
+
+  it("mergeNodeConfig writes memory into params and drops the top-level copy", () => {
+    const node = {
+      id: "r",
+      block_type: "data_router",
+      config: {
+        interactive_memory: { enabled: true, decision: { old: 1 }, signature: {} },
+        params: { mode: "fast" },
+      },
+    } as unknown as WorkflowNode;
+
+    const cleared = { enabled: true, decision: null, signature: null };
+    const out = mergeNodeConfig(node, { interactive_memory: cleared });
+    expect(out.config).toEqual({ params: { mode: "fast", interactive_memory: cleared } });
+  });
+
+  it("mergeNodeConfig leaves a top-level record alone for unrelated edits", () => {
+    const legacy = { enabled: true };
+    const node = {
+      id: "r",
+      block_type: "data_router",
+      config: { interactive_memory: legacy, params: {} },
+    } as unknown as WorkflowNode;
+
+    expect(mergeNodeConfig(node, { mode: "slow" }).config).toEqual({
+      interactive_memory: legacy,
+      params: { mode: "slow" },
+    });
   });
 });

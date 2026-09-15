@@ -18,7 +18,11 @@ import { useRef } from "react";
 import { submitPanelDecision } from "../panels/decisions";
 
 import { sendWebSocketMessage } from "../hooks/useWebSocket";
-import { INTERACTIVE_MEMORY_KEY, readInteractiveMemory } from "../lib/interactiveMemory";
+import {
+  INTERACTIVE_MEMORY_KEY,
+  isPromptOutsideCanvas,
+  readInteractiveMemory,
+} from "../lib/interactiveMemory";
 import { useAppStore } from "../store";
 import { executionViewKey } from "../store/executionSlice.parts/eventReducer";
 import {
@@ -95,8 +99,15 @@ export function InteractiveModals() {
     // and skip" (the new workflow has no node with that id) or wrote one
     // workflow's decision and input fingerprint into a same-named node of
     // another, which the autosave then committed to disk.
+    //
+    // #2412: a block inside an expanded subworkflow prompts as
+    // `<subworkflowNodeId>__<innerId>`, which is not a node of this canvas, so
+    // nothing is remembered for it (the Config tab says so).
     const state = useAppStore.getState();
-    if (state.workflowId === promptWorkflowId) {
+    if (
+      state.workflowId === promptWorkflowId &&
+      !isPromptOutsideCanvas(interactivePrompt.blockId, state.workflowNodes)
+    ) {
       const node = state.workflowNodes.find((n) => n.id === interactivePrompt.blockId);
       const memory = readInteractiveMemory(node?.config as Record<string, unknown> | undefined);
       if (memory?.enabled) {
