@@ -57,22 +57,6 @@ _PLUGIN_PACKAGE_PREFIX = "scistudio-blocks-"
 # ---------------------------------------------------------------------------
 
 
-def effective_node_params(config: Any) -> dict[str, Any]:
-    """Return the params a block reads from a workflow node's ``config``.
-
-    Node config is saved flat (``config: {core_type: ...}``) or nested under
-    ``params`` (the GUI shape). The effective view is the top-level keys
-    overlaid by ``params``, the lookup order ``BlockConfig.get`` applies.
-    """
-    if not isinstance(config, Mapping):
-        return {}
-    effective = {key: value for key, value in config.items() if key != "params"}
-    nested = config.get("params")
-    if isinstance(nested, Mapping):
-        effective.update(nested)
-    return effective
-
-
 def _list_capabilities(registry: Any, **filters: Any) -> list[Any]:
     lister = getattr(registry, "list_format_capabilities", None)
     if not callable(lister):
@@ -519,13 +503,33 @@ def node_capability_view(
 # ---------------------------------------------------------------------------
 
 
-def _merged_params(current: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
-    merged = effective_node_params(current)
-    nested = patch.get("params")
-    merged.update({key: value for key, value in patch.items() if key != "params"})
+def _merged_params(current: Any, patch: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the effective params after ``update_block_config`` applies *patch*.
+
+    Mirrors that tool's write: a ``params`` key replaces ``config.params``;
+    every other key lands in ``config.params`` when the node nests its params
+    there (dropping the same top-level key), otherwise at the top level.
+    """
+    from scistudio.ai.agent.mcp.tools_workflow._helpers import _effective_node_params
+
+    if not isinstance(current, Mapping):
+        return _effective_node_params(dict(patch))
+    config: dict[str, Any] = dict(current)
+    if "params" in patch:
+        config["params"] = patch["params"]
+    nested = config.get("params")
     if isinstance(nested, Mapping):
-        merged.update(nested)
-    return merged
+        nested = dict(nested)
+        config["params"] = nested
+    for key, value in patch.items():
+        if key == "params":
+            continue
+        if isinstance(nested, dict):
+            nested[key] = value
+            config.pop(key, None)
+        else:
+            config[key] = value
+    return _effective_node_params(config)
 
 
 def _patched_keys(patch: Mapping[str, Any]) -> set[str]:
@@ -623,7 +627,6 @@ __all__ = [
     "CORE_IO_DIRECTIONS",
     "PORT_CAPABILITY_DIRECTIONS",
     "capability_patch_errors",
-    "effective_node_params",
     "node_capability_view",
     "port_capability_style",
     "schema_format_capabilities",

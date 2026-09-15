@@ -157,12 +157,15 @@ class WorkflowDefinitionEnvelope(BaseModel):
 class ValidateWorkflowResult(BaseModel):
     """Result of validating a workflow against runtime rules."""
 
-    valid: bool = Field(description="True if validation passed.")
-    errors: list[str] = Field(default_factory=list, description="Validation error messages.")
+    valid: bool = Field(description="True if validation passed (errors is empty).")
+    errors: list[str] = Field(
+        default_factory=list,
+        description="Validation error messages, including nodes whose block_type is not registered.",
+    )
     warnings: list[str] = Field(
         default_factory=list,
         description=(
-            "Non-blocking core-IO steering advisories that do not affect 'valid': a "
+            "Non-blocking advisories that do not affect 'valid': validator warnings, a "
             "package or custom IO block the core load_data/save_data block already "
             "covers, or a core load_data/save_data node without core_type."
         ),
