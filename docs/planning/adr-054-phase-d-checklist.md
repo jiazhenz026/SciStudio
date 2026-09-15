@@ -216,11 +216,11 @@ for its delivered features.
 | MiniApp skill rewrite and unambiguous source labels | Integration | `d03d9cdc`; frontend tests passed |
 | Icon-only dialog close buttons | Integration | `3c1439d1`; frontend tests passed |
 | Nine reusable core UI components | Component worker | Integrated from `5a0cc503`; worker frontend 2631 tests/build and Python 121 tests passed |
-| Desktop GUI screenshot and image transport | GUI worker | Integrated as `3e966a1b`; combined/native validation in progress |
+| Desktop GUI screenshot and image transport | GUI worker | Integrated as `3e966a1b`; native screenshot round-trip remains unverified |
 | Hover actions and source editor entry | Canvas worker | Integrated as `048ab10a`; worker frontend 2625 tests and build passed |
 | ADR documentation completeness review | Documentation reviewer | Report and follow-up integrated as `63ba5c54` and `38242082`; final source reconciliation below |
 | Production skill/reference consistency | Integration and GUI worker | Integrated: `ce8c6ffb`, renderer reference and `3e966a1b` production guides |
-| Combined desktop smoke, local gate, PR and CI | Integration | All worker code integrated; gate recovery in progress |
+| Combined desktop smoke, local gate, PR and CI | Integration | All worker code integrated; prior frontend 2653 tests/build passed; full Python runs timed out or were interrupted; owner directed direct PR submission and no further local full-suite runs; CI pending |
 
 
 ### Desktop hover smoke
@@ -250,6 +250,14 @@ interaction cannot be exercised. No additional interaction MCP is promised.
 
 The original development desktop was no longer running at final integration.
 The installed SciStudio application held the single-instance lock and had a live
-session, so it was left untouched. Final screenshot validation uses the isolated
-Electron compositor fixture and separate API/MCP/WebSocket regressions; it does
-not claim a screenshot round-trip through the installed application.
+session, so it was left untouched. An isolated Electron compositor fixture and
+separate API/MCP/WebSocket regressions are included. The final local full-suite
+run was stopped before native screenshot evidence was produced. Neither a
+successful fixture run nor a screenshot round-trip through the installed
+application is claimed.
+
+The owner supplied the final MiniApp skill routing and GUI navigation wording
+and requested immediate PR submission without further local full-suite runs.
+The branch includes upstream main at `f70c0087`. Existing passing checks are
+historical evidence, not a claim that this final merged head passed all checks.
+CI remains required; no CI checks or thresholds are changed for this exception.

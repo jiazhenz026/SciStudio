@@ -47,7 +47,8 @@ fit. These are working steps, not separate user approval stages.
 - Use a MiniApp for repeated interaction: browsing slices, comparing results,
   selecting regions, or adjusting parameters. A static figure belongs in
   `scistudio-write-plot`; a workflow computation belongs in
-  `scistudio-write-block`.
+  `scistudio-write-block`. For a reusable type preview or a workflow decision
+  page, use `scistudio-write-panel`.
 - Ask only when missing information would change the purpose or interpretation
   of the app. Otherwise choose reasonable defaults.
 
@@ -92,17 +93,23 @@ failure.
 
 ### Step 5 — Inspect the view and try the main interaction
 
+- Follow **`scistudio-use-gui`** for connecting to the existing instance,
+  navigating to the intended content, and operating controls. Use the available
+  browser automation, Chrome, or computer-use tools according to their own
+  instructions. Confirm the project, source, and app before acting; a new
+  browser tab need not show the desktop's active MiniApp.
 - Use `screenshot_gui(target="miniapp", panel_id="<panel_id>")` to inspect
-  the rendered app in its visible tab. Check that
+  the rendered app in its visible SciStudio desktop tab when local MCP provides this
+  tool. For a browser tab, use its own screenshot tooling instead. Check that
   real data is visible, its representation is appropriate, and the main
   controls fit the available space.
-- Use your available computer use tools to exercise the primary interaction
-  once: move the slider, click the button, or manipulate the data view. Take
+- Use your available browser or computer-use tools to exercise the primary
+  interaction once: move the slider, click the button, or manipulate the data view. Take
   another screenshot and check the visible result and any errors reported by
   the app or available logs. For the threshold tool, change the threshold and
   verify that the mask updates on the image; a changing number alone is
   insufficient. `screenshot_gui` captures the view; it does not operate controls.
-- If computer use is unavailable or cannot reach the MiniApp, complete the
+- If interaction tools are unavailable or cannot reach the MiniApp, complete the
   visual and computation checks you can perform and state which interaction
   remains unverified. Do not describe a screenshot as an interaction test.
 - Fix observed failures and repeat the affected check. Add a computation check
