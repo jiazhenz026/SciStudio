@@ -724,16 +724,23 @@ _CODEX = ProviderDescriptor(
     # model or to a persisted ``sandbox_mode`` — the pairing Codex's retirement
     # notice recommends for the most cautious setup.
     manual_argv=("--ask-for-approval", "on-request", "--sandbox", "read-only"),
-    # #2379: ``--approve-for-me`` (added 0.147.0, present at 0.154.0) routes
-    # approval requests to Codex's auto-review subagent under the
-    # workspace-write sandbox; genuinely risky actions still escalate to the
-    # human. It leaves ``approval_policy`` untouched, so ``-a on-request`` is
-    # stated too: a persisted ``never`` would otherwise mean nothing is ever
-    # sent for review. ``codex --approve-for-me -a on-request --help`` exits 0.
+    # #2379, #2452: ``--approve-for-me`` (added 0.147.0, present at 0.154.0)
+    # routes approval requests to Codex's auto-review subagent; genuinely risky
+    # actions still escalate to the human. It is passed alone because it sets
+    # its own approval routing and the workspace-write sandbox, and clap
+    # declares it mutually exclusive with ``-a/--ask-for-approval``,
+    # ``-s/--sandbox`` and ``--dangerously-bypass-approvals-and-sandbox``:
+    # combining it with any of them exits 2 with "the argument
+    # '--approve-for-me' cannot be used with ...". ``--help`` and ``--version``
+    # short-circuit clap before combinations are validated, so a ``--help``
+    # run proves nothing about an argv. Checked instead at 0.154.0 by launching
+    # with stdin not a terminal: ``codex --approve-for-me </dev/null`` passes
+    # parsing and exits 1 with "stdin is not a terminal", while adding
+    # ``--ask-for-approval on-request`` exits 2 with the conflict above.
     # It supersedes the deprecated ``--full-auto``. Sources: ``codex --help`` at
     # 0.154.0; https://learn.chatgpt.com/docs/developer-commands?surface=cli
     # (approval and sandbox values, read 2026-09-14).
-    auto_argv=("--approve-for-me", "--ask-for-approval", "on-request"),
+    auto_argv=("--approve-for-me",),
     # Floor: 0.147.0, whose release notes read "Enable automatically reviewed
     # approvals with the new `--approve-for-me` CLI flag. (#36373)"
     # (https://github.com/openai/codex/releases/tag/rust-v0.147.0). Older
