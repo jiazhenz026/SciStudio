@@ -1,9 +1,8 @@
 // #2113 — the previewer catalogue is a cache of runtime truth, so it must be
-// dropped whenever the registries it describes are rebuilt. Mirrors
-// `typeCatalogInvalidation.test.ts` (ADR-053 FR-062) one tier over: every
-// emitter of `blocks.reloaded` reaches `refresh_all_registries()`, which has
-// rebuilt the previewer registry alongside types and blocks since #2021, so
-// the Previewers tab's listing and choices get the same invalidation.
+// dropped when the previewers it describes change. #2465: the panel service
+// says when (`blocks.reloaded` with `registry: "panels"` and
+// `preview_candidates_changed`, or `panel.choices_changed`); any other
+// registry reload leaves the listing and every open preview alone.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +10,7 @@ import type * as DataApi from "../../lib/api/data";
 import { dispatchWorkflowEvent } from "../../hooks/useWebSocket.parts/dispatchEvent";
 import { resetAppStore } from "../../testUtils";
 import type { WorkflowEventMessage } from "../../types/api";
+import * as panelEvents from "../../panels/panelEvents";
 import { useAppStore } from "../index";
 import {
   choosePreviewer,
@@ -46,8 +46,23 @@ const DEPS = {
   setWorkflow: vi.fn(),
 };
 
-function event(type: string): WorkflowEventMessage {
-  return { type, data: {}, timestamp: "2026-08-08T00:00:00Z" };
+function event(type: string, data: Record<string, unknown> = {}): WorkflowEventMessage {
+  return { type, data, timestamp: "2026-08-08T00:00:00Z" } as WorkflowEventMessage;
+}
+
+function panelCatalog(data: Record<string, unknown>): WorkflowEventMessage {
+  return event("blocks.reloaded", {
+    added: [],
+    removed: [],
+    reloaded: [],
+    registry: "panels",
+    panels: { added: [], removed: [], changed: [] },
+    miniapps_changed: false,
+    preview_candidates_changed: false,
+    preview_types: [],
+    legacy_reloaded: false,
+    ...data,
+  });
 }
 
 beforeEach(() => {
@@ -71,27 +86,67 @@ describe("the previewer catalogue is invalidated, not cached forever", () => {
     expect(listPreviewerChoices).toHaveBeenCalledTimes(1);
   });
 
-  it("re-fetches on the blocks.reloaded registry event", async () => {
+  it("re-fetches when the panel service says the preview candidates changed", async () => {
     await loadPreviewerCatalog();
     expect(useAppStore.getState().previewersLoaded).toBe(true);
 
-    dispatchWorkflowEvent(event("blocks.reloaded"), DEPS);
+    dispatchWorkflowEvent(
+      panelCatalog({ preview_candidates_changed: true, preview_types: ["Image"] }),
+      DEPS,
+    );
     await vi.waitFor(() => expect(listPreviewers).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(listPreviewerChoices).toHaveBeenCalledTimes(2));
   });
 
-  it("re-routes previews that are already open when the registries change", async () => {
-    // A previewer registered while a preview is on screen has to reach that
-    // preview. `PreviewHost` re-creates its session on target or routing-epoch
-    // change and on nothing else, so without the bump the panel kept rendering
-    // through the old routing — a project's own Image stayed in the core Array
-    // number table until the person clicked to empty canvas and back.
+  it("does not re-fetch or re-route on a block reload or a MiniApp-only change (#2465 D12)", async () => {
     await loadPreviewerCatalog();
-    const before = useAppStore.getState().previewerChoiceVersion;
+    const reroutes: unknown[] = [];
+    const stop = panelEvents.subscribePreviewReroute((signal) => reroutes.push(signal));
+    const blocksBefore = useAppStore.getState().blockCatalogRefreshCounter;
 
-    dispatchWorkflowEvent(event("blocks.reloaded"), DEPS);
+    dispatchWorkflowEvent(
+      event("blocks.reloaded", { added: ["x"], removed: [], reloaded: ["x"] }),
+      DEPS,
+    );
+    dispatchWorkflowEvent(
+      panelCatalog({ miniapps_changed: true, panels: { added: ["app"] } }),
+      DEPS,
+    );
+    await Promise.resolve();
 
-    await vi.waitFor(() => expect(useAppStore.getState().previewerChoiceVersion).toBe(before + 1));
+    expect(listPreviewers).toHaveBeenCalledTimes(1);
+    expect(reroutes).toEqual([]);
+    // The block catalog and, through it, the MiniApp list (#2459) still re-read.
+    expect(useAppStore.getState().blockCatalogRefreshCounter).toBe(blocksBefore + 2);
+    stop();
+  });
+
+  it("re-routes only the previews the changed claims concern", async () => {
+    const reroutes: panelEvents.PreviewRerouteSignal[] = [];
+    const stop = panelEvents.subscribePreviewReroute((signal) => reroutes.push(signal));
+
+    dispatchWorkflowEvent(
+      panelCatalog({
+        preview_candidates_changed: true,
+        preview_types: ["Collection[Image]"],
+        legacy_reloaded: true,
+      }),
+      DEPS,
+    );
+
+    expect(reroutes).toEqual([{ types: ["Collection[Image]"], legacy: true }]);
+    stop();
+  });
+
+  it("re-routes the previews of one type on panel.choices_changed", async () => {
+    const reroutes: panelEvents.PreviewRerouteSignal[] = [];
+    const stop = panelEvents.subscribePreviewReroute((signal) => reroutes.push(signal));
+
+    dispatchWorkflowEvent(event("panel.choices_changed", { type: "Spectrum" }), DEPS);
+
+    expect(reroutes).toEqual([{ choiceType: "Spectrum" }]);
+    await vi.waitFor(() => expect(listPreviewerChoices).toHaveBeenCalledTimes(1));
+    stop();
   });
 
   it("leaves unrelated websocket events alone", async () => {
@@ -134,7 +189,7 @@ describe("rescanPreviewers — the Reload button", () => {
   });
 });
 
-describe("choice mutations re-route open previews (#2049 / #2113)", () => {
+describe("choice mutations (#2049 / #2113)", () => {
   it("a forced fetch in flight does not overwrite a concurrent choice write (#2153 review)", async () => {
     // The auto-rescan on a tab revisit forces a catalogue fetch whose choices
     // GET can still be on the wire when the write route answers with the new
@@ -165,7 +220,7 @@ describe("choice mutations re-route open previews (#2049 / #2113)", () => {
     expect(useAppStore.getState().previewerChoices).toEqual([written]);
   });
 
-  it("a written choice applies the returned choices and bumps the routing epoch", async () => {
+  it("a written choice applies the returned choices", async () => {
     const choice = {
       target_type: "Spectrum",
       previewer_id: "user.spectrum.view",
@@ -173,22 +228,19 @@ describe("choice mutations re-route open previews (#2049 / #2113)", () => {
       available: true,
     };
     setPreviewerChoice.mockResolvedValue({ choices: [choice] });
-    const versionBefore = useAppStore.getState().previewerChoiceVersion;
 
     await choosePreviewer("Spectrum", "user.spectrum.view", "user");
 
     expect(setPreviewerChoice).toHaveBeenCalledWith("Spectrum", "user.spectrum.view", "user");
     expect(useAppStore.getState().previewerChoices).toEqual([choice]);
-    expect(useAppStore.getState().previewerChoiceVersion).toBe(versionBefore + 1);
   });
 
-  it("a cleared choice also bumps the routing epoch", async () => {
+  it("a cleared choice applies the returned choices", async () => {
     clearPreviewerChoice.mockResolvedValue({ choices: [] });
-    const versionBefore = useAppStore.getState().previewerChoiceVersion;
 
     await clearPreviewerChoiceAt("Spectrum", "project");
 
     expect(clearPreviewerChoice).toHaveBeenCalledWith("Spectrum", "project");
-    expect(useAppStore.getState().previewerChoiceVersion).toBe(versionBefore + 1);
+    expect(useAppStore.getState().previewerChoices).toEqual([]);
   });
 });

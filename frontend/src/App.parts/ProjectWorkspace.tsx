@@ -339,7 +339,6 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
   const cachePreviewEnvelope = useAppStore((s) => s.cachePreviewEnvelope);
   // #2113 — a previewer choice change re-routes the open session here exactly
   // as it does in the sidebar preview.
-  const previewerChoiceVersion = useAppStore((s) => s.previewerChoiceVersion);
   const openAs = tab.openAs;
   return (
     /*
@@ -383,7 +382,6 @@ function PreviewTabPane({ tab, projectId }: { tab: PreviewTab; projectId: string
           panelId={tab.panelId}
           previewSessionId={tab.previewSessionId}
           initialViewState={tab.viewState}
-          routingEpoch={previewerChoiceVersion}
           getCachedEnvelope={(key) => previewEnvelopeCache[key]}
           cacheEnvelope={cachePreviewEnvelope}
           buildCacheKey={(t, q, opts) => buildPreviewCacheKey(t, q, opts)}

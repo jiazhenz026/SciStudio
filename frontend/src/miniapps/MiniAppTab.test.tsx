@@ -28,6 +28,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBackend, reply, type MockBackend } from "../__tests__/contract/mockBackend";
 import { resetBasePathCacheForTests } from "../lib/api/base-path";
+import { notifyPanelContextsRevoked, notifyPanelFilesChanged } from "../panels/panelEvents";
 import { bootstrapFrame } from "../panels/testUtils";
 import { useAppStore } from "../store";
 import type { MiniAppTab as MiniAppTabState } from "../store/types";
@@ -96,14 +97,14 @@ beforeEach(() => {
       contextResponse("pc-1", { state: "running", pid: 4242, resident_memory: 1024 }),
     "DELETE /api/panels/contexts/{context_id}": reply(204),
   });
-  useAppStore.setState({ wsClientId: "ws-abc123", panelFilesChangedSeq: {} });
+  useAppStore.setState({ wsClientId: "ws-abc123" });
 });
 
 afterEach(() => {
   cleanup();
   backend.restore();
   resetBasePathCacheForTests();
-  useAppStore.setState({ wsClientId: null, panelFilesChangedSeq: {} });
+  useAppStore.setState({ wsClientId: null });
   vi.useRealTimers();
 });
 
@@ -265,8 +266,8 @@ describe("MiniApp tab lifetime (ADR-054 FR-018 / FR-019)", () => {
     await waitFor(() => expect(created()).toHaveLength(1));
 
     act(() => {
-      useAppStore.getState().notifyPanelFilesChanged("lab.threshold");
-      useAppStore.getState().notifyPanelFilesChanged("lab.threshold");
+      notifyPanelFilesChanged("lab.threshold");
+      notifyPanelFilesChanged("lab.threshold");
     });
     act(() => {
       vi.advanceTimersByTime(499);
@@ -281,11 +282,22 @@ describe("MiniApp tab lifetime (ADR-054 FR-018 / FR-019)", () => {
     await waitFor(() => expect(closed()).toHaveLength(1));
   });
 
+  it("remounts on a new context when the backend revokes this tab's context", async () => {
+    // #2465: a changed or promoted MiniApp revokes the contexts on it; the tab
+    // reopens the request, and a MiniApp promoted to the user tier opens there.
+    render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
+    await waitFor(() => expect(created()).toHaveLength(1));
+    act(() => notifyPanelContextsRevoked(["pc-unrelated"]));
+    expect(created()).toHaveLength(1);
+    act(() => notifyPanelContextsRevoked(["pc-1"]));
+    await waitFor(() => expect(created()).toHaveLength(2));
+  });
+
   it("ignores a files_changed event for another panel", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
     await waitFor(() => expect(created()).toHaveLength(1));
-    act(() => useAppStore.getState().notifyPanelFilesChanged("lab.other"));
+    act(() => notifyPanelFilesChanged("lab.other"));
     act(() => {
       vi.advanceTimersByTime(2000);
     });
@@ -374,7 +386,7 @@ describe("the preview column while a MiniApp is active (ADR-054 FR-020)", () => 
 });
 
 it("does not reload a newly mounted tab for historical file changes", async () => {
-  useAppStore.setState({ panelFilesChangedSeq: { [TAB.panelId]: 12 } });
+  notifyPanelFilesChanged(TAB.panelId);
   render(<MiniAppTabLayer tabs={[TAB]} activeTabId={TAB.id} onConvert={vi.fn()} />);
   await waitFor(() => expect(created()).toHaveLength(1));
   await act(() => new Promise((resolve) => setTimeout(resolve, 650)));

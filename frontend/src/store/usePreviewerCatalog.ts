@@ -3,19 +3,16 @@
 // #2049's choice routes).
 //
 // The shape mirrors `useTypeCatalog` (ADR-053 §7) deliberately: the load is
-// demand-driven and shared, the cache is valid only until something rebuilds
-// the registries, and `invalidatePreviewerCatalog` is how every such event
-// says so — the `blocks.reloaded` websocket event among them, since every
-// emitter of it reaches `refresh_all_registries()`, which has rebuilt the
-// previewer registry since #2021.
+// demand-driven and shared, and `invalidatePreviewerCatalog` re-reads it when
+// the panel service says the preview candidates or the choices changed.
 //
-// Choice mutations are the one thing this module adds that the type side does
-// not have: writing a choice must ALSO re-route any preview already open, or
-// the person clicks "Prefer this" and nothing visibly changes. The write
-// routes return the resulting effective choices, so the mutation applies that
-// answer, bumps `previewerChoiceVersion` (the routing epoch `DataPreview`
-// feeds `PreviewHost`), and drops the session-envelope cache — the next
-// session creation is routed by the backend through the new choice (#2049).
+// Re-routing open previews is not this module's job any more (#2465). The
+// panel service names what changed — the type claims whose candidates moved
+// (`blocks.reloaded` from the panel registry), the one type whose choice moved
+// (`panel.choices_changed`), or a legacy previewer reload — and only the open
+// previews of those types re-create their session (`panels/panelEvents`). A
+// choice write applies the effective choices it returned; the re-route follows
+// the backend's `panel.choices_changed`.
 
 import { useEffect } from "react";
 
@@ -104,34 +101,15 @@ export function loadPreviewerCatalog(options?: { force?: boolean }): Promise<voi
 }
 
 /**
- * The registries changed — drop this cache and re-read it. Called from the
- * `blocks.reloaded` websocket dispatch for the same reason the type catalogue
- * is invalidated there (ADR-053 FR-062): without it the Previewers tab would
- * sit on the first listing it ever fetched until someone pressed Reload by
- * hand, which is runtime truth living in frontend state.
- *
- * Re-reading the listing is not enough on its own. A preview that is already
- * open renders through the routing that was in force when its session was
- * created, and `PreviewHost` re-creates that session only when its target or
- * the routing epoch changes. A newly registered previewer changes neither, so
- * the panel went on showing the old rendering — a project's own Image would
- * stay in the core Array number table until the person clicked away to empty
- * canvas and back, which is what makes `target` change. Bumping the epoch here
- * is what a manual previewer choice already does (`applyChoiceAnswer`); the
- * two ways routing can change now behave the same.
- *
- * Unconditional rather than diffed against the previous listing: an edit to a
- * previewer that is already registered changes what it draws without changing
- * any id, so a set comparison would miss exactly the case a person hits while
- * writing one. The cost is re-creating open preview sessions on any registry
- * reload, which is one request against a preview whose block may well have
- * changed too.
+ * The preview candidates or the choices changed — drop this cache and re-read
+ * it, so the Previewers tab does not sit on the first listing it ever fetched.
+ * Called only when the panel service says so (#2465): an unrelated registry
+ * reload leaves the listing, and every open preview, alone. The session
+ * envelope cache is dropped too, since its keys predate the change.
  */
 export function invalidatePreviewerCatalog(): void {
   void loadPreviewerCatalog({ force: true }).then(() => {
-    const store = useAppStore.getState();
-    store.clearPreviewEnvelopeCache();
-    store.bumpPreviewerChoiceVersion();
+    useAppStore.getState().clearPreviewEnvelopeCache();
   });
 }
 
@@ -157,20 +135,18 @@ export async function rescanPreviewers(): Promise<void> {
 }
 
 /**
- * Apply the effective-choices answer a choice write returned, then re-route
- * every open preview: bump the routing epoch (the open `PreviewHost` session
- * is re-created through the new choice) and drop the session-envelope cache
- * (its keys predate the choice).
+ * Apply the effective-choices answer a choice write returned and drop the
+ * session-envelope cache (its keys predate the choice). The open previews of
+ * the chosen type re-route on the backend's `panel.choices_changed` (#2465).
  */
 function applyChoiceAnswer(result: PreviewerChoiceListResponse): void {
   choiceWriteEpoch += 1;
   const store = useAppStore.getState();
   store.setPreviewerChoices(result.choices ?? []);
   store.clearPreviewEnvelopeCache();
-  store.bumpPreviewerChoiceVersion();
 }
 
-/** Record `targetType -> previewerId` at `scope` (#2049), then re-route. */
+/** Record `targetType -> previewerId` at `scope` (#2049). */
 export async function choosePreviewer(
   targetType: string,
   previewerId: string,
@@ -180,7 +156,7 @@ export async function choosePreviewer(
   applyChoiceAnswer(result);
 }
 
-/** Clear the choice for `targetType` at `scope`, then re-route. Clearing a
+/** Clear the choice for `targetType` at `scope`. Clearing a
  *  project-layer choice reveals the user-layer choice it overrode (#2049). */
 export async function clearPreviewerChoiceAt(
   targetType: string,
