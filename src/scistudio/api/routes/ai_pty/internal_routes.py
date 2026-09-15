@@ -24,6 +24,7 @@ from fastapi import Body, Header, HTTPException
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty import engine as _engine
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
+from scistudio.api.seam import register_self_authenticating_prefix
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,16 @@ def _check_ipc_token(provided: str | None) -> None:
 
 _HeaderToken = Annotated[str | None, Header(alias="X-SciStudio-IPC-Token")]
 _BodyDict = Annotated[dict[str, Any], Body()]
+
+#: ADR-055 identity seam (FR-007 to FR-011): every route under this prefix
+#: authenticates each request itself with the engine IPC token
+#: (:func:`_check_ipc_token` is the first statement of each handler). The
+#: callers are AI Block worker subprocesses, which carry no browser session, so
+#: a replacement guard such as the enterprise Hub guard must let them through
+#: to the route. Registered once, at import, before any request is served; the
+#: seam matches it on segment boundaries after root-path handling. A route
+#: added under this prefix MUST check the IPC token on every request.
+INTERNAL_ROUTE_PREFIX = register_self_authenticating_prefix("/api/ai/pty/internal/")
 
 
 def _tab_open_kwargs(spec: dict[str, Any]) -> dict[str, Any]:
@@ -101,6 +112,13 @@ async def _internal_request_tab(
         # Late-bound lookup on the ``engine`` module so tests can
         # monkeypatch.setattr(ai_pty.engine, "open_engine_initiated_tab", ...).
         tab_id = _engine.open_engine_initiated_tab(**_tab_open_kwargs(spec))
+    except _pkg.AgentSessionsDisabledError:
+        # ADR-055 Spec 4 FR-006: a soft failure the AI Block reports as its
+        # error, never mistaken for the cap branch below. The sentence is
+        # rebuilt from the policy rather than read off the exception, so no
+        # exception text reaches the caller (CodeQL py/stack-trace-exposure).
+        refusal = _pkg.agent_session_refusal(str(spec.get("provider", "")))
+        return {"tab_id": None, "error": refusal or "AI agent sessions are turned off on this server."}
     except RuntimeError as exc:
         msg = str(exc)
         if "cap" in msg.lower():

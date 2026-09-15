@@ -138,7 +138,11 @@ _open_binary: Callable[[Path], Any] = functools.partial(open, mode="rb")
 
 
 class ToolRefusal(BaseModel):
-    """Why a tool call was refused or conflicted, and what to do instead."""
+    """Why a tool call was refused or conflicted, and what to do instead.
+
+    The structured refusal model. ``scistudio.api.seam.ToolRefusal`` is the
+    exception an edition raises inside a tool to return one of these.
+    """
 
     code: str = Field(description="Machine-readable reason, e.g. 'protected_data_dir' or 'stale_version'.")
     message: str = Field(description="Explanation the agent can act on.")
@@ -412,7 +416,9 @@ def _blacklist_refusal(rel_posix: str) -> _RefusedError | None:
     return None
 
 
-def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path, Path, str]:
+def _resolve_author_path(
+    path: str, *, follow_final: bool = True, project_root: Path | None = None
+) -> tuple[Path, Path, str]:
     """Resolve an author-tool path: project-confined, blacklist-checked.
 
     Returns ``(mutated_path, project_root, project_relative_posix)`` for the path
@@ -423,6 +429,9 @@ def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path,
     own location is confined and checked — it never follows a link to delete or
     move what it points to. The lexical path is checked
     against the blacklist as well.
+
+    ``project_root`` defaults to the active project; the seam's
+    ``check_author_path`` passes an edition's project root explicitly.
     """
     # Maintainer context:
     # Returns ``(mutated_path, project_root, project_relative_posix)`` for the path
@@ -432,9 +441,10 @@ def _resolve_author_path(path: str, *, follow_final: bool = True) -> tuple[Path,
     # (lstat semantics): only the parent directories are resolved and the link's
     # own location is confined and checked — it never follows a link to delete or
     # move what it points to (audit AU3 P1-1). The lexical path is checked
-    # against the blacklist as well.
-    # Development references: #2279.
-    root = _project_root()
+    # against the blacklist as well. The explicit project_root is for the
+    # identity seam's check_author_path (#2328).
+    # Development references: #2279, #2328.
+    root = _project_root() if project_root is None else Path(os.path.realpath(project_root))
     if root is None:
         raise _RefusedError(
             "no_active_project",

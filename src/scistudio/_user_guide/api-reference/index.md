@@ -27,4 +27,4 @@ The workflow file format has its own generated page: [Workflow YAML file format]
 - [`scistudio.previewers.data_access`](scistudio.previewers.data_access.md) — 11 symbols
 - [`scistudio.tutorials`](scistudio.tutorials.md) — 16 symbols
 - [`scistudio.api.app`](scistudio.api.app.md) — 1 symbols
-- [`scistudio.api.seam`](scistudio.api.seam.md) — 12 symbols
+- [`scistudio.api.seam`](scistudio.api.seam.md) — 19 symbols

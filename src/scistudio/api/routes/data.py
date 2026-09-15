@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
@@ -48,6 +48,7 @@ from scistudio.api.schemas import (
     PreviewSessionCreate,
     PreviewSessionPatch,
 )
+from scistudio.api.seam import notify_upload_listeners, upload_relative_path
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.origins import CUSTOM_ORIGIN, PACKAGE_ORIGIN, PROJECT_ORIGIN, USER_ORIGIN
 from scistudio.core.storage.ref import StorageReference
@@ -84,6 +85,16 @@ UploadFileParam = Annotated[UploadFile, File(...)]
 RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 
 
+def _request_app(request: Request) -> FastAPI:
+    """The application serving the request, for the identity seam's upload listeners."""
+    app: FastAPI = request.app
+    return app
+
+
+#: ``None`` only when a test calls the handler directly, outside a request.
+RequestAppDep = Annotated[FastAPI | None, Depends(_request_app)]
+
+
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024 * 1024  # 2 GB
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB read granularity
 
@@ -92,6 +103,7 @@ _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MiB read granularity
 async def upload_data(
     file: UploadFileParam,
     runtime: RuntimeDep,
+    app: RequestAppDep = None,
 ) -> DataUploadResponse:
     """Upload a data file and register it in the active project.
 
@@ -100,9 +112,21 @@ async def upload_data(
     Previously the whole body was buffered via ``await file.read()`` *before*
     the size check, so an oversized upload (accidental or hostile) could
     exhaust process memory before the 413 ever fired.
+
+    An edition's upload listeners (``scistudio.api.seam.add_upload_listener``)
+    hear ``started`` when the upload is staged, and then ``completed`` or
+    ``discarded``. FastAPI has already received the whole request body by
+    then, so an upload the client cancels mid-transfer never reaches this
+    handler and produces no event. A failing listener never changes this
+    answer.
     """
-    # Development references: #1526.
+    # Development references: #1526, ADR-055 identity seam (#2328).
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
+    # Relative to the project the upload was staged into, even if the active
+    # project changes before it ends (#2322 audit P3-3).
+    upload_path = upload_relative_path(app, destination) if app is not None else ""
+    if app is not None:
+        await notify_upload_listeners(app, upload_path, size=file.size or 0, status="started")
     total = 0
     try:
         with staged_path.open("wb") as staged:
@@ -117,7 +141,11 @@ async def upload_data(
         payload = runtime.finish_staged_upload(destination, staged_path)
     except Exception:
         runtime.discard_staged_upload(staged_path)
+        if app is not None:
+            await notify_upload_listeners(app, upload_path, size=total, status="discarded")
         raise
+    if app is not None:
+        await notify_upload_listeners(app, upload_path, size=total, status="completed")
     return DataUploadResponse(**payload)
 
 

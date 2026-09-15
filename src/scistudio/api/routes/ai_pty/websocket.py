@@ -39,6 +39,14 @@ logger = logging.getLogger(__name__)
 @_pkg.router.websocket("/pty/{tab_id}")  # type: ignore[has-type]
 async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     """Accept the WS, validate params, spawn PTY, pump until close."""
+    # Identity seam (#2322 audit P1-1): a tab id equal to a reserved segment
+    # would put this route on the path of another route family, such as the
+    # self-authenticating worker callback prefix ``/api/ai/pty/internal``.
+    # Refuse the handshake before accepting, so no process can start there
+    # under any guard.
+    if tab_id.casefold() in _pkg.RESERVED_TAB_IDS:
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
 
     # ---- Validate query parameters -----------------------------------------
@@ -55,6 +63,15 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
             websocket,
             f"Invalid provider {provider!r}; expected one of {_pkg._VALID_PROVIDERS}.",
         )
+        await websocket.close()
+        return
+
+    # ADR-055 Spec 4 FR-006: with ``ai_chat_disabled`` set, an agent-kind
+    # provider is refused before any join or spawn, so no process starts. The
+    # Terminal and a tutorial replay (joined under ``user-terminal``) pass.
+    refusal = _pkg.agent_session_refusal(provider)
+    if refusal is not None:
+        await _send_error(websocket, refusal)
         await websocket.close()
         return
 

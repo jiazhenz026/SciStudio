@@ -210,6 +210,12 @@ def _open_prespawned_tab(
     if provider not in accepted:
         raise RuntimeError(f"pre-spawned PTY tab: unknown provider {provider!r}; expected one of {sorted(accepted)}")
 
+    # ADR-055 Spec 4 FR-006: every pre-spawned tab runs an agent, so with
+    # ``ai_chat_disabled`` set it is refused here, before anything is spawned.
+    refusal = _pkg.agent_session_refusal(provider)
+    if refusal is not None:
+        raise _pkg.AgentSessionsDisabledError(refusal)
+
     # #2379: refuse Auto before reclaiming or spawning anything, with the
     # registry's own sentence, for a CLI that has no auto mode.
     if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:

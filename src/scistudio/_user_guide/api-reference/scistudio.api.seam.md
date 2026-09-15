@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.api.seam import ...`
 
-Self-contained public-API reference — 12 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
+Self-contained public-API reference — 19 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
 
 ## `AUDIENCE_EXTERNAL_TAG` — _constant_
 
@@ -18,16 +18,31 @@ _constant_ — see the module source for the value.
 
 ```python
 class Capabilities
-Capabilities(identity: 'IdentityCapability | None' = None, transfer: 'bool' = False) -> None
+Capabilities(identity: 'IdentityCapability | None' = None, transfer: 'TransferCapability | Literal[False] | None' = None, ai_chat_disabled: 'bool' = False, update: 'UpdateCapability | None' = None) -> None
 ```
 
 The enterprise capabilities the backend declares to the frontend at boot.
 
 Everything is off by default, which is the open-source edition: no
-declaration reaches the page and the UI is unchanged. ``identity`` carries
-the signed-in user and logout URL; ``transfer`` turns on laptop-to-server
-file transfer. The frontend reads the declaration through its typed
-accessor (``frontend/src/lib/capabilities.ts``).
+declaration reaches the page and the UI is unchanged. An absent capability
+is off.
+
+``identity``
+    The signed-in user and, optionally, the backend's logout route.
+``transfer``
+    Laptop-to-server upload and download. ``None`` and ``False`` both mean
+    off; ``True`` is no longer accepted, pass a `TransferCapability`.
+``ai_chat_disabled``
+    ``True`` hides the in-app AI Chat and makes the ``/api/ai`` PTY routes
+    refuse agent-kind providers. The Terminal (``user-terminal``) is never
+    gated. This is a default and an administrator policy, not a security
+    boundary: from the Terminal a user can run any CLI they install.
+``update``
+    Where the frontend polls for a newly installed version and asks for a
+    restart into it.
+
+The frontend reads the declaration through its typed accessor
+(``frontend/src/lib/capabilities.ts``).
 
 **Members**
 
@@ -83,19 +98,22 @@ and inside request logging, so a rejection is logged with its request id.
 
 ```python
 class IdentityCapability
-IdentityCapability(user: 'str', logout_url: 'str') -> None
+IdentityCapability(user: 'str', logout_url: 'str | None' = None) -> None
 ```
 
 The ``identity`` capability: who is signed in, and where to sign out.
 
 ``user`` is the signed-in user's display name. In the enterprise edition's
 one-user-one-backend deployment it is fixed for the backend's lifetime.
-``logout_url`` names the backend's own logout endpoint as an absolute path
-(for example ``/api/session/logout``). That endpoint ends the SciStudio
-session before any identity-provider logout. The frontend sends it a
-same-origin ``POST``, resolved under the service prefix, and then follows
-the location the response returns; a plain GET navigation would let other
-sites force a logout.
+
+``logout_url`` is optional. When given, it names the backend's own logout
+endpoint as a route path without the service prefix (for example
+``/api/enterprise/session/logout``). That endpoint ends the SciStudio
+session before any identity-provider logout and answers
+``{"location": "<where the browser goes next>"}``. The frontend sends it a
+same-origin ``POST``, resolved under the service prefix, and then navigates
+to that location; a plain GET navigation would let other sites force a
+logout. Without it the user name renders with no Logout action.
 
 ## `LifespanHook` — _protocol_
 
@@ -117,6 +135,152 @@ shutting down normally or startup failed after this hook was entered. A
 ``@contextlib.asynccontextmanager`` function taking ``app`` satisfies this
 protocol.
 
+## `ToolRefusal` — _exception_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class ToolRefusal(ToolError)
+ToolRefusal(*, code: 'str', message: 'str', alternatives: 'list[str] | None' = None) -> 'None'
+```
+
+Raise inside an MCP tool to refuse the call with a message the agent can act on.
+
+It carries the same fields as the refusals the built-in workspace tools
+return: ``code`` is a machine-readable reason, ``message`` the
+explanation, and ``alternatives`` the tools that own the refused
+operation. The call then returns an MCP error result instead of failing.
+The result carries
+``isError: true``, the message as its text content, and the workspace
+tools' structured content
+``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
+where ``alternatives`` travels as ``use_instead``. It reaches every
+caller that way, including the WebMCP bridge, which withholds the text of
+any other exception.
+
+Outside a tool, `check_author_path` and `write_project_file`
+raise it too, so an edition's HTTP route can turn the same refusal into
+its own response.
+
+This exception is not ``scistudio.ai.agent.mcp.tools_workspace.ToolRefusal``,
+the Pydantic model of the structured refusal the result carries.
+
+## `TransferCapability` — _class_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class TransferCapability
+TransferCapability(inline_max_bytes: 'int', download_url_template: 'str') -> None
+```
+
+The ``transfer`` capability: moving files between the laptop and the server.
+
+Uploads reuse the existing staged ``POST /api/data/upload`` route, so they
+need no URL here. ``download_url_template`` names the edition's download
+route as a route path without the service prefix, with exactly one
+``{path}`` marker, for example
+``/api/enterprise/transfer/download?path={path}``. The frontend replaces the
+marker with the URL-encoded project-relative path of the chosen file,
+resolves the result under the service prefix, and sends the browser there
+with a ``GET``.
+
+``inline_max_bytes`` is the largest file, in bytes, the edition moves
+inline (for example through an MCP tool) rather than through a staged
+transfer. The UI's own upload always uses the staged route.
+
+## `UpdateCapability` — _class_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class UpdateCapability
+UpdateCapability(status_url: 'str', restart_url: 'str') -> None
+```
+
+The ``update`` capability: a user-chosen restart into a newly installed version.
+
+Update availability and active runs change while the backend runs, so the
+capability carries two route paths, without the service prefix, rather
+than a snapshot. The frontend polls ``GET status_url`` every 60 seconds and
+whenever the window regains focus; it answers
+``{"running_version", "installed_version", "update_available", "runs_active"}``.
+When an update is available the frontend shows a notice that never takes
+focus. Restart asks for confirmation and warns while runs are active. It
+then sends ``POST restart_url`` with ``{"confirm_active_runs": <bool>}``,
+which is ``true`` only after the user has accepted the runs-active
+warning, so the edition can enforce that warning itself. The route
+answers ``{"location": ...}``, and the frontend navigates there. A ``409``
+answer means work became active after the status read. Its ``active``
+field lists the kinds of work (``workflow_runs``, ``transfers``), and the
+frontend shows the warning for them, asks again, and retries with
+``true``. The frontend never restarts or reloads on its own.
+
+## `active_project_root` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+active_project_root(app: 'FastAPI') -> 'Path | None'
+```
+
+Return the open project's root directory, or ``None`` when none is open.
+
+The path is fully resolved (symlinks and, on Windows, short names), the
+same form the confinement checks compare against. ``None`` also before
+the lifespan has created the runtime.
+
+## `add_upload_listener` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+add_upload_listener(app: 'FastAPI', callback: 'Callable[[str, int, str], Any]') -> 'Callable[[], None]'
+```
+
+Call ``callback(path, size, status)`` for each staged ``POST /api/data/upload``.
+
+``path`` is the destination's POSIX path relative to the project the
+upload was staged into (for example ``data/raw/scan.tif``), even if
+another project opens before the upload ends. ``status`` is one of:
+
+- ``"started"``, when the upload is staged. FastAPI has already received
+  the whole request body by then, so this marks the staging copy, not the
+  network transfer; ``size`` is the size known then, or 0;
+- ``"completed"``, when the file was placed and registered;
+- ``"discarded"``, when the staged file was thrown away (too large, or the
+  request failed).
+
+For ``"completed"`` and ``"discarded"``, ``size`` is the bytes received. An
+upload the client cancels mid-transfer never reaches the route, so it
+produces no event.
+
+``callback`` may be a plain function or a coroutine function. Listeners
+run in the order they were added, before the upload's response is sent,
+so keep them quick. A listener that raises is logged and skipped. It never
+changes the upload's outcome or stops the other listeners. Returns a
+function that removes the listener; calling that function again is
+harmless.
+
+## `check_author_path` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+check_author_path(project_root: 'Path | str', rel_path: 'str') -> 'Path'
+```
+
+Resolve a path an agent wants to change, under the author tools' rules.
+
+``rel_path`` is taken literally (``~`` is not expanded) and resolved
+against ``project_root``; an absolute path must lie inside it. It must
+stay inside the project after links are followed, and it is checked
+against the author tools' blacklist: ``data/`` and ``workflows/*.yaml``
+belong to the tools that own them. Returns the resolved path. Otherwise it
+raises `ToolRefusal` with the author tools' own refusal code, or
+``invalid_path`` for control characters and, on Windows, a stream suffix
+such as ``::$DATA`` or a drive-relative path.
+
 ## `is_self_authenticating_path` — _function_
 
 **Stability:** `provisional` · Since `0.3.5`
@@ -125,12 +289,15 @@ protocol.
 is_self_authenticating_path(path: 'str') -> 'bool'
 ```
 
-Return whether a route path lies under a registered prefix.
+Return whether a route path lies strictly below a registered prefix.
 
 ``path`` is the router's path, the mount prefix already removed (see
-`GuardContext.route_path`). A prefix matches itself and anything below
-it on a segment boundary: ``/api/panels/t`` matches ``/api/panels/t/abc/x``
-but not ``/api/panels/tx``.
+`GuardContext.route_path`). A prefix exempts only the paths below
+it, on a segment boundary: ``/api/panels/t`` exempts
+``/api/panels/t/abc/x`` but neither ``/api/panels/tx`` nor the bare
+``/api/panels/t``. The bare prefix path can be a full match for a
+parameterized sibling route (``/api/ai/pty/{tab_id}`` with
+``tab_id="internal"``, for example), so it always stays behind the guard.
 
 ## `mcp` — _constant_
 
@@ -149,11 +316,13 @@ register_self_authenticating_prefix(prefix: 'str') -> 'str'
 Register a route-path prefix whose routes authenticate requests themselves.
 
 Every guard, the default loopback guard and any replacement, skips its own
-check for requests under the prefix and leaves authentication to the
-owning route; ``create_app`` enforces this for whichever guard it installs.
-Matching runs on the route path after root-path prefix handling, so
-registering ``/api/panels/t/`` also covers
-``/user/<name>/scistudio/api/panels/t/...``.
+check for requests strictly below the prefix and leaves authentication to
+the owning route; ``create_app`` enforces this for whichever guard it
+installs. Matching runs on the route path after root-path prefix handling,
+so registering ``/api/panels/t/`` also covers
+``/user/<name>/scistudio/api/panels/t/...``. The bare prefix path
+(``/api/panels/t``) is never exempt: it can be a full match for a
+parameterized sibling route, so it stays behind the guard.
 
 The owning route MUST authenticate every request it serves. Register the
 narrowest prefix that covers those routes. Returns the normalized prefix
@@ -197,3 +366,29 @@ Return whether any workflow run in this backend is still executing.
 A Hub activity reporter polls this so idle culling never stops a backend
 mid-analysis. Returns ``False`` before the lifespan has created the
 runtime and after every run's task has finished.
+
+## `write_project_file` — _function_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+write_project_file(app: 'FastAPI', rel_path: 'str', data: 'bytes', *, changed_by: 'str' = 'edition') -> 'Path'
+```
+
+Write ``data`` to a project file through the shared write path, and return its path.
+
+The editor's own write path: an atomic write, the
+file's state version advanced, ``file.changed`` sent so the open UI
+updates, and a registry reload when the file is a lint-clean drop-in
+module. ``changed_by`` names the writer in that ``file.changed`` event.
+
+``rel_path`` goes through the same resolver as `check_author_path`,
+run here again: confinement to the open project and the author
+blacklist. A check followed by a write therefore always names the same
+file. Missing parent directories are created.
+
+This is a coroutine: ``await`` it from a route or tool. It raises
+`ToolRefusal` when no project is open, the path is refused, or the
+write is refused (the target is a directory, for example). It raises
+`TypeError` for data that is not bytes. A disk failure raises as it
+does for the editor.

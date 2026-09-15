@@ -3,6 +3,7 @@
  */
 import { useEffect, useRef } from "react";
 
+import { DownloadToComputerItem } from "../Enterprise/DownloadToComputerItem";
 import type { ContextMenuState, TreeNodeData } from "./types";
 
 export interface ContextMenuProps {
@@ -56,6 +57,8 @@ export function ContextMenu({
       >
         Copy Path
       </button>
+      {/* ADR-055 Spec 4 FR-005 — only with the `transfer` capability, only for files. */}
+      <DownloadToComputerItem item={contextMenu.node} onDone={onClose} />
       <button
         className="w-full px-4 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
         onClick={() => onReveal(contextMenu.node)}

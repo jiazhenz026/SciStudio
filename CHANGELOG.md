@@ -9,6 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2322] **The enterprise controls are in the open-source frontend, off until
+  a backend turns them on.** An edition built on `create_app` now declares four
+  capabilities, and each one switches on its own control. The open-source
+  edition declares none, so nothing changes for it. `identity` shows the
+  signed-in user; with a logout route it adds Logout, which sends that route a
+  same-origin `POST` and follows the `location` it answers. `transfer` adds an
+  Upload button that sends a file from this computer through the existing
+  staged `POST /api/data/upload`, with progress and Cancel. It also adds
+  "Download to this computer" to the project tree's context menu.
+  `ai_chat_disabled` hides the AI Chat tab, and the backend then refuses every
+  agent-kind PTY session before anything is spawned: the chat WebSocket, AI
+  Block tabs, and Bring In My Work sessions. `GET /api/ai/status` then runs
+  no agent binary and reports each agent as disabled. The Terminal still
+  works. A
+  tutorial replay is hidden along with the AI Chat tab, and Bring In My Work
+  reports the refusal only after it has written its session brief; both are
+  tracked in #2337. This is a default and an administrator policy, not a
+  security boundary. `update` names a status route
+  the frontend polls every 60 seconds and whenever the window regains focus.
+  When an update is available, a notice appears that never takes focus;
+  Restart asks for confirmation, warns while workflow runs are active, and
+  then follows the restart route. The restart request carries
+  `{"confirm_active_runs": …}`, which is `true` only after the user has
+  accepted the warning, so the edition can enforce it. A `409` answer lists
+  the kinds of work that became active meanwhile (analyses, file transfers),
+  and the notice names them and asks again. Every capability URL is a backend route path
+  without the service prefix, resolved under the prefix the way API calls are.
+  The declaration the page receives is now versioned. AI Block worker
+  callbacks under `/api/ai/pty/internal/` are registered as
+  self-authenticating, so a replacement guard lets them reach their routes,
+  which check the engine IPC token on every request. The terminal WebSocket
+  refuses the reserved tab id `internal`, so it can never answer that
+  prefix's own path. The served page's base-path and token bootstrap now use
+  the same script-safe serialization as the capability declaration. Specs:
+  `docs/specs/adr-055-enterprise-support.md` and
+  `docs/specs/adr-055-identity-seam.md`.
+- [#2328] **An edition can reach the open project through the seam.**
+  `scistudio.api.seam` adds five provisional names, each a thin wrapper over
+  the internals the workspace tools already use:
+  - `active_project_root(app)` returns the open project's root.
+  - `ToolRefusal(code=..., message=..., alternatives=...)`, raised inside an
+    MCP tool, returns a Spec 1 `isError` result carrying the workspace tools'
+    refusal shape. Its message reaches the caller, including over the WebMCP
+    bridge, which hides other exceptions' text.
+  - `check_author_path(project_root, rel_path)` applies project confinement
+    and the Spec 2 author blacklist. It takes the path literally (no `~`
+    expansion) and refuses control characters and, on Windows, NTFS stream
+    suffixes such as `::$DATA`.
+  - `write_project_file(app, rel_path, data, *, changed_by="edition")` is a
+    coroutine that writes bytes through the editor's shared write path: an
+    atomic write, and `file.changed` to the UI naming `changed_by` as the
+    writer. It runs the same resolver as `check_author_path` itself, so a
+    check and a write can never name different files. That includes the
+    author blacklist: it refuses anything under `data/` and any
+    `workflows/*.yaml`. Files are placed under `data/` through the staged
+    `POST /api/data/upload` instead.
+  - `add_upload_listener(app, callback)` calls a plain or async
+    `callback(path, size, status)` when a staged upload starts, completes or
+    is discarded. The path is relative to the project the upload was staged
+    into, even if another project opens meanwhile. `started` fires once the
+    backend has received the whole request body and staged it, so it does not
+    track the network transfer, and an upload the client cancels mid-transfer
+    produces no event. It returns a function that removes the listener. A
+    failing listener never breaks the upload.
 - MiniApps: create interactive tools on project data with optional resident Python,
   reuse them across compatible outputs, and convert them into interactive workflow
   blocks. Includes project-scoped source selection, reusable core data-view UI
@@ -516,6 +580,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [#2322] **Provisional seam change: `Capabilities.transfer` is an object
+  now.** This is an ADR-052 provisional change to the API published in
+  `scistudio==0.3.4a32`. Code that turned transfer on with
+  `Capabilities(transfer=True)` must pass
+  `TransferCapability(inline_max_bytes=..., download_url_template=...)`;
+  `True` now raises `TypeError` naming the replacement. `False` and `None`
+  still mean off. `IdentityCapability.logout_url` becomes optional, and every
+  capability URL must be a backend route path without the service prefix: a
+  leading `/`, not `//`, no scheme, whitespace, control characters or
+  backslashes. The injected declaration adds a `version` field and carries
+  only the capabilities that are on.
+- [#2322] **Provisional seam change: a self-authenticating prefix exempts only
+  the paths strictly below it.** `is_self_authenticating_path("/api/panels/t")`
+  is now false, while `/api/panels/t/...` still matches. The bare prefix path
+  can fully match a parameterized sibling route: `/api/ai/pty/internal` is
+  the terminal WebSocket `/api/ai/pty/{tab_id}` with `tab_id="internal"`, and
+  that let an unauthenticated WebSocket past a replacement guard. Capability
+  URLs also now refuse `.` and `..` segments, percent-encoded or not, and
+  invisible or format characters such as a byte-order mark, so the backend
+  and the browser accept the same paths.
 - [#2137] **The built-in AI assistant is named Mio.** It had no name, which made
   it hard to write about and hard to speak to — every tutorial line had to say
   "the assistant". Mio is also the guide in the Learning Center dialogue, so the

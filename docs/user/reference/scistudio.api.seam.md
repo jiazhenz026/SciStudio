@@ -4,7 +4,7 @@
 
 Canonical import root: `from scistudio.api.seam import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (12 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators.
+Public surface — every symbol below is declared in this module's `__all__` (19 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators.
 
 ## `AUDIENCE_EXTERNAL_TAG` — _constant_
 
@@ -85,6 +85,87 @@ Public surface — every symbol below is declared in this module's `__all__` (12
       members_order: source
       filters: ["!^_"]
 
+## `ToolRefusal` — _exception_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.ToolRefusal
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `TransferCapability` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.TransferCapability
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `UpdateCapability` — _class_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.UpdateCapability
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+
+## `active_project_root` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.active_project_root
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `add_upload_listener` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.add_upload_listener
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `check_author_path` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.check_author_path
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
 ## `is_self_authenticating_path` — _function_
 
 > **Stability:** `provisional` · **Since:** `0.3.5`
@@ -160,6 +241,20 @@ Public surface — every symbol below is declared in this module's `__all__` (12
 > **Stability:** `provisional` · **Since:** `0.3.5`
 
 ::: scistudio.api.seam.workflow_runs_active
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
+      show_labels: false
+
+## `write_project_file` — _function_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.api.seam.write_project_file
     options:
       show_root_heading: false
       show_root_toc_entry: false
