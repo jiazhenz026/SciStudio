@@ -225,6 +225,30 @@ export function projectExecution(
 }
 
 /**
+ * #2362 — which workflow's execution bucket the screen shows.
+ *
+ * Normally the workflow on the canvas. An expanded subworkflow tab is the
+ * exception: its canvas is the child file (`workflowId` is the child's internal
+ * id) but its status and outputs come from the parent's run, whose events carry
+ * the top-level workflow id — so the tab's `runWorkflowId` wins.
+ */
+export function executionViewKey(state: {
+  tabs: ReadonlyArray<{ id: string; kind: string; workflowId?: string; runWorkflowId?: string }>;
+  activeTabId: string | null;
+  workflowId: string | null;
+}): string | null {
+  const active = state.tabs.find((tab) => tab.id === state.activeTabId);
+  if (
+    active?.kind === "workflow" &&
+    active.runWorkflowId &&
+    active.workflowId === state.workflowId
+  ) {
+    return active.runWorkflowId;
+  }
+  return state.workflowId;
+}
+
+/**
  * Build the per-block error/summary maps from a block_error event. Pass
  * through the existing maps when the event is not a block_error.
  */

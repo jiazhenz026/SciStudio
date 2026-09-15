@@ -7,7 +7,8 @@
 import type { StoreApi } from "zustand";
 
 import type { VersionedWorkflowResponse } from "../../lib/api";
-import type { AppStore, TabSlice, WorkflowTab } from "../types";
+import type { AppStore, TabSlice, TabState, WorkflowTab } from "../types";
+import { executionViewKey, projectExecution } from "../executionSlice.parts/eventReducer";
 import {
   EMPTY_TAB_STATE,
   captureActiveTab,
@@ -40,6 +41,20 @@ function nextTabSerial(): string {
   return `${Date.now()}-${tabSerial}`;
 }
 
+/**
+ * #2362 — the execution maps a tab shows once it is focused.
+ *
+ * Execution state is held per workflow and projected onto the one on screen, so
+ * moving focus to another workflow tab must re-project; restoring only the
+ * canvas left the previous tab's statuses and data refs answering for every
+ * node the two workflows name the same. An expanded subworkflow tab projects
+ * its parent run (`runWorkflowId`). Non-workflow tabs leave the maps alone.
+ */
+function projectForTab(state: AppStore, tab: TabState): Partial<AppStore> {
+  if (tab.kind !== "workflow") return {};
+  return projectExecution(state.executionByWorkflow, tab.runWorkflowId || tab.workflowId);
+}
+
 export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["openTab"] {
   return (workflow, displayName, runPrefix, tabKey) => {
     const state = get();
@@ -57,12 +72,21 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
     const existing = dedupeKey
       ? state.tabs.find((t) => t.kind === "workflow" && (t.tabKey ?? t.workflowId) === dedupeKey)
       : undefined;
+    // #2362 — an expansion (a `runPrefix` is passed) shows the run of the
+    // workflow it was expanded from: the parent canvas's own run key, which is
+    // itself a `runWorkflowId` when the parent is an expanded tab (nesting).
+    const runWorkflowId =
+      runPrefix !== undefined ? (executionViewKey(state) ?? undefined) : undefined;
     if (existing) {
       // ADR-044 — refresh the run-scope prefix when reopening from a (possibly
       // different) parent subworkflow node so the expanded view maps to the
       // current run; leave it untouched when opened directly (no prefix).
       if (runPrefix !== undefined && existing.kind === "workflow") {
-        set({ tabs: state.tabs.map((t) => (t.id === existing.id ? { ...t, runPrefix } : t)) });
+        set({
+          tabs: state.tabs.map((t) =>
+            t.id === existing.id ? { ...t, runPrefix, runWorkflowId } : t,
+          ),
+        });
       }
       state.switchTab(existing.id);
       return;
@@ -104,12 +128,14 @@ export function createOpenTab(set: StoreSetter, get: StoreGetter): TabSlice["ope
       selectedNodeId: null,
       tabKey: dedupeKey,
       runPrefix,
+      runWorkflowId,
     };
 
     set({
       // #2112 — opening a workflow tab moves focus away from any preview tab.
       tabs: dropInactivePreviewTabs([...updatedTabs, newTab], newTab.id),
       ...restoreTab(newTab),
+      ...projectForTab(state, newTab),
     });
   };
 }
@@ -134,6 +160,7 @@ export function createSwitchTab(set: StoreSetter, get: StoreGetter): TabSlice["s
       // passes the one being dropped through unchanged.
       tabs: dropInactivePreviewTabs(updatedTabs, tabId),
       ...restoreTab(target),
+      ...projectForTab(state, target),
     });
   };
 }
@@ -172,6 +199,7 @@ export function createCloseTab(set: StoreSetter, get: StoreGetter): TabSlice["cl
         set({
           tabs: remaining,
           ...restoreTab(nextTab),
+          ...projectForTab(state, nextTab),
         });
       } else {
         set(EMPTY_TAB_STATE);

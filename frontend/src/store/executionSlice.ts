@@ -3,6 +3,7 @@ import type { StateCreator } from "zustand";
 import type { AppStore, ExecutionSlice } from "./types";
 import {
   emptyWorkflowExecution,
+  executionViewKey,
   extractBlockError,
   maybeAppendErrorLog,
   nextExecutionByWorkflow,
@@ -45,7 +46,9 @@ export const createExecutionSlice: StateCreator<AppStore, [], [], ExecutionSlice
 
       return {
         executionByWorkflow,
-        ...projectExecution(executionByWorkflow, state.workflowId),
+        // An expanded subworkflow tab shows its parent run's bucket, not the
+        // child file's own id (see `executionViewKey`).
+        ...projectExecution(executionByWorkflow, executionViewKey(state)),
         logEntries: nextLogs,
         isRunning: nextIsRunning(event, state.isRunning),
         executionMessages: [

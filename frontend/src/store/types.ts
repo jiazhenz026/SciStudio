@@ -855,6 +855,15 @@ export interface WorkflowTab {
    * its flattened run id. Absent/`""` for a top-level workflow opened directly.
    */
   runPrefix?: string;
+  /**
+   * #2362 — the workflow whose run this expanded child tab shows. Engine events
+   * carry the TOP-LEVEL workflow id (the parser flattens the subworkflow into
+   * the parent's run), while `workflowId` here is the child file's own internal
+   * id. Execution state is held per workflow id, so the tab projects this key's
+   * bucket; `runPrefix` then maps each inner node to its flattened id. Set with
+   * `runPrefix` when a subworkflow node is expanded; absent otherwise.
+   */
+  runWorkflowId?: string;
 }
 
 /**

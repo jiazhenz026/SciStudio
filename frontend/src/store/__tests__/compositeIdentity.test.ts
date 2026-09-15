@@ -114,6 +114,69 @@ describe("execution state is keyed by workflow (#2362)", () => {
   });
 });
 
+describe("an expanded subworkflow tab shows its parent run (#2362)", () => {
+  const prefixed = "sub_node__load_one";
+  const parentOutputs = { output: { data_ref: "data-parent-run" } };
+
+  function expandSubworkflow() {
+    const store = useAppStore.getState();
+    store.openTab(workflow("parent_wf"), "parent");
+    store.consumeEvent(
+      event({
+        type: "block_running",
+        block_id: prefixed,
+        workflow_id: "parent_wf",
+      }),
+    );
+    // Double-clicking the subworkflow node opens the child file, whose own
+    // internal id is not the id the parent run's events carry.
+    useAppStore
+      .getState()
+      .openTab(workflow("child_internal"), "child", "sub_node__", "subworkflows/child.yaml");
+  }
+
+  it("keeps the parent run's status on the child canvas as events arrive", () => {
+    expandSubworkflow();
+    expect(useAppStore.getState().workflowId).toBe("child_internal");
+    expect(useAppStore.getState().blockStates[prefixed]).toBe("running");
+
+    useAppStore.getState().consumeEvent(
+      event({
+        type: "block_done",
+        block_id: prefixed,
+        workflow_id: "parent_wf",
+        data: { outputs: parentOutputs },
+      }),
+    );
+    const state = useAppStore.getState();
+    expect(state.blockStates[prefixed]).toBe("done");
+    expect(state.blockOutputs[prefixed]).toEqual(parentOutputs);
+  });
+
+  it("switching away and back re-projects the right workflow each time", () => {
+    expandSubworkflow();
+    const [parentTab, childTab] = useAppStore.getState().tabs;
+
+    useAppStore.getState().switchTab(parentTab.id);
+    expect(useAppStore.getState().blockStates[prefixed]).toBe("running");
+
+    useAppStore.getState().openTab(workflow("unrelated_wf"), "unrelated");
+    expect(useAppStore.getState().blockStates[prefixed]).toBeUndefined();
+
+    useAppStore.getState().switchTab(childTab.id);
+    expect(useAppStore.getState().blockStates[prefixed]).toBe("running");
+  });
+
+  it("a child file opened directly shows its own workflow, not a parent's run", () => {
+    expandSubworkflow();
+    const [parentTab] = useAppStore.getState().tabs;
+    useAppStore.getState().switchTab(parentTab.id);
+    useAppStore.getState().openTab(workflow("child_internal"), "child");
+
+    expect(useAppStore.getState().blockStates[prefixed]).toBeUndefined();
+  });
+});
+
 describe("git history is scoped to its project (#2362)", () => {
   it("a project switch drops the previous project's commits for the same branch name", () => {
     useAppStore.getState().setCurrentProject(project("alpha"));
