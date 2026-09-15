@@ -1,0 +1,108 @@
+{
+  "base_ref": "origin/main",
+  "branch": "docs/2469-publish-architecture-doc",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T17:22:54.757446Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/architecture.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2469,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Publish docs/architecture/ARCHITECTURE.md on the deployed docs site and in the in-app documentation reader, single-sourced with a drift guard; do not edit ARCHITECTURE.md content.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2469-2469-publish-architecture-doc",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757303Z",
+      "pattern": "scripts/docs/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757434Z",
+      "pattern": "src/scistudio/_user_guide/architecture.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757437Z",
+      "pattern": "tests/docs/**",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757438Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757439Z",
+      "pattern": ".github/workflows/docs.yml",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T17:22:54.757441Z",
+      "pattern": ".workflow/records/2469-2469-publish-architecture-doc.json",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "4d02c44c-785c-434f-b904-2723b4ece4d7",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-15T17:22:54.757454Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_architecture_doc_copy.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T17:22:54.757456Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
