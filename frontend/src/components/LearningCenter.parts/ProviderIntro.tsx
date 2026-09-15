@@ -11,11 +11,9 @@
  * Everything provider-shaped here is backend truth. ADR-034 FR-020a/FR-020b
  * (held in place by `tests/architecture/test_adr_034_provider_single_source.py`)
  * forbid the frontend hand-maintaining provider keys, labels, or per-provider
- * copy: a sixth provider is a registry-only change, and a list written here
- * would be the copy that misses it. So the rows come whole from
- * `GET /api/ai/availability` — key, label, graded state, and the
- * backend-composed `next_step` that says precisely how to configure each one
- * (which binary, where SciStudio looked, which command signs in).
+ * copy. The rows come from `useAgentStatus` — the AI Chat setup screen's own
+ * `GET /api/ai/status` hook and cache (#2454), so this card, the chat, and the
+ * session dialogs read one report and warm one cache.
  *
  * Grayed, never hidden. The same rule the Bring In My Work provider dropdown
  * follows, for the same reason: a provider the user has not set up is an
@@ -23,17 +21,14 @@
  * calls this out — a user who configured one CLI usually has no idea the
  * others are supported.
  *
- * The probe never blocks (FR-035's rule, inherited): the card renders
- * immediately with its prose and a checking note, and the rows fill in when
- * the report resolves. The probe is the same memoised report the Bring In My
- * Work dialog reads moments later if the reader accepts, so asking here warms
- * exactly the cache that dialog needs.
+ * The status never blocks: the card renders immediately with its prose and a
+ * checking note, and the rows fill in when the report resolves.
  */
 
 import { Bot } from "lucide-react";
-import { useEffect, useState } from "react";
 
-import { apiFetch } from "../../lib/api/core";
+import { useAgentStatus } from "../AIChat/SetupScreen.parts/agentStatus";
+import type { ProviderStatus } from "../AIChat/SetupScreen.parts/types";
 
 export const PROVIDER_INTRO_TITLE = "Meet the real agents";
 
@@ -53,24 +48,7 @@ export const PROVIDER_INTRO_CONTINUE_LABEL = "Continue";
 
 type ProviderState = "ready" | "not_authenticated" | "not_installed";
 
-/**
- * One provider as `GET /api/ai/status` reports it.
- *
- * Deliberately the cheap endpoint. `/api/ai/availability` grades each provider
- * by making a live call through its CLI — fifteen seconds of timeout each —
- * so a surface about to start a session can know whether a request will
- * actually succeed. This page asks a smaller question, "have you got one
- * installed?", and `/api/ai/status` answers it from a two-second probe with no
- * network in it.
- */
-interface ProviderStatusRow {
-  name: string;
-  label: string;
-  available: boolean;
-  logged_in: boolean;
-}
-
-function stateOf(row: ProviderStatusRow): ProviderState {
+function stateOf(row: ProviderStatus): ProviderState {
   if (!row.available) return "not_installed";
   return row.logged_in ? "ready" : "not_authenticated";
 }
@@ -102,28 +80,9 @@ export interface ProviderIntroProps {
 }
 
 export function ProviderIntro({ onContinue, onOpenInstallGuide }: ProviderIntroProps) {
-  const [providers, setProviders] = useState<ProviderStatusRow[] | null>(null);
-  const [probeFailed, setProbeFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        // apiFetch routes through the base-path helper (ADR-055 Spec 0 FR-004)
-        // and throws ApiError for non-2xx.
-        const body = await apiFetch<{ providers: ProviderStatusRow[] }>("/api/ai/status");
-        if (!cancelled) setProviders(body.providers);
-      } catch {
-        // The card still works: the line plus a pointer at the surface that
-        // carries the list permanently, rather than an error about a report
-        // nobody asked for.
-        if (!cancelled) setProbeFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { status, statusError } = useAgentStatus();
+  const providers = status?.providers ?? null;
+  const probeFailed = statusError !== null;
 
   return (
     <div data-testid="provider-intro">

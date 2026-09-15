@@ -48,19 +48,14 @@ import {
 } from "../lib/api/workImport";
 import { useAppStore } from "../store";
 
-import { AgentSetup } from "./BringInMyWorkDialog.parts/AgentSetup";
-import { AvailabilityGuidance } from "./BringInMyWorkDialog.parts/AvailabilityGuidance";
+import { AgentLaunchSetup } from "./AIChat/SetupScreen.parts/AgentLaunchSetup";
+import { agentLaunchProblem, useAgentStatus } from "./AIChat/SetupScreen.parts/agentStatus";
 import { CorrectnessCaveat } from "./BringInMyWorkDialog.parts/CorrectnessCaveat";
 import { DataKindsQuestion } from "./BringInMyWorkDialog.parts/DataKindsQuestion";
 import { FreeTextQuestion } from "./BringInMyWorkDialog.parts/FreeTextQuestion";
 import { PageNav, type PageNavAction } from "./BringInMyWorkDialog.parts/PageNav";
 import { SourceAndDestination } from "./BringInMyWorkDialog.parts/SourceAndDestination";
 import {
-  hasUsableProvider,
-  resolveSelectedProvider,
-} from "./BringInMyWorkDialog.parts/availability";
-import {
-  AVAILABILITY_PROBING,
   DIALOG_EYEBROW,
   DIALOG_TITLE,
   NEXT_LABEL,
@@ -96,19 +91,10 @@ import {
   pageGate,
   WORK_IMPORT_PAGES,
 } from "./BringInMyWorkDialog.parts/pages";
-import {
-  useAgentAvailability,
-  type AvailabilityFetcher,
-} from "./BringInMyWorkDialog.parts/useAgentAvailability";
 import { DialogCloseButton } from "./ui/DialogCloseButton";
 
 export interface BringInMyWorkDialogProps {
   onClose: () => void;
-  /**
-   * Test seam for contract C1. Production passes nothing and the hook uses
-   * `fetchAgentAvailability` from the availability track's client module.
-   */
-  fetchAvailability?: AvailabilityFetcher;
   /** Test seam for the request itself; production posts to `POST /api/work-import/sessions`. */
   startSession?: (request: WorkImportSessionRequest) => Promise<{
     tab_id: string;
@@ -131,7 +117,6 @@ const PAGE_TITLES = WORK_IMPORT_PAGES.map((page) => page.title);
 
 export function BringInMyWorkDialog({
   onClose,
-  fetchAvailability,
   startSession = startWorkImportSession,
 }: BringInMyWorkDialogProps) {
   const projectDir = useAppStore((s) => s.currentProject?.path ?? null);
@@ -150,27 +135,17 @@ export function BringInMyWorkDialog({
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // FR-035 — renders immediately; a hanging probe degrades to a reported state.
-  const {
-    loading: probing,
-    availability,
-    probeError,
-    retry,
-    retrying,
-  } = useAgentAvailability(fetchAvailability);
-  const agentUsable = hasUsableProvider(availability);
-
-  // FR-043 — one usable provider is selected rather than offered as a choice.
-  useEffect(() => {
-    setState((prev) => {
-      const next = resolveSelectedProvider(availability, prev.provider);
-      return next === prev.provider ? prev : { ...prev, provider: next };
-    });
-  }, [availability]);
+  // #2454 — the AI Chat setup screen's own provider status and launch rule.
+  const agentStatus = useAgentStatus();
+  const agentProblem = agentLaunchProblem(
+    agentStatus.providers,
+    state.provider,
+    state.permissionMode,
+  );
 
   const page = WORK_IMPORT_PAGES[pageIndex];
   const isLastPage = pageIndex === LAST_PAGE_INDEX;
-  const gate = pageGate(pageIndex, state, { projectDir, agentUsable, probing });
+  const gate = pageGate(pageIndex, state, { projectDir, agentProblem });
 
   const advance = useCallback(() => {
     setReasonsVisible(false);
@@ -206,12 +181,12 @@ export function BringInMyWorkDialog({
    */
   const goTo = useCallback(
     (target: number) => {
-      const limit = furthestReachablePage(state, { projectDir, agentUsable, probing });
+      const limit = furthestReachablePage(state, { projectDir, agentProblem });
       const next = Math.max(0, Math.min(target, limit));
       setReasonsVisible(next < target);
       setPageIndex(next);
     },
-    [agentUsable, probing, projectDir, state],
+    [agentProblem, projectDir, state],
   );
 
   const patch = useCallback((next: Partial<WorkImportFormState>) => {
@@ -320,25 +295,20 @@ export function BringInMyWorkDialog({
     return () => window.removeEventListener("keydown", handler);
   }, [goNext, isLastPage, onClose, starting]);
 
-  const startShown = isLastPage && !probing && agentUsable;
-  const startable = canStart(state, { projectDir, agentUsable }) && !starting;
+  const startable = canStart(state, { projectDir, agentProblem }) && !starting;
   const reasons = isLastPage
-    ? startShown
-      ? blockingReasons(state, { projectDir, agentUsable })
-      : []
+    ? blockingReasons(state, { projectDir, agentProblem })
     : reasonsVisible
       ? gate.reasons
       : [];
 
-  const action: PageNavAction | null = isLastPage
-    ? startShown
-      ? {
-          label: starting ? STARTING_LABEL : START_LABEL,
-          testId: "work-import-start",
-          disabled: !startable,
-          onClick: () => void handleStart(),
-        }
-      : null
+  const action: PageNavAction = isLastPage
+    ? {
+        label: starting ? STARTING_LABEL : START_LABEL,
+        testId: "work-import-start",
+        disabled: !startable,
+        onClick: () => void handleStart(),
+      }
     : { label: NEXT_LABEL, testId: "work-import-next", disabled: false, onClick: goNext };
 
   function pageBody(): ReactNode {
@@ -353,46 +323,15 @@ export function BringInMyWorkDialog({
               browsing={browsing}
             />
 
-            {/*
-             * FR-005 — when NO agent is usable the guidance takes the picker's
-             * place, and on a paged dialog it also stops the user going on: five
-             * pages of answers that cannot be submitted is a worse dead end than
-             * the one FR-005 already closes. The agent is chosen here, so this is
-             * where that is found out. When some providers are usable the user
-             * proceeds with one of those; the rest are reported inside
-             * `AgentSetup` without blocking.
-             */}
-            {probing ? (
-              <div className="grid gap-2">
-                <p className="text-xs italic text-stone-500" data-testid="work-import-probing">
-                  {AVAILABILITY_PROBING}
-                </p>
-                <AgentSetup
-                  availability={availability}
-                  probing
-                  provider={state.provider}
-                  permissionMode={state.permissionMode}
-                  onProviderChange={(provider) => patch({ provider })}
-                  onPermissionModeChange={(permissionMode) => patch({ permissionMode })}
-                />
-              </div>
-            ) : agentUsable ? (
-              <AgentSetup
-                availability={availability}
-                probing={false}
-                provider={state.provider}
-                permissionMode={state.permissionMode}
-                onProviderChange={(provider) => patch({ provider })}
-                onPermissionModeChange={(permissionMode) => patch({ permissionMode })}
-              />
-            ) : (
-              <AvailabilityGuidance
-                availability={availability}
-                probeError={probeError}
-                onRetry={retry}
-                retrying={retrying}
-              />
-            )}
+            {/* #2454 — the agent half is AI Chat's setup, unchanged. */}
+            <AgentLaunchSetup
+              tabId="work-import"
+              agentStatus={agentStatus}
+              provider={state.provider}
+              permissionMode={state.permissionMode}
+              onProviderChange={(provider) => patch({ provider })}
+              onPermissionModeChange={(permissionMode) => patch({ permissionMode })}
+            />
           </div>
         );
       case "q1":
@@ -521,27 +460,6 @@ export function BringInMyWorkDialog({
                 </ul>
               )}
             </div>
-          ) : null}
-
-          {/*
-           * FR-005, on the page that holds the start action. The user should
-           * have met this on page one, where the agent is chosen — but a probe
-           * that resolves late, or a retry that fails, can put them here with no
-           * usable agent, and the requirement is that the guidance stands in for
-           * the start action wherever that happens.
-           */}
-          {isLastPage && probing ? (
-            <p className="text-xs italic text-stone-500" data-testid="work-import-probing">
-              {AVAILABILITY_PROBING}
-            </p>
-          ) : null}
-          {isLastPage && !probing && !agentUsable ? (
-            <AvailabilityGuidance
-              availability={availability}
-              probeError={probeError}
-              onRetry={retry}
-              retrying={retrying}
-            />
           ) : null}
 
           {/*

@@ -211,7 +211,9 @@ class MiniAppCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request: str = Field(max_length=4000, description="What the user wants to see or do, in their own words.")
     source: MiniAppTarget
-    provider: str | None = Field(default=None, description="Agent provider key; the first ready one when omitted.")
+    provider: str | None = Field(
+        default=None, description="Agent provider key, as the AI Chat setup offers it. Required."
+    )
     permission_mode: str | None = Field(
         default=None,
         description="'safe', 'auto', or 'bypass'; 'dangerous' means 'bypass'. Auto requires provider support. Defaults to safe.",
@@ -428,61 +430,25 @@ def _permission_mode(raw: str | None) -> str:
     return mode
 
 
-def _graded_reason(row: Any, report: Any) -> str:
-    """The availability report's own sentence for why a session cannot start."""
-    # The availability report's own sentence for why a session cannot start.
-    #
-    # Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
-    # which of install, sign in, or "the call failed because …" is the actionable
-    # one, and a second wording here would give the user two accounts of one fact.
-    if row is None:
-        row = next((p for p in report.providers if p.state == report.state), None)
-    if row is None:
-        return "No agent provider is configured, so no MiniApp session can start."
-    for sentence in (row.session_unsupported_reason, row.next_step, row.cause):
-        if sentence:
-            return str(sentence)
-    return f"{row.label} cannot start a session right now."
-
-
-async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
+def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
     """Return the provider and mode a session may start with, or refuse."""
     # Return the provider and mode a session may start with, or refuse (FR-024).
     #
     # This runs FIRST, before anything is written: a MiniApp whose agent never
     # started is a directory the user did not ask for and has to find and delete
-    # themselves. ``session_unsupported_reason`` refuses a provider however
-    # ``ready`` it is — the opening instruction is a positional argument its CLI
-    # cannot take, and no amount of signing in changes that.
-    from scistudio.ai.agent import availability as agent_availability
-    from scistudio.ai.agent.availability import AvailabilityState
-    from scistudio.ai.agent.providers_registry import get as get_descriptor
-    from scistudio.api.routes.ai import _status_rows
-
-    def usable(row: Any) -> bool:
-        return row.state is AvailabilityState.READY and not row.session_unsupported_reason
+    # themselves. #2454: it is the AI Chat launch check itself
+    # (``validate_agent_launch``), with the opening instruction the session is
+    # started with — no availability probe, no second checker.
+    from scistudio.api.routes.ai_pty.validation import validate_agent_launch
 
     mode = _permission_mode(permission_mode)
-    report = await agent_availability.probe_availability(_status_rows)
-    if provider is None:
-        chosen = next((row for row in report.providers if usable(row)), None)
-        if chosen is None:
-            raise PanelError(409, "agent_unavailable", _graded_reason(None, report))
-    else:
-        chosen = next((row for row in report.providers if row.key == provider), None)
-        if chosen is None:
-            raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
-        if not usable(chosen):
-            raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
-    if mode == "auto":
-        descriptor = get_descriptor(chosen.key)
-        if not descriptor.supports_auto_mode:
-            raise PanelError(
-                400,
-                "invalid_request",
-                f"{descriptor.label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
-            )
-    return chosen.key, mode
+    if not provider:
+        raise PanelError(400, "invalid_request", "Choose an agent provider to run the session.")
+    try:
+        validate_agent_launch(provider, mode, with_prompt=True)
+    except ValueError as exc:
+        raise PanelError(400, "invalid_request", str(exc)) from exc
+    return provider, mode
 
 
 #: The agent session last started for each MiniApp, keyed by panel id, with the
@@ -504,7 +470,7 @@ def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permis
 
     Last, and never fatal: the directory and the brief are already on disk and
     the tab opens on them, so a provider binary that vanished between the
-    availability probe and this call leaves the user with a MiniApp they can
+    launch check and this call leaves the user with a MiniApp they can
     still see and an agent they can start by hand.
     """
     from scistudio.panels.miniapp_create import opening_message
@@ -627,12 +593,12 @@ async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, 
     """Create a MiniApp directory and start the agent session that writes it."""
     # Create a MiniApp directory and start the agent session that writes it.
     #
-    # The order is normative (FR-024): the graded availability check comes first
+    # The order is normative (FR-024): the AI Chat launch check (#2454) comes first
     # and nothing is created when it refuses, then the template directory, then
     # the brief — closed and fsynced — and the agent session last, pointed at a
     # brief that is already complete on disk.
     try:
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_create_miniapp, request.app.state.runtime, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -682,7 +648,7 @@ async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Reque
     # with, and the block is a second artefact beside it.
     try:
         panel = _miniapp(request, panel_id)
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_convert_miniapp, request.app.state.runtime, panel, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc

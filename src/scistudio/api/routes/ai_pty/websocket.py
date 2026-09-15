@@ -26,12 +26,10 @@ import threading
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect, WebSocketState
 
-from scistudio.ai.agent.providers_registry import PERMISSION_MODES
-from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty import engine as _engine
-from scistudio.api.routes.ai_pty.validation import _validate_project_dir
+from scistudio.api.routes.ai_pty.validation import _validate_project_dir, validate_agent_launch
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +48,10 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
     initial_cols = _parse_initial_size(params.get("cols"), default=120, min_value=1, max_value=1000)
     initial_rows = _parse_initial_size(params.get("rows"), default=30, min_value=1, max_value=500)
 
-    if provider not in _pkg._VALID_PROVIDERS:
-        await _send_error(
-            websocket,
-            f"Invalid provider {provider!r}; expected one of {_pkg._VALID_PROVIDERS}.",
-        )
+    try:
+        validate_agent_launch(provider, "safe", accepted=_pkg._VALID_PROVIDERS)
+    except ValueError as exc:
+        await _send_error(websocket, str(exc))
         await websocket.close()
         return
 
@@ -77,15 +74,11 @@ async def pty_endpoint(websocket: WebSocket, tab_id: str) -> None:
         permission_mode = "bypass" if dangerous_raw in {"true", "1", "yes"} else "safe"
     else:
         permission_mode = permission_mode_raw
-    if permission_mode not in PERMISSION_MODES:
-        await _send_error(
-            websocket,
-            f"Invalid permission_mode {permission_mode!r}; expected one of {PERMISSION_MODES}.",
-        )
-        await websocket.close()
-        return
-    if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:
-        await _send_error(websocket, f"{get_descriptor(provider).label} has no Auto permission mode.")
+    # #2454: one static launch check, shared with every session-start route.
+    try:
+        validate_agent_launch(provider, permission_mode, accepted=_pkg._VALID_PROVIDERS)
+    except ValueError as exc:
+        await _send_error(websocket, str(exc))
         await websocket.close()
         return
     dangerous = permission_mode == "bypass"
