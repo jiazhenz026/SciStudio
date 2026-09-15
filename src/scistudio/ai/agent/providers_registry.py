@@ -62,6 +62,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -86,6 +87,7 @@ __all__ = [
     "agent_descriptors",
     "agent_keys",
     "get",
+    "parse_cli_version",
     "provider_keys",
     "resolve_binary",
     "resolve_executable",
@@ -298,6 +300,15 @@ class ProviderDescriptor:
     auto_argv_absent_reason: str | None = None
     """Why :attr:`auto_argv` is empty, when it is. ``None`` otherwise."""
 
+    auto_min_version: tuple[int, ...] | None = None
+    """Oldest CLI release whose command line accepts :attr:`auto_argv`.
+
+    ``None`` means no floor is known. An installed CLI older than this reports
+    no Auto mode (:meth:`supports_auto_mode_at`), so the picker does not offer
+    a flag the binary would reject.
+    """
+    # Development references: #2379.
+
     prompt_argv_prefix: tuple[str, ...] | None = ("--",)
     """Argv placed before a positional initial prompt, or ``None``.
 
@@ -428,6 +439,22 @@ class ProviderDescriptor:
         """Whether this provider can start a session in **Auto** mode."""
         # Development references: #2379.
         return bool(self.auto_argv)
+
+    def supports_auto_mode_at(self, version: str | None) -> bool:
+        """Whether the installed CLI, reporting *version*, has an Auto mode.
+
+        *version* is the provider's ``--version`` output. A version that cannot
+        be parsed does not disable Auto: the floor exists to exclude releases
+        known to predate the flag, not to hide it from a CLI whose version
+        banner changed shape.
+        """
+        # Development references: #2379.
+        if not self.supports_auto_mode:
+            return False
+        if self.auto_min_version is None:
+            return True
+        installed = parse_cli_version(version)
+        return installed is None or installed >= self.auto_min_version
 
     def permission_argv(self, mode: str) -> tuple[str, ...]:
         """Return the argv fragment that starts this CLI in *mode*.
@@ -692,6 +719,8 @@ _CODEX = ProviderDescriptor(
     # 0.154.0; https://learn.chatgpt.com/docs/developer-commands?surface=cli
     # (approval and sandbox values, read 2026-09-14).
     auto_argv=("--approve-for-me", "--ask-for-approval", "on-request"),
+    # Older releases exit with ``unexpected argument '--approve-for-me'``.
+    auto_min_version=(0, 147, 0),
     # #1994 finding 3. Codex 0.130+ gates project-scope hook *execution* behind
     # an interactive trust review: the TUI opens a panel reading
     # ``SessionStart 2 0 2 … Press t to trust all; enter to review hooks``
@@ -876,6 +905,25 @@ def agent_keys() -> tuple[str, ...]:
 def provider_keys() -> tuple[str, ...]:
     """Every provider key in registry order, including ``user-terminal``."""
     return REGISTRY.keys()
+
+
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
+
+
+def parse_cli_version(version: str | None) -> tuple[int, int, int] | None:
+    """Extract ``(major, minor, patch)`` from a CLI ``--version`` banner.
+
+    Returns ``None`` when no dotted version number is present. Pre-release
+    suffixes are ignored, so ``codex-cli 0.144.0-alpha.4`` is ``(0, 144, 0)``.
+    """
+    # Development references: #2379.
+    if not version:
+        return None
+    match = _VERSION_RE.search(version)
+    if match is None:
+        return None
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch or 0)
 
 
 def session_unsupported_reason(descriptor: ProviderDescriptor) -> str | None:

@@ -210,7 +210,8 @@ def _probe_provider(descriptor: ProviderDescriptor) -> dict[str, Any]:
         "logged_in": _provider_logged_in(descriptor, binary),
         "label": descriptor.label,
         # #2379: the AI Chat picker greys Auto out when this is false.
-        "supports_auto_mode": descriptor.supports_auto_mode,
+        # Version-aware, so a CLI release that predates its Auto flag reports false.
+        "supports_auto_mode": descriptor.supports_auto_mode_at(version),
     }
 
 

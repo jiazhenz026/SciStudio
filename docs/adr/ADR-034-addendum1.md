@@ -98,14 +98,17 @@ path, `POST /api/work-import/sessions`, `PtyTabSpec`, and the AI Block
 `permission_mode` enum. Each rejects `auto` for a provider without an Auto
 mode, the AI Block at config time. `GET /api/ai/status` and
 `GET /api/ai/availability` carry `supports_auto_mode` so both pickers can grey
-the button out.
+the button out. That value is version-aware: `auto_min_version` records the
+first release that accepts the Auto flag (Codex 0.147.0), and an installed CLI
+older than it reports no Auto mode.
 
 ## 3. Decision: Three Labels, No Copy
 
 The picker is a segmented row labelled exactly `Manual`, `Auto`, `Yolo/Bypass`
 under the `Permission mode` legend. It still renders no CLI flag name. When the
 selected provider changes to one without Auto while Auto is selected, the
-picker falls back to Manual. The AI Block's enum labels, the user guide, and
+picker falls back to Manual. The row keeps native radio-group keyboard
+behaviour: one Tab stop and arrow keys that select the next enabled segment. The AI Block's enum labels, the user guide, and
 core tutorial 3 use the same three names.
 
 ## 4. Verification, Consequences, And Alternatives

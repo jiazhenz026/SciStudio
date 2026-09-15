@@ -429,3 +429,37 @@ describe("SetupScreen action bar", () => {
     expect(actions.contains(launch)).toBe(true);
   });
 });
+
+describe("SetupScreen permission picker keyboard (radiogroup)", () => {
+  it("has one Tab stop and arrow keys move and select, skipping a disabled Auto", async () => {
+    mockStatusOnce({ providers: ALL_PROVIDERS });
+    render(<SetupScreen tabId="t1" onLaunch={vi.fn()} onCancel={vi.fn()} />);
+    await screen.findByTestId("setup-provider-select");
+
+    const safe = screen.getByTestId("setup-permission-safe");
+    const auto = screen.getByTestId("setup-permission-auto");
+    const yolo = screen.getByTestId("setup-permission-dangerous");
+
+    // Nothing selected yet: the first segment is the only Tab stop.
+    expect([safe, auto, yolo].map((b) => b.tabIndex)).toEqual([0, -1, -1]);
+
+    // qoder-cn has no auto mode, so ArrowRight from Manual lands on Yolo/Bypass.
+    selectProvider("qoder-cn");
+    act(() => fireEvent.keyDown(safe, { key: "ArrowRight" }));
+    expect(yolo).toHaveAttribute("aria-checked", "true");
+    expect(document.activeElement).toBe(yolo);
+    expect([safe, auto, yolo].map((b) => b.tabIndex)).toEqual([-1, -1, 0]);
+
+    // Wraps forward back to Manual.
+    act(() => fireEvent.keyDown(yolo, { key: "ArrowDown" }));
+    expect(safe).toHaveAttribute("aria-checked", "true");
+
+    // With Auto available, ArrowLeft from Yolo/Bypass selects Auto.
+    selectProvider("claude-code");
+    act(() => fireEvent.keyDown(safe, { key: "ArrowLeft" }));
+    expect(yolo).toHaveAttribute("aria-checked", "true");
+    act(() => fireEvent.keyDown(yolo, { key: "ArrowLeft" }));
+    expect(auto).toHaveAttribute("aria-checked", "true");
+    expect(document.activeElement).toBe(auto);
+  });
+});

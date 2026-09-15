@@ -392,6 +392,11 @@
       "at": "2026-09-15T03:14:48.947576Z",
       "owner_directive": "Write a short ADR-034 addendum.",
       "reason": "Owner requested ADR record"
+    },
+    {
+      "at": "2026-09-15T04:51:15.372029Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "address Codex review"
     }
   ],
   "docs_events": [

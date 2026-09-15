@@ -19,9 +19,13 @@
  * `role="radio"`, and `safe` / `dangerous` keep their values (`data-value`) and
  * test ids. `auto` is the only new value. Buttons rather than hidden radio
  * inputs, so the picker contributes no form display values to the panel it
- * sits in.
+ * sits in; the native radio-group keyboard behaviour is restored by hand: one
+ * Tab stop (the selected, else first enabled, segment) and arrow keys that
+ * move to and select the next enabled segment, wrapping, skipping a disabled
+ * Auto.
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import type { KeyboardEvent } from "react";
 
 import type { PermissionMode } from "./types";
 
@@ -49,6 +53,30 @@ export function PermissionModePicker({
     if (!autoSupported && permissionMode === "auto") onChange("safe");
   }, [autoSupported, permissionMode, onChange]);
 
+  const buttonsRef = useRef<Array<HTMLButtonElement | null>>([]);
+  const enabled = OPTIONS.map(({ mode }) => mode !== "auto" || autoSupported);
+  const selectedIndex = OPTIONS.findIndex(({ mode }) => mode === permissionMode);
+  const tabStop =
+    selectedIndex >= 0 && enabled[selectedIndex] ? selectedIndex : enabled.indexOf(true);
+
+  const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    let next = index;
+    for (let i = 0; i < OPTIONS.length; i += 1) {
+      next = (next + step + OPTIONS.length) % OPTIONS.length;
+      if (enabled[next]) break;
+    }
+    onChange(OPTIONS[next].mode);
+    buttonsRef.current[next]?.focus();
+  };
+
   return (
     // #2083: core tutorial 3 rings the row while naming what each mode means.
     <fieldset
@@ -73,6 +101,11 @@ export function PermissionModePicker({
               role="radio"
               aria-checked={checked}
               disabled={disabled}
+              tabIndex={index === tabStop ? 0 : -1}
+              ref={(el) => {
+                buttonsRef.current[index] = el;
+              }}
+              onKeyDown={(event) => onKeyDown(event, index)}
               data-value={mode}
               data-testid={`setup-permission-${mode}`}
               onClick={() => onChange(mode)}

@@ -153,3 +153,79 @@ def test_auto_for_a_provider_without_one_is_refused_before_any_side_effect(
 )
 def test_permission_mode_from_flags(dangerous: bool, auto: bool, mode: str) -> None:
     assert terminal.permission_mode_from_flags(dangerous=dangerous, auto=auto) == mode
+
+
+# ---------------------------------------------------------------------------
+# Version-aware Auto capability (Codex review on #2390)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("banner", "parsed"),
+    [
+        ("codex-cli 0.154.0", (0, 154, 0)),
+        ("codex-cli 0.144.0-alpha.4", (0, 144, 0)),
+        ("2.1.210 (Claude Code)", (2, 1, 210)),
+        ("0.42", (0, 42, 0)),
+        ("no digits here", None),
+        (None, None),
+    ],
+)
+def test_parse_cli_version(banner: str | None, parsed: tuple[int, int, int] | None) -> None:
+    from scistudio.ai.agent.providers_registry import parse_cli_version
+
+    assert parse_cli_version(banner) == parsed
+
+
+@pytest.mark.parametrize(
+    ("banner", "supported"),
+    [
+        # `--approve-for-me` arrived in 0.147.0; older builds reject it.
+        ("codex-cli 0.144.0-alpha.4", False),
+        ("codex-cli 0.146.9", False),
+        ("codex-cli 0.147.0", True),
+        ("codex-cli 0.154.0", True),
+        # An unparsable banner does not hide the mode.
+        ("codex-cli dev", True),
+    ],
+)
+def test_codex_auto_mode_is_gated_on_the_installed_version(banner: str, supported: bool) -> None:
+    assert get("codex").supports_auto_mode_at(banner) is supported
+
+
+def test_providers_without_a_version_floor_ignore_the_version() -> None:
+    assert get("claude-code").auto_min_version is None
+    assert get("claude-code").supports_auto_mode_at("0.0.1") is True
+    assert _without_auto("claude-code").supports_auto_mode_at("9.9.9") is False
+
+
+def test_status_row_reports_no_auto_for_a_codex_older_than_the_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scistudio.api.routes import ai as ai_routes
+
+    monkeypatch.setattr(ai_routes, "_binary_status", lambda _d: ("/fake/codex", True, "codex-cli 0.144.0-alpha.4"))
+    monkeypatch.setattr(ai_routes, "_provider_logged_in", lambda _d, _b: True)
+    assert ai_routes._probe_provider(get("codex"))["supports_auto_mode"] is False
+
+    monkeypatch.setattr(ai_routes, "_binary_status", lambda _d: ("/fake/codex", True, "codex-cli 0.154.0"))
+    assert ai_routes._probe_provider(get("codex"))["supports_auto_mode"] is True
+
+
+def test_availability_reports_no_auto_for_a_codex_older_than_the_flag() -> None:
+    import asyncio
+
+    from scistudio.ai.agent.availability import resolve_availability
+
+    rows = [
+        {
+            "name": "codex",
+            "label": "Codex",
+            "available": True,
+            "logged_in": False,
+            "version": "codex-cli 0.144.0-alpha.4",
+        },
+        {"name": "claude-code", "label": "Claude Code", "available": False, "logged_in": False, "version": None},
+    ]
+    report = asyncio.run(resolve_availability(rows))
+    by_key = {p.key: p for p in report.providers}
+    assert by_key["codex"].supports_auto_mode is False
+    assert by_key["claude-code"].supports_auto_mode is True

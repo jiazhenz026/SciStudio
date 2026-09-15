@@ -234,7 +234,8 @@ class ProviderAvailability:
     """Whether the provider's CLI has an **Auto** permission mode.
 
     Like :attr:`session_unsupported_reason`, a fact about the CLI read off the
-    registry descriptor (:attr:`~...ProviderDescriptor.supports_auto_mode`),
+    registry descriptor and the installed version
+    (:meth:`~...ProviderDescriptor.supports_auto_mode_at`),
     independent of :attr:`state`. The Bring In My Work picker greys **Auto** out
     when it is ``False``.
     """
@@ -800,6 +801,13 @@ def aggregate_state(providers: Sequence[ProviderAvailability]) -> AvailabilitySt
     return AvailabilityState.NOT_INSTALLED
 
 
+def _row_version(row: StatusRow) -> str | None:
+    """The ``--version`` banner a status row carries, or ``None``."""
+    # Development references: #2379.
+    version = row.get("version")
+    return version if isinstance(version, str) else None
+
+
 def _descriptor_for(row: StatusRow) -> ProviderDescriptor | None:
     """Registry descriptor for a status row, or ``None`` when unregistered."""
     try:
@@ -844,7 +852,7 @@ async def resolve_availability(status_rows: Sequence[StatusRow]) -> Availability
                 state=presence,
                 next_step=_next_step(descriptor, presence),
                 session_unsupported_reason=session_unsupported_reason(descriptor),
-                supports_auto_mode=descriptor.supports_auto_mode,
+                supports_auto_mode=descriptor.supports_auto_mode_at(_row_version(row)),
             )
             continue
         pending.append((index, asyncio.ensure_future(asyncio.to_thread(_live_call_cause, descriptor))))
@@ -880,7 +888,7 @@ async def _settle_live_calls(
         # Only rows with a descriptor reach a live call, so this cannot be None.
         descriptor = _descriptor_for(row)
         unsupported = session_unsupported_reason(descriptor) if descriptor is not None else None
-        supports_auto = descriptor.supports_auto_mode if descriptor is not None else False
+        supports_auto = descriptor.supports_auto_mode_at(_row_version(row)) if descriptor is not None else False
         if not task.done():
             task.add_done_callback(_consume_late_result)
             graded[index] = ProviderAvailability(
