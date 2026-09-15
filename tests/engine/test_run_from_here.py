@@ -39,7 +39,9 @@ from scistudio.workflow.definition import EdgeDef, NodeDef, WorkflowDefinition
 def _wf(nodes: dict[str, dict[str, Any]], edges: list[tuple[str, str]]) -> WorkflowDefinition:
     return WorkflowDefinition(
         id="wf",
-        nodes=[NodeDef(id=node_id, block_type="proc", config=copy.deepcopy(config)) for node_id, config in nodes.items()],
+        nodes=[
+            NodeDef(id=node_id, block_type="proc", config=copy.deepcopy(config)) for node_id, config in nodes.items()
+        ],
         edges=[EdgeDef(source=source, target=target) for source, target in edges],
     )
 
