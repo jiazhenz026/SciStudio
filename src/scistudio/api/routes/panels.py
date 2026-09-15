@@ -857,7 +857,22 @@ def panel_asset(token: str, panel_id: str, path: str, request: Request) -> Respo
 # The SDK major serves a fixed, reviewed file set: the dependency-free client,
 # the shared stylesheet every panel links for the application's look, and the
 # Preact component set panels assemble their interface from.
-_SDK_FILES = ("scistudio-panel.js", "panel.css", "panel-ui.js")
+_SDK_FILES = (
+    "scistudio-panel.js",
+    "panel.css",
+    "panel-ui.js",
+    "renderers.js",
+    "renderers.css",
+    "renderer-array.js",
+    "renderer-dataframe.js",
+    "renderer-series.js",
+    "renderer-text.js",
+    "renderer-artifact.js",
+    "renderer-plot.js",
+    "renderer-collection.js",
+    "renderer-composite.js",
+    "renderer-base.js",
+)
 
 
 @router.get("/t/{token}/sdk/{major}/{name}")

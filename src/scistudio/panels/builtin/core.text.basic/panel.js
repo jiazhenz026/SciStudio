@@ -1,15 +1,4 @@
-/* core.text.basic — a text document.
- *
- * Built with Preact and the shared panel component set. The surface matches the
- * viewer it replaces: the content in a scrolling monospace block.
- *
- * Faithful display (#1886): a read is bounded, but the whole document is
- * reachable — the read reports where the next chunk starts, so the panel keeps
- * reading until the end instead of showing a fragment with a notice telling the
- * reader to open the file somewhere else. The size is reported as plain
- * information while the rest is still arriving, never as a caveat about data
- * that is in fact complete.
- */
+/* Core preview shell: read authority and view persistence. */
 import {
   html,
   render,
@@ -18,14 +7,8 @@ import {
   useRef,
   useState,
 } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-  Panel,
-  ScrollArea,
-} from "../../sdk/1/panel-ui.js";
 
+import { TextView } from "../../sdk/1/renderer-text.js";
 const api = window.scistudio;
 
 /** Guard against a reader that never advances, so a read loop always ends. */
@@ -94,32 +77,12 @@ function TextPanel() {
     };
   }, [fail]);
 
-  if (error) {
-    return html`<${Panel}><${ErrorState}>Could not read text: ${error}<//><//>`;
-  }
-  if (!meta) {
-    return html`<${Panel}><${LoadingState}>Loading text…<//><//>`;
-  }
-  if (done && text === "") {
-    return html`<${Panel}><${EmptyState} data-testid="text-empty">This file is empty.<//><//>`;
-  }
-
-  const totalBytes = typeof meta.total_bytes === "number" ? meta.total_bytes : null;
-
-  return html`<${Panel}>
-    <${ScrollArea} class="text-surface">
-      <pre class="text-content" data-testid="text-content">${text}</pre>
-    <//>
-    ${!done
-      ? html`<${LoadingState} data-testid="text-loading-more">
-          Reading the rest${totalBytes !== null ? ` of ${totalBytes.toLocaleString()} bytes` : ""}…
-        <//>`
-      : totalBytes !== null
-        ? html`<div class="panel-hint" data-testid="text-size">
-            ${totalBytes.toLocaleString()} bytes${meta.encoding ? ` · ${meta.encoding}` : ""}
-          </div>`
-        : null}
-  <//>`;
+  return html`<${TextView}
+    text=${text}
+    meta=${meta}
+    done=${done}
+    error=${error}
+  />`;
 }
 
 api
