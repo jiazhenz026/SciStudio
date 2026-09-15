@@ -27,6 +27,12 @@ Writes a data object to disk — the sink at the end of a pipeline.
 - **Settings:** the **type**, the output **path**, an optional **filename**, and
   **overwrite** on/off.
 
+**Several files at once.** SciStudio handles batch data natively — there is
+nothing extra to set up. In the Load block's file picker, select more than one
+file; the `data` port then carries a **Collection** with one item per file, and
+the blocks downstream run once per item. Save mirrors this: wire a Collection
+into it and it writes one file per item, named after each item's source file.
+
 `Load` and `Save` are the bookends of most workflows. To support a file format
 they do not cover, write a custom loader/saver — see
 [examples/blocks/io-load-tiff/](examples/blocks/io-load-tiff/).

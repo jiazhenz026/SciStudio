@@ -435,6 +435,16 @@
       "at": "2026-09-15T18:59:07.904660Z",
       "owner_directive": "\u8c03\u67e5 skills/agent reference \u7f3a worked examples \u8def\u7531\u5e76\u65b0\u589e worked-examples.md\u3001\u5404 skill \u52a0\u5f15\u7528\u884c",
       "reason": "Finalize flagged the provisioned agent documents (agent reference + bundled skills) as owner-maintained; the owner directed this routing work live and must authorize the surface"
+    },
+    {
+      "at": "2026-09-15T19:07:51.459174Z",
+      "owner_directive": "worked examples \u91cc\u53bb\u6389\u6240\u6709 copy \u6307\u5bfc,\u53ea\u5217\u51fa\u6bcf\u4e2a example \u662f\u4ec0\u4e48;\u4ea4\u4e92 block \u7684 example \u8981\u6807\u51fa\u6765",
+      "reason": "Owner review of worked-examples.md: it must list what each example is, not instruct agents to copy; and the interactive block example must be explicitly marked"
+    },
+    {
+      "at": "2026-09-15T19:23:04.312563Z",
+      "owner_directive": "user guide \u7684\u5199\u6cd5\u5e94\u8be5\u9762\u5411\u7528\u6237:\u544a\u8bc9\u7528\u6237 SciStudio \u652f\u6301\u6279\u5904\u7406\u6570\u636e,\u53ea\u9700\u8981\u5728 gui \u91cc\u9762\u591a\u9009\u6587\u4ef6\u5c31\u884c\u4e86;\u5148\u5199 user guide",
+      "reason": "Owner scoped the batch-data doc work: user guide gets a short user-facing note first (SciStudio supports batch data via multi-select in the GUI); agents.md/skills/reference changes come after"
     }
   ],
   "docs_events": [
