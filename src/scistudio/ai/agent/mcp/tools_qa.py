@@ -20,11 +20,12 @@ import os
 import warnings
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlencode
 
 import yaml as yaml_module
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context, get_optional_context
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal
 from scistudio.core.lineage.store import artifact_size_bytes
@@ -100,10 +101,16 @@ class GetProjectInfoResult(BaseModel):
 class OpenGuiResult(BaseModel):
     """Result envelope for ``open_gui``."""
 
-    # Development references: #1947.
+    # Development references: #1947, #2385.
 
     url: str = Field(
-        description="Base URL of the running SciStudio GUI. Open this in a browser tab.",
+        description=(
+            "URL to open in a browser tab. When a project is open it deep-links to that "
+            "project's view (and the active workflow); otherwise it is the base URL."
+        ),
+    )
+    base_url: str = Field(
+        description="Plain base URL of the running SciStudio GUI, without the project deep link.",
     )
     hint: str = Field(
         description="How to use the URL to inspect the live GUI.",
@@ -435,7 +442,7 @@ async def get_project_info() -> GetProjectInfoResult:
 
 @mcp.tool(name="open_gui", tags={"category:qa", "read"})
 async def open_gui() -> OpenGuiResult:
-    """Return the URL of the running SciStudio GUI so you can open it in a browser.
+    """Return a URL that opens the user's current SciStudio project view in a browser.
 
     Use when:
       You need to SEE the live rendered frontend — a plot, a previewer,
@@ -446,31 +453,59 @@ async def open_gui() -> OpenGuiResult:
       Read a data payload — use ``inspect_data`` / ``preview_data``.
       Render a plot artifact headlessly — use ``run_plot_job``.
 
-    Open the returned URL in a browser tab (the frontend renders the same
-    in a plain browser as in the desktop app) and use your own browser
-    tools from there. SciStudio does not drive the browser for you.
+    When a project is open, ``url`` deep-links to it
+    (``?project=<path>&workflow=<id>``): the page attaches to the project the
+    backend already has open, read-only, and shows the active workflow, so
+    it skips the welcome page and leaves the user's session untouched. When
+    no project is open, ``url`` is the base URL and the hint says so.
+    ``base_url`` is always the plain base. The URL is loopback-only: open it
+    in a browser on the same machine as SciStudio. SciStudio does not drive
+    the browser for you.
 
-    The URL is read from the ``SCISTUDIO_ENGINE_API_URL`` the backend
+    The base is read from the ``SCISTUDIO_ENGINE_API_URL`` the backend
     publishes on startup; the SciStudio SPA is served at
     that server's root. Raises ``RuntimeError`` when no GUI server is
     running for this session — for example when the MCP bridge is in
     standalone mode with no backend behind it.
     """
-    # Development references: ADR-035.
-    url = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip()
-    if not url:
+    # Development references: ADR-035, #2385.
+    base_url = os.environ.get("SCISTUDIO_ENGINE_API_URL", "").strip().rstrip("/")
+    if not base_url:
         raise RuntimeError(
             "No running SciStudio GUI is available for this session. The GUI "
             "URL is published only while the backend/API server is running "
             "(via `scistudio gui` / `scistudio serve`). If you are connected "
             "through the MCP bridge in standalone mode, start the GUI first."
         )
+    loopback_note = (
+        "The URL is loopback-only: open it in a browser on the same machine as "
+        "SciStudio (a browser elsewhere resolves 127.0.0.1 to itself). Use your "
+        "own browser tools there; SciStudio does not control the browser for you."
+    )
+    ctx = get_optional_context()
+    project_dir = ctx.project_dir if ctx is not None else None
+    if project_dir is None:
+        return OpenGuiResult(
+            url=base_url,
+            base_url=base_url,
+            hint=(
+                "No project is open in SciStudio, so this URL opens the welcome page. "
+                "Ask the user to open a project first if you need its view. " + loopback_note
+            ),
+        )
+    params = {"project": str(project_dir)}
+    workflow_id = getattr(ctx, "active_workflow_id", None)
+    if isinstance(workflow_id, str) and workflow_id:
+        params["workflow"] = workflow_id
     return OpenGuiResult(
-        url=url.rstrip("/"),
+        url=f"{base_url}/?{urlencode(params, quote_via=quote)}",
+        base_url=base_url,
         hint=(
-            "Open this URL in a browser tab and use your own browser tools to "
-            "inspect plots, previewers, and interactive block panels. "
-            "SciStudio does not control the browser for you."
+            "This URL opens the project the user has open"
+            + (f" on workflow '{workflow_id}'" if "workflow" in params else "")
+            + ", attaching read-only to the running session instead of showing "
+            "the welcome page. Inspect plots, previewers, and interactive block "
+            "panels there. " + loopback_note
         ),
     )
 

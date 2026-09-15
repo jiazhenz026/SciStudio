@@ -31,6 +31,31 @@
     },
     "type": "object"
    },
+   "ActiveProjectResponse": {
+    "properties": {
+     "active_workflow_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "project": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/ProjectResponse"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object"
+   },
    "BlockConnectionValidation": {
     "properties": {
      "source_block": {
@@ -7508,6 +7533,24 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "projects"
+    ]
+   }
+  },
+  "/api/projects/active": {
+   "get": {
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ActiveProjectResponse"
         }
        }
       }

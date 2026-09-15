@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { postActiveWorkflowContext } from "../lib/api/ai";
+import { isAttachedProjectView } from "../lib/projectDeepLink";
 
 import { createExecutionSlice } from "./executionSlice";
 import { createGitSlice } from "./gitSlice";
@@ -187,6 +188,9 @@ export const useAppStore = create<AppStore>()(
 // call (sentinel == undefined) always fires so the backend's
 // freshly-loaded persistence value can be confirmed or replaced.
 function syncActiveWorkflowId(workflowId: string | null): void {
+  // #2385 — an attached `open_gui` view watches the user's session; publishing
+  // its own editor context would overwrite what the user has open.
+  if (isAttachedProjectView()) return;
   if (lastSyncedActiveWorkflowId === workflowId) return;
   lastSyncedActiveWorkflowId = workflowId;
   void postActiveWorkflowContext(workflowId).catch((err) => {
