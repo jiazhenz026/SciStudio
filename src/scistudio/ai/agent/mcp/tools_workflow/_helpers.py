@@ -254,6 +254,27 @@ def _node_field(node: Any, key: str) -> Any:
     return getattr(node, key, None)
 
 
+def _effective_node_params(config: Any) -> dict[str, Any]:
+    """Return the params a block sees for a workflow node's ``config``.
+
+    Node config is saved in two shapes: flat (``config: {core_type: ...}``, the
+    agent reference) and nested (``config: {params: {core_type: ...}}``, what the
+    GUI saves). ``BlockConfig.get`` looks in ``params`` first and then at the
+    top level, so the effective view is the top-level keys overlaid by
+    ``params``.
+    """
+    # Development references: #2403.
+    if not isinstance(config, dict):
+        return {}
+    effective = {key: value for key, value in config.items() if key != "params"}
+    nested = config.get("params")
+    if isinstance(nested, dict):
+        effective.update(nested)
+    elif "params" in config:
+        effective["params"] = nested
+    return effective
+
+
 def _core_type_unset(config: Any) -> bool:
     """True when a node config carries no usable ``core_type`` value.
 
@@ -263,7 +284,7 @@ def _core_type_unset(config: Any) -> bool:
     """
     if not isinstance(config, dict):
         return True
-    value = config.get("core_type")
+    value = _effective_node_params(config).get("core_type")
     if value is None:
         return True
     return isinstance(value, str) and not value.strip()
@@ -501,6 +522,7 @@ __all__ = [
     "_atomic_write_text",
     "_core_io_steering_warnings",
     "_diff_summary",
+    "_effective_node_params",
     "_get_workflow_runtime",
     "_looks_like_inline_yaml",
     "_port_to_dict",
