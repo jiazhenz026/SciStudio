@@ -17,6 +17,8 @@
 import { useState } from "react";
 
 import type { PreviewerChoice, PreviewerSpecSummary } from "../../types/api";
+import { promotablePreviewPanel } from "../promotion/promotable";
+import { PromoteToLibraryAction } from "../promotion/PromoteToLibraryAction";
 
 import { ownerKindLabel } from "./previewerModel";
 
@@ -163,6 +165,19 @@ export function PreviewerCard({
               </button>
             );
           })}
+        </div>
+      ) : null}
+
+      {previewer.renderer === "panel" && !previewer.shadowed ? (
+        // ADR-053 FR-025 — the same promotion control every other entry point
+        // renders. It hides itself for anything outside the project (FR-019),
+        // so only a project preview panel shows it.
+        <div className="mt-2">
+          <PromoteToLibraryAction
+            entryPoint="E5"
+            item={promotablePreviewPanel(previewer)}
+            variant="popover"
+          />
         </div>
       ) : null}
 

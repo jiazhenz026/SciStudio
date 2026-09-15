@@ -1,0 +1,135 @@
+<!doctype html>
+<!--
+  A preview panel for this project's HEImage and HEMask types: draw the pixels
+  as a picture.
+
+  Core tutorial 4 lands this folder in the project's panels/ directory when it
+  creates the project. Without it an HEImage has no preview panel of its own,
+  so the preview walks up the type chain, finds the core Array panel, and shows
+  a slide as a table of numbers. That fallback is correct (an HEImage *is* an
+  Array); it is just not how anyone wants to look at one.
+
+  A preview panel is two files. panel.json says which types it claims: both
+  HEImage and HEMask, because an HEMask is not an HEImage (the tutorial keeps
+  them apart on purpose) but both are grids of colours, and drawing a grid of
+  colours is the same job either way. This page reads the data through the
+  host, window.scistudio.read, and draws it, with no library and no build step.
+
+  The slides are colour: an H&E stain is read by eye, and a region mask says
+  what it means *with* colour. So this page reads the three channels and puts
+  them back together, rather than showing one of them and calling it the
+  picture.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slide</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+    <style>
+      body { margin: 0; }
+      #stage { display: flex; justify-content: center; padding: 8px; }
+      canvas { max-width: 100%; height: auto; }
+      #status { padding: 8px 12px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">Reading the slide…</div>
+    <div id="stage"><canvas id="picture" hidden></canvas></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script>
+      const api = window.scistudio;
+
+      // The host hands back at most this many pixels a side per read, so a
+      // slide is read as a grid of tiles and put back together here. Every
+      // pixel on the canvas is a real value from the data; nothing is sampled.
+      const TILE = 256;
+
+      // A colour picture keeps its channels on the axis named c, and needs
+      // three of them to be drawn as colour.
+      const CHANNEL_AXIS = "c";
+      const RGB = 3;
+
+      function readTile(y0, x0, pick) {
+        const params = { y0, x0, height: TILE, width: TILE };
+        if (pick) params.axis_indices = pick;
+        return api.read("array.tile", params);
+      }
+
+      // The displayed plane's height and width: the source shape without the
+      // axes the host is slicing through.
+      function planeSize(tile) {
+        const sliced = new Set((tile.slice_axes || []).map((axis) => axis.axis));
+        return tile.source_shape.filter((_, axis) => !sliced.has(axis));
+      }
+
+      // One byte per channel, as stored. A cell the host could not send as a
+      // finite number arrives as a string ("NaN") and is drawn as zero.
+      function byte(value) {
+        return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(255, Math.round(value))) : 0;
+      }
+
+      // Read one whole plane, tile by tile. `pick` chooses the channel.
+      async function readPlane(pick) {
+        const first = await readTile(0, 0, pick);
+        const [height, width] = planeSize(first);
+        const plane = new Uint8ClampedArray(height * width);
+        for (let y0 = 0; y0 < height; y0 += TILE) {
+          for (let x0 = 0; x0 < width; x0 += TILE) {
+            const tile = y0 === 0 && x0 === 0 ? first : await readTile(y0, x0, pick);
+            tile.values.forEach((row, dy) =>
+              row.forEach((value, dx) => { plane[(y0 + dy) * width + (x0 + dx)] = byte(value); }),
+            );
+          }
+        }
+        return { plane, height, width, first };
+      }
+
+      // How many channels this array carries, or zero if it has no channel
+      // axis. Asked of the array's own axes rather than of which block
+      // produced it: a panel is handed data, not provenance.
+      function channelAxis(tile) {
+        return (tile.slice_axes || []).find((axis) => axis.name === CHANNEL_AXIS) || null;
+      }
+
+      async function draw() {
+        const probe = await readTile(0, 0);
+        const axis = channelAxis(probe);
+        const colour = axis !== null && axis.size >= RGB;
+        const channels = colour
+          ? [await readPlane({ [axis.axis]: 0 }), await readPlane({ [axis.axis]: 1 }), await readPlane({ [axis.axis]: 2 })]
+          : [await readPlane()];
+        const { height, width } = channels[0];
+        if (channels.some((channel) => channel.height !== height || channel.width !== width)) {
+          throw new Error("the colour channels do not share a shape");
+        }
+
+        const canvas = document.getElementById("picture");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        const image = context.createImageData(width, height);
+        for (let i = 0; i < width * height; i++) {
+          // A single-channel picture is drawn as it is stored, in gray.
+          // Nothing here invents a colour for it.
+          const [red, green, blue] = colour
+            ? [channels[0].plane[i], channels[1].plane[i], channels[2].plane[i]]
+            : [channels[0].plane[i], channels[0].plane[i], channels[0].plane[i]];
+          image.data.set([red, green, blue, 255], i * 4);
+        }
+        context.putImageData(image, 0, 0);
+        canvas.hidden = false;
+        document.getElementById("status").textContent = `${colour ? "Slide, in colour" : "Slide"} · ${width} × ${height}`;
+      }
+
+      api
+        .ready()
+        .then(draw)
+        .catch((error) => {
+          const message = String((error && error.message) || error);
+          document.getElementById("status").textContent = `Could not draw the slide: ${message}`;
+          api.reportError(message);
+        });
+    </script>
+  </body>
+</html>

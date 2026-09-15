@@ -1,0 +1,94 @@
+{
+  "base_ref": null,
+  "branch": "guided/tutorials-adr054-migration",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T12:05:38.431964Z",
+      "owner_directive": "In tutorial copy the user-facing name is 'preview panels': change Tip 1 and every corresponding previewer mention in tutorial copy; do not mention MiniApps (a dedicated MiniApp tutorial comes later)",
+      "reason": "Owner set the user-facing term for previewers in tutorial copy"
+    },
+    {
+      "at": "2026-09-15T12:25:31.452095Z",
+      "owner_directive": "Change the save-the-previewer judgement; the promotion entry for a preview panel is the new All Previewers button in the preview column, which opens the former previewer list on the right",
+      "reason": "Owner redirected save-the-previewer: new promotion entry and judgement"
+    },
+    {
+      "at": "2026-09-15T12:54:43.093389Z",
+      "owner_directive": "Follow the original intent: add Move to My Library on project-tier preview panel cards in All Previewers, include panels/ in the tutorial-scoped library, and judge save-the-previewer with library_contains",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2449,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Migrate all core tutorials after ADR-054 merged (PR1 of 2: legacy previewer/panel assets to panels); a new MiniApp tutorial is a separate PR",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2449-guided-tutorials-adr054-migration",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093545Z",
+      "pattern": "frontend/src/components/PreviewerPalette.parts/**",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093552Z",
+      "pattern": "frontend/src/components/promotion/**",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093554Z",
+      "pattern": "src/scistudio/tutorials/projects.py",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:56:00.385377Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "The scoped-library change touches the library_entries docstring and the scoped library dir assertion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:56:00.385942Z",
+      "pattern": "tests/tutorials/test_scoped_library.py",
+      "reason": "The scoped-library change touches the library_entries docstring and the scoped library dir assertion"
+    }
+  ],
+  "session_id": "cc629f95-d5ad-48f3-b6fe-0a30e15329aa",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
