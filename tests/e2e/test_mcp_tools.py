@@ -24,6 +24,7 @@ processes (``scistudio mcp-bridge`` and ``scistudio webmcp-adapter``).
 from __future__ import annotations
 
 import csv
+import json
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -35,7 +36,7 @@ import httpx
 import psutil
 import pytest
 
-from tests.e2e.harness import Backend, Project, ServeProcess, build_tutorial_project, requires_e2e
+from tests.e2e.harness import Backend, EventStream, Project, ServeProcess, build_tutorial_project, requires_e2e
 from tests.e2e.mcp_clients import TOKEN_HEADER, ToolLedger, WebMcpClient, read_loopback_token
 from tests.e2e.test_tutorial_workflows import WELCOME_WORKFLOW
 
@@ -988,6 +989,148 @@ def test_managed_commands_run_report_and_cancel(agent: Agent) -> None:
 
 
 # ---------------------------------------------------------------------------
+# MiniApps.
+# ---------------------------------------------------------------------------
+
+MINIAPP_ID = "table_explorer"
+
+MINIAPP_DESCRIPTOR = {
+    "id": MINIAPP_ID,
+    "api_version": "1.0",
+    "contexts": ["miniapp"],
+    "types": ["DataFrame"],
+    "name": "Table explorer",
+    "description": "Page through the normalized plate table.",
+    "entry": "index.html",
+}
+
+MINIAPP_PAGE = """<!doctype html>
+<meta charset="utf-8">
+<title>Table explorer</title>
+<link rel="stylesheet" href="../../sdk/1/panel.css">
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<p id="status" role="status">Loading...</p>
+<script>
+const api = window.scistudio;
+api.ready().then(async () => {
+  const page = await api.read("table.page", {page: 1, page_size: 50});
+  document.getElementById("status").textContent = `${page.total} rows`;
+}).catch(error => api.reportError(error.message || String(error)));
+</script>
+"""
+
+
+def write_panel(agent: Agent, directory: str, descriptor: dict[str, Any], page: str | None = MINIAPP_PAGE) -> None:
+    agent.call(
+        "write_file", path=f"{directory}/panel.json", content=json.dumps(descriptor, indent=2), create_parents=True
+    ).ok()
+    if page is not None:
+        agent.call("write_file", path=f"{directory}/index.html", content=page).ok()
+
+
+def catalog_ids(agent: Agent) -> set[str]:
+    """Panel ids the backend's discovery lists (the MiniApps tab reads this catalog)."""
+    return {str(entry["id"]) for entry in agent.backend.call("GET", "/api/panels/catalog")["panels"]}
+
+
+def test_agent_validates_a_miniapp_directory(agent: Agent) -> None:
+    write_panel(agent, f"panels/{MINIAPP_ID}", MINIAPP_DESCRIPTOR)
+    result = agent.call("validate_panel", path=f"panels/{MINIAPP_ID}").ok()
+    assert Path(result["path"]) == agent.path(f"panels/{MINIAPP_ID}")
+    assert result["valid"] is True and result["errors"] == [], result
+    assert result["panel_id"] == MINIAPP_ID
+    assert result["contexts"] == ["miniapp"]
+    assert result["types"] == ["DataFrame"]
+    assert result["entry"] == "index.html"
+    assert result["has_python"] is False
+    # The same directory given as an absolute path inside the project.
+    assert agent.call("validate_panel", path=str(agent.path(f"panels/{MINIAPP_ID}"))).ok()["valid"] is True
+
+    # A descriptor whose id differs from its directory is reported, not raised.
+    write_panel(agent, "panels/misnamed", dict(MINIAPP_DESCRIPTOR, id="other_name"))
+    misnamed = agent.call("validate_panel", path="panels/misnamed").ok()
+    assert misnamed["valid"] is False and misnamed["errors"], misnamed
+    # An entry page that does not exist.
+    write_panel(agent, "panels/no_page", dict(MINIAPP_DESCRIPTOR, id="no_page"), page=None)
+    no_page = agent.call("validate_panel", path="panels/no_page").ok()
+    assert no_page["valid"] is False and no_page["errors"], no_page
+    # A descriptor that is not JSON cannot be parsed at all.
+    agent.call("write_file", path="panels/broken/panel.json", content="{not json", create_parents=True).ok()
+    agent.call("write_file", path="panels/broken/index.html", content=MINIAPP_PAGE).ok()
+    broken = agent.call("validate_panel", path="panels/broken").ok()
+    assert broken["valid"] is False and broken["errors"], broken
+    assert broken["panel_id"] is None and broken["contexts"] == [], broken
+    # errors non-empty means discovery skips the directory; a valid one is discovered.
+    # Discovery is checked after an explicit registry reload; that the lists update
+    # without one is the separate contract-gap test below (#2421).
+    agent.observed["miniapps_before_reload"] = agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]
+    agent.backend.reload_registries()
+    listed = catalog_ids(agent)
+    assert MINIAPP_ID in listed, sorted(listed)
+    assert not {"misnamed", "other_name", "no_page", "broken"} & listed, sorted(listed)
+    miniapps = {app["panel_id"]: app for app in agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]}
+    assert miniapps[MINIAPP_ID]["type"] == "DataFrame", miniapps
+
+    # Raised, per the contract: a path outside the project, and a non-directory.
+    agent.call("validate_panel", path=str(agent.serve.home)).raised()
+    agent.call("validate_panel", path=f"panels/{MINIAPP_ID}/panel.json").raised()
+
+
+def test_open_miniapp_reaches_a_connected_workspace_and_says_so_when_none_is(
+    agent: Agent, serve: ServeProcess, tutorial_run: dict[str, Any]
+) -> None:
+    if not agent.path(f"panels/{MINIAPP_ID}/panel.json").is_file():
+        write_panel(agent, f"panels/{MINIAPP_ID}", MINIAPP_DESCRIPTOR)
+    target = {"panel_id": MINIAPP_ID, "workflow_id": "main", "block_id": "norm", "port": "normalized"}
+
+    # No SciStudio window is connected: nothing opens, and the result says why.
+    alone = agent.call("open_miniapp", target).ok()
+    assert alone["opened"] is False, alone
+    assert alone["reason"] == "no_workspace", alone
+    assert {key: alone[key] for key in target} == target
+    assert alone["detail"]
+    assert "not claim" in alone["next_step"].lower()
+
+    # A connected GUI session receives the request.
+    events = EventStream(serve.base_url)
+    try:
+        opened = agent.call("open_miniapp", target).ok()
+        assert opened["opened"] is True, opened
+        assert opened["reason"] is None
+        assert {key: opened[key] for key in target} == target
+        message = events.wait_for(
+            lambda m: MINIAPP_ID in json.dumps(m.get("data")),
+            what="the open-MiniApp request on the workspace socket",
+            timeout=30,
+        )
+        assert message["type"] == "panel.open_miniapp", message
+        assert message["data"] == target, message
+    finally:
+        events.close()
+
+    # Refusals: an unknown panel id, and a panel that is not a MiniApp.
+    agent.call("open_miniapp", dict(target, panel_id="no_such_miniapp")).raised()
+    write_panel(
+        agent,
+        "panels/plate_preview",
+        dict(MINIAPP_DESCRIPTOR, id="plate_preview", contexts=["preview"], name="Plate preview"),
+    )
+    assert agent.call("validate_panel", path="panels/plate_preview").ok()["contexts"] == ["preview"]
+    agent.call("open_miniapp", dict(target, panel_id="plate_preview")).raised()
+
+
+def test_screenshot_gui_is_refused_over_the_text_only_webmcp_bridge(agent: Agent) -> None:
+    # screenshot_gui needs a connected SciStudio desktop window and local MCP; the
+    # external WebMCP host is documented as unsupported (it carries text, not
+    # images), and CI has no desktop app. The unsupported contract is what is
+    # observable here; test_mcp_transports.py checks the local-MCP refusal.
+    for arguments in ({}, {"target": "workspace"}, {"target": "miniapp", "panel_id": MINIAPP_ID, "wait_ms": 0}):
+        result = agent.call("screenshot_gui", arguments)
+        result.raised()
+        assert not [block for block in result.content if block.get("type") == "image"], result.content
+
+
+# ---------------------------------------------------------------------------
 # Tools whose deeper path needs context CI does not have.
 # ---------------------------------------------------------------------------
 
@@ -1090,6 +1233,16 @@ def test_list_plot_targets_offers_only_real_output_ports(agent: Agent) -> None:
 def test_reload_blocks_reports_the_type_names_it_added(agent: Agent) -> None:
     reload = agent.observed["reload"]
     assert set(reload["new_types"]) <= set(reload["result"]["added"]), reload
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="a validated MiniApp is missing from the MiniApps list until a manual reload — TODO(#2421)",
+)
+def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
+    before = agent.observed["miniapps_before_reload"]
+    assert MINIAPP_ID in [app["panel_id"] for app in before], before
 
 
 @pytest.mark.xfail(
