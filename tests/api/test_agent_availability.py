@@ -1199,7 +1199,9 @@ def test_no_install_hint_says_cli_twice() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _status(key: str, *, available: bool = True, logged_in: bool = True, version: str | None = "9.9.9") -> dict[str, Any]:
+def _status(
+    key: str, *, available: bool = True, logged_in: bool = True, version: str | None = "9.9.9"
+) -> dict[str, Any]:
     return {"name": key, "available": available, "version": version, "logged_in": logged_in, "label": key}
 
 

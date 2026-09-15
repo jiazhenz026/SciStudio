@@ -1116,8 +1116,9 @@ def cached_availability() -> AvailabilityReport | None:
 
     Never computes anything: no status probe and no live call. A session-start
     route uses it only as a hint for which provider to prefer when the caller
-    named none (#2454).
+    named none.
     """
+    # Development references: #2454.
     cached = _cached_report
     if cached is None or cached[0] <= time.monotonic():
         return None
