@@ -44,6 +44,15 @@ _T = TypeVar("_T")
 # ---------------------------------------------------------------------------
 
 
+# #2362: ``ApiRuntime.workflow_runs`` is keyed by WORKFLOW ID — that is what
+# ``start_workflow`` registers a run under, and what ``get_run`` /
+# ``cancel_run`` / the plot layer look a run up by. These stubs used an
+# invented ``"run_1"`` key, which only worked while the plot layer scanned
+# every run and matched on ``(node_id, output_port)`` alone. The workflow these
+# fixtures write is ``main``.
+_WORKFLOW_ID = "main"
+
+
 @dataclass
 class _StubPort:
     name: str
@@ -181,7 +190,7 @@ def _make_runtime(project: Path, *, with_output_csv: Path | None = None, repeate
     )
     runs: dict[str, Any] = {}
     if with_output_csv is not None:
-        runs["run_1"] = _StubRun(
+        runs[_WORKFLOW_ID] = _StubRun(
             {
                 "node_a": {
                     "measurements": {
@@ -258,7 +267,7 @@ def test_list_targets_availability_with_recorded_output(project: Path, csv_outpu
     result = _run(list_plot_targets())
     t = result.targets[0]
     assert t.latest_output_available is True
-    assert t.latest_run_id == "run_1"
+    assert t.latest_run_id == _WORKFLOW_ID
 
 
 def test_list_targets_rejects_workflow_path_traversal(project: Path, tmp_path: Path) -> None:
@@ -693,7 +702,7 @@ def test_run_normalizes_package_array_subclass_to_array(project: Path, tmp_path:
     np.save(array_path, np.arange(9, dtype="float32").reshape(3, 3))
     runtime = _make_runtime(project)
     runtime.type_registry = _StubTypeRegistry({"Image": "Array"})
-    runtime.workflow_runs["run_1"] = _StubRun(
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(
         {
             "node_a": {
                 "measurements": {
@@ -738,7 +747,7 @@ def test_run_normalizes_package_array_subclass_to_array(project: Path, tmp_path:
 
 def test_open_enforces_input_memory_guard(project: Path, csv_output: Path) -> None:
     runtime = _make_runtime(project, with_output_csv=csv_output)
-    runtime.workflow_runs["run_1"].scheduler._block_outputs["node_a"]["measurements"]["metadata"] = {
+    runtime.workflow_runs[_WORKFLOW_ID].scheduler._block_outputs["node_a"]["measurements"]["metadata"] = {
         "type_chain": ["DataFrame"],
         "shape": [10000, 10000],
         "dtype": "float64",
@@ -768,7 +777,7 @@ def test_collection_open_enforces_cumulative_input_memory_guard(project: Path, t
     second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
     metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
     runtime = _make_runtime(project)
-    runtime.workflow_runs["run_1"] = _StubRun(
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(
         {
             "node_a": {
                 "measurements": {
@@ -1058,7 +1067,7 @@ def test_run_r_collection_open_enforces_cumulative_input_memory_guard(project: P
     second.write_text("x,y\n5,6\n7,8\n", encoding="utf-8")
     metadata = {"type_chain": ["DataFrame"], "shape": [5, 5], "dtype": "float64"}
     runtime = _make_runtime(project)
-    runtime.workflow_runs["run_1"] = _StubRun(
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(
         {
             "node_a": {
                 "measurements": {
@@ -1303,7 +1312,7 @@ def test_run_r_reads_parquet_dataframe_output(project: Path, parquet_output: Pat
     if shutil.which("Rscript") is None:
         pytest.skip("Rscript not on PATH")
     runtime = _make_runtime(project)
-    runtime.workflow_runs["run_1"] = _StubRun(
+    runtime.workflow_runs[_WORKFLOW_ID] = _StubRun(
         {
             "node_a": {
                 "measurements": {

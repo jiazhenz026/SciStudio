@@ -193,6 +193,9 @@ it.each(["accepted", "rejected"])(
     const originalUpdate = useAppStore.getState().updateNodeConfig;
     const remember = vi.fn();
     useAppStore.setState({
+      // #2362: the decision is remembered only while the prompt's workflow is
+      // still the one on the canvas, so both outcomes must start on it.
+      workflowId: "wf-1",
       workflowNodes: [
         {
           id: "block-1",

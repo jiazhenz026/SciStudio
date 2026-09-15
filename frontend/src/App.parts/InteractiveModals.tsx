@@ -67,18 +67,28 @@ export function InteractiveModals() {
     // node config so future runs replay it without opening the dialog. Generic:
     // stores the verbatim response, no block-specific knowledge — so a package
     // block inherits it. Only persists when the user has opted in (enabled).
-    const node = useAppStore
-      .getState()
-      .workflowNodes.find((n) => n.id === interactivePrompt.blockId);
-    const memory = readInteractiveMemory(node?.config as Record<string, unknown> | undefined);
-    if (memory?.enabled) {
-      useAppStore.getState().updateNodeConfig(interactivePrompt.blockId, {
-        [INTERACTIVE_MEMORY_KEY]: {
-          enabled: true,
-          decision: responseData,
-          signature: interactivePrompt.inputSignature,
-        },
-      });
+    //
+    // #2362: read and write that config only while the prompt's workflow is
+    // still the one on the canvas. `workflowNodes` and `updateNodeConfig` both
+    // address the ACTIVE workflow, and this dialog is designed to survive a tab
+    // switch — the same reason `promptWorkflowId` exists above. Without the
+    // guard, switching tabs before Confirm either dropped the user's "remember
+    // and skip" (the new workflow has no node with that id) or wrote one
+    // workflow's decision and input fingerprint into a same-named node of
+    // another, which the autosave then committed to disk.
+    const state = useAppStore.getState();
+    if (state.workflowId === promptWorkflowId) {
+      const node = state.workflowNodes.find((n) => n.id === interactivePrompt.blockId);
+      const memory = readInteractiveMemory(node?.config as Record<string, unknown> | undefined);
+      if (memory?.enabled) {
+        state.updateNodeConfig(interactivePrompt.blockId, {
+          [INTERACTIVE_MEMORY_KEY]: {
+            enabled: true,
+            decision: responseData,
+            signature: interactivePrompt.inputSignature,
+          },
+        });
+      }
     }
 
     setInteractivePrompt(null);

@@ -36,6 +36,7 @@ from scistudio.plot.models import (
     PlotRunResult,
     PlotStatus,
 )
+from scistudio.plot.targets import workflow_run_keys
 from scistudio.plot.validation import LoadedPlot, load_plot
 
 logger = logging.getLogger(__name__)
@@ -72,7 +73,12 @@ def preview_cache_dir(root: Path, workflow_id: str, node_id: str, output_port: s
         The resolved preview-cache directory for this plot.
     """
     return (
-        root / _PREVIEW_ROOT / _safe_seg(workflow_id) / _safe_seg(node_id) / _safe_seg(output_port) / _safe_seg(plot_id)
+        root
+        / _PREVIEW_ROOT
+        / safe_cache_segment(workflow_id)
+        / safe_cache_segment(node_id)
+        / safe_cache_segment(output_port)
+        / safe_cache_segment(plot_id)
     ).resolve()
 
 
@@ -100,8 +106,32 @@ def cache_key_for(workflow_id: str, node_id: str, output_port: str, plot_id: str
     return "plot_" + hashlib.sha256(raw).hexdigest()[:16]
 
 
-def _safe_seg(value: str) -> str:
-    """Sanitize a single path segment so a manifest value cannot traverse."""
+def safe_cache_segment(value: str) -> str:
+    """Sanitize one preview-cache path segment so a manifest value cannot traverse.
+
+    The preview cache is laid out as
+    ``.scistudio/previews/<workflow_id>/<node_id>/<output_port>/<plot_id>/``, and
+    every segment is an id read from a manifest or a workflow file rather than
+    generated here. Anything that could climb out of the cache — a separator or
+    a parent reference — is folded to ``_``.
+
+    Exported because the layout is a contract, not a private detail: a reader of
+    the cache has to reconstruct the same directory name from the same id, and
+    reimplementing the rule locally is how the two drift apart.
+
+    Args:
+        value: The raw id to use as one path segment.
+
+    Returns:
+        The segment, safe to join onto the cache root.
+
+    Example:
+        >>> safe_cache_segment("main")
+        'main'
+        >>> safe_cache_segment("../escape")
+        '__escape'
+    """
+    # Development references: #2362.
     value = (value or "_").replace("\\", "_").replace("/", "_")
     value = value.replace("..", "_")
     return value or "_"
@@ -130,32 +160,49 @@ class _PreviewRegistration:
 def _resolve_input(ctx: Any, manifest: PlotManifest, run_id: str | None) -> _ResolvedInput:
     """Resolve the bound target output to a list of storage-ref dicts.
 
-    Reads ``ctx.workflow_runs[*].scheduler._block_outputs`` exactly like
+    Reads ``ctx.workflow_runs[<workflow>].scheduler._block_outputs`` exactly like
     ``tools_inspection.get_block_output`` — read-only, no scheduler mutation.
+
+    The lookup is confined to the run of the workflow the plot is bound to.
+    ``manifest.target`` carries the workflow identity, and ``ctx.workflow_runs``
+    is keyed by it; matching on ``(node_id, output_port)`` across every run fed a
+    plot another workflow's output whenever the two workflows shared a node name,
+    and — having no ``break`` — picked whichever run came last in dict iteration
+    order, so the wrong answer was not even stable.
+
+    A caller-supplied *run_id* selects one workflow's run explicitly. It is
+    honoured only when it names the plot's own workflow; a foreign key is the
+    same cross-workflow read by another route, so it resolves to no input rather
+    than to another workflow's data.
     """
+    # Development references: #2362.
     node_id = manifest.target.node_id
     port = manifest.target.output_port
     runs = getattr(ctx, "workflow_runs", None)
     if not isinstance(runs, dict) or not runs:
         return _ResolvedInput(run_id=None, refs=[], collection_ids=[])
 
+    own_keys = workflow_run_keys(manifest.target.workflow_path, manifest.target.workflow_id)
+    if run_id is None:
+        candidates: tuple[str, ...] = own_keys
+    elif run_id in own_keys:
+        candidates = (run_id,)
+    else:
+        candidates = ()
+
     chosen_run = run_id
     value: Any = None
-    if run_id is not None:
-        run = runs.get(run_id)
-        scheduler = getattr(run, "scheduler", None) if run is not None else None
+    for rid in candidates:
+        run = runs.get(rid)
+        if run is None:
+            continue
+        scheduler = getattr(run, "scheduler", None)
         outputs = getattr(scheduler, "_block_outputs", {}) if scheduler is not None else {}
         payload = outputs.get(node_id)
         if isinstance(payload, dict) and port in payload:
+            chosen_run = rid
             value = payload[port]
-    else:
-        for rid, run in runs.items():
-            scheduler = getattr(run, "scheduler", None)
-            outputs = getattr(scheduler, "_block_outputs", {}) if scheduler is not None else {}
-            payload = outputs.get(node_id)
-            if isinstance(payload, dict) and port in payload:
-                chosen_run = rid
-                value = payload[port]
+            break
     refs, collection_ids = _flatten_to_refs(value)
     return _ResolvedInput(run_id=chosen_run, refs=refs, collection_ids=collection_ids)
 
@@ -959,4 +1006,5 @@ __all__ = [
     "cache_key_for",
     "preview_cache_dir",
     "run_plot_job",
+    "safe_cache_segment",
 ]

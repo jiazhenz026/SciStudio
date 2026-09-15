@@ -67,9 +67,13 @@ def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
     without touching the runtime ``__init__`` method-binding table.
     """
     run = runtime.workflow_runs.get(workflow_id)
-    if run is None:
-        return False
-    return not run.task.done()
+    if run is not None and not run.task.done():
+        return True
+    # #2362: a run a project switch detached is no longer addressable by
+    # workflow id, but it still shares the event bus and the process registry
+    # keyed by ``(workflow_id, block_id)`` with any new run of the same id.
+    detached = getattr(runtime, "detached_live_run", None)
+    return callable(detached) and detached(workflow_id) is not None
 
 
 def _ancestors_of(self: ApiRuntime, workflow: WorkflowDefinition, block_id: str) -> set[str]:
