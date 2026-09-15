@@ -92,7 +92,8 @@ def _now_iso() -> str:
 
 
 def _canonical_identity(runtime: ApiRuntime, workflow_id: str) -> str:
-    """Return the canonical run identity for a route's ``workflow_id`` (#2394)."""
+    """Return the canonical run identity for a route's ``workflow_id``."""
+    # Development references: #2394.
     try:
         return runtime.canonical_workflow_identity(workflow_id)
     except (RuntimeError, ValueError):

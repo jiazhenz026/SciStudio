@@ -427,7 +427,7 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
 
 
 def _workflow_identity(path: Path) -> str:
-    """Return the run identity of the workflow file *path* (#2394).
+    """Return the run identity of the workflow file *path*.
 
     The same identity the runtime runs the file under and the editor keys its
     tab by, so a write to ``subworkflows/main.yaml`` never refreshes the
