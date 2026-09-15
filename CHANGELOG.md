@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2415] **The activity bar can be rearranged.** Drag an icon in the left
+  rail to move its section, or focus an icon and press Alt+ArrowUp /
+  Alt+ArrowDown. The order is remembered in this browser; right-click the rail
+  and choose Reset order to go back to the default, which now puts MiniApps
+  third, right below Blocks and Workflows. Every left-panel section's Reload
+  button also carries the reload icon, which spins while a reload is running.
 - [#2426] **`scistudio.panels` is a public API root.** Panel authors and packages
   can check panels from Python through `from scistudio.panels import ...`:
   `discover_panels` and `PanelRegistry` (the discovery the application runs,
@@ -753,6 +759,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2421] **A new MiniApp shows up in the MiniApps tab on its own.** A MiniApp
+  written into the project's `panels/` folder, by an agent, the editor, or any
+  other program, used to stay missing from the MiniApps list and the panel
+  catalog until someone pressed Reload, while `open_miniapp` already accepted
+  it. The backend now notices when the panel folders change: the list, the
+  catalog, and opening a MiniApp all read the folders as they are, and the
+  workspace re-reads its list shortly after the writes settle.
+- [#2422] **`open_miniapp` in a standalone `scistudio mcp-bridge` session reports
+  `no_event_bus`.** It reported `no_workspace`, the reason meant for a running
+  server with no window connected. Neither case ever claimed a tab opened.
 
 - [#2327] **Closing the browser no longer cancels a running workflow.** Two
   seconds after the last SciStudio browser tab disconnected, the backend used

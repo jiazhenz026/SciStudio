@@ -344,6 +344,10 @@ describe("Data types tab — loading and reload (FR-027, FR-067)", () => {
     listTypes.mockResolvedValue({ types: [array] });
     render(<TypePalette />);
     await act(async () => {});
+    // #2415 — the Reload control carries the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
     listTypes.mockResolvedValue({ types: [array, series] });
     await act(async () => {
       fireEvent.click(screen.getByText("Reload"));
