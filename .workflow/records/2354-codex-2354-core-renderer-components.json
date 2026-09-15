@@ -761,6 +761,22 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:52:57.618564Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread",
+      "covered_surface": "python_tests",
+      "exit_code": 241,
+      "input_fingerprint": "sha256:1f295f420084e4b2fcdca3441e20e8ec0ef593dd129879a114ae0e054350c3ef",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "repo",
+      "status": "fail",
+      "summary": "exit 241",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1543,6 +1559,244 @@
       ],
       "guard": "weakened_ci_check",
       "status": "fail"
+    },
+    {
+      "at": "2026-09-15T03:52:57.704949Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.742775Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/_unified_dispatch.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/_unified_dispatch.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/io_block.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/io_block.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/loaders/load_data.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/loaders/load_data.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/blocks/io/simple_io.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/blocks/io/simple_io.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T03:52:57.763285Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.788813Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.841848Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.868059Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "governance",
+          "git_evidence": null,
+          "id": "governance.mod_guard.unauthorized-change",
+          "line": null,
+          "message": "governance-critical file changed without authorization; declare governance_touch in the ledger and obtain owner review",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "governance.mod_guard.unauthorized-change",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "mod_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T03:52:57.891778Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.910326Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:57.931570Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.006189Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:52:58.042088Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-timeout 600 pytest -n auto -m \"not serial\" $nocov --timeout=60 --timeout-method=thread $cov_parallel",
+          "id": "weakened-ci.removed-shell-timeout",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: timeout 600",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-shell-timeout",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": ".github/workflows/ci.yml",
+          "finding_class": "weakened-ci",
+          "git_evidence": "-timeout 600 pytest -n 0 -m serial $nocov --timeout=60 --timeout-method=thread $cov_serial",
+          "id": "weakened-ci.removed-shell-timeout",
+          "line": null,
+          "message": "removed required CI/pre-commit check token: timeout 600",
+          "path": ".github/workflows/ci.yml",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "weakened-ci.removed-shell-timeout",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "weakened_ci_check",
+      "status": "fail"
     }
   ],
   "issues": [
@@ -1628,9 +1882,9 @@
       "tests/fixtures/scistudio-blocks-fixture/src/scistudio_blocks_fixture/io/load_image.py",
       "tests/panels/test_builtin_panels.py"
     ],
-    "diff_fingerprint": "sha256:6fb7269d0d67ec2d261fd8d8ab046b09b23207d18c77a562945b19b23836ff20",
-    "head": "4ad0cf7d2fcaca79779af951980531518c8672c3",
-    "head_sha": "4ad0cf7d",
+    "diff_fingerprint": "sha256:ee9e76975b04887d7492f2ac6c5ed59b940cce692b68661d043500f183c958dc",
+    "head": "HEAD",
+    "head_sha": "5a0cc503",
     "surfaces": {
       "docs": 4,
       "frontend": 15,
@@ -1703,6 +1957,19 @@
       "result": "fail",
       "tier": 1,
       "unsatisfied": [
+        "guard.core_change_guard",
+        "guard.mod_guard",
+        "guard.weakened_ci_check"
+      ]
+    },
+    {
+      "at": "2026-09-15T03:52:58.042172Z",
+      "diff_fingerprint": "sha256:ee9e76975b04887d7492f2ac6c5ed59b940cce692b68661d043500f183c958dc",
+      "mode": "local",
+      "result": "fail",
+      "tier": 1,
+      "unsatisfied": [
+        "checks.python_tests",
         "guard.core_change_guard",
         "guard.mod_guard",
         "guard.weakened_ci_check"
