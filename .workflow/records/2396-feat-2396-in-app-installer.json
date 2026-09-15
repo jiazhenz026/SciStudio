@@ -521,6 +521,42 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:27:31.618890Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a8791af5d5137d8dd246357b788149def463d3025f3531fe87ef1b777f1850ea",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T07:29:06.130232Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5d05266241637cdaf1a2737f64e691af08bb9aad53cad3552e5c985c6613069c",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -1382,6 +1418,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.200506Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.215977Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.230925Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.246603Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.265859Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.303083Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.316201Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.351938Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.363343Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.380619Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T07:29:06.397292Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1394,7 +1518,7 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "443a1853c10fdcc32d376c3116a48478326ecaea",
+    "base": "origin/main",
     "base_sha": "443a1853",
     "changed_files": [
       ".workflow/records/2396-feat-2396-in-app-installer.json",
@@ -1409,24 +1533,25 @@
       "desktop/test/installer.test.js",
       "docs/ai-developer/release-runbook.md",
       "docs/specs/desktop-in-app-installer.md",
+      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
       "scripts/ota_publish.py",
       "scripts/templates/reinstall-notice.html",
       "tests/scripts/test_ota_publish.py"
     ],
-    "diff_fingerprint": "sha256:ea6b60ff11b5b7c5a122ca969cbd40dc3b737e6f3062059e7a076659e26142af",
+    "diff_fingerprint": "sha256:e2cc02e41b6d134a9f96f793beeb39e1dd19228507614da709b1d5013893f885",
     "head": "HEAD",
-    "head_sha": "211f180b",
+    "head_sha": "615398a6",
     "surfaces": {
       "docs": 2,
-      "frontend": 0,
+      "frontend": 1,
       "governance": 1,
       "governed_docs": 1,
-      "implementation": 0,
+      "implementation": 1,
       "packaging": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 2,
-      "test": 3,
+      "sentrux": 3,
+      "test": 4,
       "workflow_ci": 0
     }
   },
@@ -1512,6 +1637,14 @@
       "result": "pass",
       "tier": 1,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T07:29:06.397339Z",
+      "diff_fingerprint": "sha256:e2cc02e41b6d134a9f96f793beeb39e1dd19228507614da709b1d5013893f885",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
     }
   ],
   "record_id": "2396-feat-2396-in-app-installer",
@@ -1523,6 +1656,7 @@
       "commit_hygiene",
       "deferral_discipline",
       "format_check",
+      "frontend",
       "full_audit",
       "import_contracts",
       "lint_format",
@@ -1545,7 +1679,9 @@
       "test_engineer_scope_guard",
       "weakened_ci_check"
     ],
-    "tests": []
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
