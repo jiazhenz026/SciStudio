@@ -33,6 +33,7 @@ from fastapi.testclient import TestClient
 PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (0, "page", "SciStudio user guide"),
     (0, "page", "The AI assistant"),
+    (0, "page", "SciStudio Architecture Document"),
     (0, "page", "Built-in blocks"),
     (0, "page", "Making your own data type"),
     (0, "page", "Data types"),
