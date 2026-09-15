@@ -1179,6 +1179,18 @@
       "at": "2026-09-15T06:13:55.114178Z",
       "pattern": "src/scistudio/api/routes/tutorials.py",
       "reason": "Tutorial product state scoped runs by declared id; runs are filed under the file identity"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:21:58.108245Z",
+      "pattern": "src/scistudio/plot/runtime.py",
+      "reason": "Codex P2: plot manifests, preview cache and run registration must carry the file identity; Codex P1: import/create refuse reserved path-form declared ids"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T07:21:58.108375Z",
+      "pattern": "src/scistudio/api/routes/plots.py",
+      "reason": "Codex P2: plot manifests, preview cache and run registration must carry the file identity; Codex P1: import/create refuse reserved path-form declared ids"
     }
   ],
   "session_id": "81aa9e09-26ae-49c1-9ef4-ce85fc066b10",
@@ -1262,6 +1274,14 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/App.parts/useWorkflowExecutionActions.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T07:21:58.108381Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_preview_plot_jobs.py",
       "rationale": null,
       "verified_in_diff": null
     }

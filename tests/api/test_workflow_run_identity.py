@@ -276,3 +276,25 @@ def test_moved_workflow_is_renamed_on_disk_before_it_runs(
     fetched = client.get("/api/workflows/renamed").json()
     assert client.put("/api/workflows/renamed", json=fetched).status_code == 200
     assert not (opened_project / "workflows" / "old.yaml").exists()
+
+
+def test_a_declared_id_spelled_like_a_path_identity_is_refused(
+    client: TestClient, opened_project: Path, tmp_path: Path
+) -> None:
+    """Import or create never treats an authored ``id:`` as the address of another project file."""
+    target = _write_subworkflow_declaring_main(opened_project)
+    before = target.read_text(encoding="utf-8")
+    payload = build_linear_workflow(opened_project, workflow_id="@subworkflows@imported.yaml")
+    external = tmp_path / "external.yaml"
+    external.write_text(yaml.safe_dump({"workflow": payload}, sort_keys=False), encoding="utf-8")
+
+    imported = client.post("/api/workflows/import-path", json={"path": str(external)})
+    assert imported.status_code == 400, imported.text
+    assert "reserved" in imported.json()["detail"]
+    with external.open("rb") as handle:
+        uploaded = client.post("/api/workflows/import", files={"file": ("external.yaml", handle, "application/yaml")})
+    assert uploaded.status_code == 400, uploaded.text
+    created = client.post("/api/workflows/", json=payload)
+    assert created.status_code == 400, created.text
+
+    assert target.read_text(encoding="utf-8") == before

@@ -149,6 +149,15 @@ def workflow_run_keys(workflow_path: str, workflow_id: str | None) -> tuple[str,
         return (Path(normalised).stem,)
 
 
+def target_workflow_identity(workflow_path: str) -> str:
+    """Return the run identity of the workflow a plot target is bound to.
+
+    Derived from the target's ``workflow_path``, so a manifest saved with a
+    declared id still files its previews under the workflow file's identity.
+    """
+    return workflow_run_keys(workflow_path, None)[0]
+
+
 def _latest_output_for(
     ctx: Any, workflow_keys: tuple[str, ...], node_id: str, output_port: str
 ) -> tuple[str | None, bool, bool]:
@@ -243,9 +252,12 @@ def discover_targets(
         except Exception as exc:
             logger.debug("discover_targets: failed to load %s: %s", wf_file, exc)
             continue
-        workflow_id = definition.id or None
         # #2362: confine the recorded-output overlay to THIS workflow's run.
-        run_keys = workflow_run_keys(rel, workflow_id)
+        # #2394: the target carries the file's run identity (not the declared
+        # ``id:``), so its manifest, preview cache and source metadata are filed
+        # under the same key the run registry and the editor use.
+        run_keys = workflow_run_keys(rel, definition.id or None)
+        workflow_id = run_keys[0]
         for node in definition.nodes:
             ports = _output_ports_for_block(ctx, node.block_type, node.config)
             node_label = str(node.config.get("label", "")) if isinstance(node.config, dict) else ""
@@ -326,5 +338,6 @@ __all__ = [
     "discover_targets",
     "make_target_id",
     "resolve_target_by_id",
+    "target_workflow_identity",
     "workflow_run_keys",
 ]

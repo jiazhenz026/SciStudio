@@ -100,6 +100,25 @@ def _canonical_identity(runtime: ApiRuntime, workflow_id: str) -> str:
         return workflow_id
 
 
+def _reject_reserved_declared_id(declared_id: str) -> None:
+    """Refuse a declared workflow ``id`` spelled like a file's path identity.
+
+    Routes that place a workflow at ``workflows/<declared id>.yaml`` must not
+    treat such an id as the address of another project file.
+    """
+    # Development references: #2394.
+    from scistudio.workflow.identity import is_path_identity
+
+    if is_path_identity(declared_id):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Workflow id {declared_id!r} is reserved: an id that starts with '@' and ends in "
+                "'.yaml' or '.yml' names a project file. Choose a different workflow id."
+            ),
+        )
+
+
 def _get_run_or_404(runtime: ApiRuntime, workflow_id: str) -> WorkflowRun:
     try:
         return runtime.get_run(_canonical_identity(runtime, workflow_id))
@@ -294,6 +313,7 @@ async def import_workflow(file: UploadFile, runtime: RuntimeDep) -> VersionedWor
         finally:
             tmp_path.unlink(missing_ok=True)
 
+        _reject_reserved_declared_id(definition.id)
         # #1836: reject an import that would create a duplicate-id collision.
         conflict = runtime.find_workflow_id_conflict(definition.id)
         if conflict is not None:
@@ -354,6 +374,7 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
         from scistudio.workflow.serializer import load_yaml, save_yaml
 
         definition = load_yaml(path)
+        _reject_reserved_declared_id(definition.id)
         # #1836: reject an import that would create a duplicate-id collision.
         conflict = runtime.find_workflow_id_conflict(definition.id)
         if conflict is not None:
@@ -394,6 +415,7 @@ async def import_workflow_from_path(body: dict, runtime: RuntimeDep) -> Versione
 @router.post("/", response_model=VersionedWorkflowResponse)
 async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Request) -> VersionedWorkflowResponse:
     """Create a new workflow from the supplied graph definition."""
+    _reject_reserved_declared_id(body.id)
     try:
         existed = runtime.workflow_path(body.id).exists()
         definition = runtime.save_workflow(body.model_dump())

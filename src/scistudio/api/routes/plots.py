@@ -77,7 +77,7 @@ async def list_plots(
     workflow path and reused across plots.
     """
     # Development references: #1712.
-    from scistudio.plot.targets import discover_targets
+    from scistudio.plot.targets import discover_targets, target_workflow_identity
     from scistudio.plot.validation import load_plot
 
     try:
@@ -141,7 +141,9 @@ async def list_plots(
             warnings.append(f"{_project_relative(project_root, manifest_path)}: {exc}")
             continue
         target = loaded.manifest.target
-        if workflow_id is not None and target.workflow_id != workflow_id:
+        # #2394: a plot belongs to the workflow file it is bound to.
+        target_identity = target_workflow_identity(target.workflow_path)
+        if workflow_id is not None and target_identity != workflow_id:
             continue
         if node_id is not None and target.node_id != node_id:
             continue
@@ -151,7 +153,7 @@ async def list_plots(
             PlotListItem(
                 plot_id=loaded.plot_id,
                 title=loaded.manifest.title,
-                workflow_id=target.workflow_id,
+                workflow_id=target_identity,
                 node_id=target.node_id,
                 output_port=target.output_port,
                 display_label=target.display_label,
@@ -328,6 +330,7 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
     # Import inside the handler so the ``api`` import surface stays light and the
     # allowed ``api -> ai`` dependency edge is exercised lazily.
     from scistudio.plot.runtime import run_plot_job
+    from scistudio.plot.targets import target_workflow_identity
     from scistudio.plot.validation import (
         LoadedPlot,
         PlotNotFoundError,
@@ -362,8 +365,9 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     manifest_target = loaded.manifest.target
+    source_workflow_id = target_workflow_identity(manifest_target.workflow_path)
     source = {
-        "workflow_id": manifest_target.workflow_id,
+        "workflow_id": source_workflow_id,
         "node_id": manifest_target.node_id,
         "output_port": manifest_target.output_port,
     }
@@ -383,7 +387,7 @@ async def run_plot(payload: PlotRunRequest, runtime: RuntimeDep) -> PlotRunRespo
             record = runtime.register_plot_artifact(
                 result.artifact_paths[0],
                 cache_key=result.cache_key,
-                workflow_id=manifest_target.workflow_id,
+                workflow_id=source_workflow_id,
                 node_id=manifest_target.node_id,
                 output_port=manifest_target.output_port,
                 plot_id=payload.plot_id,
