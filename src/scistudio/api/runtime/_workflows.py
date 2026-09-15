@@ -442,7 +442,7 @@ def delete_workflow(self: ApiRuntime, workflow_id: str) -> bool:
         identity = self.canonical_workflow_identity(workflow_id)
         path.unlink()
         # #2448: the pause checkpoint belongs to the deleted file; a new
-        # workflow later saved under the same name must not inherit it.
+        # workflow saved afterwards under the same name must not inherit it.
         self.remove_workflow_pause_state(identity)
         return True
     return False
@@ -453,7 +453,7 @@ def remove_workflow_pause_state(self: ApiRuntime, workflow_id: str) -> None:
 
     Called when the workflow file is deleted or moved: the checkpoint
     describes that file's last run, and "Run from here" must not reuse it for
-    whatever later takes the identity. A missing directory is not an error.
+    whatever takes the identity next. A missing directory is not an error.
     """
     # Development references: #2448.
     project = self.require_active_project()
