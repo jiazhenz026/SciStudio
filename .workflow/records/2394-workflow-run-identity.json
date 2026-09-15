@@ -392,6 +392,11 @@
       "at": "2026-09-15T06:12:11.176183Z",
       "owner_directive": "Update the docs that state workflow identity rules (agent reference / skill lines that say id must equal filename; spec docs describing workflow identity).",
       "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    },
+    {
+      "at": "2026-09-15T07:17:27.064969Z",
+      "owner_directive": "Fix the Codex review findings on PR #2399.",
+      "reason": "address Codex review; merge main after #2397"
     }
   ],
   "docs_events": [
