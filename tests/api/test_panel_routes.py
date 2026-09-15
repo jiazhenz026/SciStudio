@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.app import create_app
 from tests.api.fake_guard import RecordingFakeGuardFactory, authenticate_fake_session
-from tests.panels.conftest import make_runtime
+from tests.panels.conftest import make_runtime, use_panels
 
 
 @pytest.fixture(params=["", "/user/alice/scistudio"])
@@ -131,7 +131,7 @@ def test_openapi_declares_context_and_binary_read(panel_client):
 
 def test_entry_bootstrap_precedes_author_markup_and_is_document_specific(panel_client):
     client, prefix, runtime, store, _ = panel_client
-    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    panel = runtime.get_panel_service().panel("lab.text")
     original = (
         b'<!doctype html><meta http-equiv="refresh" content="0;url=next.html"><script>window.author=true</script>'
     )
@@ -175,7 +175,7 @@ def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, en
     from scistudio.previewers.models import OwnerKind
 
     client, prefix, runtime, _, _ = panel_client
-    root = runtime.get_preview_service().registry.panels.get("lab.text").root
+    root = runtime.get_panel_service().panel("lab.text").root
     entry_path = root / entry
     entry_path.parent.mkdir(parents=True, exist_ok=True)
     entry_path.write_text("<p>entry</p>")
@@ -185,7 +185,7 @@ def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, en
     panels = PanelRegistry()
     panel, _ = parse_descriptor(root, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types={"Text"})
     panels.register(panel)
-    runtime.get_preview_service().registry.install_panels(panels)
+    use_panels(runtime, panels)
     context = create(client, prefix)
     assert context["entry_url"].endswith("/assets/lab.text/" + PurePosixPath(entry).as_posix())
     assert "/./" not in context["entry_url"]
@@ -203,7 +203,7 @@ def test_entry_modified_after_discovery_has_bounded_source_read(panel_client, mo
     from scistudio.panels.files import MAX_SOURCE_BYTES
 
     client, prefix, runtime, _, _ = panel_client
-    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    panel = runtime.get_panel_service().panel("lab.text")
     path = panel.root / panel.entry
     context = create(client, prefix)
     with path.open("wb") as source:
@@ -246,10 +246,10 @@ def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tamper
     from scistudio.panels.targets import register_collection
 
     client, prefix, runtime, store, _ = panel_client
-    service = runtime.get_preview_service()
+    service = runtime.get_panel_service()
     panels = PanelRegistry()
-    panels.register(replace(service.registry.panels.get("lab.text"), types=("Collection[Text]",)))
-    service.registry.install_panels(panels)
+    panels.register(replace(service.panel("lab.text"), types=("Collection[Text]",)))
+    use_panels(runtime, panels)
     group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
     parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
     url = prefix + "/api/panels/contexts/" + parent.context_id + "/open"
@@ -269,7 +269,7 @@ def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tamper
     assert "hello panel" in client.get(session_url).text
     runtime.data_catalog["data-a"].metadata["changed"] = True
     assert client.get(session_url).status_code == 404
-    assert envelope["session_id"] not in service.sessions._session_guards
+    assert envelope["session_id"] not in service.legacy.sessions._session_guards
 
 
 def test_composite_child_panel_maximizes_independently_after_parent_close(panel_client, tmp_path):
@@ -291,10 +291,8 @@ def test_composite_child_panel_maximizes_independently_after_parent_close(panel_
         "comp", storage, "Composite", {"slots": {"index": "DataFrame"}}, ["DataObject", "Composite"]
     )
     panels = PanelRegistry()
-    panels.register(
-        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Composite", "DataFrame"))
-    )
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Composite", "DataFrame")))
+    use_panels(runtime, panels)
     parent = store.create({"kind": "preview", "target": {"ref": "comp"}})
     opened = client.post(prefix + "/api/panels/contexts/" + parent.context_id + "/open", json={"ref": "comp#index"})
     assert opened.status_code == 200, opened.text
@@ -345,8 +343,8 @@ def test_numeric_binary_metadata_and_byte_order(panel_client, tmp_path):
         ["DataObject", "Array"],
     )
     panels = PanelRegistry()
-    panels.register(replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Array",)))
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Array",)))
+    use_panels(runtime, panels)
     created = client.post(prefix + "/api/panels/contexts", json={"kind": "preview", "target": {"ref": "array"}})
     assert created.status_code == 200, created.text
     url = prefix + "/api/panels/contexts/" + created.json()["context_id"] + "/read"
@@ -388,8 +386,8 @@ def test_series_points_route_pages_exact_rows(panel_client, tmp_path):
         ["DataObject", "Series"],
     )
     panels = PanelRegistry()
-    panels.register(replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Series",)))
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Series",)))
+    use_panels(runtime, panels)
     created = client.post(prefix + "/api/panels/contexts", json={"kind": "preview", "target": {"ref": "series"}})
     assert created.status_code == 200, created.text
     url = prefix + "/api/panels/contexts/" + created.json()["context_id"] + "/read"
@@ -466,7 +464,7 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     panels = PanelRegistry()
     panels.load(project, OwnerKind.PROJECT, {"Text"}, "active project")
     panels.load(user, OwnerKind.USER, {"Text"}, "user library")
-    runtime.get_preview_service().registry.install_panels(panels)
+    use_panels(runtime, panels)
     response = client.get(prefix + "/api/previews/previewers")
     assert response.status_code == 200, response.text
     cards = [card for card in response.json()["previewers"] if card["previewer_id"] == "lab.shaded"]
@@ -480,7 +478,7 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     assert cards[1]["target_type"] == ("Text" if "preview" in user_contexts else "")
     context = create(client, prefix)
     assert context["panel"]["id"] == "lab.shaded"
-    assert runtime.get_preview_service().registry.get("lab.shaded").owner_kind is OwnerKind.PROJECT
+    assert runtime.get_panel_service().previewer("lab.shaded").owner_kind is OwnerKind.PROJECT
 
 
 def test_shared_renderer_assets_are_served_under_context_authority(panel_client):
@@ -535,10 +533,8 @@ def test_composite_slots_page_past_the_item_budget(panel_client, tmp_path, monke
         "comp", storage, "Composite", {"slots": dict.fromkeys(names, "DataFrame")}, ["DataObject", "Composite"]
     )
     panels = PanelRegistry()
-    panels.register(
-        replace(runtime.get_preview_service().registry.panels.get("lab.text"), types=("Composite", "DataFrame"))
-    )
-    runtime.get_preview_service().registry.install_panels(panels)
+    panels.register(replace(runtime.get_panel_service().panel("lab.text"), types=("Composite", "DataFrame")))
+    use_panels(runtime, panels)
     context = store.create({"kind": "preview", "target": {"ref": "comp"}})
     url = prefix + "/api/panels/contexts/" + context.context_id + "/read"
     seen, cursor = [], None

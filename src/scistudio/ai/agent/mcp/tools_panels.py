@@ -22,11 +22,11 @@
 #   interactive panels, and preview panels, each with the kinds its descriptor
 #   declares — so the agent can reuse one, or find one for a block output's type,
 #   instead of guessing from the file tree. It reads the same discovery
-#   ``open_miniapp`` reads (:func:`_discover`) and the same registry
-#   ``GET /api/panels/catalog`` serves, so every listed ``miniapp`` panel opens and
-#   anything that opens is listed. The runtime's catalog is a cached registry; the
-#   refresh that keeps that cache in step with disk belongs to the catalog
-#   (#2421), and a fresh discovery here already sees what is on disk.
+#   ``open_miniapp`` reads (:func:`_discover`), which is the registry
+#   ``GET /api/panels/catalog`` serves: the runtime's panel service, brought up to
+#   date with disk first, so every listed ``miniapp`` panel opens and anything
+#   that opens is listed (#2421, #2465). A standalone MCP session with no panel
+#   service runs the same discovery itself.
 # * ``wait_for_answers`` (#2447, MiniApp FR-053) waits for the user to submit a
 #   MiniApp questionnaire and returns the answers. An agent in a SciStudio
 #   terminal is told about a submit in its own chat; an agent in the user's own
@@ -63,7 +63,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import BaseModel, Field
 
@@ -289,12 +289,18 @@ class ListPanelsResult(BaseModel):
 
 
 def _discover(ctx: Any) -> PanelRegistry:
-    """The panel discovery ``open_miniapp`` and ``list_panels`` share.
+    """The panel catalog ``open_miniapp`` and ``list_panels`` share.
 
-    The live type registry rather than a fresh scan: discovery validates each
-    panel's declared types against it, and the one the tools already share is
-    both the cheaper and the more accurate answer to "what is registered".
+    Inside the application this is the runtime panel service's catalog, the one
+    the workspace opens panels from, brought up to date with the panel folders
+    first. A standalone session has no panel service and runs the same
+    discovery against the live type registry.
     """
+    get_service = getattr(ctx, "get_panel_service", None)
+    if callable(get_service):
+        service = get_service()
+        service.ensure_fresh()
+        return cast(PanelRegistry, service.registry())
     return discover_panels(
         getattr(ctx, "project_dir", None),
         registered_types=tuple(ctx.type_registry.all_types().keys()),

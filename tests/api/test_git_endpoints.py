@@ -174,7 +174,9 @@ def test_restore_announces_the_registry_refresh(client: TestClient, opened_proje
 
     assert client.post("/api/git/restore", json={"commit_sha": sha_a, "files": ["file.yaml"]}).status_code == 200
 
-    assert [event.data.get("source") for event in seen] == ["restore"]
+    # The panel service announces its own catalog on the same event type with
+    # ``registry: "panels"`` (#2465); the restore's announcement is the other one.
+    assert [event.data.get("source") for event in seen if event.data.get("registry") != "panels"] == ["restore"]
 
 
 def test_restore_endpoint_auto_commits_dirty_tree(client: TestClient, opened_project: Path) -> None:

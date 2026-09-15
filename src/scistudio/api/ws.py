@@ -65,6 +65,15 @@ PANEL_FILES_CHANGED = "panel.files_changed"
 # ``{"panel_id": str, "workflow_id": str, "block_id": str, "port": str}``.
 PANEL_OPEN_MINIAPP = "panel.open_miniapp"
 
+# ADR-054 (#2465): the panel service revoked contexts whose panel was removed,
+# changed or shadowed, or whose project was left. Data:
+# ``{"context_ids": [str], "panel_ids": [str], "reason": str}``.
+PANEL_CONTEXTS_REVOKED = "panel.contexts_revoked"
+
+# #2465: a previewer choice changed; open previews of that type re-route.
+# Data: ``{"type": str}``.
+PANEL_CHOICES_CHANGED = "panel.choices_changed"
+
 #: FR-013: the shape of a workspace realtime client id. Minted here, sent to
 #: the browser in the ``hello`` frame, and quoted back as ``ws_client_id`` when
 #: the workspace opens a MiniApp context.
@@ -95,6 +104,8 @@ _OUTBOUND_EVENTS = frozenset(
         # never subscribed, so it silently never reaches the browser.
         PANEL_FILES_CHANGED,
         PANEL_OPEN_MINIAPP,
+        PANEL_CONTEXTS_REVOKED,
+        PANEL_CHOICES_CHANGED,
         FILE_CHANGED_EVENT_TYPE,
         # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
         # Git tab invalidate cached log/branch/status state when an
@@ -240,8 +251,8 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
     #
     # A reconnect inside the grace period re-registers the id. This wakes to find
     # it present, and the MiniApp keeps running.
-    from scistudio.panels.contexts import get_panel_contexts
     from scistudio.panels.process_config import client_disconnect_grace
+    from scistudio.panels.service import get_panel_contexts
 
     try:
         await asyncio.sleep(client_disconnect_grace())
@@ -385,7 +396,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                 elif msg_type == "interactive_complete":
                     # ADR-054: a new panel must own this exact waiting prompt.
                     # Validation claims once; the event contract below stays unchanged.
-                    from scistudio.panels.contexts import get_panel_contexts
+                    from scistudio.panels.service import get_panel_contexts
                     from scistudio.panels.targets import PanelError
 
                     runtime = getattr(event_bus, "runtime", None)

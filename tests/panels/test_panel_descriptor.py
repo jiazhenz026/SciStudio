@@ -62,7 +62,7 @@ def test_entry_dot_segments_are_canonicalized(tmp_path):
 
 def test_python_and_traversal_and_symlink_escape_refused(panel_runtime, tmp_path):
     runtime, _ = panel_runtime
-    panel = runtime.get_preview_service().registry.panels.get("lab.text")
+    panel = runtime.get_panel_service().panel("lab.text")
     for path in ("panel.py", "../data.txt", "/etc/passwd", "https://example.com/file.js"):
         with pytest.raises(ValueError):
             resolve_panel_file(panel.root, path)
@@ -116,7 +116,7 @@ def test_external_reference_allowlist_and_pin_diagnostic(tmp_path):
 
 def test_interactive_validation_requires_a_registered_interactive_panel(panel_runtime):
     runtime, _ = panel_runtime
-    registry = runtime.get_preview_service().registry.panels
+    registry = runtime.get_panel_service().registry()
     validate_interactive_panel(PanelManifest(panel_id="lab.text"), registry)
     # ADR-054 Phase B removed the compiled-core allowlist: core.interactive.* is
     # no longer specially tolerated when absent; it must be a registered

@@ -12,14 +12,14 @@
  *    switching the project (which empties the tab list wholesale), both
  *    unmount this component and both must end the process.
  *  - **A reload replaces the frame** (FR-022). The entry handshake is
- *    proof-bound and one-shot, and a second load of the same iframe fails the
- *    panel, so `panel.files_changed` bumps a key and React remounts
- *    `PanelFrame` on a new context, a new frame and a new process.
+ *    proof-bound and one-shot, so a page change reloads `PanelFrame` on a new
+ *    context, a new frame and a new process. The shared panel host does this
+ *    for every context kind (#2465); this tab only follows the new context.
  *  - **The context renews itself.** A MiniApp tab is long-lived and a context
  *    expires after 600 s; `PanelFrame` already heartbeats `renew` every 240 s
  *    for as long as it is mounted, which is what makes staying mounted enough.
  */
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 
 import { PanelFrame } from "../panels/PanelFrame";
@@ -29,9 +29,6 @@ import type { MiniAppTab as MiniAppTabState } from "../store/types";
 import { MiniAppToolbar } from "./MiniAppToolbar";
 import { useMiniAppProcess } from "./useMiniAppProcess";
 
-/** FR-022 — a burst of writes by an agent is one reload, not twenty. */
-export const MINIAPP_RELOAD_DEBOUNCE_MS = 500;
-
 export interface MiniAppTabPaneProps {
   tab: MiniAppTabState;
   /** FR-036 — the Convert dialog is mounted by the workspace, not here. */
@@ -40,21 +37,9 @@ export interface MiniAppTabPaneProps {
 
 export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
   const wsClientId = useAppStore((s) => s.wsClientId);
-  // FR-022 — bumped by the `panel.files_changed` dispatcher for this panel id.
-  const changeSeq = useAppStore((s) => s.panelFilesChangedSeq[tab.panelId] ?? 0);
-  const initialChangeSeq = useRef(changeSeq);
-  const [reloadKey, setReloadKey] = useState(0);
+  // A reload (FR-022) or a revoked context (#2465) remounts the frame on a new
+  // context; `onContext` hands this tab the new one.
   const [context, setContext] = useState<PanelContext | null>(null);
-
-  useEffect(() => {
-    if (changeSeq === initialChangeSeq.current) return;
-    const timer = setTimeout(() => setReloadKey((value) => value + 1), MINIAPP_RELOAD_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [changeSeq]);
-
-  // A reload is a new context, so the old context's process block is stale the
-  // moment the key changes.
-  useEffect(() => setContext(null), [reloadKey]);
 
   const initial: PanelProcessStatus | null = context?.process ?? null;
   const process = useMiniAppProcess(context?.context_id ?? null, initial);
@@ -99,7 +84,7 @@ export function MiniAppTabPane({ tab, onConvert }: MiniAppTabPaneProps) {
       <div className="flex min-h-0 flex-1 flex-col">
         {wsClientId ? (
           <PanelFrame
-            key={`${tab.id}:${reloadKey}`}
+            key={tab.id}
             request={{
               kind: "miniapp",
               panel_id: tab.panelId,

@@ -29,9 +29,7 @@ from scistudio.engine.events import EventBus
 from scistudio.engine.runners.process_handle import ProcessRegistry
 from scistudio.panels.registry import PanelRegistry
 from scistudio.previewers.models import OwnerKind, PreviewTarget
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.router import PreviewRouter
-from scistudio.previewers.session import PreviewSessionManager
+from tests.panels.conftest import install_panel_service
 
 # One test opens a real MiniApp context, which starts a real subprocess.
 pytestmark = pytest.mark.serial
@@ -76,7 +74,6 @@ def _runtime(tmp_path: Path) -> SimpleNamespace:
         _block_states={"seg": SimpleNamespace(value="done"), "tab": SimpleNamespace(value="done")},
     )
 
-    service = SimpleNamespace()
     runtime = SimpleNamespace(
         active_project=SimpleNamespace(id="p", path=str(tmp_path)),
         data_catalog=catalog,
@@ -85,7 +82,6 @@ def _runtime(tmp_path: Path) -> SimpleNamespace:
     )
     runtime.event_bus.runtime = runtime
     runtime.get_data_record = lambda ref: catalog[ref]
-    runtime.get_preview_service = lambda: service
     runtime.register_output_payload = lambda value: value
     runtime.resolve_session_target = lambda target: PreviewTarget(
         kind=target.kind,
@@ -95,22 +91,16 @@ def _runtime(tmp_path: Path) -> SimpleNamespace:
     )
     runtime.type_registry = SimpleNamespace(resolve=lambda name: SimpleNamespace(base_type="DataObject"))
 
-    def refresh() -> None:
+    def discover() -> PanelRegistry:
         panels = PanelRegistry()
         panels_dir = tmp_path / "panels"
         if panels_dir.is_dir():
             for child in sorted(panels_dir.iterdir()):
                 if child.is_dir():
                     panels.load(child, OwnerKind.PROJECT, _TYPES)
-        registry = PreviewerRegistry()
-        registry.load_core()
-        registry.install_panels(panels)
-        service.registry = registry
-        service.router = PreviewRouter(registry)
-        service.sessions = PreviewSessionManager(registry)
+        return panels
 
-    runtime.refresh_all_registries = refresh
-    refresh()
+    install_panel_service(runtime, discover)
     return runtime
 
 
@@ -592,7 +582,7 @@ def _questionnaire_context(client: TestClient, tmp_path: Path, created: dict[str
     (directory / "panel.py").unlink()
     shutil.copyfile(_FIXTURE / "questionnaire.json", directory / "questionnaire.json")
     shutil.copyfile(_FIXTURE / "index.html", directory / "index.html")
-    client.app.state.runtime.refresh_all_registries()  # type: ignore[attr-defined]
+    client.app.state.runtime.get_panel_service().rescan(force=True)  # type: ignore[attr-defined]
     response = client.post(
         "/api/panels/contexts", json={"kind": "miniapp", "panel_id": created["panel_id"], "source": _SOURCE}
     )

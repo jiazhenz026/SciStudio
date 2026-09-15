@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import logging
 import secrets
@@ -15,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, cast
 
 from scistudio.panels.descriptor import PanelDescriptor
-from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target, project_identity
+from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target
 from scistudio.previewers.data_access import PreviewDataAccess
 from scistudio.previewers.models import PreviewEnvelope
 
@@ -43,6 +42,17 @@ def read_access() -> PreviewDataAccess:
     )
 
 
+def project_key(runtime: Any) -> tuple[Any, ...]:
+    """Which project a context belongs to: the open project's id and folder.
+
+    Reopening the project that is already open keeps its contexts; opening
+    another project, or closing it, ends them.
+    """
+    # Development references: MiniApp FR-013, #2465.
+    project = getattr(runtime, "active_project", None)
+    return (getattr(project, "id", None), str(getattr(project, "path", "")))
+
+
 def _running_loop() -> asyncio.AbstractEventLoop | None:
     try:
         return asyncio.get_running_loop()
@@ -56,7 +66,6 @@ class PanelContext:
     panel: PanelDescriptor
     kind: str
     project: tuple[Any, ...]
-    preview_service: Any
     token: str
     expires_at: float
     input: Any
@@ -78,7 +87,10 @@ class PanelContext:
     setup_payload: Any = None
     import_roots: tuple[str, ...] = ()
     ws_client_id: str | None = None
-    watcher: Any = None
+    #: The descriptor fingerprint the context was opened on; a catalog change
+    #: that alters it revokes the context (#2465).
+    panel_fingerprint: tuple[object, ...] = ()
+    watched: bool = False
 
     def provides(self) -> tuple[list[str], list[str]]:
         """The operations and services this context exposes to its page."""
@@ -92,24 +104,29 @@ class PanelContext:
 
 
 class PanelContexts:
-    """In-memory bounded authority; no panel Python is imported or executed."""
+    """In-memory bounded authority; no panel Python is imported or executed.
 
-    def __init__(self, runtime: Any, *, clock: Any = time.time) -> None:
+    Owned by the panel service, which it asks for panels, routing and preview
+    sessions. The store never takes the service's lock, so the service may hold
+    its own lock while it revokes contexts here.
+    """
+
+    def __init__(self, runtime: Any, service: Any, *, clock: Any = time.time) -> None:
         self.runtime = runtime
         self.event_bus = runtime.event_bus
         self.clock = clock
         self.contexts: OrderedDict[str, PanelContext] = OrderedDict()
         self.prompts: dict[tuple[str, str], dict[str, Any]] = {}
         self.lock = threading.RLock()
-        self._project = project_identity(runtime)
-        # The loop a watchdog thread hands a panel.files_changed event to. The
-        # store is first built from the panels lifespan, which runs on the API
-        # event loop; a store built off it (a test, a synchronous host) keeps
-        # None and the watcher dispatches the event itself.
-        self._loop: asyncio.AbstractEventLoop | None = _running_loop()
+        self._project = project_key(runtime)
+        self.service = service
+
+    @property
+    def _loop(self) -> asyncio.AbstractEventLoop | None:
+        return cast("asyncio.AbstractEventLoop | None", getattr(self.service, "loop", None))
 
     def _synchronize(self) -> None:
-        identity = project_identity(self.runtime)
+        identity = project_key(self.runtime)
         if identity != self._project:
             self.close_all()
             self._project = identity
@@ -117,37 +134,63 @@ class PanelContexts:
             if context.expires_at <= self.clock():
                 self.close(context.context_id)
 
-    def close_all(self) -> None:
+    def close_all(self) -> list[str]:
         """Revoke all contexts immediately and stop their resources in the background."""
         with self.lock:
+            closed = list(self.contexts)
             for context in self.contexts.values():
                 self._detach(context)
             self.contexts.clear()
             self.prompts.clear()
+            return closed
 
-    @staticmethod
-    def _detach(context: PanelContext) -> threading.Thread | None:
-        """Take the process off *context* and end it on its own thread."""
+    def close_project(self) -> list[str]:
+        """End every context of the project being left, now."""
+        # Development references: MiniApp FR-013.
+        with self.lock:
+            closed = self.close_all()
+            self._project = project_key(self.runtime)
+            return closed
+
+    def invalidate_panels(self, panel_ids: Any, current: Any) -> list[str]:
+        """Close contexts on *panel_ids* that no longer match the catalog; return their ids.
+
+        ``current`` maps a panel id to its winning descriptor now. A context
+        opened on the descriptor that is current stays open, so a context
+        created while the catalog was being swapped is never closed by mistake.
+        """
+        wanted = set(panel_ids)
+        if not wanted:
+            return []
+        with self.lock:
+            closed: list[str] = []
+            for context in list(self.contexts.values()):
+                if context.context_id not in self.contexts or context.panel.id not in wanted:
+                    continue
+                panel = current.get(context.panel.id)
+                if panel is not None and self.service.panel_fingerprint(panel) == context.panel_fingerprint:
+                    continue
+                before = set(self.contexts)
+                self.close(context.context_id)
+                closed.extend(sorted(before - set(self.contexts)))
+            return closed
+
+    def _detach(self, context: PanelContext) -> threading.Thread | None:
+        """Take the process and page watch off *context* and end them on their own thread."""
         process = getattr(context, "process", None)
         context.process = None
-        watcher = getattr(context, "watcher", None)
-        context.watcher = None
-        if process is None and watcher is None:
+        if context.watched:
+            context.watched = False
+            watches = getattr(self.service, "file_watches", None)
+            if watches is not None:
+                watches.release(context.panel.id)
+        if process is None:
             return None
-
-        def stop_resources() -> None:
-            if watcher is not None:
-                with contextlib.suppress(Exception):
-                    watcher.stop()
-            if process is not None:
-                process.stop()
-
-        thread = threading.Thread(target=stop_resources, name=f"panel-stop-{context.context_id}", daemon=True)
+        thread = threading.Thread(target=process.stop, name=f"panel-stop-{context.context_id}", daemon=True)
         thread.start()
         return thread
 
-    @classmethod
-    def _stop(cls, context: PanelContext) -> None:
+    def _stop(self, context: PanelContext) -> None:
         """End a context's process without waiting for it."""
         # End a context's process without waiting for it (FR-013, SC-005).
         #
@@ -159,13 +202,15 @@ class PanelContexts:
         # first, so nothing can reach it again, and the tree is ended either way:
         # by ``stop`` itself, or by the application registry's ``terminate_all``
         # at shutdown.
-        cls._detach(context)
+        self._detach(context)
 
     def on_event(self, event: Any) -> None:
         # The bus awaits this on the API event loop, so it is also the second
-        # chance to learn the loop a watcher hands its event to when the store
+        # chance to learn the loop a watcher hands its event to when the service
         # was first built off the loop.
-        self._loop = _running_loop() or self._loop
+        remember = getattr(self.service, "remember_loop", None)
+        if callable(remember):
+            remember(_running_loop())
         with self.lock:
             self._synchronize()
             data = event.data if isinstance(event.data, dict) else {}
@@ -211,6 +256,9 @@ class PanelContexts:
         return prompt
 
     def create(self, payload: dict[str, Any], *, process_registry: Any = None) -> PanelContext:
+        # Load the catalog before taking the store lock: the service may take
+        # its own lock to load, and it revokes contexts while holding none.
+        self.service.ensure_loaded()
         with self.lock:
             self._synchronize()
             if self.runtime.active_project is None:
@@ -220,7 +268,7 @@ class PanelContexts:
                 raise PanelError(400, "unsupported", "Panel context kind must be preview, interactive or miniapp")
             if kind == "miniapp":
                 return self._create_miniapp(payload, process_registry=process_registry)
-            service = self.runtime.get_preview_service()
+            service = self.service
             panel_id = payload.get("panel_id")
             root = None
             prompt = None
@@ -232,8 +280,8 @@ class PanelContexts:
                 authority = None
                 if session_id:
                     try:
-                        session = service.sessions.frozen_session(session_id)
-                        authority = service.sessions.session_authority(session_id)
+                        session = service.frozen_session(session_id)
+                        authority = service.session_authority(session_id)
                     except Exception as exc:
                         raise PanelError(409, "stale_context", "The frozen preview session no longer exists") from exc
                     if session.target.ref != ref:
@@ -254,7 +302,7 @@ class PanelContexts:
                 query = {}
                 if panel_id:
                     query["panel_id"] = panel_id
-                spec = service.sessions._select_spec(root.target, query)
+                spec = service.route(root.target, query)
                 panel_id = spec.previewer_id
                 input_value = self._input(root)
             else:
@@ -264,7 +312,7 @@ class PanelContexts:
                 if manifest.get("panel_id") != panel_id or manifest.get("module_url"):
                     raise PanelError(403, "panel_mismatch", "Panel id does not match the waiting block's panel")
                 input_value = deepcopy(prompt.get("panel_payload") or {})
-            panel = service.registry.panels.get(panel_id) if service.registry.panels else None
+            panel = service.panel(panel_id) if panel_id else None
             if panel is None:
                 raise PanelError(404, "unknown_panel", f"Panel {panel_id!r} is not registered")
             if kind not in panel.contexts:
@@ -280,7 +328,6 @@ class PanelContexts:
                 panel=panel,
                 kind=kind,
                 project=self._project,
-                preview_service=service,
                 token=secrets.token_urlsafe(32),
                 expires_at=self.clock() + TOKEN_TTL,
                 input=input_value,
@@ -290,21 +337,22 @@ class PanelContexts:
                 workflow_id=payload.get("workflow_id"),
                 block_id=payload.get("block_id"),
                 prompt=prompt,
+                panel_fingerprint=service.panel_fingerprint(panel),
             )
             self.contexts[context.context_id] = context
+            self._watch(context)
             return context
 
     def _create_miniapp(self, payload: dict[str, Any], *, process_registry: Any) -> PanelContext:
         """Open a miniapp context on a block output and start its process."""
-        from scistudio.panels.catalog_refresh import current_preview_service
         from scistudio.panels.miniapp import build_setup_payload, miniapp_input, resolve_source
         from scistudio.panels.process import runtime_import_roots
 
-        # The MiniApps tab lists from a registry that follows the panel
-        # directories; opening one must see the same registry (#2421).
-        service = current_preview_service(self.runtime)
+        # The MiniApps tab lists from a catalog that follows the panel
+        # directories; the service brought it up to date before this call (#2421).
+        service = self.service
         panel_id = payload.get("panel_id")
-        panel = service.registry.panels.get(panel_id) if service.registry.panels else None
+        panel = service.panel(panel_id) if panel_id else None
         if panel is None:
             raise PanelError(404, "unknown_panel", f"Panel {panel_id!r} is not registered")
         if "miniapp" not in panel.contexts:
@@ -324,7 +372,6 @@ class PanelContexts:
             panel=panel,
             kind="miniapp",
             project=self._project,
-            preview_service=service,
             token=secrets.token_urlsafe(32),
             expires_at=self.clock() + TOKEN_TTL,
             input=miniapp_input(frozen, panel),
@@ -338,33 +385,20 @@ class PanelContexts:
             setup_payload=setup_payload,
             import_roots=import_roots,
             ws_client_id=payload.get("ws_client_id"),
+            panel_fingerprint=service.panel_fingerprint(panel),
         )
         self.contexts[context.context_id] = context
         if panel.has_python:
             self._start_process(context, process_registry)
-        self._start_watcher(context)
+        self._watch(context)
         return context
 
-    def _start_watcher(self, context: PanelContext) -> None:
-        """Watch the MiniApp's own directory while the context is open."""
-        # Watch the MiniApp's own directory while the context is open (FR-022).
-        from scistudio.panels.watcher import PanelDirectoryWatcher, watches
-
-        if not watches(context.panel):
-            return
-        watcher = PanelDirectoryWatcher(
-            panel_id=context.panel.id,
-            directory=context.panel.root,
-            event_bus=self.event_bus,
-            loop=self._loop,
-        )
-        try:
-            if watcher.start():
-                context.watcher = watcher
-        except Exception:
-            # A MiniApp that cannot be watched still opens; it just does not
-            # reload on its own.
-            logger.warning("panel watcher: %s not watched", context.panel.id, exc_info=True)
+    def _watch(self, context: PanelContext) -> None:
+        """Watch the panel's page while the context is open, whatever its kind."""
+        # Development references: MiniApp FR-022, #2465.
+        watches = getattr(self.service, "file_watches", None)
+        if watches is not None:
+            context.watched = bool(watches.acquire(context.panel))
 
     def _start_process(self, context: PanelContext, process_registry: Any) -> None:
         """Launch the resident subprocess for a miniapp context."""
@@ -446,11 +480,8 @@ class PanelContexts:
             if context is None:
                 raise PanelError(404, "unknown_context", "The panel context is unknown, closed or expired")
             try:
-                if (
-                    context.project != project_identity(self.runtime)
-                    or context.preview_service is not self.runtime.get_preview_service()
-                ):
-                    raise PanelError(409, "stale_context", "The panel's project or registry changed")
+                if context.project != project_key(self.runtime):
+                    raise PanelError(409, "stale_context", "The panel's project changed")
                 if context.root:
                     context.root.validate(self.runtime)
                 if (
@@ -541,7 +572,7 @@ class PanelContexts:
             root = self.authorize(context, ref)
             if root is context.root:
                 raise PanelError(403, "unauthorized_ref", "open requires a child of the preview target")
-            service, project = context.preview_service, context.project
+            service, project = self.service, context.project
             query: dict[str, Any] = {"_record_metadata": deepcopy(root.metadata)}
             if root.storage is not None:
                 query["_storage"] = {
@@ -558,12 +589,12 @@ class PanelContexts:
                 )
 
             def validate() -> None:
-                if project_identity(self.runtime) != project or self.runtime.get_preview_service() is not service:
-                    raise PanelError(409, "stale_context", "The child preview's project or registry changed")
+                if project_key(self.runtime) != project:
+                    raise PanelError(409, "stale_context", "The child preview's project changed")
                 root.validate(self.runtime)
 
             return cast(
-                PreviewEnvelope, service.sessions.create_session(root.target, query, guard=validate, authority=root)
+                PreviewEnvelope, service.create_preview_session(root.target, query, guard=validate, authority=root)
             )
 
     def grant_artifact(self, context: PanelContext, target: FrozenTarget) -> tuple[str, str]:
@@ -617,17 +648,6 @@ def _other_run(prompt: dict[str, Any] | None, run_id: Any) -> bool:
     # Development references: #2433.
     prompt_run = (prompt or {}).get("run_id")
     return prompt_run is not None and run_id is not None and prompt_run != run_id
-
-
-def get_panel_contexts(runtime: Any) -> PanelContexts:
-    """Reuse one context store per API runtime, including its EventBus subscription."""
-    store = getattr(runtime, "_panel_contexts", None)
-    if store is None:
-        store = PanelContexts(runtime)
-        runtime._panel_contexts = store
-        for event in PANEL_EVENTS:
-            store.event_bus.subscribe(event, store.on_event)
-    return store
 
 
 PANEL_EVENTS = (

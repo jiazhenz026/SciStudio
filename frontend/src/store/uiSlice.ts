@@ -17,11 +17,9 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
   previewCollapsed: false,
   // #2456 — the MiniApp's transient collapse; see `previewCollapsedByMiniApp`.
   previewCollapsedByMiniApp: false,
-  // ADR-054 FR-013 / FR-022 — realtime session identity and the per-panel
-  // file-change counter. Neither is persisted: both describe the live `/ws`
-  // connection, which a reload replaces.
+  // ADR-054 FR-013 — realtime session identity. Not persisted: it describes
+  // the live `/ws` connection, which a reload replaces.
   wsClientId: null,
-  panelFilesChangedSeq: {},
   bottomPanelCollapsed: false,
   bottomPanelPinned: false,
   minimapVisible: true,
@@ -127,13 +125,6 @@ export const createUISlice: StateCreator<AppStore, [], [], UISlice> = (set, get)
     })),
   setLastError: (message) => set({ lastError: message }),
   setWsClientId: (id) => set({ wsClientId: id }),
-  notifyPanelFilesChanged: (panelId) =>
-    set((state) => ({
-      panelFilesChangedSeq: {
-        ...state.panelFilesChangedSeq,
-        [panelId]: (state.panelFilesChangedSeq[panelId] ?? 0) + 1,
-      },
-    })),
   // Desktop menu (desktop/menu.js) opens these dialogs without going through
   // the toolbar, so the open state is shared store state.
   packageManagerOpen: false,

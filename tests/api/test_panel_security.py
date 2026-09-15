@@ -175,7 +175,7 @@ def test_real_mounted_panel_routes_and_lifecycle(
         )
         (directory / "index.html").write_text("<!doctype html><p>Scientific text</p>")
         (project / "data" / "security.txt").write_text("real authorized data")
-        app.state.runtime.refresh_preview_service()
+        app.state.runtime.get_panel_service().rescan()
         registered = client.post(prefix + "/api/data/register-path", json={"path": "data/security.txt"})
         assert registered.status_code == 200, registered.text
         ref = registered.json()["ref"]
@@ -217,7 +217,7 @@ def test_real_mounted_panel_routes_and_lifecycle(
         # Keep a real context alive until lifespan exits, then prove revocation
         # and that an emitted prompt cannot repopulate an unsubscribed store.
         assert client.post(prefix + "/api/panels/contexts", json=payload).status_code == 200
-        store = app.state.runtime._panel_contexts
+        store = app.state.runtime.get_panel_service().contexts
         bus = app.state.runtime.event_bus
         assert store.contexts
     assert not store.contexts and not store.prompts

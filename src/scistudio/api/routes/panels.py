@@ -18,10 +18,11 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.api.schemas import PreviewEnvelopeModel
-from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
+from scistudio.panels.contexts import READ_BYTES, PanelContext
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.process_config import max_result_bytes
 from scistudio.panels.reads import read_context
+from scistudio.panels.service import get_panel_contexts, get_panel_service
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
 
@@ -352,24 +353,11 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
     }
 
 
-def _current_panels(request: Request) -> Any:
-    """The panel registry, rediscovered first when the panel directories changed."""
-    # Development references: #2421.
-    from scistudio.panels.catalog_refresh import current_preview_service
-
-    return current_preview_service(request.app.state.runtime).registry.panels
-
-
 @router.get("/catalog")
 def catalog(request: Request) -> dict[str, Any]:
-    registry = _current_panels(request)
-    return {
-        "panels": [
-            p.to_dict() | {"owner_kind": p.owner_kind.value, "shadowed": False} for p in registry.panels.values()
-        ]
-        + [p.to_dict() | {"owner_kind": p.owner_kind.value, "shadowed": True} for p in registry.shadowed],
-        "diagnostics": registry.diagnostics,
-    }
+    # The panel service brings the catalog up to date with the panel folders
+    # first, so a panel written a moment ago is listed (#2421).
+    return get_panel_service(request.app.state.runtime).catalog()
 
 
 # ---------------------------------------------------------------------------
@@ -382,8 +370,7 @@ _PERMISSION_MODES = {"safe": "safe", "auto": "auto", "bypass": "bypass", "danger
 
 
 def _miniapps(request: Request) -> dict[str, Any]:
-    registry = _current_panels(request)
-    return {panel_id: p for panel_id, p in registry.panels.items() if "miniapp" in p.contexts}
+    return get_panel_service(request.app.state.runtime).miniapps()
 
 
 def _miniapp(request: Request, panel_id: str) -> Any:
@@ -556,14 +543,16 @@ def _display_name(payload: MiniAppCreate) -> str:
 
 
 def _refresh_panels(runtime: Any) -> None:
-    """Re-scan so the MiniApp just written is registered before the tab opens."""
-    refresh = getattr(runtime, "refresh_all_registries", None)
-    if refresh is None:
-        return
+    """Rescan the panels so the MiniApp just written is registered before the tab opens.
+
+    Only the panel catalog: writing a MiniApp changes no block, type or legacy
+    previewer, and the rescan is incremental, so open panels stay open.
+    """
+    # Development references: #2465.
     try:
-        refresh()
+        get_panel_service(runtime).rescan()
     except Exception:
-        logger.exception("MiniApp create: refresh_all_registries() raised")
+        logger.exception("MiniApp create: panel rescan raised")
 
 
 def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: str) -> dict[str, Any]:
@@ -703,9 +692,9 @@ async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Reque
 def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
     try:
         _bounded_json(payload.model_dump())
-        store = get_panel_contexts(request.app.state.runtime)
+        service = get_panel_service(request.app.state.runtime)
         registry = getattr(request.app.state, "registry", None)
-        context = store.create(payload.model_dump(), process_registry=registry)
+        context = service.open_context(payload.model_dump(), process_registry=registry)
         return _context_response(request, context)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -1096,12 +1085,17 @@ def install_panels(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def panels_lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Listen before workflows run; close runtime contexts at shutdown."""
-    store = get_panel_contexts(app.state.runtime)
-    event_bus = store.event_bus
+    """Start the panel service before workflows run; stop it at shutdown.
+
+    Starting loads the catalog, subscribes the context store to the workflow
+    events, and watches the panel tiers; stopping closes every context.
+    """
+    service = get_panel_service(app.state.runtime)
+    try:
+        await asyncio.to_thread(service.start, asyncio.get_running_loop())
+    except Exception:
+        logger.warning("panel service: start failed; the catalog loads on first use", exc_info=True)
     try:
         yield
     finally:
-        store.close_all()
-        for event in PANEL_EVENTS:
-            event_bus.unsubscribe(event, store.on_event)
+        service.stop()

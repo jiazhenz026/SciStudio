@@ -50,6 +50,7 @@ vi.mock("../../panels/PanelPreview", () => ({
 }));
 
 import { PreviewHost } from "./PreviewHost";
+import { requestPreviewReroute } from "../../panels/panelEvents";
 import { buildPreviewCacheKey } from "../../store/previewSlice";
 import { isSameOriginModuleUrl } from "./dynamicPreviewer";
 
@@ -591,4 +592,54 @@ it("explicitly reroutes a failed panel to the legacy core envelope in Phase A", 
     expect(createPreviewSession).toHaveBeenLastCalledWith(TARGET, { core_only: true }),
   );
   expect(await screen.findByText("core preview")).toBeInTheDocument();
+});
+
+describe("#2465 — only affected previews re-route", () => {
+  it("re-creates the session for a matching type and leaves other previews mounted", async () => {
+    const IMAGE_TARGET: PreviewTarget = { kind: "data_ref", ref: "img" };
+    createPreviewSession.mockImplementation(async (target: PreviewTarget) =>
+      target.ref === "img"
+        ? envelope({
+            session_id: `pv-img-${createPreviewSession.mock.calls.length}`,
+            kind: "panel",
+            panel: { id: "lab.image", api_version: "1.0" },
+            target: {
+              kind: "data_ref",
+              ref: "img",
+              recorded_type: "Image",
+              type_chain: ["DataObject", "Array", "Image"],
+            },
+          })
+        : envelope({
+            session_id: `pv-table-${createPreviewSession.mock.calls.length}`,
+            target: {
+              kind: "data_ref",
+              ref: "data-1",
+              recorded_type: "DataFrame",
+              type_chain: ["DataObject", "DataFrame"],
+            },
+          }),
+    );
+    render(
+      <>
+        <PreviewHost target={IMAGE_TARGET} />
+        <PreviewHost target={TARGET} />
+      </>,
+    );
+    await waitFor(() => expect(createPreviewSession).toHaveBeenCalledTimes(2));
+
+    requestPreviewReroute({ types: ["Array"] });
+    await waitFor(() => expect(createPreviewSession).toHaveBeenCalledTimes(3));
+    expect(createPreviewSession.mock.calls[2][0].ref).toBe("img");
+
+    requestPreviewReroute({ types: ["Collection[Image]"] });
+    requestPreviewReroute({ choiceType: "Spectrum" });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(createPreviewSession).toHaveBeenCalledTimes(3);
+
+    // A legacy reload re-routes only the legacy-rendered one.
+    requestPreviewReroute({ legacy: true });
+    await waitFor(() => expect(createPreviewSession).toHaveBeenCalledTimes(4));
+    expect(createPreviewSession.mock.calls[3][0].ref).toBe("data-1");
+  });
 });

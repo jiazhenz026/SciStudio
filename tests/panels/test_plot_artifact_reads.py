@@ -35,7 +35,8 @@ def plot_runtime(tmp_path):
     # through the core plot panel, so install the shipped set too.
     from scistudio.panels.registry import discover_panels
 
-    runtime.get_preview_service().registry.install_panels(discover_panels())
+    runtime.test_panels[0] = discover_panels()
+    runtime.get_panel_service().rescan(force=True)
     plots = tmp_path / "plots"
     plots.mkdir()
     (plots / "current.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 32)
