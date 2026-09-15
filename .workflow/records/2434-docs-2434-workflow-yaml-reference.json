@@ -1,7 +1,174 @@
 {
   "base_ref": null,
   "branch": "docs/2434-workflow-yaml-reference",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-15T09:27:24.584367Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:ac7b394263c7b2880367e25139d7fd120b0a6366f0a82f092f8815f28480f59b",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:27:25.643774Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a13e16fdc69fda2f46cc609c864598db12c91a387b5d21d69b4ade548fccdd9a",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:27:26.894056Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:60163383bbaab0a904fc5b4d9e6aa146dd4f63710ea037314019506348b13d7d",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:27:27.233228Z",
+      "command": "ruff format scripts/docs/build_reference.py scripts/docs/build_workflow_reference.py src/scistudio/workflow/schema.py src/scistudio/workflow/validator.py tests/api/test_user_docs.py tests/docs/test_workflow_reference.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:af93ea809d4643479a4362aec133a5ece002eb6f35033169ddd00eee3187f3c6",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:27:33.848429Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:bf190490f91b169ebd74d0ea84bc1a1f5eea2688e0ed6123f1595a25205bf128",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:27:34.375519Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e7deb19870862ef2c04b11f478cb93e40137421891503fa34ea4c4f77a4640a2",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:27:34.388936Z",
+      "command": "ruff check scripts/docs/build_reference.py scripts/docs/build_workflow_reference.py src/scistudio/workflow/schema.py src/scistudio/workflow/validator.py tests/api/test_user_docs.py tests/docs/test_workflow_reference.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1799e2590626b9b7b10994e04b6c73c83f8a298f6400a1c430fa6eb91de283be",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T09:28:03.162652Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/test_runtime_workflow_validation_gate.py tests/api/test_user_docs.py tests/blocks/test_registry_package_layout.py tests/contracts/test_io_capability_contract.py tests/docs/test_workflow_reference.py tests/qa/test_guard_calculators.py tests/test_import_coverage.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py tests/workflow tests/workflow/test_io_boundary_validation.py tests/workflow/test_validator.py tests/workflow/test_validator_codeblock_v2.py tests/workflow/test_validator_dynamic_ports.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13f4bfa46417742bb45647559a0527cbecbe8e16725e1a12015b8ba65b1011da",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T09:28:07.231050Z",
+      "command": "mypy src/scistudio/workflow/schema.py src/scistudio/workflow/validator.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:442ef84392a3bc8e454ad5b03bd2702ee37096b25a693aec451a88270f78d1cd",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -53,7 +220,139 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-15T09:28:07.284273Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.297068Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/schema.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/schema.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/workflow/validator.py",
+          "finding_class": "core_change_guard",
+          "git_evidence": null,
+          "id": "core_change_guard.missing-admin-approval",
+          "line": null,
+          "message": "protected core/runtime change requires admin-approved:core-change applied by an authorized maintainer or administrator approval",
+          "path": "src/scistudio/workflow/validator.py",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "core_change_guard.missing-admin-approval",
+          "severity": "warning",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.309266Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.322173Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.335059Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.373857Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.403064Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.415021Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.427063Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.438680Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T09:28:07.455234Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -63,11 +362,53 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "40cb7764",
+    "changed_files": [
+      ".workflow/records/2434-docs-2434-workflow-yaml-reference.json",
+      "CHANGELOG.md",
+      "docs/adr/ADR-052-addendum2.md",
+      "docs/adr/ADR-052.md",
+      "scripts/docs/build_reference.py",
+      "scripts/docs/build_workflow_reference.py",
+      "src/scistudio/_user_guide/api-reference/index.md",
+      "src/scistudio/_user_guide/api-reference/workflow-yaml.md",
+      "src/scistudio/workflow/schema.py",
+      "src/scistudio/workflow/validator.py",
+      "tests/api/test_user_docs.py",
+      "tests/docs/test_workflow_reference.py"
+    ],
+    "diff_fingerprint": "sha256:54b69872234768b6ceb10bc5849ee4192954f53ca38505c469156aa501464c8b",
+    "head": "HEAD",
+    "head_sha": "c690e293",
+    "surfaces": {
+      "docs": 2,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 4,
+      "packaging": 0,
+      "protected_architecture": 0,
+      "protected_core": 2,
+      "sentrux": 8,
+      "test": 2,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Generate a provisional workflow YAML schema reference page from the workflow models (pydantic JSON Schema plus serializer/validator/write_workflow file-shape rules) in its own generator module, publish it in the packaged API reference with a freshness test, complete missing field descriptions in the models (descriptions only), record the decision against ADR-052 section 7 reconciled with the panel-contract addendum, and do not rewrite skills, user guide, or agent reference prose.",
   "persona": "implementer",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T09:28:07.455286Z",
+      "diff_fingerprint": "sha256:54b69872234768b6ceb10bc5849ee4192954f53ca38505c469156aa501464c8b",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2434-docs-2434-workflow-yaml-reference",
   "requested_admin_labels": [
     {
@@ -78,11 +419,39 @@
     }
   ],
   "required_obligations": {
-    "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "admin_labels": [
+      "admin-approved:core-change"
+    ],
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude-code",
   "schema_version": 2,
@@ -95,7 +464,7 @@
     }
   ],
   "session_id": "4087d902-0259-4d1e-b902-94b4dfd7a723",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "feature",
   "test_events": [
     {
