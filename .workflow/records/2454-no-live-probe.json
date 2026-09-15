@@ -297,6 +297,14 @@
       "path": null,
       "rationale": "Owner is revising the docs and directed no documentation edits in this task; stale spec/ADR mentions (docs/specs/adr-054-miniapp.md FR-024, US1 AS4, SC-001; docs/adr/ADR-054.md session paragraph) are listed in the PR body for the owner's revision.",
       "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520716Z",
+      "class": "owner-directive",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising the docs and directed no documentation edits; stale ADR-053/ADR-054/ADR-034-addendum1/ADR-037 and spec mentions of graded availability are listed as file:line in the PR body.",
+      "verified_in_diff": null
     }
   ],
   "governance_touch": false,
@@ -914,6 +922,54 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_agent_availability.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520921Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_legacy_endpoints_gone.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520925Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520926Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/routes/ai_pty/test_engine.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520927Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_ai_pty_engine_spawn.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520928Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/architecture/test_adr_034_provider_single_source.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T15:47:21.520930Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/AIChat/__tests__/agentSessionSurfaces.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }
