@@ -1,0 +1,60 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2421-miniapp-listing-and-reason",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/**",
+      "src/scistudio/previewers/__init__.py",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/routes/workflow_watcher.py",
+      "src/scistudio/ai/agent/mcp/tools_panels.py",
+      "tests/**",
+      "docs/user-guide/**",
+      "CHANGELOG.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2421,
+      "url": null
+    },
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2422,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix #2421 (a MiniApp written into the project doesn't appear in the MiniApps list/catalog until a manual registry reload, although open_miniapp accepts it and the user guide says it appears automatically) and #2422 (standalone mcp-bridge open_miniapp reports no_workspace instead of the documented no_event_bus) in one PR.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2421-fix-2421-miniapp-listing-and-reason",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "5c1e83cd-2e79-4202-a481-5bd3346bbb1c",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}

@@ -394,6 +394,21 @@ def test_open_miniapp_reports_a_runtime_with_no_event_bus(project: Path, runtime
     assert result.reason == tools_panels.NO_EVENT_BUS
 
 
+def test_open_miniapp_in_a_standalone_session_reports_no_event_bus(project: Path, runtime: Any, workspace: Any) -> None:
+    """#2422: a standalone bridge has no channel and no window, and says ``no_event_bus``."""
+    _write_miniapp(project)
+    workspace(False)
+    runtime.event_bus = None
+
+    result = _run(
+        tools_panels.open_miniapp(panel_id="demo.threshold", workflow_id="wf-1", block_id="segment", port="mask")
+    )
+
+    assert result.opened is False
+    assert result.reason == tools_panels.NO_EVENT_BUS
+    assert "no realtime channel" in result.detail
+
+
 # ---------------------------------------------------------------------------
 # Registration.
 # ---------------------------------------------------------------------------

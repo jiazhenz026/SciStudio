@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Collection
 from pathlib import Path
 
@@ -16,6 +17,13 @@ from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
 from scistudio.previewers.models import OwnerKind
 
 TIER_ORDER = {OwnerKind.PROJECT: 0, OwnerKind.USER: 1, OwnerKind.PACKAGE: 2, OwnerKind.CORE: 3}
+
+#: Files whose content decides whether a directory is a panel and what it declares.
+PANEL_DESCRIPTOR_FILES = ("panel.json", "panel.py")
+#: Directory names inside a panel directory that never hold the page.
+SKIPPED_PANEL_PARTS = frozenset({"__pycache__", "node_modules"})
+
+PanelSourcesFingerprint = tuple[tuple[object, ...], ...]
 
 
 class PanelRegistry:
@@ -95,3 +103,54 @@ def discover_panels(
                 registry.diagnostics.append(f"scistudio.panels entry point {ep.name!r}: {exc}")
     registry.diagnostics.extend(str(d) for d in diagnostics)
     return registry
+
+
+def panel_sources_fingerprint(project_dir: Path | None = None) -> PanelSourcesFingerprint:
+    """Summarize the directory tiers :func:`discover_panels` scans, cheaply.
+
+    Two scans of unchanged directories give equal fingerprints, so a holder of a
+    discovered registry can tell it has gone stale without discovering again
+    (#2421). The summary covers what decides the catalog: which panel directories
+    exist, the size and modification time of each ``panel.json`` and
+    ``panel.py``, and the names of the page files (the asset suffixes the panel
+    routes serve). Page file content is left out on purpose. Editing an open
+    MiniApp's page is the common case, the open tab reloads through its own
+    watch, and rebuilding the preview service on every save would drop the
+    preview sessions other tabs hold. An edit that changes only a page file's
+    content, such as adding a disallowed external reference, is picked up at
+    the next registry rebuild; ``validate_panel`` reports it at once.
+
+    Only stats and directory listings, no file reads.
+    """
+    from scistudio.panels.files import ASSET_SUFFIXES
+
+    entries: list[tuple[object, ...]] = []
+    for root in panel_scan_dirs(project_dir):
+        entries.append(("root", str(root), root.is_dir()))
+        if not root.is_dir():
+            continue
+        try:
+            children = sorted(root.iterdir())
+        except OSError:
+            continue
+        for child in children:
+            if not child.is_dir() or child.name.startswith("."):
+                continue
+            entries.append(("panel", str(child)))
+            for dirpath, dirnames, filenames in os.walk(child):
+                dirnames[:] = sorted(
+                    name for name in dirnames if name not in SKIPPED_PANEL_PARTS and not name.startswith(".")
+                )
+                for name in sorted(filenames):
+                    if name.startswith("."):
+                        continue
+                    path = Path(dirpath) / name
+                    if name in PANEL_DESCRIPTOR_FILES:
+                        try:
+                            stat = path.stat()
+                        except OSError:
+                            continue
+                        entries.append(("descriptor", str(path), stat.st_mtime_ns, stat.st_size))
+                    elif path.suffix.lower() in ASSET_SUFFIXES:
+                        entries.append(("page", str(path)))
+    return tuple(entries)

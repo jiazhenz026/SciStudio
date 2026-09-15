@@ -24,10 +24,10 @@
 # the block registry changed on disk whether or not anyone was watching. An
 # ``open_miniapp`` that nobody received achieved nothing at all, and an agent
 # that believes it opened a tab will tell the user to look at a tab that is not
-# there. So this tool asks
-# :func:`scistudio.engine.gui_presence.any_connected` first and reports
-# ``opened=False`` with a machine-readable ``reason`` when there is no workspace
-# to open into. It is deliberately in-band rather than a raise: nothing went
+# there. So this tool checks for a realtime channel, then asks
+# :func:`scistudio.engine.gui_presence.any_connected`, and reports
+# ``opened=False`` with a machine-readable ``reason`` when there is no channel
+# (``no_event_bus``) or no workspace (``no_workspace``) to open into. It is deliberately in-band rather than a raise: nothing went
 # wrong, the answer is simply "no window is open".
 #
 # Layering: ``scistudio.ai`` may not import ``scistudio.api`` (import-linter), so
@@ -269,8 +269,10 @@ async def open_miniapp(
     it opens the tab.
 
     Never reports success it did not have: with no workspace connected the
-    result is ``opened=False`` with ``reason='no_workspace'``, and the user must
-    be told the MiniApp is ready rather than that a tab opened. Raises
+    result is ``opened=False`` with ``reason='no_workspace'``, and in a
+    standalone bridge session (no realtime channel at all) it is
+    ``reason='no_event_bus'``. Either way the user must be told the MiniApp is
+    ready rather than that a tab opened. Raises
     ``KeyError`` for an unknown panel id and ``ValueError`` for a panel that
     does not declare the ``miniapp`` context.
     """
@@ -295,18 +297,10 @@ async def open_miniapp(
 
     target = {"panel_id": panel_id, "workflow_id": workflow_id, "block_id": block_id, "port": port}
 
-    if not _workspace_connected():
-        return OpenMiniAppResult(
-            **target,
-            opened=False,
-            reason=NO_WORKSPACE,
-            detail=(
-                f"No SciStudio workspace is open, so nothing can be opened into. The MiniApp "
-                f"'{panel_id}' is ready: it opens from the MiniApps tab on that block output "
-                f"once a workspace is open."
-            ),
-        )
-
+    # The channel is checked before the workspace (#2422). A standalone bridge
+    # session has no realtime channel, and no window could ever connect to it,
+    # so its honest answer is ``no_event_bus``. ``no_workspace`` is for a server
+    # that has the channel while no window holds a connection.
     event_bus = getattr(ctx, "event_bus", None)
     if event_bus is None:
         return OpenMiniAppResult(
@@ -317,6 +311,18 @@ async def open_miniapp(
                 f"This session has no realtime channel to the workspace, so the tab cannot be "
                 f"opened from here. The MiniApp '{panel_id}' is ready and opens from the "
                 f"MiniApps tab on that block output."
+            ),
+        )
+
+    if not _workspace_connected():
+        return OpenMiniAppResult(
+            **target,
+            opened=False,
+            reason=NO_WORKSPACE,
+            detail=(
+                f"No SciStudio workspace is open, so nothing can be opened into. The MiniApp "
+                f"'{panel_id}' is ready: it opens from the MiniApps tab on that block output "
+                f"once a workspace is open."
             ),
         )
 

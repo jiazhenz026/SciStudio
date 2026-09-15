@@ -721,6 +721,7 @@ class WorkflowWatcher:
         self._handler: _WorkflowFileHandler | None = None
         self._file_handler: _ProjectFileHandler | None = None
         self._git_handler: _GitHeadHandler | None = None
+        self._panel_refresher: Any = None
         self._watched_dir: Path | None = None
         self._watched_git_dir: Path | None = None
         self._lock = RLock()
@@ -833,6 +834,7 @@ class WorkflowWatcher:
                             exc_info=True,
                         )
                         git_handler = None
+                panel_refresher = self._schedule_panel_catalog(observer, project_dir, loop)
                 observer.start()
             except Exception:
                 logger.exception("workflow_watcher: failed to start observer for %s", workflows_dir)
@@ -841,6 +843,7 @@ class WorkflowWatcher:
             self._handler = handler
             self._file_handler = file_handler
             self._git_handler = git_handler
+            self._panel_refresher = panel_refresher
             self._watched_dir = workflows_dir
             self._watched_git_dir = watched_git
             logger.info(
@@ -857,8 +860,11 @@ class WorkflowWatcher:
             self._handler = None
             self._file_handler = None
             self._git_handler = None
+            panel_refresher, self._panel_refresher = self._panel_refresher, None
             self._watched_dir = None
             self._watched_git_dir = None
+        if panel_refresher is not None:
+            panel_refresher.stop()
         if obs is None:
             return
         try:
@@ -866,6 +872,37 @@ class WorkflowWatcher:
             obs.join(timeout=2.0)
         except Exception:
             logger.warning("workflow_watcher: observer stop raised", exc_info=True)
+
+    def _schedule_panel_catalog(self, observer: Any, project_dir: Path, loop: asyncio.AbstractEventLoop) -> Any:
+        """Watch the panel tiers so a new or changed MiniApp reaches the catalog (#2421).
+
+        The project tier sits under ``project_dir``, which the observer already
+        watches recursively; the user tier gets its own schedule when it exists
+        outside the project. First-party writes are not suppressed here: an agent
+        writing a MiniApp is exactly the change the catalog must follow. Returns
+        the refresher, or ``None`` when the watch could not be set up, which
+        leaves the read-side staleness check as the only mechanism.
+        """
+        if self._runtime is None:
+            return None
+        refresher = None
+        try:
+            from scistudio.core.dropins import panel_scan_dirs
+            from scistudio.panels.catalog_refresh import PanelCatalogHandler, PanelCatalogRefresher
+
+            refresher = PanelCatalogRefresher(runtime=self._runtime, event_bus=self._event_bus, loop=loop)
+            handler = PanelCatalogHandler(panel_scan_dirs(project_dir), refresher)
+            resolved_project = project_dir.resolve()
+            observer.schedule(handler, str(project_dir), recursive=True)
+            for root in handler.roots:
+                if root.is_dir() and not root.is_relative_to(resolved_project):
+                    observer.schedule(handler, str(root), recursive=True)
+        except Exception:
+            logger.warning("workflow_watcher: panel catalog watch not started for %s", project_dir, exc_info=True)
+            if refresher is not None:
+                refresher.stop()
+            return None
+        return refresher
 
     def mark_self_write(self, path: Path) -> None:
         """Record that a first-party write touched *path*; suppress the next echo."""

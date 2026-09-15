@@ -285,10 +285,13 @@ class PanelContexts:
 
     def _create_miniapp(self, payload: dict[str, Any], *, process_registry: Any) -> PanelContext:
         """Open a miniapp context on a block output and start its process."""
+        from scistudio.panels.catalog_refresh import current_preview_service
         from scistudio.panels.miniapp import build_setup_payload, miniapp_input, resolve_source
         from scistudio.panels.process import runtime_import_roots
 
-        service = self.runtime.get_preview_service()
+        # The MiniApps tab lists from a registry that follows the panel
+        # directories; opening one must see the same registry (#2421).
+        service = current_preview_service(self.runtime)
         panel_id = payload.get("panel_id")
         panel = service.registry.panels.get(panel_id) if service.registry.panels else None
         if panel is None:

@@ -706,6 +706,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [#2421] **A new MiniApp shows up in the MiniApps tab on its own.** A MiniApp
+  written into the project's `panels/` folder, by an agent, the editor, or any
+  other program, used to stay missing from the MiniApps list and the panel
+  catalog until someone pressed Reload, while `open_miniapp` already accepted
+  it. The backend now notices when the panel folders change: the list, the
+  catalog, and opening a MiniApp all read the folders as they are, and the
+  workspace re-reads its list shortly after the writes settle.
+- [#2422] **`open_miniapp` in a standalone `scistudio mcp-bridge` session reports
+  `no_event_bus`.** It reported `no_workspace`, the reason meant for a running
+  server with no window connected. Neither case ever claimed a tab opened.
+
 - [#2327] **Closing the browser no longer cancels a running workflow.** Two
   seconds after the last SciStudio browser tab disconnected, the backend used
   to cancel every active run, whoever had started it. That included a run an
