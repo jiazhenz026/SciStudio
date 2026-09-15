@@ -1,0 +1,65 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2417-main-ci-dispatch-miniapp-mock",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T07:44:27.497403Z",
+      "class": "Test-only fix",
+      "kind": "na",
+      "path": null,
+      "rationale": "stale store mock in a frontend test; no behavior, contract, or doc change",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2417,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix main CI red (#2417): dispatchMiniApp.test.ts mocks removed setInteractivePrompt",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2417-main-ci-dispatch-miniapp-mock",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "72c7eb38-8561-4a5d-ba7b-35e5747737b3",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T07:44:27.497533Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/hooks/useWebSocket.parts/dispatchMiniApp.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
