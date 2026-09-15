@@ -53,9 +53,7 @@ class OpenInFiji(AppBlock):
         OutputPort(name="result", accepted_types=[Artifact], description="The files saved from Fiji."),
     ]
 
-    def prepare_launch(
-        self, exchange_dir: Path, output_dir: Path, config: BlockConfig
-    ) -> list[str] | None:
+    def prepare_launch(self, exchange_dir: Path, output_dir: Path, config: BlockConfig) -> list[str] | None:
         """Hand Fiji the staged image paths so it opens them on launch.
 
         The only customization in this block. By default ``AppBlock`` launches

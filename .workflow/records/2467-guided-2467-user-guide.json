@@ -323,9 +323,9 @@
   ],
   "check_na": [],
   "commit": {
-    "sha": "HEAD",
+    "sha": "a5307319",
     "shas": [
-      "HEAD"
+      "a5307319"
     ],
     "trailers": []
   },
@@ -430,6 +430,11 @@
       "at": "2026-09-15T18:57:48.597123Z",
       "owner_directive": "\u76ee\u524d\u7684PR\u6d4b\u8bd5\u662f\u6302\u7684\u3002\u4f60\u4e00\u8d77\u628a\u6d4b\u8bd5\u4fee\u597d\u3002",
       "reason": "The nav/sidebar test file itself is edited to match the rewritten examples tree (the PR's failing test fix)"
+    },
+    {
+      "at": "2026-09-15T18:59:07.904660Z",
+      "owner_directive": "\u8c03\u67e5 skills/agent reference \u7f3a worked examples \u8def\u7531\u5e76\u65b0\u589e worked-examples.md\u3001\u5404 skill \u52a0\u5f15\u7528\u884c",
+      "reason": "Finalize flagged the provisioned agent documents (agent reference + bundled skills) as owner-maintained; the owner directed this routing work live and must authorize the surface"
     }
   ],
   "docs_events": [
@@ -1975,6 +1980,269 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.804791Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_agent_reference/README.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_agent_reference/README.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_agent_reference/worked-examples.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_agent_reference/worked-examples.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        },
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "src/scistudio/_skills/scistudio/scistudio-write-type/SKILL.md",
+          "finding_class": "agent_docs_guard",
+          "git_evidence": null,
+          "id": "agent_docs_guard.missing-owner-approval",
+          "line": null,
+          "message": "the provisioned agent documents are owner-maintained and this change has no owner approval: apply admin-approved:agent-docs as an authorized maintainer, or approve the PR as an administrator, or drop the change",
+          "path": "src/scistudio/_skills/scistudio/scistudio-write-type/SKILL.md",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "agent_docs_guard.missing-owner-approval",
+          "severity": "error",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "agent_docs_guard",
+      "status": "fail"
+    },
+    {
+      "at": "2026-09-15T18:58:52.816160Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.826624Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.837687Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.849051Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.860344Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.871085Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.882036Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.893584Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.904089Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.914816Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:58:52.940120Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -1987,23 +2255,33 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "origin/main",
-    "base_sha": "32f29de7",
+    "base": "561259fd94a5b9614f052ac80330c9f9ed406f3c",
+    "base_sha": "561259fd",
     "changed_files": [
       ".workflow/records/2467-guided-2467-user-guide.json",
+      "src/scistudio/_agent_reference/README.md",
+      "src/scistudio/_agent_reference/worked-examples.md",
+      "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-block/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-miniapp/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-panel/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-plot/SKILL.md",
+      "src/scistudio/_skills/scistudio/scistudio-write-type/SKILL.md",
       "src/scistudio/_user_guide/README.md",
       "src/scistudio/_user_guide/built-in-blocks.md",
       "src/scistudio/_user_guide/custom-types.md",
       "src/scistudio/_user_guide/examples/README.md",
+      "src/scistudio/_user_guide/examples/app-fiji/README.md",
+      "src/scistudio/_user_guide/examples/app-fiji/block.py",
+      "src/scistudio/_user_guide/examples/app-fiji/gaussian_blur.ijm",
       "src/scistudio/_user_guide/examples/blocks/app-fiji/README.md",
-      "src/scistudio/_user_guide/examples/blocks/app-fiji/block.py",
-      "src/scistudio/_user_guide/examples/blocks/app-fiji/gaussian_blur.ijm",
+      "src/scistudio/_user_guide/examples/blocks/app-fiji/open_in_fiji.py",
       "src/scistudio/_user_guide/examples/blocks/interactive-data-router/README.md",
-      "src/scistudio/_user_guide/examples/blocks/interactive-data-router/block.py",
+      "src/scistudio/_user_guide/examples/blocks/interactive-data-router/data_router.py",
       "src/scistudio/_user_guide/examples/blocks/io-load-tiff/README.md",
-      "src/scistudio/_user_guide/examples/blocks/io-load-tiff/block.py",
+      "src/scistudio/_user_guide/examples/blocks/io-load-tiff/load_tiff_image.py",
       "src/scistudio/_user_guide/examples/blocks/process-segment-cells/README.md",
-      "src/scistudio/_user_guide/examples/blocks/process-segment-cells/block.py",
+      "src/scistudio/_user_guide/examples/blocks/process-segment-cells/segment_cells.py",
       "src/scistudio/_user_guide/examples/code-accucor-r/README.md",
       "src/scistudio/_user_guide/examples/code-accucor-r/accucor.R",
       "src/scistudio/_user_guide/examples/io-load-npy/README.md",
@@ -2043,20 +2321,20 @@
       "src/scistudio/api/routes/user_docs.py",
       "tests/api/test_user_docs.py"
     ],
-    "diff_fingerprint": "sha256:bcf20b536324004410fc012c33b6b84b3f1ac6e382294b4ce4b4e1cb76385b47",
+    "diff_fingerprint": "sha256:1e1a49aa58e245ef9523705a4d7608ddb946fe414f8cb08fae364de77a0e35be",
     "head": "HEAD",
-    "head_sha": "5c68ba2f",
+    "head_sha": "a5307319",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 50,
+      "implementation": 60,
       "packaging": 0,
-      "protected_agent_docs": 0,
+      "protected_agent_docs": 8,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 51,
+      "sentrux": 61,
       "test": 1,
       "workflow_ci": 0
     }
@@ -2214,12 +2492,38 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:58:52.940166Z",
+      "diff_fingerprint": "sha256:1e1a49aa58e245ef9523705a4d7608ddb946fe414f8cb08fae364de77a0e35be",
+      "mode": "pre-pr",
+      "result": "fail",
+      "tier": 2,
+      "unsatisfied": [
+        "checks.commit_hygiene",
+        "checks.format_check",
+        "checks.full_audit",
+        "checks.import_contracts",
+        "checks.lint_format",
+        "checks.python_tests",
+        "checks.type_check",
+        "guard.agent_docs_guard"
+      ]
     }
   ],
   "record_id": "2467-guided-2467-user-guide",
-  "requested_admin_labels": [],
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:agent-docs"
+    }
+  ],
   "required_obligations": {
-    "admin_labels": [],
+    "admin_labels": [
+      "admin-approved:agent-docs"
+    ],
     "checks": [
       "commit_hygiene",
       "format_check",
