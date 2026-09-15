@@ -15,6 +15,7 @@ import {
 import {
   createCloseTab,
   createOpenTab,
+  createShowActiveTabOwnRun,
   createSwitchTab,
   createSyncActiveTab,
 } from "./tabSlice.parts/workflowTabActions";
@@ -28,6 +29,7 @@ export const createTabSlice: StateCreator<AppStore, [], [], TabSlice> = (set, ge
   switchTab: createSwitchTab(set, get),
   closeTab: createCloseTab(set, get),
   syncActiveTab: createSyncActiveTab(set, get),
+  showActiveTabOwnRun: createShowActiveTabOwnRun(set, get),
 
   openFileTab: createOpenFileTab(set, get),
   openBlockSourceTab: createOpenBlockSourceTab(set, get),

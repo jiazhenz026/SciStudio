@@ -42,6 +42,7 @@ from scistudio.ai.agent.mcp.tools_workflow._models import (
     WriteWorkflowResult,
 )
 from scistudio.engine.events import WORKFLOW_CHANGED, EngineEvent
+from scistudio.workflow.identity import WORKFLOW_SUFFIXES, workflow_identity_for_path
 
 logger = logging.getLogger(__name__)
 
@@ -117,23 +118,21 @@ async def write_workflow(
 
     p = _resolve_project_path(path)
 
-    # #1910: enforce the filename-stem == internal-id invariant. The runtime
-    # resolves a workflow by its internal id to the canonical path
-    # ``workflows/{id}.yaml`` (see ``api/runtime/_workflows.py`` —
-    # ``workflow_path`` and ``find_workflow_id_conflict``). If the file-name
-    # stem and the internal ``id`` diverge, ``run_workflow``/``load_workflow``
-    # miss the file ("Workflow not found: <id>") and save/import raise a
-    # duplicate-id conflict, even for a single file. Refuse the write with an
-    # actionable message rather than persist a divergent pair. We do not
-    # auto-rename: the author chooses whether to fix the path or the id.
+    # #1910: enforce the filename-stem == internal-id invariant. Runs are
+    # identified by the file (#2394), but the per-project unique-id check on
+    # save/import (``find_workflow_id_conflict``) and plot-target discovery
+    # still read the declared id, so a divergent pair collides with the file
+    # the id names. Refuse the write with an actionable message rather than
+    # persist a divergent pair. We do not auto-rename: the author chooses
+    # whether to fix the path or the id.
     internal_id = wf_file.workflow.id
     if p.stem != internal_id:
         raise ValueError(
             "write_workflow: refusing to write — the file-name stem "
             f"({p.stem!r}) must exactly equal the workflow's internal id "
-            f"({internal_id!r}). SciStudio resolves a workflow by its id to "
-            "workflows/{id}.yaml, so a divergent name breaks run, save, and "
-            f"import. Fix this by writing to path 'workflows/{internal_id}.yaml' "
+            f"({internal_id!r}). A divergent id collides with the workflow file "
+            "that id names when the project is saved or imported. "
+            f"Fix this by writing to path 'workflows/{internal_id}.yaml' "
             f"or by setting the workflow id to {p.stem!r}."
         )
 
@@ -146,13 +145,13 @@ async def write_workflow(
             existed = p.exists()
             if version_context is not None:
                 _, runtime = version_context
-                version = runtime.bump_workflow_version(p.stem)
+                version = runtime.bump_workflow_version(_workflow_identity(p))
                 mark_entity_write = getattr(runtime, "mark_entity_first_party_write", None)
                 if mark_entity_write is not None:
                     with contextlib.suppress(TypeError):
                         mark_entity_write(
                             "workflow",
-                            p.stem,
+                            _workflow_identity(p),
                             version,
                             path=p,
                             kind="modified" if existed else "created",
@@ -166,7 +165,7 @@ async def write_workflow(
         ) from exc
 
     await _emit_agent_workflow_changed(
-        workflow_id=p.stem,
+        workflow_id=_workflow_identity(p),
         path=p,
         kind="modified" if existed else "created",
         version=version,
@@ -323,13 +322,13 @@ async def edit_workflow(
 
             if version_context is not None:
                 _, runtime = version_context
-                version = runtime.bump_workflow_version(p.stem)
+                version = runtime.bump_workflow_version(_workflow_identity(p))
                 mark_entity_write = getattr(runtime, "mark_entity_first_party_write", None)
                 if mark_entity_write is not None:
                     with contextlib.suppress(TypeError):
                         mark_entity_write(
                             "workflow",
-                            p.stem,
+                            _workflow_identity(p),
                             version,
                             path=p,
                             kind="modified",
@@ -345,7 +344,7 @@ async def edit_workflow(
 
     if version_context is not None:
         await _emit_agent_workflow_changed(
-            workflow_id=p.stem,
+            workflow_id=_workflow_identity(p),
             path=p,
             kind="modified",
             version=version,
@@ -425,6 +424,21 @@ def _reconcile_node_block_types(wf_file: Any) -> list[str]:
         registry=registry,
         type_registry=getattr(context, "type_registry", None),
     )
+
+
+def _workflow_identity(path: Path) -> str:
+    """Return the run identity of the workflow file *path* (#2394).
+
+    The same identity the runtime runs the file under and the editor keys its
+    tab by, so a write to ``subworkflows/main.yaml`` never refreshes the
+    ``workflows/main.yaml`` tab. Falls back to the file stem when no project
+    root is known (a headless context).
+    """
+    project_dir = getattr(get_context(), "project_dir", None)
+    if project_dir is not None:
+        with contextlib.suppress(ValueError):
+            return workflow_identity_for_path(project_dir, path)
+    return path.stem
 
 
 def _workflow_change_context() -> tuple[Any, Any] | None:
@@ -515,7 +529,22 @@ async def run_workflow(
     runtime = _get_workflow_runtime()
     _ensure_error_subscriber()
     resolved = _resolve_project_path(path)
-    workflow_id = resolved.stem
+    # #2394: run exactly the file the agent named. Its run identity is derived
+    # from the path (``subworkflows/main.yaml`` is ``@subworkflows@main.yaml``),
+    # so a same-stem file under ``workflows/`` is never run in its place.
+    if not resolved.is_file():
+        raise FileNotFoundError(f"run_workflow: no workflow file at {path!r} in the active project.")
+    if not resolved.name.lower().endswith(WORKFLOW_SUFFIXES):
+        raise ValueError(f"run_workflow: {path!r} is not a workflow YAML file (.yaml or .yml).")
+    project_dir = getattr(get_context(), "project_dir", None)
+    if project_dir is None:
+        raise RuntimeError("No project is currently open. Open a project before running a workflow.")
+    workflow_id = workflow_identity_for_path(project_dir, resolved)
+    workflow_path = getattr(runtime, "workflow_path", None)
+    if callable(workflow_path) and Path(workflow_path(workflow_id)).resolve() != resolved.resolve():
+        raise ValueError(
+            f"run_workflow: {path!r} resolves to run identity {workflow_id!r}, which names a different file."
+        )
     # Clear stale errors from a prior failed run with the same id.
     for key in list(_run_block_errors.keys()):
         if key[0] == workflow_id:

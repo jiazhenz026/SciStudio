@@ -91,9 +91,17 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat()
 
 
+def _canonical_identity(runtime: ApiRuntime, workflow_id: str) -> str:
+    """Return the canonical run identity for a route's ``workflow_id`` (#2394)."""
+    try:
+        return runtime.canonical_workflow_identity(workflow_id)
+    except (RuntimeError, ValueError):
+        return workflow_id
+
+
 def _get_run_or_404(runtime: ApiRuntime, workflow_id: str) -> WorkflowRun:
     try:
-        return runtime.get_run(workflow_id)
+        return runtime.get_run(_canonical_identity(runtime, workflow_id))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -181,9 +189,13 @@ def _workflow_response(
     kind: str = "current",
     timestamp: str | None = None,
     runtime: ApiRuntime | None = None,
+    identity: str | None = None,
 ) -> VersionedWorkflowResponse:
+    # #2394: ``id`` is the file's run identity — the key the editor saves, runs
+    # and receives events under — not the ``id:`` declared inside the YAML.
+    identity = identity or definition.id
     return VersionedWorkflowResponse(
-        id=definition.id,
+        id=identity,
         version=definition.version,
         state_version=state_version,
         workflow_version=definition.version,
@@ -201,7 +213,7 @@ def _workflow_response(
         ],
         edges=[WorkflowEdge(source=edge.source, target=edge.target) for edge in definition.edges],
         metadata=definition.metadata,
-        entity_id=definition.id,
+        entity_id=identity,
         source=source,
         source_id=source_id,
         kind=kind,
@@ -230,6 +242,8 @@ async def _emit_workflow_changed(
     # Development references: #718, ADR-039.
     version = runtime.bump_workflow_version(workflow_id)
     runtime.mark_workflow_first_party_write(workflow_id, version, path=runtime.workflow_path(workflow_id), kind=kind)
+    if path is None:
+        path = runtime.workflow_relative_path(workflow_id)
     payload = runtime.versioned_change_payload(
         entity_class=WORKFLOW_ENTITY_CLASS,
         entity_id=workflow_id,
@@ -385,6 +399,8 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
     except WorkflowIdConflictError as exc:
         # #1836: duplicate workflow id within the project → 409 Conflict
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -395,12 +411,11 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
     source = _request_source(request)
     change = await _emit_workflow_changed(
         runtime,
-        workflow_id=definition.id,
+        workflow_id=body.id,
         changed_by="create",
         source=source,
         source_id=source_id,
         kind="modified" if existed else "created",
-        path=f"workflows/{definition.id}.yaml",
     )
     return _workflow_response(
         definition,
@@ -410,6 +425,7 @@ async def create_workflow(body: WorkflowCreate, runtime: RuntimeDep, request: Re
         kind=change["kind"],
         timestamp=change["timestamp"],
         runtime=runtime,
+        identity=body.id,
     )
 
 
@@ -430,6 +446,7 @@ async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkf
 
     try:
         definition = runtime.load_workflow_by_path(path)
+        identity = runtime.workflow_identity_for_file(path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
@@ -443,8 +460,9 @@ async def get_workflow_by_path(path: str, runtime: RuntimeDep) -> VersionedWorkf
         raise HTTPException(status_code=422, detail=_yaml_error_detail(path, exc)) from exc
     return _workflow_response(
         definition,
-        state_version=runtime.current_workflow_version(definition.id),
+        state_version=runtime.current_workflow_version(identity),
         runtime=runtime,
+        identity=identity,
     )
 
 
@@ -461,6 +479,7 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkfl
     """
     from pydantic import ValidationError
 
+    workflow_id = _canonical_identity(runtime, workflow_id)
     try:
         definition = runtime.load_workflow(workflow_id)
     except FileNotFoundError as exc:
@@ -479,8 +498,9 @@ async def get_workflow(workflow_id: str, runtime: RuntimeDep) -> VersionedWorkfl
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return _workflow_response(
         definition,
-        state_version=runtime.current_workflow_version(definition.id),
+        state_version=runtime.current_workflow_version(workflow_id),
         runtime=runtime,
+        identity=workflow_id,
     )
 
 
@@ -505,6 +525,8 @@ async def update_workflow(
 
     try:
         definition = runtime.save_workflow(body.model_dump())
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         # Cycle detection and other validation errors → 422
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -518,12 +540,11 @@ async def update_workflow(
     source = _request_source(request, changed_by=changed_by)
     change = await _emit_workflow_changed(
         runtime,
-        workflow_id=definition.id,
+        workflow_id=workflow_id,
         changed_by=changed_by,
         source=source,
         source_id=source_id,
         kind="modified",
-        path=f"workflows/{definition.id}.yaml",
     )
     return _workflow_response(
         definition,
@@ -533,6 +554,7 @@ async def update_workflow(
         kind=change["kind"],
         timestamp=change["timestamp"],
         runtime=runtime,
+        identity=workflow_id,
     )
 
 
@@ -618,7 +640,6 @@ async def delete_workflow(workflow_id: str, runtime: RuntimeDep, request: Reques
         source=source,
         source_id=source_id,
         kind="deleted",
-        path=f"workflows/{workflow_id}.yaml",
     )
 
 
@@ -740,7 +761,7 @@ async def execute_from_workflow(
     lineage_store = getattr(runtime, "lineage_store", None)
     if lineage_store is not None:
         try:
-            recent = lineage_store.list_runs(workflow_id=workflow_id, limit=1)
+            recent = lineage_store.list_runs(workflow_id=_canonical_identity(runtime, workflow_id), limit=1)
             if recent:
                 parent_run_id = recent[0].get("run_id")
         except Exception:

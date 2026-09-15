@@ -1,0 +1,225 @@
+{
+  "base_ref": null,
+  "branch": "fix/2394-workflow-run-identity",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/workflow/identity.py",
+      "src/scistudio/api/runtime/_runs.py",
+      "src/scistudio/api/runtime/_workflows.py",
+      "src/scistudio/api/runtime/_file_writes.py",
+      "src/scistudio/api/routes/workflows.py",
+      "src/scistudio/api/schemas.py",
+      "src/scistudio/ai/agent/mcp/tools_workflow/**",
+      "src/scistudio/engine/**",
+      "src/scistudio/core/lineage/**",
+      "frontend/src/**",
+      "tests/**",
+      "docs/user-guide/**",
+      "docs/specs/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T05:51:17.837619Z",
+      "owner_directive": "Protected-path changes to src/scistudio/engine/**, src/scistudio/core/**, src/scistudio/workflow/** are authorised for this PR.",
+      "reason": "init"
+    },
+    {
+      "at": "2026-09-15T05:51:17.837784Z",
+      "owner_directive": "Run-level identity (run_id + project on events, cross-project detached runs, MCP run addressing) is out of scope for this PR.",
+      "reason": "init"
+    },
+    {
+      "at": "2026-09-15T06:12:11.176183Z",
+      "owner_directive": "Update the docs that state workflow identity rules (agent reference / skill lines that say id must equal filename; spec docs describing workflow identity).",
+      "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T06:16:30.695693Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_agent_reference/workflow-schema.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695825Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695828Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-044-subworkflow-block.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2394,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Fix the stem-vs-YAML-id workflow identity split with option A3: canonical identity from the workflow file used everywhere at run time; subworkflow tabs save/run by path; GUI rename/move rewrites the YAML id.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2394-workflow-run-identity",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:12:11.176339Z",
+      "pattern": "src/scistudio/api/runtime/__init__.py",
+      "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:12:11.176352Z",
+      "pattern": "src/scistudio/_agent_reference/workflow-schema.md",
+      "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:12:11.176356Z",
+      "pattern": "src/scistudio/_skills/scistudio/scistudio-build-workflow/SKILL.md",
+      "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:12:11.176357Z",
+      "pattern": "docs/specs/adr-044-subworkflow-block.md",
+      "reason": "Identity helpers are bound on the runtime; agent reference, build-workflow skill and ADR-044 spec state the old id-resolves-file rule"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:13:29.925074Z",
+      "pattern": "src/scistudio/plot/targets.py",
+      "reason": "Plot target overlay keyed runs by stem plus declared id, so a copy read the original's run"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T06:13:55.114178Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "Tutorial product state scoped runs by declared id; runs are filed under the file identity"
+    }
+  ],
+  "session_id": "81aa9e09-26ae-49c1-9ef4-ce85fc066b10",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T06:16:30.695831Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_workflow_run_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695835Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/workflow/test_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695836Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_workflow.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695837Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_active_workflow_context.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695843Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_plot_workflow_identity.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695844Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_runtime_subworkflow_flatten.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695845Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/store/__tests__/workflowRunIdentity.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695846Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/lib/__tests__/workflowIdentity.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695848Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/useWorkflowSync.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T06:16:30.695849Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/useWorkflowExecutionActions.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

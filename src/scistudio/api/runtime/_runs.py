@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import dataclasses
 import logging
 import os
 from datetime import UTC
@@ -431,6 +432,13 @@ def start_workflow(
     # Development references: #2033, ADR-038, ADR-039, Addendum 1.
     from .models import WorkflowRun
 
+    # #2394 (owner decision A3): the run is identified by its workflow FILE,
+    # never by the YAML ``id:``. Canonicalise the requested identity once, here,
+    # and use it for the guard, lineage, checkpoint, logs and — by setting it on
+    # the in-memory definition below — every engine component that reads
+    # ``workflow.id`` (event filter, process registry, output directory).
+    workflow_id = self.canonical_workflow_identity(workflow_id)
+
     # #1525 short-term guard: reject starting a second scheduler for a
     # workflow whose previous run is still live. Without this, the old
     # asyncio.Task / DAGScheduler is never cancelled and keeps racing the new
@@ -494,6 +502,15 @@ def start_workflow(
         )
 
     workflow = self.load_workflow(workflow_id)
+    if workflow.id != workflow_id:
+        # Loading never rewrites the file: a copied, renamed or id-less file runs
+        # under its file identity while its declared ``id:`` stays on disk.
+        logger.info(
+            "#2394: workflow file %s declares id %r; running it as %r",
+            self.workflow_relative_path(workflow_id),
+            workflow.id,
+            workflow_id,
+        )
 
     # ADR-044 §4 / FR-003: inline-flatten every SubWorkflowBlock reference into
     # the parent DAG *before* validation and dispatch. This is the sole call
@@ -539,6 +556,8 @@ def start_workflow(
     # ADR-044 FR-010: validation runs on the flattened graph and hard-rejects
     # any ``subworkflow_broken`` marker left by an unresolved reference.
     from scistudio.workflow.validator import validate_workflow
+
+    workflow = dataclasses.replace(workflow, id=workflow_id)
 
     # ``project_dir`` (#1967): the persisted graph never carries a project root —
     # the scheduler injects one at dispatch, well after this call — so without it
