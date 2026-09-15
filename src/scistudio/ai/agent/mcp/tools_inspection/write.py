@@ -135,8 +135,23 @@ async def update_block_config(
                 target["config"] = patch
                 config_node = target["config"]
             else:
+                # An explicit ``params`` key still replaces ``config.params`` as a whole.
+                if "params" in patch:
+                    config_node["params"] = patch["params"]
+                nested = config_node.get("params")
                 for key, value in patch.items():
-                    config_node[key] = value
+                    if key == "params":
+                        continue
+                    if isinstance(nested, dict):
+                        # #2403: a GUI-saved node nests its params under
+                        # ``config.params``. Patch them there, and drop a
+                        # same-named top-level key the nested value would
+                        # shadow, so the node keeps one shape.
+                        nested[key] = value
+                        if key in config_node:
+                            del config_node[key]
+                    else:
+                        config_node[key] = value
             if memory_patch is not _MISSING:
                 _write_interactive_memory(config_node, memory_patch)
             elif isinstance(patch.get("params"), dict) and INTERACTIVE_MEMORY_KEY in patch["params"]:
