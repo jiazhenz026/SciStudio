@@ -41,7 +41,7 @@ window, follow [Install a provider](ai-assistant.md#before-you-start-install-a-p
 | [writing-blocks.md](writing-blocks.md) | Write a custom block from scratch |
 | [custom-types.md](custom-types.md) | Make your own data type when the built-in ones do not fit |
 | [writing-plots.md](writing-plots.md) | Write a quick preview-only plot of a result |
-| [examples/](examples/) | A copy-paste worked example for each kind of block |
+| [examples/](examples/) | Worked, runnable examples for every authoring surface: blocks, types, panels, plots, and workflows |
 
 ## How this guide works
 

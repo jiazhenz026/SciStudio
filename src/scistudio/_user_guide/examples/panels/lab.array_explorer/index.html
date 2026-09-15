@@ -1,0 +1,184 @@
+<link rel="stylesheet" href="../../sdk/1/panel.css" />
+<style>
+  /* Fixed column geometry for the value table. */
+  .panel-table { table-layout: fixed; }
+  .panel-table td,
+  .panel-table thead th { width: 52px; min-width: 52px; max-width: 52px; overflow: hidden; text-overflow: ellipsis; text-align: right; font-variant-numeric: tabular-nums; }
+  .panel-table th.panel-table-corner,
+  .panel-table tbody th { width: 40px; min-width: 40px; max-width: 40px; text-align: right; opacity: 0.6; }
+  .ax-threshold { font-variant-numeric: tabular-nums; }
+  .ax-result { font-variant-numeric: tabular-nums; opacity: 0.85; }
+</style>
+<div id="root"></div>
+<script src="../../sdk/1/scistudio-panel.js"></script>
+<script type="module">
+  import {
+    html, render, useCallback, useEffect, useMemo, useRef, useState,
+  } from "../../lib/preact-htm@3.1.1/dist/preact-standalone.module.js";
+  import {
+    Card, ErrorState, Field, Input, Legend, LoadingState, Meta, Panel, ScrollArea, Table,
+  } from "../../sdk/1/panel-ui.js";
+
+  const api = window.scistudio;
+
+  // ---- value formatting and heatmap colour.
+  const SENTINELS = { NaN: "NaN", Infinity: "∞", "-Infinity": "-∞" };
+  const numeric = (v) => (typeof v === "number" && isFinite(v) ? v : null);
+  function formatCell(v) {
+    if (v in SENTINELS) return SENTINELS[v];
+    if (v === null || v === undefined) return "—";
+    if (typeof v !== "number") return String(v);
+    if (!isFinite(v)) return Number.isNaN(v) ? "NaN" : v > 0 ? "∞" : "-∞";
+    if (v === 0) return "0";
+    const abs = Math.abs(v);
+    if (Number.isInteger(v) && abs < 1e6) return String(v);
+    if (abs >= 1e5 || abs < 1e-3) return v.toExponential(2);
+    return v.toFixed(3);
+  }
+  const lerp = (a, b, t) => Math.round(a + (b - a) * t);
+  function heatmapColor(v, vmin, vmax) {
+    const n = numeric(v);
+    if (n === null || typeof vmin !== "number" || typeof vmax !== "number") return "transparent";
+    if (vmin < 0 && vmax > 0) {
+      const mag = Math.max(Math.abs(vmin), Math.abs(vmax)) || 1;
+      const t = Math.max(-1, Math.min(1, n / mag));
+      if (t < 0) { const k = -t; return `rgb(${lerp(247, 33, k)}, ${lerp(247, 102, k)}, ${lerp(247, 172, k)})`; }
+      return `rgb(${lerp(247, 178, t)}, ${lerp(247, 24, t)}, ${lerp(247, 43, t)})`;
+    }
+    const span = vmax - vmin || 1;
+    const s = Math.max(0, Math.min(1, (n - vmin) / span));
+    return `rgb(${lerp(247, 8, s)}, ${lerp(252, 64, s)}, ${lerp(253, 129, s)})`;
+  }
+  function cellTextColor(v, vmin, vmax) {
+    const n = numeric(v);
+    if (n === null) return "rgb(var(--ink) / 0.4)";
+    const mag = vmin < 0 && vmax > 0 ? Math.max(Math.abs(vmin), Math.abs(vmax)) || 1 : vmax - vmin || 1;
+    const intensity = vmin < 0 && vmax > 0 ? Math.abs(n) / mag : (n - vmin) / mag;
+    return intensity > 0.6 ? "#fffdf8" : "rgb(var(--ink))";
+  }
+
+  // ---- N-D slice controls: one index per non-displayed axis (re-reads the plane).
+  function SliceAxes({ sliceAxes, indices, onChange }) {
+    if (!sliceAxes.length) return null;
+    return sliceAxes.map((ax) => {
+      const last = Math.max(0, ax.size - 1);
+      const value = indices[ax.axis] ?? ax.index;
+      const clamp = (raw) => Math.max(0, Math.min(Math.round(isFinite(raw) ? raw : 0), last));
+      return html`<${Field} key=${ax.axis} name=${`${ax.name} (${ax.size})`} readout=${`${value} / ${last}`}>
+        <${Input} class="panel-field-range" type="range" min="0" max=${last} step="1" value=${value}
+          aria-label=${`Slice along ${ax.name}`}
+          onInput=${(e) => onChange(ax.axis, clamp(parseFloat(e.target.value)))} />
+        <${Input} number type="number" min="0" max=${last} value=${value}
+          aria-label=${`Index along ${ax.name}`}
+          onInput=${(e) => onChange(ax.axis, clamp(parseFloat(e.target.value)))} />
+      <//>`;
+    });
+  }
+
+  function App() {
+    const [summary, setSummary] = useState(null);
+    const [plane, setPlane] = useState(null);
+    const [indices, setIndices] = useState({});
+    const [sliderPct, setSliderPct] = useState(50);
+    const [frac, setFrac] = useState(null);
+    const [error, setError] = useState(null);
+    const planeReq = useRef(0);
+
+    const fail = useCallback((e) => { const m = e?.message || String(e); setError(m); api.reportError(m); }, []);
+
+    // Summary once (drives the threshold range and the facts strip).
+    useEffect(() => { api.call("summary", {}).then(setSummary).catch(fail); }, [fail]);
+
+    // Read the plane on mount and whenever a slice index changes.
+    useEffect(() => {
+      const req = ++planeReq.current;
+      const keys = Object.keys(indices);
+      const slice = keys.length ? indices[keys[0]] : 0;
+      api.read("array.plane", { slice_index: slice, axis_indices: indices })
+        .then((p) => { if (req === planeReq.current) { setPlane(p); setError(null); } })
+        .catch((e) => { if (req === planeReq.current) fail(e); });
+    }, [indices, fail]);
+
+    const lo = summary ? summary.min : 0;
+    const hi = summary ? summary.max : 1;
+    const threshold = lo + ((hi - lo) * sliderPct) / 100;
+
+    // Fraction above, recomputed in panel.py over the FULL array. One call at a
+    // time; if the slider moved again meanwhile, re-read its latest value.
+    const inflight = useRef(false);
+    const pct = useRef(sliderPct);
+    pct.current = sliderPct;
+    const runFraction = useCallback(async () => {
+      if (inflight.current || !summary) return;
+      inflight.current = true;
+      try {
+        let sent;
+        do {
+          sent = pct.current;
+          const th = lo + ((hi - lo) * sent) / 100;
+          setFrac(await api.call("fraction_above", { threshold: th }));
+        } while (sent !== pct.current);
+      } catch (e) { fail(e); } finally { inflight.current = false; }
+    }, [summary, lo, hi, fail]);
+    useEffect(() => { runFraction(); }, [sliderPct, runFraction]);
+
+    if (error) return html`<${Panel}><${ErrorState}>Could not read array: ${error}<//><//>`;
+    if (!summary || !plane) return html`<${Panel}><${LoadingState}>Loading array…<//><//>`;
+
+    const vmin = typeof plane.vmin === "number" ? plane.vmin : lo;
+    const vmax = typeof plane.vmax === "number" ? plane.vmax : hi;
+    const values = plane.values || [];
+    const rows = values.length, cols = rows ? values[0].length : 0;
+    const sliceAxes = plane.slice_axes ?? [];
+
+    const items = ["Array", `shape [${summary.shape.join(", ")}]`, `dtype ${summary.dtype}`,
+      `range ${formatCell(summary.min)} … ${formatCell(summary.max)}`];
+
+    const stops = Array.from({ length: 9 }, (_, i) => heatmapColor(vmin + ((vmax - vmin) * i) / 8, vmin, vmax));
+
+    return html`<${Panel}>
+      <${Meta} items=${items} />
+      <${SliceAxes} sliceAxes=${sliceAxes} indices=${indices}
+        onChange=${(axis, idx) => setIndices((p) => (p[axis] === idx ? p : { ...p, [axis]: idx }))} />
+
+      <${Field} name="Threshold" readout=${html`<span class="ax-threshold">${formatCell(threshold)}</span>`}>
+        <${Input} class="panel-field-range" type="range" min="0" max="100" step="1" value=${sliderPct}
+          aria-label="Threshold"
+          onInput=${(e) => setSliderPct(Number(e.target.value))} />
+      <//>
+      <div class="ax-result">${frac
+        ? `${frac.above.toLocaleString()} of ${frac.total.toLocaleString()} above — ${(frac.fraction * 100).toFixed(2)}%`
+        : "…"}</div>
+
+      <${ScrollArea}>
+        <${Table}>
+          <thead><tr><th class="panel-table-corner"></th>
+            ${values[0]?.map((_, c) => html`<th key=${c}>${c}</th>`)}
+          </tr></thead>
+          <tbody>
+            ${values.map((row, r) => html`<tr key=${r}><th>${r}</th>
+              ${row.map((v, c) => {
+                const n = numeric(v);
+                const above = n !== null && n > threshold;
+                // Above the threshold: the value's heatmap colour. At or below it:
+                // greyed, so dragging the threshold lights up the kept region.
+                const bg = above ? heatmapColor(v, vmin, vmax) : "rgba(127,127,127,0.16)";
+                const fg = above ? cellTextColor(v, vmin, vmax) : "rgb(var(--ink) / 0.45)";
+                return html`<td key=${c} title=${n === null ? "non-finite" : String(v)}
+                  style=${`background:${bg};color:${fg}`}>${formatCell(v)}</td>`;
+              })}
+            </tr>`)}
+          </tbody>
+        <//>
+      <//>
+      <${Legend} min=${formatCell(vmin)} mid=${formatCell(vmin < 0 && vmax > 0 ? 0 : (vmin + vmax) / 2)} max=${formatCell(vmax)} stops=${stops} />
+      <div class="panel-hint">
+        ${summary.shape.join(" × ")}${plane.sampled || plane.truncated ? ` | showing a sampled ${rows} × ${cols} view (percentage is over every element)` : ` | displaying ${rows} × ${cols}`}
+      </div>
+    <//>`;
+  }
+
+  api.ready()
+    .then(() => render(html`<${App} />`, document.getElementById("root")))
+    .catch((e) => api.reportError(String(e?.message || e)));
+</script>

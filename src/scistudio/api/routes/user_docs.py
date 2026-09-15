@@ -180,11 +180,11 @@ def _sort_key(name: str, *, is_dir: bool) -> tuple[int, int, str]:
 def _nav_of(directory: Traversable, prefix: str) -> list[DocsNavItem]:
     """Build the navigation for one directory, recursively.
 
-    Only Markdown files become rows. The example directories' ``block.py`` and
-    ``accucor.R`` are absent here for the same reason they are absent from the
-    published sidebar: MkDocs navigates pages and copies everything else, so
-    those files are reached through the page that links them, not through the
-    menu.
+    Only Markdown files become rows. The example directories' sources
+    (``block.py``, ``panel.js``, ``render.py``) are absent here for the same
+    reason they are absent from the published sidebar: MkDocs navigates pages
+    and copies everything else, so those files are reached through the page
+    that links them, not through the menu.
     """
     entries = sorted(
         ((child.name, child) for child in directory.iterdir() if not child.name.startswith((".", "__"))),

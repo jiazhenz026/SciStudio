@@ -39,8 +39,10 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (0, "page", "Getting started with SciStudio"),
     (0, "page", "Run history and branches"),
     (0, "page", "How SciStudio works"),
+    (0, "page", "The Learning Center"),
     (0, "page", "MiniApps: explore a result interactively"),
-    (0, "page", "Using the canvas: build, run, preview"),
+    (0, "page", "Panels: the three ways SciStudio shows data"),
+    (0, "page", "The SciStudio window"),
     (0, "page", "Using SciStudio in your AI app"),
     (0, "page", "Writing a block"),
     (0, "page", "Writing a plot"),
@@ -65,14 +67,32 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (1, "page", "Workflow yaml"),
     (0, "section", "Examples"),
     (1, "page", "Examples"),
-    (1, "section", "App fiji"),
-    (2, "page", "AppBlock example — run a Fiji macro"),
-    (1, "section", "Code accucor r"),
-    (2, "page", "CodeBlock example — run an R script (AccuCor)"),
-    (1, "section", "Io load npy"),
-    (2, "page", "IOBlock example — a custom .npy loader"),
-    (1, "section", "Process scale array"),
-    (2, "page", "ProcessBlock example — normalize table columns"),
+    (1, "section", "Blocks"),
+    (2, "section", "App fiji"),
+    (3, "page", "AppBlock example — run a Fiji macro"),
+    (2, "section", "Interactive data router"),
+    (3, "page", "Interactive block example — the Data Router"),
+    (2, "section", "Io load tiff"),
+    (3, "page", "IOBlock example — a custom TIFF loader"),
+    (2, "section", "Process segment cells"),
+    (3, "page", "ProcessBlock example — segment a micrograph"),
+    (1, "section", "Panels"),
+    (2, "section", "Core.array.basic"),
+    (3, "page", "Preview panel example — the built-in Array panel"),
+    (2, "section", "Core.interactive.data router"),
+    (3, "page", "Interactive panel example — the Data Router window"),
+    (2, "section", "Lab.array explorer"),
+    (3, "page", "MiniApp example — an Array explorer"),
+    (1, "section", "Plots"),
+    (2, "section", "Cell size histogram"),
+    (3, "page", "Plot example — a cell-size histogram"),
+    (1, "section", "Types"),
+    (2, "section", "Anndata"),
+    (3, "page", "Type example — an AnnData composite type"),
+    (2, "section", "Image"),
+    (3, "page", "Type example — an Image type"),
+    (1, "section", "Workflows"),
+    (2, "page", "Workflow example — load and segment"),
 )
 
 
@@ -130,7 +150,7 @@ class TestNavigation:
     def test_lists_only_markdown_pages(self, nav: dict) -> None:
         """An example's sources are linked from its page, not from the menu."""
         assert all(path.endswith(".md") for path in _paths(nav["items"]))
-        assert "examples/app-fiji/block.py" not in _paths(nav["items"])
+        assert "examples/blocks/app-fiji/block.py" not in _paths(nav["items"])
 
     def test_every_listed_page_can_be_opened(self, client: TestClient, nav: dict) -> None:
         for path in _paths(nav["items"]):
@@ -167,7 +187,7 @@ class TestPages:
 
     def test_serves_a_linked_source_file_verbatim(self, client: TestClient) -> None:
         """The site copies these beside the page that links them; so does this."""
-        response = client.get("/api/user-docs/pages/examples/app-fiji/block.py")
+        response = client.get("/api/user-docs/pages/examples/blocks/app-fiji/block.py")
 
         assert response.status_code == 200
         body = response.json()
@@ -177,7 +197,7 @@ class TestPages:
 
     @pytest.mark.parametrize(
         "path",
-        ["examples/", "examples/app-fiji/", "api-reference/"],
+        ["examples/", "examples/blocks/app-fiji/", "api-reference/"],
         ids=["examples", "one example", "reference"],
     )
     def test_a_directory_serves_its_index_page(self, client: TestClient, path: str) -> None:
@@ -265,5 +285,5 @@ class TestContainment:
 
     def test_the_pages_the_guide_really_links_to_still_open(self, client: TestClient) -> None:
         """The refusal is of separators, not of the tree's own shape."""
-        for path in ("README.md", "examples/app-fiji/block.py", "api-reference/index.md"):
+        for path in ("README.md", "examples/blocks/app-fiji/block.py", "api-reference/index.md"):
             assert client.get(f"/api/user-docs/pages/{path}").status_code == 200, path
