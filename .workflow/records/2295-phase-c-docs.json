@@ -340,6 +340,76 @@
       "at": "2026-09-15T11:09:29.597453Z",
       "owner_directive": "Merge the latest origin/main (adds a new MiniApp MCP tool) before revising write-panel and write-miniapp.",
       "reason": "sync main before panel skills"
+    },
+    {
+      "at": "2026-09-15T11:10:34.687385Z",
+      "owner_directive": "Sync ARCHITECTURE.md \u00a77 MCP tool count and table with list_miniapps from main (54 tools, 40 on every path).",
+      "reason": "architecture tool count after merging #2444"
+    },
+    {
+      "at": "2026-09-15T11:11:48.658315Z",
+      "owner_directive": "Sync ARCHITECTURE.md with the latest main changes (list_miniapps, deprecated marker, generated panel reference); then show the original write-panel skill.",
+      "reason": "architecture sync after merging main"
+    },
+    {
+      "at": "2026-09-15T11:13:58.739367Z",
+      "owner_directive": "write-panel: keep the opening; section 1 says what a panel is then the four-row routing table; use the seven-section structure with separate steps for writing an interactive panel and a preview panel.",
+      "reason": "write-panel skill revision"
+    },
+    {
+      "at": "2026-09-15T11:16:15.891536Z",
+      "owner_directive": "Owner will rename list_miniapps to list_panels and include each panel's kind (preview/interactive/MiniApp); update all docs now to use list_panels. Dependency: docs describe list_panels ahead of the owner's code change.",
+      "reason": "list_panels rename documented ahead of code"
+    },
+    {
+      "at": "2026-09-15T11:23:07.067468Z",
+      "owner_directive": "write-panel section 4 rules: (1) an interactive panel must give the user a way to submit the decision, e.g. a Submit button; (2) a panel showing data presents it as it is unless the user asks otherwise (an Image drawn as an image, an Array as an array); (3) use existing prebuilt UI components where possible; (4) panels must look good: colorful, user friendly, simple and intuitive.",
+      "reason": "write-panel UX rules"
+    },
+    {
+      "at": "2026-09-15T11:24:43.841977Z",
+      "owner_directive": "Writing a new preview panel for a type that already has one is not an anti-pattern; users may want a different panel.",
+      "reason": "write-panel anti-pattern correction"
+    },
+    {
+      "at": "2026-09-15T11:31:15.547888Z",
+      "owner_directive": "Revise scistudio-write-miniapp as the last skill, in the seven-section structure.",
+      "reason": "write-miniapp skill revision"
+    },
+    {
+      "at": "2026-09-15T11:35:56.826901Z",
+      "owner_directive": "Investigate whether the AI can currently read results from a questionnaire UI page (MiniApp asks questions first, user submits, AI rebuilds), and consider providing common Q&A UI component templates.",
+      "reason": "MiniApp questionnaire investigation"
+    },
+    {
+      "at": "2026-09-15T11:41:53.836410Z",
+      "owner_directive": "Dispatch an agent (own issue/worktree/gate/PR) to implement a standard set of MiniApp questionnaire components (every answer optional, each with a 'decide for me' option), an SDK submit that writes answers and notifies the MiniApp's agent session, and a way to check an AI-written questionnaire actually works. write-miniapp skill: first quickly read the user's first-round input, assemble a questionnaire from the standard components with alternative answers, and wait for the second-round answers. Dependency: skill describes the questionnaire API ahead of that PR.",
+      "reason": "MiniApp questionnaire flow"
+    },
+    {
+      "at": "2026-09-15T11:44:49.711745Z",
+      "owner_directive": "Questionnaire PR also provides a waiting tool for WebMCP mode; timeout length does not matter, but its description tells the AI that if the user does not finish in time it must tell the user its watch timed out and ask the user to say so after submitting.",
+      "reason": "WebMCP questionnaire wait tool"
+    },
+    {
+      "at": "2026-09-15T11:46:44.392714Z",
+      "owner_directive": "Every questionnaire the AI writes must actually work; when it does not, the check reports errors so the agent fixes it.",
+      "reason": "questionnaire check must report errors"
+    },
+    {
+      "at": "2026-09-15T11:49:37.776781Z",
+      "owner_directive": "Rewrite write-miniapp section 1 opening paragraph to match the README and ARCHITECTURE framing of MiniApps (exploration and interaction).",
+      "reason": "write-miniapp framing"
+    },
+    {
+      "at": "2026-09-15T11:53:51.492267Z",
+      "owner_directive": "Replace the write-miniapp threshold example with the owner-tested MiniApp lab.array_explorer from the adr054-tests project.",
+      "reason": "tested MiniApp example"
+    },
+    {
+      "at": "2026-09-15T11:56:27.877618Z",
+      "owner_directive": "list_panels has merged to main; merge main and update the skills that reference it to match the real tool.",
+      "reason": "sync list_panels"
     }
   ],
   "docs_events": [],

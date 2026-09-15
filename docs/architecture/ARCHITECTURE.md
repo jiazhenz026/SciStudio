@@ -1559,7 +1559,7 @@ state, and event bus context that the backend uses. This is why MCP calls can
 validate workflows, reload blocks, start runs, inspect lineage, and reflect live
 runtime state instead of operating as disconnected file edits.
 
-The production MCP surface contains 53 tools. The 39 tools below are visible on
+The production MCP surface contains 54 tools. The 40 tools below are visible on
 every path; the 14 external-audience workspace, command, and context tools of
 §7.4 are visible only through the WebMCP bridge. One tool below,
 `screenshot_gui`, returns an image of the desktop application and works only
@@ -1600,6 +1600,7 @@ unsupported, since a WebMCP host accepts text results.
 | Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_plot</code> | Validate a plot manifest and its script. | Read |
 | Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;run_plot_job</code> | Run a plot job preview-side and write display-only artifacts. | Write |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_panel</code> | Check one panel or MiniApp directory the way discovery checks it and return its diagnostics, without running the page. | Read |
+| Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;list_panels</code> | List the panels that already exist across tiers with each one's kind (preview panel, interactive panel, or MiniApp), optionally for one data type, and the panel folders that failed discovery. | Read |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;open_miniapp</code> | Ask the open workspace to open a MiniApp tab on a block output. | Write |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;screenshot_gui</code> | Capture the rendered desktop workspace or the visible MiniApp as an image, with its observed state. Local transport only. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;search_docs</code> | Search the project directory's Markdown, reStructuredText, and text files. | Read |
@@ -2288,7 +2289,8 @@ of the sidebar, the New menu, a block's detail popover, or the AI chat (§9.4,
 creates the MiniApp's folder from a template in the project, opens it in a tab,
 and starts an agent session with a brief built from the answers. The workspace
 watches the folder, so the tab reloads as the agent writes the page and
-`panel.py`. From the chat, the agent writes the folder, checks it with
+`panel.py`. From the chat, the agent first looks for an existing MiniApp for that
+data with `list_panels`, then writes the folder, checks it with
 `validate_panel`, and opens it with `open_miniapp` (§7.5).
 
 **Where it opens.** A MiniApp opens as a tab in the centre of the workspace, on
@@ -2851,9 +2853,11 @@ decorators in `scistudio.stability` (no-ops at runtime that attach metadata):
 | `provisional` | Usable but still settling; may change in a minor release with a changelog note. |
 | `internal` | No promise; may change or vanish in any release. Excluded from the public surface and the reference. |
 
-`Since` records the version a symbol first became public. A `stable` symbol is
-removed only after at least one minor release marked deprecated; this keeps the
-contract evolvable without surprise breakage.
+`Since` records the version a symbol first became public. A symbol on its way
+out also carries `deprecated`, which records since when, the release that removes
+it, and its replacement, without changing its tier. A `stable` symbol is removed
+only after at least one minor release marked deprecated; this keeps the contract
+evolvable without surprise breakage.
 
 #### 13.6.3 Packages Obey The Same Boundary
 
@@ -2872,6 +2876,9 @@ the inherited `to_pandas` / `to_numpy`.
 The author-facing API reference is **generated** from docstrings and the
 stability decorators, emitting only the declared public surface with its tier and
 `Since` rendered automatically, so the reference cannot drift from the code. The
+same generator renders the contracts that are not Python: the workflow YAML file
+format from its schema, and the panel contract (the panel SDK, its components and
+data views, and `panel.json`) from the panel sources. The
 contract itself is a versioned promise: the public surface is captured in a
 committed snapshot and freeze-tested, so an accidental change to the surface fails
 CI while an intentional one is a reviewable diff tied to the deprecation policy.
