@@ -58,6 +58,7 @@ export function PermissionModePicker({
     >
       <legend className="text-sm font-medium text-ink">Permission mode</legend>
       <div
+        id={`setup-permission-${tabId}`}
         role="radiogroup"
         aria-label="Permission mode"
         className="flex w-full overflow-hidden rounded-2xl border border-stone-300"
