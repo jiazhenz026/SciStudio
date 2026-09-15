@@ -410,6 +410,61 @@
       "at": "2026-09-15T11:56:27.877618Z",
       "owner_directive": "list_panels has merged to main; merge main and update the skills that reference it to match the real tool.",
       "reason": "sync list_panels"
+    },
+    {
+      "at": "2026-09-15T11:59:51.004226Z",
+      "owner_directive": "Start the agent reference pass: turn workflow-schema.md into a route to the generated workflow-yaml.md, moving agent-only tool facts into scistudio-build-workflow.",
+      "reason": "agent reference pass"
+    },
+    {
+      "at": "2026-09-15T12:03:55.434409Z",
+      "owner_directive": "Do not teach subworkflows to the AI: rarely used and possibly buggy.",
+      "reason": "subworkflow scope decision"
+    },
+    {
+      "at": "2026-09-15T12:08:32.628192Z",
+      "owner_directive": "Every agent reference page uses two sections: 1 routing reference, 2 rules as bullet points of two sentences each (so an agent that skims a skill still sees the rules). Start with block-contract.md, including the gaps found (config_schema MRO merge, prepare_prompt details, MiniApp conversion checks, subcategory/type_name, data read/construct, collection helper choice) and dropping stale previewers entry point and module_url.",
+      "reason": "agent reference structure"
+    },
+    {
+      "at": "2026-09-15T12:12:42.106296Z",
+      "owner_directive": "Teach the AI how to slice/chunk reads and writes for GB-scale data (block-contract and workflow-schema); add rules to workflow-schema too; complete what can be completed; write-block must strongly forbid DataObject as an input/output port type and require the most fitting data type.",
+      "reason": "large data and port type rules"
+    },
+    {
+      "at": "2026-09-15T12:16:09.032999Z",
+      "owner_directive": "Next agent reference page: data-types.md in the routing + rules structure.",
+      "reason": "data-types reference"
+    },
+    {
+      "at": "2026-09-15T12:19:16.359276Z",
+      "owner_directive": "Add a new scistudio-write-type skill now (seven-section structure), wired into provisioning, AGENTS.md index, tests, and the architecture skill table.",
+      "reason": "new write-type skill"
+    },
+    {
+      "at": "2026-09-15T12:23:21.210132Z",
+      "owner_directive": "Writing a data type must include writing the matching IO block that reads the type; never leave a type with no way to load it.",
+      "reason": "type requires IO block"
+    },
+    {
+      "at": "2026-09-15T12:24:45.328343Z",
+      "owner_directive": "Use the what-is-a-type tutorial assets (types/image.py, blocks/load_tiff_image.py) as the write-type skill examples.",
+      "reason": "tested tutorial examples"
+    },
+    {
+      "at": "2026-09-15T12:26:02.832140Z",
+      "owner_directive": "Add a short Meta metadata example back to the write-type skill.",
+      "reason": "Meta example"
+    },
+    {
+      "at": "2026-09-15T12:27:21.594723Z",
+      "owner_directive": "Update tests, references, and other docs so the new scistudio-write-type skill is fully integrated.",
+      "reason": "write-type integration"
+    },
+    {
+      "at": "2026-09-15T12:52:35.286343Z",
+      "owner_directive": "Commit the current work, then continue with the next agent reference page.",
+      "reason": "checkpoint commit"
     }
   ],
   "docs_events": [],

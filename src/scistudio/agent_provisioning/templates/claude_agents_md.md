@@ -56,6 +56,7 @@ Load the matching skill before the work:
 
 - `scistudio-build-workflow` — build or change a workflow.
 - `scistudio-write-block` — write a custom or interactive block.
+- `scistudio-write-type` — define a custom data type.
 - `scistudio-write-miniapp` — build a MiniApp to explore data interactively.
 - `scistudio-write-panel` — write a preview panel or an interactive decision page.
 - `scistudio-write-plot` — draw a figure from a block output.

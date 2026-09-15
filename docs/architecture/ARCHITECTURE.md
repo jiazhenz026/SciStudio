@@ -1600,7 +1600,7 @@ unsupported, since a WebMCP host accepts text results.
 | Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_plot</code> | Validate a plot manifest and its script. | Read |
 | Plot | <code>mcp&#95;&#95;scistudio&#95;&#95;run_plot_job</code> | Run a plot job preview-side and write display-only artifacts. | Write |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;validate_panel</code> | Check one panel or MiniApp directory the way discovery checks it and return its diagnostics, without running the page. | Read |
-| Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;list_panels</code> | List the panels that already exist across tiers with each one's kind (preview panel, interactive panel, or MiniApp), optionally for one data type, and the panel folders that failed discovery. | Read |
+| Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;list_panels</code> | List the panels that already exist across tiers with each one's kinds (preview, interactive, MiniApp), filtered by kind and data type, and the panel folders that failed discovery. | Read |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;open_miniapp</code> | Ask the open workspace to open a MiniApp tab on a block output. | Write |
 | Panels | <code>mcp&#95;&#95;scistudio&#95;&#95;screenshot_gui</code> | Capture the rendered desktop workspace or the visible MiniApp as an image, with its observed state. Local transport only. | Read |
 | Project QA | <code>mcp&#95;&#95;scistudio&#95;&#95;search_docs</code> | Search the project directory's Markdown, reStructuredText, and text files. | Read |
@@ -1637,6 +1637,7 @@ instructions only when relevant.
 | Base skill | Index of the task skills and the rules that apply to every task. |
 | Workflow building | Turn a user's analysis intent into a valid workflow graph. |
 | Custom block authoring | Reuse existing blocks first, then scaffold new project-specific blocks when needed. |
+| Data type authoring | Reuse registered types first, then define a project data type with its axes, slots, and metadata. |
 | Run debugging | Inspect failed or cancelled runs and suggest concrete repairs. |
 | Data inspection | Explore data references, previews, lineage, and output meaning. |
 | Plot authoring | Write plot cards that render figures from workflow outputs. |

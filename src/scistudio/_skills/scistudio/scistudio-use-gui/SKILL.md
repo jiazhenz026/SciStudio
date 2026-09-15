@@ -125,5 +125,6 @@ side-panel, or computer-use tools.
 |---|---|---|
 | `open_gui` | Returns the address of the running GUI. | First, before opening SciStudio in a browser (not needed when you already run inside its page through WebMCP). |
 | `screenshot_gui` | Captures the SciStudio desktop workspace or a visible MiniApp as an image (local MCP only). | To see the desktop window's current state. |
+| `list_panels` | Lists existing panels; `kind="miniapp"` gives the MiniApps and their `panel_id`s. | To find the MiniApp to open. |
 | `open_miniapp` | Asks the open workspace to open a MiniApp tab on a block output. | To show the user a MiniApp on their data instead of telling them where to click. |
 | `get_active_workflow_context` | Returns the workflow open in the GUI. | To confirm which workflow the user is looking at. |

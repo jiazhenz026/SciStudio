@@ -36,8 +36,10 @@ reach for a richer one only when it genuinely helps the user:
 1. **Check for reuse.** Call `list_blocks`; if a block's ports and config already
    match, use it and stop. Build new only when nothing fits, and say why in the
    new block's docstring.
-2. **Choose types and shape.** Call `list_types` and pick the most specific port
-   types. Decide the shape (§1).
+2. **Choose types and shape.** Call `list_types` and give every input and output
+   port the most fitting registered type (`Image` over `Array`, `DataFrame` over
+   `DataObject`). Using `DataObject` as a port type is forbidden. Decide the shape
+   (§1).
 3. **Scaffold.** Call `scaffold_block(name=..., category=..., input_ports=...,
    output_ports=..., description=...)` and read every entry in `warnings`.
 4. **Write the logic.** Study a similar real block with `list_block_examples` and
@@ -115,8 +117,12 @@ and the config. The block cannot rely on the MiniApp's Python process.
 ## 3. Anti-patterns
 
 - Writing a new block without calling `list_blocks` first.
-- Bare `DataObject` or empty accepted types on a non-generic block; `DataObject`
-  is NOT designed to exist in ANY user-facing blocks.
+- **Using `DataObject` (or an empty type list) as an input or output port type.**
+  This is forbidden in every user-facing block; always use the most fitting
+  registered type.
+- Calling `to_memory()`, `to_numpy()`, or `to_pandas()` on GB-scale data; read it
+  by region or in chunks and write large arrays with `persist_array` (see
+  `block-contract.md`).
 - Importing from a deep module path (`...base.ports`) or an underscore module
   (`_support`); import only from the canonical public roots.
 - Subclassing `AIBlock`, `CodeBlock`, or `SubWorkflowBlock`, which are runtime base
@@ -144,6 +150,15 @@ OutputPort`, `from scistudio.blocks.process import ProcessBlock`,
 `AppBlock`. `code` scaffolds a `ProcessBlock` with a warning; `ai` and
 `subworkflow` are refused, because those steps are built-in blocks configured as
 workflow nodes.
+
+**Large data.** Check the input's size with `inspect_data` before writing the
+logic. When it may not fit in memory (GB-scale images, stacks, or tables), never
+call `to_memory()`, `to_numpy()`, or `to_pandas()` on it: read an `Array` by region
+with `sel(...)` or plane by plane with `iter_over(axis)`, read any type in pieces
+with `slice(...)` or `iter_chunks(chunk_size)`, and stream a large output array with
+`self.persist_array(iterator, shape, dtype)`, wrapping the returned reference as
+`Array(axes=[...], shape=shape, dtype=dtype, storage_ref=ref)`. Process a batch with
+`map_items`, which holds one item at a time.
 
 **IO blocks.** Declare the formats the block reads or writes as format
 capabilities. After `reload_blocks`, core `load_data` / `save_data` select it by
@@ -190,6 +205,7 @@ fix the cause, and rerun. When the block fails inside a workflow run, load
 **Related skills.**
 
 - `scistudio-build-workflow`: adding the new block to a workflow and running it.
+- `scistudio-write-type`: no registered type fits a port.
 - `scistudio-write-panel`: the custom window of an interactive block.
 - `scistudio-write-miniapp`: the user wants to explore a result freely, with no
   single decision to record.

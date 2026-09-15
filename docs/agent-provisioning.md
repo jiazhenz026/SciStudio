@@ -32,9 +32,14 @@ the first time it is created or opened:
       scistudio-debug-run/SKILL.md
       scistudio-inspect-data/SKILL.md
       scistudio-project-qa/SKILL.md
+      scistudio-write-type/SKILL.md
+      scistudio-write-plot/SKILL.md
+      scistudio-write-miniapp/SKILL.md
+      scistudio-write-panel/SKILL.md
+      scistudio-use-gui/SKILL.md
   .agents/skills/                            # mirrored provider-discovered skills
     scistudio/SKILL.md
-    ... (5 more)
+    ... (10 more)
   .codex/
     config.toml                            # project-scope MCP server config
   user-guide/

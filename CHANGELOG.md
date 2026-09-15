@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2295] **A `scistudio-write-type` skill teaches the AI to define a data type.**
+  Every new project provisions it beside the other task skills. It covers reuse
+  through `list_types`, choosing the core base, axis and slot rules, typed
+  metadata, and the required loader, so a new type can always be read into a
+  workflow through core `load_data`.
 - [#2415] **The activity bar can be rearranged.** Drag an icon in the left
   rail to move its section, or focus an icon and press Alt+ArrowUp /
   Alt+ArrowDown. The order is remembered in this browser; right-click the rail

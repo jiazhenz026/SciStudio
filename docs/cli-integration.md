@@ -124,14 +124,13 @@ A packaged directory `src/scistudio/_skills/scistudio/` (per ADR-040 §3.4,
 bundled with the wheel and installed by `scistudio install --skill`)
 containing:
 
-- `SKILL.md` — base identity + thin pointer index to the 7 task-scoped
-  sub-skills.
+- `SKILL.md` — a short router to the project's `AGENTS.md`.
 - `scistudio-build-workflow/SKILL.md`, `scistudio-write-block/SKILL.md`,
-  `scistudio-debug-run/SKILL.md`, `scistudio-inspect-data/SKILL.md`,
-  `scistudio-project-qa/SKILL.md`, `scistudio-write-plot/SKILL.md`
-  (ADR-048 SPEC 2 — preview-only plot authoring),
-  `scistudio-write-miniapp/SKILL.md` (ADR-054 MiniApp FR-028 — MiniApp
-  panel authoring) — JIT-loaded task skills
+  `scistudio-write-type/SKILL.md`, `scistudio-debug-run/SKILL.md`,
+  `scistudio-inspect-data/SKILL.md`, `scistudio-project-qa/SKILL.md`,
+  `scistudio-write-plot/SKILL.md`, `scistudio-write-miniapp/SKILL.md`,
+  `scistudio-write-panel/SKILL.md`, and `scistudio-use-gui/SKILL.md` — the 10
+  JIT-loaded task skills
   with progressive-disclosure semantics (frontmatter `description`
   triggers body load on demand).
 

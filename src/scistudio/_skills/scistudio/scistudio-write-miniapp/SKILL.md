@@ -45,7 +45,8 @@ These are working steps, not separate approval stages.
    the user your watch timed out and ask them to tell you once they have
    submitted. Then read the answers; treat "Decide for me" and unanswered
    questions as yours to choose sensibly.
-4. **Check what already exists.** Call `list_panels` for the data type. When the
+4. **Check what already exists.** Call `list_panels(kind="miniapp",
+   data_type="<type>")`. When the
    user wants to change an existing MiniApp, improve it; when the user wants a
    different app, write a new one.
 5. **Look at the real data.** Use `get_block_output`, `inspect_data`, and
@@ -172,7 +173,7 @@ when a CDN is necessary, pin a version on `cdn.jsdelivr.net`,
 **Tool sequence.**
 
 ```
-list_panels(data_type)                            # existing MiniApps for this type
+list_panels(kind="miniapp", data_type=...)        # existing MiniApps for this type
 get_block_output / inspect_data / preview_data    # the real data
 # write panels/<panel_id>/panel.json, index.html, panel.py
 validate_panel(path="panels/<panel_id>")
@@ -482,7 +483,7 @@ uses.
 
 | Tool | What it does | When to use it |
 |---|---|---|
-| `list_panels` | Lists existing panels with their kind, optionally for one data type, and folders that failed discovery. | Before writing, to find an existing MiniApp; when one does not appear. |
+| `list_panels` | Lists existing panels with their `kinds`, filtered by `kind` and `data_type`, and the folders that failed discovery (`invalid`). | Before writing, to find an existing MiniApp and its `panel_id`; when one does not appear. |
 | `get_block_output` / `inspect_data` / `preview_data` | Resolve and describe real data. | Before choosing the view. |
 | `validate_panel` | Checks one panel folder the way discovery does. | After every change to the folder. |
 | `open_miniapp` | Asks the open workspace to open a MiniApp tab on a block output. | After validation, to show the app on real data. |

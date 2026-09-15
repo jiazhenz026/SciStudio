@@ -58,8 +58,12 @@ unclear and the user wants to try things on a result, offer a MiniApp first
 **Always load and save with the core blocks.** Every read uses `load_data` and
 every write uses `save_data`, configured with `core_type` (the data type) and the
 format: the file extension of the path, or `capability_id` to pick one registered
-format capability explicitly. The MCP tools list the registered format
-capabilities with their `capability_id`s. Both blocks use a port named `data`. Never put a
+format capability explicitly. `get_block_schema` lists the capabilities a block can
+pick under `format_capabilities`; `get_block_config` reports the one a node will
+use and whether the choice is ambiguous. Leave `capability_id` unset when the
+extension decides it, and set it when several formats match;
+`update_block_config` refuses an id that does not fit the direction, data type, and
+extension. Both blocks use a port named `data`. Never put a
 package IO block or a self-written IO block in the workflow as its own node.
 
 The core blocks route to whichever registered capability handles the type and

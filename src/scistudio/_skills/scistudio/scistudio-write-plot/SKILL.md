@@ -126,7 +126,7 @@ the text has no room; in ggplot2, adjust `theme()` and `figure_size`. Run again 
 When the figure needs data from two ports (a UMAP embedding from one step and the
 cluster labels from another), combine them first:
 
-1. **Create a composite type.** Subclass `CompositeData` in `types/<name>.py`,
+1. **Create a composite type** with `scistudio-write-type`. Subclass `CompositeData` in `types/<name>.py`,
    set `expected_slots` to one named slot per output (for example
    `{"embedding": DataFrame, "clusters": DataFrame}`), and call `reload_blocks`.
 2. **Create a merge block** with `scistudio-write-block`: one input port per
@@ -187,6 +187,7 @@ run it with `scistudio-build-workflow`.
 
 - `scistudio-write-block`: the merge block for a composite plot, or a block that
   saves a figure as a pipeline output.
+- `scistudio-write-type`: the composite type that combines two outputs for a plot.
 - `scistudio-build-workflow`: wiring a merge block, or running the workflow the
   plot is bound to.
 - `scistudio-inspect-data`: checking the output's type and columns before writing

@@ -28,7 +28,8 @@ For an existing panel, preserve its identity and reuse working code.
 1. **Look at the real data.** Pick a representative output of the type with
    `get_block_output`, then `inspect_data` and `preview_data`, to learn its shape,
    axes, units, and metadata.
-2. **Check what already exists.** Call `list_panels` for this data type. When
+2. **Check what already exists.** Call `list_panels(kind="preview",
+   data_type="<type>")`. When
    the user wants to change an existing panel, improve that one; when the user
    wants a different view, write a new panel beside it.
 3. **Create the folder.** Write `panels/<panel_id>/panel.json` with
@@ -48,9 +49,10 @@ For an existing panel, preserve its identity and reuse working code.
 
 ### Write an interactive panel
 
-1. **Check the built-in panels first.** For routing items from inputs to outputs
-   use `core.interactive.data_router`; for fixing pairs use
-   `core.interactive.pair_editor`. Write a panel only when neither fits.
+1. **Check the existing panels first.** Call `list_panels(kind="interactive")`.
+   For routing items from inputs to outputs use `core.interactive.data_router`;
+   for fixing pairs use `core.interactive.pair_editor`. Write a panel only when
+   no listed panel fits.
 2. **Agree the two payloads with the block.** Decide the plain JSON the block's
    `prepare_prompt` sends (the view) and the plain JSON decision the panel sends
    back, which the block reads as `config["interactive_response"]`. Write or
@@ -163,7 +165,7 @@ origin and no network or data fetch (`connect-src 'none'`).
 **Tool sequence.**
 
 ```
-list_panels(data_type)                     # what exists already
+list_panels(kind="preview", data_type=...)  # or kind="interactive"
 get_block_output / inspect_data / preview_data   # the real data or view
 # write panels/<panel_id>/panel.json, index.html, panel.sample.json
 validate_panel(path="panels/<panel_id>")
@@ -325,7 +327,7 @@ uses.
 
 | Tool | What it does | When to use it |
 |---|---|---|
-| `list_panels` | Lists existing panels with their kind, optionally for one data type, and folders that failed discovery. | Before writing, to reuse a panel; when a panel does not appear. |
+| `list_panels` | Lists existing panels with their `kinds`, filtered by `kind` and `data_type`, and the folders that failed discovery (`invalid`). | Before writing, to find a panel to reuse; when a panel does not appear. |
 | `validate_panel` | Checks one panel folder the way discovery does. | After every change to a panel. |
 | `get_block_output` / `inspect_data` / `preview_data` | Resolve and describe real data. | Before building a preview panel, to learn the data. |
 | `reload_blocks` | Rescans the block and type registries. | After changing the block behind an interactive panel. |

@@ -34,6 +34,7 @@ answer it and load the skill for the task.
 | **Exact signatures and file formats**: a class, method, function, or workflow YAML field | "What arguments does `Array` take?", "What fields does a node have?" | `user-guide/api-reference/` (start at `index.md`; workflow YAML in `workflow-yaml.md`) |
 | **This project**: name, description, workflows, recent runs | "What's in this project?", "What did I run last?" | `get_project_info`; `get_active_workflow_context` for the open workflow; `get_workflow` for what a workflow does; `get_run_status` for one run |
 | **Available blocks and types**: what is registered now, and a block's exact ports and config | "Do I have a block for normalization?", "What inputs does this block take?" | `list_blocks`, `list_types`, `get_block_schema(block_type)` |
+| **Panels and MiniApps**: which MiniApps, interactive panels, and preview panels exist | "What MiniApps do I have?", "Is there a viewer for this type?" | `list_panels` (filter with `kind` and `data_type`) |
 | **Data in the project**: stored results and files the user added | "What results do I have?", "Where is my raw data?" | `list_data` for stored datasets; `list_directory` or `search_files` for other files |
 | **Anything else in the docs**: a topic you cannot place | "Is there a doc about hooks?" | `search_docs(query)`, then `get_doc(path)` |
 
@@ -107,6 +108,7 @@ uses.
 | `list_blocks` | Lists available blocks with their package and I/O signature. | For which blocks exist and where they come from. |
 | `get_block_schema` | Returns one block's ports and config schema. | For a block's exact inputs, outputs, and parameters. |
 | `list_types` | Returns the data-type hierarchy. | For which data types exist. |
+| `list_panels` | Lists existing MiniApps, interactive panels, and preview panels. | For which panels and MiniApps exist. |
 | `get_active_workflow_context` | Returns the workflow open in the GUI. | When the user says "this workflow". |
 | `get_workflow` | Loads a workflow file. | To explain what a workflow does. |
 | `get_run_status` | Returns a run's state and errors. | For how a run went. |
