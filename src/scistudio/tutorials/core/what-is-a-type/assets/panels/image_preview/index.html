@@ -1,0 +1,158 @@
+<!doctype html>
+<!--
+  A preview panel for this project's Image type: draw the pixels as a picture.
+
+  Core tutorial 2 copies this folder into the tutorial project's panels/
+  directory after you have seen what happens without it: an Image has no
+  preview panel of its own, so the preview walks up the type chain, finds the
+  core Array panel, and shows your micrograph as a table of numbers. That
+  fallback is correct (an Image *is* an Array); it is just not how anyone wants
+  to look at one.
+
+  A preview panel is two files. panel.json says which type it claims, the same
+  shape a package or a library panel uses. This page reads the data through the
+  host, window.scistudio.read, and draws it. Nothing else: no library, no build
+  step, and no Python of its own. You can read every step from pixels to
+  picture below.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Image</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+    <style>
+      body { margin: 0; }
+      #stage { display: flex; justify-content: center; padding: 8px; }
+      canvas { max-width: 100%; height: auto; image-rendering: pixelated; }
+      #status { padding: 8px 12px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">Reading the image…</div>
+    <div id="stage"><canvas id="picture" hidden></canvas></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script>
+      const api = window.scistudio;
+
+      // The host hands back at most this many pixels a side per read, so a
+      // picture is read as a grid of tiles and put back together here. Every
+      // pixel on the canvas is a real value from the data; nothing is sampled.
+      const TILE = 256;
+
+      // Segment Cells' labels are washed over the micrograph in one colour, at
+      // half strength: the reader is judging whether a mask sits on a cell, so
+      // both have to be visible in the same pixel.
+      const MASK_COLOUR = [255, 64, 64];
+      const OVERLAY_ALPHA = 0.5;
+
+      // A 256-entry green fire ramp, the way a fluorescence channel is shown.
+      function lut() {
+        const table = [];
+        for (let value = 0; value < 256; value++) {
+          const t = value / 255;
+          const green = Math.min(1, t * 1.35);
+          const red = Math.max(0, (t - 0.45) / 0.55) ** 1.2;
+          const blue = Math.max(0, (t - 0.75) / 0.25) ** 1.6;
+          table.push([Math.floor(red * 255), Math.floor(green * 255), Math.floor(blue * 255)]);
+        }
+        return table;
+      }
+
+      // A cell the host could not send as a finite number arrives as a string
+      // ("NaN", "Infinity"); it is drawn as zero.
+      function number(value) {
+        return typeof value === "number" && Number.isFinite(value) ? value : 0;
+      }
+
+      // Read one whole plane, tile by tile. `pick` chooses which channel when
+      // the array has more axes than y and x.
+      function readTile(y0, x0, pick) {
+        const params = { y0, x0, height: TILE, width: TILE };
+        if (pick) params.axis_indices = pick;
+        return api.read("array.tile", params);
+      }
+
+      async function readPlane(pick) {
+        const first = await readTile(0, 0, pick);
+        const [height, width] = planeSize(first);
+        const plane = new Float64Array(height * width);
+        for (let y0 = 0; y0 < height; y0 += TILE) {
+          for (let x0 = 0; x0 < width; x0 += TILE) {
+            const tile = y0 === 0 && x0 === 0 ? first : await readTile(y0, x0, pick);
+            tile.values.forEach((row, dy) =>
+              row.forEach((value, dx) => { plane[(y0 + dy) * width + (x0 + dx)] = number(value); }),
+            );
+          }
+        }
+        return { plane, height, width, first };
+      }
+
+      // The displayed plane's height and width: the source shape without the
+      // axes the host is slicing through.
+      function planeSize(tile) {
+        const sliced = new Set((tile.slice_axes || []).map((axis) => axis.axis));
+        return tile.source_shape.filter((_, axis) => !sliced.has(axis));
+      }
+
+      // Scale a plane to 0..255, flat planes included.
+      function toBytes(plane) {
+        let low = Infinity;
+        let high = -Infinity;
+        for (const value of plane) { low = Math.min(low, value); high = Math.max(high, value); }
+        const scale = high > low ? 255 / (high - low) : 0;
+        return plane.map((value) => Math.max(0, Math.min(255, Math.round((value - low) * scale))));
+      }
+
+      // Is this the micrograph-plus-labels pair Segment Cells emits? Asked of
+      // the array's own axes, never of which block produced it: a panel is
+      // handed data, not provenance. One extra axis named c with exactly two
+      // entries is the pair; anything else takes the single-channel path.
+      function labelAxis(tile) {
+        const axes = tile.slice_axes || [];
+        return axes.length === 1 && axes[0].name === "c" && axes[0].size === 2 ? axes[0].axis : null;
+      }
+
+      async function draw() {
+        const probe = await api.read("array.tile", { y0: 0, x0: 0, height: 1, width: 1 });
+        const channelAxis = labelAxis(probe);
+        const micrograph = await readPlane(channelAxis === null ? undefined : { [channelAxis]: 0 });
+        const labels = channelAxis === null ? null : await readPlane({ [channelAxis]: 1 });
+
+        const { height, width } = micrograph;
+        const ramp = lut();
+        const bytes = toBytes(micrograph.plane);
+        const canvas = document.getElementById("picture");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        const image = context.createImageData(width, height);
+        for (let i = 0; i < width * height; i++) {
+          let [red, green, blue] = ramp[bytes[i]];
+          // Everything the segmentation claimed is washed red over the cells,
+          // so the reader sees both at once.
+          if (labels && labels.plane[i] > 0) {
+            red = red * (1 - OVERLAY_ALPHA) + MASK_COLOUR[0] * OVERLAY_ALPHA;
+            green = green * (1 - OVERLAY_ALPHA) + MASK_COLOUR[1] * OVERLAY_ALPHA;
+            blue = blue * (1 - OVERLAY_ALPHA) + MASK_COLOUR[2] * OVERLAY_ALPHA;
+          }
+          image.data.set([red, green, blue, 255], i * 4);
+        }
+        context.putImageData(image, 0, 0);
+        canvas.hidden = false;
+        document.getElementById("status").textContent = labels
+          ? `Labels over the micrograph · ${width} × ${height}`
+          : `Image · ${width} × ${height}`;
+      }
+
+      api
+        .ready()
+        .then(draw)
+        .catch((error) => {
+          const message = String((error && error.message) || error);
+          document.getElementById("status").textContent = `Could not draw the image: ${message}`;
+          api.reportError(message);
+        });
+    </script>
+  </body>
+</html>

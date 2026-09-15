@@ -1,0 +1,1121 @@
+{
+  "base_ref": null,
+  "branch": "guided/tutorials-adr054-migration",
+  "check_events": [
+    {
+      "at": "2026-09-15T18:24:19.400040Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:544d3d406c263708b4193f41c72b6ba0a031d78953f49c0e068a3adc593b19e9",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:24:19.729129Z",
+      "command": "ruff format src/scistudio/api/routes/tutorials.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py tests/e2e/test_tutorial_workflows.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:13ac02405017d50a0fa65231572caa9afc9c1ae966a683b3107459285b7cf69e",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T18:25:00.483612Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "frontend",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:160d7e941cf4984b9506323d56a03098d1010de16482e7d9b6feed758fdb13de",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:25:06.694405Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5cd1b696ad2471a6cf2a2c2760f2e7f64a2b1f23a6f2d72df360f2793b52d152",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:25:07.194340Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0c71284cfe6a19cfd4803a4870b42dea57caef4161e0b516d7e654bfa3984eff",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:25:07.236977Z",
+      "command": "ruff check src/scistudio/api/routes/tutorials.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py tests/e2e/test_tutorial_workflows.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:47dbf8a9e275dee4775d61206758d72e47b85fa11d27648e2d7119984958a8ae",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T18:25:37.889913Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/routes tests/api/test_tutorial_library_write.py tests/api/test_tutorial_product_state_workflow_scope.py tests/api/test_tutorial_routes.py tests/e2e/test_tutorial_workflows.py tests/tutorials tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:4ff2725abc55ac4060696d0d45ec3bcb881ec5f5ba09dc52ea2df7fc0d4cf667",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:25:43.842437Z",
+      "command": "mypy src/scistudio/api/routes/tutorials.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:486abcba802b89b92471f25967f7e4b1a2847c5974e96ed305aa3902a77ff9c9",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T20:07:14.124492Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:a8b3f83c39a24c7d836366b652b3eb26e9641ed4bcde71d42234ce0bd0594c5a",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T20:07:14.180533Z",
+      "command": "ruff format src/scistudio/api/routes/tutorials.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py tests/e2e/test_tutorial_workflows.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7204e3266e93cd2c383b8224ee08da8c31f4fc66369e4a4e9f9c2e3b00792d68",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T20:07:21.358218Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5d2cbe5ef87ca447e89fa7eb91d3993a966aafd872ea8a8a7f1f7b2aa6289c47",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T20:07:21.381774Z",
+      "command": "ruff check src/scistudio/api/routes/tutorials.py src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py tests/e2e/test_tutorial_workflows.py tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5a6c022719552319ac099bdba00bb8d8a3321ec2316357da349e782a25443ef9",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T20:07:46.550066Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/routes tests/api/test_tutorial_library_write.py tests/api/test_tutorial_product_state_workflow_scope.py tests/api/test_tutorial_routes.py tests/e2e/test_tutorial_workflows.py tests/tutorials tests/tutorials/test_core_tutorial_two_modalities.py tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:0148066f0d6c4e562022327f006c2c39dbf07cea8158ffcf6bcfcaad545185d8",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
+  "check_na": [],
+  "commit": {
+    "sha": "59a28a7ff84af29872a8f63fcc4f5751635746cf",
+    "shas": [
+      "59a28a7ff84af29872a8f63fcc4f5751635746cf"
+    ],
+    "trailers": []
+  },
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/tutorials/core/**"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T12:05:38.431964Z",
+      "owner_directive": "In tutorial copy the user-facing name is 'preview panels': change Tip 1 and every corresponding previewer mention in tutorial copy; do not mention MiniApps (a dedicated MiniApp tutorial comes later)",
+      "reason": "Owner set the user-facing term for previewers in tutorial copy"
+    },
+    {
+      "at": "2026-09-15T12:25:31.452095Z",
+      "owner_directive": "Change the save-the-previewer judgement; the promotion entry for a preview panel is the new All Previewers button in the preview column, which opens the former previewer list on the right",
+      "reason": "Owner redirected save-the-previewer: new promotion entry and judgement"
+    },
+    {
+      "at": "2026-09-15T12:54:43.093389Z",
+      "owner_directive": "Follow the original intent: add Move to My Library on project-tier preview panel cards in All Previewers, include panels/ in the tutorial-scoped library, and judge save-the-previewer with library_contains",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "at": "2026-09-15T18:23:35.941902Z",
+      "owner_directive": "Pull latest main and push the PR",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    },
+    {
+      "at": "2026-09-15T20:07:12.142604Z",
+      "owner_directive": "Fix the e2e failure on PR 2476",
+      "reason": "Owner asked to fix the PR 2476 e2e failure"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T18:23:35.942259Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Tutorial assets and one promotion entry; the owner is revising docs/specs and asked agents not to edit docs (2026-09-15)",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942265Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner-controlled doc overhaul in progress; no CHANGELOG edits by agents",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [
+    {
+      "at": "2026-09-15T18:25:43.917558Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.928369Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.939102Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.949831Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.960943Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.972208Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.983877Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:43.996390Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:44.007767Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:44.019500Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:44.030673Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:44.048232Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.531276Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.542392Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.553601Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.564812Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.589175Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.600486Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.611534Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.622761Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.633872Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.645254Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.694697Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:56.712361Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.001908Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.012995Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.024506Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.035944Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.047186Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.058524Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.069723Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.081037Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.092198Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.103807Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.114082Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:25:59.131593Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.825714Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.836490Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.847444Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.858695Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.869243Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.879519Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.889401Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.899475Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.909279Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.919404Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.929624Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:26:06.945993Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.671655Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.686121Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.699390Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.713236Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.727083Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.740977Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.753983Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.767285Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.780213Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.793989Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.807651Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:46.829537Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.512595Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.527460Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.542057Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.557425Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.571580Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.586549Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.600625Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.623188Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.645357Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.660482Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.674828Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T20:07:53.697451Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2449,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": {
+    "base": "bbde641385a26e03e6b80d837c739290dfdec0f2",
+    "base_sha": "bbde6413",
+    "changed_files": [
+      ".workflow/records/2449-guided-tutorials-adr054-migration.json",
+      "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "frontend/src/components/PreviewerPalette.parts/PreviewerCard.tsx",
+      "frontend/src/components/promotion/__tests__/promotable.test.ts",
+      "frontend/src/components/promotion/promotable.ts",
+      "src/scistudio/api/routes/tutorials.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/code/image_preview.py",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/panels/image_preview/index.html",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/assets/panels/image_preview/panel.json",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "src/scistudio/tutorials/core/welcome-to-scistudio/tutorial.yaml",
+      "src/scistudio/tutorials/core/what-ai-can-do/tutorial.yaml",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/image_preview.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/code/review_labels.py",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/image_preview/index.html",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/image_preview/panel.json",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/index.html",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/panel.json",
+      "src/scistudio/tutorials/core/what-is-a-type/assets/panels/review_labels/panel.mjs",
+      "src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml",
+      "tests/e2e/test_tutorial_workflows.py",
+      "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py"
+    ],
+    "diff_fingerprint": "sha256:2febe6bd7bb63d745238116037c7e66269a98d09a9fe8ead5f0700b896c61338",
+    "head": "HEAD",
+    "head_sha": "59a28a7f",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 4,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 19,
+      "packaging": 0,
+      "protected_agent_docs": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 22,
+      "test": 5,
+      "workflow_ci": 0
+    }
+  },
+  "owner_directive": "Migrate all core tutorials after ADR-054 merged (PR1 of 2: legacy previewer/panel assets to panels); a new MiniApp tutorial is a separate PR",
+  "persona": "live_implementer",
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2449
+    ],
+    "number": 2476,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-15T18:25:44.048273Z",
+      "diff_fingerprint": "sha256:66ea6aabd27bd76986222805b1a2ffabc6f0f780fd806bde4094eaf8cf87dd3a",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:25:56.712394Z",
+      "diff_fingerprint": "sha256:db27efac694e27d2dca4b1d067ae79890fa4d4e236ed503a9e0ad5ab8036ee49",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:25:59.131626Z",
+      "diff_fingerprint": "sha256:7e3429287868394b59e8003ff18b88f85bc329a4f80d415fc1cbf38476a7216d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:26:06.946028Z",
+      "diff_fingerprint": "sha256:7e3429287868394b59e8003ff18b88f85bc329a4f80d415fc1cbf38476a7216d",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T20:07:46.829590Z",
+      "diff_fingerprint": "sha256:2febe6bd7bb63d745238116037c7e66269a98d09a9fe8ead5f0700b896c61338",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T20:07:53.697495Z",
+      "diff_fingerprint": "sha256:2febe6bd7bb63d745238116037c7e66269a98d09a9fe8ead5f0700b896c61338",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    }
+  ],
+  "record_id": "2449-guided-tutorials-adr054-migration",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [
+      "commit_hygiene",
+      "format_check",
+      "frontend",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "agent_docs_guard",
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093545Z",
+      "pattern": "frontend/src/components/PreviewerPalette.parts/**",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093552Z",
+      "pattern": "frontend/src/components/promotion/**",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:54:43.093554Z",
+      "pattern": "src/scistudio/tutorials/projects.py",
+      "reason": "Owner chose the original intent for save-the-previewer: move the preview panel to My Library and judge it"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:56:00.385377Z",
+      "pattern": "src/scistudio/api/routes/tutorials.py",
+      "reason": "The scoped-library change touches the library_entries docstring and the scoped library dir assertion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T12:56:00.385942Z",
+      "pattern": "tests/tutorials/test_scoped_library.py",
+      "reason": "The scoped-library change touches the library_entries docstring and the scoped library dir assertion"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942232Z",
+      "pattern": "tests/tutorials/**",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942237Z",
+      "pattern": "tests/e2e/test_tutorial_workflows.py",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T18:23:35.942241Z",
+      "pattern": "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "reason": "Tests follow the migrated tutorial assets; docs are owner-controlled this week"
+    }
+  ],
+  "session_id": "cc629f95-d5ad-48f3-b6fe-0a30e15329aa",
+  "strictness_tier": 2,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T18:23:35.942269Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942276Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942278Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_tutorial_workflows.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942279Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.parts/__tests__/tutorialReviewPanel.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T18:23:35.942280Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/promotion/__tests__/promotable.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

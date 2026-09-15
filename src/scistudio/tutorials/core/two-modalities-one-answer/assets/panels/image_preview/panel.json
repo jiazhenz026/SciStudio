@@ -1,0 +1,10 @@
+{
+  "id": "image_preview",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["HEImage", "HEMask"],
+  "name": "Slide",
+  "description": "Draws an H&E slide or its region mask as a colour picture, at full resolution.",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

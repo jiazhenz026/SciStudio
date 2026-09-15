@@ -5,7 +5,7 @@ shipped tutorial gets. This file checks what only tutorial 4 promises (#2082):
 
 * the beat order and each beat's judged condition survive edits;
 * the level owes nothing to any other level: its picture types, the reader that
-  turns a slide file into one, their previewer and the three analysis blocks
+  turns a slide file into one, their preview panel and the three analysis blocks
   are landed by its own bootstrap and register into its project;
 * the shipped data is what ``SOURCE.md`` says it is — the two ER tumors land at
   bootstrap, the two triple-negative ones arrive on the branch, and each
@@ -14,7 +14,7 @@ shipped tutorial gets. This file checks what only tutorial 4 promises (#2082):
   differs from the ER one in its Loads and one setting, nothing else;
 * the science is recomputed, not asserted: every gene the steps and the notes
   name is significant, in the same direction, in both tumors of its batch;
-* the previewer says when it shows a sampled overview rather than every pixel;
+* the preview panel draws every pixel of a slide, read in tiles, never a sampled overview;
 * the whole story walks through the real runtime, git terms included.
 """
 
@@ -24,7 +24,7 @@ import importlib.util
 import re
 import sys
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from typing import Any
 
 import numpy as np
@@ -102,7 +102,6 @@ def code(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
 
     modules = {"he_image": load("he_image", "he_image.py"), "he_mask": load("he_mask", "he_mask.py")}
     modules["loader"] = load("_scistudio_t4_loader", "load_slide_image.py")
-    modules["preview"] = load("_scistudio_t4_preview", "image_preview.py")
     modules["annotate"] = load("_scistudio_t4_annotate", "annotate_regions.py")
     modules["normalize"] = load("_scistudio_t4_normalize", "normalize_expression.py")
     modules["compare"] = load("_scistudio_t4_compare", "compare_regions.py")
@@ -235,7 +234,7 @@ def test_what_the_level_does_not_teach_ships_at_bootstrap(manifest: TutorialMani
         "data/raw",
         "types/he_image.py",
         "types/he_mask.py",
-        "previewers/image_preview.py",
+        "panels/image_preview",
         *(f"blocks/{source}" for source in LEVEL_BLOCKS.values()),
     }
     # Only the two ER tumors: the opening says "the first two" and means it.
@@ -463,30 +462,15 @@ def test_the_shipped_pictures_read_back_as_pillow_reads_them(
         np.testing.assert_array_equal(code["loader"].read_png(path), np.asarray(Image.open(path).convert("RGB")))
 
 
-def _preview_request(*, truncated: bool) -> SimpleNamespace:
-    """A request whose reader hands back one small RGB plane per channel."""
-    plane = SimpleNamespace(
-        matrix=[[10, 20], [30, 40]],
-        shape=[1000, 1000, 3],
-        axes=["y", "x", "c"],
-        dtype="uint8",
-        truncated=truncated,
-    )
-    return SimpleNamespace(
-        storage=object(),
-        spec=SimpleNamespace(previewer_id="project.heimage.view"),
-        target=None,
-        data_access=SimpleNamespace(array_plane=lambda storage, slice_index=0: plane),
-    )
-
-
-@pytest.mark.parametrize("truncated", [True, False])
-def test_the_previewer_says_when_it_shows_an_overview(code: dict[str, ModuleType], truncated: bool) -> None:
-    """A sampled picture must never be presented as the data itself (#1886)."""
-    envelope = code["preview"].render_image(_preview_request(truncated=truncated))
-    assert envelope.metadata.sampled is truncated
-    assert envelope.metadata.complete is (not truncated)
-    assert ("sampled overview" in envelope.payload["alt"]) is truncated
+def test_the_preview_panel_draws_every_pixel_in_color() -> None:
+    """A preview shows only real values (#1886): tiles, never a sampled plane, and three channels as RGB."""
+    source = (ASSETS / "panels" / "image_preview" / "index.html").read_text(encoding="utf-8")
+    assert '<script src="../../sdk/1/scistudio-panel.js"></script>' in source
+    assert 'api.read("array.tile"' in source
+    assert "array.plane" not in source
+    assert "axis.size >= RGB" in source, "three channels on c are drawn as colour"
+    for banned in ("import ", "require(", "fetch(", "http://", "https://"):
+        assert banned not in source, f"the panel must stay dependency-free and offline; found {banned!r}"
 
 
 def test_every_level_block_has_an_icon_of_its_own(code: dict[str, ModuleType]) -> None:
@@ -622,17 +606,16 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
     The Load block's core_type list has to offer ``HEImage`` and ``HEMask``,
     dispatch has to find the slide reader, the palette has to carry the three
     analysis blocks, and the preview panel has to draw a slide as a picture.
-    The previewer derives its tier from where it sits (#2125), so landed in the
-    project's own ``previewers/`` it must register at the project tier.
+    Landed in the project's own ``panels/``, the panel folder registers at the
+    project tier for both picture types.
     """
     import shutil
 
     from scistudio.blocks.registry import BlockRegistry
     from scistudio.core import dropins
     from scistudio.core.types.registry import TypeRegistry
+    from scistudio.panels.registry import discover_panels
     from scistudio.previewers.models import OwnerKind
-    from scistudio.previewers.project import load_project_previewers
-    from scistudio.previewers.registry import PreviewerRegistry
 
     fake_home = tmp_path / "home"
     fake_home.mkdir()
@@ -645,13 +628,14 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
         monkeypatch.delitem(sys.modules, stem, raising=False)
 
     project = dropins.tutorial_parent_dir() / "two-modalities-one-answer"
-    for child in ("types", "blocks", "previewers"):
+    for child in ("types", "blocks"):
         (project / child).mkdir(parents=True, exist_ok=True)
     (project / "project.yaml").write_text("name: Two Modalities\n", encoding="utf-8")
-    landed = [("types", "he_image.py"), ("types", "he_mask.py"), ("previewers", "image_preview.py")]
+    landed = [("types", "he_image.py"), ("types", "he_mask.py")]
     landed += [("blocks", source) for source in LEVEL_BLOCKS.values()]
     for child, source in landed:
         shutil.copy(ASSETS / "code" / source, project / child / source)
+    shutil.copytree(ASSETS / "panels" / "image_preview", project / "panels" / "image_preview")
 
     types = TypeRegistry()
     dropins.register_type_scan_dirs(types, project)
@@ -664,11 +648,10 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
     for block_type in LEVEL_BLOCKS:
         assert blocks.get_spec(block_type) is not None, f"{block_type} did not register"
 
-    previewers = PreviewerRegistry()
-    previewers.load_core()
-    load_project_previewers(previewers, project)
+    panels = discover_panels(project, registered_types=set(types.all_types()))
+    candidates = [spec for panel in panels.panels.values() for spec in panel.candidates()]
     for type_name in ("HEImage", "HEMask"):
-        claimed = [spec for spec in previewers.all_specs() if spec.target_type == type_name]
+        claimed = [spec for spec in candidates if spec.target_type == type_name]
         assert claimed, f"no previewer claims {type_name}, so it previews as a number table"
         assert {spec.owner_kind for spec in claimed} == {OwnerKind.PROJECT}
 

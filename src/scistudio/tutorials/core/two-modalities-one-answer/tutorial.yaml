@@ -41,7 +41,7 @@ bootstrap:
         source: assets/data/er
         destination: data/raw
     # The project's own picture types, the reader that turns a slide file into
-    # one, and the previewer that draws either of them. They land here rather
+    # one, and the preview panel that draws either of them. They land here rather
     # than arriving from My Library so the level owes nothing to any other
     # level.
     - write:
@@ -53,9 +53,9 @@ bootstrap:
     - write:
         source: assets/code/load_slide_image.py
         destination: blocks/load_slide_image.py
-    - write:
-        source: assets/code/image_preview.py
-        destination: previewers/image_preview.py
+    - copy:
+        source: assets/panels/image_preview
+        destination: panels/image_preview
     # The analysis: annotate each spot with the region under it on the mask,
     # normalize, then compare one region against the rest. The reader reads
     # these; the level does not ask them to write them.
