@@ -31,6 +31,8 @@
 #   and project Q&A (4 tools).
 # * :mod:`scistudio.ai.agent.mcp.tools_library` — category (f): promotion
 #   into the personal tool library (1 tool, ADR-053 FR-011).
+# * :mod:`scistudio.ai.agent.mcp.tools_panels` — category (g): panel and
+#   MiniApp checking and opening (2 tools, ADR-054 MiniApp FR-029/FR-030).
 #
 # FastMCP discovers tools by ``@mcp.tool()`` decorator on the module-scope
 # :data:`scistudio.ai.agent.mcp.server.mcp` instance — there is no longer a
@@ -56,8 +58,8 @@
 # The constant is defined in :mod:`scistudio.ai.agent.mcp.server` (the module
 # that owns the registry) and re-exported here so tool modules can import it
 # from the package root.
-# Development references: #2279, #825, ADR-035, ADR-040, ADR-053, ADR-055, FR-004, FR-011, Spec 1, Spec 2,
-# docs/adr/ADR-040.md.
+# Development references: #2279, #2354, #825, ADR-035, ADR-040, ADR-053, ADR-054, ADR-055, FR-004, FR-011,
+# FR-029, FR-030, Spec 1, Spec 2, docs/adr/ADR-040.md.
 
 from __future__ import annotations
 
@@ -67,8 +69,10 @@ from __future__ import annotations
 from scistudio.ai.agent.mcp import (  # noqa: F401
     tools_authoring,
     tools_execution,
+    tools_gui,
     tools_inspection,
     tools_library,
+    tools_panels,
     tools_plot,
     tools_qa,
     tools_workflow,

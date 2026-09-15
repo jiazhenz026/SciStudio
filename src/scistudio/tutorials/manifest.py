@@ -263,7 +263,9 @@ HIGHLIGHT_SPECS: tuple[HighlightSpec, ...] = (
     HighlightSpec(name="canvas", points_at="the workflow canvas as a whole"),
     HighlightSpec(name="data_preview", points_at="the data preview surface"),
     HighlightSpec(name="data", points_at="the Data section of the left panel"),
-    HighlightSpec(name="previewer_palette", points_at="the Previewers list in the left panel"),
+    HighlightSpec(
+        name="previewer_palette", points_at="the previewer list behind All Previewers, in the preview column"
+    ),
     HighlightSpec(name="type_palette", points_at="the Data types list in the left panel"),
     HighlightSpec(name="config_panel", points_at="the selected block's settings panel"),
     HighlightSpec(name="workflow_list", points_at="the Workflows list in the left panel"),

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from tests.api.helpers import build_linear_workflow, wait_for_condition
+from tests.api.helpers import build_linear_workflow, wait_for_condition, ws_hello
 from watchdog.events import FileModifiedEvent
 
 from scistudio.api.app import create_app
@@ -145,6 +145,7 @@ def test_adr045_websocket_contracts_use_event_version_and_state_version_response
     client.post("/api/workflows/", json=workflow)
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         workflow["description"] = "websocket update"
         response = client.put(
             "/api/workflows/contract-ws-flow",
@@ -161,6 +162,7 @@ def test_adr045_websocket_contracts_use_event_version_and_state_version_response
     assert datetime.fromisoformat(workflow_data["timestamp"])
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         response = client.put(
             f"/api/projects/{project_id}/file?path=analysis.py",
             json={"content": "print('saved')\n", "source_id": "file-ws-source"},

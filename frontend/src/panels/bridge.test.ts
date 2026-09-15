@@ -25,12 +25,21 @@ export function fakePort() {
     onmessageerror: null,
   } as unknown as MessagePort;
 }
-function setup(kind: "preview" | "interactive" = "preview") {
+/** What `PanelContext.provides()` grants each kind (contexts.py:68-75). */
+const PROVIDES = {
+  preview: { operations: ["read"], services: ["open", "save"] },
+  interactive: { operations: ["writeBack"], services: ["save"] },
+  // ADR-054 FR-004 — a miniapp reads AND calls, and has no `open`.
+  miniapp: { operations: ["read", "call"], services: ["save"] },
+} as const;
+
+function setup(kind: "preview" | "interactive" | "miniapp" = "preview") {
   const port = fakePort();
   const handlers = {
     read: vi.fn().mockResolvedValue({ complete: true }),
     open: vi.fn().mockResolvedValue(null),
     writeBack: vi.fn().mockResolvedValue(null),
+    call: vi.fn().mockResolvedValue({ ok: true }),
     save: vi.fn().mockResolvedValue(null),
     viewState: vi.fn(),
     resize: vi.fn(),
@@ -42,8 +51,8 @@ function setup(kind: "preview" | "interactive" = "preview") {
     {
       ...context,
       kind,
-      operations: kind === "preview" ? ["read"] : ["writeBack"],
-      services: kind === "preview" ? ["open", "save"] : ["save"],
+      operations: [...PROVIDES[kind].operations],
+      services: [...PROVIDES[kind].services],
     },
     handlers,
   );
@@ -60,6 +69,8 @@ describe("panel port bridge", () => {
     await send("ready");
     await send("read", { op: "metadata", params: {} });
     expect(handlers.read).toHaveBeenCalledWith("data-1", "metadata", {});
+    // ADR-054 FR-016 — a preview context is granted `["read"]` only, so `call`
+    // is refused here even though the host wires a call handler.
     for (const type of ["writeBack", "call", "sync"]) {
       await send(type, {});
       expect(port.postMessage).toHaveBeenLastCalledWith(
@@ -70,6 +81,46 @@ describe("panel port bridge", () => {
         [],
       );
     }
+  });
+  it("provides miniapp read and call, and still denies open and writeBack", async () => {
+    // ADR-054 FR-004 / FR-016 — the backend grants a miniapp context
+    // `["read","call"]`, so the host must honour both; `open` and `writeBack`
+    // are not granted and stay refused.
+    const { send, port, handlers } = setup("miniapp");
+    await send("ready");
+    await send("read", { op: "metadata", params: {} });
+    expect(handlers.read).toHaveBeenCalledWith("data-1", "metadata", {});
+    await send("call", { fn: "threshold", args: { t: 0.4 } });
+    expect(handlers.call).toHaveBeenCalledWith("threshold", { t: 0.4 });
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ type: "result", payload: { ok: true } }),
+      [],
+    );
+    for (const type of ["open", "writeBack", "sync"]) {
+      await send(type, { ref: "child" });
+      expect(port.postMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          type: "error",
+          payload: expect.objectContaining({ code: "unsupported" }),
+        }),
+        [],
+      );
+    }
+    expect(handlers.open).not.toHaveBeenCalled();
+    expect(handlers.writeBack).not.toHaveBeenCalled();
+  });
+  it("refuses a call without a function name", async () => {
+    const { send, port, handlers } = setup("miniapp");
+    await send("ready");
+    await send("call", { fn: "", args: {} });
+    expect(handlers.call).not.toHaveBeenCalled();
+    expect(port.postMessage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        type: "error",
+        payload: expect.objectContaining({ code: "invalid_request" }),
+      }),
+      [],
+    );
   });
   it("claims interactive decisions once and denies read/open/call/sync", async () => {
     const { send, port, handlers } = setup("interactive");
@@ -84,6 +135,9 @@ describe("panel port bridge", () => {
     for (const type of ["read", "open", "call", "sync"]) await send(type, {});
     expect(handlers.read).not.toHaveBeenCalled();
     expect(handlers.open).not.toHaveBeenCalled();
+    // ADR-054 FR-016 — `call` belongs to miniapp contexts alone. The handler
+    // is wired here, so this asserts the gate, not a missing handler.
+    expect(handlers.call).not.toHaveBeenCalled();
   });
   it("transfers binary buffers and ignores window messages", async () => {
     const { send, port, handlers } = setup();

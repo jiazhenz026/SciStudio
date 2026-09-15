@@ -10,7 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAppStore } from "../index";
-import type { FileTab, TabState, WorkflowTab } from "../types";
+import type { FileTab, MiniAppTab, TabState, WorkflowTab } from "../types";
 import type * as ApiModule from "../../lib/api";
 
 vi.mock("../../lib/api", async () => {
@@ -102,6 +102,9 @@ describe("TabState discriminated union (ADR-036 §3.10)", () => {
         case "preview":
           // #2112 — transient preview tab variant.
           return `preview:${tab.target.ref}`;
+        case "miniapp":
+          // ADR-054 FR-018 — the MiniApp tab variant.
+          return `miniapp:${tab.panelId}`;
         default: {
           // Compile-time exhaustiveness check.
           const _exhaustive: never = tab;
@@ -110,8 +113,17 @@ describe("TabState discriminated union (ADR-036 §3.10)", () => {
       }
     }
 
+    const miniapp: MiniAppTab = {
+      kind: "miniapp",
+      id: "miniapp:lab.threshold:wf:block:out",
+      panelId: "lab.threshold",
+      source: { workflow_id: "wf", block_id: "block", port: "out" },
+      displayName: "Threshold explorer",
+    };
+
     expect(describeTab(workflow)).toBe("wf:wf");
     expect(describeTab(file)).toBe("file:scratch.py");
+    expect(describeTab(miniapp)).toBe("miniapp:lab.threshold");
   });
 });
 

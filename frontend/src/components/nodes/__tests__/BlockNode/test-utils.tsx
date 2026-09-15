@@ -5,7 +5,7 @@
 
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
-import { ReactFlowProvider } from "@xyflow/react";
+import { ReactFlowProvider, useStoreApi } from "@xyflow/react";
 
 import type * as LibApi from "../../../../lib/api";
 import { BlockNode } from "../../BlockNode";
@@ -126,11 +126,18 @@ export function renderNode(dataOverrides: Partial<BlockNodeData> = {}, selected 
     zIndex: 0,
   } as Parameters<typeof BlockNode>[0];
 
-  return render(
+  let store: ReturnType<typeof useStoreApi>;
+  function CaptureFlowStore() {
+    store = useStoreApi();
+    return null;
+  }
+  const rendered = render(
     <ReactFlowProvider>
+      <CaptureFlowStore />
       <BlockNode {...props} />
     </ReactFlowProvider>,
   );
+  return { ...rendered, flowStore: () => store };
 }
 
 // LoadData-style dynamic descriptor mirrored from

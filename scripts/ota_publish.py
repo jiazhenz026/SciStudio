@@ -80,6 +80,7 @@ SHELL_FILES = (
     "runtime-port.js",
     # #2280: required by main.js and menu.js; a patch without it cannot load.
     "background-mode.js",
+    "gui-capture.js",
     "preload.js",
     # #2280: the external-AI connection window and its sandboxed preload.
     "connection-preload.js",

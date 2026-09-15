@@ -465,7 +465,7 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
 
     Tutorial 3 stands on all three — its fresh project finds Image, Segment
     Cells, and the Image previewer already in the library — but only two of the
-    three moves are things ``library_contains`` can see. The Previewers tab's
+    three moves are things ``library_contains`` can see. The All Previewers
     card offers Auto / This project / All projects, which records *scope*
     rather than moving the file, so the previewer step asks for something the
     term cannot judge and is deliberately left unjudged with a TODO explaining
@@ -487,7 +487,7 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
     previewer_step = manifest.step_by_id("save-the-previewer")
     assert previewer_step is not None
     assert previewer_step.done_when is None, "the previewer promotion is unjudged on purpose; see the TODO"
-    assert "All projects" in say_text(previewer_step), "the step still asks for the Previewers tab's own control"
+    assert "All projects" in say_text(previewer_step), "the step still asks for the All Previewers card's own control"
 
     source = (TUTORIAL_DIR / "tutorial.yaml").read_text(encoding="utf-8")
     assert "TODO(#2135)" in source, "an unjudged step must carry the tracked reason it is unjudged"

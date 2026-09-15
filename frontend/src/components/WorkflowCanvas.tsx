@@ -1,11 +1,20 @@
 import { Background, Controls, ReactFlow, type Edge, useReactFlow } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { resolveTypeColor, type DeclaredTypeColors } from "../config/typeColorMap";
+import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
+import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { useAppStore } from "../store";
 import { useDeclaredTypeColors } from "../store/useTypeCatalog";
-import type { BlockSchemaResponse, BlockSummary, WorkflowEdge, WorkflowNode } from "../types/api";
+import type {
+  BlockPortResponse,
+  BlockSchemaResponse,
+  BlockSummary,
+  TypeHierarchyEntry,
+  WorkflowEdge,
+  WorkflowNode,
+} from "../types/api";
 import { computeEffectivePorts, resolveDrivingConfigValue } from "../utils/computeEffectivePorts";
 import { arePortTypesCompatible } from "../utils/portCompat";
 import { AnnotationNode } from "./nodes/AnnotationNode";
@@ -20,6 +29,7 @@ import { computeFocusSet, type FocusResult } from "./WorkflowCanvas.parts/focusM
 import { useCanvasHandlers } from "./WorkflowCanvas.parts/useCanvasHandlers";
 import { useFlowCallbacks } from "./WorkflowCanvas.parts/useFlowCallbacks";
 import { useFlowNodes } from "./WorkflowCanvas.parts/useFlowNodes";
+import { canEditBlockSource, openBlockEditor } from "./WorkflowCanvas.parts/blockSourceEditor";
 import { WorkflowMiniMap } from "./WorkflowCanvas.parts/WorkflowMiniMap";
 
 const nodeTypes = {
@@ -30,6 +40,84 @@ const nodeTypes = {
   subworkflow: SubWorkflowNode,
 };
 const edgeTypes = { typed: TypedEdge };
+
+// ---------------------------------------------------------------------------
+// ADR-054 Phase D (#2354) — canvas block hover actions (FR-035).
+// ---------------------------------------------------------------------------
+
+/** What the menu says instead of an action when the block has produced nothing. */
+export const NO_OUTPUTS_REASON =
+  "This block has no outputs yet. Run it, then open this menu again.";
+
+/**
+ * Is `child` the type `parent`, or a subtype of it?
+ *
+ * DIRECTIONAL, and that is the whole point. `arePortTypesCompatible` answers a
+ * different question — "could these two ports be wired?" — and says yes in
+ * BOTH directions, because a `DataObject` port legitimately accepts an `Image`
+ * and an `Image` port legitimately receives from a `DataObject` producer. A
+ * MiniApp is not a wire: FR-034 says it opens on data "of the declared type or
+ * a subtype", so an `Image` MiniApp must NOT be offered on a `DataObject`
+ * output, which the bidirectional rule would do. This mirrors the backend's
+ * `_check_type`, which the sources route applies to the same question.
+ */
+export function isDeclaredSubtype(
+  child: string,
+  parent: string,
+  typeHierarchy: TypeHierarchyEntry[] | undefined,
+): boolean {
+  if (child === parent) return true;
+  const bases = new Map<string, string>();
+  for (const entry of typeHierarchy ?? []) {
+    if (entry.name && entry.base_type) bases.set(entry.name, entry.base_type);
+  }
+  const seen = new Set<string>([child]);
+  let cursor = bases.get(child);
+  while (cursor) {
+    if (cursor === parent) return true;
+    if (seen.has(cursor)) return false;
+    seen.add(cursor);
+    cursor = bases.get(cursor);
+  }
+  return false;
+}
+
+/**
+ * The output ports of `node` that PRODUCED DATA in the latest run.
+ *
+ * Two sources, and both are needed. `blockOutputs[nodeId]` is keyed by output
+ * port and is the canvas's record of what the run actually produced — a port
+ * missing from it has no data to open a MiniApp on, whatever the schema says.
+ * The effective ports supply the TYPE, resolved the same way the edges and the
+ * port handles resolve it (variadic ports, then the dynamic-port driving
+ * value), so the menu and the port the user is looking at cannot disagree.
+ */
+export function producedOutputPorts(
+  node: WorkflowNode,
+  schema: BlockSchemaResponse | undefined,
+  outputs: Record<string, unknown> | undefined,
+): BlockPortResponse[] {
+  if (!outputs || !schema) return [];
+  const params = (node.config.params as Record<string, unknown> | undefined) ?? {};
+  const variadic = resolveVariadicPorts(schema.output_ports ?? [], params, "output", schema);
+  const dynamic = schema.dynamic_ports ?? null;
+  const driving = resolveDrivingConfigValue(params, schema, dynamic?.source_config_key);
+  const effective = computeEffectivePorts(dynamic, driving, variadic, "output");
+  return effective.filter((port) => Object.prototype.hasOwnProperty.call(outputs, port.name));
+}
+
+/** The ports of this block a MiniApp declaring `type` can open on. */
+export function portsForMiniApp(
+  ports: BlockPortResponse[],
+  type: string,
+  typeHierarchy: TypeHierarchyEntry[] | undefined,
+): BlockPortResponse[] {
+  return ports.filter((port) =>
+    (port.accepted_types ?? []).some((candidate) =>
+      isDeclaredSubtype(candidate, type, typeHierarchy),
+    ),
+  );
+}
 
 interface WorkflowCanvasProps {
   nodes: WorkflowNode[];
@@ -95,6 +183,20 @@ interface WorkflowCanvasProps {
    * broken node. Full repoint persistence is deferred (TODO(#890)).
    */
   onLocateSubworkflow?: (nodeId: string) => void;
+  // --- ADR-054 Phase D §FR-035 — the block context menu (all optional) -----
+  /**
+   * The MiniApps this workspace knows about, from `GET /api/panels/miniapps`.
+   * The canvas filters them per block by declared type; it does not fetch them,
+   * because the same list backs the MiniApps tab and the toolbar.
+   */
+  miniApps?: MiniAppSummary[];
+  /** Open `summary` on `target`. The canvas has already resolved which port. */
+  onOpenMiniApp?: (summary: MiniAppSummary, target: MiniAppTarget) => void;
+  /**
+   * FR-023 — New MiniApp with the block's output pre-filled. `null` when the
+   * block produced nothing to pre-fill with.
+   */
+  onNewMiniApp?: (target: MiniAppTarget | null) => void;
 }
 
 /**
@@ -268,6 +370,14 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
   // consumed only by the node's status surface, so it does not need to be
   // threaded down through ProjectWorkspace.
   const blockRunStartedAt = useAppStore((s) => s.blockRunStartedAt);
+  /*
+   * ADR-054 FR-035 — a MiniApp target names the workflow the block belongs to,
+   * and the canvas is not told which workflow it is showing: the id lives on
+   * the workflow slice, which is what the tab restores on every switch. Read
+   * here for the same reason `highlightedNodeId` is: transient identity the
+   * hover detail needs and nothing above the canvas would otherwise thread.
+   */
+  const workflowId = useAppStore((s) => s.workflowId);
   const {
     blocks,
     schemas,
@@ -298,6 +408,9 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onTidyLayout,
     onOpenSubworkflow,
     onLocateSubworkflow,
+    miniApps,
+    onOpenMiniApp,
+    onNewMiniApp,
   } = props;
 
   // Track positions locally during drag so nodes follow the cursor smoothly.
@@ -315,7 +428,85 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
     onWarningClick,
   });
 
+  const [pickerFor, setPickerFor] = useState<{ summary: MiniAppSummary; blockId: string } | null>(
+    null,
+  );
+  const makeDetailActions = useCallback(
+    (node: WorkflowNode) => {
+      const summary = blocks.find((block) => block.type_name === node.block_type);
+      if (!summary) return null;
+      const schema = schemas[node.block_type];
+      const ports = producedOutputPorts(node, schema, blockOutputs?.[node.id]);
+      const targetFor = (port: string): MiniAppTarget | null =>
+        workflowId ? { workflow_id: workflowId, block_id: node.id, port } : null;
+      const entries = [
+        {
+          key: "edit-block",
+          label: canEditBlockSource(summary) ? "Edit block" : "View source",
+          disabled: false,
+          onSelect: () => {
+            void openBlockEditor(summary);
+          },
+        },
+        ...(onOpenMiniApp
+          ? (miniApps ?? []).flatMap((app) => {
+              const matching = portsForMiniApp(ports, app.type, schema?.type_hierarchy);
+              return matching.length
+                ? [
+                    {
+                      key: `miniapp-${app.panel_id}`,
+                      label: `Open in ${app.name}`,
+                      disabled: !workflowId,
+                      onSelect: () => {
+                        if (matching.length > 1) setPickerFor({ summary: app, blockId: node.id });
+                        else {
+                          const target = targetFor(matching[0].name);
+                          if (target) onOpenMiniApp(app, target);
+                        }
+                      },
+                    },
+                  ]
+                : [];
+            })
+          : []),
+        ...(onNewMiniApp
+          ? [
+              {
+                key: "new-miniapp",
+                label: "New MiniApp",
+                disabled: !ports.length || !workflowId,
+                onSelect: () => onNewMiniApp(targetFor(ports[0].name)),
+              },
+            ]
+          : []),
+      ];
+      return (
+        <div className="flex flex-col gap-1" data-testid="canvas-block-detail-actions">
+          {entries.map((entry) => (
+            <button
+              key={entry.key}
+              type="button"
+              className="rounded px-2 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100 disabled:text-stone-400"
+              data-testid={`canvas-detail-${entry.key}`}
+              disabled={entry.disabled}
+              onClick={entry.onSelect}
+            >
+              {entry.label}
+            </button>
+          ))}
+          {onNewMiniApp && !ports.length ? (
+            <p className="px-2 text-[11px] text-stone-500" data-testid="canvas-detail-reason">
+              {NO_OUTPUTS_REASON}
+            </p>
+          ) : null}
+        </div>
+      );
+    },
+    [blocks, schemas, blockOutputs, workflowId, miniApps, onOpenMiniApp, onNewMiniApp],
+  );
+
   const baseFlowNodes = useFlowNodes({
+    makeDetailActions,
     nodes,
     edges,
     blocks,
@@ -460,6 +651,21 @@ export function WorkflowCanvas(props: WorkflowCanvasProps) {
           />
         ) : null}
       </ReactFlow>
+      {/* FR-034's "several ports match" case, on the block the user picked. */}
+      <MiniAppTargetPicker
+        onOpenChange={(open) => {
+          if (!open) setPickerFor(null);
+        }}
+        onPick={(target) => {
+          if (pickerFor) onOpenMiniApp?.(pickerFor.summary, target);
+          setPickerFor(null);
+        }}
+        open={pickerFor !== null}
+        restrictTo={
+          pickerFor && workflowId ? { workflow_id: workflowId, block_id: pickerFor.blockId } : null
+        }
+        summary={pickerFor?.summary ?? null}
+      />
     </div>
   );
 }

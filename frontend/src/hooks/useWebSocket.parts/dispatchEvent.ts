@@ -25,6 +25,7 @@ import {
   handleInteractivePrompt,
   handleWorkflowStartedAutoOpen,
 } from "./handleLifecycle";
+import { handleOpenMiniApp, handlePanelFilesChanged, handleWsHello } from "./handleMiniApp";
 import { handleWorkflowChanged } from "./handleWorkflowChanged";
 
 export interface DispatchDeps {
@@ -50,6 +51,20 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
    * event; every existing consumer still sees it. The call returns immediately
    * when no tutorial is running.
    */
+  /*
+   * ADR-054 MiniApps (#2354), CONTRACT §2.1 — the first frame on the socket.
+   *
+   * Before everything else because it is not a workflow event at all: it
+   * carries no block, no workflow and no event data, and it is the identity
+   * every later MiniApp context create is bound to. The matching clear lives
+   * in `handleWsDisconnected`, which the socket hook calls when the connection
+   * drops — a client id the backend has retired must not outlive its socket.
+   */
+  if (payload.type === "hello") {
+    handleWsHello(payload, { setWsClientId: useAppStore.getState().setWsClientId });
+    return true;
+  }
+
   if (TUTORIAL_SYNC_EVENT_TYPES.has(payload.type)) {
     void useAppStore.getState().syncActiveTutorialSession();
   }
@@ -105,6 +120,25 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
   }
   if (payload.type === "block_pty_closed") {
     handleBlockPtyClosed(payload, { appendLog: deps.appendLog });
+    return true;
+  }
+  if (payload.type === "panel.open_miniapp") {
+    // ADR-054 FR-030: the agent asked the workspace to open a MiniApp on one
+    // output. Consumed here — nothing downstream reads it, unlike
+    // `workflow_started` above, whose branch returns false on purpose.
+    handleOpenMiniApp(payload, {
+      openMiniAppTab: useAppStore.getState().openMiniAppTab,
+      appendLog: deps.appendLog,
+    });
+    return true;
+  }
+  if (payload.type === "panel.files_changed") {
+    // ADR-054 FR-022: the panel directory of an open MiniApp changed on disk.
+    // The 500 ms debounce lives in the handler, not in the tab: this is where
+    // the burst arrives, and one reload per burst is cheaper than one per tab.
+    handlePanelFilesChanged(payload, {
+      notifyPanelFilesChanged: useAppStore.getState().notifyPanelFilesChanged,
+    });
     return true;
   }
   return false;

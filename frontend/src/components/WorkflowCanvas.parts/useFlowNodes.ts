@@ -3,7 +3,7 @@
  * Extracted from WorkflowCanvas in #1413.
  */
 import type { Node } from "@xyflow/react";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import type {
   BlockSchemaResponse,
@@ -62,6 +62,7 @@ function resolveSubWorkflowLabel(node: WorkflowNode): string {
 }
 
 export interface UseFlowNodesOpts {
+  makeDetailActions?: (node: WorkflowNode) => ReactNode;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   blocks: BlockSummary[];
@@ -113,6 +114,7 @@ export interface UseFlowNodesOpts {
 export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
   const {
     nodes,
+    makeDetailActions,
     edges,
     blocks,
     schemas,
@@ -192,6 +194,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
         position,
         params,
         summary,
+        detailActions: makeDetailActions?.(node),
         schema,
         // ADR-044 — in an expanded child canvas the run keys carry the parent
         // prefix; runScopePrefix is "" for a top-level workflow.
@@ -227,6 +230,7 @@ export function useFlowNodes(opts: UseFlowNodesOpts): Node[] {
     dragPositions,
     dragSizes,
     edges,
+    makeDetailActions,
     makeOnDelete,
     makeOnErrorClick,
     makeOnRun,

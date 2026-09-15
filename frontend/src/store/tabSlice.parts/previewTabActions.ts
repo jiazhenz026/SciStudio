@@ -9,7 +9,7 @@
 import type { StoreApi } from "zustand";
 
 import type { AppStore, PreviewTab, TabSlice } from "../types";
-import { captureActiveTab, dropInactivePreviewTabs } from "./tabHelpers";
+import { backingWorkflowTabId, captureActiveTab, dropInactivePreviewTabs } from "./tabHelpers";
 
 type StoreSetter = StoreApi<AppStore>["setState"];
 type StoreGetter = StoreApi<AppStore>["getState"];
@@ -45,12 +45,7 @@ export function createOpenPreviewTab(
     // `syncActiveTab` writes the capture back into that one tab instead of into
     // every tab that happens to share its `workflowId`. Preview-to-preview
     // carries the same backing tab forward.
-    const backingTabId =
-      currentActive?.kind === "workflow"
-        ? currentActive.id
-        : currentActive?.kind === "preview"
-          ? currentActive.backingTabId
-          : undefined;
+    const backingTabId = backingWorkflowTabId(state);
 
     const newTab: PreviewTab = {
       kind: "preview",

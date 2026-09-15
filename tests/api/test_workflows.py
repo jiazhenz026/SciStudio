@@ -14,6 +14,7 @@ from tests.api.helpers import (
     wait_for_block_state,
     wait_for_condition,
     wait_for_workflow_completion,
+    ws_hello,
 )
 
 
@@ -242,6 +243,7 @@ def test_websocket_receives_workflow_changed_event_after_write(
     client.post("/api/workflows/", json=payload)
 
     with client.websocket_connect("/ws") as websocket:
+        ws_hello(websocket)
         payload["description"] = "ws-triggered"
         response = client.put("/api/workflows/changed-ws", json=payload)
         assert response.status_code == 200

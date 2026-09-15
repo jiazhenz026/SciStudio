@@ -20,8 +20,12 @@ def test_unknown_ref_and_miniapp_refused(panel_runtime):
         store.create(
             {"kind": "preview", "target": {"ref": "/etc/passwd"}, "query": {"_storage": {"path": "/etc/passwd"}}}
         )
-    with pytest.raises(PanelError, match="Phase A"):
+    # Phase D implements the miniapp context; a panel that does not declare it
+    # is refused, as is an unregistered panel id.
+    with pytest.raises(PanelError, match="does not declare miniapp"):
         store.create({"kind": "miniapp", "panel_id": "lab.text"})
+    with pytest.raises(PanelError, match="not registered"):
+        store.create({"kind": "miniapp", "panel_id": "no.such.panel"})
 
 
 def test_close_revoke_renew_expiry_and_project_change(panel_runtime):
