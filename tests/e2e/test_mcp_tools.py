@@ -1330,6 +1330,43 @@ def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     assert MINIAPP_ID in [app["panel_id"] for app in before], before
 
 
+QUESTIONNAIRE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "questionnaire" / "miniapp"
+
+
+def test_agent_checks_a_questionnaire_and_waits_for_its_answers(agent: Agent) -> None:
+    """#2447: validate_panel exercises a questionnaire; wait_for_answers returns the submit."""
+    directory = "panels/ask_first"
+    write_panel(
+        agent,
+        directory,
+        dict(MINIAPP_DESCRIPTOR, id="ask_first", name="Ask first"),
+        page=(QUESTIONNAIRE_FIXTURE / "index.html").read_text(encoding="utf-8"),
+    )
+    spec = (QUESTIONNAIRE_FIXTURE / "questionnaire.json").read_text(encoding="utf-8")
+    agent.call("write_file", path=f"{directory}/questionnaire.json", content=spec).ok()
+
+    checked = agent.call("validate_panel", path=directory).ok()
+    assert checked["valid"] is True, checked
+    assert checked["questionnaire"]["round_trip"] is True, checked
+    assert checked["questionnaire"]["statuses_exercised"] == ["answered", "decide_for_me", "skipped"]
+
+    waited = agent.call("wait_for_answers", panel_id="ask_first", timeout_seconds=1).ok()
+    assert waited["status"] == "timed_out" and waited["answers"] == [], waited
+
+    document = {
+        "version": 1,
+        "panel_id": "ask_first",
+        "title": json.loads(spec)["title"],
+        "submitted_at": "2026-09-15T12:00:00Z",
+        "answers": [{"id": "chart", "type": "single", "prompt": "Which view?", "status": "decide_for_me"}],
+    }
+    agent.call("write_file", path=f"{directory}/answers.json", content=json.dumps(document)).ok()
+    submitted = agent.call("wait_for_answers", panel_id="ask_first", timeout_seconds=5).ok()
+    assert submitted["status"] == "submitted", submitted
+    assert submitted["answers_path"] == f"{directory}/answers.json"
+    assert submitted["answers"][0]["status"] == "decide_for_me"
+
+
 # ---------------------------------------------------------------------------
 # Coverage guard.
 # ---------------------------------------------------------------------------

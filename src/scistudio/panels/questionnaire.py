@@ -324,17 +324,17 @@ def answers_document(
 def write_answers(directory: Path, document: dict[str, Any]) -> Path:
     """Write ``answers.json`` atomically, so a reader never sees half a file."""
     target = Path(directory) / ANSWERS_FILE
-    handle, temporary = tempfile.mkstemp(prefix=".answers-", suffix=".tmp", dir=str(directory))
+    handle, staging = tempfile.mkstemp(prefix=".answers-", suffix=".tmp", dir=str(directory))
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
             json.dump(document, stream, indent=2, ensure_ascii=False, allow_nan=False)
             stream.write("\n")
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, target)
+        os.replace(staging, target)
     except BaseException:
         with contextlib.suppress(OSError):
-            os.unlink(temporary)
+            os.unlink(staging)
         raise
     return target
 
