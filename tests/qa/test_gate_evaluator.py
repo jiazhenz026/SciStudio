@@ -1154,6 +1154,11 @@ def test_python_tests_check_does_not_set_scistudio_dev(git_repo: Path, monkeypat
     # packages are discovered through their installed ``scistudio.*`` entry
     # points and the local check env matches CI without extra flags.
     monkeypatch.delenv("SCISTUDIO_DEV", raising=False)
+    monkeypatch.delenv("CI", raising=False)
+    # A real selectable test file: outside CI python_tests only runs explicit
+    # targets (#2386), so the stub subprocess must see one.
+    (git_repo / "tests/qa").mkdir(parents=True, exist_ok=True)
+    (git_repo / "tests/qa/test_x.py").write_text("def test_x(): ...\n", encoding="utf-8")
     seen_env: list[str | None] = []
 
     def _fake_run(

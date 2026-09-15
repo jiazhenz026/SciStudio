@@ -31,7 +31,12 @@
 #
 # Exit code: the first phase that fails (nonzero, other than pytest's
 # "no tests collected" code 5) is returned; otherwise 0.
-# Development references: #1867, #1896.
+#
+# Local guard (#2386): outside CI (``CI`` unset) the runner refuses to start
+# unless the forwarded args name explicit test targets, and refuses targets that
+# name the whole ``tests/`` tree or the repository root. The full Python suite
+# runs only in ``ci.yml``; it never runs locally.
+# Development references: #1867, #1896, #2386.
 
 from __future__ import annotations
 
@@ -40,6 +45,8 @@ import sys
 
 # pytest's exit code when a phase's marker expression selects nothing.
 _NO_TESTS_COLLECTED = 5
+# pytest's exit code for a usage error; used for a refused whole-suite run.
+_USAGE_ERROR = 4
 
 
 def _run(cmd: list[str]) -> int:
@@ -49,12 +56,26 @@ def _run(cmd: list[str]) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the suite in a parallel phase then a serial phase.
+    """Run the selected tests in a parallel phase then a serial phase.
 
     ``argv`` defaults to ``sys.argv[1:]``; every forwarded arg is applied to both
-    phases. Returns a process exit code suitable for ``SystemExit``.
+    phases. Outside CI the args must name explicit test targets, else the run is
+    refused with exit code 4 before any pytest process starts (#2386). Returns a
+    process exit code suitable for ``SystemExit``.
     """
     forwarded = list(sys.argv[1:] if argv is None else argv)
+    # Imported here so the runner module stays importable on its own; the guard
+    # is the same chokepoint the gate's ``python_tests`` check uses.
+    from scistudio.qa.governance.gate_record.checks import (
+        FullPythonSuiteRefusedError,
+        assert_bounded_python_test_argv,
+    )
+
+    try:
+        assert_bounded_python_test_argv(forwarded)
+    except FullPythonSuiteRefusedError as exc:
+        print(f"run_python_tests: {exc}", file=sys.stderr)
+        return _USAGE_ERROR
     coverage_active = "--no-cov" not in forwarded
     pytest = [sys.executable, "-m", "pytest"]
 

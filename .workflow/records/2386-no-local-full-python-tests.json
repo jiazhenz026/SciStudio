@@ -1,0 +1,156 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2386-no-local-full-python-tests",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record/**",
+      "src/scistudio/qa/testing/**",
+      "tests/qa/**",
+      "tests/scripts/**",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/ai-developer/gate-cli-command-set.md",
+      "docs/ai-developer/specific_rules/guided-work.md",
+      "docs/specs/gate-local-incremental-checks.md",
+      "docs/specs/adr-042-gate-ledger-runtime.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T05:15:41.290822Z",
+      "owner_directive": "From now on, running the full Python test suite locally is strictly forbidden in every case. Owner-approved change to local gate check behaviour and governance docs; CI (ci.yml) keeps running the full suite.",
+      "reason": "owner directive 2: forbid local full Python suite (owner-approved governance scope)"
+    },
+    {
+      "at": "2026-09-15T05:15:41.457197Z",
+      "owner_directive": "Revise ADR-042 Addendum 7 directly (still Proposed): this PR is authorised to edit docs/adr/ADR-042-addendum7.md only (sections 1, 2.1, 2.2, and 5/6 safety-premise sentences) to the no-local-full-suite rule. Do not edit other ADRs. Leave Makefile untouched. Do not add a collection-time guard in tests/conftest.py; gate-side hard guards in checks.run_check and run_python_tests.main stay in scope.",
+      "reason": "owner decisions on investigation questions: revise ADR-042 Addendum 7 in place; Makefile untouched; no tests/conftest.py collection guard"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T05:27:29.818696Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-042-addendum7.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818844Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/gate-local-incremental-checks.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818846Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-042-gate-ledger-runtime.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818848Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/rules.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818849Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/gated-workflow.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818850Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/gate-cli-command-set.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818851Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/ai-developer/specific_rules/guided-work.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2386,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Investigate all factors that can cause a full local Python test run.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2386-no-local-full-python-tests",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:15:41.457363Z",
+      "pattern": "docs/adr/ADR-042-addendum7.md",
+      "reason": "owner decisions on investigation questions: revise ADR-042 Addendum 7 in place; Makefile untouched; no tests/conftest.py collection guard"
+    }
+  ],
+  "session_id": "5bf4c0c9-de83-4ade-b773-3741ad6623bf",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-15T05:27:29.818859Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_incremental_checks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818863Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/testing/test_run_python_tests.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:27:29.818864Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/test_gate_evaluator.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

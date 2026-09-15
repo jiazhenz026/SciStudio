@@ -1,7 +1,8 @@
 """Unit tests for the two-phase pytest runner (#1896).
 
 ``subprocess.run`` is stubbed so these tests assert the runner's phase
-composition and exit-code logic without actually invoking pytest.
+composition and exit-code logic without actually invoking pytest. Every call
+names an explicit target: outside CI a target-less run is refused (#2386).
 """
 
 from __future__ import annotations
@@ -16,6 +17,11 @@ from scistudio.qa.testing import run_python_tests
 class _FakeCompleted:
     def __init__(self, returncode: int) -> None:
         self.returncode = returncode
+
+
+@pytest.fixture(autouse=True)
+def _outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CI", raising=False)
 
 
 @pytest.fixture
@@ -36,7 +42,7 @@ def test_coverage_path_composes_two_phases(record_runs: tuple[list[list[str]], l
     calls, rcs = record_runs
     rcs.extend([0, 0])
 
-    rc = run_python_tests.main(["--timeout=60", "--timeout-method=thread"])
+    rc = run_python_tests.main(["--timeout=60", "--timeout-method=thread", "tests/qa"])
 
     assert rc == 0
     assert len(calls) == 2
@@ -58,7 +64,7 @@ def test_no_cov_path_omits_coverage_flags(record_runs: tuple[list[list[str]], li
     calls, rcs = record_runs
     rcs.extend([0, 0])
 
-    rc = run_python_tests.main(["--no-cov", "--timeout=60"])
+    rc = run_python_tests.main(["--no-cov", "--timeout=60", "tests/qa"])
 
     assert rc == 0
     parallel, serial = calls
@@ -71,7 +77,7 @@ def test_parallel_failure_short_circuits(record_runs: tuple[list[list[str]], lis
     calls, rcs = record_runs
     rcs.extend([1])  # parallel phase fails
 
-    rc = run_python_tests.main(["--no-cov"])
+    rc = run_python_tests.main(["--no-cov", "tests/qa"])
 
     assert rc == 1
     assert len(calls) == 1  # serial phase never runs
@@ -81,7 +87,7 @@ def test_parallel_no_tests_collected_continues(record_runs: tuple[list[list[str]
     calls, rcs = record_runs
     rcs.extend([5, 0])  # parallel collects nothing (exit 5), serial passes
 
-    rc = run_python_tests.main(["--no-cov"])
+    rc = run_python_tests.main(["--no-cov", "tests/qa"])
 
     assert rc == 0
     assert len(calls) == 2
@@ -91,7 +97,7 @@ def test_empty_serial_reasserts_coverage_floor(record_runs: tuple[list[list[str]
     calls, rcs = record_runs
     rcs.extend([0, 5, 0])  # parallel passes, serial collects nothing, coverage report passes
 
-    rc = run_python_tests.main(["--timeout=60"])
+    rc = run_python_tests.main(["--timeout=60", "tests/qa"])
 
     assert rc == 0
     assert len(calls) == 3
@@ -103,7 +109,40 @@ def test_empty_serial_without_coverage_returns_zero(record_runs: tuple[list[list
     calls, rcs = record_runs
     rcs.extend([0, 5])  # parallel passes, serial collects nothing, no coverage
 
-    rc = run_python_tests.main(["--no-cov"])
+    rc = run_python_tests.main(["--no-cov", "tests/qa"])
 
     assert rc == 0
     assert len(calls) == 2  # no coverage-report fallback when --no-cov
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        pytest.param([], id="no-args"),
+        pytest.param(["--timeout=60", "--timeout-method=thread"], id="options-only"),
+        pytest.param(["--no-cov", "tests"], id="whole-tests-tree"),
+        pytest.param(["--no-cov", "."], id="repo-root"),
+    ],
+)
+def test_whole_suite_run_is_refused_outside_ci(
+    record_runs: tuple[list[list[str]], list[int]], argv: list[str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#2386: the full Python suite never runs locally; no pytest process starts."""
+    calls, _rcs = record_runs
+
+    rc = run_python_tests.main(argv)
+
+    assert rc == 4
+    assert calls == []
+    assert "#2386" in capsys.readouterr().err
+
+
+def test_target_less_run_is_allowed_in_ci(
+    record_runs: tuple[list[list[str]], list[int]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls, rcs = record_runs
+    rcs.extend([0, 0])
+    monkeypatch.setenv("CI", "true")
+
+    assert run_python_tests.main(["--no-cov"]) == 0
+    assert len(calls) == 2

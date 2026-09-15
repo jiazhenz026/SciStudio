@@ -960,6 +960,22 @@ def required_for_mode(required: Sequence[str], *, mode: EvaluatorMode) -> list[s
     return list(required)
 
 
+def execution_scope_for(name: str, *, mode: EvaluatorMode, force_checks: bool) -> Literal["repo", "diff"]:
+    """Return the scope a check executes at for this caller.
+
+    ``ci`` mode runs the repository-scoped mirror. ``--force-checks`` does the
+    same locally for every check except the diff-selected Python tests, which
+    never widen to the whole suite outside CI (ADR-042 Addendum 7 §2.2, #2386).
+    """
+
+    if mode == "ci":
+        return "repo"
+    spec = checks.CHECK_CATALOG.get(name)
+    if force_checks and (spec is None or spec.local_scope != "pytest_select"):
+        return "repo"
+    return "diff"
+
+
 def reconcile(
     *,
     ledger: GateLedger,
@@ -1145,11 +1161,13 @@ def reconcile(
                 # the agent sees them, but do not hard-fail a WIP invocation.
                 parity_gaps.extend(parity_report.gaps)
         # Local modes run each check narrowed to the observed diff; ``ci`` mode
-        # and an explicit ``--force-checks`` run the repository-scoped CI mirror.
-        # ci.yml remains authoritative for the full surface on the same PR, which
-        # is the role split ``_CI_OWNED_QUALITY_CHECKS`` already encodes for the
-        # ci side (spec gate-local-incremental-checks FR-002).
-        execution_scope: Literal["repo", "diff"] = "repo" if (mode == "ci" or force_checks) else "diff"
+        # and an explicit ``--force-checks`` run the repository-scoped CI mirror,
+        # except ``python_tests``: ``--force-checks`` only forces re-execution of
+        # its diff-scoped selection, and ``run_check`` refuses a repository-scoped
+        # test run outside CI (#2386). ci.yml remains authoritative for the full
+        # surface on the same PR, which is the role split
+        # ``_CI_OWNED_QUALITY_CHECKS`` already encodes for the ci side (spec
+        # gate-local-incremental-checks FR-002).
         for name in to_run:
             event = checks.run_check(
                 repo_root,
@@ -1157,7 +1175,7 @@ def reconcile(
                 changed_files=observed_files,
                 diff_fingerprint=fingerprint,
                 input_fingerprint=input_fps.get(name),
-                scope=execution_scope,
+                scope=execution_scope_for(name, mode=mode, force_checks=force_checks),
             )
             check_events.append(event)
             ledger.check_events.append(event)
