@@ -131,14 +131,142 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:38:01.028908Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:12d2a609dbaa3327eade40c366758e932524f809b718b4fd741665da832006cc",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:38:01.081554Z",
+      "command": "ruff format src/scistudio/previewers/data_access.py tests/api/test_stability_decorators.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:5cf5429dba244172b1fcc7233f623121623ff544dcf57008b7c5cba6500910ca",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T18:38:07.221146Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2f34851aa94de0ec24c12f283b2bec2189abda404f862ad4fa4619637e0ad737",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:38:07.347883Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b5943979e4859d30823622e62412cf714a23d74049775b5edcef75cbb47cf450",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:38:07.365565Z",
+      "command": "ruff check src/scistudio/previewers/data_access.py tests/api/test_stability_decorators.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:895c74f2b929f67993cf54b11c448e68a07af978349889cdfde1bd5755f09002",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T18:38:19.738290Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/adr052_contract/test_accessor_dataflow_guard.py tests/adr052_contract/test_deprecations.py tests/adr052_contract/test_ergonomic_accessors.py tests/adr052_contract/test_no_internal_leak.py tests/adr052_contract/test_plot_render_contract.py tests/adr052_contract/test_reexports.py tests/adr052_contract/test_signatures.py tests/adr052_contract/test_stability_semantics.py tests/adr052_contract/test_surface_inventory.py tests/api/test_preview_plot_jobs.py tests/api/test_public_surface.py tests/api/test_stability_decorators.py tests/docs/test_build_reference_deprecation.py tests/previewers tests/previewers/test_fallback_array.py tests/previewers/test_panel_read_extensions.py tests/previewers/test_preview_data_access.py tests/previewers/test_preview_security.py",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_tests",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1532e81a1e7147a4ec5d8552f76596fbc73ef93abb8df2d2cb8cc9747cade4aa",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T18:38:19.982660Z",
+      "command": "mypy src/scistudio/previewers/data_access.py --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:9811fc55efd653cca294d3393f65552236b2c8f0d4e4730608d68710ed6ef28b",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
   "commit": {
-    "sha": "c69e1760726a122a0638031e6a236e48bb14d70d",
-    "shas": [
-      "c69e1760726a122a0638031e6a236e48bb14d70d"
-    ],
+    "sha": null,
+    "shas": [],
     "trailers": []
   },
   "declared_scope": {
@@ -513,6 +641,194 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.043350Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.052757Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.062563Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.071970Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.081490Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.091052Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.100029Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.109726Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.118884Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.128289Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.137855Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:20.149131Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.071603Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.081125Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.090727Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.099888Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.109392Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.118685Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.128015Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.137593Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.146669Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.156339Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.165636Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T18:38:30.176270Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -525,27 +841,29 @@
   ],
   "observed_admin_labels": [],
   "observed_diff": {
-    "base": "243b33ea723577499d008380dbd65926b4fc9698",
-    "base_sha": "243b33ea",
+    "base": "e097b186697d187c9bcdf8ccd6b8d2caf805e1cf",
+    "base_sha": "e097b186",
     "changed_files": [
       ".workflow/records/2442-composite-slots-stability.json",
+      "src/scistudio/_user_guide/api-reference/scistudio.blocks.app.md",
       "src/scistudio/_user_guide/api-reference/scistudio.previewers.data_access.md",
       "src/scistudio/previewers/data_access.py",
       "tests/api/test_stability_decorators.py"
     ],
-    "diff_fingerprint": "sha256:3e49b2ab05d4737b1abf9560a208677c816bdcc6c313f8c339d6a52e82dbf7a1",
+    "diff_fingerprint": "sha256:4341c63d5265fa786fb3981366eae90849827f2a6989c2fe492070a372f61297",
     "head": "HEAD",
-    "head_sha": "c69e1760",
+    "head_sha": "ccefa433",
     "surfaces": {
       "docs": 0,
       "frontend": 0,
       "governance": 0,
       "governed_docs": 0,
-      "implementation": 2,
+      "implementation": 3,
       "packaging": 0,
+      "protected_agent_docs": 0,
       "protected_architecture": 0,
       "protected_core": 0,
-      "sentrux": 3,
+      "sentrux": 4,
       "test": 1,
       "workflow_ci": 0
     }
@@ -558,7 +876,7 @@
       2442
     ],
     "number": 2443,
-    "url": "https://github.com/jiazhenz026/SciStudio/pull/2443"
+    "url": null
   },
   "reconcile_events": [
     {
@@ -592,6 +910,22 @@
       "result": "pass",
       "tier": 2,
       "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:38:20.149162Z",
+      "diff_fingerprint": "sha256:4341c63d5265fa786fb3981366eae90849827f2a6989c2fe492070a372f61297",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T18:38:30.176298Z",
+      "diff_fingerprint": "sha256:4341c63d5265fa786fb3981366eae90849827f2a6989c2fe492070a372f61297",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
     }
   ],
   "record_id": "2442-composite-slots-stability",
@@ -611,6 +945,7 @@
       "docs_required_or_na"
     ],
     "guards": [
+      "agent_docs_guard",
       "architecture_doc_guard",
       "core_change_guard",
       "docs_landing",
