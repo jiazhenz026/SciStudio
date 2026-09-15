@@ -111,6 +111,22 @@ function PdfPage({ data, page, onPages, onFail, libBaseUrl }) {
   return html`<canvas data-testid="plot-pdf-canvas" ref=${canvas}></canvas>`;
 }
 
+/**
+ * A rendered plot figure with zoom, PDF paging, and a Save control for the formats the plot was rendered in.
+ *
+ * @param {object} [props.info] An `artifact.info` result for the plot `{name?, mime_type?, formats?}`; the loading state shows until it is given.
+ * @param {object} [props.file] The figure: `{mime_type?, url?}` for an image, or `{mime_type, data: ArrayBuffer}` for a PDF.
+ * @param {number} [props.zoom] Zoom factor, from 0.5 to 4 in 25% steps.
+ * @param {function} [props.onZoom] `(next)` when the reader zooms.
+ * @param {string} [props.saveFormat] The selected save format, one of `info.formats`.
+ * @param {function} [props.onSaveFormatChange] `(format)` when the reader picks a format.
+ * @param {number} [props.page] Current PDF page, from 1.
+ * @param {function} [props.onPageChange] `(page)` when the reader turns a PDF page.
+ * @param {boolean} [props.saving] Marks a save in flight.
+ * @param {function} [props.onSave] `(format)` when the reader saves; read that format's own bytes (for example `artifact.file` with `variant`). Save is disabled without it.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ * @param {string} [props.libBaseUrl] `scistudio.libBaseUrl`; needed to render PDF figures.
+ */
 export function PlotView({
   info,
   file,

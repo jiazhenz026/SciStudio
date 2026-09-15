@@ -1,0 +1,166 @@
+{
+  "base_ref": null,
+  "branch": "docs/2430-panel-api-reference",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "scripts/docs/build_panel_reference.py",
+      "scripts/docs/build_reference.py",
+      "src/scistudio/panels/sdk/1/**",
+      "src/scistudio/panels/descriptor.py",
+      "src/scistudio/panels/reads.py",
+      "src/scistudio/_user_guide/api-reference/**",
+      "tests/docs/**",
+      "tests/panels/**",
+      "docs/specs/adr-054-panels.md",
+      "docs/adr/ADR-052.md",
+      "docs/adr/ADR-052-addendum1.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T08:48:48.887340Z",
+      "owner_directive": "Coordinator relayed owner addition: write ADR-052 Addendum 1 bringing the panel JS contract into the public-API and generated-reference model, link it from ADR-052, record it as docs updated. SpecKit N/A: the change is a documentation generator plus declarative tables, recorded by ADR-052 Addendum 1 and ADR-054 panels spec FR-050.",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-15T08:48:48.887511Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-052-addendum1.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887516Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-052.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887517Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887518Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-sdk.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887524Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panels-renderers.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887525Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/panel-descriptor.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887526Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/index.md",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2430,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Generate the panel API contract (panel JS SDK window.scistudio, shared UI/renderer components and CSS, panel.json descriptor schema and panel.sample.json shape) from source into the API reference under src/scistudio/_user_guide/api-reference/, stability provisional with SDK api_version, linked from index.md, with a freshness check; implement in a dedicated generator module touching build_reference.py only for a minimal hook; update the ADR-054 panels spec; write an ADR-052 addendum bringing the panel JS contract into the public-API and generated-reference model and link it from ADR-052. Do not rewrite skills/user guide/agent reference prose; do not edit ARCHITECTURE.md.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2430-panel-api-reference",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:48:48.887493Z",
+      "pattern": "docs/adr/ADR-052-addendum1.md",
+      "reason": "plan"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T08:48:48.887501Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "3e6d3c6e-c512-4bf8-99da-d94376b1db03",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-15T08:48:48.887531Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/docs/test_panel_reference.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887533Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_descriptor.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887534Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_read_operations.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T08:48:48.887535Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
