@@ -508,7 +508,7 @@ class ApiRuntime:
         """Make *project_id*'s still-live detached runs addressable again.
 
         Called when that project becomes active. A run keeps executing across a
-        switch (#2327), so switching back must show it, report its status, and
+        switch, so switching back must show it, report its status, and
         let it be cancelled — exactly as if the user had never left.
         """
         # Development references: #2362, #2327.
