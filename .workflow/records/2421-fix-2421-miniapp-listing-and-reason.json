@@ -414,7 +414,13 @@
       "CHANGELOG.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:10:01.844532Z",
+      "owner_directive": "After #2423 merged, remove the #2421/#2422 xfails in PR #2428.",
+      "reason": "remove xfails after #2423 merged"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T08:21:46.889511Z",
@@ -1451,6 +1457,22 @@
       "class": null,
       "kind": "path",
       "path": "tests/ai/test_mcp_panels_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:10:01.844662Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:10:01.844665Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_transports.py",
       "rationale": null,
       "verified_in_diff": null
     }

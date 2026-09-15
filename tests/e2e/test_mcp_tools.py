@@ -1062,7 +1062,7 @@ def test_agent_validates_a_miniapp_directory(agent: Agent) -> None:
     assert broken["panel_id"] is None and broken["contexts"] == [], broken
     # errors non-empty means discovery skips the directory; a valid one is discovered.
     # Discovery is checked after an explicit registry reload; that the lists update
-    # without one is the separate contract-gap test below (#2421).
+    # without one is the separate test below.
     agent.observed["miniapps_before_reload"] = agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]
     agent.backend.reload_registries()
     listed = catalog_ids(agent)
@@ -1235,11 +1235,6 @@ def test_reload_blocks_reports_the_type_names_it_added(agent: Agent) -> None:
     assert set(reload["new_types"]) <= set(reload["result"]["added"]), reload
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="a validated MiniApp is missing from the MiniApps list until a manual reload — TODO(#2421)",
-)
 def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     before = agent.observed["miniapps_before_reload"]
     assert MINIAPP_ID in [app["panel_id"] for app in before], before
