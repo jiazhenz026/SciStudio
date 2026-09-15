@@ -50,7 +50,7 @@ PROJECT_RUNS_LIVE = "project_runs_live"
 
 
 def _runs_live_conflict(exc: ProjectRunsLiveError) -> HTTPException:
-    """The 409 a switch that would end live runs answers (#2433)."""
+    """The 409 a switch that would end live runs answers."""
     return HTTPException(
         status_code=409,
         detail={"code": PROJECT_RUNS_LIVE, "message": str(exc), "run_ids": exc.run_ids},

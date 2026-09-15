@@ -177,7 +177,7 @@ def _handle_block_user_signal(
 def serialise_event(event: EngineEvent) -> dict[str, Any]:
     """Convert an EngineEvent to a JSON-serialisable dict for the WebSocket protocol.
 
-    ``run_id`` names the run an execution event came from (#2433), so a client
+    ``run_id`` names the run an execution event came from, so a client
     can tell the current run of a workflow from an earlier one; it is ``None``
     for events no run emitted.
     """

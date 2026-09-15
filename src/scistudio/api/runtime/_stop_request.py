@@ -296,7 +296,7 @@ def terminate_project_terminal_sessions(project_dir: Path) -> int:
     A session belongs to the project it was started in: its working directory
     is that project or a directory inside it (an AI Block run folder). Leaving
     the project closes them, so an agent started there cannot act on the
-    project opened next (#2433). The kills run on daemon threads.
+    project opened next. The kills run on daemon threads.
 
     Returns:
         The number of sessions this call started killing.

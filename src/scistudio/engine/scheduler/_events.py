@@ -57,7 +57,7 @@ def _event_is_for_run(self: DAGScheduler, event: EngineEvent) -> bool:
     events for its own run; otherwise a cancel or terminal event for one run
     mutates the state of every other concurrent run. An event that carries a
     ``run_id`` is matched on it: two runs of the same workflow share a
-    ``workflow_id`` (#2433). An event without one is matched on
+    ``workflow_id``. An event without one is matched on
     ``workflow_id``, and one carrying neither is treated as in-scope
     (fail-open) so event types that predate run scoping keep working.
     """

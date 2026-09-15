@@ -485,7 +485,7 @@ def _resolve_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
 def _leave_active_project(self: ApiRuntime) -> None:
     """Forget the active project's runs and close its agent terminals.
 
-    Leaving a project ends its runs (#2433): the caller has already ended them
+    Leaving a project ends its runs: the caller has already ended them
     through ``end_project_runs``, so a still-live run here is refused rather
     than carried into the next project. Its AI Chat and AI Block terminals are
     closed too: an agent started in one project must not act on the next.

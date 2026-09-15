@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 _run_block_errors: dict[tuple[str, str], dict[str, Any]] = {}
 """``{(run_id, block_id): {"error": traceback, "summary": one_line, "workflow_id": id}}``.
 
-#2433: keyed by the run that failed. An event that predates run identity (no
+Keyed by the run that failed. An event that predates run identity (no
 ``run_id``) is keyed by its workflow id instead.
 
 Holds the CURRENT run's failures only. The key names a workflow, not a run, and

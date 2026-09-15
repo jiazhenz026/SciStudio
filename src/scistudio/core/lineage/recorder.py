@@ -275,10 +275,11 @@ class LineageRecorder:
         """Whether a terminal event on the shared bus belongs to this run.
 
         An event stamped with a ``run_id`` is matched on it, so a second run of
-        the same workflow never writes into this run's record (#2433). An event
-        without one is matched on ``workflow_id`` (#1596), and one carrying
+        the same workflow never writes into this run's record. An event
+        without one is matched on ``workflow_id``, and one carrying
         neither is accepted (fail-open).
         """
+        # Development references: #1596, #2433.
         data = event.data if isinstance(event.data, dict) else {}
         event_run = data.get("run_id")
         if event_run is not None:

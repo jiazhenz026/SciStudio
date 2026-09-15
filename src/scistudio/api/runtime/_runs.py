@@ -77,7 +77,7 @@ def _is_workflow_running(runtime: ApiRuntime, workflow_id: str) -> bool:
 
     Module-level helper (not a bound ``ApiRuntime`` method) so the guard works
     without touching the runtime ``__init__`` method-binding table. A project
-    switch ends every run of the project it leaves (#2433), so the registry of
+    switch ends every run of the project it leaves, so the registry of
     the active project is the whole answer.
     """
     run = runtime.workflow_runs.get(workflow_id)

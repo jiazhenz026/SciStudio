@@ -91,7 +91,7 @@ class WorkflowResponse(WorkflowCreate):
 class WorkflowExecutionResponse(BaseModel):
     """Response body for workflow execution control endpoints.
 
-    ``run_id`` names the run a start scheduled (#2433); every event of that run
+    ``run_id`` names the run a start scheduled; every event of that run
     carries it. It is ``None`` on responses that start no run.
     """
 
