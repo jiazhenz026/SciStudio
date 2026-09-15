@@ -19,7 +19,7 @@ scope:
     - Narrower reusable-evidence inputs for full_audit and deferral_discipline, which currently treat every changed file as an input.
     - Local auto-formatting instead of a failing format check.
     - Local required-check breadth per mode, extending the existing ci-mode and pre-commit-mode role splits to local and pre-pr modes.
-    - The meaning of --force-checks as the opt-in that runs the full CI-mirror commands locally.
+    - The meaning of --force-checks as the opt-in that runs the full CI-mirror commands locally, except python_tests, which never runs the full suite locally (#2386).
     - An assessment of which AI governance documents and which ADR-042 statements the change falsifies.
   out:
     - Any change to the checks CI runs. ci.yml already runs the full matrix on every PR and is unchanged by this spec.
@@ -209,13 +209,17 @@ Acceptance Scenarios:
 - The diff touches only non-Python files. Python-surface checks are not selected
   at all; behavior is unchanged from today.
 - The diff touches a test helper or `conftest.py` that many tests import.
-  Selection must resolve the dependency rather than silently under-select; when
-  the dependency cannot be resolved the local run must widen to the full suite
-  rather than under-report.
-- The test-selection database is absent or stale on a fresh worktree. The first
-  run widens to the full suite and populates it.
+  Selection resolves what it can (the conftest's directory, the tests that import
+  or reference the helper); what it cannot resolve is recorded as deferred to CI.
+  The local run never widens to the full suite (#2386).
+- The diff changes a global test input (`pyproject.toml`, the root
+  `conftest.py`, a CI workflow) or contains no Python-affecting change at a tier
+  that requires `python_tests`. The rest of the diff still selects its tests;
+  the unmapped inputs, or the whole check when nothing is selectable, are
+  recorded as coverage deferred to CI and no local test process starts for them.
 - `--force-checks` is passed. Every selected check runs its CI-mirror command at
-  repository scope.
+  repository scope, except `python_tests`, which re-executes its diff-derived
+  selection and never runs the full suite locally.
 - A check has no meaningful diff-scoped variant, for example
   `wheel_release_smoke`. It keeps its repository-scoped command and its selection
   is governed by mode.
@@ -230,10 +234,17 @@ Acceptance Scenarios:
   existing repository-scoped CI-mirror command, and a check event MUST record
   which of the two produced it.
 - FR-002: `local`, `pre-commit`, and `pre-pr` modes MUST execute the diff-scoped
-  variant when one exists; `--force-checks` MUST execute the CI-mirror variant.
+  variant when one exists; `--force-checks` MUST execute the CI-mirror variant,
+  except for `python_tests`, whose CI-mirror variant MUST NOT execute outside CI.
 - FR-003: The local `python_tests` variant MUST select the tests affected by the
-  observed diff, MUST run with the coverage floor disabled, and MUST widen to the
-  full suite when affected-test resolution is unavailable or incomplete.
+  observed diff and MUST run with the coverage floor disabled. It MUST NOT run
+  the full suite in any local mode or with any flag (#2386). Inputs whose
+  affected tests cannot be resolved MUST be recorded on the check event as
+  coverage deferred to CI (`coverage_deferred_to_ci`, `deferred_reason`); when
+  nothing is selectable no test process starts and the event passes with that
+  deferral. Such an event MUST satisfy the local and pre-PR `python_tests`
+  obligation. A single guard MUST refuse any local test-runner invocation that
+  names no explicit test target or names the whole `tests/` tree.
 - FR-004: The coverage floor MUST continue to be enforced by `ci.yml` at its
   current threshold. This spec MUST NOT change the configured floor.
 - FR-005: The local `format_check` variant MUST apply formatting to the changed
@@ -292,12 +303,18 @@ by mode selection instead.
 
 Second, test selection. The local `python_tests` variant resolves the tests
 affected by the observed diff. The mechanism is a zero-dependency mirrored-path
-mapping: a changed module resolves to the longest existing mirrored `tests/`
-directory, or to a mirrored `test_<stem>.py`; a changed test file selects itself;
-a changed `conftest.py` selects its directory. An import-graph database such as
-`pytest-testmon` was rejected in ADR-042 Addendum 7 section 6 because a stale
-database under-selects, which is the one failure mode the widening rule exists to
-prevent. The floor is disabled locally per FR-003 and FR-004; disabling
+mapping plus a text scan of `tests/**/*.py`: a changed module resolves to its
+nearest mirrored `test_<stem>.py`, else the longest existing mirrored `tests/`
+directory, plus the test modules that import it (dropped when more than 40 do); a
+changed test file selects itself; a changed `conftest.py` selects its directory;
+a non-Python test asset selects the test modules that reference it by path or
+basename and the tests in its own directory; a deleted module selects its
+package's mirrored tests and any test still importing it; a script selects
+`tests/scripts/test_<stem>.py` and the tests that reference it. Selection never
+names the `tests/` root. Unresolved inputs are deferred to CI, never widened. An
+import-graph database such as `pytest-testmon` was rejected in ADR-042 Addendum 7
+section 6 because a stale database under-selects without recording what it
+skipped. The floor is disabled locally per FR-003 and FR-004; disabling
 it is what makes any subset run possible at all, since the configured
 repository-wide coverage floor makes every subset run fail by construction.
 
@@ -399,12 +416,17 @@ forbid.
   `full_audit` inputs are not invalidated by an unrelated frontend change; a
   diff-scoped event does not satisfy a ci-mode obligation.
 - Unit tests in `tests/qa/test_gate_record.py` covering variant selection per
-  mode and force-checks restoring repository scope.
+  mode and force-checks restoring repository scope for every check except
+  `python_tests`.
 - A regression test asserting the coverage floor is unchanged in `pyproject.toml`
   and that the local test variant disables coverage, so the floor cannot be
   silently relaxed for CI.
-- A test asserting the full-suite widening path fires when affected-test
-  resolution returns nothing for a changed source file.
+- Tests in `tests/qa/test_gate_incremental_checks.py` and
+  `tests/qa/testing/test_run_python_tests.py` asserting that no mode or flag
+  yields a local full-suite `python_tests` invocation, that unresolved inputs
+  record a CI deferral without starting a test process, that the guard refuses
+  target-less and whole-tree invocations outside CI, and the #2379 regression (a
+  regenerated `tests/contracts/openapi.json` selects its readers).
 - Measured before-and-after wall clock for `gate_record check --mode pre-pr` on a
   single-file diff and on a broad diff, recorded in the implementation PR. The
   ledger-derived table in section 1 is a proxy and is not sufficient evidence of
@@ -418,16 +440,18 @@ forbid.
 
 - Under-selection lets a real failure reach CI. This is the owner's stated
   concern about relaxing local checks and it is the principal risk. Mitigation:
-  the widening rule in FR-003, keeping every check that answers whether the agent
+  the full-suite run in `ci.yml` on every PR, the recorded CI deferral in FR-003
+  that keeps a narrow local pass from reading as full proof, keeping every check that answers whether the agent
   broke what it just wrote (lint, type, tests) local rather than deferring it,
   and the section 1 evidence that the checks proposed for reduced local breadth
   are repository-invariant checks whose failure rate does not scale with
-  iteration count. Rollback: force-checks restores repository scope immediately;
-  reverting T-003 restores it by default.
+  iteration count. Rollback: force-checks restores repository scope for every
+  check except `python_tests`, which by owner decision (#2386) never runs the
+  full suite locally.
 - Test-selection dependency. Adding an import-graph tool to the gate's execution
   path adds a dependency that can itself break or go stale. Mitigation: the
-  fallback chain in FR-003 must widen to the full suite rather than under-select,
-  so a broken database costs speed and never correctness.
+  unresolved inputs in FR-003 are deferred to CI's full-suite run and recorded, so
+  a broken mapping costs local signal and never merge-time correctness.
 - Coverage regression invisible locally. Disabling the floor locally means a
   coverage drop surfaces only in CI. Accepted: coverage is a repository-level
   invariant, and CI enforces it on the same PR at the unchanged threshold.

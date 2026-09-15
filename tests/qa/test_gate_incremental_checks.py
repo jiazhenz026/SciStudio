@@ -1,10 +1,10 @@
 """Tests for diff-scoped local gate checks (spec gate-local-incremental-checks).
 
 The contract under test: local `gate_record check` narrows each check to the
-observed diff, while `ci.yml` keeps proving the full surface. The two properties
-that must never break are (a) narrowing widens to everything whenever it cannot
-prove which tests or files are affected, and (b) diff-scoped evidence never
-satisfies a CI-mirror obligation.
+observed diff, while `ci.yml` keeps proving the full surface. The properties
+that must never break are (a) the local gate never runs the whole Python test
+suite: inputs it cannot map to tests are deferred to CI, never widened (#2386),
+and (b) diff-scoped evidence never satisfies a CI-mirror obligation.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from scistudio.qa.governance.gate_record.checks import (
     CHECK_CATALOG,
     diff_scoped_command,
     event_is_valid_for,
+    select_python_tests,
     select_test_targets,
 )
 from scistudio.qa.governance.gate_record.evaluator import EvaluatorMode
@@ -60,14 +61,14 @@ def mirror_repo(tmp_path: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# select_test_targets: resolve when provable, widen when not (FR-003).
+# select_test_targets: resolve when provable, defer to CI when not (FR-003, #2386).
 # ---------------------------------------------------------------------------
 
 
 def test_source_module_maps_to_the_longest_existing_mirrored_test_dir(mirror_repo: Path) -> None:
     targets = select_test_targets(mirror_repo, ["src/scistudio/qa/governance/gate_record/checks.py"])
 
-    # tests/qa/governance does not exist; tests/qa does, so it is the answer.
+    # tests/qa/governance does not exist and no test_checks.py mirrors it; tests/qa does.
     assert targets == ("tests/qa",)
 
 
@@ -92,32 +93,103 @@ def test_changed_conftest_selects_its_whole_directory(mirror_repo: Path) -> None
         pytest.param(".pre-commit-config.yaml", id="pre-commit-config"),
     ],
 )
-def test_global_input_widens_to_the_full_suite(mirror_repo: Path, changed: str) -> None:
-    """A global input can change the outcome of any test, so nothing is narrowed."""
+def test_global_input_is_deferred_to_ci_without_widening(mirror_repo: Path, changed: str) -> None:
+    """A global input can change any test; CI's full suite owns it, the rest still narrows."""
 
-    assert select_test_targets(mirror_repo, [changed, "src/scistudio/qa/x.py"]) is None
+    selection = select_python_tests(mirror_repo, [changed, "src/scistudio/qa/x.py"])
 
-
-def test_non_python_file_under_tests_widens(mirror_repo: Path) -> None:
-    """A fixture or golden file has no discoverable set of readers."""
-
-    assert select_test_targets(mirror_repo, ["tests/fixtures/sample.tiff"]) is None
+    assert selection.targets == ("tests/qa",)
+    assert selection.coverage_deferred_to_ci
+    assert f"global test input: {changed}" in (selection.deferred_reason() or "")
 
 
-def test_source_module_with_no_mirrored_test_location_widens(mirror_repo: Path) -> None:
-    assert select_test_targets(mirror_repo, ["src/scistudio/nosuchpkg/thing.py"]) is None
+def test_unreferenced_test_asset_is_deferred(mirror_repo: Path) -> None:
+    """A fixture no test names, in a directory with no tests, selects nothing."""
+
+    selection = select_python_tests(mirror_repo, ["tests/fixtures/sample.tiff"])
+
+    assert selection.targets == ()
+    assert "unreferenced test asset: tests/fixtures/sample.tiff" in (selection.deferred_reason() or "")
 
 
-def test_python_outside_the_package_widens(mirror_repo: Path) -> None:
-    """scripts/ and packages/ have no mirrored test tree."""
+def test_test_asset_selects_the_tests_that_reference_it(mirror_repo: Path) -> None:
+    """#2386 regression shape: a regenerated snapshot selects its readers, not the suite."""
 
-    assert select_test_targets(mirror_repo, ["scripts/deferral_scan.py"]) is None
+    (mirror_repo / "tests/contracts").mkdir(parents=True)
+    (mirror_repo / "tests/contracts/openapi.json").write_text("{}\n", encoding="utf-8")
+    (mirror_repo / "tests/contracts/snapshot_helper.py").write_text('SNAP = "openapi.json"\n', encoding="utf-8")
+    (mirror_repo / "tests/contracts/test_other_contract.py").write_text("def test_o(): ...\n", encoding="utf-8")
+    (mirror_repo / "tests/qa/test_reads_snapshot.py").write_text(
+        'PATH = "tests/contracts/openapi.json"\n', encoding="utf-8"
+    )
+
+    selection = select_python_tests(mirror_repo, ["tests/contracts/openapi.json"])
+
+    assert selection.targets == ("tests/contracts/test_other_contract.py", "tests/qa/test_reads_snapshot.py")
+    assert not selection.coverage_deferred_to_ci
 
 
-def test_docs_only_diff_widens_rather_than_selecting_nothing(mirror_repo: Path) -> None:
-    """Selecting zero tests must never read as 'the suite passed'."""
+def test_source_module_with_no_mirrored_test_location_is_deferred(mirror_repo: Path) -> None:
+    selection = select_python_tests(mirror_repo, ["src/scistudio/nosuchpkg/thing.py"])
 
-    assert select_test_targets(mirror_repo, ["docs/specs/x.md"]) is None
+    assert selection.targets == ()
+    assert selection.coverage_deferred_to_ci
+
+
+def test_source_module_selects_tests_that_import_it(mirror_repo: Path) -> None:
+    (mirror_repo / "src/scistudio/nosuchpkg").mkdir(parents=True)
+    (mirror_repo / "src/scistudio/nosuchpkg/thing.py").write_text("x = 1\n", encoding="utf-8")
+    (mirror_repo / "tests/qa/test_uses_thing.py").write_text(
+        "from scistudio.nosuchpkg import thing\n", encoding="utf-8"
+    )
+
+    assert select_test_targets(mirror_repo, ["src/scistudio/nosuchpkg/thing.py"]) == ("tests/qa/test_uses_thing.py",)
+
+
+def test_mirrored_test_file_is_preferred_over_the_mirrored_directory(mirror_repo: Path) -> None:
+    (mirror_repo / "tests/qa/test_x.py").write_text("def test_x(): ...\n", encoding="utf-8")
+
+    assert select_test_targets(mirror_repo, ["src/scistudio/qa/x.py"]) == ("tests/qa/test_x.py",)
+
+
+def test_script_selects_its_mirrored_and_referencing_tests(mirror_repo: Path) -> None:
+    (mirror_repo / "scripts").mkdir()
+    (mirror_repo / "scripts/deferral_scan.py").write_text("x = 1\n", encoding="utf-8")
+    (mirror_repo / "tests/scripts").mkdir()
+    (mirror_repo / "tests/scripts/test_deferral_scan.py").write_text("def test_d(): ...\n", encoding="utf-8")
+    (mirror_repo / "tests/qa/test_mentions_script.py").write_text('S = "scripts/deferral_scan.py"\n', encoding="utf-8")
+
+    assert select_test_targets(mirror_repo, ["scripts/deferral_scan.py"]) == (
+        "tests/qa/test_mentions_script.py",
+        "tests/scripts/test_deferral_scan.py",
+    )
+
+
+def test_python_outside_the_package_with_no_referencing_test_is_deferred(mirror_repo: Path) -> None:
+    selection = select_python_tests(mirror_repo, ["packages/pkg/thing.py"])
+
+    assert selection.targets == ()
+    assert "no test references: packages/pkg/thing.py" in (selection.deferred_reason() or "")
+
+
+def test_docs_only_diff_selects_nothing_and_defers_rather_than_widening(mirror_repo: Path) -> None:
+    """Selecting zero tests must never read as 'the suite passed', nor run the suite."""
+
+    selection = select_python_tests(mirror_repo, ["docs/specs/x.md"])
+
+    assert selection.targets == ()
+    assert selection.coverage_deferred_to_ci
+    assert selection.deferred_reason() == "no test target derivable from the diff"
+
+
+def test_selection_never_names_the_whole_tests_tree(mirror_repo: Path) -> None:
+    """A deleted top-level test module must not select tests/ itself."""
+
+    selection = select_python_tests(mirror_repo, ["tests/test_gone.py"])
+
+    assert "tests" not in selection.targets
+    assert selection.targets == ()
+    assert selection.coverage_deferred_to_ci
 
 
 # ---------------------------------------------------------------------------
@@ -174,15 +246,15 @@ def test_test_variant_disables_the_coverage_floor_and_names_targets(mirror_repo:
     assert command[-1] == "tests/qa"
 
 
-def test_unwidenable_test_selection_falls_back_to_the_ci_mirror(mirror_repo: Path) -> None:
-    assert (
-        diff_scoped_command(
-            CHECK_CATALOG["python_tests"],
-            repo_root=mirror_repo,
-            changed_files=["pyproject.toml"],
-        )
-        is None
+def test_unmappable_test_selection_never_falls_back_to_the_ci_mirror(mirror_repo: Path) -> None:
+    command = diff_scoped_command(
+        CHECK_CATALOG["python_tests"],
+        repo_root=mirror_repo,
+        changed_files=["pyproject.toml"],
     )
+
+    assert command is not None
+    assert command == (*CHECK_CATALOG["python_tests"].command, "--no-cov")
 
 
 def test_checks_without_a_strategy_have_no_diff_scoped_form(mirror_repo: Path) -> None:
@@ -434,10 +506,10 @@ def test_a_deletion_only_diff_falls_back_to_the_repository_command(mirror_repo: 
         assert diff_scoped_command(CHECK_CATALOG[name], repo_root=mirror_repo, changed_files=changed) is None
 
 
-def test_a_deleted_source_module_widens_the_test_selection(mirror_repo: Path) -> None:
-    """Its tests moved or went with it; the mirror cannot say which."""
+def test_a_deleted_source_module_selects_its_package_tests(mirror_repo: Path) -> None:
+    """Its tests moved or went with it; its package's mirrored tests still run."""
 
-    assert select_test_targets(mirror_repo, ["src/scistudio/qa/gone.py"]) is None
+    assert select_test_targets(mirror_repo, ["src/scistudio/qa/gone.py"]) == ("tests/qa",)
 
 
 def test_a_deleted_test_file_does_not_select_itself(mirror_repo: Path) -> None:
@@ -445,4 +517,197 @@ def test_a_deleted_test_file_does_not_select_itself(mirror_repo: Path) -> None:
 
     targets = select_test_targets(mirror_repo, ["tests/qa/test_kept.py", "tests/qa/test_gone.py"])
 
-    assert targets == ("tests/qa/test_kept.py",)
+    # The deletion selects its surviving sibling directory, never the removed path.
+    assert "tests/qa/test_gone.py" not in targets
+    assert targets == ("tests/qa", "tests/qa/test_kept.py")
+
+
+# ---------------------------------------------------------------------------
+# The local gate never runs the full Python test suite (#2386).
+# ---------------------------------------------------------------------------
+
+
+def _whole_suite(argv: list[str]) -> bool:
+    """True when a python_tests argv names no explicit target or the whole tree."""
+
+    try:
+        checks.assert_bounded_python_test_argv(argv)
+    except checks.FullPythonSuiteRefusedError:
+        return True
+    return False
+
+
+def test_the_2379_openapi_snapshot_diff_selects_its_readers_not_the_suite() -> None:
+    """Regression: #2379 widened to the full suite solely on tests/contracts/openapi.json."""
+
+    selection = select_python_tests(REPO_ROOT, ["src/scistudio/api/models.py", "tests/contracts/openapi.json"])
+
+    assert selection.targets
+    assert "tests/contracts/test_openapi_snapshot.py" in selection.targets
+    assert "tests" not in selection.targets
+    assert not selection.coverage_deferred_to_ci
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        pytest.param([], id="no-args"),
+        pytest.param(["--timeout=60", "--timeout-method=thread"], id="options-only"),
+        pytest.param(["--no-cov", "-m", "not serial"], id="marker-value-is-not-a-target"),
+        pytest.param(["--no-cov", "tests"], id="whole-tests-tree"),
+        pytest.param(["--no-cov", "tests/"], id="whole-tests-tree-slash"),
+        pytest.param(["--no-cov", "."], id="repo-root"),
+    ],
+)
+def test_guard_refuses_whole_suite_invocations_outside_ci(monkeypatch: pytest.MonkeyPatch, argv: list[str]) -> None:
+    monkeypatch.delenv("CI", raising=False)
+
+    assert _whole_suite(argv)
+
+
+def test_guard_allows_explicit_targets_outside_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CI", raising=False)
+
+    assert not _whole_suite(["--no-cov", "tests/qa"])
+    assert not _whole_suite(["--no-cov", "tests/qa/test_gate_record.py::test_x"])
+
+
+def test_guard_does_not_constrain_ci(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CI", "true")
+
+    assert not _whole_suite([])
+
+
+def _fake_subprocess(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def _run(argv: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(checks.subprocess, "run", _run)
+    monkeypatch.setattr(checks.parity, "venv_path", lambda _repo: Path("/nonexistent-venv"))
+    return calls
+
+
+@pytest.mark.parametrize("scope", ["repo", "diff"])
+@pytest.mark.parametrize(
+    "changed",
+    [
+        pytest.param(["pyproject.toml"], id="global-input"),
+        pytest.param(["docs/specs/x.md"], id="no-python"),
+        pytest.param(["frontend/src/App.tsx"], id="frontend-only"),
+        pytest.param(["tests/fixtures/sample.tiff"], id="unreferenced-asset"),
+        pytest.param(["src/scistudio/nosuchpkg/thing.py"], id="unmapped-module"),
+        pytest.param(["tests/test_gone.py"], id="deleted-top-level-test"),
+    ],
+)
+def test_unmappable_python_tests_record_a_ci_deferral_without_running(
+    mirror_repo: Path, monkeypatch: pytest.MonkeyPatch, scope: Literal["repo", "diff"], changed: list[str]
+) -> None:
+    """Requested scope does not matter outside CI: nothing runs, the event defers to CI."""
+
+    monkeypatch.delenv("CI", raising=False)
+    calls = _fake_subprocess(monkeypatch)
+
+    event = checks.run_check(
+        mirror_repo, "python_tests", changed_files=changed, diff_fingerprint="sha256:x", scope=scope
+    )
+
+    assert calls == []
+    assert event.status == "pass"
+    assert event.scope == "diff"
+    assert event.exit_code is None
+    assert event.coverage_deferred_to_ci
+    assert event.deferred_reason
+    assert "deferred to CI" in event.summary
+    # The deferral is valid local evidence ...
+    assert event_is_valid_for(event, input_fingerprint=event.input_fingerprint)
+    # ... and never proof of the full surface.
+    assert not event_is_valid_for(event, input_fingerprint=event.input_fingerprint, require_repo_scope=True)
+
+
+@pytest.mark.parametrize("scope", ["repo", "diff"])
+def test_python_tests_run_only_explicit_targets_outside_ci(
+    mirror_repo: Path, monkeypatch: pytest.MonkeyPatch, scope: Literal["repo", "diff"]
+) -> None:
+    monkeypatch.delenv("CI", raising=False)
+    calls = _fake_subprocess(monkeypatch)
+
+    event = checks.run_check(
+        mirror_repo,
+        "python_tests",
+        changed_files=["src/scistudio/qa/x.py", "pyproject.toml"],
+        diff_fingerprint="sha256:x",
+        scope=scope,
+    )
+
+    assert len(calls) == 1
+    assert calls[0][-1] == "tests/qa"
+    assert not _whole_suite(calls[0][1:])
+    assert event.status == "pass"
+    assert event.scope == "diff"
+    assert event.coverage_deferred_to_ci
+    assert "global test input: pyproject.toml" in (event.deferred_reason or "")
+
+
+def test_run_check_refuses_a_target_less_python_test_command(
+    mirror_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The chokepoint holds even if selection were bypassed."""
+
+    monkeypatch.delenv("CI", raising=False)
+    calls = _fake_subprocess(monkeypatch)
+    monkeypatch.setattr(
+        checks,
+        "select_python_tests",
+        lambda *_a, **_k: checks.PythonTestSelection(targets=("tests",), deferred=()),
+    )
+
+    with pytest.raises(checks.FullPythonSuiteRefusedError):
+        checks.run_check(mirror_repo, "python_tests", changed_files=["x.py"], diff_fingerprint=None, scope="diff")
+    assert calls == []
+
+
+@pytest.mark.parametrize("mode", ["local", "pre-commit", "commit-msg", "pre-push", "pre-pr", "ci"])
+@pytest.mark.parametrize("force_checks", [False, True])
+def test_no_mode_or_flag_executes_python_tests_at_repository_scope_locally(
+    mode: EvaluatorMode, force_checks: bool
+) -> None:
+    scope = evaluator.execution_scope_for("python_tests", mode=mode, force_checks=force_checks)
+
+    if mode == "ci":
+        # ci mode never even requires python_tests: ci.yml owns the full suite.
+        assert "python_tests" not in _required("ci")
+    else:
+        assert scope == "diff"
+
+
+def test_force_checks_still_widens_checks_other_than_python_tests() -> None:
+    assert evaluator.execution_scope_for("lint_format", mode="pre-pr", force_checks=True) == "repo"
+    assert evaluator.execution_scope_for("lint_format", mode="pre-pr", force_checks=False) == "diff"
+
+
+def test_every_tier_and_diff_shape_yields_a_bounded_python_test_command(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever the gate selects, the python_tests command it builds names targets or runs nothing."""
+
+    monkeypatch.delenv("CI", raising=False)
+    diffs = [
+        [],
+        ["docs/ai-developer/rules.md"],
+        ["frontend/src/App.tsx"],
+        ["pyproject.toml"],
+        ["tests/conftest.py"],
+        [".github/workflows/ci.yml"],
+        ["tests/contracts/openapi.json"],
+        ["src/scistudio/__init__.py"],
+        ["scripts/scistudio_pr_create.py"],
+        ["src/scistudio/qa/governance/gate_record/checks.py"],
+    ]
+    spec = CHECK_CATALOG["python_tests"]
+    for changed in diffs:
+        command = diff_scoped_command(spec, repo_root=REPO_ROOT, changed_files=changed)
+        assert command is not None
+        targets = command[len(spec.command) + 1 :]
+        if targets:
+            assert not _whole_suite(list(command[1:])), changed

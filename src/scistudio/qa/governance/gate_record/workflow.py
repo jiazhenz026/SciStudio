@@ -525,8 +525,13 @@ def run_check(repo_root: Path, args: Any, *, mode: str | None = None) -> int:
     if diff_scoped:
         lines.append(
             f"diff-scoped (CI proves the full surface): {', '.join(diff_scoped)}"
-            "  |  --force-checks runs the repository-wide mirror locally"
+            "  |  --force-checks re-runs checks (python_tests stays diff-scoped; the full suite runs only in CI)"
         )
+    # Name what the local run deferred to CI's full suite instead of widening
+    # (#2386), so a narrow local pass never reads as full-surface proof.
+    for event in result.check_events:
+        if event.coverage_deferred_to_ci:
+            lines.append(f"coverage deferred to CI ({event.name}): {event.deferred_reason}")
     # Loud non-blocking warnings (e.g. --check-na with no force for ci.yml-owned
     # checks, §7.5/Fix B).
     if result.warnings:

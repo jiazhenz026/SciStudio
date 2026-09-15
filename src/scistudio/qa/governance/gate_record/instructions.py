@@ -54,7 +54,8 @@ _TIER_NOTE: dict[int, str] = {
     1: (
         "Tier 1 (strict): plan before implementation; check selects the full merge-blocking set "
         "and runs it narrowed to your diff. ci.yml proves the full surface on the PR; pass "
-        "--force-checks to run the repository-wide mirror locally."
+        "--force-checks to run the repository-wide mirror locally (python_tests excepted: the full "
+        "Python suite never runs locally; unmapped tests are deferred to CI)."
     ),
     2: "Tier 2 (standard): scope may emerge during work; check runs governance/lint/audit baseline plus changed-surface jobs.",
     3: "Tier 3 (lightweight): minimal up-front ceremony; check runs only mandatory checks for the observed diff.",

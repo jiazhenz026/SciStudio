@@ -301,3 +301,8 @@ conversion now accept it only for providers declaring Auto support, rejecting
 unsupported requests before filesystem/session side effects. All 31 focused
 MiniApp API tests passed in the resolution worktree. The OpenAPI snapshot was
 regenerated from the integrated tree.
+
+Before the final push, upstream advanced to `72c039dd` (#2393, bounded local
+Python gate execution). That update merged without conflicts or edits to its
+implementation; no additional test execution was needed for the unchanged
+upstream code.

@@ -165,9 +165,17 @@ the final commit's Conventional Commits subject is validated at `pre-pr`/`ci`.
 The installed pre-push hook is a fast allow shim; `pre-pr` and `ci` are the
 hard governance checkpoints. The `check` command automatically observes the git
 diff, infers the tier-selected check set, runs the required commands narrowed
-to that diff (`--force-checks` runs the repository-wide mirror),
-records sanitized ledger events, runs guard reconciliation, and exits nonzero
-when required obligations remain unsatisfied.
+to that diff (`--force-checks` runs the repository-wide mirror, except
+`python_tests`), records sanitized ledger events, runs guard reconciliation, and
+exits nonzero when required obligations remain unsatisfied.
+
+The full Python test suite never runs locally, in any case (owner decision,
+#2386; ADR-042 Addendum 7 §2.2). `python_tests` runs only the tests the diff
+selects; inputs it cannot map to tests, or the whole check when nothing is
+selectable, are recorded as coverage deferred to CI, which satisfies the local
+and pre-PR obligation. `ci.yml` runs the full suite on every PR. Do not run
+`pytest` or `python -m scistudio.qa.testing.run_python_tests` without explicit
+test paths; the gate runner refuses a target-less invocation outside CI.
 
 `admin-approved:core-change` is not a broad bypass for these commands. It only
 answers protected-core authorization where that guard applies.
@@ -198,7 +206,8 @@ PR-ready checks by default, and it is incremental: current passing evidence is
 reused while missing or stale checks run. `finalize` and the PR wrapper reuse
 existing current check evidence (`--skip-execution`) and fail fast when that
 evidence is missing or stale. Use `--force-checks` only when intentionally
-rerunning the full selected check set.
+rerunning the full selected check set; it never widens `python_tests` to the
+full suite.
 
 ## 6. Routing
 

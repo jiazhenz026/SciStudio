@@ -236,7 +236,8 @@ python -m scistudio.qa.governance.gate_record check \
 3. Reuses current passing check evidence by default, and runs only missing or
    stale required checks at CI-resolved tool versions in a CI-equivalent
    importable environment (without `pip install -e .`). `--force-checks` reruns
-   the full selected set; `--skip-execution` validates evidence without running
+   the full selected set (`python_tests` still runs only its diff-derived
+   selection; the full Python suite never runs locally, #2386); `--skip-execution` validates evidence without running
    commands.
 4. Writes raw transcripts only to ignored local paths under
    `.workflow/local/**`.
@@ -293,10 +294,15 @@ the mode decides **how broadly** each one runs (see above).
   gate rules.
 
 At every tier, a local run narrows each selected check to the observed diff and
-prints which checks ran diff-scoped. Narrowing widens back to the whole surface
-whenever it cannot prove what an edit affects (a changed pytest or coverage
-config, a shared `conftest.py`, a fixture file, a module with no mirrored test
-location). Use `--force-checks` to run the repository-wide mirror locally.
+prints which checks ran diff-scoped. The full Python test suite never runs
+locally, in any mode or with any flag (owner decision, #2386; ADR-042 Addendum 7
+§2.2). When `python_tests` cannot prove which tests an edit affects (a changed
+pytest or coverage config, the root `conftest.py`, a fixture no test references,
+a module with no mirrored or importing test), it runs the tests it can select, or
+none, and prints and records `coverage deferred to CI` with the reason; that
+event satisfies the local and pre-PR obligation, and `ci.yml` runs the full
+suite on the PR. Use `--force-checks` to run the repository-wide mirror of the
+other checks locally; for `python_tests` it only re-runs the diff selection.
 
 Compatibility aliases exposed by the current CLI:
 
