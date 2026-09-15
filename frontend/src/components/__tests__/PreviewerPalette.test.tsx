@@ -126,6 +126,10 @@ describe("Previewers tab — structure", () => {
     expect(screen.getByText("Previewers")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search previewers")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+    // #2415 — the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
   });
 
   it("groups cards by tier: This Project, My Library, Core, then packages A→Z", async () => {
