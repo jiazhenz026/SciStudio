@@ -150,7 +150,13 @@
       "tests/ai/**"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:10:33.804658Z",
+      "owner_directive": "Remove the resolved xfails in PR #2413 now that the MCP e2e suite is on main.",
+      "reason": "remove e2e xfails after the MCP e2e suite merged"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T07:21:59.032298Z",
@@ -682,7 +688,14 @@
   },
   "runtime": "claude-code",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T09:10:33.804910Z",
+      "pattern": "tests/e2e/test_mcp_tools.py",
+      "reason": "remove e2e xfails after the MCP e2e suite merged"
+    }
+  ],
   "session_id": "e687a276-c1a6-4bee-b1a4-c0d3472282d7",
   "strictness_tier": 2,
   "task_kind": "guided",
@@ -708,6 +721,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/ai/test_mcp_execution_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T09:10:33.804933Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
       "rationale": null,
       "verified_in_diff": null
     }
