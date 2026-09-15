@@ -279,6 +279,10 @@ describe("MiniApp registry refresh", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     expect(scan).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("button", { name: "Reload" })).toBeDisabled();
+    // #2415 — the shared reload icon spins while the rescan is in flight.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toHaveClass("animate-spin");
     expect(list).toHaveBeenCalledTimes(reads);
     await act(async () => completeScan());
     await screen.findByTestId(`miniapp-card-${userApp.panel_id}`);

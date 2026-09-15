@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2415] **The activity bar can be rearranged.** Drag an icon in the left
+  rail to move its section, or focus an icon and press Alt+ArrowUp /
+  Alt+ArrowDown. The order is remembered in this browser; right-click the rail
+  and choose Reset order to go back to the default, which now puts MiniApps
+  third, right below Blocks and Workflows. Every left-panel section's Reload
+  button also carries the reload icon, which spins while a reload is running.
+
 - MiniApps: create interactive tools on project data with optional resident Python,
   reuse them across compatible outputs, and convert them into interactive workflow
   blocks. Includes project-scoped source selection, reusable core data-view UI

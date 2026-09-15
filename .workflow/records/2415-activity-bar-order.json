@@ -1,0 +1,61 @@
+{
+  "base_ref": null,
+  "branch": "feat/2415-activity-bar-order",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/**",
+      "frontend/src/miniapps/**",
+      "frontend/src/lib/**",
+      ".workflow/records/2415-activity-bar-order.json"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T07:37:54.822474Z",
+      "owner_directive": "Add a reload icon to every page's reload control.",
+      "reason": "second owner directive in #2415"
+    },
+    {
+      "at": "2026-09-15T07:37:54.983353Z",
+      "owner_directive": "Allow users to manually drag to reorder the tabs.",
+      "reason": "third owner directive in #2415"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2415,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "MiniApps default third in the left tab rail, below Blocks and Workflows.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2415-activity-bar-order",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "d0583618-a1e9-486f-ae08-909b7071ffc0",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
