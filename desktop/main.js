@@ -98,11 +98,14 @@ ipcMain.handle("scistudio:installer-download", async (event) => {
   }
 });
 ipcMain.handle("scistudio:installer-install", async () => {
-  const offer = await resolveInstallerOffer();
+  // Install exactly what was downloaded and verified: re-reading the manifest
+  // here would refuse the install when offline, or swap in a different asset
+  // if the manifest changed after the download.
+  const offer = verifiedInstallerOffer() || (await resolveInstallerOffer());
   return confirmAndInstall(offer, BrowserWindow.getFocusedWindow() || mainWindow || undefined);
 });
 ipcMain.handle("scistudio:installer-open-release-page", async () => {
-  const offer = await resolveInstallerOffer();
+  const offer = verifiedInstallerOffer() || (await resolveInstallerOffer());
   const page = offer && offer.releasePage;
   if (page && externalUrlAllowed(page)) {
     await shell.openExternal(page);
@@ -1013,13 +1016,28 @@ function downloadInstaller(offer, onProgress = null) {
     safeLog(`[scistudio] installer ${offer.version} downloaded and verified`);
     return filePath;
   })();
-  installerDownload = { sha256: offer.asset.sha256, promise, listeners };
-  promise.catch(() => {
-    if (installerDownload && installerDownload.promise === promise) {
-      installerDownload = null;
+  const entry = { sha256: offer.asset.sha256, promise, listeners, offer, verifiedPath: null };
+  installerDownload = entry;
+  promise.then(
+    (verifiedPath) => {
+      entry.verifiedPath = verifiedPath;
+    },
+    () => {
+      if (installerDownload === entry) {
+        installerDownload = null;
+      }
     }
-  });
+  );
   return promise;
+}
+
+// The offer whose installer has been downloaded and verified in this run, if
+// its file is still in place; null otherwise.
+function verifiedInstallerOffer() {
+  if (!installerDownload || !installerDownload.verifiedPath || !fs.existsSync(installerDownload.verifiedPath)) {
+    return null;
+  }
+  return installerDownload.offer;
 }
 
 function spawnDetached(command, args) {
@@ -2886,6 +2904,16 @@ function start(injectedHost) {
         return;
       }
       launchMode = mode;
+      // #2396: report on an install the previous run handed to the helper
+      // BEFORE a mandatory update is enforced again. A failed migration reopens
+      // the old app on the same mandatory manifest, and the enforcement below
+      // would otherwise loop back into the installer prompt without ever saying
+      // why the last attempt failed.
+      try {
+        await reportInstallOutcome(undefined);
+      } catch (error) {
+        safeError(`[scistudio] install outcome report failed: ${error.message}`);
+      }
       // #1868: enforce a mandatory OTA update before starting the runtime/window.
       // Fail-open: returns true (continue) unless a fetched manifest marks the
       // update mandatory and the user declines or it cannot be applied.
@@ -2901,10 +2929,6 @@ function start(injectedHost) {
         // reports progress until the address can be shown.
         enterExternalAiMode();
         closeSplash();
-        // #2396: report on an install the previous run handed to the helper.
-        reportInstallOutcome(undefined).catch((error) => {
-          safeError(`[scistudio] install outcome report failed: ${error.message}`);
-        });
         await startBackgroundService();
         return;
       }
@@ -2928,12 +2952,6 @@ function start(injectedHost) {
       safeLog(`[scistudio] creating window for ${url}`);
       splashStatus("Loading the interface…");
       createWindow(url);
-      // #2396: report on an install the previous run handed to the helper.
-      // Unparented: the main window stays hidden until it has rendered, and a
-      // sheet attached to a hidden window may never be seen.
-      reportInstallOutcome(undefined).catch((error) => {
-        safeError(`[scistudio] install outcome report failed: ${error.message}`);
-      });
       // #1775: check for an OTA update after the window is up so startup is never
       // blocked on the network. Fire-and-forget; failures are logged, not fatal.
       maybeCheckForUpdate().catch((error) => {

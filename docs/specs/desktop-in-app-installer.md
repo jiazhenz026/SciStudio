@@ -42,6 +42,7 @@ governs:
 tests:
   - desktop/test/installer.test.js
   - desktop/test/bootstrap.test.js
+  - desktop/test/main-orchestration.test.js
   - tests/scripts/test_ota_publish.py
 acceptance_source: issue
 language_source: en
@@ -131,7 +132,10 @@ and the offer is kept.
    reports. Its size and sha256 are checked against the manifest before it is
    renamed into place. A file already there that passes the check is reused.
    Concurrent requests for the same installer share one download.
-3. **Confirm.** A native dialog says the app will quit, install and open again,
+3. **Confirm.** The install request uses the offer whose file was downloaded
+   and verified in this run. It does not read the manifest again, so an install
+   still works offline after the download, and a manifest that changed in the
+   meantime cannot swap in a different asset. A native dialog says the app will quit, install and open again,
    and that projects and settings are kept. Cancel keeps the download.
 4. **Hand over.** Main writes `userData/installer/pending.json`
    (`{version, releasePage, startedAt}`) and the platform helper script. It
@@ -140,7 +144,11 @@ and the offer is kept.
 5. **Install.** The helper waits up to 180 s for the app's process to exit,
    installs, writes `userData/installer/result.json` (`{ok, stage}`), and opens
    the app: the new one on success, the old one on failure.
-6. **Report.** On the next launch `reportInstallOutcome` reads both files.
+6. **Report.** On the next launch `reportInstallOutcome` reads both files. It
+   runs right after the launch mode is settled and **before** the mandatory
+   update check. A failed migration reopens the old app on the same mandatory
+   manifest, and enforcing that first would send the user straight back into
+   the installer prompt without saying why the last attempt failed.
    Success is judged by the version now running. A helper that reported `ok` on
    an app still at the old version counts as a failure at stage `verify`. A
    failure shows a dialog naming the stage, with "Open download page". A pending
@@ -253,8 +261,15 @@ workflows publish:
 |---|---|
 | `darwin-arm64` | `SciStudio-<version>-arm64.dmg` |
 | `darwin-x64` | `SciStudio-<version>-x64.dmg` |
-| `win32-x64` | `SciStudio-Setup-<version>.exe` |
-| `linux-x64` | `SciStudio-<version>.AppImage` |
+| `win32-x64` | `SciStudio-Setup-<version>.exe` (also `SciStudio Setup <version>.exe` and `SciStudio.Setup.<version>.exe`) |
+| `linux-x64` | `SciStudio-<version>.AppImage` (also with `-x86_64`) |
+
+electron-builder's default NSIS name is `${productName} Setup ${version}.exe`.
+GitHub turns the spaces into dots on upload. Past releases were renamed by hand.
+`desktop/package.json` now pins `nsis.artifactName` to the hyphenated form, and
+the publisher still accepts both older spellings. A test expands the
+`artifactName` patterns in `desktop/package.json` and checks that each one lands
+on its own key.
 
 The URL, the size and GitHub's `sha256:` asset digest go into the field, so
 nothing is downloaded while publishing. The publish stops when any of these

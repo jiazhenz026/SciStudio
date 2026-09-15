@@ -251,15 +251,21 @@ def build_manifest(
 
 
 # #2396: the installer asset each platform key maps to, by the file names the
-# desktop build workflows publish (electron-builder artifactName settings in
-# desktop/package.json and the CI rename of the x64 dmg). Every key must be
-# present: the owner scoped the in-app installer to all three platforms, and a
-# manifest that names an installer some users cannot download strands them.
+# desktop builds emit (electron-builder artifactName settings in
+# desktop/package.json). Every key must be present: the owner scoped the in-app
+# installer to all three platforms, and a manifest that names an installer some
+# users cannot download strands them.
+#
+# The Windows name also accepts electron-builder's default "SciStudio Setup
+# <version>.exe", and the dots GitHub substitutes for its spaces on upload, so a
+# release built before nsis.artifactName was pinned still maps. The AppImage
+# accepts the "-x86_64" suffix a forced arch would add.
+_INSTALLER_VERSION = r"(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z]+-build\d+)?)"
 INSTALLER_ASSET_PATTERNS: dict[str, re.Pattern[str]] = {
-    "darwin-arm64": re.compile(r"^SciStudio-(?P<version>.+)-arm64\.dmg$"),
-    "darwin-x64": re.compile(r"^SciStudio-(?P<version>.+)-x64\.dmg$"),
-    "win32-x64": re.compile(r"^SciStudio-Setup-(?P<version>.+)\.exe$"),
-    "linux-x64": re.compile(r"^SciStudio-(?P<version>.+)\.AppImage$"),
+    "darwin-arm64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}-arm64\.dmg$"),
+    "darwin-x64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}-x64\.dmg$"),
+    "win32-x64": re.compile(rf"^SciStudio[-. ]Setup[-. ]{_INSTALLER_VERSION}\.exe$"),
+    "linux-x64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}(?:-x86_64)?\.AppImage$"),
 }
 
 

@@ -1086,3 +1086,51 @@ def test_main_installer_release_that_is_incomplete_stops_the_publish(
     with pytest.raises(SystemExit):
         mod.main(["--channel", "alpha", "--src", str(src), "--yes", "--installer-release", "v0.3.5-beta"])
     assert events == []
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "SciStudio-Setup-0.3.5-beta-build0035.exe",
+        # electron-builder's default NSIS name, and the dots GitHub substitutes
+        # for its spaces on upload (Codex review on PR #2400).
+        "SciStudio Setup 0.3.5-beta-build0035.exe",
+        "SciStudio.Setup.0.3.5-beta-build0035.exe",
+    ],
+)
+def test_installer_from_release_accepts_each_windows_name(mod: ModuleType, name: str) -> None:
+    release = _release()
+    release["assets"][2]["name"] = name
+    assert mod.installer_from_release(release)["assets"]["win32-x64"]["size"] == 1003
+
+
+def test_installer_from_release_accepts_an_arch_suffixed_appimage(mod: ModuleType) -> None:
+    release = _release()
+    release["assets"][3]["name"] = "SciStudio-0.3.5-beta-build0035-x86_64.AppImage"
+    assert mod.installer_from_release(release)["version"] == "0.3.5-beta-build0035"
+
+
+def test_the_desktop_build_names_its_installers_the_way_the_publisher_matches(mod: ModuleType) -> None:
+    # The artifactName patterns in desktop/package.json, expanded the way
+    # electron-builder does, must each land on exactly their platform key.
+    build = json.loads((_SCRIPT_PATH.parents[1] / "desktop" / "package.json").read_text())["build"]
+    version = "0.3.5-beta-build0035"
+
+    def expand(pattern: str, arch: str, ext: str) -> str:
+        return (
+            pattern.replace("${productName}", build["productName"])
+            .replace("${version}", version)
+            .replace("${arch}", arch)
+            .replace("${ext}", ext)
+        )
+
+    produced = {
+        "darwin-arm64": expand(build["dmg"]["artifactName"], "arm64", "dmg"),
+        "darwin-x64": expand(build["dmg"]["artifactName"], "x64", "dmg"),
+        "win32-x64": expand(build["nsis"]["artifactName"], "x64", "exe"),
+        # AppImage keeps electron-builder's default, which drops the default arch.
+        "linux-x64": f"{build['productName']}-{version}.AppImage",
+    }
+    for key, name in produced.items():
+        matching = [k for k, pattern in mod.INSTALLER_ASSET_PATTERNS.items() if pattern.match(name)]
+        assert matching == [key], f"{name} matched {matching}, expected [{key}]"
