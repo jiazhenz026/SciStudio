@@ -94,7 +94,8 @@ def _row(
     return {
         "name": name,
         "available": available,
-        "version": "1.2.3" if available else None,
+        # Above every provider's Auto floor, so an installed row reports Auto.
+        "version": "99.0.0" if available else None,
         "logged_in": logged_in,
         "label": label or providers_registry.get(name).label,
     }

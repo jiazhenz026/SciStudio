@@ -300,12 +300,13 @@ class ProviderDescriptor:
     auto_argv_absent_reason: str | None = None
     """Why :attr:`auto_argv` is empty, when it is. ``None`` otherwise."""
 
-    auto_min_version: tuple[int, ...] | None = None
-    """Oldest CLI release whose command line accepts :attr:`auto_argv`.
+    auto_min_version: tuple[int, int, int] | None = None
+    """Oldest CLI release whose command line accepts :attr:`auto_argv` as written.
 
-    ``None`` means no floor is known. An installed CLI older than this reports
-    no Auto mode (:meth:`supports_auto_mode_at`), so the picker does not offer
-    a flag the binary would reject.
+    Required whenever :attr:`auto_argv` is set; the registry completeness test
+    enforces it. Auto is offered only for an installed CLI at or above this
+    release (:meth:`supports_auto_mode_at`), so the picker never offers a flag
+    the binary would reject or read differently.
     """
     # Development references: #2379.
 
@@ -443,18 +444,20 @@ class ProviderDescriptor:
     def supports_auto_mode_at(self, version: str | None) -> bool:
         """Whether the installed CLI, reporting *version*, has an Auto mode.
 
-        *version* is the provider's ``--version`` output. A version that cannot
-        be parsed does not disable Auto: the floor exists to exclude releases
-        known to predate the flag, not to hide it from a CLI whose version
-        banner changed shape.
+        *version* is the provider's ``--version`` output. Auto is available only
+        when that output parses to a release at or above
+        :attr:`auto_min_version`. Every other case reports ``False`` the same
+        way: no version (the CLI is not installed or its probe failed), a banner
+        with no dotted version number, or a descriptor without a floor. None of
+        those establishes that the binary accepts :attr:`auto_argv`, and a
+        greyed-out Auto is recoverable (the user picks Manual or Yolo/Bypass)
+        where a launch with a rejected flag is not.
         """
         # Development references: #2379.
-        if not self.supports_auto_mode:
+        if not self.supports_auto_mode or self.auto_min_version is None:
             return False
-        if self.auto_min_version is None:
-            return True
         installed = parse_cli_version(version)
-        return installed is None or installed >= self.auto_min_version
+        return installed is not None and installed >= self.auto_min_version
 
     def permission_argv(self, mode: str) -> tuple[str, ...]:
         """Return the argv fragment that starts this CLI in *mode*.
@@ -610,6 +613,12 @@ def _qoder_channel(
         # rather than prompts when it is unreachable
         # (https://docs.qoder.com/en/cli/permissions, read 2026-09-14).
         auto_argv=("--permission-mode", "auto"),
+        # Floor: CLI 0.2.14 (2026-05-14), whose release notes read "Added auto
+        # permission mode — LLM classifier automatically approves safe tool
+        # calls" (https://docs.qoder.com/release-notes/qoder-cli, read
+        # 2026-09-15). Both channels share one release line; the China channel
+        # binary was compared against the international one at 1.1.15.
+        auto_min_version=(0, 2, 14),
         # The security-scan plugin's pinned internal copy, observed at 1.1.12
         # with ``{"channel": "global"}`` beside ``qodersec.exe``. Both channels
         # exclude it: it carries the international channel's binary name, so
@@ -664,6 +673,12 @@ _CLAUDE_CODE = ProviderDescriptor(
     # before it runs, letting safe ones through and blocking risky ones
     # (https://code.claude.com/docs/en/permission-modes).
     auto_argv=("--permission-mode", "auto"),
+    # Floor: 2.1.111, whose changelog entry reads "Auto mode no longer requires
+    # `--enable-auto-mode`". Earlier releases had auto mode only behind that
+    # extra flag, so ``--permission-mode auto`` on its own is valid from
+    # 2.1.111 (https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md,
+    # read 2026-09-15).
+    auto_min_version=(2, 1, 111),
 )
 
 _CODEX = ProviderDescriptor(
@@ -719,7 +734,10 @@ _CODEX = ProviderDescriptor(
     # 0.154.0; https://learn.chatgpt.com/docs/developer-commands?surface=cli
     # (approval and sandbox values, read 2026-09-14).
     auto_argv=("--approve-for-me", "--ask-for-approval", "on-request"),
-    # Older releases exit with ``unexpected argument '--approve-for-me'``.
+    # Floor: 0.147.0, whose release notes read "Enable automatically reviewed
+    # approvals with the new `--approve-for-me` CLI flag. (#36373)"
+    # (https://github.com/openai/codex/releases/tag/rust-v0.147.0). Older
+    # releases exit with ``unexpected argument '--approve-for-me'``.
     auto_min_version=(0, 147, 0),
     # #1994 finding 3. Codex 0.130+ gates project-scope hook *execution* behind
     # an interactive trust review: the TUI opens a panel reading
@@ -785,6 +803,13 @@ _KIMI_CODE = ProviderDescriptor(
     # automatically; risky actions, questions, and plans still ask", which is
     # the picker's Auto.
     auto_argv=("--yolo",),
+    # Floor: 0.5.0, which added "`/auto` slash command and `--auto` CLI flag
+    # for auto permission mode" (#163). From then on ``--yolo`` is the
+    # intermediate mode and ``--auto`` the never-ask one; 0.28.0 (#1867) only
+    # corrected the ``--help`` wording to match that behaviour
+    # (https://github.com/MoonshotAI/kimi-code/blob/main/apps/kimi-code/CHANGELOG.md,
+    # read 2026-09-15). Before 0.5.0 ``--yolo`` was the only loosening flag.
+    auto_min_version=(0, 5, 0),
     manual_argv_absent_reason=(
         "kimi 0.33.0 exposes only the loosening flags -y/--yolo and --auto; it "
         "has no flag that asserts interactive approval, so Manual Approve is "

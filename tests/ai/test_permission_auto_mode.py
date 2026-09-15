@@ -177,26 +177,59 @@ def test_parse_cli_version(banner: str | None, parsed: tuple[int, int, int] | No
     assert parse_cli_version(banner) == parsed
 
 
-@pytest.mark.parametrize(
-    ("banner", "supported"),
-    [
-        # `--approve-for-me` arrived in 0.147.0; older builds reject it.
-        ("codex-cli 0.144.0-alpha.4", False),
-        ("codex-cli 0.146.9", False),
-        ("codex-cli 0.147.0", True),
-        ("codex-cli 0.154.0", True),
-        # An unparsable banner does not hide the mode.
-        ("codex-cli dev", True),
-    ],
-)
-def test_codex_auto_mode_is_gated_on_the_installed_version(banner: str, supported: bool) -> None:
-    assert get("codex").supports_auto_mode_at(banner) is supported
+EXPECTED_AUTO_FLOOR = {
+    "claude-code": (2, 1, 111),
+    "codex": (0, 147, 0),
+    "kimi-code": (0, 5, 0),
+    "qoder": (0, 2, 14),
+    "qoder-cn": (0, 2, 14),
+}
 
 
-def test_providers_without_a_version_floor_ignore_the_version() -> None:
-    assert get("claude-code").auto_min_version is None
-    assert get("claude-code").supports_auto_mode_at("0.0.1") is True
+def _banner(version: tuple[int, int, int]) -> str:
+    return "cli " + ".".join(str(part) for part in version)
+
+
+def test_every_agent_with_an_auto_flag_records_its_floor() -> None:
+    for descriptor in REGISTRY.agents():
+        if descriptor.auto_argv:
+            assert descriptor.auto_min_version is not None, descriptor.key
+    assert set(EXPECTED_AUTO_FLOOR) == set(REGISTRY.agent_keys())
+
+
+@pytest.mark.parametrize(("provider", "floor"), sorted(EXPECTED_AUTO_FLOOR.items()))
+def test_auto_is_available_only_at_or_above_each_providers_floor(provider: str, floor: tuple[int, int, int]) -> None:
+    descriptor = get(provider)
+    assert descriptor.auto_min_version == floor
+
+    major, minor, patch = floor
+    below = (major, minor, patch - 1) if patch else (major, minor - 1, 999) if minor else (major - 1, 999, 999)
+    above = (major, minor, patch + 1)
+
+    assert descriptor.supports_auto_mode_at(_banner(below)) is False
+    assert descriptor.supports_auto_mode_at(_banner(floor)) is True
+    assert descriptor.supports_auto_mode_at(_banner(above)) is True
+    # A pre-release of the floor parses to the floor itself.
+    assert descriptor.supports_auto_mode_at(_banner(floor) + "-alpha.1") is True
+
+
+@pytest.mark.parametrize("banner", [None, "", "dev build", "codex-cli"])
+@pytest.mark.parametrize("provider", sorted(EXPECTED_AUTO_FLOOR))
+def test_an_unknown_or_unparsable_version_reports_no_auto(provider: str, banner: str | None) -> None:
+    assert get(provider).supports_auto_mode_at(banner) is False
+
+
+def test_the_real_banners_observed_on_2026_09_14_are_above_their_floors() -> None:
+    assert get("claude-code").supports_auto_mode_at("2.1.210 (Claude Code)") is True
+    assert get("codex").supports_auto_mode_at("codex-cli 0.154.0") is True
+    assert get("codex").supports_auto_mode_at("codex-cli 0.144.0-alpha.4") is False
+    assert get("kimi-code").supports_auto_mode_at("0.42.0") is True
+
+
+def test_a_descriptor_without_auto_or_without_a_floor_reports_no_auto() -> None:
     assert _without_auto("claude-code").supports_auto_mode_at("9.9.9") is False
+    no_floor = dataclasses.replace(get("claude-code"), auto_min_version=None)
+    assert no_floor.supports_auto_mode_at("9.9.9") is False
 
 
 def test_status_row_reports_no_auto_for_a_codex_older_than_the_flag(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,4 +261,5 @@ def test_availability_reports_no_auto_for_a_codex_older_than_the_flag() -> None:
     report = asyncio.run(resolve_availability(rows))
     by_key = {p.key: p for p in report.providers}
     assert by_key["codex"].supports_auto_mode is False
-    assert by_key["claude-code"].supports_auto_mode is True
+    # Not installed: no version, so no evidence the flag is accepted.
+    assert by_key["claude-code"].supports_auto_mode is False

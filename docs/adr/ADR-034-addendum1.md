@@ -79,14 +79,14 @@ launched exactly as before, and `safe` stays the default.
 `auto_argv` and `auto_argv_absent_reason` (exactly one must be set for an
 agent, mirroring `manual_argv`), plus `supports_auto_mode` and
 `permission_argv(mode)`, which is the single mode-to-argv mapping the spawn
-uses. Flags verified on 2026-09-14:
+uses. Flags verified on 2026-09-14 and release floors on 2026-09-15:
 
-| Provider | Auto argv | Source |
-|---|---|---|
-| `claude-code` | `--permission-mode auto` | `claude --help` 2.1.210 |
-| `codex` | `--approve-for-me --ask-for-approval on-request` | `codex --help` 0.154.0 |
-| `kimi-code` | `--yolo` ("Ask When Needed"; Kimi's `--auto` is Never Ask, already Yolo/Bypass) | `kimi --help` 0.42.0 |
-| `qoder`, `qoder-cn` | `--permission-mode auto` | Qoder CLI permissions documentation |
+| Provider | Auto argv | First release accepting it | Source |
+|---|---|---|---|
+| `claude-code` | `--permission-mode auto` | 2.1.111 | `claude --help` 2.1.210; changelog 2.1.111 drops `--enable-auto-mode` |
+| `codex` | `--approve-for-me --ask-for-approval on-request` | 0.147.0 | `codex --help` 0.154.0; release notes 0.147.0 |
+| `kimi-code` | `--yolo` ("Ask When Needed"; Kimi's `--auto` is Never Ask, already Yolo/Bypass) | 0.5.0 | `kimi --help` 0.42.0; changelog 0.5.0 adds `--auto` |
+| `qoder`, `qoder-cn` | `--permission-mode auto` | 0.2.14 | Qoder CLI permissions page; release notes 0.2.14 |
 
 The same verification found that Codex retired `--ask-for-approval untrusted`
 in 0.149.0, so Codex Manual failed to launch. Codex Manual is now
@@ -98,9 +98,11 @@ path, `POST /api/work-import/sessions`, `PtyTabSpec`, and the AI Block
 `permission_mode` enum. Each rejects `auto` for a provider without an Auto
 mode, the AI Block at config time. `GET /api/ai/status` and
 `GET /api/ai/availability` carry `supports_auto_mode` so both pickers can grey
-the button out. That value is version-aware: `auto_min_version` records the
-first release that accepts the Auto flag (Codex 0.147.0), and an installed CLI
-older than it reports no Auto mode.
+the button out. That value is version-aware: every provider with an Auto flag
+records `auto_min_version`, the first release that accepts it, and Auto is
+reported only when the installed `--version` parses to that release or later.
+A missing or unparsable version reports no Auto mode, because it does not show
+that the binary accepts the flag.
 
 ## 3. Decision: Three Labels, No Copy
 
