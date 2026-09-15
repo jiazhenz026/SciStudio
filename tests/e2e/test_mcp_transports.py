@@ -14,6 +14,7 @@ running ``scistudio serve``:
 
 from __future__ import annotations
 
+import json
 import shutil
 import sys
 import time
@@ -91,6 +92,12 @@ def webmcp_catalogue(serve: ServeProcess, project: Project) -> dict[str, dict[st
     return {tool["name"]: tool for tool in body["tools"]}
 
 
+@pytest.fixture(scope="module")
+def observed() -> dict[str, Any]:
+    """Results recorded by one test for the contract-gap test that reads them back."""
+    return {}
+
+
 def bridge_env(serve: ServeProcess, project_dir: Path) -> dict[str, str]:
     env = isolated_env(serve.home)
     env["SCISTUDIO_PROJECT_DIR"] = str(project_dir)
@@ -137,6 +144,15 @@ def test_mcp_bridge_attaches_to_the_running_backend(
         assert raised["error"]["code"] == INVALID_PARAMS
         assert "not registered" in raised["error"]["message"]
 
+        # screenshot_gui is served to local MCP but captures only a connected
+        # SciStudio desktop window on this project. Headless CI has no desktop
+        # app, so the documented actionable error for a missing GUI (never a stale
+        # or empty image) is what is observable.
+        for arguments in ({"target": "workspace", "wait_ms": 0}, {"target": "miniapp", "wait_ms": 0}):
+            shot = client.call_tool("screenshot_gui", arguments)
+            assert shot["error"]["code"] == INVALID_PARAMS, shot
+            assert "No connected SciStudio GUI" in shot["error"]["message"], shot
+
         # Attached, not standalone: what the agent does here is the backend's state.
         info = call_ok(client, "get_project_info")
         assert Path(info["path"]) == project.path
@@ -163,13 +179,18 @@ def test_mcp_bridge_attaches_to_the_running_backend(
 
 
 def test_mcp_bridge_without_a_backend_serves_the_project_standalone(
-    serve: ServeProcess, project: Project, tmp_path: Path
+    serve: ServeProcess, project: Project, tmp_path: Path, observed: dict[str, Any]
 ) -> None:
     # A copy of the project that no backend has open: the bridge finds no
     # socket and starts its own server. open_gui is the tool whose documented
     # refusal needs exactly this situation (no published GUI address).
     detached = tmp_path / "detached-project"
     shutil.copytree(project.path, detached, ignore=shutil.ignore_patterns("mcp.sock*"))
+    miniapp = detached / "panels" / "table_explorer"
+    miniapp.mkdir(parents=True)
+    descriptor = {"id": "table_explorer", "api_version": "1.0", "contexts": ["miniapp"], "types": ["DataFrame"]}
+    (miniapp / "panel.json").write_text(json.dumps(descriptor | {"name": "Table explorer"}), encoding="utf-8")
+    (miniapp / "index.html").write_text("<!doctype html><p>Table explorer</p>", encoding="utf-8")
     client = StdioMcpClient(
         [sys.executable, "-m", "scistudio", "mcp-bridge"], env=bridge_env(serve, detached), cwd=detached
     )
@@ -182,6 +203,17 @@ def test_mcp_bridge_without_a_backend_serves_the_project_standalone(
         workflow = call_ok(client, "get_workflow", {"path": "workflows/main.yaml"})
         assert [node["id"] for node in workflow["nodes"]] == ["load", "norm", "save"]
 
+        # With no backend there is no realtime channel for open_miniapp to use.
+        assert call_ok(client, "validate_panel", {"path": "panels/table_explorer"})["valid"] is True
+        standalone = call_ok(
+            client,
+            "open_miniapp",
+            {"panel_id": "table_explorer", "workflow_id": "main", "block_id": "norm", "port": "normalized"},
+        )
+        assert standalone["opened"] is False, standalone
+        assert standalone["reason"] in {"no_workspace", "no_event_bus"}, standalone
+        observed["standalone_open_miniapp"] = standalone
+
         refused = client.call_tool("open_gui", {})
         assert refused["error"]["code"] == INVALID_PARAMS, refused
         assert "open_gui" in refused["error"]["message"], refused
@@ -189,6 +221,16 @@ def test_mcp_bridge_without_a_backend_serves_the_project_standalone(
     finally:
         exit_code = client.close()
     assert exit_code == 0, client.stderr[-3000:]
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="open_miniapp in a standalone bridge reports no_workspace, not no_event_bus — TODO(#2422)",
+)
+def test_open_miniapp_in_a_standalone_bridge_reports_no_event_bus(observed: dict[str, Any]) -> None:
+    result = observed["standalone_open_miniapp"]
+    assert result["reason"] == "no_event_bus", result
 
 
 def test_webmcp_adapter_passes_the_bridge_through_over_stdio(
