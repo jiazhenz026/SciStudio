@@ -261,8 +261,13 @@ class PanelService:
 
     def _apply(self, diff: RegistryDiff, current: Mapping[str, PanelDescriptor], *, reason: str) -> None:
         invalidated = diff.invalidated
+        if diff.removed:
+            # A session names the panel to mount and a frozen target. A panel
+            # that changed but still exists keeps its sessions, so a revoked
+            # preview context reopens on the same session; a candidate change
+            # re-routes the preview through ``preview_types`` instead.
+            self.sessions.discard(diff.removed)
         if invalidated:
-            self.sessions.discard(invalidated)
             closed = self.contexts.invalidate_panels(invalidated, current)
             if closed:
                 self._emit(

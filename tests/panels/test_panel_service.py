@@ -457,3 +457,62 @@ def test_the_service_watch_announces_a_new_miniapp(project: Path) -> None:
         bus.events
     )
     assert service.panel("table_explorer") is not None
+
+
+def test_a_descriptor_edit_keeps_the_session_a_revoked_preview_reopens_on(project: Path, tmp_path: Path) -> None:
+    # Codex review on #2466: a metadata-only edit revokes the preview context
+    # but must not delete the session the host reopens the context with.
+    runtime = _runtime(project)
+    service = runtime.get_panel_service()
+    _text_record(runtime, tmp_path)
+    _write_panel(project, "lab.text", contexts=["preview"], types=["Text"])
+    service.rescan()
+    target = runtime.resolve_session_target(PreviewTarget(kind=TargetKind.DATA_REF, ref="data-text"))
+    envelope = service.create_preview_session(target)
+    request = {
+        "kind": "preview",
+        "panel_id": "lab.text",
+        "target": {"ref": "data-text"},
+        "preview_session_id": envelope.session_id,
+    }
+    context = service.contexts.create(request)
+
+    _write_panel(project, "lab.text", contexts=["preview"], types=["Text"], name="Renamed")
+    diff = service.rescan()
+    assert diff.changed == {"lab.text"} and not diff.preview_types
+    assert context.context_id not in service.contexts.contexts
+    reopened = service.open_context(request)
+    assert reopened.panel.name == "Renamed"
+
+    import shutil
+
+    shutil.rmtree(project / "panels" / "lab.text")
+    assert service.rescan().removed == {"lab.text"}
+    from scistudio.previewers.models import UnknownPreviewerError
+
+    with pytest.raises(UnknownPreviewerError):
+        service.read_session(envelope.session_id)
+
+
+def test_the_panel_browser_backend_builds_its_fixture_runtime(tmp_path: Path) -> None:
+    # Codex review on #2466: the Playwright panel server builds its runtime
+    # through the panel service, not the removed legacy install_panels.
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[2] / "frontend" / "e2e" / "helpers" / "panel-backend.py"
+    spec = importlib.util.spec_from_file_location("panel_browser_backend", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    runtime = module.build_runtime(tmp_path)
+    service = runtime.get_panel_service()
+    for name in ("reader", "early", "later", "navigator", "table"):
+        assert service.panel(f"browser.{name}") is not None
+    context = service.open_context({"kind": "preview", "panel_id": "browser.reader", "target": {"ref": "data-a"}})
+    assert context.panel.id == "browser.reader"
+    # The composite's text slot has no panel, so it renders through the legacy core viewer.
+    from scistudio.previewers.models import PreviewTarget as Target
+
+    slot = Target(kind=TargetKind.DATA_REF, ref="comp#notes", recorded_type="Text", type_chain=("Text",))
+    assert service.route(slot).previewer_id == "core.text.basic"
+    assert service.route(slot).panel is None
