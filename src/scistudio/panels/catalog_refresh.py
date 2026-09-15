@@ -132,7 +132,7 @@ class PanelCatalogRefresher:
         timer.start()
 
     def stop(self) -> None:
-        """Cancel a pending refresh and ignore later changes."""
+        """Cancel a pending refresh; changes reported after this are ignored."""
         with self._lock:
             self._stopped = True
             timer, self._timer = self._timer, None
