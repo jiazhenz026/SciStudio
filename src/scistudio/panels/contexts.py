@@ -380,13 +380,13 @@ class PanelContexts:
         # file that is not there — the tab then offers the picker. The target
         # itself is not re-resolved: FR-014 restarts "for the same context and
         # target", and re-resolving would silently move an open MiniApp onto a
-        # later run's output.
+        # newer run's output.
         #
         # The setup payload is rebuilt from the revalidated target so the new
         # process reconstructs what the catalog says the target is now, and the
         # context's lease is renewed: a restart is the user working with this
         # MiniApp, and leaving ``expires_at`` untouched let a restart late in the
-        # 600-second lease be closed by the next ``_synchronize`` moments later.
+        # 600-second lease be closed by the next ``_synchronize`` call.
         from scistudio.panels.miniapp import build_setup_payload
 
         with self.lock:

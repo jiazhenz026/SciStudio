@@ -35,7 +35,7 @@ def startup_timeout() -> float:
 
 
 # FR-011: a call fails with timeout after the call limit; the process is then
-# marked unresponsive and later calls fail busy until the running call returns.
+# marked unresponsive and subsequent calls fail busy until the running call returns.
 def call_timeout() -> float:
     return _num("SCISTUDIO_PANEL_CALL_TIMEOUT", 60.0)
 

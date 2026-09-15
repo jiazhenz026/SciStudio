@@ -15,7 +15,7 @@
 # * ``open_miniapp`` asks the workspace to open a MiniApp tab. The agent has no
 #   way to open a tab: ``open_gui`` only hands back a URL for the agent's own
 #   browser tooling, and everything else the agent does is a file write the GUI
-#   notices later. This tool emits the ``panel.open_miniapp`` event the realtime
+#   notices asynchronously. This tool emits the ``panel.open_miniapp`` event the realtime
 #   layer forwards, which is the one channel from the agent back into the open
 #   workspace.
 #

@@ -2,7 +2,7 @@
 
 ``setup`` runs once, when the MiniApp opens, and receives the data the user
 chose as a SciStudio data object. Load what is expensive to load here and keep
-it in a module-level name; every later call reuses it.
+it in a module-level name; every subsequent call reuses it.
 
 Every other function defined in this file whose name does not start with an
 underscore is callable from the page as ``scistudio.call("<name>", {...})``.
