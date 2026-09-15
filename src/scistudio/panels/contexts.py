@@ -442,10 +442,17 @@ class PanelContexts:
             if context is None:
                 raise PanelError(404, "unknown_context", "The panel context is unknown, closed or expired")
             try:
-                if (
-                    context.project != project_identity(self.runtime)
-                    or context.preview_service is not self.runtime.get_preview_service()
-                ):
+                if context.project != project_identity(self.runtime):
+                    raise PanelError(409, "stale_context", "The panel's project or registry changed")
+                # A preview or interactive context was resolved through the
+                # preview service it holds, so a rebuilt service retires it. A
+                # MiniApp context is not tied to the service: it holds its panel,
+                # its target and its process. The service is rebuilt whenever
+                # any panel directory changes (#2421), so tying the MiniApp to it
+                # closed every open MiniApp, and its process, the moment an
+                # agent wrote or opened another one (#2455). Its own directory's
+                # changes reach the tab through the panel watch instead (FR-022).
+                if context.kind != "miniapp" and context.preview_service is not self.runtime.get_preview_service():
                     raise PanelError(409, "stale_context", "The panel's project or registry changed")
                 if context.root:
                     context.root.validate(self.runtime)

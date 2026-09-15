@@ -1,0 +1,82 @@
+{
+  "base_ref": "origin/main",
+  "branch": "fix/2455-open-miniapp-kills-miniapps",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/panels/contexts.py",
+      "tests/panels/test_panel_catalog_refresh.py",
+      "tests/e2e/test_mcp_tools.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T13:38:27.929633Z",
+      "class": "owner-directive",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising docs and directed no documentation edits in this fix; the change restores documented ADR-054 FR-019 behavior (open MiniApps stay alive) without changing any contract.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2455,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Agent open_miniapp kills all MiniApps, including unrelated ones; fix it.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2455-open-miniapp-kills-miniapps",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-15T13:38:27.929479Z",
+      "pattern": "tests/panels/test_miniapp_context.py",
+      "reason": "plan"
+    }
+  ],
+  "session_id": "775efccc-4782-40ee-9472-4f36015c2840",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T13:38:27.929640Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_miniapp_context.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T13:38:27.929643Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/e2e/test_mcp_tools.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

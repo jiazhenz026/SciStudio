@@ -552,3 +552,72 @@ def test_html_only_miniapp_does_not_advertise_call(tmp_path: Path) -> None:
             store.stop_process(context.context_id)
     finally:
         store.close_all()
+
+
+# -- #2455: a rebuilt panel catalog leaves open MiniApps running -------------
+
+
+def _rebuild_preview_service(runtime) -> None:
+    """Swap the runtime's preview service, as the panel catalog refresh does.
+
+    ``current_preview_service`` rebuilds the service whenever the panel
+    directories change: an agent writing a new MiniApp, or editing any
+    ``panel.json`` or ``panel.py``. The rebuilt service is a new object.
+    """
+    previous = runtime.get_preview_service()
+    rebuilt = SimpleNamespace(
+        registry=previous.registry, router=previous.router, sessions=PreviewSessionManager(previous.registry)
+    )
+    runtime.get_preview_service = lambda: rebuilt
+
+
+def test_a_rebuilt_panel_catalog_leaves_every_open_miniapp_running(tmp_path: Path) -> None:
+    # #2455: an agent wrote a MiniApp and opened it, the catalog refresh
+    # rebuilt the preview service, and every MiniApp already open was closed
+    # as "stale" on its next status poll, its process with it.
+    _runtime, store, registry, _ = _make(tmp_path)
+    first = store.create(dict(_SOURCE, ws_client_id="ws-1"), process_registry=registry)
+    second = store.create(dict(_SOURCE, ws_client_id="ws-1"), process_registry=registry)
+    try:
+        assert _await_running(first.process) == process_mod.RUNNING
+        assert _await_running(second.process) == process_mod.RUNNING
+        _rebuild_preview_service(_runtime)
+
+        for context in (first, second):
+            assert store.get(context.context_id) is context
+            assert store.by_token(context.token) is context
+            assert context.process.state == process_mod.RUNNING
+            assert context.process.call("double", {"x": 4}).header["result"] == 8
+        assert set(store.contexts) == {first.context_id, second.context_id}
+    finally:
+        store.close_all()
+
+
+def test_a_rebuilt_panel_catalog_still_retires_a_preview_context(tmp_path: Path) -> None:
+    # The preview kind keeps its rule: its frozen session lives on the service
+    # that was replaced, so the context cannot outlive that service.
+    _runtime, store, registry, _ = _make(tmp_path, contexts='["preview","miniapp"]')
+    preview = store.create(
+        {"kind": "preview", "panel_id": "lab.explorer", "target": {"ref": "data-a"}}, process_registry=registry
+    )
+    miniapp = store.create(dict(_SOURCE), process_registry=registry)
+    try:
+        _rebuild_preview_service(_runtime)
+        with pytest.raises(PanelError) as exc:
+            store.get(preview.context_id)
+        assert exc.value.code == "stale_context"
+        assert preview.context_id not in store.contexts
+        assert store.get(miniapp.context_id) is miniapp
+    finally:
+        store.close_all()
+
+
+def test_a_project_switch_still_closes_a_miniapp_after_a_catalog_rebuild(tmp_path: Path) -> None:
+    runtime, store, registry, _ = _make(tmp_path, with_python=False)
+    context = store.create(dict(_SOURCE), process_registry=registry)
+    _rebuild_preview_service(runtime)
+    runtime.active_project = SimpleNamespace(id="other", path=str(tmp_path / "other"))
+    with pytest.raises(PanelError) as exc:
+        store.get(context.context_id)
+    assert exc.value.code == "unknown_context"
+    assert not store.contexts

@@ -1330,6 +1330,62 @@ def test_a_new_miniapp_is_listed_without_a_manual_reload(agent: Agent) -> None:
     assert MINIAPP_ID in [app["panel_id"] for app in before], before
 
 
+def _miniapp_process(agent: Agent, context_id: str) -> httpx.Response:
+    return agent.backend.http.get(f"/api/panels/contexts/{context_id}/process")
+
+
+def _open_miniapp_context(agent: Agent, panel_id: str, source: dict[str, str]) -> str:
+    """Open a MiniApp context the way the workspace's MiniApp tab does."""
+    created = agent.backend.call(
+        "POST", "/api/panels/contexts", json={"kind": "miniapp", "panel_id": panel_id, "source": source}
+    )
+    return str(created["context_id"])
+
+
+def test_opening_a_new_miniapp_leaves_the_open_ones_running(
+    agent: Agent, serve: ServeProcess, tutorial_run: dict[str, Any]
+) -> None:
+    """#2455: an agent writing and opening a MiniApp must not close the ones already open."""
+    source = {"workflow_id": "main", "block_id": "norm", "port": "normalized"}
+    open_id, new_id = "resident_explorer", "second_explorer"
+    write_panel(agent, f"panels/{open_id}", dict(MINIAPP_DESCRIPTOR, id=open_id, name="Resident explorer"))
+    agent.call("write_file", path=f"panels/{open_id}/panel.py", content="def setup(data):\n    return None\n").ok()
+
+    # A MiniApp the user already has open, with its resident process.
+    context_id = _open_miniapp_context(agent, open_id, source)
+    try:
+        deadline = time.monotonic() + 60
+        status = _miniapp_process(agent, context_id).json()
+        while status.get("state") != "running" and time.monotonic() < deadline:
+            time.sleep(0.25)
+            status = _miniapp_process(agent, context_id).json()
+        assert status.get("state") == "running", status
+
+        # The agent writes another MiniApp and opens it into the workspace.
+        write_panel(agent, f"panels/{new_id}", dict(MINIAPP_DESCRIPTOR, id=new_id, name="Second explorer"))
+        events = EventStream(serve.base_url)
+        try:
+            assert agent.call("open_miniapp", dict(source, panel_id=new_id)).ok()["opened"] is True
+            events.wait_for(
+                lambda m: m.get("type") == "panel.open_miniapp", what="the open-MiniApp request", timeout=30
+            )
+        finally:
+            events.close()
+        # What the workspace does on that request: list the MiniApps and open a
+        # context on the new one. Both read a catalog that follows the panel
+        # directories, and following the new one rebuilds the preview service.
+        listed = agent.backend.call("GET", "/api/panels/miniapps")["miniapps"]
+        assert new_id in [app["panel_id"] for app in listed], listed
+        agent.backend.http.delete(f"/api/panels/contexts/{_open_miniapp_context(agent, new_id, source)}")
+
+        still = _miniapp_process(agent, context_id)
+        assert still.status_code == 200, still.text
+        assert still.json()["state"] == "running", still.json()
+        assert agent.backend.http.post(f"/api/panels/contexts/{context_id}/renew").status_code == 200
+    finally:
+        agent.backend.http.delete(f"/api/panels/contexts/{context_id}")
+
+
 # ---------------------------------------------------------------------------
 # Coverage guard.
 # ---------------------------------------------------------------------------
