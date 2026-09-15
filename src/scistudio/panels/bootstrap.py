@@ -102,11 +102,23 @@ def _reconstruct(payload: Any) -> Any:
     return _reconstruct_one(payload)
 
 
+#: An error frame travels in the header, which is capped at ``MAX_HEADER_BYTES``;
+#: its free-text fields are clipped well under that so an author exception with a
+#: huge message cannot end the process by overflowing the frame.
+_ERROR_TEXT_CHARS = 64 * 1024
+
+
+def _clip(text: str) -> str:
+    if len(text) <= _ERROR_TEXT_CHARS:
+        return text
+    return text[:_ERROR_TEXT_CHARS] + "\n... [truncated]"
+
+
 def _error(exc: BaseException) -> dict[str, Any]:
     return {
-        "type": type(exc).__name__,
-        "message": str(exc),
-        "traceback": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
+        "type": _clip(type(exc).__name__),
+        "message": _clip(str(exc)),
+        "traceback": _clip("".join(traceback.format_exception(type(exc), exc, exc.__traceback__))),
     }
 
 
@@ -135,10 +147,13 @@ def _result_frame(request_id: Any, value: Any) -> tuple[dict[str, Any], bytes]:
             "shape": list(contiguous.shape),
         }
         return header, buffer
-    body = json.dumps({"result": value}, allow_nan=False)
-    if len(body.encode("utf-8")) > limit:
+    # The JSON value travels as the raw tail, never inside the header: a header
+    # is capped at ``MAX_HEADER_BYTES`` (1 MiB) while a result may use the whole
+    # result budget, and a header over its cap would end the process.
+    body = json.dumps(value, allow_nan=False).encode("utf-8")
+    if len(body) > limit:
         return {"id": request_id, "type": "error", "error_code": "too_large"}, b""
-    return {"id": request_id, "type": "result", "result": value}, b""
+    return {"id": request_id, "type": "result", "json": True}, body
 
 
 def _as_numpy(value: Any) -> Any:

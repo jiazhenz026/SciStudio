@@ -339,7 +339,13 @@ class PanelContexts:
         )
         self.contexts[context.context_id] = context
         if panel.has_python:
-            self._start_process(context, process_registry)
+            try:
+                self._start_process(context, process_registry)
+            except BaseException:
+                # A context whose process could not start (for example Windows
+                # containment failed) must not linger without one.
+                self.contexts.pop(context.context_id, None)
+                raise
         self._start_watcher(context)
         return context
 

@@ -54,6 +54,22 @@ def _launch(tmp_path: Path, body: str, *, setup_payload=None):
     return process, registry, project_dir
 
 
+def _gone(pid: int) -> bool:
+    """True once *pid* is no longer a live process.
+
+    A killed grandchild is reparented to PID 1, and a container init that does
+    not reap promptly leaves it a zombie, which ``psutil.pid_exists`` still
+    reports. A zombie runs nothing, so it counts as gone — the same rule
+    ``_posix_group_members`` applies when deciding what is still alive.
+    """
+    import psutil
+
+    try:
+        return psutil.Process(pid).status() == psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return True
+
+
 def _await_state(process, *states, timeout=10.0):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -254,12 +270,10 @@ def test_child_process_is_killed_on_stop(tmp_path: Path) -> None:
         child_pid = process.call("child_pid", {}).header["result"]
     finally:
         process.stop()
-    import psutil
-
     deadline = time.time() + 10
-    while time.time() < deadline and psutil.pid_exists(child_pid):
+    while time.time() < deadline and not _gone(child_pid):
         time.sleep(0.05)
-    assert not psutil.pid_exists(child_pid)
+    assert _gone(child_pid)
 
 
 def test_a_class_defined_in_panel_py_is_not_callable(tmp_path: Path) -> None:
@@ -380,11 +394,193 @@ def test_shutdown_terminate_all_ends_the_panel_tree(tmp_path: Path) -> None:
     handle = registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{process.context_id}")
     assert handle is not None and handle.owns_live_process()
     registry.terminate_all(grace_period_sec=1.0)
-    import psutil
-
     deadline = time.time() + 10
-    while time.time() < deadline and (psutil.pid_exists(child_pid) or process._popen.poll() is None):
+    while time.time() < deadline and (not _gone(child_pid) or process._popen.poll() is None):
         time.sleep(0.05)
     assert process._popen.poll() is not None
-    assert not psutil.pid_exists(child_pid)
+    assert _gone(child_pid)
     process.stop()
+
+
+def test_a_json_result_larger_than_the_frame_header_cap_is_delivered(tmp_path: Path) -> None:
+    # A JSON result travels as the frame's raw tail: the header is capped at
+    # MAX_HEADER_BYTES, while a result may use the whole (larger) result budget.
+    from scistudio.panels.protocol import MAX_HEADER_BYTES
+
+    size = MAX_HEADER_BYTES * 2
+    body = f"def setup(data):\n    pass\ndef big():\n    return 'x' * {size}\ndef ping():\n    return 'pong'\n"
+    process, _, _ = _launch(tmp_path, body)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        job = process.call("big", {})
+        assert job.header["result"] == "x" * size
+        assert job.payload == b""
+        assert process.call("ping", {}).header["result"] == "pong"
+        assert process.state == RUNNING
+    finally:
+        process.stop()
+
+
+def test_an_author_exception_with_a_huge_message_does_not_end_the_process(tmp_path: Path) -> None:
+    from scistudio.panels.protocol import MAX_HEADER_BYTES
+
+    size = MAX_HEADER_BYTES * 2
+    body = (
+        f"def setup(data):\n    pass\ndef boom():\n    raise ValueError('y' * {size})\ndef ping():\n    return 'pong'\n"
+    )
+    process, _, _ = _launch(tmp_path, body)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        job = process.call("boom", {})
+        assert job.header["type"] == "error"
+        assert job.header["error"]["type"] == "ValueError"
+        assert job.header["error"]["message"].endswith("[truncated]")
+        assert process.call("ping", {}).header["result"] == "pong"
+    finally:
+        process.stop()
+
+
+def test_an_exit_between_calls_is_reported_without_a_call(tmp_path: Path) -> None:
+    # FR-015: a panel.py that exits while no call is queued is reported as
+    # crashed, with its log tail, and leaves the registry, without the page
+    # having to attempt a call first.
+    body = (
+        "import os, sys, threading\n"
+        "def setup(data):\n    pass\n"
+        "def die_later():\n"
+        "    def _go():\n"
+        "        sys.stderr.write('panel going away\\n'); sys.stderr.flush(); os._exit(3)\n"
+        "    threading.Timer(0.3, _go).start()\n"
+        "    return 'scheduled'\n"
+    )
+    process, registry, _ = _launch(tmp_path, body)
+    try:
+        assert _await_state(process, RUNNING) == RUNNING
+        assert process.call("die_later", {}).header["result"] == "scheduled"
+        deadline = time.time() + 10
+        status = process.status()
+        while time.time() < deadline and status["state"] != CRASHED:
+            time.sleep(0.05)
+            status = process.status()
+        assert status["state"] == CRASHED
+        assert status["exit_code"] == 3
+        assert "panel going away" in status["log_tail"]
+        deadline = time.time() + 10
+        key = f"context-{process.context_id}"
+        while time.time() < deadline and registry.get_handle(process_mod.REGISTRY_NAMESPACE, key) is not None:
+            time.sleep(0.05)
+        assert registry.get_handle(process_mod.REGISTRY_NAMESPACE, key) is None
+        with pytest.raises(PanelCallError) as exc:
+            process.call("die_later", {})
+        assert exc.value.code == "process_exited"
+    finally:
+        process.stop()
+
+
+class _FakeWindowsOps:
+    """Records the Windows containment steps without touching real Win32 APIs."""
+
+    def __init__(self, *, job: object = "job", assign: bool = True, resume: bool = True) -> None:
+        self.job, self.assign, self.resume = job, assign, resume
+        self.calls: list[tuple[str, object]] = []
+
+    def create_process_group(self, popen_kwargs):
+        popen_kwargs["creationflags"] = popen_kwargs.get("creationflags", 0) | 0x200
+        return popen_kwargs
+
+    def create_job_object(self):
+        self.calls.append(("create_job_object", None))
+        return self.job
+
+    def assign_to_job(self, job, pid):
+        self.calls.append(("assign_to_job", pid))
+        return self.assign
+
+    def resume_process(self, pid):
+        self.calls.append(("resume_process", pid))
+        return self.resume
+
+    def close_job_object(self, job):
+        self.calls.append(("close_job_object", job))
+
+
+class _FakePopen:
+    def __init__(self, args, **kwargs) -> None:
+        self.args, self.kwargs = args, kwargs
+        self.pid = 4242
+        self.stdin = self.stdout = None
+        self.killed = False
+        _FakePopen.last = self
+
+    def kill(self) -> None:
+        self.killed = True
+
+    def wait(self, timeout=None):
+        return 1
+
+    def poll(self):
+        return None
+
+
+def _windows_launch(tmp_path: Path, monkeypatch, ops: _FakeWindowsOps):
+    monkeypatch.setattr(process_mod.sys, "platform", "win32")
+    monkeypatch.setattr(process_mod, "get_platform_ops", lambda: ops)
+    monkeypatch.setattr(process_mod.subprocess, "Popen", _FakePopen)
+    monkeypatch.setattr(process_mod.PanelProcess, "start", lambda self: None)
+    _FakePopen.last = None
+    panel_dir = _panel(tmp_path, "def setup(data):\n    pass\n")
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    registry = ProcessRegistry()
+    kwargs = dict(
+        context_id="w" + "0" * 31,
+        panel_dir=panel_dir,
+        project_dir=project_dir,
+        registry=registry,
+        setup_payload=None,
+    )
+    return registry, kwargs
+
+
+def test_windows_panel_is_launched_suspended_and_resumed_only_once_contained(tmp_path: Path, monkeypatch) -> None:
+    ops = _FakeWindowsOps()
+    registry, kwargs = _windows_launch(tmp_path, monkeypatch, ops)
+    process = start_panel_process(**kwargs)
+    popen = _FakePopen.last
+    assert popen.kwargs["creationflags"] & process_mod._CREATE_SUSPENDED
+    assert popen.kwargs["creationflags"] & 0x200  # the process-group flag is kept
+    assert [name for name, _ in ops.calls] == ["create_job_object", "assign_to_job", "resume_process"]
+    assert process.handle.job_object == "job"
+    assert registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{process.context_id}") is not None
+
+
+@pytest.mark.parametrize(
+    ("ops_kwargs", "expected"),
+    [
+        ({"assign": False}, ["create_job_object", "assign_to_job", "close_job_object"]),
+        ({"resume": False}, ["create_job_object", "assign_to_job", "resume_process", "close_job_object"]),
+    ],
+)
+def test_windows_panel_that_cannot_be_contained_never_runs(tmp_path: Path, monkeypatch, ops_kwargs, expected) -> None:
+    from scistudio.panels.targets import PanelError
+
+    ops = _FakeWindowsOps(**ops_kwargs)
+    registry, kwargs = _windows_launch(tmp_path, monkeypatch, ops)
+    with pytest.raises(PanelError) as exc:
+        start_panel_process(**kwargs)
+    assert exc.value.code == "containment_unavailable"
+    assert [name for name, _ in ops.calls] == expected
+    assert _FakePopen.last.killed
+    assert registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{kwargs['context_id']}") is None
+
+
+def test_windows_panel_is_not_started_without_a_job_object(tmp_path: Path, monkeypatch) -> None:
+    from scistudio.panels.targets import PanelError
+
+    ops = _FakeWindowsOps(job=None)
+    registry, kwargs = _windows_launch(tmp_path, monkeypatch, ops)
+    with pytest.raises(PanelError) as exc:
+        start_panel_process(**kwargs)
+    assert exc.value.code == "containment_unavailable"
+    assert _FakePopen.last is None
+    assert registry.get_handle(process_mod.REGISTRY_NAMESPACE, f"context-{kwargs['context_id']}") is None

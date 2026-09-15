@@ -24,6 +24,11 @@
       "at": "2026-09-12T03:10:16.074245Z",
       "owner_directive": "Owner (2026-09-11, manager session): deliver ADR-054 Phase D MiniApps front-to-back \u2014 full backend and frontend implementation per docs/specs/adr-054-miniapp.md FR-001..FR-040 / T-001..T-014. Run audits and tests in the background and tell the owner when they start; then start a backend and frontend so the owner can test the feature personally. Phases C and E (docs, tutorials) are a separate guided session.",
       "reason": "Manager takes over Phase D delivery: coordinated multi-agent dispatch, one integrated PR"
+    },
+    {
+      "at": "2026-09-15T04:53:23.350147Z",
+      "owner_directive": "Fix all Codex review findings on open PRs; ignore gate-ledger-related ones.",
+      "reason": "Address Codex review findings on umbrella PR #2368"
     }
   ],
   "docs_events": [],

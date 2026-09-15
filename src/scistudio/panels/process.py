@@ -13,6 +13,7 @@ ends the whole process tree, modelled on the agent's command handle.
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import queue
@@ -35,6 +36,7 @@ from scistudio.panels.process_config import (
     teardown_grace,
 )
 from scistudio.panels.protocol import ProtocolError, recv_frame, send_frame
+from scistudio.panels.targets import PanelError
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +207,10 @@ class _Call:
         self.error: PanelCallError | None = None
 
 
+#: Queue sentinel the exit monitor posts to wake an idle worker; never a real call.
+_EXITED = _Call("", {})
+
+
 class PanelProcess:
     """One panel subprocess and the single thread that owns its control pipe."""
 
@@ -235,6 +241,7 @@ class PanelProcess:
         self._closing = False
         self._startup_timer: threading.Timer | None = None
         self._worker = threading.Thread(target=self._pump, name=f"panel-{context_id}", daemon=True)
+        self._monitor = threading.Thread(target=self._watch_exit, name=f"panel-{context_id}-exit", daemon=True)
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -243,6 +250,31 @@ class PanelProcess:
         self._startup_timer.daemon = True
         self._startup_timer.start()
         self._worker.start()
+        self._monitor.start()
+
+    def _watch_exit(self) -> None:
+        """Notice a ``panel.py`` that exits while no call is in flight (FR-015).
+
+        The worker only learns of an exit when it next touches the pipe, and an
+        idle worker is blocked on the call queue; without an independent wait
+        the tab would keep reporting ``running`` for a process that is gone.
+        """
+        with contextlib.suppress(Exception):
+            self._popen.wait()
+        self._detect_exit()
+
+    def _detect_exit(self) -> None:
+        """Mark an unexpectedly exited process crashed and wake the idle worker."""
+        if self._popen.poll() is None:
+            return
+        with self._lock:
+            if self._closing or self.state not in (RUNNING, UNRESPONSIVE):
+                return
+            self.state = CRASHED
+        # The worker is either blocked on the queue (the sentinel wakes it to
+        # clean up) or inside a call, where the closed pipe already ends it.
+        with contextlib.suppress(queue.Full):
+            self._jobs.put_nowait(_EXITED)
 
     def _on_startup_timeout(self) -> None:
         with self._lock:
@@ -282,6 +314,11 @@ class PanelProcess:
             if job is None:  # shutdown sentinel
                 self._graceful_shutdown()
                 return
+            if job is _EXITED:  # the exit monitor saw the process end
+                # Anything panel.py started must not outlive it unregistered.
+                self._terminate_tree()
+                self._on_exit(unexpected=True)
+                return
             request_id = id(job)
             try:
                 send_frame(self._request, {"type": "call", "id": request_id, "fn": job.fn, "args": job.args})
@@ -303,6 +340,18 @@ class PanelProcess:
                 self._terminate_tree()
                 self._on_exit(unexpected=True)
                 return
+            if header.get("json"):
+                # A JSON result arrives as the raw tail (bootstrap keeps it out
+                # of the size-capped header); expose it as ``header["result"]``.
+                try:
+                    header = {**header, "result": json.loads(payload.decode("utf-8"))}
+                except (UnicodeDecodeError, ValueError):
+                    job.error = PanelCallError("process_exited", "The panel process sent an unreadable result")
+                    job.done.set()
+                    self._terminate_tree()
+                    self._on_exit(unexpected=True)
+                    return
+                payload = b""
             job.header, job.payload = header, payload
             with self._lock:
                 if self.state == UNRESPONSIVE:
@@ -351,7 +400,7 @@ class PanelProcess:
                 job = self._jobs.get_nowait()
             except queue.Empty:
                 return
-            if job is None:
+            if job is None or job is _EXITED:
                 continue
             job.error = PanelCallError("process_exited", "The panel process exited")
             job.done.set()
@@ -456,6 +505,9 @@ class PanelProcess:
         return total if measured else None
 
     def status(self) -> dict[str, Any]:
+        # Refresh from the process itself so an exit between calls is reported
+        # now, not when the next call touches the pipe.
+        self._detect_exit()
         with self._lock:
             state = self.state
             error = self._setup_error
@@ -542,6 +594,34 @@ def _process_env(panel_dir: Path, project_dir: Path, import_roots: tuple[str, ..
     return env
 
 
+_CREATE_SUSPENDED = 0x00000004
+"""Win32 ``CREATE_SUSPENDED``: the process runs nothing until it is resumed."""
+
+_JOB_OBJECT_UNAVAILABLE_MESSAGE = (
+    "A MiniApp's panel.py runs inside a Windows Job Object so that Stop and shutdown can end every "
+    "process it starts, and the Job Object could not be created or the process could not be placed "
+    "in it. panel.py was not run."
+)
+
+
+def _contain(ops: Any, job_object: Any, pid: int) -> bool:
+    """Place the suspended panel process in its Job Object, then let it run."""
+    return bool(ops.assign_to_job(job_object, pid)) and bool(ops.resume_process(pid))
+
+
+def _discard_uncontained(popen: subprocess.Popen[bytes], ops: Any, job_object: Any) -> None:
+    """End a panel process that never ran (suspended, or outside its job)."""
+    with contextlib.suppress(OSError):
+        popen.kill()
+    ops.close_job_object(job_object)  # kill-on-close covers a process that did join the job
+    with contextlib.suppress(Exception):
+        popen.wait(timeout=10.0)
+    for stream in (popen.stdin, popen.stdout):
+        with contextlib.suppress(Exception):
+            if stream is not None:
+                stream.close()
+
+
 def start_panel_process(
     *,
     context_id: str,
@@ -567,16 +647,35 @@ def start_panel_process(
         "env": _process_env(panel_dir, project_dir, import_roots),
     }
     popen_kwargs = platform_ops.create_process_group(popen_kwargs)
-    job_object = platform_ops.create_job_object() if sys.platform == "win32" else None
-    popen = subprocess.Popen(
-        [python_executable or sys.executable, "-m", "scistudio.panels.bootstrap"],
-        **popen_kwargs,
-    )
-    # The parent no longer needs its copy of the log write end.
-    with contextlib.suppress(Exception):
-        popen_kwargs["stderr"].close()
-    if job_object is not None:
-        platform_ops.assign_to_job(job_object, popen.pid)
+    # Windows: the panel belongs to its Job Object before it runs anything, so
+    # Stop and shutdown reach every process it starts. It is created suspended,
+    # placed in the job, then resumed; if any step fails nothing ran and the
+    # start is refused — the same containment the managed-command path uses
+    # (``scistudio.ai.agent.mcp.tools_execution``).
+    job_object: Any = None
+    if sys.platform == "win32":
+        job_object = platform_ops.create_job_object()
+        if job_object is None:
+            with contextlib.suppress(Exception):
+                popen_kwargs["stderr"].close()
+            raise PanelError(500, "containment_unavailable", _JOB_OBJECT_UNAVAILABLE_MESSAGE)
+        popen_kwargs["creationflags"] = popen_kwargs.get("creationflags", 0) | _CREATE_SUSPENDED
+    try:
+        popen = subprocess.Popen(
+            [python_executable or sys.executable, "-m", "scistudio.panels.bootstrap"],
+            **popen_kwargs,
+        )
+    except BaseException:
+        if job_object is not None:
+            platform_ops.close_job_object(job_object)
+        raise
+    finally:
+        # The parent no longer needs its copy of the log write end.
+        with contextlib.suppress(Exception):
+            popen_kwargs["stderr"].close()
+    if job_object is not None and not _contain(platform_ops, job_object, popen.pid):
+        _discard_uncontained(popen, platform_ops, job_object)
+        raise PanelError(500, "containment_unavailable", _JOB_OBJECT_UNAVAILABLE_MESSAGE)
     handle = PanelProcessHandle(context_id=context_id, pid=popen.pid, started_at=time.time(), job_object=job_object)
     handle._popen = popen
     registry.register(handle)
