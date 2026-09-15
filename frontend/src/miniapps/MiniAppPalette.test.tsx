@@ -5,12 +5,17 @@
 // property of the preview column rather than of this pane, and is tested where
 // it lives: `components/__tests__/DataPreviewAllPreviewers.test.tsx`.
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resetDialogChannel, showPromotionResult } from "../components/promotion/dialogChannel";
 import type { PromotableItem } from "../components/promotion/promotable";
 import type { PromotionOutcome } from "../components/promotion/promoteToUserLibrary";
+
+import { blocksApi } from "../lib/api/blocks";
+import { useAppStore } from "../store";
+import { resetAppStore } from "../testUtils";
+import { useMiniAppCatalog } from "./useMiniAppCatalog";
 
 import { MiniAppPalette } from "./MiniAppPalette";
 import type { MiniAppSummary } from "./types";
@@ -94,6 +99,7 @@ function card(panelId: string): HTMLElement {
 }
 
 beforeEach(() => {
+  resetAppStore();
   resetDialogChannel();
   list.mockResolvedValue([]);
   runPromotion.mockResolvedValue(undefined);
@@ -101,6 +107,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
@@ -245,5 +252,84 @@ describe("MiniApps tab — US5 scenario 2: promotion (FR-039)", () => {
         "miniapp-card-threshold-explorer",
       ),
     ).toBeNull();
+  });
+});
+
+describe("MiniApp registry refresh", () => {
+  function CompatibleActions() {
+    const { miniapps } = useMiniAppCatalog();
+    return <div data-testid="compatible-apps">{miniapps.map((app) => app.name).join(", ")}</div>;
+  }
+
+  it("Reload rescans the backend and refreshes both the sidebar and compatible actions", async () => {
+    let completeScan!: () => void;
+    const scan = vi.spyOn(blocksApi, "reloadBlocks").mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          completeScan = () => resolve({ reloaded: 1, added: [], removed: [] });
+        }),
+    );
+    await renderPalette([projectApp]);
+    render(<CompatibleActions />);
+    await waitFor(() =>
+      expect(screen.getByTestId("compatible-apps")).toHaveTextContent(projectApp.name),
+    );
+    const reads = list.mock.calls.length;
+    list.mockResolvedValue([userApp]);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(scan).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Reload" })).toBeDisabled();
+    expect(list).toHaveBeenCalledTimes(reads);
+    await act(async () => completeScan());
+    await screen.findByTestId(`miniapp-card-${userApp.panel_id}`);
+    await waitFor(() =>
+      expect(screen.getByTestId("compatible-apps")).toHaveTextContent(userApp.name),
+    );
+    expect(screen.queryByTestId(`miniapp-card-${projectApp.panel_id}`)).toBeNull();
+  });
+
+  it("updates compatible actions on registry invalidation without a project switch", async () => {
+    await renderPalette([]);
+    render(<CompatibleActions />);
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    list.mockResolvedValue([projectApp]);
+    act(() => useAppStore.getState().bumpBlockCatalogRefresh());
+    await screen.findByTestId(`miniapp-card-${projectApp.panel_id}`);
+    await waitFor(() =>
+      expect(screen.getByTestId("compatible-apps")).toHaveTextContent(projectApp.name),
+    );
+  });
+
+  it("keeps the listing and reports a failed rescan", async () => {
+    vi.spyOn(blocksApi, "reloadBlocks").mockRejectedValue(new Error("Registry reload failed"));
+    await renderPalette([projectApp]);
+    await screen.findByTestId(`miniapp-card-${projectApp.panel_id}`);
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Registry reload failed");
+    expect(card(projectApp.panel_id)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload" })).toBeEnabled();
+  });
+
+  it("ignores an old project's delayed listing after switching projects", async () => {
+    let resolveOld!: (items: MiniAppSummary[]) => void;
+    list.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOld = resolve;
+        }),
+    );
+    render(<MiniAppPalette onCreate={vi.fn()} onOpen={vi.fn()} />);
+    list.mockResolvedValue([userApp]);
+    act(() =>
+      useAppStore.setState({
+        currentProject: { id: "new-project", path: "/projects/new" } as NonNullable<
+          ReturnType<typeof useAppStore.getState>["currentProject"]
+        >,
+      }),
+    );
+    await screen.findByTestId(`miniapp-card-${userApp.panel_id}`);
+    await act(async () => resolveOld([projectApp]));
+    expect(screen.queryByTestId(`miniapp-card-${projectApp.panel_id}`)).toBeNull();
+    expect(card(userApp.panel_id)).toBeInTheDocument();
   });
 });

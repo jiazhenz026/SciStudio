@@ -529,7 +529,10 @@ outputs, and the ADR-051 contract, and that the MiniApp directory is unchanged.
   entry. The MiniApps tab MUST list every panel declaring `miniapp`, grouped by
   tier as the Previewers tab groups previewers, with a search box and a plus-icon New
   button; a card shows the name and declared type, and a single click opens the
-  MiniApp (FR-034).
+  MiniApp (FR-034). A Reload button MUST re-scan the backend registries before
+  refreshing the full MiniApp catalogue and compatible block actions. Both
+  surfaces MUST refresh after creation, registry invalidation, and promotion without requiring a project switch. Responses from
+  a previous project MUST NOT populate the active project's catalogue.
 - **FR-032**: Each MiniApp card MUST show the shared hover popover
   (`frontend/src/components/palette/DetailPopover.tsx`) with the description,
   declared type, tier, and directory, and, for a project-tier MiniApp only, Promote

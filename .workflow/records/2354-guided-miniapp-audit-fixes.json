@@ -2293,6 +2293,16 @@
       "at": "2026-09-15T04:49:47.460429Z",
       "owner_directive": "Apply the supplied skill diff, then directly open the PR. Do not run local full tests. Use the supported PR-wrapper preflight skip if existing incomplete test evidence prevents submission; do not bypass CI or claim validation passed.",
       "reason": "Owner supplied final MiniApp skill wording and directed immediate PR submission without further local full-suite runs; retain CI and disclose incomplete local validation."
+    },
+    {
+      "at": "2026-09-15T05:07:57.383909Z",
+      "owner_directive": "Fix Codex PR audit findings. Add Reload for the whole MiniApps registration list in the left sidebar, not the MiniApp page. Continue focused validation only; no local full suites.",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "at": "2026-09-15T05:14:43.294932Z",
+      "owner_directive": "Also fix the CI Python test failures.",
+      "reason": "CI Python 3.11 and 3.13 both fail the published user-guide sidebar expectation because the new MiniApps guide is missing from its fixture."
     }
   ],
   "docs_events": [
@@ -2525,6 +2535,30 @@
       "class": null,
       "kind": "path",
       "path": "docs/audit/2026-09-14-adr-054-documentation-coverage.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:15:51.693829Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-miniapp.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:15:51.694022Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/miniapps.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:15:51.694025Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/planning/adr-054-phase-d-checklist.md",
       "rationale": null,
       "verified_in_diff": null
     }
@@ -6491,6 +6525,54 @@
       "at": "2026-09-15T03:54:02.079690Z",
       "pattern": "docs/cli-integration.md",
       "reason": "Integrate completed owner-requested Phase D implementations, reusable renderer assets, screenshot transport and production documentation for one PR"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384300Z",
+      "pattern": "frontend/src/miniapps/**",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384305Z",
+      "pattern": "frontend/src/App.parts/ProjectWorkspace.tsx",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384307Z",
+      "pattern": "src/scistudio/engine/gui_presence.py",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384308Z",
+      "pattern": "src/scistudio/api/ws.py",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384309Z",
+      "pattern": "src/scistudio/api/routes/user_library.py",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384310Z",
+      "pattern": "tests/api/**",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:07:57.384315Z",
+      "pattern": "tests/engine/**",
+      "reason": "Owner requested Codex audit fixes and clarified Reload means refreshing the MiniApps registered catalogue in the left sidebar, consistent with other palettes."
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-15T05:14:43.295392Z",
+      "pattern": "tests/api/test_user_docs.py",
+      "reason": "CI Python 3.11 and 3.13 both fail the published user-guide sidebar expectation because the new MiniApps guide is missing from its fixture."
     }
   ],
   "session_id": "e9daadf5-4b7b-497e-95e6-b74438de3b3c",
@@ -6758,6 +6840,30 @@
       "class": null,
       "kind": "path",
       "path": "frontend/src/components/WorkflowCanvas.parts/__tests__/blockSourceEditor.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:14:43.295399Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_user_docs.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:15:51.694028Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/MiniAppPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T05:15:51.694031Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/CreateMiniAppDialog.test.tsx",
       "rationale": null,
       "verified_in_diff": null
     }

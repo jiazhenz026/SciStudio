@@ -221,12 +221,14 @@ describe("CreateMiniAppDialog (ADR-054 FR-023 / FR-024 / FR-025)", () => {
     // in this dialog waits for the MiniApp to exist on disk.
     const harness = renderDialog({ presetTarget: PRESET });
     await settled();
+    const previousRevision = useAppStore.getState().blockCatalogRefreshCounter;
     fireEvent.change(screen.getByTestId("miniapp-create-request"), {
       target: { value: "Threshold explorer please." },
     });
     fireEvent.click(screen.getByTestId("miniapp-create-submit"));
 
     await waitFor(() => expect(harness.onCreated).toHaveBeenCalledTimes(1));
+    expect(useAppStore.getState().blockCatalogRefreshCounter).toBe(previousRevision + 1);
     expect(harness.onCreated).toHaveBeenCalledWith({
       panel_id: "miniapp_1",
       name: "Threshold explorer",

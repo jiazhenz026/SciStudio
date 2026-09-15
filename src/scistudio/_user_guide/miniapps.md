@@ -29,6 +29,11 @@ Switching workspace tabs preserves the mounted MiniApp and its current controls.
 Closing its tab ends the running session. Reopening may reset controls and
 computed results; any export you saved is separate from that session.
 
+Choose **Reload** at the top of the MiniApps sidebar to scan for added, changed,
+or removed MiniApps. This refreshes the registered list and the compatible
+MiniApp actions on blocks. New MiniApps and registry changes also update these
+lists automatically.
+
 ## Restart and stop
 
 The toolbar shows whether the MiniApp is starting, running, stopped, or has an

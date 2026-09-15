@@ -261,3 +261,16 @@ and requested immediate PR submission without further local full-suite runs.
 The branch includes upstream main at `f70c0087`. Existing passing checks are
 historical evidence, not a claim that this final merged head passed all checks.
 CI remains required; no CI checks or thresholds are changed for this exception.
+
+### PR #2392 review follow-up (2026-09-15)
+
+- The MiniApps sidebar now provides Reload, using the existing full registry
+  rescan endpoint before updating its list and compatible canvas actions.
+  Creation, registry invalidation, and promotion also refresh both consumers;
+  responses from a previous project are discarded.
+- The Python 3.11 and 3.13 CI failures were the same user-guide navigation
+  fixture missing the new MiniApps guide. The fixture now includes that entry.
+- Focused validation: 15 MiniApp palette tests, 11 creation dialog tests, and
+  all 30 user-documentation API tests passed. Frontend type checking and lint
+  and formatting checks of the changed frontend files passed. No local full
+  test suite was run for this follow-up; final CI remains required.

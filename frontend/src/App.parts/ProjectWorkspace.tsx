@@ -40,7 +40,7 @@ import {
   usePreviewColumnState,
 } from "../miniapps/MiniAppTab";
 import { MiniAppTargetPicker } from "../miniapps/MiniAppTargetPicker";
-import { miniAppsApi } from "../miniapps/api";
+import { useMiniAppCatalog } from "../miniapps/useMiniAppCatalog";
 import type { MiniAppSummary, MiniAppTarget } from "../miniapps/types";
 import { ProjectTree } from "../components/ProjectTree";
 import { useLibraryReveal } from "../components/promotion/revealInLibrary";
@@ -543,28 +543,9 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
   const [pickerFor, setPickerFor] = useState<MiniAppSummary | null>(null);
   const [convertFor, setConvertFor] = useState<string | null>(null);
   const openMiniAppTab = useAppStore((s) => s.openMiniAppTab);
-  // FR-035 — the context menu needs the catalogue to know which MiniApps a
-  // block's output type matches. The palette keeps its own copy because it also
-  // owns search, refresh and diagnostics; this one is read once per project.
-  const [miniAppCatalogue, setMiniAppCatalogue] = useState<MiniAppSummary[]>([]);
+  // FR-035 — refresh compatible actions together with the sidebar catalogue.
+  const { miniapps: miniAppCatalogue } = useMiniAppCatalog();
   const [presetTarget, setPresetTarget] = useState<MiniAppTarget | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    miniAppsApi
-      .list()
-      .then((items) => {
-        if (!cancelled) setMiniAppCatalogue(items);
-      })
-      .catch(() => {
-        // A catalogue that cannot be read leaves the context menu offering
-        // New MiniApp and nothing else, which is the correct degradation:
-        // the entry the user learns the feature from is still there.
-        if (!cancelled) setMiniAppCatalogue([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [props.currentProject?.id]);
 
   const miniApps: MiniAppWiring = {
     onOpen: (summary) => setPickerFor(summary),

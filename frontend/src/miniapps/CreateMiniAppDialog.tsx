@@ -214,6 +214,7 @@ function CreateMiniAppDialogBody({
         provider,
         permission_mode: toBackendPermissionMode(permissionMode),
       });
+      useAppStore.getState().bumpBlockCatalogRefresh();
       // FR-025 - the caller opens the tab and shows the session NOW, before the
       // agent has written anything. The dialog then closes as the session opens.
       const sessionProvider = response.provider ?? provider;

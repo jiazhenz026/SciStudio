@@ -21,21 +21,21 @@
 // (FR-024) are dialogs mounted beside the whole workspace, not inside a
 // sidebar pane that a tab switch unmounts.
 
-import { Plus } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { DetailPopover } from "../components/palette/DetailPopover";
 import { useHoverPopover } from "../components/palette/hoverPopover";
 import { buildSections, filterItems, withoutEmptyHints } from "../components/palette/sections";
 import type { Section, SectionSlot } from "../components/palette/sections";
-import { useDialogChannel } from "../components/promotion/dialogChannel";
 import { PromoteToLibraryAction } from "../components/promotion/PromoteToLibraryAction";
 import { promotableMiniApp } from "../components/promotion/promotable";
 
 import { useAppStore } from "../store";
 
-import { miniAppsApi } from "./api";
+import { useReloadFlash } from "../hooks/useReloadFlash";
+import { useMiniAppCatalog } from "./useMiniAppCatalog";
 import type { MiniAppSummary } from "./types";
 
 /** Stable id for the project-local section (`{project}/panels/`). */
@@ -236,9 +236,11 @@ export function MiniAppPalette(props: MiniAppPaletteProps) {
 }
 
 function MiniAppPaletteBody({ onOpen, onCreate }: MiniAppPaletteProps) {
-  const [miniapps, setMiniApps] = useState<MiniAppSummary[]>([]);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { miniapps, loaded, error, reloading, reload } = useMiniAppCatalog();
+  const { ref: contentRef, trigger: triggerFlash } = useReloadFlash<
+    HTMLDivElement,
+    MiniAppSummary[]
+  >(miniapps);
   const [search, setSearch] = useState("");
   // FR-044/FR-046 — the shared hover state machine. Spreading `popoverProps`
   // onto the card below is what makes the popover interactive and keeps it open
@@ -246,66 +248,50 @@ function MiniAppPaletteBody({ onOpen, onCreate }: MiniAppPaletteProps) {
   // clicked at all.
   const hover = useHoverPopover<MiniAppSummary>();
 
-  const refresh = useCallback(() => {
-    let cancelled = false;
-    miniAppsApi
-      .list()
-      .then((listed) => {
-        if (cancelled) return;
-        setMiniApps(listed);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => refresh(), [refresh]);
-
-  // FR-039 scenario 2 — a promoted MiniApp is "still listed and opens": it has
-  // moved from the project tier to the user tier, so the listing this pane is
-  // holding is stale the moment the promotion lands. The promotion channel is
-  // already the one place every entry point reports through, so subscribing to
-  // it costs nothing and needs no callback threaded through the shared action.
-  const { notice } = useDialogChannel();
-  const promoted =
-    notice !== null &&
-    notice.item.kind === "miniapp" &&
-    (notice.status === "promoted" || notice.status === "partial");
-  useEffect(() => {
-    if (!promoted) return undefined;
-    return refresh();
-  }, [promoted, refresh]);
-
   const sections = buildMiniAppSections(miniapps, search);
   const forceOpen = search.trim().length > 0;
   const hovered = hover.hovered;
 
   return (
     <aside className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {/* The panel names itself after its tab, so `MiniApps` reads as a peer
             of `Blocks` and `Data types`. */}
         <p className="font-display text-xl text-ink">MiniApps</p>
-        <button
-          className="toolbar-button inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
-          data-testid="miniapp-new"
-          onClick={onCreate}
-          type="button"
-        >
-          <Plus size={14} aria-hidden="true" />
-          New
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            className="toolbar-button inline-flex items-center gap-1 whitespace-nowrap"
+            disabled={reloading}
+            onClick={() => {
+              triggerFlash();
+              void reload();
+            }}
+            type="button"
+          >
+            <RefreshCw
+              size={14}
+              aria-hidden="true"
+              className={reloading ? "animate-spin" : undefined}
+            />
+            Reload
+          </button>
+          <button
+            className="toolbar-button inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
+            data-testid="miniapp-new"
+            onClick={onCreate}
+            type="button"
+          >
+            <Plus size={14} aria-hidden="true" />
+            New
+          </button>
+        </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col" data-testid="miniapp-palette-content">
+      <div
+        ref={contentRef}
+        className="flex min-h-0 flex-1 flex-col"
+        data-testid="miniapp-palette-content"
+      >
         <input
           className="mt-4 w-full rounded-2xl border border-stone-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-ember"
           onChange={(event) => setSearch(event.target.value)}
