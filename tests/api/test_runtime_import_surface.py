@@ -123,6 +123,8 @@ def test_apiruntime_is_single_class_with_all_methods() -> None:
         "start_workflow",
         "_log_workflow_task_failure",
         "get_run",
+        # Run lifetime (_run_lifetime, #2327)
+        "shutdown_workflow_runs",
     }
 
     missing = {name for name in expected_methods if not hasattr(ApiRuntime, name)}

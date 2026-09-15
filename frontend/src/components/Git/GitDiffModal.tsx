@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { JSX } from "react";
 
-import { Button } from "@/components/ui/button";
+import { DialogCloseButton } from "@/components/ui/DialogCloseButton";
 
 import { api } from "../../lib/api";
 
@@ -112,15 +112,7 @@ export function GitDiffModal(props: GitDiffModalProps): JSX.Element | null {
           <h2 id="git-diff-title" className="text-base font-semibold text-ink">
             {headerTitle}
           </h2>
-          <Button
-            data-testid="git-diff-close"
-            variant="toolbar"
-            size="toolbar"
-            type="button"
-            onClick={onClose}
-          >
-            Close
-          </Button>
+          <DialogCloseButton data-testid="git-diff-close" onClick={onClose} />
         </div>
 
         {/*

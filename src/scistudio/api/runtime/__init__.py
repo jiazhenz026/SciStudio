@@ -41,7 +41,7 @@ import time
 from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from scistudio.api.file_contracts import FILE_ENTITY_CLASS
 from scistudio.blocks.registry import BlockRegistry
@@ -52,7 +52,7 @@ from scistudio.engine.resources import ResourceManager
 from scistudio.engine.runners.local import LocalRunner
 from scistudio.engine.runners.process_handle import ProcessRegistry
 
-from . import _data, _projects, _runs, _workflows
+from . import _data, _projects, _run_lifetime, _runs, _stop_request, _workflows
 from ._file_writes import ProjectFileService
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
@@ -271,8 +271,12 @@ class FirstPartyEntityWrite:
 class LogBroadcaster:
     """Fan-out log events to SSE subscribers."""
 
+    END: ClassVar[dict[str, Any]] = {"event": "end"}
+    """The item a subscriber receives once the broadcaster closes; its stream should end."""
+
     def __init__(self) -> None:
         self._subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
+        self._closed = False
 
     async def publish(
         self,
@@ -294,11 +298,25 @@ class LogBroadcaster:
 
     def subscribe(self) -> asyncio.Queue[dict[str, Any]]:
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        if self._closed:
+            queue.put_nowait(self.END)
         self._subscribers.add(queue)
         return queue
 
     def unsubscribe(self, queue: asyncio.Queue[dict[str, Any]]) -> None:
         self._subscribers.discard(queue)
+
+    def close(self) -> None:
+        """End every subscriber's stream, including streams opened afterwards.
+
+        A stopping backend calls this so the web server's wait for open
+        connections can finish. Safe to call more than once.
+        """
+        if self._closed:
+            return
+        self._closed = True
+        for queue in list(self._subscribers):
+            queue.put_nowait(self.END)
 
 
 class ApiRuntime:
@@ -383,6 +401,9 @@ class ApiRuntime:
         # ``open_project`` and closed when switching projects. ``None`` when
         # no project is open or when initialization failed (best-effort).
         self.lineage_store: Any = None
+        # #2327: the database ``lineage_store`` was opened on, so reopening the
+        # same project keeps the store its live runs write through.
+        self._lineage_db_path: Path | None = None
 
         # #827: structured stdlib-logging audit trail for every engine
         # event. Independent of ``_bind_event_logging`` below — that
@@ -826,6 +847,10 @@ class ApiRuntime:
     start_workflow = _runs.start_workflow
     _log_workflow_task_failure = _runs._log_workflow_task_failure
     get_run = _runs.get_run
+    # #2327: runs outlive browser connections; shutdown ends them (_run_lifetime).
+    shutdown_workflow_runs = _run_lifetime.shutdown_workflow_runs
+    # #2327: a stop signal ends the long-lived streams first (_stop_request).
+    begin_shutdown = _stop_request.begin_shutdown
 
 
 # Sorted to satisfy ruff RUF022.

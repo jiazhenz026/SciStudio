@@ -1,0 +1,93 @@
+{
+  "base_ref": "origin/main",
+  "branch": "codex/ci-python313-watchdog-regression",
+  "check_events": [],
+  "check_na": [
+    {
+      "name": "preflight",
+      "rationale": "Owner explicitly requested skipping all local preflight for this emergency PR."
+    }
+  ],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "tests/qa/testing/test_session_watchdog.py"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-15T02:01:56.569398Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "Test-only regression protection; incident evidence and CI links recorded in issue #2373 and PR.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:01:56.569554Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "No runtime or public contract change.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T02:01:56.569559Z",
+      "class": "adr",
+      "kind": "na",
+      "path": null,
+      "rationale": "No architectural change; protects existing timeout behavior.",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2373,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner requests investigation of Python 3.13 CI timeouts and an emergency PR, skipping all local preflight. Investigation confirms fixes #2370 and #2372 already merged; add focused regression protection for the reverted process-killing session watchdog.",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2373-2373-ci-watchdog-regression",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:bypass"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "codex",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "ea8ebbf3-f2a8-4436-bfab-8027e2671f0d",
+  "strictness_tier": null,
+  "task_kind": "bugfix",
+  "test_events": [
+    {
+      "at": "2026-09-15T02:01:56.569565Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/qa/testing/test_session_watchdog.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

@@ -58,4 +58,15 @@ describe("ProjectDialog busy state (#2019)", () => {
     fireEvent.click(screen.getByText("Cancel"));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("closes from an icon-only X in the header (#2378)", () => {
+    const onClose = vi.fn();
+    render(<ProjectDialog {...baseProps} onClose={onClose} onSubmit={vi.fn()} />);
+
+    const close = screen.getByRole("button", { name: "Close" });
+    expect(close.textContent).toBe("");
+    expect(screen.queryByText("Close")).toBeNull();
+    fireEvent.click(close);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

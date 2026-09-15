@@ -20,7 +20,7 @@
  */
 import type { JSX } from "react";
 
-import { Button } from "@/components/ui/button";
+import { DialogCloseButton } from "@/components/ui/DialogCloseButton";
 
 import { useAppStore } from "../../store";
 
@@ -70,16 +70,11 @@ export function MergeFlow(props: MergeFlowProps): JSX.Element | null {
       >
         <div className="flex items-center justify-between border-b border-stone-200 px-5 py-3">
           <h2 className="text-base font-semibold text-ink">{titleText}</h2>
-          <Button
+          <DialogCloseButton
             data-testid="merge-flow-close"
-            variant="toolbar"
-            size="toolbar"
-            type="button"
             disabled={closeLocked}
             onClick={machine.handleRequestClose}
-          >
-            Close
-          </Button>
+          />
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto p-4">

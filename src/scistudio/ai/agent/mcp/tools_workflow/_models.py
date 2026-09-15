@@ -144,6 +144,14 @@ class ValidateWorkflowResult(BaseModel):
 
     valid: bool = Field(description="True if validation passed.")
     errors: list[str] = Field(default_factory=list, description="Validation error messages.")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-blocking core-IO steering advisories that do not affect 'valid': a "
+            "package or custom IO block the core load_data/save_data block already "
+            "covers, or a core load_data/save_data node without core_type."
+        ),
+    )
 
 
 class WriteWorkflowResult(BaseModel):
@@ -156,9 +164,9 @@ class WriteWorkflowResult(BaseModel):
         default_factory=list,
         description=(
             "Non-blocking advisories about the written workflow, e.g. a node that "
-            "uses a package-specific IO block the core Load/Save block already "
-            "covers. The write still succeeds; act on these to keep the canvas "
-            "consistent."
+            "uses a package or custom IO block the core Load/Save block already "
+            "covers, or a core Load/Save node without core_type. The write still "
+            "succeeds; act on these to keep the canvas consistent."
         ),
     )
     next_step: str = Field(
@@ -174,6 +182,15 @@ class EditWorkflowResult(BaseModel):
     bytes_written: int = Field(description="Number of bytes written to disk.")
     diff_summary: str = Field(description="Compact diff vs prior file contents.")
     edits_applied: int = Field(description="Number of search/replace edits applied to the workflow text.")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Non-blocking advisories about the edited workflow, e.g. a node that "
+            "uses a package or custom IO block the core Load/Save block already "
+            "covers, or a core Load/Save node without core_type. The edit still "
+            "succeeds; act on these to keep the canvas consistent."
+        ),
+    )
     next_step: str = Field(
         default="Call mcp__scistudio__validate_workflow with the same path to confirm runtime acceptance.",
         description="Suggested next MCP call to maintain workflow integrity.",

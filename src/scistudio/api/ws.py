@@ -43,10 +43,6 @@ from scistudio.engine.events import (
 
 logger = logging.getLogger(__name__)
 
-_GUI_DISCONNECT_GRACE_SEC = 2.0
-_gui_ws_clients: set[int] = set()
-_gui_disconnect_cancel_task: asyncio.Task[None] | None = None
-
 #: Live FR-013 grace-period tasks. Held so the event loop keeps a strong
 #: reference to each one — a bare ``create_task`` result is garbage-collectable
 #: mid-sleep, which would silently leave a gone workspace's MiniApp processes
@@ -189,69 +185,6 @@ def serialise_event(event: EngineEvent) -> dict[str, Any]:
     }
 
 
-async def _cancel_running_workflows_for_gui_disconnect(event_bus: EventBus) -> None:
-    """Cancel active workflows when the GUI session disappears."""
-    runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
-        return
-
-    for workflow_id, run in list(runs.items()):
-        task = getattr(run, "task", None)
-        if task is not None and callable(getattr(task, "done", None)) and task.done():
-            continue
-        scheduler = getattr(run, "scheduler", None)
-        cancel_workflow = getattr(scheduler, "cancel_workflow", None)
-        if not callable(cancel_workflow):
-            continue
-        try:
-            await cancel_workflow()
-            logger.info("Cancelled workflow %s after GUI websocket disconnect", workflow_id)
-        except Exception:
-            logger.warning("Failed to cancel workflow %s after GUI websocket disconnect", workflow_id, exc_info=True)
-            continue
-
-        if task is not None and callable(getattr(task, "done", None)) and not task.done():
-            try:
-                await asyncio.wait_for(asyncio.shield(task), timeout=5.0)
-            except (asyncio.CancelledError, TimeoutError):
-                pass
-            except Exception:
-                logger.debug(
-                    "Workflow %s task finished with exception after GUI disconnect", workflow_id, exc_info=True
-                )
-
-
-def _has_active_workflow_runs(event_bus: EventBus) -> bool:
-    runtime = getattr(event_bus, "runtime", None)
-    runs = getattr(runtime, "workflow_runs", None)
-    if not isinstance(runs, dict):
-        return False
-    for run in runs.values():
-        task = getattr(run, "task", None)
-        if task is None:
-            continue
-        if not callable(getattr(task, "done", None)) or not task.done():
-            return True
-    return False
-
-
-async def _cancel_after_gui_disconnect_grace(event_bus: EventBus) -> None:
-    """Debounce transient reconnects before cancelling browser-owned runs."""
-    global _gui_disconnect_cancel_task
-
-    try:
-        await asyncio.sleep(_GUI_DISCONNECT_GRACE_SEC)
-        if _gui_ws_clients:
-            return
-        await _cancel_running_workflows_for_gui_disconnect(event_bus)
-    except asyncio.CancelledError:
-        raise
-    finally:
-        if asyncio.current_task() is _gui_disconnect_cancel_task:
-            _gui_disconnect_cancel_task = None
-
-
 def _client_id_for(websocket: WebSocket) -> str:
     """Return the workspace client id this connection speaks for."""
     # Return the workspace client id this connection speaks for (FR-013).
@@ -277,8 +210,7 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
     """Close *client_id*'s MiniApp contexts once it has stayed gone."""
     # Close *client_id*'s MiniApp contexts once it has stayed gone (FR-013).
     #
-    # Debounced exactly as the cancellation of browser-owned runs above is: a
-    # reconnect inside the grace period re-registers the id, this wakes to find
+    # A reconnect inside the grace period re-registers the id. This wakes to find
     # it present, and the MiniApp keeps running.
     from scistudio.panels.contexts import get_panel_contexts
     from scistudio.panels.process_config import client_disconnect_grace
@@ -321,15 +253,19 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     initiated AI Block tab opens / closes (``block_pty_opened`` /
     ``block_pty_closed``) flow over the same WS without introducing a
     new EngineEvent type.
+
+    Closing a connection only unsubscribes that client. It never cancels a
+    workflow run, however many clients remain: a run ends when it completes
+    or is cancelled explicitly. Backend shutdown, and reconciliation when a
+    project is opened, keep a run's lineage from staying ``running`` (see
+    ``scistudio.api.runtime._run_lifetime``).
     """
-    # Development references: ADR-018, ADR-035.
+    # Development references: ADR-018, ADR-035, ADR-055 section 7, #2327.
     # Imported lazily so the module-level circular import (ai_pty
     # imports nothing from ws, ws imports nothing from ai_pty at module
     # load) is sidestepped — and to keep the ws module's dep surface
     # narrow.
     from scistudio.api.routes import ai_pty as ai_pty_module
-
-    global _gui_disconnect_cancel_task
 
     await websocket.accept()
 
@@ -345,10 +281,6 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     runtime = getattr(event_bus, "runtime", None)
     debug_broker = get_gui_debug(runtime) if runtime is not None else None
     debug_connection = debug_broker.connect(client_id, outbound_queue.put_nowait) if debug_broker else ""
-    client_token = id(outbound_queue)
-    _gui_ws_clients.add(client_token)
-    if _gui_disconnect_cancel_task is not None and not _gui_disconnect_cancel_task.done():
-        _gui_disconnect_cancel_task.cancel()
 
     def _on_event(event: EngineEvent) -> None:
         """Callback for EventBus — enqueue event for outbound delivery."""
@@ -514,13 +446,10 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
     finally:
         if debug_broker and debug_connection:
             debug_broker.disconnect(debug_connection)
-        _gui_ws_clients.discard(client_token)
         gui_presence.unregister(client_id)
         for event_type in _OUTBOUND_EVENTS:
             event_bus.unsubscribe(event_type, _on_event)
         ai_pty_module.unregister_ai_pty_subscriber(_on_ai_pty_message)
-        if not _gui_ws_clients and _has_active_workflow_runs(event_bus):
-            _gui_disconnect_cancel_task = asyncio.create_task(_cancel_after_gui_disconnect_grace(event_bus))
         # FR-013: this workspace's MiniApp processes outlive a dropped socket
         # for the grace period and no longer. The task holds no reference to
         # this connection, so it survives the handler returning.

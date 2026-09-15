@@ -14,6 +14,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   blocks. Includes project-scoped source selection, reusable core data-view UI
   components, and AI-accessible desktop GUI screenshots. (#2354)
 
+- [#2361] **A markdown file shows what it says while you write it.** Opening a
+  `.md` file splits the centre stage: the editor on the left, a live preview on
+  the right, resizable and roughly half each. The preview reads the tab's own
+  content, which the editor already holds, so it follows typing without a save
+  and without a round trip to the backend; it reparses shortly after you stop
+  and keeps the previous rendering on screen in between, so nothing flickers
+  mid-word. Headings, emphasis, fenced code, GFM tables, and task lists all
+  render. Hide closes the split and hands the whole stage back to the editor,
+  which then carries a Preview button to reopen it; that choice is remembered
+  across tabs and restarts. Every other kind of file is unchanged — the editor
+  alone, full width, with no preview and no toggle.
+  Two things a project file cannot do are shown as what they are rather than as
+  something broken. An image renders as a marker naming the file it points at,
+  because the app has no way to fetch a project file's bytes and will not fetch
+  an image from whatever host a document names. A link to another project file,
+  a bare `#heading`, or an unusual scheme renders as its own text with the
+  target in a tooltip; an `http(s)` or `mailto:` link is real and opens outside
+  the app — in your default browser from the desktop app, in a new tab from the
+  browser build. HTML written into the document stays visible as text and never
+  becomes part of the app's own page.
 - [#2293] **Panels share a sandboxed host and a standalone SDK.** Preview and
   interactive pages communicate through a private MessageChannel, retain view
   state, and expose explicit remount/fallback recovery. Requests preserve the
@@ -677,6 +697,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   breaking regardless, because a route leaves the API surface.
 
 ### Fixed
+
+- [#2327] **Closing the browser no longer cancels a running workflow.** Two
+  seconds after the last SciStudio browser tab disconnected, the backend used
+  to cancel every active run, whoever had started it. That included a run an
+  external AI started over MCP after its user closed the WebMCP tab, and any
+  server analysis whose user closed a laptop. ADR-055 §7 says the browser does
+  not own the analysis, so a run now ends only when it completes or someone
+  cancels it. Reopening its project or switching to another project does not
+  end it either. Come back and Run history lists it as running. Live block
+  updates reach the reopened page from then on, but the page is not sent the
+  states it missed. The disconnect cancel was the #1500 fix for runs whose
+  lineage stayed `running` forever, so the backend now provides that guarantee
+  itself. A run's history is written through a store that stays open until the
+  run ends, even across a project switch, and its final status is checked.
+  When the backend shuts down, it cancels live runs and waits up to 10 seconds
+  in total for their history to record `cancelled`. It writes `cancelled`
+  itself for any run still going after that. Open pages and AI terminal
+  sessions no longer hold the shutdown up: the backend ends its log stream,
+  its event socket and its terminal sessions first, and waits at most 3
+  seconds for any other connection a client keeps open. The desktop app now asks
+  the backend to shut down this way when it quits, and force-stops it only 25
+  seconds later. On Windows it asks by closing the backend's input, since
+  Windows has no graceful stop signal. The backend keeps that input to itself,
+  so git and the other programs it starts are not held up by it. The app's
+  windows close at once. If the
+  backend was killed or crashed, the next time the project is opened, any run
+  a dead process left `running` is recorded as `failed` and the reason is
+  logged. A run whose owner may still be alive (another backend with the same
+  project open, possibly on another machine) is left alone. Machines are told
+  apart by their machine ID, not their hostname. A run another machine has
+  owned for more than 24 hours is reported in the log, because it keeps
+  artifact cleanup from running. Each run keeps a small owner file under
+  `.scistudio/run-owners/` while it is in flight.
+
+- [#2333] **The MCP connection pointers can no longer be used to overwrite
+  another file.** `.scistudio/` may be shared by a group. The backend wrote
+  `mcp.sock.path` and `mcp.sock.port` there with a plain write, which followed a
+  symbolic link another user had planted and overwrote the file it pointed to.
+  Both are now written through a fresh private temporary file that replaces the
+  entry. A symlink, or a file another user owns, at either path is refused and
+  logged. Found by the no-context audit of PR #2329. It ships with the #2327
+  change because both touch the same file.
 
 - [#2355] **A custom loader given several files reads them one at a time.**
   Selecting several files in the Load block makes its `path` a list, and the

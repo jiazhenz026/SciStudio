@@ -389,6 +389,12 @@ export interface UISlice {
   bottomPanelPinned: boolean;
   panelSizes: { palette: number; preview: number; bottom: number };
   minimapVisible: boolean;
+  /**
+   * #2361 — whether a markdown file tab shows the live preview beside Monaco.
+   * Persisted, so hiding the preview is a preference rather than a per-tab
+   * accident. Ignored by every other language, which has no preview to show.
+   */
+  markdownPreviewVisible: boolean;
   lastError: string | null;
   /** #793: count of unseen rows in the Logs panel since the user last viewed it. */
   unreadLogsCount: number;
@@ -456,6 +462,8 @@ export interface UISlice {
   toggleBottomPanel: () => void;
   toggleBottomPanelPinned: () => void;
   toggleMinimap: () => void;
+  /** #2361 — Hide/Preview on a markdown tab's split stage. */
+  toggleMarkdownPreview: () => void;
   setPanelSize: (panel: "palette" | "preview" | "bottom", size: number) => void;
   setLastError: (message: string | null) => void;
   /** ADR-054 FR-013 — called by the `/ws` dispatcher with the `hello` frame. */

@@ -50,6 +50,32 @@ ipcMain.handle(backgroundMode.CONNECTION_ACTION_CHANNEL, (event, action, payload
   handleConnectionAction(event, action, payload)
 );
 
+// #2361: a link inside rendered project markdown must reach the user's default
+// browser, not an Electron child window the main window has no handler for.
+// The renderer asks over IPC (window.open is the browser-build fallback); the
+// scheme allowlist here is the validation, so a page can never talk the shell
+// into opening file:, javascript:, or a command-line handler scheme.
+const EXTERNAL_URL_SCHEMES = new Set(["http:", "https:", "mailto:"]);
+
+function externalUrlAllowed(raw) {
+  if (typeof raw !== "string") {
+    return false;
+  }
+  try {
+    return EXTERNAL_URL_SCHEMES.has(new URL(raw).protocol);
+  } catch {
+    return false;
+  }
+}
+
+ipcMain.handle("scistudio:open-external", async (_event, url) => {
+  if (!externalUrlAllowed(url)) {
+    safeLog(`[scistudio] refused to open external URL: ${String(url).slice(0, 200)}`);
+    return;
+  }
+  await shell.openExternal(url);
+});
+
 const READY_EVENT = "scistudio.ready";
 const READY_TIMEOUT_MS = 120000;
 const HTTP_READY_TIMEOUT_MS = 30000;
@@ -65,14 +91,22 @@ const OTA_MANIFEST_TIMEOUT_MS = 8000;
 const OTA_DOWNLOAD_TIMEOUT_MS = 120000;
 const OTA_MAX_REDIRECTS = 5;
 
-// #2280: stopRuntime escalates SIGTERM to SIGKILL after this long if the
-// backend is still running (POSIX; Windows uses `taskkill /T /F` at once).
-const STOP_ESCALATION_MS = 5000;
-// #2280: how long a relaunch waits for the backend to exit. The SIGKILL
-// escalation above ends a backend that ignored SIGTERM well inside it; the
-// bound exists only so a process the kernel cannot reap (stuck in
-// uninterruptible I/O) can never hang an update forever.
-const RELAUNCH_STOP_TIMEOUT_MS = 15000;
+// #2327: stopRuntime first asks the backend to stop gracefully -- SIGTERM on
+// POSIX; on Windows, which cannot deliver a SIGTERM, it closes the backend's
+// stdin (SCISTUDIO_STOP_ON_STDIN_EOF) -- and force-kills it (SIGKILL, or
+// `taskkill /T /F`) only if it is still running this long after. The backend's
+// shutdown budget: its long-lived streams end on the stop request (well under
+// 2 s), live workflow runs get 10 s to record their outcome
+// (ApiRuntime.shutdown_workflow_runs), AI terminal sessions 3 s, and command
+// processes a 5 s grace, and uvicorn waits at most 3 s for any other open
+// connection (#2351) -- 21 s at most, so the force-kill waits 25 s.
+// #2280: liveness is judged by exit status.
+const STOP_ESCALATION_MS = 25000;
+// #2280: how long a relaunch -- and, #2327, a quit -- waits for the backend to
+// exit. It must outlast STOP_ESCALATION_MS so the force-kill lands inside it;
+// the bound exists only so a process the kernel cannot reap (stuck in
+// uninterruptible I/O) can never hang an update or a quit forever.
+const RELAUNCH_STOP_TIMEOUT_MS = 30000;
 // #2280: how long the splash may take to load before the launch-mode picker is
 // abandoned and the desktop flow starts instead.
 const SPLASH_PICKER_LOAD_TIMEOUT_MS = 15000;
@@ -81,6 +115,8 @@ let mainWindow = null;
 let splashWindow = null;
 let runtimeProcess = null;
 let isQuitting = false;
+// #2327: "idle" -> "stopping" (the quit waits for the backend) -> "done".
+let quitStopState = "idle";
 let cachedMacLoginShellEnv = null;
 
 // #2280: launch mode and the external-AI surfaces. `launchMode` stays null
@@ -971,6 +1007,11 @@ function runtimeEnv() {
     // diagnostic bundle captures both the Electron and Python sides.
     SCISTUDIO_LOG_DIR: desktopLogDir()
   };
+  if (process.platform === "win32") {
+    // #2327: stopRuntime asks for a graceful stop by closing stdin, because
+    // Windows cannot deliver a SIGTERM (src/scistudio/api/runtime/_stop_request.py).
+    env.SCISTUDIO_STOP_ON_STDIN_EOF = "1";
+  }
   delete env.ELECTRON_RUN_AS_NODE;
   return env;
 }
@@ -1116,12 +1157,20 @@ function verifyPtyCapablePython(candidate) {
 }
 
 function spawnRuntimeCandidate(candidate, port) {
-  return spawn(candidate.command, runtimeArgs(candidate, port), {
+  const child = spawn(candidate.command, runtimeArgs(candidate, port), {
     cwd: repoRoot(),
     env: runtimeEnv(),
     windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"]
+    // #2327: on Windows stdin is the stop-request channel (requestGracefulStop);
+    // POSIX stops the backend with SIGTERM and keeps stdin closed.
+    stdio: [process.platform === "win32" ? "pipe" : "ignore", "pipe", "pipe"]
   });
+  if (child.stdin) {
+    // Ending the stdin of a backend that already exited must not become an
+    // unhandled EPIPE in the main process.
+    child.stdin.on("error", () => {});
+  }
+  return child;
 }
 
 function parseReadyLine(line) {
@@ -1560,6 +1609,17 @@ function createWindow(url) {
     );
   });
 
+  // #2361: the workbench never opens child windows. A window.open from the
+  // page (a markdown link in the browser-build fallback, an OAuth-style flow a
+  // plugin adds later) is denied here; an openable scheme goes to the user's
+  // default browser instead of a frameless Electron child.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (externalUrlAllowed(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: "deny" };
+  });
+
   // #2179: the shell has proved itself only now -- window created, preload
   // clean, renderer painted. This is what disarms the crash-loop quarantine.
   loadBeforeShowing(mainWindow, url, 0, () => recordKnownGood(effectiveBuild()));
@@ -1580,24 +1640,46 @@ function stopRuntime() {
     exitingRuntimeChildren.delete(child);
   });
 
-  if (process.platform === "win32") {
-    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
-      windowsHide: true,
-      stdio: "ignore"
-    });
-    return;
-  }
-
-  child.kill("SIGTERM");
+  requestGracefulStop(child);
   // #2280 (AU1/AU2 P2-2): escalate on liveness. The guard used to be
   // `!child.killed`, but Node sets `killed` the moment SIGTERM is *sent*, so
   // the escalation never fired and a backend that ignored SIGTERM kept running.
   setTimeout(() => {
     if (backgroundMode.isChildRunning(child)) {
-      safeError(`[scistudio] runtime still running ${STOP_ESCALATION_MS} ms after SIGTERM; sending SIGKILL`);
-      child.kill("SIGKILL");
+      safeError(`[scistudio] runtime still running ${STOP_ESCALATION_MS} ms after the stop request; force-killing it`);
+      forceKillRuntime(child);
     }
   }, STOP_ESCALATION_MS).unref();
+}
+
+// #2327: ask the backend to shut down gracefully, so its lifespan ends live
+// workflow runs with a terminal lineage status. POSIX delivers SIGTERM. On
+// Windows Node's kill() terminates outright, so the request is closing stdin,
+// which the backend watches when SCISTUDIO_STOP_ON_STDIN_EOF is set.
+function requestGracefulStop(child) {
+  if (process.platform === "win32") {
+    try {
+      if (child.stdin && !child.stdin.destroyed) {
+        child.stdin.end();
+      }
+    } catch (error) {
+      safeError(`[scistudio] could not ask the runtime to stop: ${error.message}`);
+    }
+    return;
+  }
+  child.kill("SIGTERM");
+}
+
+function forceKillRuntime(child) {
+  if (process.platform === "win32") {
+    const killer = spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      windowsHide: true,
+      stdio: "ignore"
+    });
+    killer.on("error", (error) => safeError(`[scistudio] taskkill failed: ${error.message}`));
+    return;
+  }
+  child.kill("SIGKILL");
 }
 
 // #2280: stopRuntime, then wait for every backend that is still exiting --
@@ -1625,6 +1707,24 @@ function stopRuntimeAndWait(timeoutMs) {
       });
     }
   });
+}
+
+// #2327: whether a backend is still running -- the current one, or one a Stop
+// already signalled.
+function runtimeStillRunning() {
+  if (runtimeProcess && backgroundMode.isChildRunning(runtimeProcess)) {
+    return true;
+  }
+  return [...exitingRuntimeChildren].some((child) => backgroundMode.isChildRunning(child));
+}
+
+// #2327: a quit that waits for the backend still looks immediate.
+function hideWindowsForQuit() {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.hide();
+    }
+  }
 }
 
 // #2280 (owner decision 5): every relaunch -- mandatory and optional OTA, and
@@ -2402,11 +2502,38 @@ function start(injectedHost) {
     }
   });
 
-  app.on("before-quit", () => {
+  // #2327: quitting asks the backend for a graceful stop and waits for it --
+  // up to RELAUNCH_STOP_TIMEOUT_MS, with stopRuntime's force-kill inside that
+  // bound -- so the backend's shutdown can end live workflow runs with a
+  // terminal lineage status. The windows hide at once, so the quit still looks
+  // immediate; the quit resumes once the backend has exited.
+  app.on("before-quit", (event) => {
     isQuitting = true;
-    // #2280 (AU1 P2-1): before stopRuntime, while the quit is still ours.
-    releaseBootMarkerOnQuit();
-    stopRuntime();
+    if (quitStopState === "done") {
+      return;
+    }
+    if (quitStopState === "idle") {
+      // #2280 (AU1 P2-1): before stopRuntime, while the quit is still ours.
+      releaseBootMarkerOnQuit();
+    }
+    if (!runtimeStillRunning()) {
+      quitStopState = "done";
+      stopRuntime();
+      return;
+    }
+    event.preventDefault();
+    hideWindowsForQuit();
+    if (quitStopState === "stopping") {
+      return;
+    }
+    quitStopState = "stopping";
+    stopRuntimeAndWait(RELAUNCH_STOP_TIMEOUT_MS).then((exited) => {
+      if (!exited) {
+        safeError(`[scistudio] the backend had not exited ${RELAUNCH_STOP_TIMEOUT_MS} ms into the quit; quitting anyway`);
+      }
+      quitStopState = "done";
+      app.quit();
+    });
   });
 
   app.on("window-all-closed", () => {

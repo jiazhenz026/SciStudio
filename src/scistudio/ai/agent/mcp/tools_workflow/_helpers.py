@@ -213,6 +213,217 @@ def _io_redirect_hint(spec: Any) -> str | None:
     )
 
 
+# ---------------------------------------------------------------------------
+# Core-IO steering warnings (#2376): one advisory source shared by every
+# workflow-authoring MCP tool (write_workflow, edit_workflow,
+# update_block_config, validate_workflow). Warnings never block a write.
+# ---------------------------------------------------------------------------
+
+
+_CORE_IO_BLOCK_TYPES = frozenset({"load_data", "save_data"})
+
+
+def _core_io_covered_types(registry: Any, type_registry: Any, *, direction: str) -> frozenset[str]:
+    """Return the type names the core Load/Save block can actually handle.
+
+    Reuses the core block's own enum builder
+    (:func:`~scistudio.blocks.io._config_enrichment.io_capable_type_names`) and
+    keeps only the entries backed by a registered format capability for
+    *direction* (the same capability table
+    :func:`~scistudio.blocks.io._config_enrichment.format_extensions_by_type`
+    groups). The enum also lists registered types with no capability so it
+    never drops a type; the core block cannot load or save those, so they are
+    not "covered". Returns an empty set when either registry is unavailable.
+    """
+    if registry is None or type_registry is None:
+        return frozenset()
+    from scistudio.blocks.io._config_enrichment import format_extensions_by_type, io_capable_type_names
+
+    try:
+        enum_names = io_capable_type_names(registry, type_registry, direction=direction)
+        capable = format_extensions_by_type(registry, direction=direction)
+    except Exception:  # pragma: no cover - defensive: registry not ready
+        return frozenset()
+    return frozenset(name for name in enum_names if name in capable)
+
+
+def _node_field(node: Any, key: str) -> Any:
+    """Read *key* from a workflow node given as a model, dataclass, or mapping."""
+    if isinstance(node, dict):
+        return node.get(key)
+    return getattr(node, key, None)
+
+
+def _core_type_unset(config: Any) -> bool:
+    """True when a node config carries no usable ``core_type`` value.
+
+    The core Load/Save block declares ``core_type`` required, but its runtime
+    silently falls back to ``DataFrame`` when the key is absent, so a missing,
+    null, or blank value is treated as unconfigured.
+    """
+    if not isinstance(config, dict):
+        return True
+    value = config.get("core_type")
+    if value is None:
+        return True
+    return isinstance(value, str) and not value.strip()
+
+
+def _core_io_node_warning(
+    node_id: str,
+    block_type: str,
+    config: Any,
+    spec: Any,
+    covered: Any,
+) -> str | None:
+    """Return the steering warning for one node, or ``None``.
+
+    ``covered`` is a callable ``direction -> frozenset[str]`` so the capability
+    table is only read when a custom IO block needs it.
+    """
+    prefix = f"node '{node_id}':"
+    if block_type in _CORE_IO_BLOCK_TYPES:
+        if _core_type_unset(config):
+            return (
+                f"{prefix} core '{block_type}' has no core_type configured, so the runtime "
+                f"silently treats the data as DataFrame. Set config.core_type to the data "
+                f"type this node handles (get_block_schema('{block_type}') lists the valid values)."
+            )
+        return None
+    if getattr(spec, "base_category", "") != "io":
+        return None
+    core_block, core_type = _core_io_equivalent(spec)
+    if _is_package_io_block(spec):
+        core_hint = (
+            f"'{core_block}' with core_type='{core_type}'"
+            if core_type
+            else f"'{core_block}' with the matching core_type"
+        )
+        return (
+            f"{prefix} block_type '{block_type}' is a package-specific "
+            f"IO block. Prefer the core {core_hint} — it delegates to the same "
+            f"package loader/saver and keeps one consistent GUI node."
+        )
+    if not core_type:
+        return None
+    direction = "save" if core_block == "save_data" else "load"
+    if core_type not in covered(direction):
+        return None
+    return (
+        f"{prefix} block_type '{block_type}' is a custom IO block for {core_type}, which the "
+        f"core '{core_block}' block already handles. Prefer core '{core_block}' with "
+        f"core_type='{core_type}' so the canvas keeps one consistent Load/Save node."
+    )
+
+
+def _core_io_steering_warnings(
+    nodes: Any,
+    registry: Any = None,
+    type_registry: Any = None,
+) -> list[str]:
+    """Return non-blocking core-IO steering warnings for workflow *nodes*.
+
+    Covers three agent mistakes:
+
+    1. A package-specific IO block (``scistudio_blocks_*``) the core Load/Save
+       block already covers.
+    2. A custom (project drop-in or scaffolded) IO block whose data type the
+       core Load/Save ``core_type`` enum covers with a registered format
+       capability. A custom IO block for a type the core block cannot handle,
+       or whose type cannot be determined, is legitimate and not flagged.
+    3. A core ``load_data`` / ``save_data`` node with no ``core_type``.
+
+    *nodes* may be pydantic node models, ``NodeDef`` dataclasses, or plain
+    mappings. Unregistered block types are skipped (callers report those).
+    Registries default to the active MCP context's.
+    """
+    # Development references: #1900, #2376.
+    if registry is None or type_registry is None:
+        try:
+            context = get_context()
+        except Exception:
+            context = None
+        registry = registry if registry is not None else getattr(context, "block_registry", None)
+        type_registry = type_registry if type_registry is not None else getattr(context, "type_registry", None)
+    if registry is None:
+        return []
+    try:
+        specs = registry.all_specs()
+    except Exception:  # pragma: no cover - defensive: registry not ready
+        return []
+    by_type_name = {spec.type_name: spec for spec in (specs or {}).values() if spec.type_name}
+
+    cache: dict[str, frozenset[str]] = {}
+
+    def covered(direction: str) -> frozenset[str]:
+        if direction not in cache:
+            cache[direction] = _core_io_covered_types(registry, type_registry, direction=direction)
+        return cache[direction]
+
+    warnings: list[str] = []
+    for node in nodes or []:
+        block_type = str(_node_field(node, "block_type") or "")
+        spec = by_type_name.get(block_type)
+        if spec is None and block_type not in _CORE_IO_BLOCK_TYPES:
+            continue
+        message = _core_io_node_warning(
+            str(_node_field(node, "id") or ""),
+            block_type,
+            _node_field(node, "config"),
+            spec,
+            covered,
+        )
+        if message is not None:
+            warnings.append(message)
+    return warnings
+
+
+def _scaffold_io_steering_warning(
+    input_ports: dict[str, Any],
+    output_ports: dict[str, Any],
+    registry: Any = None,
+    type_registry: Any = None,
+) -> str | None:
+    """Return a core-IO steering warning for an ``io`` block about to be scaffolded.
+
+    The declared ports decide direction the way :func:`_core_io_equivalent`
+    does (only input ports: saver; otherwise loader) and the first port type
+    on that side is the data type. A type the core block covers yields a
+    concrete redirect; a type it does not cover yields ``None`` (a custom IO
+    block is legitimate there); an undeclared type yields a generic reminder
+    to check the core block first.
+    """
+    # Development references: #2376.
+    is_saver = bool(input_ports) and not output_ports
+    core_block = "save_data" if is_saver else "load_data"
+    side = input_ports if is_saver else output_ports
+    core_type = next(
+        (str(spec.get("type")) for spec in (side or {}).values() if isinstance(spec, dict) and spec.get("type")),
+        None,
+    )
+    if core_type is None:
+        return (
+            f"Scaffolding an IO block: first check whether the core '{core_block}' block "
+            f"with a core_type already handles this data (get_block_schema('{core_block}') "
+            f"lists the valid core_type values). Prefer it over a custom IO block."
+        )
+    if registry is None or type_registry is None:
+        try:
+            context = get_context()
+        except Exception:
+            context = None
+        registry = registry if registry is not None else getattr(context, "block_registry", None)
+        type_registry = type_registry if type_registry is not None else getattr(context, "type_registry", None)
+    direction = "save" if is_saver else "load"
+    if core_type not in _core_io_covered_types(registry, type_registry, direction=direction):
+        return None
+    return (
+        f"Scaffolding an IO block for {core_type}, which the core '{core_block}' block "
+        f"already handles. Prefer core '{core_block}' with core_type='{core_type}' in the "
+        f"workflow instead of a custom IO block."
+    )
+
+
 def _atomic_write_text(path: Path, text: str) -> int:
     """Write *text* to *path* via tempfile + rename. Returns bytes written."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,6 +499,7 @@ def _resolve_ai_block_run_dir() -> Path | None:
 __all__ = [
     "_LOCK_TIMEOUT_SECONDS",
     "_atomic_write_text",
+    "_core_io_steering_warnings",
     "_diff_summary",
     "_get_workflow_runtime",
     "_looks_like_inline_yaml",

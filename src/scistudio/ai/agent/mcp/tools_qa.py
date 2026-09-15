@@ -24,7 +24,7 @@ from typing import Any
 import yaml as yaml_module
 from pydantic import BaseModel, Field
 
-from scistudio.ai.agent.mcp._context import _resolve_project_root, get_context
+from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context
 from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal
 from scistudio.core.lineage.store import artifact_size_bytes
@@ -45,7 +45,7 @@ _DATA_LIST_MAX_ENTRIES = 500
 class SearchDocsHit(BaseModel):
     """One result entry from ``search_docs``."""
 
-    path: str = Field(description="Path relative to the docs/ tree root.")
+    path: str = Field(description="Path of the doc relative to the project directory (POSIX-style).")
     line: int = Field(description="Line number of first hit.")
     snippet: str = Field(description="Snippet around the first hit (no newlines).")
     score: float = Field(description="Count of hits within the file.")
@@ -54,7 +54,7 @@ class SearchDocsHit(BaseModel):
 class GetDocResult(BaseModel):
     """Result envelope for ``get_doc``."""
 
-    path: str = Field(description="Path of the doc relative to the docs/ tree root (POSIX-style).")
+    path: str = Field(description="Path of the doc relative to the project directory (POSIX-style).")
     content: str = Field(description="Full text of the doc.")
     bytes: int = Field(description="Byte length of content (utf-8 encoded).")
 
@@ -115,25 +115,69 @@ class OpenGuiResult(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _docs_root() -> Path:
-    """Locate the documentation tree of the active MCP project.
+#: File suffixes (lower-case) that ``search_docs`` and ``get_doc`` treat as docs.
+_DOC_SUFFIXES = frozenset({".md", ".rst", ".txt"})
 
-    Return ``ctx.project_dir/docs``. Raise :class:`FileNotFoundError` when the
-    project has no documentation directory. Searches stay within the active
-    project and do not fall back to the installed package's source tree.
+#: Directory names ``search_docs`` never descends into, at any depth.
+_SEARCH_PRUNED_DIR_NAMES = frozenset({".git", "node_modules", "__pycache__", ".venv", "venv"})
+
+#: Project-root children ``search_docs`` never descends into (the data store).
+_SEARCH_PRUNED_ROOT_DIR_NAMES = frozenset({"data"})
+
+#: Doc files larger than this are skipped by ``search_docs`` (large ``.txt`` exports).
+_SEARCH_MAX_FILE_BYTES = 10 * 1024 * 1024
+
+
+def _docs_root() -> Path | None:
+    """Return the resolved root of the active project, or ``None`` when no project is open.
+
+    The MCP docs tools read the whole project directory: provisioning writes
+    documentation to ``user-guide/``, ``.scistudio/agent-reference/``, and the
+    skills trees, and projects have no ``docs/`` directory. Searches stay within
+    the active project and never fall back to the installed package's source tree.
     """
-    # Development references: #1097, ADR-040.
-    ctx = get_context()
-    if ctx.project_dir is not None:
-        candidate = ctx.project_dir / "docs"
-        if candidate.is_dir():
-            return candidate
-    raise FileNotFoundError(
-        "No docs/ directory is visible to MCP docs tools. The MCP docs "
-        "surface is restricted to the active project's own docs/ tree "
-        "(see ADR-040 §2.1 / issue #1097). Source-repository docs are "
-        "not exposed in any mode."
-    )
+    # Development references: #1097, #2375, ADR-040.
+    project_dir = get_context().project_dir
+    if project_dir is None:
+        return None
+    return project_dir.resolve()
+
+
+def _is_doc_file(path: Path) -> bool:
+    return path.suffix.lower() in _DOC_SUFFIXES
+
+
+def _iter_project_docs(project_root: Path, search_root: Path) -> list[Path]:
+    """Walk *search_root* for doc files, pruning data, VCS, and environment trees.
+
+    ``os.walk`` with in-place pruning keeps pruned trees untraversed, and
+    ``followlinks=False`` keeps directory symlinks from leading out of the
+    project. Symlinked files that resolve outside *project_root* are skipped.
+    """
+    found: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(search_root, followlinks=False):
+        current = Path(dirpath)
+        at_project_root = current == project_root
+        dirnames[:] = sorted(
+            name
+            for name in dirnames
+            if name not in _SEARCH_PRUNED_DIR_NAMES
+            and not (at_project_root and name in _SEARCH_PRUNED_ROOT_DIR_NAMES)
+            and not (current / name / "pyvenv.cfg").is_file()
+        )
+        for name in sorted(filenames):
+            candidate = current / name
+            if not _is_doc_file(candidate):
+                continue
+            try:
+                resolved = candidate.resolve()
+                resolved.relative_to(project_root)
+                if resolved.stat().st_size > _SEARCH_MAX_FILE_BYTES:
+                    continue
+            except (OSError, ValueError):
+                continue
+            found.append(candidate)
+    return found
 
 
 # ---------------------------------------------------------------------------
@@ -146,39 +190,43 @@ async def search_docs(
     query: str = Field(description="Free-text search query (case-insensitive substring match)."),
     scope: str | None = Field(
         default=None,
-        description="Optional subdirectory under docs/ to restrict the search to (e.g. 'adr', 'specs').",
+        description=(
+            "Optional subdirectory of the project directory to restrict the search to "
+            "(e.g. 'user-guide', '.scistudio/agent-reference')."
+        ),
     ),
 ) -> list[SearchDocsHit]:
-    """Search the on-disk docs/ tree for matches to a free-text query.
+    """Search the project directory's .md, .rst, and .txt files for a free-text query.
 
     Use when:
       - You need to find documentation for a feature/concept by keyword.
-      - You're looking up an ADR by topic.
+      - You're looking for a user-guide page, agent reference page, or skill by topic.
 
     Do NOT use to:
-      - Search code — this only walks docs/.
+      - Search code — only .md/.rst/.txt files are read.
       - Read a known doc — use ``get_doc`` directly.
 
-    Returns up to 20 results sorted by descending hit count.
+    The walk covers hidden directories (``.scistudio/``, ``.claude/``,
+    ``.agents/``) and skips ``data/``, ``.git/``, ``node_modules/``,
+    ``__pycache__/``, and virtualenv directories. Returns up to 20 results
+    sorted by descending hit count; each ``path`` is project-relative.
     """
     if not query:
         return []
-    try:
-        root = _docs_root()
-    except FileNotFoundError:
-        # Issue #1097: no docs/ available in production mode — return an
-        # empty list rather than reaching into the developer source tree.
+    root = _docs_root()
+    if root is None:
+        # Issue #1097: no active project — return an empty list rather than
+        # reaching into the developer source tree.
         return []
-    root_resolved = root.resolve()
     if scope:
         # PR #744 Codex P1 (discussion_r3231046696): validate scope
-        # resolves within docs/ so "../../" etc. cannot silently escape.
+        # resolves within the project so "../../" etc. cannot silently escape.
         try:
             scoped = (root / scope).resolve()
-            scoped.relative_to(root_resolved)
+            scoped.relative_to(root)
         except (OSError, ValueError):
             return []
-        if not scoped.exists():
+        if not scoped.is_dir():
             return []
         search_root = scoped
     else:
@@ -190,9 +238,9 @@ async def search_docs(
     # then sort + cap. Pre-fix the loop broke at 20 raw traversal hits
     # before sorting, so higher-scoring docs encountered later were
     # discarded silently.
-    for md_path in sorted(search_root.rglob("*.md")):
+    for doc_path in _iter_project_docs(root, search_root):
         try:
-            text = md_path.read_text(encoding="utf-8", errors="replace")
+            text = doc_path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
         lower = text.lower()
@@ -203,10 +251,9 @@ async def search_docs(
         start = max(0, idx - 60)
         end = min(len(text), idx + _SEARCH_SNIPPET_CHARS - 60)
         snippet = text[start:end].replace("\n", " ")
-        path_str = str(md_path.relative_to(root.parent)) if md_path.is_relative_to(root.parent) else str(md_path)
         results.append(
             SearchDocsHit(
-                path=path_str,
+                path=doc_path.relative_to(root).as_posix(),
                 line=line_no,
                 snippet=snippet,
                 score=float(lower.count(q)),
@@ -223,54 +270,45 @@ async def search_docs(
 
 @mcp.tool(name="get_doc", tags={"category:qa", "read"})
 async def get_doc(
-    path: str = Field(description="Path to the doc — either 'docs/foo.md' or 'foo.md' (resolved under docs/)."),
+    path: str = Field(
+        description=(
+            "Project-relative path of a .md, .rst, or .txt file (e.g. 'user-guide/README.md'), "
+            "as returned by search_docs. An absolute path inside the project is also accepted."
+        )
+    ),
 ) -> GetDocResult:
-    """Return the full text of one documentation file.
+    """Return the full text of one documentation file in the project directory.
 
     Use when:
       - You have a doc path from ``search_docs`` and want the full text.
-      - You're reading a known ADR or spec by path.
+      - You're reading a known user-guide, agent-reference, or skill page by path.
 
     Do NOT use to:
       - Search docs — use ``search_docs``.
+      - Read code or data files — only .md/.rst/.txt files are served.
 
-    Path validation: must resolve within the docs/ tree. Raises
-    ``PermissionError`` for paths that escape.
+    Path validation: must resolve within the project directory. Raises
+    ``PermissionError`` for paths that escape, ``ValueError`` for a non-doc
+    suffix, ``FileNotFoundError`` when the file does not exist, and
+    ``RuntimeError`` when no project is open.
     """
     root = _docs_root()
-    p = Path(path)
-    candidates = [p, root / p, root.parent / p]
-    resolved: Path | None = None
-    for cand in candidates:
-        try:
-            r = cand.resolve()
-        except OSError:
-            continue
-        try:
-            r.relative_to(root.resolve())
-        except ValueError:
-            continue
-        if r.exists():
-            resolved = r
-            break
-    if resolved is None:
-        try:
-            attempted = (root / p).resolve()
-            attempted.relative_to(root.resolve())
-        except ValueError as exc:
-            raise PermissionError(f"Path '{path}' escapes the docs/ tree") from exc
+    if root is None:
+        raise RuntimeError("No project is currently open. Open a project before invoking get_doc.")
+    try:
+        resolved = _safe_under(root, Path(path))
+    except PermissionError as exc:
+        raise PermissionError(f"Path '{path}' escapes the project directory") from exc
+    if not _is_doc_file(resolved):
+        raise ValueError(f"get_doc reads only .md, .rst, and .txt files; '{path}' is not one of these.")
+    if not resolved.is_file():
         raise FileNotFoundError(f"Doc not found: {path}")
 
     content = resolved.read_text(encoding="utf-8", errors="replace")
-    # Issue #1097: return a path relative to the docs/ tree root so MCP
-    # responses do not leak absolute developer-machine filesystem paths
-    # (e.g. ``C:\Users\<dev>\workspace\SciStudio\docs\adr\ADR-038.md``).
-    try:
-        rel_path = resolved.relative_to(root.resolve()).as_posix()
-    except ValueError:
-        rel_path = resolved.name
+    # Issue #1097: return a project-relative path so MCP responses do not leak
+    # absolute developer-machine filesystem paths.
     return GetDocResult(
-        path=rel_path,
+        path=resolved.relative_to(root).as_posix(),
         content=content,
         bytes=len(content.encode("utf-8")),
     )
@@ -645,7 +683,10 @@ def _index_asset_class(
                     "SciStudio provisions agent assets when a project is created or opened; they may "
                     "also have been removed."
                     if asset_class != "project_docs"
-                    else "The project has no docs/ directory; get_doc and search_docs have nothing to read."
+                    else (
+                        "The project has no docs/ directory, so nothing is indexed for this class; "
+                        "search_docs and get_doc still read .md/.rst/.txt files across the whole project."
+                    )
                 ),
             ),
             [],
