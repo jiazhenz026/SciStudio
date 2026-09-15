@@ -166,6 +166,10 @@ with `slice(...)` or `iter_chunks(chunk_size)`, and stream a large output array 
 capabilities. After `reload_blocks`, core `load_data` / `save_data` select it by
 type and file extension or by its `capability_id`, and run its code.
 
+**By default, no extra batch handling is needed.** When you write an IO
+block, inherit SimpleLoader/SimpleSaver and handle the read or write as a
+single-file operation; the core automatically fans in and fans out.
+
 **Tool sequence.**
 
 ```
