@@ -525,6 +525,7 @@ function LocalArrayView({
 
 /** Raw numeric data, or caller-owned plane/tile windows for bounded remote reads. */
 export function ArrayView(props) {
+  if (props.error) return html`<${ArraySurface} error=${props.error} />`;
   return props.data !== undefined
     ? html`<${LocalArrayView} ...${props} />`
     : html`<${ArraySurface} ...${props} />`;

@@ -333,6 +333,106 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:14:32.664487Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "covered_surface": "hygiene",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:79ed06a9b8a28ecd64999b30f989e40bc38efe21cd7af2895074f46c7ef53464",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:14:32.741681Z",
+      "command": "ruff format src/scistudio/api/routes/panels.py tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:78796dd2dc893ec4fea3549cf913f5c928ee5e61a8e5c9589d123addeb1664f3",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:16:50.203963Z",
+      "command": "(cd frontend && npm run check:ci)",
+      "covered_surface": "frontend",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f3dba4eab8c7726b9ada27dbaa1f5ac1d6b2677a53aa0b51da390baf2c814377",
+      "name": "frontend",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/frontend.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:16:57.735232Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "covered_surface": "governance",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:45ec06968fb249c7667a97710597449a91b08a6840c146c291f167851ef4df63",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-15T03:16:57.774043Z",
+      "command": "ruff check src/scistudio/api/routes/panels.py tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_lint",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:3f4a974719c2bbabbd4ca1a11ea3c4f2579a148a9141cfb0c21a2ef09ededa8a",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-15T03:17:11.899137Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov tests/api/routes tests/api/test_panel_routes.py tests/panels/test_builtin_panels.py",
+      "covered_surface": "python_tests",
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f68f832c1ac0336ebd646b1975b708d896113c3d458cc10e8664988f334e7cf1",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/python_tests.log",
+      "scope": "diff",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -347,7 +447,13 @@
       "docs/reference/miniapp-renderers.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-15T03:14:12.561285Z",
+      "owner_directive": "Fix ArrayView when prior data remains and a new calculation errors; preserve documented error display and add regression.",
+      "reason": "Sequential integration review found the raw-data ArrayView path dropped explicit error props."
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-15T02:47:36.354898Z",
@@ -379,6 +485,14 @@
       "kind": "na",
       "path": null,
       "rationale": "New versioned presentation props contract is specified in docs/reference/miniapp-renderers.md.",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:14:12.566938Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/reference/miniapp-renderers.md",
+      "rationale": null,
       "verified_in_diff": null
     }
   ],
@@ -647,6 +761,94 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:11.982106Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:11.995897Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.009516Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.023213Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.037636Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.049971Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.063396Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.076129Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.091356Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.104394Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-15T03:17:12.144584Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -709,9 +911,9 @@
       "tests/api/test_panel_routes.py",
       "tests/panels/test_builtin_panels.py"
     ],
-    "diff_fingerprint": "sha256:5eb36e9dc7465ccf70204e688bac5ade5113efa76a8c9d2acd051116c36cdefc",
-    "head": "b2a7ac3cc60eb310c66c3c7e06aa715fd3a1d2ee",
-    "head_sha": "b2a7ac3c",
+    "diff_fingerprint": "sha256:a34bab360b3110291109ae147cf333a6a6d43010cadbac320256496bb9e4fedc",
+    "head": "0589dc5af9d790ea1570264ad2e9dc442207b803",
+    "head_sha": "0589dc5a",
     "surfaces": {
       "docs": 1,
       "frontend": 12,
@@ -753,6 +955,14 @@
     {
       "at": "2026-09-15T03:01:06.961757Z",
       "diff_fingerprint": "sha256:5eb36e9dc7465ccf70204e688bac5ade5113efa76a8c9d2acd051116c36cdefc",
+      "mode": "local",
+      "result": "pass",
+      "tier": 2,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-15T03:17:12.144662Z",
+      "diff_fingerprint": "sha256:a34bab360b3110291109ae147cf333a6a6d43010cadbac320256496bb9e4fedc",
       "mode": "local",
       "result": "pass",
       "tier": 2,
@@ -850,6 +1060,14 @@
       "class": null,
       "kind": "path",
       "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-15T03:14:12.566961Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/renderers.test.ts",
       "rationale": null,
       "verified_in_diff": null
     }

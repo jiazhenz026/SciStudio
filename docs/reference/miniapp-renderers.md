@@ -28,7 +28,9 @@ page-input text, and PDF rendering status. Multiple instances may coexist.
 
 ## Props
 
-All components accept `error` (a displayable message). Absent required data
+All components accept `error` (a displayable message). An explicit error takes
+precedence over previously supplied data, so failed recomputation cannot leave
+stale values looking successful. Absent required data
 shows the existing loading surface. Pass new data/state objects when values
 change; inputs are not mutated.
 

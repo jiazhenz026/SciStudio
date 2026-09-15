@@ -37,6 +37,16 @@ describe("core renderers composed without a SciStudio host", () => {
     );
   });
 
+  it("shows a new error even when prior computed array data remains, then recovers", async () => {
+    const { root, update } = await mount("ArrayView", { data: [[1, 2]] });
+    update({ data: [[1, 2]], error: "Threshold computation failed" });
+    expect(root.textContent).toContain("Threshold computation failed");
+    expect(root.querySelector('[data-testid="array-heatmap"]')).toBeNull();
+    update({ data: [[3, 4]], error: null });
+    expect(root.textContent).not.toContain("Threshold computation failed");
+    expect(root.querySelector('[data-testid="array-cell-0-1"]')?.textContent).toBe("4");
+  });
+
   it("renders a raw vector and computed matrix with distinct non-finite values", async () => {
     const { root, update } = await mount("ArrayView", { data: [3, 4, 5] });
     expect(root.querySelectorAll("tbody tr[data-row]")).toHaveLength(1);
