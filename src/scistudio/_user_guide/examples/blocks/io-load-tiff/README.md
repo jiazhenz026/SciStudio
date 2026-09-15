@@ -1,6 +1,6 @@
 # IOBlock example — a custom TIFF loader
 
-`LoadTiffImage` ([block.py](block.py)) teaches the Load block to read a plain
+`LoadTiffImage` ([load_tiff_image.py](load_tiff_image.py)) teaches the Load block to read a plain
 `.tif` micrograph into this project's `Image` type. Loaders and savers are how
 data gets **in and out** of a workflow — here, in.
 

@@ -1,6 +1,6 @@
 # Interactive block example — the Data Router
 
-`DataRouter` ([block.py](block.py)) is SciStudio's built-in **Data Router**
+`DataRouter` ([data_router.py](data_router.py)) is SciStudio's built-in **Data Router**
 block: the workflow runs until it reaches this block, **pauses**, opens a
 drag-and-drop window, and waits. The user drags each input item onto the
 output port it should leave by; the block resumes, routes the items exactly
@@ -12,7 +12,7 @@ across branches.
 
 An interactive block is declared completely or not at all — the registry
 rejects a block that has only some of these (see the comments on the class
-attributes in [block.py](block.py)):
+attributes in [data_router.py](data_router.py)):
 
 | Declaration | What it does |
 |---|---|

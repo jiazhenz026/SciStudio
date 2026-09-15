@@ -1,3 +1,11 @@
+# mypy: ignore-errors
+#
+# Mirrors pyproject's `[tool.mypy] exclude = ['/_user_guide/']`, which
+# package-wide runs honor but explicit-file runs do not (the gate's narrowed
+# check and the pre-commit hook pass files by name, #2115): this file ships as
+# project *data* a reader copies into their project and edits, not a module the
+# package imports.
+#
 """A MiniApp that holds one Array in memory and answers questions about it."""
 
 import numpy as np

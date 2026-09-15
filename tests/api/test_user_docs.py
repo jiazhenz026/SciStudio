@@ -13,7 +13,7 @@ the parts that are not pretty:
   matching the site means matching it where it is unflattering too.
 * Section titles are MkDocs' ``dirname_to_title``, which is why they read
   "Api reference" and "App fiji" rather than "API Reference" and "app-fiji".
-* Files that are not Markdown — an example's ``block.py`` — are absent from the
+* Files that are not Markdown — an example's sources — are absent from the
   menu and reachable by path, exactly as they are on the site, which navigates
   pages and copies everything else beside them.
 
@@ -69,7 +69,7 @@ PUBLISHED_SIDEBAR: tuple[tuple[int, str, str], ...] = (
     (1, "page", "Examples"),
     (1, "section", "Blocks"),
     (2, "section", "App fiji"),
-    (3, "page", "AppBlock example — run a Fiji macro"),
+    (3, "page", "AppBlock example — open an image in Fiji"),
     (2, "section", "Interactive data router"),
     (3, "page", "Interactive block example — the Data Router"),
     (2, "section", "Io load tiff"),
@@ -150,7 +150,7 @@ class TestNavigation:
     def test_lists_only_markdown_pages(self, nav: dict) -> None:
         """An example's sources are linked from its page, not from the menu."""
         assert all(path.endswith(".md") for path in _paths(nav["items"]))
-        assert "examples/blocks/app-fiji/block.py" not in _paths(nav["items"])
+        assert "examples/blocks/app-fiji/open_in_fiji.py" not in _paths(nav["items"])
 
     def test_every_listed_page_can_be_opened(self, client: TestClient, nav: dict) -> None:
         for path in _paths(nav["items"]):
@@ -187,12 +187,12 @@ class TestPages:
 
     def test_serves_a_linked_source_file_verbatim(self, client: TestClient) -> None:
         """The site copies these beside the page that links them; so does this."""
-        response = client.get("/api/user-docs/pages/examples/blocks/app-fiji/block.py")
+        response = client.get("/api/user-docs/pages/examples/blocks/app-fiji/open_in_fiji.py")
 
         assert response.status_code == 200
         body = response.json()
         assert body["kind"] == "source"
-        assert body["title"] == "block.py"
+        assert body["title"] == "open_in_fiji.py"
         assert "AppBlock" in body["text"]
 
     @pytest.mark.parametrize(
@@ -285,5 +285,5 @@ class TestContainment:
 
     def test_the_pages_the_guide_really_links_to_still_open(self, client: TestClient) -> None:
         """The refusal is of separators, not of the tree's own shape."""
-        for path in ("README.md", "examples/blocks/app-fiji/block.py", "api-reference/index.md"):
+        for path in ("README.md", "examples/blocks/app-fiji/open_in_fiji.py", "api-reference/index.md"):
             assert client.get(f"/api/user-docs/pages/{path}").status_code == 200, path

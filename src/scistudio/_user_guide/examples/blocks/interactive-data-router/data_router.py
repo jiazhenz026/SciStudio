@@ -1,3 +1,11 @@
+# mypy: ignore-errors
+#
+# Mirrors pyproject's `[tool.mypy] exclude = ['/_user_guide/']`, which
+# package-wide runs honor but explicit-file runs do not (the gate's narrowed
+# check and the pre-commit hook pass files by name, #2115): this file ships as
+# project *data* a reader copies into their project and edits, not a module the
+# package imports.
+#
 """An interactive block — the built-in Data Router, shown as the example.
 
 ``DataRouter`` pauses the workflow mid-run and opens a drag-and-drop panel:

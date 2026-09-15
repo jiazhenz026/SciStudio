@@ -1,6 +1,6 @@
 # ProcessBlock example — segment a micrograph
 
-`SegmentCellsBlock` ([block.py](block.py)) turns a microscope image into a
+`SegmentCellsBlock` ([segment_cells.py](segment_cells.py)) turns a microscope image into a
 **labeled cell map**: threshold the foreground, fill holes, flood-fill each
 connected patch its own integer label, drop the sensor noise. It is the
 simplest and most common kind of block: a **per-item transform**.

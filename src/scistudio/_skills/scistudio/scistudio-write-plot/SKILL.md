@@ -177,6 +177,7 @@ run it with `scistudio-build-workflow`.
 
 - Render contract, `collection` surface, and return values:
   `.scistudio/agent-reference/plot-contract.md`.
+- For more worked examples (a complete `plot.yaml` + `render.py`): `.scistudio/agent-reference/worked-examples.md`.
 
 **User guide.**
 

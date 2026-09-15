@@ -131,6 +131,8 @@ metadata against the `Meta` model.
 
 - Reading, constructing, and streaming values: `.scistudio/agent-reference/data-types.md`.
 - Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+- For more worked examples (an `Array` subclass, a `CompositeData` subclass):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **User guide.**
 

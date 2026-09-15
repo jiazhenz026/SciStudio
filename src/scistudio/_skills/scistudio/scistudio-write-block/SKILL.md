@@ -203,6 +203,8 @@ fix the cause, and rerun. When the block fails inside a workflow run, load
   `.scistudio/agent-reference/block-contract.md`.
 - Reading and constructing data values: `.scistudio/agent-reference/data-types.md`.
 - Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+- For more worked examples (AppBlock, ProcessBlock, IOBlock, interactive):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **Related skills.**
 

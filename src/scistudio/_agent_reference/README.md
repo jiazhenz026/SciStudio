@@ -11,6 +11,7 @@ guessing.
 | [data-types.md](data-types.md) | reading or constructing a `DataObject` in block code; to define a new type, use the `scistudio-write-type` skill |
 | [block-contract.md](block-contract.md) | writing a block class |
 | [workflow-schema.md](workflow-schema.md) | writing or editing a workflow YAML — routes to the generated file format and the `scistudio-build-workflow` skill |
+| [worked-examples.md](worked-examples.md) | copying a real, runnable starting point — routes to the worked examples for blocks, types, panels, plots, and workflows |
 | [plot-contract.md](plot-contract.md) | writing a `render(collection)` plot |
 | [miniapp-renderers.md](miniapp-renderers.md) | drawing data in a panel or MiniApp with the core data views |
 | [gui-debug.md](gui-debug.md) | inspecting rendered desktop GUI images through MCP; to operate the GUI, use the `scistudio-use-gui` skill |
