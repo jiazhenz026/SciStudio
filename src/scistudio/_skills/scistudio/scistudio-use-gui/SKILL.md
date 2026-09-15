@@ -31,19 +31,47 @@ interaction instructions; do not assume a provider-specific tool name.
 If no suitable tool is available, or it cannot reach the instance, explain the
 specific limitation. Having a URL alone does not establish GUI access.
 
+## When you run inside an AI app through WebMCP
+
+When the user runs SciStudio in **External AI** mode, the workspace is already
+open in your AI app's built-in browser, beside the conversation, and your
+SciStudio tools come from that page. Operate that page with the browser or
+side-panel tools and methods your own app provides for its built-in browser; they
+see and act on the same view the user sees, which is smoother than any other
+route.
+
+- Work in the page that is already open. Do not open the address in a separate
+  browser or tab: a page outside the AI app is not connected to this
+  conversation, and the user will not see your actions there.
+- The layout differs from the desktop window: the workspace sidebar is on the
+  right, **Preview** sits in its own card, and the **AI Chat** tab is hidden
+  because the conversation happens in your app.
+- `screenshot_gui` is not available over WebMCP; use your app's own page
+  screenshot or snapshot to observe the result.
+
 ## Find the right part of SciStudio
 
 Use visible labels, tooltips, and the current page structure. The sidebar may be
 on either side, so navigate by names rather than fixed screen positions.
 
+The workspace sidebar has six sections: **Blocks**, **Workflows**, **Data
+types**, **Data**, **MiniApps**, and **Project**; a **Preview** section appears
+when there is something to preview. The bottom panel has the tabs **AI Chat**,
+**Terminal**, **Config**, **Logs**, **Plots**, **History**, and **Git**.
+
 | Goal | Where to look and what to do |
 |---|---|
-| Open a workflow | Open **Workflows** in the workspace sidebar, find the intended workflow, and open its canvas tab. |
+| Open a workflow | Open **Workflows**, find the intended workflow, and open its canvas tab. |
 | Find a project file | Open **Project**, expand its folders, and open the file. |
 | Find available blocks | Open **Blocks**. Inspect the block's name and description before selecting or dragging it onto the canvas. |
-| Change a node's settings | Select the intended canvas node, then use its parameter fields. Confirm the node identity when labels repeat. |
+| See which data types exist | Open **Data types**. |
+| Change a node's settings | Select the intended canvas node, then edit its parameters in the **Config** tab. Confirm the node identity when labels repeat. |
 | Inspect data | Open **Data**, or select the relevant input/output port on the canvas to show its preview. |
-| See execution progress or errors | Check canvas node states and the bottom area's logs/run history. |
+| Open or manage a MiniApp | Open **MiniApps**. |
+| See execution progress or errors | Check canvas node states, then the **Logs** tab. |
+| See past runs and where a result came from | Open the **History** tab. |
+| See or restore versions, or switch branches | Open the **Git** tab. |
+| See a plot | Open the **Plots** tab. |
 | Switch open content | Select the intended centre tab by its title; do not assume the most recently opened tab is still active. |
 
 Clicking the active workspace-section icon collapses its sidebar content;
@@ -86,3 +114,16 @@ logs to understand it. Avoid repeated clicks on an unchanged failure. Continue
 from the last observed state and report any unresolved limitation accurately.
 An opened URL is not proof of a rendered view, and a screenshot alone is not
 proof that an interaction worked.
+
+## Available tools
+
+The live MCP tool list is the source of truth. SciStudio supplies only the tools
+below; clicking, typing, and page snapshots come from your own browser,
+side-panel, or computer-use tools.
+
+| Tool | What it does | When to use it |
+|---|---|---|
+| `open_gui` | Returns the address of the running GUI. | First, before opening SciStudio in a browser (not needed when you already run inside its page through WebMCP). |
+| `screenshot_gui` | Captures the SciStudio desktop workspace or a visible MiniApp as an image (local MCP only). | To see the desktop window's current state. |
+| `open_miniapp` | Asks the open workspace to open a MiniApp tab on a block output. | To show the user a MiniApp on their data instead of telling them where to click. |
+| `get_active_workflow_context` | Returns the workflow open in the GUI. | To confirm which workflow the user is looking at. |

@@ -109,7 +109,9 @@ of `BlockErrorEntry(block_id, error, summary)`. Terminal states are `succeeded`,
 or `unknown`. Load `scistudio-debug-run` to diagnose before changing
 and re-running.
 
-## 5. Contracts (MUST follow)
+## 5. Contracts and routing
+
+**Contracts (MUST follow).**
 
 - Workflow YAML shape: `user-guide/api-reference/workflow-yaml.md`.
 - A block's ports and config: `get_block_schema(block_type)`.
@@ -117,6 +119,20 @@ and re-running.
 - Tool names and arguments: the live MCP tool schemas.
 - AI Agent block providers: `get_block_schema("ai.agent")`, whose `provider`
   enum lists the providers that can run an AI block.
+
+**Agent reference.**
+
+- Blocks and types from installed packages:
+  `.scistudio/agent-reference/package-discovery.md`.
+
+**Related skills.**
+
+- `scistudio-write-block`: no registered block fits a step, or a format needs an
+  IO block.
+- `scistudio-debug-run`: a run failed or an AI Agent block did not finish.
+- `scistudio-inspect-data`: checking what a run produced.
+- `scistudio-write-miniapp`: the next step is unclear and the user wants to try
+  things on a result.
 
 ## 6. Examples
 

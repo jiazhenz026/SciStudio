@@ -26,8 +26,9 @@ repeatedly — move a threshold, compare settings — offer a MiniApp
 ## 2. Steps to inspect data
 
 1. **Find the reference.** For a block's result, call
-   `get_block_output(run_id, block_id, port)`; for files in the project, call
-   `list_data`.
+   `get_block_output(run_id, block_id, port)`; for datasets stored by earlier
+   runs, call `list_data`. Files the user added (such as `data/raw/counts.csv`)
+   are not stored data; find them with `list_directory` or `search_files`.
 2. **Learn what it is.** Call `inspect_data(ref)` for its type chain, backend,
    path, format, and size.
 3. **Look at the contents.** Call `preview_data(ref, fmt)` for a bounded view.
@@ -80,7 +81,7 @@ with a `note` means the reference could not be resolved in the lineage store.
 **Tool sequence.**
 
 ```
-get_block_output(run_id, block_id, port)   # or list_data for project files
+get_block_output(run_id, block_id, port)   # or list_data for stored datasets
 inspect_data(ref)
 preview_data(ref, fmt="table")             # choose fmt by type
 get_lineage(ref)                           # see "When to use lineage"
@@ -91,12 +92,30 @@ outputs were not kept; check the run with `get_run_status` and rerun the workflo
 if needed. When a block output is absent because the run failed, load
 `scistudio-debug-run`.
 
-## 5. Contracts
+## 5. Contracts and routing
 
-- Data types and their access methods: `user-guide/api-reference/` (the
-  `scistudio.core.types` page) and `.scistudio/agent-reference/data-types.md`.
+**Contracts (MUST follow).**
+
+- Data types and their access methods:
+  `user-guide/api-reference/scistudio.core.types.md`.
 - Tool result fields: the live MCP tool schemas.
+
+**Agent reference.**
+
+- How each data type is read and constructed:
+  `.scistudio/agent-reference/data-types.md`.
+- Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
+
+**User guide.**
+
 - How the GUI previews each type: `user-guide/using-the-gui.md`.
+
+**Related skills.**
+
+- `scistudio-debug-run`: an expected output is missing because a run failed.
+- `scistudio-write-plot`: the user wants a figure of an output.
+- `scistudio-write-miniapp`: the user wants to explore a result interactively.
+- `scistudio-use-gui`: confirming what the GUI shows.
 
 ## 6. Examples
 
@@ -123,7 +142,7 @@ uses.
 | Tool | What it does | When to use it |
 |---|---|---|
 | `get_block_output` | Resolves one block port's output from a run. | To get the reference behind a block's result. |
-| `list_data` | Lists data assets in the project. | When the user asks what data the project holds. |
+| `list_data` | Lists datasets stored by runs under `data/zarr/`, `data/parquet/`, and `data/artifacts/`. | When the user asks what results the project holds. |
 | `inspect_data` | Returns a reference's metadata without loading it. | First, to learn what a reference is. |
 | `preview_data` | Returns a bounded preview of stored data. | To look at contents. |
 | `get_lineage` | Returns the lineage ancestors of a reference. | For provenance questions, unexpected values, differing outputs, and methods descriptions. |

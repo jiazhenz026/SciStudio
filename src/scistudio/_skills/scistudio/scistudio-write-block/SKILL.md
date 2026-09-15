@@ -169,16 +169,31 @@ reported error. When `run_block_tests` fails, read the pytest output verbatim,
 fix the cause, and rerun. When the block fails inside a workflow run, load
 `scistudio-debug-run`.
 
-## 5. Contracts (MUST follow)
+## 5. Contracts and routing
 
-- Every public class, port, and helper signature: `user-guide/api-reference/`.
-- Allowed import roots: `user-guide/api-reference/index.md` and
-  `.scistudio/agent-reference/public-api.md`.
+**Contracts (MUST follow).**
+
+- Every public class, port, and helper signature: `user-guide/api-reference/`
+  (block base classes in `scistudio.blocks.base.md`, data types in
+  `scistudio.core.types.md`).
+- Allowed import roots: `user-guide/api-reference/index.md`.
+- Tool names and arguments: the live MCP tool schemas.
+
+**Agent reference.**
+
+- The public/private import boundary: `.scistudio/agent-reference/public-api.md`.
 - Block rules and interactive declarations:
   `.scistudio/agent-reference/block-contract.md`.
 - Reading and constructing data values: `.scistudio/agent-reference/data-types.md`.
 - Types from installed packages: `.scistudio/agent-reference/package-discovery.md`.
-- Interactive panel pages: `scistudio-write-panel`.
+
+**Related skills.**
+
+- `scistudio-build-workflow`: adding the new block to a workflow and running it.
+- `scistudio-write-panel`: the custom window of an interactive block.
+- `scistudio-write-miniapp`: the user wants to explore a result freely, with no
+  single decision to record.
+- `scistudio-debug-run`: the block fails inside a workflow run.
 
 ## 6. Examples
 
