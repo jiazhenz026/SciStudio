@@ -114,6 +114,12 @@ language_source: en
   `docs/architecture/ARCHITECTURE.md` only. That document is owner-controlled:
   do not edit it as part of implementation work. Propose the text and wait.
 
+- `admin-approved:agent-docs` authorizes a change to the provisioned agent
+  documents only: `src/scistudio/_skills/**`, `src/scistudio/_agent_reference/**`,
+  and `src/scistudio/agent_provisioning/templates/claude_agents_md.md`. The
+  owner maintains these documents. Hook script templates, the other
+  provisioning templates, and `src/scistudio/_user_guide/**` are not covered.
+
 - If the owner authorizes one of these actions in chat, the PR must carry the
   matching label before the action is considered approved.
 

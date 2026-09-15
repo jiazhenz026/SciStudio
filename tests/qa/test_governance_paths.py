@@ -11,6 +11,8 @@ the classifier's path predicates: the gate-record exclusion is applied once, and
 
 from __future__ import annotations
 
+import pytest
+
 from scistudio.qa.governance.gate_record import surfaces
 
 
@@ -129,3 +131,37 @@ class TestProtectedArchitectureDocument:
         assert surfaces.is_architecture_doc_path("docs/architecture/ARCHITECTURE.md")
         assert surfaces.is_architecture_doc_path("docs/adr/ADR-053.md")
         assert not surfaces.is_protected_architecture_path("docs/adr/ADR-053.md")
+
+
+class TestProtectedAgentDocs:
+    """``is_protected_agent_docs_path`` covers the provisioned agent documents (#2438)."""
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "src/scistudio/_skills/scistudio/SKILL.md",
+            "src/scistudio/_skills/scistudio/write-block/SKILL.md",
+            "src/scistudio/_agent_reference/block-contract.md",
+            "src/scistudio/_agent_reference/README.md",
+            "src/scistudio/agent_provisioning/templates/claude_agents_md.md",
+            r"src\scistudio\_agent_reference\public-api.md",
+        ],
+    )
+    def test_protected_documents_match(self, path: str) -> None:
+        assert surfaces.is_protected_agent_docs_path(path)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            # Owner decision: hook scripts, other templates and the user guide stay ungated.
+            "src/scistudio/agent_provisioning/templates/hook_protect_data_dir.py",
+            "src/scistudio/agent_provisioning/templates/hook_deny_scistudio_cli.py",
+            "src/scistudio/agent_provisioning/templates/codex_config.toml",
+            "src/scistudio/agent_provisioning/provision.py",
+            "src/scistudio/_user_guide/getting-started.md",
+            "docs/architecture/ARCHITECTURE.md",
+            "docs/ai-developer/skills/implementer/SKILL.md",
+        ],
+    )
+    def test_unprotected_paths_do_not_match(self, path: str) -> None:
+        assert not surfaces.is_protected_agent_docs_path(path)

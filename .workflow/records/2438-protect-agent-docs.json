@@ -1,0 +1,69 @@
+{
+  "base_ref": "origin/main",
+  "branch": "feat/2438-protect-agent-docs",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "src/scistudio/qa/governance/gate_record/**",
+      "tests/qa/**",
+      "docs/ai-developer/rules.md",
+      "docs/ai-developer/specific_rules/gated-workflow.md",
+      "docs/ai-developer/gate-cli-command-set.md",
+      "docs/ai-developer/templates/agent-dispatch-checklist-template.md",
+      "docs/specs/adr-042-gate-ledger-runtime.md"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-15T09:51:25.250379Z",
+      "owner_directive": "Hook script templates and the user guide are not protected.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T09:51:25.432819Z",
+      "owner_directive": "Authorised to change gate/governance code and docs/ai-developer/** for this; put the check in Full Audit.",
+      "reason": "plan"
+    },
+    {
+      "at": "2026-09-15T09:51:25.630531Z",
+      "owner_directive": "Option B: agent-docs protection as a gate guard like architecture_doc_guard; not in Full Audit",
+      "reason": "plan"
+    }
+  ],
+  "docs_events": [],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2438,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Protect src/scistudio/_skills/**, src/scistudio/_agent_reference/**, and src/scistudio/agent_provisioning/templates/claude_agents_md.md behind a new label admin-approved:agent-docs.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2438-protect-agent-docs",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude-code",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "0c7cf5a9-2b27-4b06-82a2-c09709792c16",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": []
+}
