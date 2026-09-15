@@ -52,7 +52,6 @@ function metadataRead(overrides: Record<string, unknown> = {}) {
     metadata: { created_by: "some.block" },
     shape: null,
     dtype: null,
-    sampled: false,
     truncated: false,
     complete: true,
     ...overrides,

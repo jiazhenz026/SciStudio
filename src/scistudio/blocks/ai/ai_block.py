@@ -16,6 +16,7 @@ the three ways a run can complete.
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 import os
 import time
@@ -342,9 +343,10 @@ class AIBlock(Block):
                 "default": False,
                 "title": "Reuse last output (skip run)",
                 "description": (
-                    "When on, skip running the agent and re-emit the previous "
-                    "run's output files. Falls back to a normal run if no prior "
-                    "output exists. Only enable while inputs are unchanged."
+                    "When on, skip running the agent and re-emit the output files "
+                    "this block's previous run in this workflow produced. Falls back "
+                    "to a normal run if no such output exists. Only enable while "
+                    "inputs are unchanged."
                 ),
                 "ui_priority": 4,
             },
@@ -428,13 +430,19 @@ class AIBlock(Block):
         if not output_path_overrides:
             output_path_overrides = _output_path_overrides(self.config)
         block_name = config.get("block_id") or type(self).__name__
+        # #2424: the workflow run identity (#2394) scopes the default output
+        # paths and the reuse check, so same-named nodes in different
+        # workflows never share outputs.
+        workflow_id = str(config.get("workflow_id") or "")
 
         # Declared output specs: ``{port_name: {expected_path, expected_type}}``.
         # Used both to decide a reuse hit and to clear stale leftovers before a
         # real run.
         output_specs: dict[str, dict[str, Any]] = {}
         for port in effective_outputs:
-            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(str(block_name), port)
+            expected_path = output_path_overrides.get(port.name) or RunDir._default_expected_path(
+                str(block_name), port, workflow_id=workflow_id
+            )
             expected_type = port.accepted_types[0].__name__ if port.accepted_types else "DataObject"
             output_specs[port.name] = {
                 "expected_path": expected_path,
@@ -448,7 +456,13 @@ class AIBlock(Block):
         # output) fall through to a normal run rather than erroring. See
         # ADR-035 Addendum 1.
         if _reuse_last_output_enabled(config):
-            reused = self._try_reuse_last_output(output_specs, project_dir, str(config.get("output_dir", "")))
+            reused = self._try_reuse_last_output(
+                output_specs,
+                project_dir,
+                str(config.get("output_dir", "")),
+                workflow_id=workflow_id,
+                block_name=str(block_name),
+            )
             if reused is not None:
                 # Record the reuse on this execution's own run dir — the durable
                 # per-execution audit trail. Unlike a normal run (manifest +
@@ -469,6 +483,7 @@ class AIBlock(Block):
                         block_name=str(block_name),
                         block_type=type(self).__name__,
                         outputs={name: str(spec["expected_path"]) for name, spec in output_specs.items()},
+                        workflow_id=workflow_id,
                     )
                 except OSError:
                     logger.warning("AIBlock %s: could not write reuse marker", block_name, exc_info=True)
@@ -523,6 +538,7 @@ class AIBlock(Block):
                 outputs=effective_outputs,
                 deadline_iso=None,
                 output_paths=output_path_overrides,
+                workflow_id=workflow_id,
             )
         except Exception as exc:
             raise RuntimeError(f"AIBlock: failed to write manifest: {exc}") from exc
@@ -530,7 +546,7 @@ class AIBlock(Block):
         # 3b. Clear any stale leftover outputs BEFORE the agent starts (#1789).
         # The FileWatcher completion path fires when all declared expected_path
         # files exist and are size-stable; a leftover file from a previous run
-        # (the ``<block>_outputs`` dir persists) would otherwise complete the
+        # (the output folder persists) would otherwise complete the
         # block instantly before the agent produces anything. Clearing them up
         # front means completion only triggers on this run's output (or the MCP
         # finish tool / user "Mark done").
@@ -735,18 +751,26 @@ class AIBlock(Block):
         output_specs: dict[str, dict[str, Any]],
         project_dir: Any,
         output_dir: str,
+        *,
+        workflow_id: str,
+        block_name: str,
     ) -> dict[str, Collection] | None:
         """Load the previous run's outputs, or ``None`` on a cache miss.
 
         A reuse hit requires **every** declared output to still be present at
         its ``expected_path`` and be non-empty; that is exactly the "never ran /
-        no prior output" boundary the fallback is meant to cover. On a hit the
+        no prior output" boundary the fallback is meant to cover. The files
+        must also have been produced by this same workflow node: the
+        most recent AI Block run record that names any of the paths must be a
+        run of *block_name* in *workflow_id* with the same output paths, so a
+        same-named node in another workflow, or another node sharing a
+        configured path, is never reused. On a hit the
         files are loaded through the same ``_validate_and_load_outputs`` path a
         normal run uses (so a corrupt-but-present file surfaces its real load
         error rather than being silently re-run). On a miss the caller falls
         back to a normal agent run.
         """
-        # Development references: #1898.
+        # Development references: #1898, #2424.
         from pathlib import Path
 
         if not output_specs:
@@ -762,6 +786,13 @@ class AIBlock(Block):
             if not path.exists() or not path.is_file() or path.stat().st_size == 0:
                 return None
             resolved_paths[port_name] = str(path)
+        if not _outputs_last_produced_by(
+            Path(str(project_dir)),
+            resolved_paths,
+            workflow_id=workflow_id,
+            block_name=block_name,
+        ):
+            return None
         return self._validate_and_load_outputs(resolved_paths, output_specs, project_dir, output_dir)
 
 
@@ -782,6 +813,78 @@ def _reuse_last_output_enabled(config: BlockConfig) -> bool:
     single lookup covers both the nested and top-level storage locations.
     """
     return bool(config.get(REUSE_LAST_OUTPUT_KEY, False))
+
+
+def _outputs_last_produced_by(
+    project_dir: Any,
+    resolved_paths: dict[str, str],
+    *,
+    workflow_id: str,
+    block_name: str,
+) -> bool:
+    """Whether the newest run record naming *resolved_paths* is this node's.
+
+    Every AI Block execution leaves a ``manifest.json`` (agent run) or a
+    ``reuse.json`` (reuse hit) under ``.scistudio/ai-block-runs/``, each naming
+    the block, its workflow run identity and its output paths. Records are
+    scanned newest first; the first one that names any of *resolved_paths* is
+    the last execution that wrote (or re-emitted) them. Reuse is allowed only
+    when that execution is *block_name* in *workflow_id* and it names the same
+    path for every port. Older records that carry no workflow identity never
+    match.
+    """
+    # Development references: #2424, #1898.
+    from pathlib import Path
+
+    runs_root = Path(str(project_dir)) / ".scistudio" / "ai-block-runs"
+    if not runs_root.is_dir():
+        return False
+    records: list[tuple[int, Path]] = []
+    for run_dir in runs_root.iterdir():
+        for record_name in ("manifest.json", "reuse.json"):
+            record = run_dir / record_name
+            try:
+                records.append((record.stat().st_mtime_ns, record))
+            except OSError:
+                continue
+    wanted = set(resolved_paths.values())
+    for _mtime, record in sorted(records, key=lambda item: item[0], reverse=True):
+        try:
+            payload = json.loads(record.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        claimed = _record_output_paths(payload, Path(str(project_dir)))
+        if not wanted & set(claimed.values()):
+            continue
+        raw_block = payload.get("block")
+        block: dict[str, Any] = raw_block if isinstance(raw_block, dict) else {}
+        return (
+            block.get("name") == block_name
+            and block.get("workflow_id") == workflow_id
+            and all(claimed.get(port) == path for port, path in resolved_paths.items())
+        )
+    return False
+
+
+def _record_output_paths(payload: dict[str, Any], project_dir: Any) -> dict[str, str]:
+    """Return ``{port: resolved path}`` from a manifest or reuse record."""
+    from pathlib import Path
+
+    outputs = payload.get("outputs")
+    if not isinstance(outputs, dict):
+        return {}
+    claimed: dict[str, str] = {}
+    for port, entry in outputs.items():
+        raw = entry.get("expected_path") if isinstance(entry, dict) else entry
+        if not isinstance(raw, str) or not raw:
+            continue
+        path = Path(raw)
+        if not path.is_absolute():
+            path = Path(str(project_dir)) / path
+        claimed[str(port)] = str(path.resolve())
+    return claimed
 
 
 def _to_path(value: Any) -> Any:
@@ -825,8 +928,8 @@ def _clear_expected_outputs(output_specs: dict[str, dict[str, Any]], project_dir
     """Remove pre-existing declared-output files before the agent runs.
 
     The FileWatcher completion path (CompletionWatcher) fires when every declared
-    ``expected_path`` exists and is size-stable. The ``<block>_outputs`` dir
-    persists across runs, so a leftover file from a previous run would complete
+    ``expected_path`` exists and is size-stable. The output folder
+    (``data/ai_outputs/<workflow>/<block>/`` by default) persists across runs, so a leftover file from a previous run would complete
     the block immediately — before the agent produces anything. Clearing them up
     front means completion only triggers on output this run actually creates (or
     the MCP finish tool / user "Mark done"). Best-effort; missing files and

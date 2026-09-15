@@ -14,6 +14,10 @@
  *   `auto: pre-restore` one). There is nothing to compare against.
  * - **warnings** — a run was found and something moved.
  * - **clean** — a run was found and nothing moved. Only this one is green.
+ *
+ * When several workflows ran at the commit, every one of them was checked
+ * (#2425); the report names them and labels each input change with the
+ * workflow that read the file.
  */
 import type { RestorePreflight } from "../../../types/lineage";
 
@@ -22,7 +26,13 @@ export interface PreflightReportProps {
   error: string | null;
 }
 
-function InputWarningsCard({ warnings }: { warnings: RestorePreflight["input_warnings"] }) {
+function InputWarningsCard({
+  warnings,
+  showWorkflow,
+}: {
+  warnings: RestorePreflight["input_warnings"];
+  showWorkflow: boolean;
+}) {
   if (warnings.length === 0) return null;
   return (
     <div className="rounded bg-amber-50 p-3" data-testid="restore-dialog-input-warnings">
@@ -33,6 +43,12 @@ function InputWarningsCard({ warnings }: { warnings: RestorePreflight["input_war
         {warnings.map((w, i) => (
           <li key={`${w.path}-${i}`}>
             <code>{w.path}</code> — {w.reason}
+            {showWorkflow && w.workflow_id ? (
+              <span data-testid="restore-dialog-input-warning-workflow">
+                {" "}
+                (workflow <code>{w.workflow_id}</code>)
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -87,19 +103,29 @@ export function PreflightReport({ preflight, error }: PreflightReportProps) {
     );
   }
 
+  const workflows = (preflight.runs ?? []).map((run) => run.workflow_id);
+  const multiWorkflow = workflows.length > 1;
   const clean = preflight.input_warnings.length === 0 && preflight.env_warnings.length === 0;
   return (
     <section className="mt-4 space-y-3" data-testid="restore-dialog-preflight">
+      {multiWorkflow ? (
+        <p className="text-xs text-stone-600" data-testid="restore-dialog-preflight-workflows">
+          Checked the latest run of each of the {workflows.length} workflows recorded at this
+          version: {workflows.join(", ")}.
+        </p>
+      ) : null}
       {clean ? (
         <p
           className="rounded bg-emerald-50 p-3 text-sm text-emerald-700"
           data-testid="restore-dialog-preflight-clean"
         >
-          Your input files and environment match the run that produced this version.
+          {multiWorkflow
+            ? "Your input files and environment match the runs recorded at this version."
+            : "Your input files and environment match the run that produced this version."}
         </p>
       ) : (
         <>
-          <InputWarningsCard warnings={preflight.input_warnings} />
+          <InputWarningsCard warnings={preflight.input_warnings} showWorkflow={multiWorkflow} />
           <EnvWarningsCard warnings={preflight.env_warnings} />
           <p className="text-xs text-stone-600">These are advisory. You can still restore.</p>
         </>

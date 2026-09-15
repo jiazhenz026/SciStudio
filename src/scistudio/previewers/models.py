@@ -7,9 +7,12 @@ others are :mod:`scistudio.previewers.data_access` (the bounded reader injected
 on each request) and :mod:`scistudio.previewers.helpers` (``sanitize_svg``).
 Import the public types from here, not from the package top level.
 
-The whole preview subsystem is **provisional**: usable today, but the surface
-may still settle within a minor release. Each public symbol carries a
-``scistudio.stability`` marker so the generated reference can show its tier.
+**Deprecated.** Every public symbol of this module is deprecated since 0.3.5,
+stays supported until it is removed in 0.3.6, and is replaced by HTML panels: a
+folder with a ``panel.json`` descriptor and an HTML page, discovered and
+validated through :mod:`scistudio.panels`. Until removal the surface keeps its
+**provisional** tier. Each public symbol carries ``scistudio.stability`` markers
+so the generated reference shows its tier and its deprecation.
 
 Author-facing types:
 
@@ -45,11 +48,13 @@ wire shapes as Pydantic models for serialization.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from scistudio.previewers._deprecation import PREVIEWERS_DEPRECATED
 from scistudio.stability import internal, provisional
 
 if TYPE_CHECKING:
@@ -62,6 +67,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class OwnerKind(StrEnum):
     """Where a previewer came from; sets how strongly it wins when routing.
@@ -82,6 +88,7 @@ class OwnerKind(StrEnum):
     """A previewer registered locally by the active project."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class TargetKind(StrEnum):
     """The kind of thing a :class:`PreviewTarget` points at."""
@@ -96,6 +103,7 @@ class TargetKind(StrEnum):
     """A rendered plot artifact (PNG/JPEG/SVG/PDF)."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class EnvelopeKind(StrEnum):
     """The display kind a :class:`PreviewEnvelope` declares for its payload.
@@ -128,6 +136,7 @@ class EnvelopeKind(StrEnum):
     """A failed preview; the envelope's ``error`` field explains why."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class PreviewErrorCode(StrEnum):
     """Stable, machine-readable codes describing why a preview failed.
@@ -171,6 +180,7 @@ so the frontend can refuse to mount an incompatible manifest.
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewSource:
@@ -198,6 +208,7 @@ class PreviewSource:
         return asdict(self)
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewTarget:
@@ -257,6 +268,7 @@ class PreviewTarget:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class FrontendManifest:
@@ -321,6 +333,7 @@ def _provider_repr(provider: object) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewerSpec:
@@ -402,6 +415,7 @@ class PreviewerSpec:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewMetadata:
@@ -448,6 +462,7 @@ class PreviewMetadata:
         return data
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewResource:
@@ -488,6 +503,7 @@ class PreviewResource:
         }
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewErrorInfo:
@@ -514,6 +530,7 @@ class PreviewErrorInfo:
         }
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewEnvelope:
@@ -610,6 +627,7 @@ class PreviewEnvelope:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewLimits:
@@ -683,6 +701,7 @@ class PreviewSession:
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PreviewRequest:
@@ -751,6 +770,7 @@ PreviewResourceProvider = Callable[[PreviewRequest, str, dict[str, Any]], dict[s
 params)`` and returning a JSON-safe dict for one bounded resource read."""
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 @runtime_checkable
 class PreviewerEntryPoint(Protocol):
@@ -790,6 +810,7 @@ PreviewerSpecList = list[PreviewerSpec]
 # ---------------------------------------------------------------------------
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class PreviewError(Exception):
     """Base class for typed preview errors — catch this in a provider.
@@ -857,6 +878,7 @@ class MissingBundleError(PreviewError):
     code = PreviewErrorCode.MISSING_BUNDLE
 
 
+@PREVIEWERS_DEPRECATED
 @provisional(since="0.3.1")
 class ProviderError(PreviewError):
     """Raise this from a provider for a hard failure it cannot recover from.
@@ -918,3 +940,7 @@ __all__ = [
     "ProviderError",
     "TargetKind",
 ]
+
+# Every name in __all__ above, including the constants and type aliases that cannot
+# carry a marker, is deprecated (ADR-054 §8; removal tracked in #2288).
+PREVIEWERS_DEPRECATED(sys.modules[__name__])

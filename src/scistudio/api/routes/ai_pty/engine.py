@@ -49,11 +49,10 @@ import time
 import uuid
 from pathlib import Path
 
-from scistudio.ai.agent.providers_registry import PERMISSION_MODES, agent_keys
-from scistudio.ai.agent.providers_registry import get as get_descriptor
 from scistudio.ai.agent.terminal import PtyProcess
 from scistudio.api.routes.ai_pty import _state as _pkg
 from scistudio.api.routes.ai_pty.subscribers import broadcast_ai_pty_message
+from scistudio.api.routes.ai_pty.validation import validate_agent_launch
 
 logger = logging.getLogger(__name__)
 
@@ -201,19 +200,12 @@ def _open_prespawned_tab(
     if not cwd_path.is_absolute() or not cwd_path.is_dir():
         raise RuntimeError(f"pre-spawned PTY tab: cwd must be an existing absolute dir, got {cwd!r}")
 
-    if permission_mode not in PERMISSION_MODES:
-        raise RuntimeError(
-            f"pre-spawned PTY tab: permission_mode must be one of {PERMISSION_MODES!r}, got {permission_mode!r}"
-        )
-
-    accepted = agent_keys()
-    if provider not in accepted:
-        raise RuntimeError(f"pre-spawned PTY tab: unknown provider {provider!r}; expected one of {sorted(accepted)}")
-
-    # #2379: refuse Auto before reclaiming or spawning anything, with the
-    # registry's own sentence, for a CLI that has no auto mode.
-    if permission_mode == "auto" and not get_descriptor(provider).supports_auto_mode:
-        raise RuntimeError(f"pre-spawned PTY tab: {get_descriptor(provider).label} has no Auto permission mode")
+    # #2454: the same static check the AI Chat launch runs (``validate_agent_launch``).
+    # A prompt is a positional argument, so a CLI that cannot take one is refused here.
+    try:
+        validate_agent_launch(provider, permission_mode, with_prompt=bool(prompt))
+    except ValueError as exc:
+        raise RuntimeError(f"pre-spawned PTY tab: {exc}") from exc
 
     # Reclaim first: an orphan from an earlier handoff that never happened
     # holds a slot it will never use, and without this a run of failed
@@ -276,13 +268,8 @@ def open_work_import_tab(
 
     ``opening_message`` is the single line the user sees when the
     session starts. It is delivered exactly as the AI Block's
-    prompt is — a positional CLI argument on the spawned agent — which
-    is what keeps delivery independent of a provider's system-prompt
-    capability. Only ``claude-code`` is ``FLAG_FILE`` in the
-    registry; ``codex``, ``kimi-code`` and both Qoder channels
-    are ``AMBIENT`` and have no per-session prompt channel at all, so
-    routing the brief through a file plus this pointer is what makes
-    that difference invisible.
+    prompt is — a positional CLI argument on the spawned agent. Routing the
+    durable brief through a file plus this pointer keeps delivery uniform.
 
     It does **not** make every provider equivalent. Being a positional
     argument, the pointer cannot reach a CLI that parses its first
@@ -291,7 +278,7 @@ def open_work_import_tab(
     ``ValueError`` for those rather than launching an agent with no
     instructions, so callers must refuse such a provider before they get
     here — ``POST /api/work-import/sessions`` does, via
-    :func:`~scistudio.ai.agent.availability.session_unsupported_reason`,
+    :func:`~scistudio.api.routes.ai_pty.validation.validate_agent_launch`,
     and the AI Block does the same at config time.
 
     Args:
@@ -323,6 +310,53 @@ def open_work_import_tab(
         permission_mode,
     )
     return tab_id
+
+
+#: Pause between typing a line into an agent TUI and pressing Enter. Claude
+#: Code and Codex both treat a burst of input as a paste, and a carriage
+#: return inside that burst becomes a newline in the composer instead of a
+#: submit, so Enter has to arrive as a keystroke of its own.
+TYPE_LINE_ENTER_DELAY_S = 0.4
+
+
+def type_line_into_tab(tab_id: str, text: str, *, expected_cwd: Path | None = None) -> bool:
+    """Type one line into a live agent tab and press Enter, as the user would.
+
+    Returns ``False`` without writing anything when the tab is not registered,
+    its process has exited, or it runs in a different directory than
+    ``expected_cwd`` (a tab from another project that happens to share the id
+    must never receive the line). Newlines in ``text`` are flattened so the line
+    cannot submit early or smuggle a second submit.
+
+    Blocking (it sleeps between the text and Enter): call it off the event loop.
+
+    What happens when the agent is busy is the provider's own input behaviour,
+    the same as when the user types: Claude Code queues a line submitted during
+    a turn and runs it after the turn; Codex adds it to the running turn as
+    steering. Neither interrupts the turn — that takes Escape or Ctrl+C, which
+    this never sends.
+    """
+    # Development references: #2447, ADR-054 MiniApp FR-051.
+    pty = _pkg._active_ptys.get(tab_id)
+    if pty is None or not pty.is_alive():
+        return False
+    if expected_cwd is not None:
+        cwd = getattr(pty, "_cwd", None)
+        try:
+            if cwd is None or Path(cwd).resolve() != Path(expected_cwd).resolve():
+                return False
+        except OSError:
+            return False
+    line = " ".join(str(text).split())
+    if not line:
+        return False
+    pty.write(line.encode("utf-8", errors="replace"))
+    time.sleep(TYPE_LINE_ENTER_DELAY_S)
+    if not pty.is_alive():
+        return False
+    pty.write(b"\r")
+    logger.info("type_line_into_tab: tab_id=%s chars=%d", tab_id, len(line))
+    return True
 
 
 def open_engine_initiated_tab(

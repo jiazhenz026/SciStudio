@@ -20,6 +20,7 @@ _SKILL_NAMES = (
     "scistudio-write-miniapp",
     "scistudio-use-gui",
     "scistudio-write-panel",
+    "scistudio-write-type",
 )
 
 

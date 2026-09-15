@@ -131,7 +131,7 @@ Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2295.
 TODO(#2354): Deliver MiniApps/All Previewers navigation and the call/process
 runtime in Phase D. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2354.
 
-TODO(#2288): Retain tracked 0.6 legacy removal, preview Python, and notebook/sync
+TODO(#2288): Retain tracked 0.3.6 legacy removal, preview Python, and notebook/sync
 work outside Phase A. Follow-up: https://github.com/jiazhenz026/SciStudio/issues/2288.
 
 Owner pause boundary: stop after Phase A and wait for the owner before starting

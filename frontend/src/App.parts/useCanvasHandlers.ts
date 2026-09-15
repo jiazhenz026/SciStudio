@@ -138,17 +138,13 @@ export function useCanvasHandlers(deps: CanvasHandlersDeps): CanvasHandlers {
       } else if (block.type_name === "io_block") {
         defaultParams.direction = block.name === "Load Block" ? "input" : "output";
       }
-      // Bug 7: default output_dir for AppBlocks when a project is open.
-      if (block.base_category === "app" && currentProject) {
-        defaultParams.output_dir = `${currentProject.path}/data/exchange/outputs`;
-      }
       addNode(
         block,
         { x: 160, y: 160 },
         Object.keys(defaultParams).length > 0 ? defaultParams : undefined,
       );
     },
-    [addNode, currentProject],
+    [addNode],
   );
 
   const handleCanvasConnect = useCallback(

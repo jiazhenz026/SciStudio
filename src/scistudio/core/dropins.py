@@ -183,6 +183,7 @@ from scistudio.desktop.paths import user_python_import_roots
 
 __all__ = [
     "BLOCKS_DIR_NAME",
+    "PANELS_DIR_NAME",
     "PREVIEWERS_DIR_NAME",
     "PROJECT_DIR_ENV_VAR",
     "TUTORIALS_DIR_NAME",
@@ -237,6 +238,11 @@ TYPES_DIR_NAME = "types"
 #: definition, collision guard, and bytecode eviction that blocks and types
 #: use, applied to ``<project>/previewers`` and ``~/.scistudio/previewers``.
 PREVIEWERS_DIR_NAME = "previewers"
+
+#: Child directory holding panel folders, one ``panels/<panel-id>/`` per panel
+#: or MiniApp, in both tiers (ADR-054). New projects are scaffolded with this
+#: directory; ``previewers/`` is still scanned but no longer created (#2411).
+PANELS_DIR_NAME = "panels"
 
 #: Child directory holding drop-in tutorial directories, in both tiers
 #: (ADR-053 Learning Center FR-016).
@@ -450,7 +456,7 @@ def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...
 
 def panel_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
     """Panel tiers with the same tutorial-library substitution as previewers."""
-    return _tier_dirs("panels", project_dir, library_root_for_project(project_dir))
+    return _tier_dirs(PANELS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:

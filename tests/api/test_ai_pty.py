@@ -477,12 +477,10 @@ def test_pty_ws_rejects_auto_for_a_provider_without_one(
 ) -> None:
     import dataclasses
 
-    from scistudio.api.routes.ai_pty import websocket as websocket_module
-
     no_auto = dataclasses.replace(
         providers_registry.get("claude-code"), auto_argv=(), auto_argv_absent_reason="fixture"
     )
-    monkeypatch.setattr(websocket_module, "get_descriptor", lambda _key: no_auto)
+    monkeypatch.setattr(providers_registry, "get", lambda _key: no_auto)
     with client.websocket_connect(_ws_url("tab-no-auto", opened_project) + "&permission_mode=auto") as ws:
         frame = ws.receive_json()
         assert frame["type"] == "error"

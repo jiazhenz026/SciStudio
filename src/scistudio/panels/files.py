@@ -9,6 +9,8 @@ import re
 from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
+from scistudio.stability import provisional
+
 CDN_HOSTS = ("cdn.jsdelivr.net", "cdnjs.cloudflare.com", "unpkg.com")
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
 ASSET_SUFFIXES = frozenset(
@@ -112,8 +114,16 @@ _URL = re.compile(r"""(?:https?:)?//[^\s"'<>`)]+""")
 _PINNED = re.compile(r"(?:@|/)(?:v)?\d+\.\d+\.\d+(?:[/.-]|$)")
 
 
+@provisional(since="0.3.5")
 def validate_external_references(root: Path) -> list[str]:
-    """Refuse off-allowlist references and report unpinned CDN versions."""
+    """Check the external references in a panel folder's HTML, CSS, and scripts.
+
+    Every URL must be ``https`` on an allowlisted CDN host
+    (``cdn.jsdelivr.net``, ``cdnjs.cloudflare.com``, ``unpkg.com``). Returns a
+    note for each CDN reference without a pinned ``x.y.z`` version. Raises
+    ``ValueError`` for a reference outside the allowlist, a symlink that escapes
+    the folder, or a source file over the 16 MiB validation budget.
+    """
     notes = []
     for file in root.rglob("*"):
         if not file.is_file() or file.suffix.lower() not in {".html", ".css", ".js", ".mjs"}:

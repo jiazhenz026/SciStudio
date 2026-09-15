@@ -10,6 +10,11 @@
  * workflow's running flag.
  */
 import { receivePanelDecision } from "../../panels/decisions";
+import {
+  notifyPanelContextsRevoked,
+  notifyPanelFilesChanged,
+  requestPreviewReroute,
+} from "../../panels/panelEvents";
 import type { VersionedWorkflowResponse } from "../../lib/api";
 import { useAppStore } from "../../store";
 import { TUTORIAL_SYNC_EVENT_TYPES } from "../../store/learningCenterSlice";
@@ -25,7 +30,14 @@ import {
   handleInteractivePrompt,
   handleWorkflowStartedAutoOpen,
 } from "./handleLifecycle";
-import { handleOpenMiniApp, handlePanelFilesChanged, handleWsHello } from "./handleMiniApp";
+import {
+  handleOpenMiniApp,
+  handlePanelCatalogChanged,
+  handlePanelChoicesChanged,
+  handlePanelContextsRevoked,
+  handlePanelFilesChanged,
+  handleWsHello,
+} from "./handleMiniApp";
 import { handleWorkflowChanged } from "./handleWorkflowChanged";
 
 export interface DispatchDeps {
@@ -92,6 +104,19 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     return true;
   }
   if (payload.type === "blocks.reloaded") {
+    const data = (payload.data ?? {}) as Record<string, unknown>;
+    if (data.registry === "panels") {
+      // #2465 — the panel service's own catalog diff. The MiniApp list (and
+      // its tab-name sync, #2459) re-reads only when a MiniApp changed; the
+      // Previewers listing and the open previews only when the payload says
+      // their candidates changed, and then only the previews of those types.
+      handlePanelCatalogChanged(payload, {
+        bumpBlockCatalogRefresh: useAppStore.getState().bumpBlockCatalogRefresh,
+        invalidatePreviewerCatalog,
+        requestPreviewReroute,
+      });
+      return true;
+    }
     // #9: the block registry was hot-reloaded (e.g. the agent scaffolded +
     // reloaded a custom block). Signal App to re-fetch the block catalog so the
     // palette and canvas nodes pick up the new/changed block without a manual
@@ -104,10 +129,9 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     // the declared canvas colours on their first-ever listing until the user
     // pressed Reload by hand.
     invalidateTypeCatalog();
-    // #2113 — the same `refresh_all_registries()` rebuilds the *previewer*
-    // registry too (#2021), so the Previewers tab's listing and choices get
-    // the same treatment; without it the tab sat on its first-ever listing.
-    invalidatePreviewerCatalog();
+    // #2465 — the previewers are not re-read and no open preview remounts
+    // here: the panel service announces its own changes with
+    // `registry: "panels"` above.
     return true;
   }
   if (payload.type === "git.head_changed") {
@@ -133,12 +157,20 @@ export function dispatchWorkflowEvent(payload: WorkflowEventMessage, deps: Dispa
     return true;
   }
   if (payload.type === "panel.files_changed") {
-    // ADR-054 FR-022: the panel directory of an open MiniApp changed on disk.
-    // The 500 ms debounce lives in the handler, not in the tab: this is where
-    // the burst arrives, and one reload per burst is cheaper than one per tab.
-    handlePanelFilesChanged(payload, {
-      notifyPanelFilesChanged: useAppStore.getState().notifyPanelFilesChanged,
-    });
+    // ADR-054 FR-022: a page file of an open panel changed on disk. Every
+    // mount of that panel, whatever its context kind, reloads in place; the
+    // 500 ms debounce lives in the shared panel host (`PanelFrame`).
+    handlePanelFilesChanged(payload, { notifyPanelFilesChanged });
+    return true;
+  }
+  if (payload.type === "panel.contexts_revoked") {
+    // #2465 — only the mounts holding these contexts remount.
+    handlePanelContextsRevoked(payload, { notifyPanelContextsRevoked });
+    return true;
+  }
+  if (payload.type === "panel.choices_changed") {
+    // #2465 Q6-b — only the open previews of this type switch to the new choice.
+    handlePanelChoicesChanged(payload, { invalidatePreviewerCatalog, requestPreviewReroute });
     return true;
   }
   return false;

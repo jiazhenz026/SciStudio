@@ -1,4 +1,6 @@
-/* SciStudio panel stylesheet (SDK major 1).
+/**
+ * @overview
+ * SciStudio panel stylesheet (SDK major 1).
  *
  * One shared sheet so every panel — built-in, packaged, or agent-written —
  * looks like the rest of the application without re-deriving its styling. The
@@ -8,7 +10,10 @@
  * example from its panel.sample.json.
  *
  * Link it from a panel document:
- *   <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ *
+ * ```html
+ * <link rel="stylesheet" href="../../sdk/1/panel.css" />
+ * ```
  *
  * Classes are semantic, not utilities: describe what a thing IS (a card, a
  * toolbar, a field) rather than how it looks, so the look can change centrally.
@@ -196,3 +201,41 @@ body {
 @media (prefers-color-scheme: dark) {
   :root { --surface: rgb(var(--ink) / 0.06); }
 }
+
+/* Questionnaire: questions an agent asks before it builds a MiniApp. Each
+   question is a card; choices are pills, "Decide for me" is a dashed pill in
+   the sea colour so it reads as an answer of its own, and the submit bar sits
+   at the bottom and is never disabled except while a submit is in flight. */
+.panel-questionnaire { max-width: 44rem; margin: 0 auto; width: 100%; }
+.panel-questionnaire-title { margin: 4px 0 0; font-size: 16px; font-weight: 600; }
+.panel-questionnaire-intro { margin: 0; font-size: 13px; line-height: 1.6; color: rgb(var(--ink) / 0.75); }
+.panel-question { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-left: 4px solid rgb(var(--sand)); }
+.panel-question[data-status="answered"] { border-left-color: rgb(var(--pine)); }
+.panel-question[data-status="decide_for_me"] { border-left-color: rgb(var(--sea)); }
+.panel-question-prompt { margin: 0; font-size: 13px; font-weight: 600; color: rgb(var(--ink)); }
+.panel-question-help { margin: 0; font-size: 11px; line-height: 1.5; color: rgb(var(--ink) / 0.55); }
+.panel-question-optional { font-weight: 400; font-size: 10px; color: rgb(var(--ink) / 0.45); margin-left: 6px; }
+.panel-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.panel-choice {
+  font: inherit; font-size: 12px; cursor: pointer; text-align: left;
+  border: 1px solid rgb(var(--ink) / 0.15); border-radius: var(--radius-pill);
+  background: var(--surface); color: rgb(var(--ink)); padding: 5px 12px;
+}
+.panel-choice:hover { border-color: rgb(var(--ember) / 0.6); }
+.panel-choice[aria-pressed="true"] { background: rgb(var(--ember) / 0.14); border-color: rgb(var(--ember)); }
+.panel-choice-description { display: block; font-size: 10px; color: rgb(var(--ink) / 0.55); }
+.panel-choice-decide { border-style: dashed; border-color: rgb(var(--sea) / 0.7); color: rgb(var(--sea)); }
+.panel-choice-decide[aria-pressed="true"] { background: rgb(var(--sea) / 0.14); border-style: solid; border-color: rgb(var(--sea)); color: rgb(var(--ink)); }
+.panel-question .panel-input { padding: 5px 8px; font-size: 12px; }
+.panel-question textarea.panel-input { min-height: 72px; resize: vertical; width: 100%; }
+.panel-question-other { width: 100%; }
+.panel-submit-bar {
+  position: sticky; bottom: 0; display: flex; align-items: center; gap: var(--gap);
+  padding: 10px 14px; border-radius: var(--radius-card);
+  background: linear-gradient(90deg, rgb(var(--ember) / 0.1), rgb(var(--sea) / 0.1)), var(--surface);
+  border: 1px solid var(--line);
+}
+.panel-submit-bar .panel-button-primary { padding: 6px 16px; font-size: 13px; }
+.panel-submit-message { font-size: 12px; color: rgb(var(--pine)); }
+.panel-submit-message[data-kind="error"] { color: #b3261e; }
+.panel-submit-message[data-kind="return"] { color: rgb(var(--sea)); }

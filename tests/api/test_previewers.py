@@ -116,8 +116,8 @@ def test_adr048_viewer_category_sweep(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
-        runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
+        runtime.get_panel_service().rescan(legacy=True)
 
     def _record(
         name: str,
@@ -504,8 +504,8 @@ def test_image_session_serializes_first_class_frontend_manifest(
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
     # Rebuild the preview service so the fixture previewers are registered.
-    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
-        runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
+        runtime.get_panel_service().rescan(legacy=True)
 
     matrix = np.arange(16 * 16, dtype=np.uint16).reshape(16, 16)
 
@@ -692,8 +692,8 @@ def test_collection_image_child_resource_uses_catalog_storage(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
-        runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
+        runtime.get_panel_service().rescan(legacy=True)
 
     image_path = opened_project / "images" / "child.tif"
     image_path.parent.mkdir(parents=True, exist_ok=True)
@@ -764,8 +764,8 @@ def test_imaging_previewer_asset_served_from_companion_package_entry_point(
         return real_entry_points(*args, **kwargs)
 
     monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated through 0.5.x"):
-        runtime.refresh_preview_service()
+    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
+        runtime.get_panel_service().rescan(legacy=True)
 
     spec = runtime.get_preview_service().registry.get("fixture.image.viewer")
     assert spec is not None

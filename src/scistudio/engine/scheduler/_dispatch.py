@@ -64,7 +64,7 @@ async def _emit_block_ready(self: DAGScheduler, node_id: str) -> None:
         EngineEvent(
             event_type=BLOCK_READY,
             block_id=node_id,
-            data={"workflow_id": self._workflow.id},
+            data=self._run_scope(),
         )
     )
 
@@ -115,7 +115,7 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
         EngineEvent(
             event_type=BLOCK_RUNNING,
             block_id=node_id,
-            data={"workflow_id": self._workflow.id},
+            data=self._run_scope(),
         )
     )
 
@@ -180,6 +180,10 @@ async def _dispatch(self: DAGScheduler, node_id: str) -> None:
     enriched_config = dict(node.config)
     enriched_config["block_id"] = node_id
     enriched_config["workflow_id"] = self._workflow.id
+    # #2433: the run identity reaches the block, so per-run artifacts a block
+    # writes (a Code Block's exchange folder) are addressable by that run.
+    if self._run_id is not None:
+        enriched_config["run_id"] = self._run_id
     if self._project_dir:
         enriched_config["project_dir"] = self._project_dir
 
@@ -539,7 +543,7 @@ async def _run_interactive(
                     EngineEvent(
                         event_type=BLOCK_PAUSED,
                         block_id=node_id,
-                        data={"workflow_id": self._workflow.id},
+                        data=self._run_scope(),
                     )
                 )
 
@@ -554,7 +558,7 @@ async def _run_interactive(
                         event_type=INTERACTIVE_PROMPT,
                         block_id=node_id,
                         data={
-                            "workflow_id": self._workflow.id,
+                            **self._run_scope(),
                             "block_type": config.get("block_type", type(block).__name__),
                             "panel_manifest": panel_manifest,
                             "panel_payload": panel_payload,
@@ -589,7 +593,7 @@ async def _run_interactive(
                 EngineEvent(
                     event_type=BLOCK_RUNNING,
                     block_id=node_id,
-                    data={"workflow_id": self._workflow.id},
+                    data=self._run_scope(),
                 )
             )
 

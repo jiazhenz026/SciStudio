@@ -126,6 +126,10 @@ describe("Previewers tab — structure", () => {
     expect(screen.getByText("Previewers")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search previewers")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+    // #2415 — the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
   });
 
   it("groups cards by tier: This Project, My Library, Core, then packages A→Z", async () => {
@@ -274,10 +278,9 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
     ).toHaveTextContent("user.spectrum.view");
   });
 
-  it("writes a user-scope choice from the All projects segment and re-routes", async () => {
+  it("writes a user-scope choice from the All projects segment", async () => {
     await renderPalette();
     setPreviewerChoice.mockResolvedValue({ choices: [makeChoice()] });
-    const versionBefore = useAppStore.getState().previewerChoiceVersion;
 
     fireEvent.click(within(card("user.spectrum.view")).getByTestId("previewer-seg-user"));
 
@@ -287,9 +290,8 @@ describe("Previewers tab — per-type choice (#2049, segmented control)", () => 
     await waitFor(() =>
       expect(useAppStore.getState().previewerChoices[0]?.previewer_id).toBe("user.spectrum.view"),
     );
-    // The routing epoch bumped so an open preview re-creates its session
-    // through the new choice instead of sitting on the old envelope.
-    expect(useAppStore.getState().previewerChoiceVersion).toBe(versionBefore + 1);
+    // Open previews of Spectrum re-route on the backend's
+    // `panel.choices_changed` (#2465), not on the write's answer.
   });
 
   it("writes a project-scope choice from the This project segment", async () => {

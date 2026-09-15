@@ -44,9 +44,57 @@ export interface WorkflowExecutionActions {
 function surfaceExecutionError(
   setLastError: (message: string | null) => void,
   error: unknown,
+  nodes: WorkflowNode[] = [],
+  schemas: Record<string, BlockSchemaResponse> = {},
 ): void {
-  const message = error instanceof Error ? error.message : String(error);
+  const message =
+    runFromHereRefusalMessage(error, nodes, schemas) ??
+    (error instanceof Error ? error.message : String(error));
   window.setTimeout(() => setLastError(message), 0);
+}
+
+interface UnmetUpstream {
+  node_id: string;
+  block_type?: string;
+  reason?: string;
+  detail?: string;
+}
+
+function unmetLabel(
+  item: UnmetUpstream,
+  nodes: WorkflowNode[],
+  schemas: Record<string, BlockSchemaResponse>,
+): string {
+  const node = nodes.find((candidate) => candidate.id === item.node_id);
+  const explicit = typeof node?.config.label === "string" ? node.config.label.trim() : "";
+  if (explicit) return explicit;
+  const blockType = node?.block_type ?? item.block_type ?? "";
+  const name = schemas[blockType]?.name;
+  return name ? `${name} (${item.node_id})` : item.node_id;
+}
+
+/**
+ * #2448 — a refused "Run from here" carries one entry per upstream block whose
+ * output cannot be reused. Render them as readable lines for the error banner;
+ * `null` for any other error.
+ */
+export function runFromHereRefusalMessage(
+  error: unknown,
+  nodes: WorkflowNode[] = [],
+  schemas: Record<string, BlockSchemaResponse> = {},
+): string | null {
+  const detail = (error as { detail?: unknown } | null)?.detail;
+  if (!detail || typeof detail !== "object") return null;
+  const { error: code, unmet } = detail as { error?: unknown; unmet?: unknown };
+  if (code !== "run_from_here_unmet" || !Array.isArray(unmet) || unmet.length === 0) return null;
+  const lines = (unmet as UnmetUpstream[]).map(
+    (item) =>
+      `• ${unmetLabel(item, nodes, schemas)}: ${item.detail ?? item.reason ?? "cannot be reused"}`,
+  );
+  return [
+    "Cannot run from here. Run these upstream blocks first; their outputs cannot be reused:",
+    ...lines,
+  ].join("\n");
 }
 
 function pathJoin(dir: string, name: string): string {
@@ -201,7 +249,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
       onRunStarted?.();
       setLastError(null);
     } catch (error) {
-      surfaceExecutionError(setLastError, error);
+      surfaceExecutionError(setLastError, error, workflowNodes, blockSchemas);
     }
   }, [
     blockSchemas,
@@ -229,7 +277,7 @@ export function useWorkflowExecutionActions(deps: WorkflowExecutionDeps): Workfl
         onRunStarted?.();
         setLastError(null);
       } catch (error) {
-        surfaceExecutionError(setLastError, error);
+        surfaceExecutionError(setLastError, error, workflowNodes, blockSchemas);
       }
     },
     [blockSchemas, onRunStarted, saveWorkflow, setLastError, workflowId, workflowNodes],

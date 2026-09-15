@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from tests.api.fake_guard import RecordingFakeGuardFactory
-from tests.panels.conftest import make_runtime
+from tests.panels.conftest import make_runtime, use_panels
 
 from scistudio.api.app import create_app
 from scistudio.api.runtime._data import enrich_preview_query
@@ -24,9 +24,42 @@ from scistudio.core.storage.ref import StorageReference
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.registry import PanelRegistry
 from scistudio.previewers.models import OwnerKind
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.router import PreviewRouter
-from scistudio.previewers.session import PreviewSessionManager
+
+
+def build_runtime(temporary: Path) -> object:
+    """The fixture runtime: core legacy previewers plus the browser fixture panels."""
+    runtime, _store = make_runtime(temporary)
+    runtime.enrich_preview_query = lambda ref, query: enrich_preview_query(runtime, ref, query)
+    runtime.data_catalog["data-a"].type_name = "BrowserText"
+    runtime.data_catalog["data-a"].type_chain.append("BrowserText")
+    storage = CompositeStore().write(
+        {"index": ("arrow", pa.table({"a": [1, 2]})), "notes": ("filesystem", "legacy child text")},
+        StorageReference(backend="composite", path=str(temporary / "composite")),
+    )
+    runtime.data_catalog["comp"] = DataRecord(
+        "comp",
+        storage,
+        "Composite",
+        {"slots": {"index": "DataFrame", "notes": "Text"}},
+        ["DataObject", "Composite"],
+    )
+    panels = PanelRegistry()
+    fixtures = Path(__file__).parent / "panel-fixtures"
+    for name in ("reader", "early", "later", "navigator", "table"):
+        directory = temporary / f"browser.{name}"
+        shutil.copytree(fixtures / name, directory)
+        panels.register(
+            parse_descriptor(
+                directory,
+                owner_kind=OwnerKind.PROJECT,
+                owner_name="browser-test",
+                registered_types={"BrowserText", "Composite", "DataFrame"},
+            )[0]
+        )
+    # The runtime's panel service serves these panels over the core legacy
+    # previewers make_runtime installed (#2465).
+    use_panels(runtime, panels)
+    return runtime
 
 
 def main() -> None:
@@ -39,43 +72,7 @@ def main() -> None:
     root = Path(__file__).resolve().parents[3]
     build = root / ".workflow/local/panel-browser-build"
     with TemporaryDirectory(prefix="scistudio-panel-browser-") as temporary:
-        runtime, _store = make_runtime(Path(temporary))
-        runtime.enrich_preview_query = lambda ref, query: enrich_preview_query(runtime, ref, query)
-        runtime.data_catalog["data-a"].type_name = "BrowserText"
-        runtime.data_catalog["data-a"].type_chain.append("BrowserText")
-        storage = CompositeStore().write(
-            {"index": ("arrow", pa.table({"a": [1, 2]})), "notes": ("filesystem", "legacy child text")},
-            StorageReference(backend="composite", path=str(Path(temporary) / "composite")),
-        )
-        runtime.data_catalog["comp"] = DataRecord(
-            "comp",
-            storage,
-            "Composite",
-            {"slots": {"index": "DataFrame", "notes": "Text"}},
-            ["DataObject", "Composite"],
-        )
-        registry = PreviewerRegistry()
-        registry.load_core()
-        service = runtime.get_preview_service()
-        service.registry, service.router, service.sessions = (
-            registry,
-            PreviewRouter(registry),
-            PreviewSessionManager(registry),
-        )
-        panels = PanelRegistry()
-        fixtures = Path(__file__).parent / "panel-fixtures"
-        for name in ("reader", "early", "later", "navigator", "table"):
-            directory = Path(temporary) / f"browser.{name}"
-            shutil.copytree(fixtures / name, directory)
-            panels.register(
-                parse_descriptor(
-                    directory,
-                    owner_kind=OwnerKind.PROJECT,
-                    owner_name="browser-test",
-                    registered_types={"BrowserText", "Composite", "DataFrame"},
-                )[0]
-            )
-        runtime.get_preview_service().registry.install_panels(panels)
+        runtime = build_runtime(Path(temporary))
         router = APIRouter()
 
         @router.get("/__panel_test__/host", response_class=HTMLResponse)

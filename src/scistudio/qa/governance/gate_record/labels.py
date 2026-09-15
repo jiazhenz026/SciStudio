@@ -24,11 +24,20 @@ MERGE_LABEL: Final[str] = "admin-approved:merge"
 # runtime risk, an architecture-document change on whether the owner wants that
 # text in their document at all.
 ARCHITECTURE_DOC_LABEL: Final[str] = "admin-approved:architecture-doc"
+# Provisioned agent-document authorization only (#2438): the bundled skills,
+# the agent reference, and the AGENTS.md/CLAUDE.md template SciStudio writes into
+# user projects. Separate from the other labels for the same reason as
+# ``ARCHITECTURE_DOC_LABEL``: the owner judges these on what agents in user
+# projects will be told, which neither a runtime-risk nor an architecture
+# approval speaks to.
+AGENT_DOCS_LABEL: Final[str] = "admin-approved:agent-docs"
 # Human AI-harness bypass (PR-level CI signal, not a CLI field) (§7.5).
 HUMAN_AUTHORED_LABEL: Final[str] = "human-authored"
 
 # Labels the ``--admin-label`` CLI flag accepts (§7.5 table).
-ADMIN_LABELS: frozenset[str] = frozenset({BYPASS_LABEL, CORE_CHANGE_LABEL, MERGE_LABEL, ARCHITECTURE_DOC_LABEL})
+ADMIN_LABELS: frozenset[str] = frozenset(
+    {BYPASS_LABEL, CORE_CHANGE_LABEL, MERGE_LABEL, ARCHITECTURE_DOC_LABEL, AGENT_DOCS_LABEL}
+)
 
 # Full valid label vocabulary including the CI-only ``human-authored`` signal.
 VALID_LABELS: frozenset[str] = ADMIN_LABELS | {HUMAN_AUTHORED_LABEL}

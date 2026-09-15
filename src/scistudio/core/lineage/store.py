@@ -603,39 +603,50 @@ class LineageStore:
             )
             return {row[0] for row in cur.fetchall() if row[0]}
 
-    def latest_run_for_git_commit(self, commit_sha: str) -> dict[str, Any] | None:
-        """Return the newest run recorded at *commit_sha*, or ``None``.
+    def latest_runs_per_workflow_for_git_commit(self, commit_sha: str) -> list[dict[str, Any]]:
+        """Return the newest run of each workflow recorded at *commit_sha*.
 
-        the restore preflight is driven by a
-        git commit, not a run id, so it needs the reverse of the usual lookup.
-        Several runs can share one commit (the pre-run auto-commit is skipped
-        when the tree is already clean, so consecutive runs of an unedited
-        workflow all anchor to the same SHA); the newest is the one whose
-        recorded environment best describes "how it was when this worked".
+        A project commit covers every workflow file in the project, so several
+        workflows can have run against the same SHA. The restore preflight has
+        to check each of them: anchoring to the single newest row would skip a
+        workflow whose inputs drifted merely because a different workflow ran
+        after it. Runs are grouped by ``runs.workflow_id``, the file-derived
+        workflow identity.
 
         Args:
-            commit_sha: Full SHA to look up. Falsy input returns ``None``
+            commit_sha: Full SHA to look up. Falsy input returns an empty list
                 without touching the database.
 
         Returns:
-            The newest matching run row as a column-keyed dict, or ``None``
-            when no run references this commit — which is the normal case for
-            a manual commit or an ``auto: pre-restore`` commit, and which
-            callers must report as "unknown" rather than as "no drift".
+            One column-keyed run row per workflow, newest first. Empty when no
+            run references this commit, which callers must report as "unknown"
+            rather than as "no drift".
         """
-        # Development references: #2033, ADR-038, Addendum 1.
+        # Development references: #2425, ADR-038, Addendum 1.
         if not commit_sha:
-            return None
+            return []
         with self._connect() as conn:
             cur = conn.execute(
-                "SELECT * FROM runs WHERE workflow_git_commit = ? ORDER BY started_at DESC LIMIT 1",
+                """
+                SELECT * FROM (
+                    SELECT runs.*,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY workflow_id
+                               ORDER BY started_at DESC, rowid DESC
+                           ) AS _workflow_rank
+                    FROM runs
+                    WHERE workflow_git_commit = ?
+                )
+                WHERE _workflow_rank = 1
+                ORDER BY started_at DESC, workflow_id
+                """,
                 (commit_sha,),
             )
-            row = cur.fetchone()
-            if row is None:
-                return None
             columns = [d[0] for d in cur.description]
-            return dict(zip(columns, row, strict=False))
+            rows = [dict(zip(columns, row, strict=False)) for row in cur.fetchall()]
+        for row in rows:
+            row.pop("_workflow_rank", None)
+        return rows
 
     def workflow_boundary_inputs(self, run_id: str) -> list[dict[str, Any]]:
         """Return the run's inputs that came from outside the run itself.

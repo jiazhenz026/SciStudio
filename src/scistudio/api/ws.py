@@ -65,6 +65,15 @@ PANEL_FILES_CHANGED = "panel.files_changed"
 # ``{"panel_id": str, "workflow_id": str, "block_id": str, "port": str}``.
 PANEL_OPEN_MINIAPP = "panel.open_miniapp"
 
+# ADR-054 (#2465): the panel service revoked contexts whose panel was removed,
+# changed or shadowed, or whose project was left. Data:
+# ``{"context_ids": [str], "panel_ids": [str], "reason": str}``.
+PANEL_CONTEXTS_REVOKED = "panel.contexts_revoked"
+
+# #2465: a previewer choice changed; open previews of that type re-route.
+# Data: ``{"type": str}``.
+PANEL_CHOICES_CHANGED = "panel.choices_changed"
+
 #: FR-013: the shape of a workspace realtime client id. Minted here, sent to
 #: the browser in the ``hello`` frame, and quoted back as ``ws_client_id`` when
 #: the workspace opens a MiniApp context.
@@ -95,6 +104,8 @@ _OUTBOUND_EVENTS = frozenset(
         # never subscribed, so it silently never reaches the browser.
         PANEL_FILES_CHANGED,
         PANEL_OPEN_MINIAPP,
+        PANEL_CONTEXTS_REVOKED,
+        PANEL_CHOICES_CHANGED,
         FILE_CHANGED_EVENT_TYPE,
         # ADR-039 §3.8: forward git.head_changed so the canvas + (future)
         # Git tab invalidate cached log/branch/status state when an
@@ -175,14 +186,42 @@ def _handle_block_user_signal(
 
 
 def serialise_event(event: EngineEvent) -> dict[str, Any]:
-    """Convert an EngineEvent to a JSON-serialisable dict for the WebSocket protocol."""
+    """Convert an EngineEvent to a JSON-serialisable dict for the WebSocket protocol.
+
+    ``run_id`` names the run an execution event came from, so a client
+    can tell the current run of a workflow from an earlier one; it is ``None``
+    for events no run emitted.
+    """
+    data = event.data if isinstance(event.data, dict) else None
     return {
         "type": event.event_type,
         "block_id": event.block_id,
-        "workflow_id": event.data.get("workflow_id") if isinstance(event.data, dict) else None,
+        "workflow_id": data.get("workflow_id") if data is not None else None,
+        "run_id": data.get("run_id") if data is not None else None,
         "data": event.data,
         "timestamp": event.timestamp.isoformat(),
     }
+
+
+def _run_scope(event_bus: EventBus, data: dict[str, Any]) -> dict[str, Any]:
+    """The identity an inbound run request is addressed to.
+
+    A client that names a ``run_id`` addresses that run. One that names only a
+    workflow addresses that workflow's run the active project holds, stamped
+    with its ``run_id`` so no other run of the workflow can take the request.
+    """
+    # Development references: #2433.
+    workflow_id = data.get("workflow_id")
+    scope: dict[str, Any] = {"workflow_id": workflow_id}
+    run_id = data.get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        runtime = getattr(event_bus, "runtime", None)
+        runs = getattr(runtime, "workflow_runs", None)
+        run = runs.get(workflow_id) if isinstance(runs, dict) and isinstance(workflow_id, str) else None
+        run_id = getattr(run, "run_id", None)
+    if isinstance(run_id, str) and run_id:
+        scope["run_id"] = run_id
+    return scope
 
 
 def _client_id_for(websocket: WebSocket) -> str:
@@ -212,8 +251,8 @@ async def _close_panel_contexts_after_grace(event_bus: EventBus, client_id: str)
     #
     # A reconnect inside the grace period re-registers the id. This wakes to find
     # it present, and the MiniApp keeps running.
-    from scistudio.panels.contexts import get_panel_contexts
     from scistudio.panels.process_config import client_disconnect_grace
+    from scistudio.panels.service import get_panel_contexts
 
     try:
         await asyncio.sleep(client_disconnect_grace())
@@ -340,7 +379,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                         EngineEvent(
                             event_type=CANCEL_BLOCK_REQUEST,
                             block_id=block_id,
-                            data={"workflow_id": workflow_id},
+                            data=_run_scope(event_bus, data),
                         )
                     )
                 elif msg_type == "cancel_workflow":
@@ -351,13 +390,13 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                     await event_bus.emit(
                         EngineEvent(
                             event_type=CANCEL_WORKFLOW_REQUEST,
-                            data={"workflow_id": workflow_id},
+                            data=_run_scope(event_bus, data),
                         )
                     )
                 elif msg_type == "interactive_complete":
                     # ADR-054: a new panel must own this exact waiting prompt.
                     # Validation claims once; the event contract below stays unchanged.
-                    from scistudio.panels.contexts import get_panel_contexts
+                    from scistudio.panels.service import get_panel_contexts
                     from scistudio.panels.targets import PanelError
 
                     runtime = getattr(event_bus, "runtime", None)
@@ -395,7 +434,7 @@ async def websocket_handler(websocket: WebSocket, event_bus: EventBus) -> None:
                                 event_type=INTERACTIVE_COMPLETE,
                                 block_id=data.get("block_id"),
                                 data={
-                                    "workflow_id": data.get("workflow_id"),
+                                    **_run_scope(event_bus, data),
                                     "response": data.get("data", {}),
                                 },
                             )

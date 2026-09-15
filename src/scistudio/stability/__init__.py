@@ -56,7 +56,26 @@
 # :func:`get_stability` transparently unwraps classmethods, staticmethods, bound
 # methods, and properties (reading the marker off ``fget`` / ``fset`` / ``fdel``),
 # so the marker is found regardless of how the symbol is reached.
-# Development references: #1817, ADR-052.
+#
+# Deprecation is orthogonal to the tier (ADR-052 §5 deprecation policy, #2426).
+# A deprecated symbol keeps the tier it had -- its reliance promise holds until
+# the removal release -- so deprecation is a separate composable marker,
+# :func:`deprecated`, rather than a fourth tier. It records the version the
+# deprecation starts, the version the symbol is removed in, and the replacement.
+# :func:`get_deprecation` is its single read path. Like the tier markers it is a
+# runtime no-op: warnings, where practical, come from the code path that uses the
+# deprecated form, never from the marker. A module can carry the marker too,
+# declaring its whole public surface deprecated; that is how a root's
+# non-markable constants and type aliases are covered::
+#
+#     _deprecated = deprecated(since="0.3.5", removed_in="0.3.6", replacement="...")
+#
+#     @_deprecated
+#     @provisional(since="0.3.1")
+#     class OldThing: ...
+#
+#     _deprecated(sys.modules[__name__])
+# Development references: #1817, #2426, ADR-052.
 
 from __future__ import annotations
 
@@ -66,8 +85,11 @@ from dataclasses import dataclass
 from typing import Literal, TypeVar
 
 __all__ = [
+    "DeprecationInfo",
     "StabilityInfo",
     "Tier",
+    "deprecated",
+    "get_deprecation",
     "get_stability",
     "internal",
     "provisional",
@@ -81,6 +103,10 @@ Tier = Literal["stable", "provisional", "internal"]
 #: Namespaced to avoid colliding with author attributes; always read it through
 #: :func:`get_stability`, never directly.
 _STABILITY_ATTR = "__scistudio_stability__"
+
+#: Attribute under which :class:`DeprecationInfo` is stashed on a deprecated
+#: symbol or module. Always read it through :func:`get_deprecation`.
+_DEPRECATION_ATTR = "__scistudio_deprecation__"
 
 _T = TypeVar("_T")
 
@@ -100,8 +126,24 @@ class StabilityInfo:
     since: str | None = None
 
 
-def _marker(info: StabilityInfo) -> Callable[[_T], _T]:
-    """Build a decorator that stamps ``info`` onto a symbol and returns it."""
+@dataclass(frozen=True)
+class DeprecationInfo:
+    """The deprecation facts attached to one public symbol or module.
+
+    ``since`` is the version the deprecation starts in, ``removed_in`` the
+    version the symbol is removed in (it stays supported in every release
+    before that), and ``replacement`` names what to use instead.
+    """
+
+    # Development references: ADR-052, #2426.
+
+    since: str
+    removed_in: str
+    replacement: str
+
+
+def _stamp(attr: str, info: object) -> Callable[[_T], _T]:
+    """Build a decorator that stamps ``info`` under ``attr`` and returns the symbol."""
 
     def decorate(symbol: _T) -> _T:
         # classmethod/staticmethod wrappers reject attribute assignment, so when
@@ -112,10 +154,15 @@ def _marker(info: StabilityInfo) -> Callable[[_T], _T]:
         # the validator then reads "undecorated", the honest result for a symbol
         # that cannot be marked.
         with contextlib.suppress(AttributeError, TypeError):
-            setattr(target, _STABILITY_ATTR, info)
+            setattr(target, attr, info)
         return symbol
 
     return decorate
+
+
+def _marker(info: StabilityInfo) -> Callable[[_T], _T]:
+    """Build a decorator that stamps ``info`` onto a symbol and returns it."""
+    return _stamp(_STABILITY_ATTR, info)
 
 
 def stable(*, since: str) -> Callable[[_T], _T]:
@@ -134,6 +181,52 @@ def internal(*, since: str | None = None) -> Callable[[_T], _T]:
     """Mark a symbol ``internal`` — importable but carrying no promise."""
     # Development references: ADR-052.
     return _marker(StabilityInfo(tier="internal", since=since))
+
+
+def deprecated(*, since: str, removed_in: str, replacement: str) -> Callable[[_T], _T]:
+    """Mark a public symbol, or a whole module, deprecated.
+
+    The marker composes with the tier markers in either order and does not
+    change the tier: a deprecated ``provisional`` symbol is still
+    ``provisional`` until ``removed_in``. Applied to a module object it declares
+    every name in that module's ``__all__`` deprecated, which also covers
+    constants and type aliases that cannot carry a marker of their own. The
+    marker changes no behaviour and emits no warning.
+    """
+    # Development references: ADR-052, #2426.
+    return _stamp(_DEPRECATION_ATTR, DeprecationInfo(since=since, removed_in=removed_in, replacement=replacement))
+
+
+def _read(symbol: object, attr: str, kind: type[_T], *, inherit: bool = True) -> _T | None:
+    """Read ``attr`` off ``symbol``, unwrapping methods and property accessors.
+
+    With ``inherit=False`` a class answers only for itself, so a subclass of a
+    marked class does not read the base class's marker.
+    """
+    if isinstance(symbol, property):
+        for accessor in (symbol.fget, symbol.fset, symbol.fdel):
+            info = getattr(accessor, attr, None)
+            if isinstance(info, kind):
+                return info
+        return None
+    target = getattr(symbol, "__func__", symbol)
+    own_only = not inherit and isinstance(target, type)
+    info = vars(target).get(attr) if own_only else getattr(target, attr, None)
+    return info if isinstance(info, kind) else None
+
+
+def get_deprecation(symbol: object) -> DeprecationInfo | None:
+    """Return the :class:`DeprecationInfo` stamped on ``symbol``, or ``None``.
+
+    Unwraps methods and properties the same way :func:`get_stability` does.
+    ``symbol`` may be a module, in which case the module-wide deprecation is
+    returned. Neither a subclass of a deprecated class nor a symbol of a
+    deprecated module inherits the marker through this call; a reader that wants
+    the effective status checks the symbol first and its canonical module
+    second.
+    """
+    # Development references: ADR-052, #2426.
+    return _read(symbol, _DEPRECATION_ATTR, DeprecationInfo, inherit=False)
 
 
 def get_stability(symbol: object) -> StabilityInfo | None:
@@ -156,12 +249,4 @@ def get_stability(symbol: object) -> StabilityInfo | None:
     # ``fget``. This is the single read path for the contract validator, the
     # API-surface freeze test, and the generated reference (§15).
     # Development references: ADR-052.
-    if isinstance(symbol, property):
-        for accessor in (symbol.fget, symbol.fset, symbol.fdel):
-            info = getattr(accessor, _STABILITY_ATTR, None)
-            if isinstance(info, StabilityInfo):
-                return info
-        return None
-    target = getattr(symbol, "__func__", symbol)
-    info = getattr(target, _STABILITY_ATTR, None)
-    return info if isinstance(info, StabilityInfo) else None
+    return _read(symbol, _STABILITY_ATTR, StabilityInfo)

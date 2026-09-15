@@ -239,7 +239,8 @@ def test_the_registry_is_the_only_module_declaring_provider_labels() -> None:
 
 #: ``{frontend file: {literal: reason}}`` — the sanctioned survivors.
 #:
-#: ``SetupScreen`` keeps two ``provider === "<key>"`` branches, each showing one
+#: ``AgentLaunchSetup`` (AI Chat's setup body, lifted out of ``SetupScreen`` and
+#: shared by every agent-session surface, #2454) keeps two ``provider === "<key>"`` branches, each showing one
 #: warning about a hook gap that provider's own CLI design creates and that
 #: SciStudio cannot close from inside the project:
 #:
@@ -263,7 +264,7 @@ def test_the_registry_is_the_only_module_declaring_provider_labels() -> None:
 #: and is the point at which the notice text belongs in the registry and this
 #: allowlist should shrink back to nothing.
 _FRONTEND_KEY_ALLOWLIST: dict[str, dict[str, str]] = {
-    "components/AIChat/SetupScreen.tsx": {
+    "components/AIChat/SetupScreen.parts/AgentLaunchSetup.tsx": {
         "codex": "#1859 Codex trust-hooks warning: one UI note, not a key or label list",
         "kimi-code": "#2045 Kimi user-scope-hooks warning: one UI note, not a key or label list",
     },

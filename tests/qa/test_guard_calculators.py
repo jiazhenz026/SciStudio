@@ -16,6 +16,7 @@ import pytest
 
 from scistudio.qa.governance.gate_record.guards import (
     GuardInputs,
+    agent_docs_guard,
     architecture_doc_guard,
     core_change_guard,
     docs_landing,
@@ -39,6 +40,7 @@ _SURFACE_CLASSES = (
     "governance",
     "protected_core",
     "protected_architecture",
+    "protected_agent_docs",
     "frontend",
     "packaging",
     "workflow_ci",
@@ -247,6 +249,90 @@ def test_architecture_doc_local_without_any_label_still_blocks() -> None:
     """Local mode warns only when the intent was recorded; silence is not intent."""
 
     report = architecture_doc_guard.check(_inputs(mode="local", surfaces={"protected_architecture": [ARCH_DOC]}))
+    assert report.blocks_merge
+
+
+# ---------------------------------------------------------------------------
+# agent_docs_guard (#2438)
+# ---------------------------------------------------------------------------
+
+AGENT_DOC = "src/scistudio/_skills/scistudio/SKILL.md"
+AGENT_DOCS_LABEL = "admin-approved:agent-docs"
+
+
+def test_agent_docs_passes_when_no_agent_document_changed() -> None:
+    report = agent_docs_guard.check(_inputs(mode="ci", surfaces={"protected_agent_docs": []}))
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_agent_docs_blocks_ci_change_without_approval() -> None:
+    report = agent_docs_guard.check(_inputs(mode="ci", surfaces={"protected_agent_docs": [AGENT_DOC]}))
+    assert report.blocks_merge
+    assert "agent_docs_guard.missing-owner-approval" in _rule_ids(report)
+    assert report.findings[0].file == AGENT_DOC
+
+
+def test_agent_docs_passes_with_label_from_authorized_actor() -> None:
+    report = agent_docs_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_agent_docs": [AGENT_DOC]},
+            observed_admin_labels=[AdminLabel(name=AGENT_DOCS_LABEL, actor_permission="admin")],
+        )
+    )
+    assert report.status is AuditStatus.PASS
+    assert not report.blocks_merge
+
+
+def test_agent_docs_label_without_provenance_does_not_release_ci() -> None:
+    report = agent_docs_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_agent_docs": [AGENT_DOC]},
+            observed_admin_labels=[AdminLabel(name=AGENT_DOCS_LABEL, actor_permission="read")],
+        )
+    )
+    assert report.blocks_merge
+
+
+@pytest.mark.parametrize("other_label", ["admin-approved:core-change", "admin-approved:architecture-doc"])
+def test_agent_docs_other_admin_labels_do_not_release_it(other_label: str) -> None:
+    report = agent_docs_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_agent_docs": [AGENT_DOC]},
+            observed_admin_labels=[AdminLabel(name=other_label, actor_permission="admin")],
+        )
+    )
+    assert report.blocks_merge
+
+
+def test_agent_docs_passes_with_admin_approval_review() -> None:
+    report = agent_docs_guard.check(
+        _inputs(
+            mode="ci",
+            surfaces={"protected_agent_docs": [AGENT_DOC]},
+            pr_context={"reviews": [{"state": "APPROVED", "permission": "admin"}]},
+        )
+    )
+    assert report.status is AuditStatus.PASS
+
+
+def test_agent_docs_local_requested_label_is_warning_not_block() -> None:
+    report = agent_docs_guard.check(
+        _inputs(
+            mode="local",
+            surfaces={"protected_agent_docs": [AGENT_DOC]},
+            requested_admin_labels=[AdminLabel(name=AGENT_DOCS_LABEL)],
+        )
+    )
+    assert not report.blocks_merge
+    assert any(f.severity == Severity.WARNING for f in report.findings)
+
+
+def test_agent_docs_local_without_any_label_still_blocks() -> None:
+    report = agent_docs_guard.check(_inputs(mode="local", surfaces={"protected_agent_docs": [AGENT_DOC]}))
     assert report.blocks_merge
 
 

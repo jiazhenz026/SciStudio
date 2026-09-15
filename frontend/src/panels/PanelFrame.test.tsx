@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockBackend, reply, type MockBackend } from "../__tests__/contract/mockBackend";
 import { resetBasePathCacheForTests } from "../lib/api/base-path";
-import { PanelFrame } from "./PanelFrame";
+import { PANEL_RELOAD_DEBOUNCE_MS, PanelFrame } from "./PanelFrame";
+import { notifyPanelContextsRevoked, notifyPanelFilesChanged } from "./panelEvents";
 import type { PanelContext } from "./types";
 
 const context: PanelContext = {
@@ -141,4 +142,58 @@ it("never transfers input to a document without the first context-bound bootstra
   const duplicate = bootstrapFrame(iframe);
   expect(duplicate.postMessage).not.toHaveBeenCalled();
   expect(channels).toHaveLength(1);
+});
+
+describe("#2465 — backend signals remount only the affected frame", () => {
+  const created = () => backend.callsTo("POST /api/panels/contexts");
+
+  it.each(["preview", "interactive"] as const)(
+    "reloads a %s frame in place when its panel's page changes, debounced",
+    async (kind) => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const frameRequest =
+        kind === "preview"
+          ? request
+          : { kind, panel_id: "lab.image", workflow_id: "wf", block_id: "b" };
+      render(<PanelFrame request={frameRequest} />);
+      await waitFor(() => expect(created()).toHaveLength(1));
+      act(() => {
+        notifyPanelFilesChanged("lab.image");
+        notifyPanelFilesChanged("lab.other");
+        notifyPanelFilesChanged("lab.image");
+      });
+      act(() => {
+        vi.advanceTimersByTime(PANEL_RELOAD_DEBOUNCE_MS - 1);
+      });
+      expect(created()).toHaveLength(1);
+      act(() => {
+        vi.advanceTimersByTime(2);
+      });
+      await waitFor(() => expect(created()).toHaveLength(2));
+      await waitFor(() =>
+        expect(backend.callsTo("DELETE /api/panels/contexts/{context_id}")).toHaveLength(1),
+      );
+    },
+  );
+
+  it("ignores another panel's page change", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    render(<PanelFrame request={request} />);
+    await waitFor(() => expect(created()).toHaveLength(1));
+    act(() => notifyPanelFilesChanged("lab.other"));
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(created()).toHaveLength(1);
+  });
+
+  it("remounts only when its own context is revoked", async () => {
+    render(<PanelFrame request={request} />);
+    await waitFor(() => expect(created()).toHaveLength(1));
+    await screen.findByTitle("lab.image");
+    act(() => notifyPanelContextsRevoked(["pc-other"]));
+    expect(created()).toHaveLength(1);
+    act(() => notifyPanelContextsRevoked(["pc-1"]));
+    await waitFor(() => expect(created()).toHaveLength(2));
+  });
 });

@@ -3,16 +3,15 @@
   "input": { "ref": "sample-series", "kind": "data_ref", "recorded_type": "Series" },
   "reads": {
     "series.points": {
-      "index": [0, 1, 2, 4, 5],
-      "values": [0.0, 1.0, 4.0, 1.5, 0.25],
+      "index": [0, 1, 2, 3, 4, 5],
+      "values": [0.0, 1.0, 4.0, "NaN", 1.5, 0.25],
+      "offset": 0,
+      "limit": 100000,
+      "next_offset": null,
       "total": 6,
       "nonnumeric": 1,
-      "sampled": false,
       "truncated": false,
-      "complete": false,
-      "decimation": "none",
-      "nonfinite_positions": [3],
-      "nonfinite_positions_complete": true
+      "complete": true
     }
   }
 }

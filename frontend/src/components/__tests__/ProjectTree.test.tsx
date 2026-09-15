@@ -9,7 +9,7 @@
  *   - <name>.tiff (not in editable set) -> NO action
  */
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as ApiModule from "../../lib/api";
@@ -155,6 +155,10 @@ describe("ProjectTree — Reload button (#2090)", () => {
   it("labels the reload affordance 'Reload' and refetches on click", async () => {
     await renderTreeWith([{ name: "workflows", type: "directory" }]);
     expect(getProjectTreeMock).toHaveBeenCalledTimes(1);
+    // #2415 — the Reload control carries the shared reload icon.
+    expect(
+      within(screen.getByRole("button", { name: "Reload" })).getByTestId("section-reload-icon"),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reload" }));
     await waitFor(() => expect(getProjectTreeMock).toHaveBeenCalledTimes(2));
   });

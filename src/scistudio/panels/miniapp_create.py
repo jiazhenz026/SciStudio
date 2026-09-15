@@ -3,7 +3,7 @@
 #
 # ADR-054 MiniApp FR-024/FR-026/FR-027/FR-034/FR-036. Everything here is the
 # filesystem and data half of the two create routes in
-# :mod:`scistudio.api.routes.panels`; the availability check and the agent
+# :mod:`scistudio.api.routes.panels`; the provider check and the agent
 # session stay in the route, so this module imports nothing from
 # :mod:`scistudio.api`.
 #
@@ -25,6 +25,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+# ``PANELS_DIR_NAME`` is owned and scanned by core.dropins (#2411); it stays
+# importable from here, where the MiniApp create route first introduced it.
+from scistudio.core.dropins import PANELS_DIR_NAME
 from scistudio.panels.descriptor import PanelDescriptor
 from scistudio.panels.miniapp import _check_type, _output_ref
 from scistudio.panels.targets import FrozenTarget, PanelError, freeze_target
@@ -38,11 +41,6 @@ TEMPLATE_DIR = Path(__file__).resolve().parent / "template"
 #: ``.scistudio/`` so the default project ``.gitignore`` excludes it, as the
 #: Bring In My Work briefs are.
 BRIEF_DIR_PARTS = (".scistudio", "miniapps")
-
-#: The project tier's panel directory name. The bare literal
-#: :func:`scistudio.core.dropins.panel_scan_dirs` uses; there is no shared
-#: constant to import yet.
-PANELS_DIR_NAME = "panels"
 
 #: Type names a panel descriptor reserves for core panels. A MiniApp claiming
 #: one would never load, so the route refuses the source instead of writing a
@@ -313,7 +311,7 @@ def compose_create_brief(
 
 A user asked SciStudio for a small app to look at one piece of their data.
 SciStudio has already created the directory and opened it in a tab, so the
-user is watching a template page while you work. Replace it.
+user is watching a template page while you work.
 
 ## What the user asked for
 
@@ -329,20 +327,25 @@ user is watching a template page while you work. Replace it.
 
 ## How to do it
 
-1. Follow the `scistudio-write-miniapp` skill. It is the MiniApp form: what
-   `panel.json` declares, how the page talks to the SDK (`read`, `call`,
-   `save`), what `panel.py` may do, and what the frame does and does not allow.
-2. Write only inside `{directory_relpath}`, unless the user asks you for
-   something else. This is their project; a MiniApp leaves only itself behind.
-3. Keep the `id`, `contexts`, and `types` that are already in `panel.json`.
-   The tab is open on that id and that type right now, and changing either
-   closes the user's tab underneath them. If the type is wrong for what they
-   asked for, say so instead of editing it.
-4. Put the work that is slow in `setup(data)` in `panel.py`, once, and answer
-   the page from what it loaded. `data` is the output above, already
-   reconstructed as a SciStudio data object.
-5. Run `validate_panel` on the directory before you finish, and fix what it
-   reports. The tab reloads every time you save, so the user sees each step.
+Follow the `scistudio-write-miniapp` skill; it holds the detail. In short:
+
+1. Take a quick look at the data, so your questions are about this data.
+2. Ask before you build. Write `questionnaire.json` and a page that shows it
+   with the SDK's standard `Questionnaire` component. Every answer is optional
+   and every question offers "Decide for me"; suggest alternative answers as
+   options. Run `validate_panel` on the directory until it passes — it checks
+   the questionnaire works end to end.
+3. Wait for the user to submit. In this session you are told in the chat when
+   they do; without a SciStudio session, call `wait_for_answers`. The answers are
+   in `{directory_relpath}/answers.json`.
+4. Build the MiniApp from the answers, replacing the questionnaire page. Choose
+   sensibly wherever the user picked "Decide for me" or skipped a question.
+5. Write only inside `{directory_relpath}`, unless the user asks you for
+   something else. Keep the `id`, `contexts`, and `types` that are already in
+   `panel.json`: the tab is open on that id and that type, and changing either
+   closes the user's tab. If the type is wrong for what they asked for, say so.
+6. Run `validate_panel` again before you finish. The tab reloads every time you
+   save, so the user sees each step.
 
 When it works, tell the user in one or two sentences what they can now do with
 it — not how you built it.

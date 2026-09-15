@@ -1,0 +1,11 @@
+{
+  "id": "miniapp",
+  "api_version": "1.0",
+  "contexts": [
+    "miniapp"
+  ],
+  "types": [
+    "Text"
+  ],
+  "name": "Questionnaire fixture"
+}

@@ -1,80 +1,45 @@
 # Workflow YAML schema
 
-A workflow is a DAG of typed blocks under `workflows/*.yaml`. The runtime is the
-source of truth; it validates structure and types before running. Write through
-the `write_workflow` MCP tool (not direct file edits), then `validate_workflow`.
+## 1. Where to look
 
-## Shape
-
-```yaml
-workflow:                            # REQUIRED top-level key
-  id: my-pipeline                    # slug, unique per project
-  version: "1.0.0"                   # semver
-  description: One-line summary.     # optional, recommended
-  nodes:
-    - id: load                       # unique node id
-      block_type: load_data          # registered name (from list_blocks)
-      config:                        # validated against the block's config_schema
-        core_type: DataFrame
-        path: data/raw/in.csv
-    - id: thr
-      block_type: imaging.threshold
-      config: {method: otsu}
-  edges:
-    - source: "load:data"            # "<node_id>:<port_name>" — single colon
-      target: "thr:image"
-  metadata: {}                       # optional free-form
-```
-
-| Level | Keys |
+| You need | Read |
 |---|---|
-| `workflow` | `id` (req), `version` (req), `description`, `nodes` (req), `edges` (req; `[]` ok for single block), `metadata` |
-| node | `id` (req), `block_type` (req; must be registered), `config` (req; may be `{}`) |
-| edge | `source` (req), `target` (req) — each `"node_id:port_name"`, **single colon**, two strings only |
+| Every key of a workflow file, the edge form, file name and run identity, and what validation checks | `user-guide/api-reference/workflow-yaml.md` (generated from the code) |
+| How to build, edit, validate, and run a workflow | the `scistudio-build-workflow` skill |
+| A block's exact ports, config, and format capabilities | `get_block_schema(block_type)` |
+| The type hierarchy for wiring | `list_types` |
+| Blocks and types from installed packages | [package-discovery.md](package-discovery.md) |
 
-## Rules
+## 2. Rules
 
-- **File name MUST equal the `id`.** Always write to `workflows/{id}.yaml`.
-  `write_workflow` rejects a mismatch (e.g. file `foo_bar.yaml` holding
-  `id: foo-bar`). Pick one convention for the id and let the file follow it — do
-  not use snake_case for the file and kebab-case for the id. Renaming or moving
-  a workflow with `move_path` rewrites its `id` to the new file name.
-- **A run is identified by its file, not by `id`.** `run_workflow(path)` runs
-  exactly the file at `path`. A file under `workflows/` runs as its file name
-  (`workflows/main.yaml` → `main`); any other workflow file runs under its
-  project path written with `@` separators (`subworkflows/qc.yaml` →
-  `@subworkflows@qc.yaml`). That value is the `run_id` to poll, the `workflow_id`
-  on run events and lineage, and the `data/zarr/<id>/` output folder.
-- **Edge shape is two strings.** Not the canvas 4-field `{source, source_port,
-  target, target_port}` form. Separator is a single colon (`load:data`), not
-  `.`/`/`/`-`.
-- **Never guess port names or block_type.** Call `get_block_schema(block_type)`
-  and copy exact `input_ports[].name` / `output_ports[].name`; `block_type` is
-  namespaced (`imaging.threshold`, `load_data`) — `list_blocks` returns the
-  canonical name.
-- **Config must satisfy `config_schema`** (required fields present); paths are
-  project-relative (no `../` escape).
-- **DAG only** (no cycles); edges must be **type-compatible** (`list_types` for the
-  hierarchy).
-- **Prefer core `Load`/`Save`** (`load_data` / `save_data`) with a `core_type` —
-  it covers package types (`Spectrum`, `Image`, …) via the `core_type` enum. Use a
-  package-specific IO block only when no `core_type` fits.
-- Fan-out = multiple edges with the same `source`; no "tee" block needed.
-
-## Canonical tool sequence
-
-```
-list_blocks
-get_block_schema(block_type)   # per candidate: exact ports + config_schema
-list_types                     # when wiring unfamiliar types
-write_workflow(path, content)  # pre-validates; read next_step
-validate_workflow(path)        # edges, type-compat, DAG; read every error
-run_workflow(path)             # -> run_id
-get_run_status(run_id)         # poll until succeeded/failed/cancelled
-```
-
-On `validate_workflow` failure: read every error; for a port/type error call
-`get_block_schema`/`list_types` before retrying; fix all in one rewrite; retry ≤3,
-then ask the user. Never `run_workflow` an unvalidated YAML. See
-[block-contract.md](block-contract.md) for the blocks; the built-in blocks are
-catalogued in the user guide (`../../user-guide/built-in-blocks.md`).
+- **Change workflows only through the workflow tools.** Create with
+  `write_workflow`, change with `edit_workflow` or `update_block_config`, and never
+  edit `workflows/*.yaml` with file or shell tools. Re-emitting a whole existing
+  file through `write_workflow` drops the user's config and comments.
+- **Name the file after the `id`.** Write `workflows/<id>.yaml`; `write_workflow`
+  refuses a file whose name and `id` differ. A run is identified by its file, and
+  `run_workflow(path)` runs exactly that file.
+- **Copy block types and port names from the schema.** Use the `type_name` from
+  `list_blocks` as `block_type`, and port names from `get_block_schema`. A guessed
+  name fails validation or wires the wrong port.
+- **Write edges as two strings.** Each edge is `source: "node_id:port_name"` and
+  `target: "node_id:port_name"`, with one colon. The canvas form with separate port
+  fields is not a workflow edge.
+- **Read and write data only with core `load_data` and `save_data`.** Configure
+  `core_type` and the format (the path's extension, or `capability_id` when several
+  formats match). Never put a package or self-written IO block in a workflow as a
+  node.
+- **Validate before every run.** Call `validate_workflow` after each change and fix
+  every error, reading `Warning:` messages as advisory. Never start
+  `run_workflow` on a workflow that has not validated.
+- **Track a run by its own `run_id`.** `run_workflow` returns it; pass it to
+  `get_run_status`, `get_block_output`, `get_block_logs`, and `cancel_run`, which act
+  on that run only (a workflow id means that workflow's latest run). One workflow
+  cannot run twice at once, while different workflows can.
+- **Poll a run to a terminal state.** Keep calling `get_run_status` while the state
+  is `queued`, `running`, or `unknown`. Only `succeeded`, `failed`, or `cancelled` is
+  an outcome.
+- **Keep GB-scale data out of memory.** `load_data` persists what it reads to Zarr
+  or Parquet storage, and each block should read that storage by region or in chunks
+  (see [block-contract.md](block-contract.md)). Inspect results with `inspect_data`
+  and `preview_data`, which are bounded, and never read stored data files whole.

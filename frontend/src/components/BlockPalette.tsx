@@ -1,3 +1,4 @@
+import { RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { useReloadFlash } from "../hooks/useReloadFlash";
@@ -5,6 +6,7 @@ import type { BlockSummary } from "../types/api";
 import { getCategoryVisual } from "./nodes/BlockNode.parts/categoryVisuals";
 import { BlockDetailPopover } from "./BlockDetailPopover";
 import { PromoteToLibraryAction } from "./promotion/PromoteToLibraryAction";
+import { SectionReloadButton } from "./SectionReloadButton";
 import { isPromotable, promotableBlock } from "./promotion/promotable";
 import { BlockTile } from "./BlockPalette.parts/BlockTile";
 import { CategoryChips } from "./BlockPalette.parts/CategoryChips";
@@ -239,8 +241,14 @@ export function BlockPalette({
         className="flex h-full flex-col overflow-hidden border-r border-stone-200 bg-[linear-gradient(180deg,_rgba(255,255,255,0.95),_rgba(245,241,232,0.98))] p-2"
         data-tutorial-target="block_palette"
       >
-        <button className="toolbar-button mb-2 self-center" onClick={handleReload} type="button">
-          {"↻"}
+        <button
+          aria-label="Reload"
+          className="toolbar-button mb-2 self-center"
+          onClick={handleReload}
+          title="Reload"
+          type="button"
+        >
+          <RefreshCw aria-hidden="true" data-testid="section-reload-icon" size={14} />
         </button>
         <div
           className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto scrollbar-thin"
@@ -283,9 +291,7 @@ export function BlockPalette({
         {/* FR-034: the panel names itself after its tab, so `Blocks` and the
             `Data types` tab beside it read as peers. */}
         <p className="font-display text-xl text-ink">Blocks</p>
-        <button className="toolbar-button" onClick={handleReload} type="button">
-          Reload
-        </button>
+        <SectionReloadButton onClick={handleReload} />
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col" data-testid="palette-content" ref={contentRef}>

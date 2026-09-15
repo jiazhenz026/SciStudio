@@ -31,7 +31,7 @@ from fastapi.responses import PlainTextResponse
 
 from scistudio.api.deps import get_lineage_store
 from scistudio.core.lineage.methods_export import render_methods_markdown
-from scistudio.core.lineage.restore_preflight import evaluate_restore_target
+from scistudio.core.lineage.restore_preflight import RestoreRunMismatchError, evaluate_restore_target
 
 logger = logging.getLogger(__name__)
 
@@ -120,12 +120,17 @@ def validate_restore(
     advisory: this endpoint never blocks a restore, and a caller is free to
     ignore the response entirely.
 
+    A commit covers every workflow in the project, so the newest run of each
+    workflow recorded at ``commit_sha`` is checked and the warnings are merged,
+    each attributed to its workflow (``runs`` lists the per-workflow results).
+
     Keyed on the commit because that is what Restore operates on. ``run_id`` is
     an optional refinement, not a duplicate of it: several runs can share one
     commit (the pre-run auto-commit is skipped on an already-clean tree), so
     resolving by commit alone answers with the newest of them whatever its
     outcome. Run history knows which run the user picked and passes it; the Git
-    tab restores an arbitrary commit and has nothing to pass.
+    tab restores an arbitrary commit and has nothing to pass. A ``run_id``
+    recorded at a different commit is rejected with 400.
 
     A target with no resolvable run returns ``run_id: null`` with both warning
     lists empty. That is **not** a clean bill of health, and clients must not
@@ -134,8 +139,11 @@ def validate_restore(
     exists to remove -- the previous UI showed "No drift detected" for a
     comparison that never ran.
     """
-    # Development references: #2033, ADR-038, Addendum 1.
-    return evaluate_restore_target(store, commit_sha, run_id=run_id)
+    # Development references: #2033, #2425, ADR-038, Addendum 1.
+    try:
+        return evaluate_restore_target(store, commit_sha, run_id=run_id)
+    except RestoreRunMismatchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------

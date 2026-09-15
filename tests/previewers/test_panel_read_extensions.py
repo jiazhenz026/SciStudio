@@ -40,22 +40,43 @@ def array_reader(
     return access, ref, handle
 
 
-def test_plane_extrema_include_unsampled_cells_in_bounded_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_large_plane_is_never_sampled_and_reports_full_extent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2460: a plane too large for one read carries no stand-in values, only geometry and extent."""
     source = np.ones((513, 769), dtype=">f4")
-    source[1, 1], source[1, 2] = -12345, 98765  # neither is sampled
+    source[1, 1], source[1, 2] = -12345, 98765
     source[0, 0] = np.nan
-    access, ref, handle = array_reader(monkeypatch, source, max_dim=16)
+    access, ref, handle = array_reader(monkeypatch, source, max_tile=16)
     result = access.panel_array_plane(ref)
-    assert result.values.shape == (16, 16)
+    assert result.values.shape == (0, 0)
     assert result.metadata["vmin"] == -12345
     assert result.metadata["vmax"] == 98765
     assert result.metadata["source_shape"] == [513, 769]
+    assert (result.metadata["height"], result.metadata["width"], result.metadata["tile_size"]) == (513, 769, 16)
     assert result.metadata["source_dtype"] == ">f4"
+    assert result.metadata["truncated"] and not result.metadata["complete"]
+    for key in ("sampled", "decimation", "strides"):
+        assert key not in result.metadata
+    # No read in the extent scan skipped a cell: every key is a contiguous window.
+    for key in handle.keys:
+        assert all(isinstance(part, slice) and part.step is None for part in key)
+    # Every cell is reachable, exactly, through tiles.
+    rebuilt = np.empty(source.shape, dtype="<f4")
+    for y in range(0, 513, 16):
+        for x in range(0, 769, 16):
+            tile = access.panel_array_tile(ref, y0=y, x0=x, height=16, width=16)
+            rebuilt[y : y + tile.values.shape[0], x : x + tile.values.shape[1]] = tile.values
+    np.testing.assert_array_equal(rebuilt, source)
+
+
+def test_plane_that_fits_one_read_is_complete_and_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    source = np.arange(12 * 16, dtype=">f4").reshape(12, 16)
+    source[0, 0] = np.nan
+    access, ref, _ = array_reader(monkeypatch, source, max_tile=16)
+    result = access.panel_array_plane(ref)
+    assert result.metadata["complete"] and not result.metadata["truncated"]
     assert result.metadata["dtype"] == "<f4"
-    assert result.metadata["sampled"] and result.metadata["truncated"] and not result.metadata["complete"]
-    assert len(handle.keys) > 2  # sampled read and tiled full-plane extent scan
     restored = np.frombuffer(result.to_bytes(), dtype="<f4").reshape(result.metadata["shape"])
-    np.testing.assert_array_equal(restored, source[::33, ::49])
+    np.testing.assert_array_equal(restored, source)
     encoded = result.to_json()
     # NaN is conveyed distinctly as the sentinel "NaN", never erased to null (#1886 E).
     assert encoded["values"][0][0] == "NaN"
@@ -72,7 +93,7 @@ def test_tile_slices_storage_and_transposes_named_axes(monkeypatch: pytest.Monke
     assert result.metadata["shape"] == [5, 6]
     assert result.metadata["dtype"] == "<i2"
     assert result.metadata["complete"]
-    assert not result.metadata["sampled"]
+    assert "sampled" not in result.metadata
 
 
 def test_tile_flags_nonfinite_and_invalid_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -111,34 +132,52 @@ def test_array_byte_budget_rejected_before_tile_storage_read(monkeypatch: pytest
     assert plane.values.nbytes <= 32
 
 
-def test_series_decimation_is_explicit_and_preserves_legacy_defaults(tmp_path: Path) -> None:
+def test_series_pages_return_every_exact_row_in_source_order(tmp_path: Path) -> None:
+    """#2460: following next_offset reaches every row; nothing is decimated or dropped."""
     path = tmp_path / "series.parquet"
     values = [float(i) for i in range(10001)]
     values[7] = float("nan")
-    pq.write_table(pa.table({"time": np.arange(len(values)), "signal": values}), path, row_group_size=37)
+    values[9000] = float("-inf")
+    pq.write_table(pa.table({"time": np.arange(len(values)) * 0.25, "signal": values}), path, row_group_size=37)
     ref = StorageReference(backend="arrow", path=str(path))
-    access = PreviewDataAccess(series_points=31)
+    access = PreviewDataAccess()
     meta = {"index_name": "time", "value_name": "signal"}
     legacy = access.series_points(ref, meta)
-    assert len(legacy.points) == 10000 and not legacy.truncated
-    result = access.panel_series_points(ref, meta, max_points=11)
-    assert result.metadata["nonnumeric"] == 1
-    assert result.metadata["decimation"] == "uniform-index"
-    assert result.metadata["sampled"] and not result.metadata["complete"]
-    assert result.values.shape == (11, 2)
-    assert result.values[0].tolist() == [0, 0]
-    assert result.values[-1].tolist() == [10000, 10000]
-    np.testing.assert_array_equal(np.frombuffer(result.to_bytes(), dtype="<f8").reshape(-1, 2), result.values)
+    assert len(legacy.points) == 9999 and not legacy.truncated
+    pages, offset = [], 0
+    while offset is not None:
+        page = access.panel_series_points(ref, meta, offset=offset, limit=1024)
+        assert page.metadata["offset"] == offset and page.metadata["total"] == 10001
+        assert page.metadata["truncated"] is (page.metadata["next_offset"] is not None)
+        assert page.metadata["complete"] is (page.metadata["next_offset"] is None)
+        for key in ("sampled", "decimation", "source_indices", "nonfinite_positions_complete"):
+            assert key not in page.metadata
+        pages.append(page)
+        offset = page.metadata["next_offset"]
+    assert len(pages) == 10
+    rows = np.concatenate([page.values for page in pages])
+    np.testing.assert_array_equal(rows[:, 0], np.arange(10001) * 0.25)
+    np.testing.assert_array_equal(rows[:, 1], np.asarray(values))
+    assert sum(page.metadata["nonnumeric"] for page in pages) == 2
+    np.testing.assert_array_equal(np.frombuffer(pages[0].to_bytes(), dtype="<f8").reshape(-1, 2), pages[0].values)
+    # Non-finite values stay in place, as distinct JSON sentinels.
+    assert pages[0].to_json()["values"][7] == [1.75, "NaN"]
 
 
-def test_series_cap_and_indexed_values() -> None:
-    access = PreviewDataAccess(max_bytes=64)
+def test_series_window_over_in_memory_values_and_invalid_windows() -> None:
+    access = PreviewDataAccess()
     ref = StorageReference(backend="filesystem", path="/nonexistent")
-    result = access.panel_series_points(ref, {"values": list(range(100))}, max_points=1000)
-    assert result.values.shape == (4, 2)
-    assert result.values[:, 0].tolist() == [0, 33, 66, 99]
-    with pytest.raises(ValueError, match="positive"):
-        access.series_points(ref, {}, max_points=0)
+    result = access.panel_series_points(ref, {"values": [3, None, "x", 4.5]}, offset=1, limit=2)
+    assert result.values[:, 0].tolist() == [1.0, 2.0]
+    assert np.isnan(result.values[:, 1]).all()
+    assert result.metadata["next_offset"] == 3 and result.metadata["nonnumeric"] == 2
+    last = access.panel_series_points(ref, {"values": [3, None, "x", 4.5]}, offset=3, limit=2)
+    assert last.values.tolist() == [[3.0, 4.5]] and last.metadata["complete"]
+    for kwargs in ({"offset": -1, "limit": 1}, {"offset": 0, "limit": 0}, {"offset": 9, "limit": 1}):
+        with pytest.raises(ValueError):
+            access.panel_series_points(ref, {"values": [1, 2]}, **kwargs)
+    with pytest.raises(ValueError, match="budget"):
+        PreviewDataAccess(max_bytes=64).panel_series_points(ref, {"values": list(range(100))}, limit=100)
 
 
 def test_text_byte_offsets_preserve_utf8_across_windows(tmp_path: Path) -> None:
@@ -203,36 +242,27 @@ def test_legacy_result_positional_construction_is_unchanged() -> None:
     assert CollectionSample(0, None, [], False).next_cursor is None
 
 
-def test_table_xy_streams_projected_columns_and_bounded_batches(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_table_xy_page_reads_only_its_row_groups(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "table.parquet"
-    pq.write_table(pa.table({"time": list(range(1000)), "signal": list(range(1000)), "unused": ["x"] * 1000}), path)
-    real_parquet_file = pq.ParquetFile
-    batches = []
+    table = pa.table({"time": list(range(1000)), "signal": [i * 2 for i in range(1000)], "unused": ["x"] * 1000})
+    pq.write_table(table, path, row_group_size=100)
+    real_read = pq.ParquetFile.read_row_group
+    groups: list[int] = []
 
-    class ObservedParquet:
-        def __init__(self, source: Any) -> None:
-            self.inner = real_parquet_file(source)
-            self.schema_arrow = self.inner.schema_arrow
-            self.metadata = self.inner.metadata
+    def observed(self: Any, index: int, columns: Any = None, **kwargs: Any) -> Any:
+        assert columns == ["time", "signal"]
+        groups.append(index)
+        return real_read(self, index, columns=columns, **kwargs)
 
-        def iter_batches(self, *, batch_size: int, columns: list[str]) -> Any:
-            assert batch_size <= 17
-            assert columns == ["time", "signal"]
-            for batch in self.inner.iter_batches(batch_size=batch_size, columns=columns):
-                batches.append(batch.num_rows)
-                yield batch
-
-    monkeypatch.setattr(pq, "ParquetFile", ObservedParquet)
+    monkeypatch.setattr(pq.ParquetFile, "read_row_group", observed)
     ref = StorageReference(backend="arrow", path=str(path))
-    result = PreviewDataAccess(series_points=17).panel_table_xy(ref, max_points=12)
-    assert len(batches) > 1 and sum(batches) == 1000
-    assert result.values.shape == (12, 2)
+    result = PreviewDataAccess().panel_table_xy(ref, offset=250, limit=120)
+    assert groups == [2, 3]
+    assert result.values[:, 0].tolist() == list(range(250, 370))
+    assert result.values[:, 1].tolist() == [i * 2 for i in range(250, 370)]
     assert result.metadata["x_column"] == "time"
     assert result.metadata["y_column"] == "signal"
-    assert result.metadata["sampled"]
-    assert result.values[-1].tolist() == [999, 999]
+    assert result.metadata["next_offset"] == 370 and result.metadata["truncated"]
 
 
 def test_partial_legacy_collection_sample_has_no_unusable_cursor() -> None:
@@ -304,40 +334,12 @@ def test_series_and_table_nonfinite_positions_surface_gaps(tmp_path: Path) -> No
     series = access.series_points(ref, {"values": [1.0, float("nan"), 3.0, float("inf"), 5.0]})
     assert series.nonnumeric == 2
     assert series.nonfinite_positions == [1, 3]
-    assert series.nonfinite_positions_complete
 
     path = tmp_path / "xy.parquet"
     pq.write_table(pa.table({"x": [0.0, 1.0, float("nan"), 3.0], "y": [10.0, float("inf"), 12.0, 13.0]}), path)
     xy = access.table_xy_points(StorageReference(backend="arrow", path=str(path)), x_column="x", y_column="y")
     assert xy.nonnumeric == 2
     assert xy.nonfinite_positions == [1, 2]
-
-
-def test_decimated_series_reports_bounded_gap_positions(tmp_path: Path) -> None:
-    """#1886 D: even a bounded decimated read surfaces (bounded) gap positions."""
-    values = [float(i) for i in range(100)]
-    for i in (7, 40, 88):
-        values[i] = float("nan")
-    path = tmp_path / "s.parquet"
-    pq.write_table(pa.table({"time": np.arange(100), "signal": values}), path)
-    ref = StorageReference(backend="arrow", path=str(path))
-    result = PreviewDataAccess().panel_series_points(ref, {"index_name": "time", "value_name": "signal"}, max_points=10)
-    assert result.metadata["nonnumeric"] == 3
-    assert result.metadata["nonfinite_positions"] == [7, 40, 88]
-    assert result.metadata["nonfinite_positions_complete"] is True
-
-    # When drops exceed the position budget, the list is bounded but the count stays exact.
-    dense = [float("nan")] * 50 + [float(i) for i in range(50)]
-    dense_path = tmp_path / "dense.parquet"
-    pq.write_table(pa.table({"time": np.arange(100), "signal": dense}), dense_path)
-    bounded = PreviewDataAccess().panel_series_points(
-        StorageReference(backend="arrow", path=str(dense_path)),
-        {"index_name": "time", "value_name": "signal"},
-        max_points=5,
-    )
-    assert bounded.metadata["nonnumeric"] == 50
-    assert len(bounded.metadata["nonfinite_positions"]) == 5
-    assert bounded.metadata["nonfinite_positions_complete"] is False
 
 
 def test_read_budget_is_20_mib_and_refuses_oversized_read(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -360,4 +362,4 @@ def test_read_budget_is_20_mib_and_refuses_oversized_read(monkeypatch: pytest.Mo
     # A native-resolution tile that fits the 20 MiB budget is served in full.
     fits = access.panel_array_tile(ref, height=512, width=512)
     assert fits.values.shape == (512, 512)
-    assert not fits.metadata["sampled"] and fits.metadata["complete"]
+    assert fits.metadata["complete"]

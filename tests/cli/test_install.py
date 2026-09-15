@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
+from scistudio.agent_provisioning.skills import _SKILL_NAMES
 from scistudio.ai.agent.providers_registry import agent_keys
 from scistudio.cli.install import (
     MCP_SERVER_NAME,
@@ -396,15 +397,7 @@ def test_install_codex_project_scope_writes_local_config(fake_home: Path, fake_c
 # ---------------------------------------------------------------------------
 
 
-_EXPECTED_SUB_SKILLS = (
-    "scistudio-build-workflow",
-    "scistudio-write-block",
-    "scistudio-debug-run",
-    "scistudio-inspect-data",
-    "scistudio-project-qa",
-    "scistudio-write-plot",
-    "scistudio-write-miniapp",
-)
+_EXPECTED_SUB_SKILLS = tuple(name for name in _SKILL_NAMES if name != "scistudio")
 
 
 def test_install_skill_layout_is_flat_and_discoverable(fake_home: Path, fake_cwd: Path) -> None:

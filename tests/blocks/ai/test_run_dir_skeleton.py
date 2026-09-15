@@ -132,7 +132,7 @@ def test_write_manifest_atomic(tmp_path: Path) -> None:
 
 
 def test_write_manifest_default_expected_path(tmp_path: Path) -> None:
-    """Output port without expected_path → ./{block_name}_outputs/{port}.{ext}."""
+    """Output port without expected_path → ./data/ai_outputs/{workflow}/{block}/{port}.{ext}."""
     rd = RunDir(tmp_path, "run4")
     rd.create()
     text_port = OutputPort(name="report", accepted_types=[Text])
@@ -143,9 +143,37 @@ def test_write_manifest_default_expected_path(tmp_path: Path) -> None:
         inputs={},
         outputs=[text_port],
         deadline_iso="d",
+        workflow_id="main",
     )
     data = json.loads((rd.path / "manifest.json").read_text(encoding="utf-8"))
-    assert data["outputs"]["report"]["expected_path"] == "./my_block_outputs/report.txt"
+    assert data["outputs"]["report"]["expected_path"] == "./data/ai_outputs/main/my_block/report.txt"
+    assert data["block"]["workflow_id"] == "main"
+
+
+def test_default_expected_path_is_scoped_by_workflow() -> None:
+    """#2424: same-named nodes in different workflows get different default paths."""
+    port = OutputPort(name="table", accepted_types=[DataFrame])
+    in_a = RunDir._default_expected_path("analyze", port, workflow_id="wf_a")
+    in_b = RunDir._default_expected_path("analyze", port, workflow_id="wf_b")
+    path_form = RunDir._default_expected_path("analyze", port, workflow_id="@subworkflows@qc.yaml")
+
+    assert in_a == "./data/ai_outputs/wf_a/analyze/table.csv"
+    assert in_b == "./data/ai_outputs/wf_b/analyze/table.csv"
+    assert path_form == "./data/ai_outputs/@subworkflows@qc.yaml/analyze/table.csv"
+    assert RunDir._default_expected_path("analyze", port) == "./data/ai_outputs/adhoc/analyze/table.csv"
+
+
+def test_default_expected_path_keeps_sanitized_node_ids_distinct() -> None:
+    """#2424: ids that sanitize to the same text (``a/b`` vs ``a_b``) never share outputs."""
+    port = OutputPort(name="table", accepted_types=[DataFrame])
+    slash = RunDir._default_expected_path("a/b", port, workflow_id="main")
+    underscore = RunDir._default_expected_path("a_b", port, workflow_id="main")
+
+    assert slash != underscore
+    # Ordinary ids stay readable and unchanged.
+    assert underscore == "./data/ai_outputs/main/a_b/table.csv"
+    assert slash.startswith("./data/ai_outputs/main/a_b-")
+    assert slash.count("/") == underscore.count("/")
 
 
 def test_write_manifest_dataframe_default_extension(tmp_path: Path) -> None:

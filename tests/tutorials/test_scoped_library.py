@@ -133,8 +133,8 @@ def test_no_project_context_keeps_the_user_library(home: Path) -> None:
     assert dropins.library_root_for_project(None) == dropins.user_library_dir()
 
 
-def test_the_scoped_library_carries_all_three_tiers(home: Path) -> None:
-    """FR-070 names ``blocks/``, ``types/``, and ``previewers/`` (#2086).
+def test_the_scoped_library_carries_every_swapped_tier(home: Path) -> None:
+    """FR-070 names ``blocks/``, ``types/``, and ``previewers/`` (#2086); ``panels/`` joined in #2411.
 
     Eager creation matters for the same reason it does for the other two: the
     save-to-library action a tutorial teaches has to land somewhere, and a step
@@ -142,8 +142,20 @@ def test_the_scoped_library_carries_all_three_tiers(home: Path) -> None:
     """
     root = tutorial_projects.ensure_scoped_library()
 
-    assert [path.name for path in tutorial_projects.scoped_library_dirs()] == ["blocks", "types", "previewers"]
+    assert [path.name for path in tutorial_projects.scoped_library_dirs()] == [
+        "blocks",
+        "types",
+        "previewers",
+        "panels",
+    ]
     assert (root / "previewers").is_dir()
+    assert (root / "panels").is_dir()
+
+
+def test_tutorial_project_panels_use_the_scoped_library(home: Path, tutorial_project: Path) -> None:
+    """The ``panels/`` the scoped library creates is the user tier panel discovery scans (#2411)."""
+    library = dropins.tutorial_library_dir()
+    assert list(dropins.panel_scan_dirs(tutorial_project)) == [tutorial_project / "panels", library / "panels"]
 
 
 def test_a_teaching_type_resolves_inside_the_tutorial_and_nowhere_else(
@@ -213,10 +225,10 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     nothing new in the ladder. Both halves are held: the scoped previewer wins
     for its type, and a project previewer for the same type shadows it.
     """
+    from scistudio.panels.router import PanelRouter
     from scistudio.previewers.models import OwnerKind, PreviewTarget, TargetKind
     from scistudio.previewers.project import load_project_previewers, load_user_previewers
     from scistudio.previewers.registry import PreviewerRegistry
-    from scistudio.previewers.router import PreviewRouter
 
     library_previewers = dropins.tutorial_library_dir() / "previewers"
     library_previewers.mkdir(parents=True)
@@ -230,7 +242,7 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     scoped = registry.get("tutorial.image.viewer")
     assert scoped is not None
     assert scoped.owner_kind is OwnerKind.USER
-    assert PreviewRouter(registry).resolve(target).previewer_id == "tutorial.image.viewer"
+    assert PanelRouter.over_registry(registry).resolve(target).previewer_id == "tutorial.image.viewer"
 
     (tutorial_project / "previewers").mkdir()
     (tutorial_project / "previewers" / "project_image_previewer.py").write_text(
@@ -240,7 +252,7 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     load_project_previewers(shadowing, tutorial_project)
     load_user_previewers(shadowing, tutorial_project)
 
-    assert PreviewRouter(shadowing).resolve(target).previewer_id == "project.image.viewer"
+    assert PanelRouter.over_registry(shadowing).resolve(target).previewer_id == "project.image.viewer"
 
 
 def test_import_roots_carry_the_swap(home: Path, tutorial_project: Path, monkeypatch: pytest.MonkeyPatch) -> None:

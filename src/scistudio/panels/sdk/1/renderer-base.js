@@ -26,6 +26,15 @@ export function recordedMetadata(meta) {
   return Object.keys(recorded).length ? recorded : null;
 }
 
+/**
+ * The fallback view for any data object: its type and ancestry, shape and dtype, stored file, and recorded metadata.
+ *
+ * @param {object} [props.meta] A `metadata` result `{type_chain?, shape?, dtype?, metadata?}`; the loading state shows until it is given.
+ * @param {object} [props.file] The stored file `{name?, path?, mime_type?, size?, url?}`, when there is one.
+ * @param {boolean} [props.imageFailed] Set after the image failed to load.
+ * @param {function} [props.onImageError] Called when the inline image fails to load.
+ * @param {string} [props.error] A displayable message. It takes precedence over any data, so a failed read never leaves earlier values looking current.
+ */
 export function MetadataView({
   meta,
   file,

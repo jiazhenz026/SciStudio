@@ -4,10 +4,9 @@
 #
 # ``<project>/AGENTS.md`` is the single canonical agent-instruction entry
 # point: every supported assistant CLI either reads AGENTS.md natively or
-# discovers the provisioned skills trees beside it. ``<project>/CLAUDE.md``
-# is reduced to a one-line router pointing at AGENTS.md, so the guide text
-# is maintained in exactly one place regardless of how many provider CLIs
-# are supported.
+# reaches it through a provisioned router. ``<project>/CLAUDE.md`` and the base
+# ``scistudio`` skill contain no independent instruction body, so the guide is
+# maintained in exactly one place regardless of provider.
 # Development references: #2137, ADR-040.
 
 from __future__ import annotations

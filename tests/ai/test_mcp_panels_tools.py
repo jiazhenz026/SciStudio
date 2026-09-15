@@ -61,13 +61,24 @@ def _run(coro: Coroutine[Any, Any, _T]) -> _T:
 
 
 class _StubTypeRegistry:
-    """The one method the panel tools ask of a type registry."""
+    """The two methods the panel tools ask of a type registry.
 
-    def __init__(self, names: tuple[str, ...]) -> None:
+    ``bases`` maps a type name to its parent, the ancestry ``list_panels``
+    follows (through ``scistudio.panels.targets.type_chain``) to match a
+    MiniApp declaring a parent type.
+    """
+
+    def __init__(self, names: tuple[str, ...], bases: dict[str, str] | None = None) -> None:
         self._names = {name: object() for name in names}
+        self._bases = dict(bases or {})
 
     def all_types(self) -> dict[str, Any]:
         return dict(self._names)
+
+    def resolve(self, name: str) -> Any:
+        if name not in self._names:
+            raise KeyError(name)
+        return pytypes.SimpleNamespace(name=name, base_type=self._bases.get(name, ""))
 
 
 class _RecordingEventBus:
@@ -394,12 +405,231 @@ def test_open_miniapp_reports_a_runtime_with_no_event_bus(project: Path, runtime
     assert result.reason == tools_panels.NO_EVENT_BUS
 
 
+def test_open_miniapp_in_a_standalone_session_reports_no_event_bus(project: Path, runtime: Any, workspace: Any) -> None:
+    """#2422: a standalone bridge has no channel and no window, and says ``no_event_bus``."""
+    _write_miniapp(project)
+    workspace(False)
+    runtime.event_bus = None
+
+    result = _run(
+        tools_panels.open_miniapp(panel_id="demo.threshold", workflow_id="wf-1", block_id="segment", port="mask")
+    )
+
+    assert result.opened is False
+    assert result.reason == tools_panels.NO_EVENT_BUS
+    assert "no realtime channel" in result.detail
+
+
+# ---------------------------------------------------------------------------
+# list_panels (#2441, #2445) — the panels that exist, their kinds, and why a
+# directory is not one.
+# ---------------------------------------------------------------------------
+
+
+def _descriptor(panel_id: str, type_name: str, *, contexts: tuple[str, ...] = ("miniapp",)) -> dict[str, Any]:
+    return {
+        "id": panel_id,
+        "api_version": "1.0",
+        "contexts": list(contexts),
+        "types": [type_name],
+        "name": panel_id.replace("_", " ").title(),
+        "entry": "index.html",
+    }
+
+
+def _user_panels() -> Path:
+    return Path.home() / ".scistudio" / "panels"
+
+
+def _local(panels: list[Any]) -> list[Any]:
+    """The panels the test wrote: the project and user tiers, not the built-ins."""
+    return [panel for panel in panels if panel.tier in ("project", "user")]
+
+
+def test_list_panels_lists_every_kind_across_tiers(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    preview = _descriptor("plate_preview", "Image", contexts=("preview",)) | {"priority": 7, "description": "Plates."}
+    _write_miniapp(project, "plate_preview", descriptor=preview)
+    _write_miniapp(
+        project, "both", descriptor=_descriptor("both", "Image", contexts=("miniapp", "preview")), python=None
+    )
+    user_dir = _write_miniapp(_user_panels().parent, "mine", descriptor=_descriptor("mine", "Image"), python=None)
+
+    result = _run(tools_panels.list_panels())
+
+    by_id = {panel.panel_id: panel for panel in result.panels}
+    assert {panel.panel_id for panel in _local(result.panels)} == {"demo.threshold", "plate_preview", "both", "mine"}
+    project_app = by_id["demo.threshold"]
+    assert project_app.kinds == ["miniapp"]
+    assert project_app.tier == "project"
+    assert project_app.package is None
+    assert project_app.name == "Threshold explorer"
+    assert project_app.types == ["Image"]
+    assert project_app.entry == "index.html"
+    assert project_app.has_python is True
+    assert project_app.path == "panels/demo.threshold"
+    assert project_app.priority is None
+    plate = by_id["plate_preview"]
+    assert plate.kinds == ["preview"]
+    assert plate.priority == 7
+    assert plate.description == "Plates."
+    # Kinds follow the descriptor's own context order, whatever order panel.json used.
+    assert by_id["both"].kinds == ["preview", "miniapp"]
+    user_app = by_id["mine"]
+    assert user_app.tier == "user"
+    assert user_app.has_python is False
+    # Outside the project, the path stays absolute.
+    assert user_app.path == str(user_dir.resolve())
+    # The core tier ships preview and interactive panels; they are listed too.
+    core = [panel for panel in result.panels if panel.tier == "core"]
+    assert any("preview" in panel.kinds for panel in core)
+    assert any("interactive" in panel.kinds for panel in core)
+    assert all(not panel.path.startswith("panels/") for panel in core)
+    assert result.kind is None
+    assert result.data_type is None
+    assert result.invalid == []
+    names = [(panel.name.lower(), panel.panel_id) for panel in result.panels]
+    assert names == sorted(names)
+
+
+def test_list_panels_filters_by_kind(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(project, "plate_preview", descriptor=_descriptor("plate_preview", "Image", contexts=("preview",)))
+
+    def ids(kind: str | None) -> set[str]:
+        return {panel.panel_id for panel in _local(_run(tools_panels.list_panels(kind=kind)).panels)}
+
+    assert ids("miniapp") == {"demo.threshold"}
+    assert ids("preview") == {"plate_preview"}
+    assert ids("interactive") == set()
+    interactive = _run(tools_panels.list_panels(kind="interactive"))
+    assert interactive.kind == "interactive"
+    assert interactive.panels and all("interactive" in panel.kinds for panel in interactive.panels)
+    assert _run(tools_panels.list_panels(kind="  ")).kind is None
+    with pytest.raises(ValueError, match="Unknown panel kind"):
+        _run(tools_panels.list_panels(kind="previewer"))
+
+
+def test_list_panels_reports_directories_discovery_skipped(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(
+        project,
+        "two_types",
+        descriptor={"id": "two_types", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image", "DataFrame"]},
+    )
+    (project / "panels" / "empty_dir").mkdir()
+
+    result = _run(tools_panels.list_panels())
+
+    assert [panel.panel_id for panel in _local(result.panels)] == ["demo.threshold"]
+    invalid = {entry.panel_id: entry for entry in result.invalid}
+    assert set(invalid) == {"two_types", "empty_dir"}
+    assert invalid["two_types"].tier == "project"
+    assert invalid["two_types"].path == "panels/two_types"
+    assert any("miniapp requires exactly one type" in note for note in invalid["two_types"].diagnostics)
+    assert invalid["empty_dir"].diagnostics
+    # The same text validate_panel gives for that directory.
+    validated = _run(tools_panels.validate_panel(path="panels/two_types"))
+    assert validated.errors[0].endswith(invalid["two_types"].diagnostics[0])
+    assert result.invalid_truncated == 0
+
+
+def test_list_panels_bounds_the_invalid_directories(project: Path, runtime: Any) -> None:
+    for index in range(tools_panels._MAX_INVALID_DIRECTORIES + 5):
+        (project / "panels" / f"broken_{index:02d}").mkdir(parents=True)
+
+    result = _run(tools_panels.list_panels())
+
+    assert len(result.invalid) == tools_panels._MAX_INVALID_DIRECTORIES
+    assert result.invalid_truncated == 5
+
+
+def test_list_panels_filters_by_the_type_a_panel_accepts(project: Path, runtime: Any) -> None:
+    runtime.type_registry = _StubTypeRegistry(("Image", "Microscopy", "DataFrame"), bases={"Microscopy": "Image"})
+    _write_miniapp(project, "image_app", descriptor=_descriptor("image_app", "Image"))
+    _write_miniapp(project, "image_set_app", descriptor=_descriptor("image_set_app", "Collection[Image]"))
+    _write_miniapp(project, "microscopy_app", descriptor=_descriptor("microscopy_app", "Microscopy"))
+    _write_miniapp(project, "table_app", descriptor=_descriptor("table_app", "DataFrame"))
+    _write_miniapp(
+        project,
+        "multi_preview",
+        descriptor=_descriptor("multi_preview", "DataFrame", contexts=("preview",))
+        | {"types": ["DataFrame", "Collection[Microscopy]"]},
+    )
+
+    def ids(data_type: str | None) -> set[str]:
+        listed = _run(tools_panels.list_panels(data_type=data_type)).panels
+        return {panel.panel_id for panel in _local(listed)}
+
+    assert ids(None) == {"image_app", "image_set_app", "microscopy_app", "table_app", "multi_preview"}
+    assert ids("Image") == {"image_app"}
+    # A panel declaring a parent type accepts the subtype, not the reverse.
+    assert ids("Microscopy") == {"image_app", "microscopy_app"}
+    assert ids("Collection[Microscopy]") == {"image_set_app", "multi_preview"}
+    assert ids("Collection[Image]") == {"image_set_app"}
+    assert ids("Collection") == set()
+    # Any one declared type is enough.
+    assert ids("DataFrame") == {"table_app", "multi_preview"}
+    assert ids("Unregistered") == set()
+    assert _run(tools_panels.list_panels(data_type=" Image ")).data_type == "Image"
+    assert _run(tools_panels.list_panels(data_type="  ")).data_type is None
+
+
+def test_list_panels_data_type_filter_leaves_out_panels_declaring_no_types(project: Path, runtime: Any) -> None:
+    interactive = _run(tools_panels.list_panels(kind="interactive")).panels
+    untyped = [panel for panel in interactive if not panel.types]
+    assert untyped, "the core tier ships an interactive panel declaring no types"
+    filtered = {panel.panel_id for panel in _run(tools_panels.list_panels(data_type="Image")).panels}
+    assert not filtered & {panel.panel_id for panel in untyped}
+
+
+def test_every_listed_miniapp_is_one_open_miniapp_accepts(project: Path, runtime: Any, workspace: Any) -> None:
+    _write_miniapp(project)
+    _write_miniapp(project, "second", descriptor=_descriptor("second", "Image"), python=None)
+    _write_miniapp(project, "plate_preview", descriptor=_descriptor("plate_preview", "Image", contexts=("preview",)))
+    _write_miniapp(
+        project,
+        "two_types",
+        descriptor={"id": "two_types", "api_version": "1.0", "contexts": ["miniapp"], "types": ["Image", "DataFrame"]},
+    )
+    workspace(False)
+    target = {"workflow_id": "wf-1", "block_id": "segment", "port": "mask"}
+
+    result = _run(tools_panels.list_panels())
+
+    miniapps = [panel for panel in result.panels if "miniapp" in panel.kinds]
+    assert {panel.panel_id for panel in miniapps} == {"demo.threshold", "second"}
+    assert {panel.panel_id for panel in _run(tools_panels.list_panels(kind="miniapp")).panels} == {
+        "demo.threshold",
+        "second",
+    }
+    for app in miniapps:
+        opened = _run(tools_panels.open_miniapp(panel_id=app.panel_id, **target))
+        assert opened.reason == tools_panels.NO_WORKSPACE
+    # Listed panels of the other kinds are not opened as MiniApps.
+    for panel in result.panels:
+        if "miniapp" not in panel.kinds:
+            with pytest.raises(ValueError):
+                _run(tools_panels.open_miniapp(panel_id=panel.panel_id, **target))
+    with pytest.raises(KeyError):
+        _run(tools_panels.open_miniapp(panel_id="two_types", **target))
+
+
+def test_list_panels_refuses_without_an_open_project(project: Path) -> None:
+    _context.set_context(_StubRuntime(_project_dir=None))
+    try:
+        with pytest.raises(RuntimeError, match="No project is currently open"):
+            _run(tools_panels.list_panels())
+    finally:
+        _context.set_context(None)
+
+
 # ---------------------------------------------------------------------------
 # Registration.
 # ---------------------------------------------------------------------------
 
 
-def test_both_tools_are_registered_on_the_local_transport() -> None:
+def test_the_panel_tools_are_registered_on_the_local_transport() -> None:
     """The module must be in the eager-import tuple, and neither tool external-only.
 
     A tool module missing from ``mcp/__init__.py`` registers nothing while every
@@ -409,7 +639,12 @@ def test_both_tools_are_registered_on_the_local_transport() -> None:
     from scistudio.ai.agent.mcp.server import AUDIENCE_EXTERNAL_TAG, mcp
 
     by_name = {tool.name: tool for tool in _run(mcp.list_tools())}
-    for name, mutation in (("validate_panel", "read"), ("open_miniapp", "write")):
+    for name, mutation in (
+        ("validate_panel", "read"),
+        ("open_miniapp", "write"),
+        ("list_panels", "read"),
+        ("wait_for_answers", "read"),
+    ):
         tool = by_name[name]
         tags = set(tool.tags or set())
         assert "category:panels" in tags
@@ -428,3 +663,111 @@ def test_the_presence_module_the_tool_reads_has_the_pinned_surface() -> None:
     assert callable(gui_presence.any_connected)
     assert callable(gui_presence.connected)
     assert isinstance(gui_presence.any_connected(), bool)
+
+
+# ---------------------------------------------------------------------------
+# Questionnaires (#2447, MiniApp FR-052/FR-053).
+# ---------------------------------------------------------------------------
+
+_QUESTIONNAIRE = Path(__file__).resolve().parents[1] / "fixtures" / "questionnaire" / "miniapp"
+
+
+def _write_questionnaire_miniapp(project: Path, panel_id: str = "ask") -> Path:
+    import shutil
+
+    directory = project / "panels" / panel_id
+    shutil.copytree(_QUESTIONNAIRE, directory)
+    body = json.loads((directory / "panel.json").read_text(encoding="utf-8"))
+    body.update(id=panel_id, types=["Image"])
+    (directory / "panel.json").write_text(json.dumps(body), encoding="utf-8")
+    return directory
+
+
+def test_validate_panel_runs_the_questionnaire_check(project: Path, runtime: Any) -> None:
+    _write_questionnaire_miniapp(project)
+    result = _run(tools_panels.validate_panel(path="panels/ask"))
+    assert result.valid is True, result.errors
+    assert result.questionnaire is not None
+    assert result.questionnaire.questions == 5
+    assert result.questionnaire.round_trip is True
+    assert result.questionnaire.statuses_exercised == ["answered", "decide_for_me", "skipped"]
+
+
+def test_a_miniapp_without_a_questionnaire_has_no_report(project: Path, runtime: Any) -> None:
+    _write_miniapp(project)
+    assert _run(tools_panels.validate_panel(path="panels/demo.threshold")).questionnaire is None
+
+
+def test_validate_panel_fails_a_broken_questionnaire_with_actionable_errors(project: Path, runtime: Any) -> None:
+    directory = _write_questionnaire_miniapp(project)
+    spec = json.loads((directory / "questionnaire.json").read_text(encoding="utf-8"))
+    spec["questions"][1]["required"] = True
+    (directory / "questionnaire.json").write_text(json.dumps(spec), encoding="utf-8")
+    page = (directory / "index.html").read_text(encoding="utf-8").replace("scistudio.submitAnswers", "null")
+    (directory / "index.html").write_text(page, encoding="utf-8")
+
+    result = _run(tools_panels.validate_panel(path="panels/ask"))
+
+    assert result.valid is False
+    assert result.questionnaire is not None and result.questionnaire.round_trip is False
+    assert any('(id "colour_by")' in e and "remove 'required'" in e for e in result.errors)
+    assert any("submit is not reachable" in e for e in result.errors)
+
+
+def _submit(directory: Path) -> None:
+    from scistudio.panels.questionnaire import answers_document, write_answers
+
+    spec = json.loads((directory / "questionnaire.json").read_text(encoding="utf-8"))
+    write_answers(directory, answers_document("ask", spec, {"chart": {"status": "answered", "value": "pca"}}))
+
+
+def test_wait_for_answers_returns_a_submit_that_arrives_while_waiting(project: Path, runtime: Any) -> None:
+    directory = _write_questionnaire_miniapp(project)
+
+    async def scenario() -> Any:
+        waiting = asyncio.create_task(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=10))
+        await asyncio.sleep(0.2)
+        assert not waiting.done()
+        _submit(directory)
+        return await waiting
+
+    result = _run(scenario())
+    assert result.status == "submitted"
+    assert result.answers_path == "panels/ask/answers.json"
+    assert result.answers[0]["value"] == "pca"
+    assert [a["status"] for a in result.answers][1:] == ["skipped"] * 4
+
+
+def test_wait_for_answers_does_not_miss_a_submit_made_before_the_call(project: Path, runtime: Any) -> None:
+    _submit(_write_questionnaire_miniapp(project))
+    result = _run(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=1))
+    assert result.status == "submitted" and result.waited_seconds < 1
+
+
+def test_wait_for_answers_ignores_answers_to_an_older_questionnaire(
+    project: Path, runtime: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import os
+
+    directory = _write_questionnaire_miniapp(project)
+    _submit(directory)
+    older = (directory / "questionnaire.json").stat().st_mtime - 10
+    os.utime(directory / "answers.json", (older, older))
+    monkeypatch.setattr(tools_panels, "_WAIT_POLL_SECONDS", 0.05)
+
+    result = _run(tools_panels.wait_for_answers(panel_id="ask", timeout_seconds=1))
+
+    assert result.status == "timed_out"
+    assert result.answers == []
+    assert "timed out" in result.next_step and "pressed Submit" in result.next_step
+
+
+def test_wait_for_answers_tells_the_agent_what_to_do_on_timeout() -> None:
+    doc = tools_panels.wait_for_answers.__doc__ or ""
+    assert "your watch on the questionnaire timed out" in doc
+    assert "tell you once" in doc and "pressed Submit" in doc
+
+
+def test_wait_for_answers_refuses_an_unknown_miniapp(project: Path, runtime: Any) -> None:
+    with pytest.raises(KeyError):
+        _run(tools_panels.wait_for_answers(panel_id="missing", timeout_seconds=1))

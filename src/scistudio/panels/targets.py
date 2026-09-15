@@ -159,14 +159,28 @@ def child_targets(
                     "display_name": resolve_display_name(child.metadata, fallback=""),
                 }
             )
-        return {**page, "items": items, "truncated": page["sampled"], "complete": not page["sampled"]}
+        page.pop("sampled", None)
+        # More pages remain exactly when there is a cursor to follow.
+        more = page["next_cursor"] is not None
+        return {**page, "items": items, "truncated": more, "complete": not more}
     if parent.storage is None:
         raise PanelError(400, "unsupported", "This target has no composite slots")
+    from scistudio.previewers._read_chunks import collection_offset, next_collection_cursor
+
     slots = access.composite_slots(parent.metadata).slots
-    if len(slots) > access.max_items:
-        raise PanelError(413, "read_budget", "Composite slot inventory exceeds panel item budget")
+    # A composite with more slots than one read carries is paged like a
+    # collection, never refused: every slot stays reachable (#2460).
+    if limit is not None and limit < 1:
+        raise PanelError(422, "invalid_request", "limit must be positive")
+    try:
+        offset = collection_offset(cursor, len(slots))
+    except ValueError as exc:
+        raise PanelError(422, "invalid_request", str(exc)) from exc
+    budget = access.max_items if limit is None else min(int(limit), access.max_items)
+    window = list(slots.items())[offset : offset + budget]
+    next_cursor = next_collection_cursor(offset + len(window), len(slots))
     result = []
-    for name, type_name in slots.items():
+    for name, type_name in window:
         storage = access.composite_slot_ref(parent.storage, name)
         if storage is None:
             continue
@@ -196,7 +210,8 @@ def child_targets(
                 parent=parent,
             )
         result.append({"name": name, "type_name": resolved, "ref": ref})
-    return {"slots": result, "sampled": False, "truncated": False, "complete": True}
+    more = next_cursor is not None
+    return {"slots": result, "count": len(slots), "next_cursor": next_cursor, "truncated": more, "complete": not more}
 
 
 def plot_variant_target(parent: FrozenTarget, fmt: str) -> FrozenTarget:

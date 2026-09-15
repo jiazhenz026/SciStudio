@@ -28,6 +28,7 @@ export function resetAppStore() {
     activeBottomTab: "config",
     paletteCollapsed: false,
     previewCollapsed: false,
+    previewCollapsedByMiniApp: false,
     bottomPanelCollapsed: false,
     // ADR-053 Learning Center (#2057) — view state only (FR-074 keeps progress
     // on the backend), so a reset is just "closed, nothing fetched yet".
@@ -56,12 +57,11 @@ export function resetAppStore() {
     typesLoaded: false,
     declaredTypeColors: undefined,
     // #2113 — the previewer catalogue starts unloaded too, with no choices
-    // recorded and the routing epoch at zero.
+    // recorded.
     previewers: [],
     previewersLoaded: false,
     previewerDiagnostics: [],
     previewerChoices: [],
     previewerChoicesLoaded: false,
-    previewerChoiceVersion: 0,
   });
 }

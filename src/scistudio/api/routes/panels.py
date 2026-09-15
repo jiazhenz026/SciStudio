@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -17,10 +18,11 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from scistudio.api.schemas import PreviewEnvelopeModel
-from scistudio.panels.contexts import PANEL_EVENTS, READ_BYTES, PanelContext, get_panel_contexts
+from scistudio.panels.contexts import READ_BYTES, PanelContext
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
 from scistudio.panels.process_config import max_result_bytes
 from scistudio.panels.reads import read_context
+from scistudio.panels.service import get_panel_contexts, get_panel_service
 from scistudio.panels.targets import PanelError
 from scistudio.previewers.models import PreviewError
 
@@ -71,7 +73,7 @@ class ContextResponse(BaseModel):
     context_id: str
     panel: PanelIdentity
     kind: Literal["preview", "interactive", "miniapp"]
-    operations: list[Literal["read", "writeBack", "call"]]
+    operations: list[Literal["read", "writeBack", "call", "submitAnswers"]]
     services: list[Literal["open", "save"]]
     input: dict[str, Any]
     view_state: Any = None
@@ -118,11 +120,39 @@ class ContextCallError(BaseModel):
     error: ContextCallErrorDetail
 
 
+class ContextAnswers(BaseModel):
+    """A MiniApp page submits its questionnaire."""
+
+    # MiniApp FR-050.
+
+    model_config = ConfigDict(extra="forbid")
+    answers: dict[str, Any] = Field(description="One answer per question id; a question left out is skipped.")
+
+
+class SubmitAnswersResult(BaseModel):
+    """What a questionnaire submit did."""
+
+    # MiniApp FR-050/FR-051.
+
+    saved: bool
+    path: str | None = Field(description="Where answers.json was written: project-relative inside the project.")
+    submitted_at: str | None = None
+    notified: bool = Field(description="True when the line reached the MiniApp's open agent session.")
+    reason: Literal["no_session", "session_ended"] | None = Field(
+        default=None,
+        description="Why no session was notified: none was recorded for this MiniApp, or it has ended.",
+    )
+    message: str = Field(description="What the page shows the user under the Submit button.")
+
+
 class ReadResult(BaseModel):
-    """Operation-specific bounded payload plus mandatory sampling flags."""
+    """Operation-specific payload plus mandatory paging flags.
+
+    A panel read is never sampled: ``truncated`` means more pages, windows, or
+    chunks remain to be read, and ``complete`` means this read reached the end.
+    """
 
     model_config = ConfigDict(extra="allow")
-    sampled: bool
     truncated: bool
     complete: bool
 
@@ -181,7 +211,9 @@ class MiniAppCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     request: str = Field(max_length=4000, description="What the user wants to see or do, in their own words.")
     source: MiniAppTarget
-    provider: str | None = Field(default=None, description="Agent provider key; the first ready one when omitted.")
+    provider: str | None = Field(
+        default=None, description="Agent provider key, as the AI Chat setup offers it. Required."
+    )
     permission_mode: str | None = Field(
         default=None,
         description="'safe', 'auto', or 'bypass'; 'dangerous' means 'bypass'. Auto requires provider support. Defaults to safe.",
@@ -256,7 +288,7 @@ _READ_RESPONSE: dict[int | str, dict[str, Any]] = {
             "X-Panel-Shape": {"schema": {"type": "string"}, "description": "JSON array of dimensions"},
             "X-Panel-Metadata": {
                 "schema": {"type": "string"},
-                "description": "JSON metadata including sampled, truncated, complete flags",
+                "description": "JSON metadata including truncated and complete flags",
             },
         },
     },
@@ -325,14 +357,9 @@ def _context_response(request: Request, context: PanelContext) -> dict[str, Any]
 
 @router.get("/catalog")
 def catalog(request: Request) -> dict[str, Any]:
-    registry = request.app.state.runtime.get_preview_service().registry.panels
-    return {
-        "panels": [
-            p.to_dict() | {"owner_kind": p.owner_kind.value, "shadowed": False} for p in registry.panels.values()
-        ]
-        + [p.to_dict() | {"owner_kind": p.owner_kind.value, "shadowed": True} for p in registry.shadowed],
-        "diagnostics": registry.diagnostics,
-    }
+    # The panel service brings the catalog up to date with the panel folders
+    # first, so a panel written a moment ago is listed (#2421).
+    return get_panel_service(request.app.state.runtime).catalog()
 
 
 # ---------------------------------------------------------------------------
@@ -345,8 +372,7 @@ _PERMISSION_MODES = {"safe": "safe", "auto": "auto", "bypass": "bypass", "danger
 
 
 def _miniapps(request: Request) -> dict[str, Any]:
-    registry = request.app.state.runtime.get_preview_service().registry.panels
-    return {panel_id: p for panel_id, p in registry.panels.items() if "miniapp" in p.contexts}
+    return get_panel_service(request.app.state.runtime).miniapps()
 
 
 def _miniapp(request: Request, panel_id: str) -> Any:
@@ -404,61 +430,39 @@ def _permission_mode(raw: str | None) -> str:
     return mode
 
 
-def _graded_reason(row: Any, report: Any) -> str:
-    """The availability report's own sentence for why a session cannot start."""
-    # The availability report's own sentence for why a session cannot start.
-    #
-    # Quoted rather than paraphrased (ADR-053 §5.2): the report already decided
-    # which of install, sign in, or "the call failed because …" is the actionable
-    # one, and a second wording here would give the user two accounts of one fact.
-    if row is None:
-        row = next((p for p in report.providers if p.state == report.state), None)
-    if row is None:
-        return "No agent provider is configured, so no MiniApp session can start."
-    for sentence in (row.session_unsupported_reason, row.next_step, row.cause):
-        if sentence:
-            return str(sentence)
-    return f"{row.label} cannot start a session right now."
-
-
-async def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
+def _agent_for_session(provider: str | None, permission_mode: str | None) -> tuple[str, str]:
     """Return the provider and mode a session may start with, or refuse."""
     # Return the provider and mode a session may start with, or refuse (FR-024).
     #
     # This runs FIRST, before anything is written: a MiniApp whose agent never
     # started is a directory the user did not ask for and has to find and delete
-    # themselves. ``session_unsupported_reason`` refuses a provider however
-    # ``ready`` it is — the opening instruction is a positional argument its CLI
-    # cannot take, and no amount of signing in changes that.
-    from scistudio.ai.agent import availability as agent_availability
-    from scistudio.ai.agent.availability import AvailabilityState
-    from scistudio.ai.agent.providers_registry import get as get_descriptor
-    from scistudio.api.routes.ai import _status_rows
-
-    def usable(row: Any) -> bool:
-        return row.state is AvailabilityState.READY and not row.session_unsupported_reason
+    # themselves. #2454: it is the AI Chat launch check itself
+    # (``validate_agent_launch``), with the opening instruction the session is
+    # started with — no availability probe, no second checker.
+    from scistudio.api.routes.ai_pty.validation import validate_agent_launch
 
     mode = _permission_mode(permission_mode)
-    report = await agent_availability.probe_availability(_status_rows)
-    if provider is None:
-        chosen = next((row for row in report.providers if usable(row)), None)
-        if chosen is None:
-            raise PanelError(409, "agent_unavailable", _graded_reason(None, report))
-    else:
-        chosen = next((row for row in report.providers if row.key == provider), None)
-        if chosen is None:
-            raise PanelError(422, "invalid_request", f"Unknown agent provider {provider!r}")
-        if not usable(chosen):
-            raise PanelError(409, "agent_unavailable", _graded_reason(chosen, report))
-    if mode == "auto":
-        descriptor = get_descriptor(chosen.key)
-        if not descriptor.supports_auto_mode:
-            raise PanelError(
-                400,
-                "invalid_request",
-                f"{descriptor.label} has no Auto permission mode; choose Manual or Yolo/Bypass.",
-            )
-    return chosen.key, mode
+    if not provider:
+        raise PanelError(400, "invalid_request", "Choose an agent provider to run the session.")
+    try:
+        validate_agent_launch(provider, mode, with_prompt=True)
+    except ValueError as exc:
+        raise PanelError(400, "invalid_request", str(exc)) from exc
+    return provider, mode
+
+
+#: The agent session last started for each MiniApp, keyed by panel id, with the
+#: project directory it runs in (MiniApp FR-051). In memory only: the sessions
+#: are PTYs of this process and do not outlive it either.
+_MINIAPP_SESSION_TABS: dict[str, tuple[str, Path]] = {}
+
+_NOTIFIED_MESSAGE = "Sent. The agent is building your MiniApp from these answers."
+_RETURN_MESSAGE = "Your answers are saved. Go back to your AI chat and tell it you have submitted the questionnaire."
+
+
+def _remember_session(panel_id: str, tab_id: str | None, project_dir: Path) -> None:
+    if tab_id:
+        _MINIAPP_SESSION_TABS[panel_id] = (tab_id, project_dir)
 
 
 def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permission_mode: str) -> str | None:
@@ -466,7 +470,7 @@ def _session_tab(*, provider: str, project_dir: Path, brief_relpath: str, permis
 
     Last, and never fatal: the directory and the brief are already on disk and
     the tab opens on them, so a provider binary that vanished between the
-    availability probe and this call leaves the user with a MiniApp they can
+    launch check and this call leaves the user with a MiniApp they can
     still see and an agent they can start by hand.
     """
     from scistudio.panels.miniapp_create import opening_message
@@ -505,14 +509,16 @@ def _display_name(payload: MiniAppCreate) -> str:
 
 
 def _refresh_panels(runtime: Any) -> None:
-    """Re-scan so the MiniApp just written is registered before the tab opens."""
-    refresh = getattr(runtime, "refresh_all_registries", None)
-    if refresh is None:
-        return
+    """Rescan the panels so the MiniApp just written is registered before the tab opens.
+
+    Only the panel catalog: writing a MiniApp changes no block, type or legacy
+    previewer, and the rescan is incremental, so open panels stay open.
+    """
+    # Development references: #2465.
     try:
-        refresh()
+        get_panel_service(runtime).rescan()
     except Exception:
-        logger.exception("MiniApp create: refresh_all_registries() raised")
+        logger.exception("MiniApp create: panel rescan raised")
 
 
 def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: str) -> dict[str, Any]:
@@ -570,6 +576,7 @@ def _create_miniapp(runtime: Any, payload: MiniAppCreate, provider: str, mode: s
         brief_relpath=brief_path.relative_to(project_dir).as_posix(),
         permission_mode=mode,
     )
+    _remember_session(panel_id, tab_id, project_dir)
     return {
         "panel_id": panel_id,
         "name": name,
@@ -586,12 +593,12 @@ async def create_miniapp(payload: MiniAppCreate, request: Request) -> dict[str, 
     """Create a MiniApp directory and start the agent session that writes it."""
     # Create a MiniApp directory and start the agent session that writes it.
     #
-    # The order is normative (FR-024): the graded availability check comes first
+    # The order is normative (FR-024): the AI Chat launch check (#2454) comes first
     # and nothing is created when it refuses, then the template directory, then
     # the brief — closed and fsynced — and the agent session last, pointed at a
     # brief that is already complete on disk.
     try:
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_create_miniapp, request.app.state.runtime, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -622,16 +629,14 @@ def _convert_miniapp(runtime: Any, panel: Any, payload: MiniAppConvert, provider
         )
     except OSError as exc:
         raise PanelError(500, "write_failed", f"Could not write the conversion brief: {exc}") from exc
-    return {
-        "provider": provider,
-        "permission_mode": mode,
-        "session_tab_id": _session_tab(
-            provider=provider,
-            project_dir=project_dir,
-            brief_relpath=brief_path.relative_to(project_dir).as_posix(),
-            permission_mode=mode,
-        ),
-    }
+    tab_id = _session_tab(
+        provider=provider,
+        project_dir=project_dir,
+        brief_relpath=brief_path.relative_to(project_dir).as_posix(),
+        permission_mode=mode,
+    )
+    _remember_session(panel.id, tab_id, project_dir)
+    return {"provider": provider, "permission_mode": mode, "session_tab_id": tab_id}
 
 
 @router.post("/miniapps/{panel_id}/convert", response_model=MiniAppConverted, status_code=201, responses=_ERRORS)
@@ -643,7 +648,7 @@ async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Reque
     # with, and the block is a second artefact beside it.
     try:
         panel = _miniapp(request, panel_id)
-        provider, mode = await _agent_for_session(payload.provider, payload.permission_mode)
+        provider, mode = _agent_for_session(payload.provider, payload.permission_mode)
         return await asyncio.to_thread(_convert_miniapp, request.app.state.runtime, panel, payload, provider, mode)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -653,9 +658,9 @@ async def convert_miniapp(panel_id: str, payload: MiniAppConvert, request: Reque
 def create_context(payload: ContextCreate, request: Request) -> dict[str, Any]:
     try:
         _bounded_json(payload.model_dump())
-        store = get_panel_contexts(request.app.state.runtime)
+        service = get_panel_service(request.app.state.runtime)
         registry = getattr(request.app.state, "registry", None)
-        context = store.create(payload.model_dump(), process_registry=registry)
+        context = service.open_context(payload.model_dump(), process_registry=registry)
         return _context_response(request, context)
     except PanelError as exc:
         raise _failure(exc) from exc
@@ -714,6 +719,87 @@ async def panel_call(context_id: str, payload: ContextCall, request: Request) ->
         # two different codes, and a limit no configuration could raise.
         _bounded_json(result, limit=max_result_bytes())
         return JSONResponse(result, headers={"Cache-Control": "no-store"})
+    except PanelError as exc:
+        raise _failure(exc) from exc
+    except (ValueError, TypeError) as exc:
+        raise _failure(PanelError(422, "invalid_request", str(exc))) from exc
+
+
+_WRITABLE_TIERS = ("project", "user")
+
+
+def _save_answers(context: PanelContext, answers: dict[str, Any]) -> tuple[str, str, str | None]:
+    """Normalize and write one submit; return ``(display path, submitted_at, project dir)``."""
+    from scistudio.panels.questionnaire import QuestionnaireError, answers_document, load_spec, write_answers
+
+    panel = context.panel
+    if panel.owner_kind.value not in _WRITABLE_TIERS:
+        raise PanelError(400, "unsupported", "Only a project or user MiniApp can take questionnaire answers")
+    directory = Path(panel.root)
+    spec, problems = load_spec(directory)
+    if spec is None:
+        detail = "; ".join(problems) if problems else "This MiniApp has no questionnaire.json"
+        raise PanelError(409, "no_questionnaire", detail)
+    try:
+        document = answers_document(panel.id, spec, answers)
+    except QuestionnaireError as exc:
+        raise PanelError(422, "invalid_answers", str(exc)) from exc
+    try:
+        written = write_answers(directory, document)
+    except OSError as exc:
+        raise PanelError(500, "write_failed", f"Could not save the answers: {exc}") from exc
+    project_dir = context.project_dir
+    display = str(written)
+    if project_dir:
+        with contextlib.suppress(ValueError):
+            display = written.resolve().relative_to(Path(project_dir).resolve()).as_posix()
+    return display, str(document["submitted_at"]), (str(project_dir) if project_dir else None)
+
+
+def _notify_session(panel_id: str, answers_path: str, project_dir: str | None) -> str | None:
+    """Type the submit line into the MiniApp's agent session; return why not, or None."""
+    from scistudio.api.routes.ai_pty import engine as _engine
+    from scistudio.panels.questionnaire import notification_text
+
+    recorded = _MINIAPP_SESSION_TABS.get(panel_id)
+    if recorded is None or project_dir is None or Path(recorded[1]).resolve() != Path(project_dir).resolve():
+        return "no_session"
+    tab_id, cwd = recorded
+    if not _engine.type_line_into_tab(tab_id, notification_text(panel_id, answers_path), expected_cwd=cwd):
+        _MINIAPP_SESSION_TABS.pop(panel_id, None)
+        return "session_ended"
+    return None
+
+
+@router.post(
+    "/contexts/{context_id}/answers",
+    response_model=SubmitAnswersResult,
+    responses={**_ERRORS, 500: {"model": PanelFailureResponse}},
+)
+async def submit_answers(context_id: str, payload: ContextAnswers, request: Request) -> dict[str, Any]:
+    """Save a MiniApp questionnaire submit and tell its agent session."""
+    # Save a MiniApp questionnaire submit and tell its agent session (MiniApp FR-050/FR-051).
+    #
+    # The answers file is written first and is the source of truth: a session
+    # that is gone, or an External AI mode with no session at all, still leaves
+    # the answers where ``wait_for_answers`` and the agent read them, and the
+    # page is told to send the user back to their AI chat.
+    try:
+        _bounded_json(payload.answers, limit=256 * 1024)
+        store = get_panel_contexts(request.app.state.runtime)
+        context = store.get(context_id)
+        if context.kind != "miniapp":
+            raise PanelError(400, "unsupported", "This context does not provide submitAnswers")
+        path, submitted_at, project_dir = await asyncio.to_thread(_save_answers, context, payload.answers)
+        reason = await asyncio.to_thread(_notify_session, context.panel.id, path, project_dir)
+        return {
+            "saved": True,
+            "path": path,
+            "submitted_at": submitted_at,
+            "notified": reason is None,
+            "reason": reason,
+            "message": _NOTIFIED_MESSAGE if reason is None else _RETURN_MESSAGE,
+        }
     except PanelError as exc:
         raise _failure(exc) from exc
     except (ValueError, TypeError) as exc:
@@ -806,7 +892,7 @@ def panel_read(context_id: str, payload: ContextRead, request: Request) -> Respo
                 result.update(index=[row[0] for row in pairs], values=[row[1] for row in pairs])
         elif payload.params.get("format") == "binary":
             raise PanelError(400, "unsupported", "Binary is supported only for array and series reads")
-        result = {"sampled": False, "truncated": False, "complete": True, **result}
+        result = {"truncated": False, "complete": True, **result}
         if payload.op == "artifact.file":
             result["url"] = _base(request) + result["url"]
         _bounded_json(result)
@@ -965,12 +1051,17 @@ def install_panels(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def panels_lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Listen before workflows run; close runtime contexts at shutdown."""
-    store = get_panel_contexts(app.state.runtime)
-    event_bus = store.event_bus
+    """Start the panel service before workflows run; stop it at shutdown.
+
+    Starting loads the catalog, subscribes the context store to the workflow
+    events, and watches the panel tiers; stopping closes every context.
+    """
+    service = get_panel_service(app.state.runtime)
+    try:
+        await asyncio.to_thread(service.start, asyncio.get_running_loop())
+    except Exception:
+        logger.warning("panel service: start failed; the catalog loads on first use", exc_info=True)
     try:
         yield
     finally:
-        store.close_all()
-        for event in PANEL_EVENTS:
-            event_bus.unsubscribe(event, store.on_event)
+        service.stop()

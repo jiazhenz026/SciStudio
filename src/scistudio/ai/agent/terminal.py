@@ -34,10 +34,9 @@
 #   does not accept ``--mcp-config``; the codex factory therefore omits
 #   that flag (the user's ``scistudio install --target codex`` writes the
 #   TOML entry).
-# * **claude needs ``--append-system-prompt @<path>``** — claude does not
-#   understand stdin-piped prompts in TUI mode; we write the composed
-#   prompt to a temp file under ``<project>/.scistudio/.tmp/`` and pass
-#   the absolute path via the ``@``-indirection.
+# * **Project instructions are ambient** — every embedded provider starts in
+#   the provisioned project root, where ``AGENTS.md`` is the common instruction
+#   and navigation entry. Provider-specific files and base skills route there.
 #
 # ADR-034 multi-provider (issue #1994): every per-CLI fact above now lives in
 # :mod:`scistudio.ai.agent.providers_registry` instead of in per-provider spawn
@@ -69,7 +68,6 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from collections.abc import Iterable
@@ -81,7 +79,6 @@ from scistudio.ai.agent.providers_registry import (
     PermissionMode,
     ProviderDescriptor,
     ProviderKind,
-    SystemPromptStrategy,
     resolve_binary,
     resolve_executable,
 )
@@ -528,12 +525,6 @@ class PtyProcess:
 # ---------------------------------------------------------------------------
 
 
-def _ensure_tmp_dir(project_dir: Path) -> Path:
-    tmp = project_dir / ".scistudio" / ".tmp"
-    tmp.mkdir(parents=True, exist_ok=True)
-    return tmp
-
-
 def _ensure_mcp_config(project_dir: Path) -> Path:
     """Make sure ``<project>/.scistudio/mcp.json`` exists for ``--mcp-config``.
 
@@ -683,31 +674,6 @@ def _merge_provider_mcp_config(descriptor: ProviderDescriptor, project_dir: Path
     return config_path
 
 
-def _write_system_prompt_tempfile(project_dir: Path) -> Path:
-    """Render the system prompt and persist it to a temp file.
-
-    Returns the absolute path; caller passes it to claude as
-    ``--append-system-prompt @<path>`` and registers it for cleanup.
-    """
-    from scistudio.ai.agent.system_prompt import compose_system_prompt
-
-    prompt = compose_system_prompt(project_dir)
-    tmp_dir = _ensure_tmp_dir(project_dir)
-    # ``delete=False`` because the spawned subprocess owns the file
-    # lifetime — :meth:`PtyProcess.kill_tree` cleans it up.
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".md",
-        prefix="scistudio-prompt-",
-        dir=str(tmp_dir),
-        delete=False,
-        encoding="utf-8",
-    ) as handle:
-        handle.write(prompt)
-        name = handle.name
-    return Path(name)
-
-
 def permission_mode_from_flags(*, dangerous: bool, auto: bool) -> PermissionMode:
     """Map the spawner's two permission flags onto one :data:`PermissionMode`.
 
@@ -737,13 +703,13 @@ def spawn_agent(
 
     This is the **single** spawn function for every agent provider.
     It contains no ``if provider == …`` chain: every per-CLI difference — the
-    binary name and where to find it, the system-prompt mechanism, the MCP
-    injection mechanism, and the bypass-permission flag spelling — is read off
+    binary name and where to find it, the MCP injection mechanism, and the
+    bypass-permission flag spelling — is read off
     ``descriptor``. Adding a sixth provider adds a registry row, not a branch.
 
     Argv is assembled in a fixed order::
 
-        <binary> [<system-prompt flag> @<file>] [<mcp argv>]
+        <binary> [<mcp argv>]
                  [<bypass argv> | <auto argv> | <manual argv>] [-- <prompt>]
 
     The ``--`` end-of-options separator before an AI Block prompt is required,
@@ -790,38 +756,22 @@ def spawn_agent(
     _spawn_argv
         Test seam — when set, replaces the resolved argv (used by the WS
         integration tests to spawn a tiny echo subprocess instead of a real
-        agent binary). Production callers leave it ``None``. Side effects that
-        the provider needs regardless of argv — the system-prompt temp file and
-        the MCP config write — still run, matching the previous behaviour.
+        agent binary). Production callers leave it ``None``. Provider-owned MCP
+        config writes still run regardless of this override.
     """
     # Development references: #1789, #1994, #2379, FR-007.
     if descriptor.kind is not ProviderKind.AGENT:
         raise ValueError(f"spawn_agent requires an agent provider; {descriptor.key!r} is {descriptor.kind.value}")
 
     permission_mode = permission_mode_from_flags(dangerous=dangerous, auto=auto)
-    # Resolved before any side effect so an unsupported Auto request leaves no
-    # system-prompt temp file behind.
     permission_argv = descriptor.permission_argv(permission_mode)
-
-    cleanup_paths: list[Path] = []
-    prompt_argv: list[str] = []
-    if descriptor.system_prompt.strategy is SystemPromptStrategy.FLAG_FILE:
-        # Only a flag with ``@<file>`` indirection may carry the composed
-        # prompt; a literal-text flag would put an unbounded string on the
-        # command line (spec §4.1), so those providers stay ambient.
-        flag = descriptor.system_prompt.flag
-        if not flag:  # pragma: no cover - guarded by registry completeness tests
-            raise ValueError(f"provider {descriptor.key!r} declares FLAG_FILE with no flag")
-        prompt_path = _write_system_prompt_tempfile(project_dir)
-        cleanup_paths.append(prompt_path)
-        prompt_argv = [flag, f"@{prompt_path}"]
 
     mcp_argv = _mcp_argv(descriptor, project_dir)
 
     if _spawn_argv is not None:
         argv = list(_spawn_argv)
     else:
-        argv = [_resolve_agent_binary(descriptor), *prompt_argv, *mcp_argv]
+        argv = [_resolve_agent_binary(descriptor), *mcp_argv]
         # #1994 finding 2: state the permission mode in both directions. The
         # previous ``if dangerous:`` left safe mode flagless, which reads as
         # "no opinion" to every one of these CLIs and lets a persisted
@@ -837,7 +787,7 @@ def spawn_agent(
         cwd=project_dir,
         cols=cols,
         rows=rows,
-        cleanup_paths=cleanup_paths,
+        cleanup_paths=[],
         extra_env=extra_env,
     )
 

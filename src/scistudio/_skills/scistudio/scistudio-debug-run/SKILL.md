@@ -3,215 +3,194 @@ name: scistudio-debug-run
 description: |
   Use when a workflow run has failed, is stuck, or produced unexpected
   output, and you need to diagnose the cause. Covers run-status
-  inspection, block-log retrieval, lineage navigation, common error
-  signatures, and the finish_ai_block contract for AI block PTYs. NOT
+  inspection, block-log retrieval, tracing a bad input upstream, common error
+  signatures, and finishing an AI Agent block with finish_ai_block. NOT
   for designing new workflows (use scistudio-build-workflow).
 ---
 
 # scistudio-debug-run
 
-A SciStudio run has terminated in `failed` or `cancelled` state, or you
-suspect a block is producing wrong output. This skill teaches the
-canonical diagnostic sequence — start at the run-status envelope,
-drill into per-block logs, follow lineage backwards to find the
-upstream cause, and inspect intermediate data refs without
-materialising them into memory. Most run failures fall into ~6
-recurring categories; the error catalog below maps each to the next tool call.
+## 1. What debugging a run means
 
-## 1. The canonical diagnostic sequence
+A run executes one workflow file block by block and records each block's state,
+logs, outputs, and lineage. Debugging a run means finding, from those records,
+which block went wrong and why, fixing the cause, and only then running again. A
+run can go wrong in three ways:
 
-```
-get_run_status(run_id)                 # full envelope
-get_block_logs(run_id, failed_block)   # stdout/stderr for the failed block
-inspect_data(upstream_ref)             # confirm input type/shape
-get_lineage(failed_input_ref)          # walk backwards to producing block
-# Form hypothesis; propose fix to user; do NOT silently retry.
-```
+- **It failed.** A block raised an error; the run state is `failed`.
+- **It is stuck.** A block is `paused` waiting for someone: the agent of an AI
+  Agent block, the user's decision in an interactive block, or an external
+  application.
+- **It produced wrong output.** Every block succeeded, but a result is not what
+  the user expected. The cause is often upstream of the block where it shows.
 
-Never skip any step. The status envelope alone often understates the
-failure; the logs surface the real Python traceback; lineage shows
-upstream contamination.
+The failing block is not always the faulty one: a block can fail because an
+upstream block produced malformed data.
 
-## 2. `get_run_status` envelope shape
+## 2. Steps to debug a run
 
-```
-GetRunStatusResult(
-  run_id: str,
-  state: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "unknown",
-  progress: {"block_states": {block_id: STATE_NAME, ...}},
-  errors: [BlockErrorEntry(block_id, error, summary), ...]
-)
-```
+1. **Read the run status.** Call `get_run_status(run_id)` and read every field:
+   the run `state`, `progress.block_states`, and every entry in `errors`.
+2. **Find the first block that went wrong.** Scan `progress.block_states` for the
+   first block that is `error`, `paused`, or `skipped`, and match it to its
+   `BlockErrorEntry` in `errors`.
+3. **Read its logs.** Call `get_block_logs(run_id, block_id)` and read both
+   streams. Find the bottom-most line of any traceback.
+4. **Check its inputs.** Read the workflow's edges with `get_workflow` to find
+   the upstream ports feeding the block, call `get_block_output` for each in the
+   same run, then `inspect_data` and `preview_data`, to confirm each input has the
+   type and content the block expects.
+5. **Walk upstream when an input is wrong.** Follow the edge back to the block
+   that produced it, and repeat steps 3 and 4 for that block in the same run
+   until you reach the first block whose inputs are right and whose output is
+   wrong.
+6. **Explain and fix.** Tell the user the cause, quoting the log line verbatim,
+   and the fix. Change the workflow with `edit_workflow` or `update_block_config`,
+   or the block file with `scistudio-write-block`, then validate and run again.
 
-Read every field. The per-block state map lives at
-`progress.block_states` (not at the top level); captured block-level
-errors with full Python tracebacks live in the top-level `errors`
-list. The `summary` field (when present) is a one-line digest; the
-`error` field is the full traceback. Start by scanning
-`progress.block_states` for the first non-`succeeded` entry, then
-locate its matching `BlockErrorEntry` in `errors`.
+## 3. Anti-patterns
 
-## 3. `get_block_logs` patterns
-
-`get_block_logs(run_id, block_id)` returns `{stdout: str, stderr: str,
-source: str}`. Read both streams and check `source`, which says which
-artifact answered:
-
-- `codeblock_exchange` — a Code Block's per-run script logs. A true
-  stdout/stderr split; `stdout` holds whatever the script printed.
-- `run_log` — the per-run engine log filtered to this block. Everything
-  the block wrote arrives in `stderr`; `stdout` is empty by design,
-  because the engine routes block output onto one stream.
-
-Common signatures:
-
-- **`Traceback (most recent call last):`** — Python exception. Find
-  the bottom-most line; that names the exception and the offending
-  call.
-- **`FileNotFoundError: [Errno 2] No such file or directory: '...'`**
-  — block's `config.path` points to a file that does not exist. Check
-  the config; verify the file exists under the project root.
-- **`MemoryError`** — input too large to materialise. Recommend
-  chunking (`iter_chunks()` inside the block) or a smaller input.
-- **`KeyError: 'X'` inside `run(self, inputs, config)`** — the block
-  expected an input port `X` that was not wired. Check the workflow
-  YAML edges.
-- **`pydantic.ValidationError`** in block config — `config_schema`
-  mismatch. Check the workflow YAML's node `config` against the
-  block's schema (`get_block_schema`).
-- **`ImportError`** — stale `reload_blocks` or a missing dependency
-  in the block's Python file.
-- **`subprocess.TimeoutExpired`** — AI block timed out;
-  `config.timeout_sec` was too low for the prompt's actual runtime.
-
-When citing a log line to the user, copy the line verbatim. Do not
-paraphrase tracebacks.
-
-## 4. `get_lineage` for cascading failures
-
-If block `B` failed because its input was malformed, the upstream
-block `A` was the real cause. `get_lineage(input_ref)` returns the
-ancestor chain:
-
-```
-upstream_output = get_block_output(run_id=run_id, block_id=upstream_block, port=upstream_output_port)
-# Returns a GetBlockOutputResult envelope. Use upstream_output.ref for lineage.
-get_lineage(ref=upstream_output.ref)
-# Returns ancestors: [{producer_block: A, producer_port: out, ...}, ...]
-```
-
-Cross-reference with `get_block_logs(run_id, A)`. The actual fault
-might be in A even though B is the one that failed.
-
-## 5. Common error signatures
-
-| Error string | Root cause | Next tool call |
-|---|---|---|
-| `FileNotFoundError: 'data/...'` | Config path wrong / file missing | `list_data` then fix config |
-| `MemoryError` | Input too large | Recommend chunking; `inspect_data(ref)` to confirm size |
-| `KeyError: '<port>'` in `run` | Edge not wired to required input | `get_block_schema`; fix workflow YAML |
-| `pydantic.ValidationError` | Config doesn't match schema | `get_block_schema`; fix workflow YAML config |
-| `ImportError: ...` | Stale registry / missing dep | `reload_blocks`; check `blocks/*.py` imports |
-| `subprocess.TimeoutExpired` | AI block ran longer than `timeout_sec` | Increase `timeout_sec` or simplify prompt |
-| `Type mismatch: expected X got Y` | Wrong edge type | `list_types`; rewire workflow |
-| `Cycle detected in DAG` | Edge points to ancestor | Re-draw the YAML DAG |
-
-If the error does not match any row, read the full traceback and
-report the bottom-most call site to the user. Do not guess.
-
-## 6. lineage.db — use the MCP surface
-
-Lineage data lives in `.scistudio/lineage.db` (SQLite). Do NOT
-query that file directly. The MCP tools are the public surface:
-
-- `get_lineage(ref)` — ancestors of one ref
-- `get_block_output(run_id, block_id, port)` — `GetBlockOutputResult` by address
-- `get_run_status(run_id)` — top-level run envelope
-
-These tools enforce schema versioning and access semantics. Direct
-SQLite queries bypass those checks and may return stale or
-mis-shaped rows.
-
-## 7. Working inside an AI block PTY
-
-When a workflow's `AIBlock` step is reached, the engine spawns an
-embedded agent in a PTY tab and sets the environment variable
-`SCISTUDIO_AI_BLOCK_RUN_DIR`. If that variable is set in your shell
-environment, you are inside an AI block — the workflow is paused
-waiting for you to finish.
-
-**Canonical termination**: when the prompt's work is complete, call
-`mcp__scistudio__finish_ai_block(run_id, output_refs)` where:
-
-- `run_id` — the parent workflow's run id (read from
-  `SCISTUDIO_AI_BLOCK_RUN_ID` or the environment).
-- `output_refs` — a dict `{port_name: ref}` matching the AIBlock's
-  declared `output_ports`.
-
-The runtime validates the refs against the block's port types,
-records the completion in lineage.db, and resumes the downstream
-workflow.
-
-**Failure modes**:
-
-- `finish_ai_block` called outside an AI block (no `SCISTUDIO_AI_BLOCK_RUN_DIR`)
-  — fails fast with a clear error.
-- `finish_ai_block` called with output refs that don't match the
-  declared port types — runtime rejects with a type-mismatch error;
-  fix the upstream block or the port declaration.
-- AI block timed out (`subprocess.TimeoutExpired`) — the
-  parent workflow already failed; you can no longer
-  `finish_ai_block`. Surface to the user and let them re-run with a
-  larger `timeout_sec`.
-
-## 8. Worked example
-
-User: "My segmentation workflow failed."
-
-```
-# Step 1: full envelope
-get_run_status(run_id="r-abc123")
-# → GetRunStatusResult(state="failed",
-#     progress={"block_states": {"load": "succeeded", "thr": "failed"}},
-#     errors=[BlockErrorEntry(block_id="thr",
-#                             summary="Block 'thr' raised: type mismatch",
-#                             error="<full traceback>")])
-
-# Step 2: per-block logs
-get_block_logs(run_id="r-abc123", block_id="thr")
-# stderr → "TypeError: ThresholdSimple.process_item() expected
-#           Image, got DataFrame"
-
-# Step 3: confirm the upstream output type
-load_output = get_block_output(run_id="r-abc123", block_id="load", port="images")
-# -> {ref: {...}, type: {type_chain: [...], type_name: "DataFrame"}, produced_at: ""}
-inspect_data(ref=load_output.ref)
-# → {type: "DataFrame", shape: ..., axes: ...}
-
-# Diagnosis: the workflow YAML wired load's "tables" port (DataFrame)
-# into thr's "image" port (Image). Should have wired "images" port.
-
-# Report to user: cite the log line verbatim; recommend fixing the
-# workflow YAML edge. Do NOT silently retry.
-```
-
-## Mandatory rules
-
-- Always read the FULL `get_run_status` envelope, not just `state`.
-- For any failed block, ALWAYS call `get_block_logs` before guessing
-  the cause.
-- Do NOT speculate — cite log lines verbatim when explaining the
-  failure.
-- Do NOT call `cancel_run` on a `running` workflow without user
+- Re-running a failed workflow without changing anything.
+- Reading only the run `state` and stopping before the block logs.
+- Explaining a failure without quoting the log; paraphrasing a traceback.
+- Blaming the block that failed without checking whether its input was wrong.
+- Calling `cancel_run` on a running or paused workflow without the user's
   confirmation.
-- Do NOT query `lineage.db` directly; use the MCP lineage tools.
+- Querying `.scistudio/lineage.db` or reading run folders directly instead of
+  using the MCP tools.
+- Treating a `paused` block as hung: it is waiting for someone.
 
-## Anti-patterns
+## 4. Defaults, tool sequence, and failure handling
 
-- Cancelling a still-running workflow without checking with the user.
-- Speculating about the cause without reading logs.
-- Calling `inspect_data` on a 50 GB array (use `preview_data` — it
-  returns a thumbnail).
-- Re-running the workflow without changing anything ("maybe it'll
-  work this time").
-- Stopping at `get_run_status` without drilling into per-block logs.
+**Run status.** `get_run_status` returns `GetRunStatusResult` with `run_id`,
+`state` (`queued`, `running`, `succeeded`, `failed`, `cancelled`, or `unknown`),
+`progress.block_states` (block id to state: `idle`, `ready`, `running`, `paused`,
+`done`, `error`, `cancelled`, or `skipped`), and `errors`, a list of
+`BlockErrorEntry(block_id, error, summary)`. `summary` is a one-line digest;
+`error` is the full traceback. A `skipped` block did not run because a required
+upstream input was missing; look at the block before it.
+
+**Block logs.** `get_block_logs(run_id, block_id)` returns `stdout`, `stderr`,
+and `source`, each stream cut to its last 16 KiB. With `source` set to
+`codeblock_exchange` (a Code Block), the script's output comes as a real
+stdout/stderr split. With `run_log` (every other block), everything the block
+wrote is in `stderr` and `stdout` is empty.
+
+**Common error signatures.**
+
+| Log shows | Likely cause | Next step |
+|---|---|---|
+| `FileNotFoundError: ... 'data/...'` | A `path` in the config names a file that does not exist | Find the file with `list_directory` or `search_files`; fix the path with `update_block_config` |
+| `KeyError: '<name>'` inside `run` | The block reads an input port that is not wired, or a config key that is not set | `get_block_schema`; check the workflow's edges and the node's config |
+| `pydantic.ValidationError` | The node's config does not match the block's schema | `get_block_schema`; fix with `update_block_config` |
+| `ImportError` / `ModuleNotFoundError` | The block file imports a missing package, or the registry is stale | Check the imports in `blocks/<name>.py`; `reload_blocks` |
+| `MemoryError` | An input is too large to load at once | `inspect_data` for its size; process it in chunks inside the block (`iter_chunks`) or use a smaller input |
+| A type error naming two data types | The block received a different type than it expects | `inspect_data` on the input; check the edge in the workflow |
+
+Structural problems (a cycle, a required input with no connection, incompatible
+edge types, an unknown port) are reported by `validate_workflow` before a run
+starts; fix them with `scistudio-build-workflow`. When the log matches no row,
+report the bottom-most call site of the traceback verbatim. Do not guess.
+
+**A stuck run.** Find the `paused` block and what it waits for:
+
+- **AI Agent block:** its agent tab in the GUI is still working. The block has
+  no time limit; it waits until the agent calls `finish_ai_block` or the user
+  cancels the run.
+- **Interactive block:** its window is waiting for the user's decision. Ask the
+  user to open it and confirm.
+- **App block:** the external application is still open. Ask the user to finish
+  there.
+
+**Inside an AI Agent block.** When `SCISTUDIO_AI_BLOCK_RUN_DIR` is set in your
+environment, you are the agent of an AI Agent block, and the run waits for you.
+Write every declared output, then call `finish_ai_block(outputs={port_name:
+path})` exactly once, with a path for each declared output port. The runtime then
+validates the files against the ports and resumes the run. Error codes:
+`not_in_ai_block_context` (called outside an AI Agent block), `invalid_outputs`
+(`outputs` is not a mapping of port names to paths), `already_finished` (it was
+already called for this run), and `io_error` (the signal could not be written).
+If you cannot produce an output, do not call it; tell the user.
+
+**Tool sequence.**
+
+```
+get_run_status(run_id)
+get_block_logs(run_id, block_id)          # the first block in error
+get_workflow(path)                        # edges into that block
+get_block_output(run_id, upstream_id, port)
+inspect_data(ref) / preview_data(ref, fmt)
+```
+
+## 5. Contracts and routing
+
+**Contracts (MUST follow).**
+
+- Tool names, arguments, and result fields: the live MCP tool schemas.
+- Workflow YAML shape: `user-guide/api-reference/workflow-yaml.md`.
+
+**Agent reference.**
+
+- Block rules, including what `run` must return:
+  `.scistudio/agent-reference/block-contract.md`.
+- Reading data values inside a block: `.scistudio/agent-reference/data-types.md`.
+
+**Related skills.**
+
+- `scistudio-build-workflow`: fixing edges, config, or structure, then validating
+  and running again.
+- `scistudio-write-block`: fixing the code of a project block.
+- `scistudio-inspect-data`: looking at intermediate outputs in detail, or tracing
+  where an earlier result came from with lineage.
+- `scistudio-use-gui`: checking a paused block's window or agent tab.
+
+## 6. Examples
+
+**"My normalize workflow failed."**
+
+```
+get_run_status(run_id="<run_id>")
+# state="failed"; block_states: load="done", norm="error"
+# errors=[BlockErrorEntry(block_id="norm", summary="...", error="<traceback>")]
+
+get_block_logs(run_id="<run_id>", block_id="norm")
+# stderr ends with: KeyError: 'gene_id'
+
+out = get_block_output(run_id="<run_id>", block_id="load", port="data")
+preview_data(ref=out.ref, fmt="table")
+# the table's first column is "GeneID", not "gene_id"
+```
+
+Report: the `norm` block looks up a column named `gene_id`, but the loaded table
+names it `GeneID` (quote the `KeyError` line). Offer to set the block's column
+parameter with `update_block_config`, or to rename the column upstream, then
+validate and run again.
+
+**"The run has been going for an hour."**
+
+```
+get_run_status(run_id="<run_id>")
+# state="running"; block_states: summarise="paused"
+```
+
+The `summarise` node is an AI Agent block waiting for its agent. Tell the user
+its agent tab is still open in the GUI and has not finished; ask whether to
+check that tab or cancel the run.
+
+## 7. Available tools
+
+The live MCP tool list is the source of truth; these are the tools this task
+uses.
+
+| Tool | What it does | When to use it |
+|---|---|---|
+| `get_run_status` | Returns a run's state, per-block states, and errors. | First, for every failed, stuck, or suspicious run. |
+| `get_block_logs` | Returns a block's captured output. | For every block in `error`, before explaining the cause. |
+| `get_block_output` | Resolves a block port's output from a run. | To get the inputs of a failing block. |
+| `inspect_data` / `preview_data` | Return metadata or a bounded preview of stored data. | To check whether an input is what the block expects. |
+| `get_block_schema` | Returns one block's ports and config schema. | To compare the node's wiring and config with the block. |
+| `get_workflow` | Loads a workflow file. | To find the edges into a block and the config that ran. |
+| `edit_workflow` / `update_block_config` | Change a workflow or one node's config. | To apply the fix. |
+| `validate_workflow` / `run_workflow` | Check and start a workflow. | After the fix. |
+| `cancel_run` | Cancels an in-flight run. | Only when the user confirms. |
+| `finish_ai_block` | Ends the AI Agent block you are running in. | Once, after writing every declared output. |
