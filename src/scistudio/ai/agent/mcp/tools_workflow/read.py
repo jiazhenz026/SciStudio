@@ -20,6 +20,7 @@ import yaml as yaml_module
 from pydantic import Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_path, get_context
+from scistudio.ai.agent.mcp._format_capabilities import schema_format_capabilities
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow._errors import (
     _collect_run_errors,
@@ -141,9 +142,13 @@ async def get_block_schema(
     Use when:
       - You need port names + expected types before wiring edges.
       - You need the config_schema to populate a block's static params.
+      - You need a file format's ``capability_id`` for a core ``load_data`` /
+        ``save_data`` node or a Code/App Block port: ``format_capabilities``
+        lists the choices and ``format_capability_usage`` says where to set one.
 
     Do NOT use to:
       - Discover available block types — call ``list_blocks`` first.
+      - See which capability a configured node uses — call ``get_block_config``.
 
     Raises ``KeyError`` if the type is not registered.
     """
@@ -151,6 +156,8 @@ async def get_block_schema(
     spec = ctx.block_registry.get_spec(type_name)
     if spec is None:
         raise KeyError(f"Block type '{type_name}' is not registered")
+    # #2435: the capability ids the GUI Format dropdowns offer for this block.
+    format_capabilities, format_capability_usage = schema_format_capabilities(spec, ctx.block_registry)
     return BlockSchemaResult(
         type_name=spec.type_name,
         ports={
@@ -165,6 +172,8 @@ async def get_block_schema(
             "base_category": spec.base_category,
             "subcategory": spec.subcategory,
         },
+        format_capabilities=format_capabilities,
+        format_capability_usage=format_capability_usage,
     )
 
 
