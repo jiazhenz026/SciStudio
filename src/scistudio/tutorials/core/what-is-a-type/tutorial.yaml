@@ -349,7 +349,7 @@ steps:
       preview_item:
         index: 0
     say:
-      - "success: Green! Click any of the files in the previewer to look at it."
+      - "success: Green! Click any of the files in the preview panel to look at it."
     done_when:
       ui_event:
         name: preview_item_opened
@@ -359,14 +359,14 @@ steps:
     auto_advance: true
     route_to: canvas
     trigger:
-      label: Write the Image previewer for me
+      label: Write the Image preview panel for me
       do:
-        - write:
-            source: assets/code/image_preview.py
-            destination: previewers/image_preview.py
+        - copy:
+            source: assets/panels/image_preview
+            destination: panels/image_preview
     say:
-      - "curious: Your cell image came out as a table of numbers. That is not a bug — SciStudio's core ships only an Array previewer, and it does not know how to render an image."
-      - "explain: The good news is that we can customize a previewer for Image ourselves. (Later you can ask SciStudio's AI agent to create a previewer however you like — we will cover that in a later tutorial.)"
+      - "curious: Your cell image came out as a table of numbers. That is not a bug — SciStudio's core ships only an Array preview panel, and it does not know how to render an image."
+      - "explain: The good news is that we can customize a preview panel for Image ourselves. (Later you can ask SciStudio's AI agent to create a preview panel however you like — we will cover that in a later tutorial.)"
       - "focus: Let me create one for you!"
     done_when:
       previewer_registered:
@@ -590,12 +590,14 @@ steps:
     trigger:
       label: Write the review block for me
       do:
+        # The panel first: the block names it, and a block whose panel is not
+        # there yet is refused when blocks are discovered.
+        - copy:
+            source: assets/panels/review_labels
+            destination: panels/review_labels
         - write:
             source: assets/code/review_labels.py
             destination: blocks/review_labels.py
-        - copy:
-            source: assets/panels/review_labels
-            destination: blocks/review_labels_panel
     say:
       - "curious: If only we could delete that little dot by hand..."
       - "success: Actually, SciStudio lets a block be interactive!! We can absolutely add a block for editing by hand after it!!"
@@ -712,22 +714,24 @@ steps:
   # 这里废话太多了，直接：The last one: your previewer can also be moved to your
   # personal library. 这里让用户直接去previewer选all projects
   #
-  # TODO(#2135): this step is not judged. The All Previewers card offers
-  #   Auto / This project / All projects, which records which previewer renders
-  #   an Image and at what scope — it does not move the file into the library,
-  #   and `library_contains` can only be satisfied by the editor toolbar's
-  #   "Move to My Library". Left unjudged rather than judged on something the
-  #   step does not ask for; raised with the owner 2026-08-23.
-  #   Followup: https://github.com/jiazhenz026/SciStudio/issues/2135
+  # Judged like the two steps before it (owner, 2026-09-15): the Image preview
+  # panel's card in All Previewers carries "Move to My Library", which moves
+  # the panel folder into the scoped library, and its routing candidate is a
+  # user-tier previewer spec for Image from then on.
   - id: save-the-previewer
-    title: And the previewer
+    title: And the preview panel
+    auto_advance: true
     route_to: previewers
     highlight:
       - ~
       - previewer_palette
     say:
-      - "The last one: your previewer can also be moved to your personal library."
-      - In **All Previewers**, find **Image** and choose **All projects**.
+      - "The last one: your preview panel can also be moved to your personal library."
+      - In **All Previewers**, find **Image** and choose **Move to My Library**.
+    done_when:
+      library_contains:
+        kind: previewer
+        name: Image
 
   # 最后统计表格出来以后，再加一个 histogram 步骤，交给 labmate 看。四句话：
   # 1. 我们最后出一个细胞size的histogram交给labmate去看。这里我们需要用到上一个
@@ -787,7 +791,7 @@ steps:
       - plot_export_button
     say:
       - "success: The histogram is drawn!"
-      - Press **Save** in the previewer and keep the plot in **data/processed**.
+      - Press **Save** in the preview panel and keep the plot in **data/processed**.
     done_when:
       ui_event:
         name: plot_exported
@@ -805,5 +809,5 @@ steps:
       - "success: Congratulations! That is the end of today's tutorial. Today you learned the concept of a SciStudio type, and how SciStudio reads and writes files of different formats. You also picked up a few small tips:"
       - "explain: Tip 1 — a block can be interactive."
       - "explain: Tip 2 — a SciStudio workflow can do batch processing; just multi-select your files when you load."
-      - "explain: Tip 3 — you can customize your previewer any way you like."
+      - "explain: Tip 3 — you can customize your preview panel any way you like."
       - You can keep exploring in this project, or start your next one.

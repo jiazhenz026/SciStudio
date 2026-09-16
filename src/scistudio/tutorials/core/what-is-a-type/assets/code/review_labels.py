@@ -1,22 +1,21 @@
 """An interactive block: look at the label map and delete what is not a cell.
 
 Core tutorial 2 writes this block into the tutorial project, together with the
-small JavaScript window it opens (``blocks/review_labels_panel/``). It is a
+small window it opens (the panel folder ``panels/review_labels/``). It is a
 real interactive block, the same machinery the built-in Data Router uses: it
 declares ``execution_mode = INTERACTIVE``, the run pauses when it is reached,
 :meth:`ReviewLabelsBlock.prepare_prompt` reduces the real input to a
 window-sized JSON view, the panel collects your decision, and ``run`` computes
 the outputs from it.
 
-The panel is deliberately ordinary code. ``interactive_panel`` names a plain
-ES module served from this project (``module_url``), confined to the directory
-beside this file (``asset_root``); no framework, no build step. A block's
-window is just a file it carries with it.
+The panel is deliberately ordinary code. ``interactive_panel`` names a panel
+by id, and the panel is a folder in this project: a ``panel.json`` saying it is
+written for the interactive context, and one hand-written HTML page; no
+framework, no build step. A block's window is just a folder of files.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 import numpy as np
@@ -94,15 +93,11 @@ class ReviewLabelsBlock(InteractiveMixin, ProcessBlock):
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
 
-    # The block-owned window: a hand-written, dependency-free ES module that
-    # travels beside this file. The backend serves it, path-confined under
-    # ``asset_root``, at the ``module_url`` below.
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
-        panel_id="tutorial.review_labels",
-        module_url="/api/blocks/panels/tutorial.review_labels/panel.mjs",
-        version="1",
-        asset_root=str(Path(__file__).resolve().parent / "review_labels_panel"),
-    )
+    # The window this block opens, named by the id of a panel folder in this
+    # project (``panels/review_labels/``). The panel has to be there before
+    # this block is: a block whose panel is missing, or is not written for the
+    # interactive context, is refused when blocks are discovered.
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="review_labels")
 
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="labels", accepted_types=[Image], description="The label map to review"),

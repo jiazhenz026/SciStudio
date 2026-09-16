@@ -1,0 +1,10 @@
+{
+  "id": "image_preview",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Image"],
+  "name": "Image",
+  "description": "Draws an Image as a picture, with Segment Cells' labels washed over the micrograph.",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

@@ -16,13 +16,11 @@ shipped tutorial gets. This file checks what only tutorial 2 promises
   recorded recipe and requires pixel equality, so the data cannot drift from
   the numbers;
 * the interactive block is a *real* interactive block — mixin, execution
-  mode, panel manifest with a served module URL and a path-confined
-  ``asset_root`` beside the block — and its panel is the shipped, hand-written
-  ES module implementing the ADR-051 PanelModule contract;
-* the previewer registers for ``Image`` and paints the pixels as an
-  indexed-color PNG, and it derives its tier from where it sits, so the same
-  file works in the project and, after "Move to My Library", in the library's
-  user-tier slot;
+  mode, and a panel manifest naming a panel folder by id — and its panel is a
+  hand-written page for the interactive context on the panel SDK (ADR-054);
+* the preview panel claims ``Image`` for the preview context and draws every
+  pixel in the green fire LUT, with Segment Cells' labels washed over it, and
+  its "Move to My Library" is the third judged promotion;
 * the whole tutorial walks through the real runtime, beat by beat.
 
 The level was rewritten to the owner's design in #2135: it now ships two
@@ -211,7 +209,6 @@ def assets(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
     modules["loader"] = load("_scistudio_dropin_test_t2_loader", "load_tiff_image.py")
     modules["segment"] = load("_scistudio_dropin_test_t2_segment", "segment_cells.py")
     modules["review"] = load("_scistudio_dropin_test_t2_review", "review_labels.py")
-    modules["preview"] = load("_scistudio_dropin_test_t2_preview", "image_preview.py")
 
     def cleanup() -> None:
         for name in bound:
@@ -326,7 +323,7 @@ def test_the_beat_map_is_the_designed_one(manifest: TutorialManifest) -> None:
         ("a-dataframe-of-areas", None),
         ("save-the-type", ("library_contains",)),
         ("save-the-block", ("library_contains",)),
-        ("save-the-previewer", None),
+        ("save-the-previewer", ("library_contains",)),
         ("a-histogram-for-your-labmate", ("plot_exists",)),
         ("run-the-histogram", ("ui_event",)),
         ("export-the-histogram", ("ui_event",)),
@@ -402,9 +399,9 @@ def test_the_we_write_it_beats_write_what_their_step_teaches(manifest: TutorialM
     }
     assert triggered == {
         "teach-it-to-load": {"blocks/load_tiff_image.py"},
-        "why-numbers": {"previewers/image_preview.py"},
+        "why-numbers": {"panels/image_preview"},
         "segment-the-cells": {"blocks/segment_cells.py"},
-        "blocks-can-be-interactive": {"blocks/review_labels.py", "blocks/review_labels_panel"},
+        "blocks-can-be-interactive": {"panels/review_labels", "blocks/review_labels.py"},
         "a-histogram-for-your-labmate": {"plots/cell_size_histogram"},
     }
 
@@ -460,20 +457,14 @@ def test_the_wired_workflows_keep_the_choices_the_reader_made(manifest: Tutorial
     assert reviewed_load == load_node
 
 
-def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialManifest) -> None:
-    """The ending judges two of the three promotions, and says why the third is not judged.
+def test_the_promotion_bridge_judges_all_three_promotions(manifest: TutorialManifest) -> None:
+    """The ending judges the type, the block, and the Image preview panel moving to My Library.
 
     Tutorial 3 stands on all three — its fresh project finds Image, Segment
-    Cells, and the Image previewer already in the library — but only two of the
-    three moves are things ``library_contains`` can see. The All Previewers
-    card offers Auto / This project / All projects, which records *scope*
-    rather than moving the file, so the previewer step asks for something the
-    term cannot judge and is deliberately left unjudged with a TODO explaining
-    the gap.
-
-    This test exists so that stays a decision rather than an accident. Dropping
-    the previewer step's condition without the TODO, or quietly re-judging it
-    on a term the step does not ask for, both fail here.
+    Cells, and the Image preview panel already in the library. The preview
+    panel's card in All Previewers carries "Move to My Library", which moves
+    the panel folder into the scoped library, so ``library_contains`` sees it
+    as a previewer for Image and the third step is judged like the other two.
     """
     judged: list[tuple[str, str]] = []
     for step in manifest.steps:
@@ -482,16 +473,12 @@ def test_the_promotion_bridge_judges_the_type_and_the_block(manifest: TutorialMa
         condition = step.done_when
         assert not condition.is_combinator
         judged.append((str(condition.args["kind"]), str(condition.args["name"])))
-    assert judged == [("type", "Image"), ("block", "segment_cells")]
+    assert judged == [("type", "Image"), ("block", "segment_cells"), ("previewer", "Image")]
 
     previewer_step = manifest.step_by_id("save-the-previewer")
     assert previewer_step is not None
-    assert previewer_step.done_when is None, "the previewer promotion is unjudged on purpose; see the TODO"
-    assert "All projects" in say_text(previewer_step), "the step still asks for the All Previewers card's own control"
-
-    source = (TUTORIAL_DIR / "tutorial.yaml").read_text(encoding="utf-8")
-    assert "TODO(#2135)" in source, "an unjudged step must carry the tracked reason it is unjudged"
-    assert "it does not move the file into the library" in source, "the TODO must say why the term cannot judge it"
+    said = say_text(previewer_step)
+    assert "All Previewers" in said and "Move to My Library" in said, "the step names the list and the control"
 
 
 def test_the_library_step_states_the_real_library_consequence(manifest: TutorialManifest) -> None:
@@ -799,42 +786,82 @@ def test_the_step_texts_stand_on_what_the_pixels_do(manifest: TutorialManifest) 
 # ---------------------------------------------------------------------------
 
 
-def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleType]) -> None:
-    """Mixin + execution mode + panel manifest: the registry's own validation gate."""
+def _project_with_review_panel(root: Path) -> Path:
+    """A project holding the review panel folder, the way the step's trigger lands it."""
+    import shutil
+
+    project = root / "project"
+    (project / "blocks").mkdir(parents=True)
+    (project / "project.yaml").write_text("name: p\n", encoding="utf-8")
+    shutil.copytree(ASSETS / "panels" / "review_labels", project / "panels" / "review_labels")
+    return project
+
+
+def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleType], tmp_path: Path) -> None:
+    """Mixin + execution mode + panel manifest: the registry's own validation gate.
+
+    The block names its panel by id only, and the gate accepts it because the
+    project holds a panel folder of that id written for the interactive context.
+    """
+    import warnings
+
     from scistudio.blocks.base import ExecutionMode, InteractiveMixin
     from scistudio.blocks.registry._spec import _spec_from_class
+    from scistudio.panels.validation import panel_scan_scope
 
     cls = assets["review"].ReviewLabelsBlock
     assert issubclass(cls, InteractiveMixin)
     assert cls.execution_mode is ExecutionMode.INTERACTIVE
 
-    with pytest.warns(DeprecationWarning, match="module_url is deprecated"):
-        spec = _spec_from_class(cls, source="custom")
+    project = _project_with_review_panel(tmp_path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with panel_scan_scope([project / "blocks"]):
+            spec = _spec_from_class(cls, source="custom")
     assert spec.type_name == "review_labels"
     assert spec.execution_mode == "interactive"
     assert spec.panel_manifest is not None
-    assert spec.panel_manifest["panel_id"] == "tutorial.review_labels"
-    assert spec.panel_asset_root is not None and spec.panel_asset_root.endswith("review_labels_panel")
+    assert spec.panel_manifest["panel_id"] == "review_labels"
 
 
-def test_the_panel_manifest_names_the_served_module(assets: dict[str, ModuleType]) -> None:
-    """module_url points at the panel-asset route for this panel id, .mjs file included."""
-    panel = assets["review"].ReviewLabelsBlock.interactive_panel
-    assert panel.module_url == f"/api/blocks/panels/{panel.panel_id}/panel.mjs"
-    # The asset the URL names is the one the tutorial copies beside the block.
-    assert (ASSETS / "panels" / "review_labels" / "panel.mjs").is_file()
+def test_the_review_block_is_refused_without_its_panel(assets: dict[str, ModuleType], tmp_path: Path) -> None:
+    """Why the trigger copies the panel before it writes the block: a missing panel refuses the block."""
+    from scistudio.blocks.registry._spec import _spec_from_class
+    from scistudio.panels.validation import panel_scan_scope
+
+    project = tmp_path / "bare"
+    (project / "blocks").mkdir(parents=True)
+    (project / "project.yaml").write_text("name: p\n", encoding="utf-8")
+    with panel_scan_scope([project / "blocks"]), pytest.raises(ValueError, match="interactive context required"):
+        _spec_from_class(assets["review"].ReviewLabelsBlock, source="custom")
 
 
-def test_the_panel_module_implements_the_panel_contract() -> None:
-    """A dependency-free ES module: default export, apiVersion "1", mount()."""
-    source = (ASSETS / "panels" / "review_labels" / "panel.mjs").read_text(encoding="utf-8")
-    assert "export default" in source
-    assert 'const API_VERSION = "1"' in source
-    assert "mount(container, host)" in source
-    assert "host.confirm(" in source and "host.cancel(" in source
-    assert "unmount()" in source
-    for banned in ("import ", "require(", "fetch("):
-        assert banned not in source, f"the panel must stay dependency-free and offline; found {banned!r}"
+def test_the_review_panel_is_a_panel_folder_for_the_interactive_context() -> None:
+    """``panel.json`` claims the interactive context under the id the block names, and no legacy module remains."""
+    from scistudio.panels.descriptor import parse_descriptor
+    from scistudio.previewers.models import OwnerKind
+
+    folder = ASSETS / "panels" / "review_labels"
+    descriptor, warnings = parse_descriptor(
+        folder, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types=[]
+    )
+    assert warnings == []
+    assert descriptor.id == "review_labels"
+    assert descriptor.contexts == ("interactive",)
+    assert (folder / "index.html").is_file()
+    assert not (folder / "panel.mjs").exists(), "the legacy mount(container, host) module is gone"
+
+
+def test_the_review_page_uses_the_panel_sdk_and_stays_offline() -> None:
+    """A dependency-free page: the SDK script, the view from ``api.input``, the decision through ``writeBack``."""
+    source = (ASSETS / "panels" / "review_labels" / "index.html").read_text(encoding="utf-8")
+    assert '<script src="../../sdk/1/scistudio-panel.js"></script>' in source
+    assert "api.input" in source
+    assert ".writeBack({ removed:" in source
+    for banned in ("import ", "require(", "fetch(", "http://", "https://", "host.confirm(", "mount(container"):
+        assert banned not in source, (
+            f"the panel must stay dependency-free, offline, and on the panel SDK; found {banned!r}"
+        )
 
 
 def test_the_prompt_payload_is_window_sized_and_complete(assets: dict[str, ModuleType]) -> None:
@@ -916,169 +943,44 @@ def test_an_unreviewed_run_keeps_every_label(assets: dict[str, ModuleType]) -> N
 
 
 # ---------------------------------------------------------------------------
-# The previewer
+# The preview panel
 # ---------------------------------------------------------------------------
 
 
-class _StubPlane:
-    def __init__(self, matrix: list[list[float]]) -> None:
-        self.matrix = matrix
-        self.shape = [len(matrix), len(matrix[0])]
-        self.dtype = "uint8"
-
-
-class _StubRequest:
-    def __init__(self, matrix: list[list[float]] | None) -> None:
-        self.spec = type("Spec", (), {"previewer_id": "project.image.view"})()
-        self.target = None
-        self.storage = object() if matrix is not None else None
-        self.query: dict[str, Any] = {}
-        plane = _StubPlane(matrix) if matrix is not None else None
-        self.data_access = type("Access", (), {"array_plane": lambda _self, _ref, **_kw: plane})()
-
-
-def _png_chunks(png: bytes) -> list[tuple[bytes, bytes]]:
-    """Every chunk of a PNG as ``(tag, body)``, in file order.
-
-    Written out rather than pulled from a library because the previewer encodes
-    its PNG by hand, and a test that decoded with Pillow would be checking that
-    Pillow is forgiving rather than that the bytes are right.
-    """
-    assert png[:8] == b"\x89PNG\r\n\x1a\n"
-    chunks: list[tuple[bytes, bytes]] = []
-    offset = 8
-    while offset < len(png):
-        length = int.from_bytes(png[offset : offset + 4], "big")
-        tag = png[offset + 4 : offset + 8]
-        chunks.append((tag, png[offset + 8 : offset + 8 + length]))
-        offset += 12 + length
-    return chunks
-
-
-def _png_indices(width: int, height: int, idat: bytes) -> np.ndarray:
-    """The palette index of every pixel, filter bytes stripped."""
-    import zlib
-
-    raw = zlib.decompress(idat)
-    rows = []
-    for y in range(height):
-        start = y * (width + 1)
-        assert raw[start] == 0, "the encoder writes filter type 0 on every row"
-        rows.append(list(raw[start + 1 : start + 1 + width]))
-    return np.array(rows, dtype=np.uint8)
-
-
-def test_the_previewer_claims_image_and_paints_the_pixels_in_color(assets: dict[str, ModuleType]) -> None:
-    """The payoff beat shows a fluorescence image, so the PNG must actually be one.
-
-    "There they are!" is the line that opens the step after this previewer
-    lands, and it is only earned if the reader is looking at something that
-    reads as cells at a glance. A grayscale ramp would satisfy "renders a real
-    PNG" and would still leave the reader squinting at a gray smear, so this
-    test checks the encoding the previewer chose and what that encoding does to
-    the two pixels that matter.
-
-    Indexed color (IHDR color type 3) is the choice: one byte per pixel plus a
-    768-byte palette, so the color costs almost nothing and lives in a chunk
-    that either exists or does not. The palette is then read the way the eye
-    reads it — background dark, cell interior bright, and green clearly ahead
-    of the other channels somewhere in between, which is what makes it a
-    channel LUT rather than a gray ramp with extra steps. A regression to
-    grayscale fails on the missing PLTE; a regression to a gray palette fails
-    on the green.
-    """
-    import base64
-
-    from scistudio.previewers.models import EnvelopeKind
-
-    specs = assets["preview"].get_previewers()
-    assert len(specs) == 1 and specs[0].target_type == "Image"
-    assert specs[0].backend_provider is assets["preview"].render_image
-
-    image = _shipped_image(assets)
-    envelope = assets["preview"].render_image(_StubRequest(image.to_memory().tolist()))
-    assert envelope.kind is EnvelopeKind.PLOT
-    encoded = envelope.payload["src"]
-    assert encoded.startswith("data:image/png;base64,")
-    png = base64.b64decode(encoded.split(",", 1)[1])
-
-    chunks = dict(_png_chunks(png))
-    assert [tag for tag, _ in _png_chunks(png)] == [b"IHDR", b"PLTE", b"IDAT", b"IEND"]
-    width, height, depth, color_type = (
-        int.from_bytes(chunks[b"IHDR"][0:4], "big"),
-        int.from_bytes(chunks[b"IHDR"][4:8], "big"),
-        chunks[b"IHDR"][8],
-        chunks[b"IHDR"][9],
-    )
-    assert (height, width) == _SHAPE
-    assert (depth, color_type) == (8, 3), "8-bit indexed color: one byte per pixel plus a palette"
-
-    palette = chunks[b"PLTE"]
-    assert len(palette) == 768
-    assert palette == assets["preview"]._lut(), "the palette shipped is the LUT the module builds"
-
-    def color_at(y: int, x: int) -> tuple[int, int, int]:
-        index = int(indices[y, x])
-        return tuple(palette[3 * index : 3 * index + 3])  # type: ignore[return-value]
-
-    indices = _png_indices(width, height, chunks[b"IDAT"])
-
-    def luminance(rgb: tuple[int, int, int]) -> float:
-        return 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
-
-    background = color_at(0, 0)
-    assert luminance(background) < 40, f"the corner is empty slide and must stay dark, got {background}"
-
-    # A point inside a cell, read off the shipped pixels rather than named by
-    # hand: the brightest pixel of the first slide is in one.
-    shipped = _expected_micrograph("cells_01.tif")
-    bright_y, bright_x = np.unravel_index(int(np.argmax(shipped)), shipped.shape)
-    interior = color_at(int(bright_y), int(bright_x))
-    assert luminance(interior) > 180, f"the middle of a cell must be bright, got {interior}"
-
-    green_forward = [
-        index
-        for index in range(256)
-        if palette[3 * index + 1] > palette[3 * index] + 40 and palette[3 * index + 1] > palette[3 * index + 2] + 40
-    ]
-    assert len(green_forward) > 64, "a fluorescence LUT, not a gray ramp: green leads over most of the range"
-
-
-def test_the_previewer_reports_failure_as_an_envelope(assets: dict[str, ModuleType]) -> None:
-    from scistudio.previewers.models import EnvelopeKind
-
-    envelope = assets["preview"].render_image(_StubRequest(None))
-    assert envelope.kind is EnvelopeKind.ERROR
-    assert envelope.error is not None
-
-
-def test_the_previewer_derives_its_tier_from_where_it_sits(tmp_path: Path) -> None:
-    """The same bytes answer PROJECT beside a project.yaml and USER in a library.
-
-    "Move to My Library" relocates the file verbatim, and the drop-in scans
-    refuse a spec whose declared tier disagrees with the directory being
-    scanned — so a previewer that hard-coded either tier would break on one
-    side of the move. Deriving the tier from the location is what makes the
-    promotion the tutorial teaches actually work.
-    """
+def test_the_preview_panel_claims_image_for_the_preview_context() -> None:
+    """``panel.json`` is the whole connection: a preview panel for exactly the Image type."""
+    from scistudio.panels.descriptor import parse_descriptor
     from scistudio.previewers.models import OwnerKind
 
-    source = (ASSETS / "code" / "image_preview.py").read_text(encoding="utf-8")
+    folder = ASSETS / "panels" / "image_preview"
+    descriptor, warnings = parse_descriptor(
+        folder, owner_kind=OwnerKind.PROJECT, owner_name="project", registered_types=["Image"]
+    )
+    assert warnings == []
+    assert descriptor.id == "image_preview"
+    assert descriptor.contexts == ("preview",)
+    assert descriptor.types == ("Image",)
+    assert [spec.target_type for spec in descriptor.candidates()] == ["Image"]
+    assert (folder / "index.html").is_file()
+    assert not (ASSETS / "code" / "image_preview.py").exists(), "the Python-only previewer is gone"
 
-    def spec_at(root: Path, marker: bool) -> Any:
-        (root / "previewers").mkdir(parents=True)
-        if marker:
-            (root / "project.yaml").write_text("name: p\n", encoding="utf-8")
-        target = root / "previewers" / "image_preview.py"
-        target.write_text(source, encoding="utf-8")
-        spec = importlib.util.spec_from_file_location(f"_t2_tier_{marker}", target)
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.get_previewers()[0]
 
-    assert spec_at(tmp_path / "project", marker=True).owner_kind is OwnerKind.PROJECT
-    assert spec_at(tmp_path / "library", marker=False).owner_kind is OwnerKind.USER
+def test_the_preview_page_reads_every_pixel_and_draws_in_color() -> None:
+    """The page reads through the host in tiles, paints the green fire LUT, and washes labels red.
+
+    Tiles rather than one plane read, because a plane read is sampled down to a
+    thumbnail and a preview shows only real values. The LUT and the overlay are
+    what make "There they are!" true: a gray ramp would leave the reader
+    squinting, and labels drawn on nothing would say nothing about the cells.
+    """
+    source = (ASSETS / "panels" / "image_preview" / "index.html").read_text(encoding="utf-8")
+    assert '<script src="../../sdk/1/scistudio-panel.js"></script>' in source
+    assert 'api.read("array.tile"' in source
+    assert "array.plane" not in source
+    assert "t * 1.35" in source, "the green fire ramp the old previewer used"
+    assert 'axes[0].name === "c" && axes[0].size === 2' in source, "Segment Cells' micrograph-plus-labels pair"
+    for banned in ("import ", "require(", "fetch(", "http://", "https://"):
+        assert banned not in source, f"the panel must stay dependency-free and offline; found {banned!r}"
 
 
 # ---------------------------------------------------------------------------
@@ -1156,6 +1058,11 @@ def _rescan(product: Any, written: Any) -> None:
     previewers = set(product.previewer_types)
     for raw in written:
         path = Path(raw)
+        manifests = [path] if path.name == "panel.json" else sorted(path.glob("panel.json")) if path.is_dir() else []
+        for manifest_path in manifests:
+            panel = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+            if "preview" in panel.get("contexts", []):
+                previewers.update(panel.get("types", []))
         if path.suffix != ".py":
             continue
         source = path.read_text(encoding="utf-8")
@@ -1380,8 +1287,8 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     _advance("why-numbers")
     assert _live_step(runtime.active_session()).satisfied is False
     view = runtime.trigger_active()
-    assert (project / "previewers" / "image_preview.py").is_file()
-    assert "Image" in product.previewer_types, "the previewers/ re-scan registered the previewer live (#2086)"
+    assert (project / "panels" / "image_preview" / "panel.json").is_file()
+    assert "Image" in product.previewer_types, "the panels/ re-scan registered the preview panel live"
     assert _live_step(view).satisfied is True, "registration is all this step asks for"
 
     _advance("look-again")
@@ -1460,7 +1367,7 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     _advance("blocks-can-be-interactive")
     view = runtime.trigger_active()
     assert (project / "blocks" / "review_labels.py").is_file()
-    assert (project / "blocks" / "review_labels_panel" / "panel.mjs").is_file(), "the panel traveled beside the block"
+    assert (project / "panels" / "review_labels" / "index.html").is_file(), "the panel landed before the block"
     assert _live_step(view).satisfied is True, "this step judges the file its own trigger writes"
 
     # The second wiring write, and the same rule: the review node is on the
@@ -1504,10 +1411,10 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     product.library = product.library | {("block", "segment_cells")}
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
-    # The previewer promotion judges nothing (TODO(#2135) on the step): the
-    # control it asks for records a scope rather than moving the file, so the
-    # reader continues by hand and the walk does too.
     _advance("save-the-previewer")
+    assert _live_step(runtime.active_session()).satisfied is False
+    product.library = product.library | {("previewer", "Image")}
+    assert _live_step(runtime.evaluate_active()).satisfied is True
 
     # The histogram: the step's own trigger scaffolds the plot, so the plot the
     # next step rings exists before its text is readable (FR-059).
