@@ -1,0 +1,75 @@
+{
+  "base_ref": null,
+  "branch": "feat/2482-miniapp-click-collapses-bottom",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/miniapps/MiniAppTab.tsx",
+      "frontend/src/miniapps/MiniAppTab.test.tsx",
+      "frontend/src/App.parts/ProjectWorkspace.tsx"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-16T13:06:44.330471Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "UI interaction convenience that mirrors the existing canvas pane-click collapse; no contract, schema or runtime behavior change, and the owner is revising docs (no doc edits)",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T13:06:44.330677Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "owner is revising docs/CHANGELOG; agents make no doc edits in this period",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2482,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "\u5b9e\u73b0\u4e00\u4e0b\u5728miniapp\u6253\u5f00\u7684\u60c5\u51b5\u4e0b\uff0c\u70b9\u51fbminiapp\u7684canvas\u81ea\u52a8\u6298\u53e0\u5e95\u90e8tab\uff0c\u63a8\u5355\u72ec\u7684PR\u3002",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2482-feat-2482-miniapp-click-collapses-bottom",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "50d05c62-7888-4bbc-89c7-ac4af2ed4275",
+  "strictness_tier": null,
+  "task_kind": "feature",
+  "test_events": [
+    {
+      "at": "2026-09-16T13:06:44.330686Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/miniapps/MiniAppTab.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

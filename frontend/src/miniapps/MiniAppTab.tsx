@@ -19,7 +19,7 @@
  *    expires after 600 s; `PanelFrame` already heartbeats `renew` every 240 s
  *    for as long as it is mounted, which is what makes staying mounted enough.
  */
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { PanelImperativeHandle } from "react-resizable-panels";
 
 import { PanelFrame } from "../panels/PanelFrame";
@@ -107,6 +107,8 @@ export interface MiniAppTabLayerProps {
   tabs: MiniAppTabState[];
   activeTabId: string | null;
   onConvert: (panelId: string) => void;
+  /** #2482 — the reader clicked inside the active MiniApp. */
+  onSurfaceInteract?: () => void;
 }
 
 /**
@@ -115,21 +117,90 @@ export interface MiniAppTabLayerProps {
  * what "stays open when another tab becomes active" means for a tab whose
  * lifetime owns a subprocess.
  */
-export function MiniAppTabLayer({ tabs, activeTabId, onConvert }: MiniAppTabLayerProps) {
+export function MiniAppTabLayer({
+  tabs,
+  activeTabId,
+  onConvert,
+  onSurfaceInteract,
+}: MiniAppTabLayerProps) {
+  const activeRef = useRef<HTMLDivElement>(null);
+  const hasActive = tabs.some((tab) => tab.id === activeTabId);
+  useMiniAppSurfaceInteraction(activeRef, hasActive, onSurfaceInteract);
   if (tabs.length === 0) return null;
   return (
     <>
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          className={tab.id === activeTabId ? "absolute inset-0" : "hidden"}
-          data-testid={`miniapp-tab-${tab.id}`}
-        >
-          <MiniAppTabPane tab={tab} onConvert={onConvert} />
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const active = tab.id === activeTabId;
+        return (
+          <div
+            key={tab.id}
+            ref={active ? activeRef : undefined}
+            className={active ? "absolute inset-0" : "hidden"}
+            data-testid={`miniapp-tab-${tab.id}`}
+            onPointerDown={active ? onSurfaceInteract : undefined}
+          >
+            <MiniAppTabPane tab={tab} onConvert={onConvert} />
+          </div>
+        );
+      })}
     </>
   );
+}
+
+/**
+ * #2482 — a click inside the active MiniApp's frame.
+ *
+ * The frame is a sandboxed cross-origin iframe, so its pointer events never
+ * reach this document and a `pointerdown` listener sees only the host chrome
+ * around it (handled by the layer's own `onPointerDown`). What the host does
+ * see is focus: a click in the frame moves focus into it, which blurs this
+ * window and leaves `document.activeElement` on the iframe. Reading focus
+ * keeps the panel SDK and its bridge contract untouched.
+ *
+ * Focus only moves once, so a second click in a frame that already has focus
+ * is not seen. That is enough here: reopening the bottom panel is itself a
+ * click in the host, which takes focus back, so the next click in the frame
+ * blurs the window again.
+ */
+export function useMiniAppSurfaceInteraction(
+  containerRef: RefObject<HTMLElement | null>,
+  active: boolean,
+  onInteract: (() => void) | undefined,
+): void {
+  const callback = useRef(onInteract);
+  callback.current = onInteract;
+  useEffect(() => {
+    if (!active) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onBlur = () => {
+      // Some engines move `activeElement` only after `blur` has dispatched.
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const focused = document.activeElement;
+        if (focused instanceof HTMLIFrameElement && containerRef.current?.contains(focused)) {
+          callback.current?.();
+        }
+      }, 0);
+    };
+    window.addEventListener("blur", onBlur);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [active, containerRef]);
+}
+
+/**
+ * #2482 — what a click in the active MiniApp does to the bottom panel: fold it
+ * away for more room, under the same pin rule as a click on the empty canvas.
+ * A panel that is already collapsed is left alone.
+ */
+export function collapseBottomPanelForMiniApp(
+  panel: PanelImperativeHandle | null,
+  pinned: boolean,
+): void {
+  if (!panel || pinned || panel.isCollapsed()) return;
+  panel.collapse();
 }
 
 /**
