@@ -66,6 +66,16 @@ export const panelsApi = {
       timeoutMs: 15000,
     }),
   close: (id: string) => apiFetch<void>(contextPath(id), { method: "DELETE", keepalive: true }),
+  /** Write a panel save to `path`, which the native save dialog returned. */
+  save: (id: string, path: string, content: Blob) =>
+    apiFetch<{ saved: boolean; destination: "file"; path: string }>(
+      `${contextPath(id)}/save?${new URLSearchParams({ path }).toString()}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: content,
+      },
+    ),
   /** ADR-054 FR-015 — 404 `no_process` for a panel that carries no `panel.py`. */
   processStatus: (id: string, signal?: AbortSignal) =>
     apiFetch<PanelProcessStatus>(`${contextPath(id)}/process`, { timeoutMs: 15000, signal }),

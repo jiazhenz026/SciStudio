@@ -1,0 +1,206 @@
+{
+  "base_ref": null,
+  "branch": "guided/live-test-20260916",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "frontend/src/components/DataPreview.tsx",
+      "frontend/src/components/PreviewerPalette.tsx",
+      "frontend/src/components/__tests__/DataPreviewAllPreviewers.test.tsx",
+      "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "frontend/src/components/LearningCenter.parts/useHighlightRect.ts",
+      "frontend/src/components/LearningCenter.parts/__tests__/useHighlightRect.test.tsx",
+      "frontend/src/lib/api/panels.ts",
+      "frontend/src/panels/PanelFrame.tsx",
+      "frontend/src/panels/PanelFrame.test.tsx",
+      "frontend/src/panels/PanelPreview.tsx",
+      "frontend/src/panels/PanelPreview.test.tsx",
+      "frontend/src/panels/save.ts",
+      "frontend/src/panels/save.test.ts",
+      "src/scistudio/api/routes/panels.py",
+      "src/scistudio/api/runtime/_projects.py",
+      "tests/api/test_panel_routes.py",
+      "tests/api/test_panel_targets_survive_reopen.py",
+      "src/scistudio/tutorials/core/what-is-a-type/tutorial.yaml",
+      "src/scistudio/tutorials/core/two-modalities-one-answer/tutorial.yaml",
+      "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "tests/tutorials/test_core_tutorial_two_modalities.py"
+    ]
+  },
+  "directive_events": [
+    {
+      "at": "2026-09-16T09:27:47.942735Z",
+      "owner_directive": "Fix All Previewers opening in the next tutorial project (#1)",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942924Z",
+      "owner_directive": "Fix #5 and #6: cap the deprecation warnings box with its own scroll; fix panel-internal tutorial highlights",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942928Z",
+      "owner_directive": "All Previewers has the lowest priority: any new panel (block click, plot result) replaces it",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942929Z",
+      "owner_directive": "Plot panel Save opens the desktop native file dialog; default path is the project root",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942931Z",
+      "owner_directive": "Fix catalog wipe: re-opening the same project keeps data ids (multi-window)",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942932Z",
+      "owner_directive": "Tutorial 2: drop Look again / Open it; go straight to Segment it after hot reload",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942934Z",
+      "owner_directive": "Tutorial 4 ending: click Compare Regions to see the setting is back, then Well done + two tips + keep exploring or go back",
+      "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T09:27:47.942937Z",
+      "owner_directive": "Open a PR, then build a local x64 installer (not published)",
+      "reason": "Record owner directives and evidence from the live session"
+    }
+  ],
+  "docs_events": [
+    {
+      "at": "2026-09-16T09:27:47.942951Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner is revising all docs and specs since 2026-09-15 and agents make no doc edits; the panel save endpoint and same-project catalog behavior are noted in the PR for the owner's revision",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942959Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner-managed during the docs overhaul; no agent CHANGELOG edits",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2480,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Owner live test of PRs merged 2026-09-12..16: fix issues found as they are reported (All Previewers replay/scroll/priority, panel hot refresh, panel highlights, native panel save, catalog wipe on same-project reopen, plot_exported, tutorial 2 and 4 flow)",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2480-live-test-20260916",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "9cce7b0e-fba8-464d-a8af-efeb87422044",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-16T09:27:47.942963Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/DataPreviewAllPreviewers.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942966Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/__tests__/PreviewerPalette.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942967Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/LearningCenter.parts/__tests__/useHighlightRect.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942968Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/PanelFrame.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942969Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/PanelPreview.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942970Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/panels/save.test.ts",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942971Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_routes.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942971Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_panel_targets_survive_reopen.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942972Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_what_is_a_type.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T09:27:47.942973Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}

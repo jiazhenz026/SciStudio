@@ -572,9 +572,39 @@ steps:
       git_current_branch:
         branch: main
 
+  # 2026-09-16 改：切回 main 后先让用户再点一次 Compare Regions，亲眼看到
+  # 原来的设置回来了，再收尾。
+  - id: see-the-er-setting-again
+    title: The ER recipe is back
+    auto_advance: true
+    route_to: canvas
+    compact: true
+    highlight:
+      node:
+        block_type: compare_regions
+    say:
+      - "focus: **Click Compare Regions** once more."
+    done_when:
+      ui_event:
+        name: node_selected
+        block_type: compare_regions
+
   - id: er-is-back
     title: The ER recipe is back
-    route_to: canvas
+    route_to: config
+    highlight:
+      config_field:
+        key: against
     say:
-      - "success: The ER workflow is back, comparing against the rest, with its own note beside it."
-      - "success: That's the level. Well done!"
+      - "success: The original setting is back: **Compare against** is the rest of the tissue again, and the ER note sits beside the workflow."
+
+  # 结尾：Well done! 今天讲了同一个 workflow 处理多模态数据，以及 Git 的
+  # power。tip 1：workflow 原生并行处理多种数据模态。tip 2：用 git branch
+  # 区分需要不同处理的 batch，并轻松切换。最后：继续 explore 或者返回。
+  - id: the-end
+    title: Well done
+    say:
+      - "success: Well done! This is the end of the tutorial. Today you saw one workflow handle several data modalities, and the power of Git. You also picked up two tips:"
+      - "explain: Tip 1 — a SciStudio workflow processes several data modalities side by side, natively."
+      - "explain: Tip 2 — use Git branches to keep batches that need different processing apart, and switch between them in one step."
+      - You can keep exploring in this project, or go back and start your next one.

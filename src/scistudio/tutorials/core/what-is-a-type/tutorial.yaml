@@ -372,38 +372,8 @@ steps:
       previewer_registered:
         type_name: Image
 
-  # 就一句话就好了：写好了！**Click the Load block** again.
-  - id: look-again
-    title: Look again
-    auto_advance: true
-    compact: true
-    route_to: canvas
-    highlight:
-      node:
-        block_type: load_data
-    say:
-      - "success: Written! **Click the Load block** again."
-    done_when:
-      ui_event:
-        name: node_selected
-        block_type: load_data
-
-  # 2026-08-24 改："There they are!" 之前也要加一个让用户真正点开 image 1，
-  # 看到图了才继续。
-  - id: open-the-rendered-image
-    title: Open it
-    compact: true
-    auto_advance: true
-    route_to: canvas
-    highlight:
-      preview_item:
-        index: 0
-    say:
-      - Click the first file to open it.
-    done_when:
-      ui_event:
-        name: preview_item_opened
-
+  # 2026-09-16 改：panel 热重载后，打开着的预览会直接刷新成新 panel，
+  # 不再需要让用户重新点 Load block、再点开第一个文件；写完直接进入分割。
   # 这里There they are! 我们的图像可以正确显示了。Time for the actual science.
   # 第二句：让我们用算法来把图像中的细胞分割出来。Press the button and I will
   # write the segmentation block for you.

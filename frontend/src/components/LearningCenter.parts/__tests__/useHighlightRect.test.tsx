@@ -9,9 +9,11 @@
  * can act on, or to `null` meaning "there is nothing to point at".
  */
 
+import { StrictMode } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resetPanelHighlights, subscribePanelHighlight } from "../../../panels/panelHighlights";
 import { useHighlightRect, type HighlightRect } from "../useHighlightRect";
 
 function Probe({ target, args }: { target: string | null; args?: Record<string, string> }) {
@@ -60,6 +62,26 @@ afterEach(() => {
 });
 
 describe("useHighlightRect", () => {
+  it("forwards a panel target past a tracker whose target is on the host page", async () => {
+    // Two trackers run per step: the stage (always on the host page) and the
+    // step's own target (here, inside a panel frame). Under StrictMode the
+    // first render runs twice; a request made during render outlived it and
+    // shadowed every later panel target.
+    resetPanelHighlights();
+    const seen: (string | null)[] = [];
+    const stop = subscribePanelHighlight((request) => seen.push(request?.target ?? null));
+    render(
+      <StrictMode>
+        <Probe target="workspace_stage" />
+        <Probe target="preview_item" args={{ index: "0" }} />
+      </StrictMode>,
+    );
+    // The stage renders after the step does (the project view mounts later).
+    anchor("workspace_stage");
+    await waitFor(() => expect(seen[seen.length - 1]).toBe("preview_item"));
+    stop();
+    resetPanelHighlights();
+  });
   it("reports nothing for a step that points at nothing", async () => {
     render(<Probe target={null} />);
 

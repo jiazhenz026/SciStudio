@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, expect, it, vi } from "vitest";
 import { mockBackend, reply, type MockBackend } from "../__tests__/contract/mockBackend";
 import { PreviewHost } from "../components/DataPreview.parts/PreviewHost";
+import { requestPreviewReroute } from "./panelEvents";
 import type { PanelContext, PanelSnapshot } from "./types";
 import type { PreviewEnvelope } from "../types/api";
 vi.mock("react-plotly.js", () => ({ default: () => null }));
@@ -198,3 +199,30 @@ it.each([true, false])(
     expect(backend.callsTo("POST /api/panels/contexts/{context_id}/open")).toHaveLength(1);
   },
 );
+it("re-opens an open child when a routing change concerns its type", async () => {
+  // A new Image panel appeared while the reader had an Image item open: the
+  // item re-routes in place, without going Back to the collection.
+  const item = (text: string, session: string): PreviewEnvelope => ({
+    ...envelope("item", false),
+    session_id: session,
+    target: { kind: "data_ref", ref: "item", type_chain: ["DataObject", "Array", "Image"] },
+    payload: { content: text },
+  });
+  const children = { item: item("Text as numbers", "pv-item-1") };
+  install(children);
+  render(<PreviewHost target={envelope("root").target} initialEnvelope={envelope("root")} />);
+  const root = await mountPanel("root");
+  await message(root.port, "open", { ref: "item" });
+  expect(await screen.findByText("Text as numbers")).toBeInTheDocument();
+
+  act(() => requestPreviewReroute({ types: ["Series"] }));
+  await act(async () => {});
+  expect(backend.callsTo("POST /api/panels/contexts/{context_id}/open")).toHaveLength(1);
+
+  children.item = item("Text as an image", "pv-item-2");
+  act(() => requestPreviewReroute({ types: ["Image"] }));
+  expect(await screen.findByText("Text as an image")).toBeInTheDocument();
+  expect(screen.queryByText("Text as numbers")).not.toBeInTheDocument();
+  expect(backend.callsTo("POST /api/panels/contexts/{context_id}/open")).toHaveLength(2);
+  expect(screen.getByTitle("root")).toBe(root.frame);
+});
