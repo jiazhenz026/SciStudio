@@ -56,7 +56,8 @@ def refresh_context_registries(ctx: Any) -> tuple[list[str], list[str]]:
 
 
 def dropin_failure_dicts(registry: Any) -> list[dict[str, str]]:
-    """Return the drop-in files the last scan refused, as plain dicts (ADR-053 FR-015)."""
+    """Return the drop-in files the last scan refused, as plain dicts."""
+    # Development references: ADR-053, FR-015.
     recorded = registry.dropin_failures() if hasattr(registry, "dropin_failures") else []
     return [asdict(failure) for failure in recorded]
 
