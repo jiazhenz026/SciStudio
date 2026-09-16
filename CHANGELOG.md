@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [#2396] **A new version that needs a new installer can be installed from
+  inside the app.** When an update cannot be applied in place, SciStudio offers
+  "Download and install" on macOS (Apple Silicon and Intel), Windows and Linux.
+  The download starts only when you click, shows its progress, and is checked
+  against the published checksum. SciStudio then asks once more, quits,
+  replaces itself and opens the new version, keeping your projects and settings.
+  An Intel build running on Apple Silicon moves to the Apple Silicon build. If
+  the install cannot finish, the version you had stays in place and the next
+  launch says what went wrong, with a link to the download page. When the app
+  cannot replace itself where it is (for example it runs straight from the disk
+  image, or its folder is not writable), it points you to the download page
+  instead. Releases name the installer with
+  `scripts/ota_publish.py --installer-release <tag>`.
 - [#2295] **A `scistudio-write-type` skill teaches the AI to define a data type.**
   Every new project provisions it beside the other task skills. It covers reuse
   through `list_types`, choosing the core base, axis and slot rules, typed
