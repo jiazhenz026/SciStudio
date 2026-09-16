@@ -37,6 +37,42 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T13:19:07.123389Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d77f790d997022e39f6d8088c683ab3cb344a3b95e750d199187c425ec3f9765",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T13:19:12.711926Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1eed88f4c289b8e95fbfbcfda14c02537c2c9797dd3662b946513a17a5010c0f",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -52,6 +88,11 @@
       "at": "2026-09-16T13:19:05.857421Z",
       "owner_directive": "ADR must cover all user-customizable Python (panels, MiniApps, plots, legacy previewers), not only types and blocks, and follow the repository ADR style",
       "reason": "Owner review: cover every place user Python lives and follow the ADR-054 writing style"
+    },
+    {
+      "at": "2026-09-16T16:34:45.245152Z",
+      "owner_directive": "Refactor ADR structure: ch2 phenomenon (scattered reloading, past bugs/PRs), ch3 current code and causes, ch4 full technical route following Jupyter, ch5 fixes/new problems/handling, ch6 user-facing changes and compatibility; no 'loader' naming",
+      "reason": "Owner review: restructure as a refactor ADR (phenomenon, cause, Jupyter-style solution on Python's import system, fixes and new problems, user-facing changes); avoid the word loader"
     }
   ],
   "docs_events": [
@@ -175,6 +216,100 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.735872Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.745647Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.755480Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.765320Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.774903Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.784378Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.793640Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.803119Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.812444Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.821797Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.831830Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:19:12.847425Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -193,9 +328,9 @@
       ".workflow/records/2483-adr-056-user-code-loader.json",
       "docs/adr/ADR-056.md"
     ],
-    "diff_fingerprint": "sha256:d80bae7e5b29124fb4887091559227da3b0ab02a5fc47c55de3de3aec5247397",
+    "diff_fingerprint": "sha256:febada969739b808326ebe669d532e011b7c2eee007dba4fb4b835674e886299",
     "head": "HEAD",
-    "head_sha": "5ff323a4",
+    "head_sha": "fe7eedc5",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -218,6 +353,14 @@
     {
       "at": "2026-09-16T13:15:34.202393Z",
       "diff_fingerprint": "sha256:d80bae7e5b29124fb4887091559227da3b0ab02a5fc47c55de3de3aec5247397",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-16T13:19:12.847463Z",
+      "diff_fingerprint": "sha256:febada969739b808326ebe669d532e011b7c2eee007dba4fb4b835674e886299",
       "mode": "local",
       "result": "pass",
       "tier": 3,
