@@ -73,6 +73,42 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T16:34:46.810713Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:15c20514dce4e217cd7beb54f17f7f7843c625aa8dc9f44c715bbb7295ea3ab3",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T16:34:53.386748Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b798db0af2cb9e8cf76677f7751df76ae0bbbbe06c063348749ba64f8dd9c1a9",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -93,6 +129,16 @@
       "at": "2026-09-16T16:34:45.245152Z",
       "owner_directive": "Refactor ADR structure: ch2 phenomenon (scattered reloading, past bugs/PRs), ch3 current code and causes, ch4 full technical route following Jupyter, ch5 fixes/new problems/handling, ch6 user-facing changes and compatibility; no 'loader' naming",
       "reason": "Owner review: restructure as a refactor ADR (phenomenon, cause, Jupyter-style solution on Python's import system, fixes and new problems, user-facing changes); avoid the word loader"
+    },
+    {
+      "at": "2026-09-16T17:08:32.141305Z",
+      "owner_directive": "Include discovery/scanning and same-name tier precedence in the ADR-056 refactor (one shared discovery step and one precedence rule for all registries)",
+      "reason": "Owner widened the refactor scope"
+    },
+    {
+      "at": "2026-09-16T17:24:51.108348Z",
+      "owner_directive": "Add a chapter of items left to the spec; keep details out of the ADR decisions",
+      "reason": "Owner review: keep the ADR at decision level and list implementation choices in a spec-items chapter"
     }
   ],
   "docs_events": [
@@ -310,6 +356,100 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.411811Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.422655Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.433540Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.444435Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.455186Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.465768Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.476304Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.487042Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.497866Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.508642Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.519239Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T16:34:53.531506Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -328,9 +468,9 @@
       ".workflow/records/2483-adr-056-user-code-loader.json",
       "docs/adr/ADR-056.md"
     ],
-    "diff_fingerprint": "sha256:febada969739b808326ebe669d532e011b7c2eee007dba4fb4b835674e886299",
+    "diff_fingerprint": "sha256:2eeb40b62da3d045e4c58938b465509b5a5dfbb22ba5c6ece01fa2f2e61f0d20",
     "head": "HEAD",
-    "head_sha": "fe7eedc5",
+    "head_sha": "0f3eb05d",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -361,6 +501,14 @@
     {
       "at": "2026-09-16T13:19:12.847463Z",
       "diff_fingerprint": "sha256:febada969739b808326ebe669d532e011b7c2eee007dba4fb4b835674e886299",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-16T16:34:53.531539Z",
+      "diff_fingerprint": "sha256:2eeb40b62da3d045e4c58938b465509b5a5dfbb22ba5c6ece01fa2f2e61f0d20",
       "mode": "local",
       "result": "pass",
       "tier": 3,
