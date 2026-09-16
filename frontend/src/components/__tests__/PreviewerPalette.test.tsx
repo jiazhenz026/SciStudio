@@ -206,6 +206,16 @@ describe("Previewers tab — reload (#2095)", () => {
       "duplicate previewer id 'x'",
     );
   });
+
+  it("caps the diagnostics box so a long list cannot squeeze the cards out", () => {
+    // jsdom has no layout: the cap and its own scroll are the contract.
+    act(() => {
+      useAppStore.getState().setPreviewers(CATALOGUE, ["duplicate previewer id 'x'"]);
+    });
+    render(<PreviewerPalette />);
+    const box = screen.getByTestId("previewer-diagnostics");
+    expect(box).toHaveClass("max-h-32", "shrink-0", "overflow-y-auto");
+  });
 });
 
 describe("Previewers tab — auto-reload on section switch (#2151)", () => {

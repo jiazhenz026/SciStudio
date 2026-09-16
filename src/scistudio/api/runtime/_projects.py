@@ -530,7 +530,12 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
     self.known_projects[candidate.id] = candidate
     self._save_known_projects()
     self.active_project = candidate
-    self.data_catalog = {}
+    if switching:
+        # Only a switch retires the outgoing project's data ids. A re-open of
+        # the active project (a second GUI window attaching) keeps them: the
+        # windows already showing its outputs still address them, and a panel
+        # target is only ever resolved through this catalog.
+        self.data_catalog = {}
     # ADR-053 FR-062: a project switch invalidates all three registries —
     # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
     # project-local previewers and their default declarations.

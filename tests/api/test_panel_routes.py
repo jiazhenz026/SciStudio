@@ -557,3 +557,34 @@ def test_composite_slots_page_past_the_item_budget(panel_client, tmp_path, monke
     )
     assert last.status_code == 200, last.text
     assert last.json()["rows"] == [{"a": 4}]
+
+
+def test_save_writes_bytes_to_the_dialog_chosen_path(panel_client, tmp_path):
+    client, prefix, _, _, _ = panel_client
+    context = create(client, prefix)
+    destination = tmp_path / "figure.png"
+    url = f"{prefix}/api/panels/contexts/{context['context_id']}/save"
+
+    response = client.post(url, params={"path": str(destination)}, content=b"\x89PNG-bytes")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"saved": True, "destination": "file", "path": str(destination.resolve())}
+    assert destination.read_bytes() == b"\x89PNG-bytes"
+    assert not list(tmp_path.glob(".*.partial"))
+
+
+def test_save_refuses_relative_paths_and_missing_parents(panel_client, tmp_path):
+    client, prefix, _, _, _ = panel_client
+    context = create(client, prefix)
+    url = f"{prefix}/api/panels/contexts/{context['context_id']}/save"
+
+    assert client.post(url, params={"path": "figure.png"}, content=b"x").status_code == 400
+    missing = tmp_path / "nowhere" / "figure.png"
+    assert client.post(url, params={"path": str(missing)}, content=b"x").status_code == 400
+    assert client.post(url, params={"path": str(tmp_path)}, content=b"x").status_code == 400
+    assert (
+        client.post(
+            f"{prefix}/api/panels/contexts/pc-unknown/save", params={"path": str(tmp_path / "a")}, content=b"x"
+        ).status_code
+        == 404
+    )

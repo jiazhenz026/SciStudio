@@ -6,6 +6,10 @@ import { resetBasePathCacheForTests } from "../lib/api/base-path";
 import { PANEL_RELOAD_DEBOUNCE_MS, PanelFrame } from "./PanelFrame";
 import { notifyPanelContextsRevoked, notifyPanelFilesChanged } from "./panelEvents";
 import type { PanelContext } from "./types";
+import { useAppStore } from "../store";
+
+const savePanelBytes = vi.hoisted(() => vi.fn());
+vi.mock("./save", () => ({ savePanelBytes }));
 
 const context: PanelContext = {
   context_id: "pc-1",
@@ -62,6 +66,36 @@ const request = {
   target: { kind: "data_ref" as const, ref: "data-1" },
 };
 describe("PanelFrame", () => {
+  it.each([
+    [{ saved: true, destination: "file" }, 1],
+    [{ saved: false, destination: "cancelled" }, 0],
+  ])("reports plot_exported after a plot save (%o)", async (result, reports) => {
+    createResult = () => ({ ...context, input: { ref: "plot-1", kind: "plot_artifact" } });
+    savePanelBytes.mockResolvedValue(result);
+    const report = vi.fn().mockResolvedValue(undefined);
+    useAppStore.setState({ reportTutorialUiEvent: report });
+    render(<PanelFrame request={request} />);
+    const iframe = (await screen.findByTitle("lab.image")) as HTMLIFrameElement;
+    bootstrapFrame(iframe);
+    fireEvent.load(iframe);
+    const port = channels[channels.length - 1].port1;
+    await act(async () => {
+      await port.onmessage?.({
+        data: { v: 1, id: "r", type: "ready", payload: null },
+      } as MessageEvent);
+      await port.onmessage?.({
+        data: {
+          v: 1,
+          id: "s",
+          type: "save",
+          payload: { name: "a.png", mime: "image/png", data: "x" },
+        },
+      } as MessageEvent);
+    });
+    expect(savePanelBytes).toHaveBeenCalledWith(expect.anything(), "pc-1");
+    await waitFor(() => expect(report).toHaveBeenCalledTimes(reports));
+    if (reports) expect(report).toHaveBeenCalledWith("plot_exported");
+  });
   it("uses exact sandbox and prefix and transfers one intended port, then revokes on navigation", async () => {
     render(<PanelFrame request={request} />);
     const iframe = (await screen.findByTitle("lab.image")) as HTMLIFrameElement;
