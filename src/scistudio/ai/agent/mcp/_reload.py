@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import asdict
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -43,11 +44,21 @@ def refresh_context_registries(ctx: Any) -> tuple[list[str], list[str]]:
     and a workflow's ``block_type`` use.
     """
     # Development references: #2405.
-    before = _block_type_names(ctx.block_registry)
+    # The standalone runtime's ``block_registry`` property rebuilds on a
+    # drop-in change before returning, which would take the "before" snapshot
+    # after the rebuild and report nothing. Read the registry it wraps.
+    registry = getattr(ctx, "_block_registry", None) or ctx.block_registry
+    before = _block_type_names(registry)
     ctx.block_registry.hot_reload()
     ctx.type_registry.rescan()
     after = _block_type_names(ctx.block_registry)
     return sorted(after - before), sorted(before - after)
+
+
+def dropin_failure_dicts(registry: Any) -> list[dict[str, str]]:
+    """Return the drop-in files the last scan refused, as plain dicts (ADR-053 FR-015)."""
+    recorded = registry.dropin_failures() if hasattr(registry, "dropin_failures") else []
+    return [asdict(failure) for failure in recorded]
 
 
 def _block_type_names(registry: Any) -> set[str]:
@@ -78,7 +89,13 @@ async def broadcast_blocks_reloaded(
         await event_bus.emit(
             EngineEvent(
                 event_type=BLOCKS_RELOADED_EVENT_TYPE,
-                data={"added": added, "removed": removed, "reloaded": reloaded, "source": source},
+                data={
+                    "added": added,
+                    "removed": removed,
+                    "reloaded": reloaded,
+                    "source": source,
+                    "dropin_failures": dropin_failure_dicts(ctx.block_registry),
+                },
             )
         )
     except Exception:
@@ -88,5 +105,6 @@ async def broadcast_blocks_reloaded(
 __all__ = [
     "BLOCKS_RELOADED_EVENT_TYPE",
     "broadcast_blocks_reloaded",
+    "dropin_failure_dicts",
     "refresh_context_registries",
 ]

@@ -436,6 +436,27 @@ def test_the_standalone_bridge_sees_a_project_tier_write_too(home: Path, project
     assert runtime.block_registry.get_spec("test.project_side") is not None
 
 
+def test_the_standalone_bridge_reports_what_a_reload_changed(home: Path, project: Path) -> None:
+    """``reload_blocks`` on the bridge reports the blocks that appeared and vanished.
+
+    Reading ``block_registry`` rebuilds first when a drop-in changed, so a
+    "before" snapshot taken through the property already contained the change
+    and every reload reported ``added: []`` and ``removed: []``.
+    """
+    from scistudio.ai.agent.mcp._reload import refresh_context_registries
+
+    gone = _write_block(project / "blocks", "about_to_go")
+    runtime = make_mcp_runtime(project)
+    assert runtime.block_registry.get_spec("test.about_to_go") is not None
+
+    gone.unlink()
+    _write_block(project / "blocks", "just_arrived")
+    added, removed = refresh_context_registries(runtime)
+
+    assert "test.just_arrived" in added
+    assert "test.about_to_go" in removed
+
+
 def test_an_unchanged_library_does_not_trigger_a_rescan(home: Path, project: Path) -> None:
     """The check must be cheap enough to run before every registry read."""
     runtime = make_mcp_runtime(project)

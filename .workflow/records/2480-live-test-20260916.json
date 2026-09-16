@@ -225,6 +225,11 @@
       "at": "2026-09-16T09:27:47.942937Z",
       "owner_directive": "Open a PR, then build a local x64 installer (not published)",
       "reason": "Record owner directives and evidence from the live session"
+    },
+    {
+      "at": "2026-09-16T11:49:41.920255Z",
+      "owner_directive": "Fix B-E: reload responses carry dropin_failures; reload diff reflects real changes and hot_reload drops specs of files that now fail; package-shaped drop-in types re-import all submodules; (E comment fix waits for the A decision)",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
     }
   ],
   "docs_events": [
@@ -759,7 +764,62 @@
   },
   "runtime": "claude",
   "schema_version": 2,
-  "scope_events": [],
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920437Z",
+      "pattern": "src/scistudio/ai/agent/mcp/_reload.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920441Z",
+      "pattern": "src/scistudio/ai/agent/mcp/tools_authoring.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920442Z",
+      "pattern": "src/scistudio/api/routes/blocks.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920443Z",
+      "pattern": "src/scistudio/blocks/registry/__init__.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920444Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920445Z",
+      "pattern": "tests/ai/test_mcp_tools_library.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920450Z",
+      "pattern": "tests/api/test_blocks.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920451Z",
+      "pattern": "tests/blocks/test_dropin_type_import.py",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-16T11:49:41.920452Z",
+      "pattern": "tests/contracts/openapi.json",
+      "reason": "Owner directive: fix drop-in reload defects B-D from the spatial-omics report"
+    }
+  ],
   "session_id": "9cce7b0e-fba8-464d-a8af-efeb87422044",
   "strictness_tier": 2,
   "task_kind": "guided",
@@ -841,6 +901,38 @@
       "class": null,
       "kind": "path",
       "path": "tests/tutorials/test_core_tutorial_two_modalities.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T11:49:41.920457Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/ai/test_mcp_tools_library.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T11:49:41.920459Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_blocks.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T11:49:41.920460Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/blocks/test_dropin_type_import.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T11:49:41.920461Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/contracts/openapi.json",
       "rationale": null,
       "verified_in_diff": null
     }
