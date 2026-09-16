@@ -1,7 +1,44 @@
 {
   "base_ref": null,
   "branch": "docs/2483-adr-056-user-code-loader",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-16T13:15:28.008492Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:b66e3ffd418a7bfc58d3f0f09437cd04004753cc477347dcb549f3c0103b49bb",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T13:15:34.067123Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e9969e87efc0d3e78b2cff79f27f0d7fc5bdc1968e1c0341fcf3ac5bd41b1c39",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
   "commit": null,
   "declared_scope": {
@@ -10,7 +47,13 @@
       "docs/adr/ADR-056.md"
     ]
   },
-  "directive_events": [],
+  "directive_events": [
+    {
+      "at": "2026-09-16T13:19:05.857421Z",
+      "owner_directive": "ADR must cover all user-customizable Python (panels, MiniApps, plots, legacy previewers), not only types and blocks, and follow the repository ADR style",
+      "reason": "Owner review: cover every place user Python lives and follow the ADR-054 writing style"
+    }
+  ],
   "docs_events": [
     {
       "at": "2026-09-16T13:15:04.923375Z",
@@ -38,7 +81,102 @@
     }
   ],
   "governance_touch": false,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-16T13:15:34.093024Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.102561Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.112107Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.121733Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.131949Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.142161Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.152047Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.161789Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.171311Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.181867Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.191708Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T13:15:34.202357Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -48,25 +186,74 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "363d35bc",
+    "changed_files": [
+      ".workflow/records/2483-adr-056-user-code-loader.json",
+      "docs/adr/ADR-056.md"
+    ],
+    "diff_fingerprint": "sha256:d80bae7e5b29124fb4887091559227da3b0ab02a5fc47c55de3de3aec5247397",
+    "head": "HEAD",
+    "head_sha": "5ff323a4",
+    "surfaces": {
+      "docs": 1,
+      "frontend": 0,
+      "governance": 0,
+      "governed_docs": 0,
+      "implementation": 0,
+      "packaging": 0,
+      "protected_agent_docs": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 1,
+      "test": 0,
+      "workflow_ci": 0
+    }
+  },
   "owner_directive": "Draft a new ADR for the unified user-code loader (Jupyter-style bare-name imports, one registration and one lookup per process, collision refusal, clear-and-reload without backend restart)",
   "persona": "adr_author",
   "pull_request": null,
-  "reconcile_events": [],
+  "reconcile_events": [
+    {
+      "at": "2026-09-16T13:15:34.202393Z",
+      "diff_fingerprint": "sha256:d80bae7e5b29124fb4887091559227da3b0ab02a5fc47c55de3de3aec5247397",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2483-adr-056-user-code-loader",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
+    "checks": [
+      "commit_hygiene",
+      "full_audit"
+    ],
     "docs": [],
-    "guards": [],
+    "guards": [
+      "agent_docs_guard",
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
     "tests": []
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "80edb5b9-baf9-4b8e-aec8-fba9f7c81255",
-  "strictness_tier": null,
+  "strictness_tier": 3,
   "task_kind": "docs",
   "test_events": [
     {
