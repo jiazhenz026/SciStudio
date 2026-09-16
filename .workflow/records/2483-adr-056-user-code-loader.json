@@ -1,0 +1,81 @@
+{
+  "base_ref": null,
+  "branch": "docs/2483-adr-056-user-code-loader",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      "docs/adr/ADR-056.md"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-16T13:15:04.923375Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-056.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T13:15:04.923558Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "no product change in this PR",
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-16T13:15:04.923564Z",
+      "class": "spec",
+      "kind": "na",
+      "path": null,
+      "rationale": "the ADR-053 personal tool library spec update is handed to the owner (Section 10)",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": false,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2483,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "Draft a new ADR for the unified user-code loader (Jupyter-style bare-name imports, one registration and one lookup per process, collision refusal, clear-and-reload without backend restart)",
+  "persona": "adr_author",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2483-adr-056-user-code-loader",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "80edb5b9-baf9-4b8e-aec8-fba9f7c81255",
+  "strictness_tier": null,
+  "task_kind": "docs",
+  "test_events": [
+    {
+      "at": "2026-09-16T13:15:04.923573Z",
+      "class": "implementation",
+      "kind": "na",
+      "path": null,
+      "rationale": "ADR draft only; implementation and its tests follow under #2483",
+      "verified_in_diff": null
+    }
+  ]
+}
