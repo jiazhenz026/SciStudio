@@ -35,6 +35,7 @@ import { ConvertToBlockDialog } from "../miniapps/ConvertToBlockDialog";
 import { CreateMiniAppDialog } from "../miniapps/CreateMiniAppDialog";
 import { MiniAppPalette } from "../miniapps/MiniAppPalette";
 import {
+  collapseBottomPanelForMiniApp,
   MiniAppTabLayer,
   recordPreviewColumnSize,
   useMiniAppPreviewColumn,
@@ -731,6 +732,9 @@ export function ProjectWorkspace(props: ProjectWorkspaceProps) {
                 tabs={miniAppTabs}
                 activeTabId={activeTabId}
                 onConvert={setConvertFor}
+                onSurfaceInteract={() =>
+                  collapseBottomPanelForMiniApp(bottomPanelRef.current, bottomPanelPinned)
+                }
               />
             </div>
           </ResizablePanel>
