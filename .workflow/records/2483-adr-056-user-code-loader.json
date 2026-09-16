@@ -145,6 +145,42 @@
       "status": "pass",
       "summary": "clean",
       "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T17:33:05.707672Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:88c31ce98d6b103835d0d2551d002849b06ed1d74834abdb2e6b77bd77626ebc",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-16T17:33:11.918592Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:2ab2e62fd731a52874ad11dc4f0bbd3067b2e80cc1862da722abf97b485e5a2d",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
     }
   ],
   "check_na": [],
@@ -180,6 +216,11 @@
       "at": "2026-09-16T17:33:04.302495Z",
       "owner_directive": "Add the top-level refactor inventory table to the ADR",
       "reason": "Owner review: add the top-level refactor inventory table"
+    },
+    {
+      "at": "2026-09-16T17:41:29.339489Z",
+      "owner_directive": "Remove the separate type identity section; state isinstance in-process and type-name chain across processes in 4.2",
+      "reason": "Owner review: drop the separate type identity rule; isinstance follows from one module per file"
     }
   ],
   "docs_events": [
@@ -585,6 +626,100 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.944687Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.955649Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.966101Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.976667Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.987475Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:11.997863Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.008414Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.019356Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.029660Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.040512Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.051154Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-16T17:33:12.105994Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -603,9 +738,9 @@
       ".workflow/records/2483-adr-056-user-code-loader.json",
       "docs/adr/ADR-056.md"
     ],
-    "diff_fingerprint": "sha256:59e5a1ab7ea6fb0795fc3568434c90ded7b25a9254fd782de23f486b97bb2320",
+    "diff_fingerprint": "sha256:af4e9cb3e71e73d8134bcb4774e9dbacfa33940370034c39295e8043f70c803c",
     "head": "HEAD",
-    "head_sha": "a4705929",
+    "head_sha": "f5eace50",
     "surfaces": {
       "docs": 1,
       "frontend": 0,
@@ -652,6 +787,14 @@
     {
       "at": "2026-09-16T17:24:59.053864Z",
       "diff_fingerprint": "sha256:59e5a1ab7ea6fb0795fc3568434c90ded7b25a9254fd782de23f486b97bb2320",
+      "mode": "local",
+      "result": "pass",
+      "tier": 3,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-16T17:33:12.106030Z",
+      "diff_fingerprint": "sha256:af4e9cb3e71e73d8134bcb4774e9dbacfa33940370034c39295e8043f70c803c",
       "mode": "local",
       "result": "pass",
       "tier": 3,
