@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from scistudio.qa.audit._util import normalise_path
@@ -91,54 +91,55 @@ def _is_divider(raw: str) -> bool:
     return bool(re.fullmatch(r"\|(?:\s*:?-{3,}:?\s*\|)+", raw.strip()))
 
 
+@dataclass
+class _Builder:
+    title: str
+    line: int
+    header: tuple[str, ...] = ()
+    rows: list[_Row] = field(default_factory=list)
+    subsections: list[tuple[str, int]] = field(default_factory=list)
+    seen_h3: bool = False
+
+    def freeze(self) -> _Section:
+        return _Section(
+            title=self.title,
+            line=self.line,
+            header=self.header,
+            rows=tuple(self.rows),
+            subsections=tuple(self.subsections),
+        )
+
+
 def _parse(body: str) -> list[_Section]:
     """Split the body into H2 sections, each with its opening table and its H3s."""
 
-    lines = body.split("\n")
     sections: list[_Section] = []
-    current: dict[str, object] | None = None
+    current: _Builder | None = None
 
-    def close() -> None:
-        if current is not None:
-            sections.append(
-                _Section(
-                    title=str(current["title"]),
-                    line=int(current["line"]),
-                    header=tuple(current["header"]),  # type: ignore[arg-type]
-                    rows=tuple(current["rows"]),  # type: ignore[arg-type]
-                    subsections=tuple(current["subsections"]),  # type: ignore[arg-type]
-                )
-            )
-
-    for number, raw in enumerate(lines, start=1):
+    for number, raw in enumerate(body.split("\n"), start=1):
         h2 = _H2_RE.match(raw)
         if h2:
-            close()
-            current = {
-                "title": h2.group(1),
-                "line": number,
-                "header": (),
-                "rows": [],
-                "subsections": [],
-                "seen_h3": False,
-            }
+            if current is not None:
+                sections.append(current.freeze())
+            current = _Builder(title=h2.group(1), line=number)
             continue
         if current is None:
             continue
         h3 = _H3_RE.match(raw)
         if h3:
-            current["seen_h3"] = True
-            current["subsections"].append((h3.group(1), number))  # type: ignore[union-attr]
+            current.seen_h3 = True
+            current.subsections.append((h3.group(1), number))
             continue
-        if current["seen_h3"] or not raw.startswith("|") or _is_divider(raw):
+        if current.seen_h3 or not raw.startswith("|") or _is_divider(raw):
             continue
         cells = _split_row(raw)
-        if not current["header"]:
-            current["header"] = cells
+        if not current.header:
+            current.header = cells
         else:
-            current["rows"].append(_Row(cells=cells, line=number))  # type: ignore[union-attr]
+            current.rows.append(_Row(cells=cells, line=number))
 
-    close()
+    if current is not None:
+        sections.append(current.freeze())
     return sections
 
 
