@@ -99,6 +99,10 @@ still applies when the ADR addresses more than one problem.
 
 ### 3.4 Spec Schema
 
+A spec whose frontmatter carries `spec_standard: 2` follows Section 3.7
+instead of this section's body contract. This section governs every spec
+without that field.
+
 Specs MUST be compatible with the repository's SpecKit workflow. A SpecKit
 feature spec lives at `specs/[###-feature-name]/spec.md`; legacy project specs
 under `docs/specs/` may remain during migration, but new specs MUST follow the
@@ -235,3 +239,173 @@ is:
 
 Generated reference docs are exempt from this length rule because their source
 of truth is code.
+
+### 3.7 Implementation Spec Standard, Revision 2
+
+A spec whose frontmatter carries `spec_standard: 2` follows this section
+instead of the SpecKit body contract of Section 3.4. A spec without that field
+follows Section 3.4. Both standards coexist; existing specs are not migrated
+by this section.
+
+Revision 2 exists because Section 3.4 states required behavior and leaves the
+physical shape of the implementation open. Two implementations of the same
+Section 3.4 spec can put the same behavior in different files, and the spec
+cannot tell them apart. Revision 2 fixes the file-level structure: every
+module the work creates, changes or removes is numbered, carries a path, and
+points back to the function it serves. Function names inside a module stay
+free.
+
+#### 3.7.1 Frontmatter
+
+Revision 2 uses the frontmatter schema of Section 3.4 with two differences:
+
+| Field | Type | Required | Validation |
+|---|---|---:|---|
+| `spec_standard` | int | yes | Must be `2`; its presence selects this standard |
+| `feature_branch` | string | no | Not required; SpecKit branch ids are not part of this standard |
+| `acceptance_source` | enum | no | Not required; the governing ADR is named in `related_adrs` |
+
+Every other field of the Section 3.4 table keeps its meaning, including the
+`governs` / `planned_governs` distinction.
+
+#### 3.7.2 Section Contract
+
+The body has exactly ten H2 sections, in this order, with these exact
+headings. No other H2 heading may appear.
+
+| Section | Content |
+|---|---|
+| `## 1. Change Summary` | What changes and why, per Section 3.5 |
+| `## 2. User Stories` | Prioritized, independently testable stories, per Section 3.4 |
+| `## 3. Functional Requirements` | One numbered requirement per decision of the governing ADR |
+| `## 4. New Modules` | Modules the work creates |
+| `## 5. Changed Modules` | Modules the work changes |
+| `## 6. Removed Modules` | Modules the work removes |
+| `## 7. Migration` | What moves from where to where |
+| `## 8. Public API Changes` | Changes to public contracts |
+| `## 9. Documentation Changes` | Documents the work updates |
+| `## 10. Impact Surface` | Every file the work touches, in one table |
+
+Sections 1 and 2 keep the requirements they have under Section 3.4: `## 1.
+Change Summary` per Section 3.5, and `### User Story N - <title> (Priority:
+Pn)` with `Why this priority`, `Independent Test`, `Acceptance Scenarios` and
+`### Edge Cases`.
+
+Sections 3 through 10 each open with a table, before any prose or subsection.
+
+#### 3.7.3 Section 3, Functional Requirements
+
+| Column | Meaning |
+|---|---|
+| `FR` | `FR-001`, `FR-002`, … contiguous from `FR-001` |
+| `Name` | Short name of the function |
+| `Behavior` | What the function does, in behavioral terms |
+| `ADR decision` | The section of the governing ADR this function comes from |
+
+Every decision of the governing ADR is either a row here or is named in
+`scope.out` of the frontmatter. Every `ADR decision` value must point to a
+section that exists in the governing ADR.
+
+#### 3.7.4 Sections 4, 5 and 6, Modules
+
+Each of the three sections opens with a table:
+
+| Section | Columns |
+|---|---|
+| `## 4. New Modules` | `ID` (`NEW-001`, …), `FR`, `Module` |
+| `## 5. Changed Modules` | `ID` (`CHANGE-001`, …), `FR`, `Action`, `Module` |
+| `## 6. Removed Modules` | `ID` (`DEL-001`, …), `FR`, `Replaced by`, `Module` |
+
+`FR` holds one or more requirement ids from Section 3. `Module` holds one
+repository-relative path. `Replaced by` holds the id that takes over the
+removed module's work, or `None` when nothing does.
+
+`Action` in Section 5 is `modify` or `verify`. A `verify` row names a module
+the work must not need to edit, and whose current behavior is the evidence that
+a requirement holds; if the implementation ends up editing it, the requirement
+did not hold and the spec is revised. The checker only checks that the value is
+one of the two.
+
+After the table, each id gets its own H3 subsection, in table order:
+
+```
+### NEW-001 src/scistudio/core/user_code/discovery.py
+```
+
+The subsection states what the module is responsible for, and what it is not
+responsible for. It may list the functions the implementation is expected to
+contain. For `## 5. Changed Modules` the subsection names the existing
+functions that change and what changes about them. For `## 6. Removed
+Modules` it states where each caller goes instead.
+
+**The path and the module's existence are binding.** An implementation that
+needs a different path, an extra module, or one fewer module revises this
+spec first. **Function names inside a module are not binding.** The
+implementation adds, merges or renames functions as it needs, as long as the
+module keeps the responsibility the spec gives it.
+
+#### 3.7.5 Section 7, Migration
+
+| Column | Meaning |
+|---|---|
+| `ID` | `MIG-001`, … |
+| `FR` | Requirement ids served |
+| `From` | Path, symbol, format or state the work moves away from |
+| `To` | Path, symbol, format or state it moves to |
+| `Carrier` | The `NEW`/`CHANGE`/`DEL` id that performs the move |
+
+#### 3.7.6 Section 8, Public API Changes
+
+| Column | Meaning |
+|---|---|
+| `ID` | `API-001`, … |
+| `FR` | Requirement ids served |
+| `Surface` | Public symbol, endpoint, event, schema or CLI argument |
+| `Change` | `added`, `changed`, `removed` |
+| `Compatibility` | What breaks for whom, or `None` |
+
+A spec that changes no public surface writes one row with `ID` `API-000` and
+`Surface` `None`.
+
+#### 3.7.7 Section 9, Documentation Changes
+
+| Column | Meaning |
+|---|---|
+| `ID` | `DOC-001`, … |
+| `FR` | Requirement ids served |
+| `Document` | Repository-relative path of the document |
+| `Change` | What the document must say after the work |
+
+#### 3.7.8 Section 10, Impact Surface
+
+| Column | Meaning |
+|---|---|
+| `Path` | Repository-relative path |
+| `IDs` | Every `NEW`/`CHANGE`/`DEL`/`DOC` id that touches it |
+| `Action` | `create`, `modify`, `delete`, `verify` |
+
+This table is the union of Sections 4, 5, 6 and 9, and is what the gate
+ledger's declared scope is set from.
+
+#### 3.7.9 Machine-Readable Checks
+
+These checks cover the structure of the spec document and nothing else. They
+do not read the source tree and they never judge whether an implementation
+followed the spec; that is what review and the gate ledger are for.
+
+A spec carrying `spec_standard: 2` is rejected unless all of the following
+hold. Specs without the field are not checked by these rules.
+
+| Check | Rule |
+|---|---|
+| Sections | The ten H2 headings of Section 3.7.2, in order, with no other H2 |
+| Tables | Sections 3 to 10 each open with a table whose header row matches the columns above, in order |
+| Numbering | `FR`, `NEW`, `CHANGE`, `DEL`, `MIG`, `API`, `DOC` ids are contiguous from `-001`, three digits, no duplicates |
+| Requirement links | Every `FR` value in Sections 4 to 9 names a requirement that exists in Section 3 |
+| ADR links | Every `ADR decision` value in Section 3 names a section that exists in the governing ADR |
+| Carrier links | Every `Replaced by` and `Carrier` value names an id that exists in this spec, or `None` |
+| Detail subsections | Every id in Sections 4, 5 and 6 has one H3 subsection, in table order, whose heading is the id followed by the same path as the table row |
+| Paths | Every `Module`, `Document` and `Path` value is a repository-relative path |
+| Action values | Every `Action` value is one of the values listed for its section |
+| Impact surface | Section 10's paths are exactly the paths of Sections 4, 5, 6 and 9, with matching actions |
+| Governed scope | Section 10's paths are covered by `governs.files` or `planned_governs.files` |
