@@ -193,10 +193,12 @@ export function PreviewerPalette() {
         />
 
         {/* Registry diagnostics (#2095): a duplicate previewer id or a refused
-            drop-in was invisible before this surface existed. */}
+            drop-in was invisible before this surface existed. Capped and
+            scrolled on its own: a long list (every deprecated legacy previewer
+            warns) otherwise squeezes the card list below it to nothing. */}
         {diagnostics.length > 0 ? (
           <div
-            className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-2"
+            className="mt-3 max-h-32 shrink-0 overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-2 scrollbar-thin"
             data-testid="previewer-diagnostics"
           >
             {diagnostics.map((line) => (

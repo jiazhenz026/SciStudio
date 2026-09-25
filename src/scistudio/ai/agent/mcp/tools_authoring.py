@@ -32,7 +32,11 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field
 
 from scistudio.ai.agent.mcp._context import _resolve_project_root, _safe_under, get_context, invoked_through_bridge
-from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
+from scistudio.ai.agent.mcp._reload import (
+    broadcast_blocks_reloaded,
+    dropin_failure_dicts,
+    refresh_context_registries,
+)
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow.read import list_blocks_called
 from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal, list_blocks_refusal
@@ -113,6 +117,13 @@ class ReloadBlocksResult(BaseModel):
     reloaded: int = Field(description="Total number of block types after reload.")
     added: list[str] = Field(default_factory=list, description="Newly added block type names.")
     removed: list[str] = Field(default_factory=list, description="Removed block type names.")
+    dropin_failures: list[dict[str, str]] = Field(
+        default_factory=list,
+        description=(
+            "Drop-in files the scan refused, each with file_path, error_type and message. "
+            "A block defined in such a file is not registered; fix the error and reload."
+        ),
+    )
     next_step: str = Field(
         default=(
             "Call mcp__scistudio__list_blocks to confirm the new block is registered, "
@@ -705,7 +716,12 @@ async def reload_blocks() -> ReloadBlocksResult:
     added, removed = refresh_context_registries(ctx)
     logger.info("reload_blocks: added=%s removed=%s", added, removed)
     await broadcast_blocks_reloaded(ctx, added=added, removed=removed)
-    return ReloadBlocksResult(reloaded=len(ctx.block_registry.all_specs()), added=added, removed=removed)
+    return ReloadBlocksResult(
+        reloaded=len(ctx.block_registry.all_specs()),
+        added=added,
+        removed=removed,
+        dropin_failures=dropin_failure_dicts(ctx.block_registry),
+    )
 
 
 # ---------------------------------------------------------------------------

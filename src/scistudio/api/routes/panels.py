@@ -852,6 +852,70 @@ def open_child(context_id: str, payload: ContextOpen, request: Request) -> Previ
         raise _failure(exc) from exc
 
 
+#: The host's own cap on a panel save (``frontend/src/panels/save.ts``).
+PANEL_SAVE_LIMIT = 100 * 1024 * 1024
+
+
+class PanelSaveResult(BaseModel):
+    """Where a panel save was written."""
+
+    saved: bool
+    destination: Literal["file"] = "file"
+    path: str = Field(description="The absolute path the user chose in the native save dialog.")
+
+
+def _write_panel_save(path: str, data: bytes) -> str:
+    from scistudio.api.routes.filesystem import _resolve_safe_path
+
+    if not Path(path).is_absolute():
+        raise PanelError(400, "invalid_request", "Save destination must be an absolute file path")
+    try:
+        destination = _resolve_safe_path(path)
+    except ValueError as exc:
+        raise PanelError(400, "invalid_request", str(exc)) from exc
+    if destination.is_dir():
+        raise PanelError(400, "invalid_request", "Save destination must be a file path")
+    if not destination.parent.is_dir():
+        raise PanelError(400, "invalid_request", "Save destination parent directory does not exist")
+    partial = destination.with_name(f".{destination.name}.partial")
+    try:
+        partial.write_bytes(data)
+        os.replace(partial, destination)
+    except OSError as exc:
+        with contextlib.suppress(OSError):
+            partial.unlink()
+        raise PanelError(500, "write_failed", f"Could not save the file: {exc}") from exc
+    return str(destination)
+
+
+@router.post(
+    "/contexts/{context_id}/save",
+    response_model=PanelSaveResult,
+    responses={**_ERRORS, 500: {"model": PanelFailureResponse}},
+)
+async def save_panel_file(context_id: str, path: str, request: Request) -> dict[str, Any]:
+    """Write a panel's save bytes to the path the user chose in the native dialog.
+
+    The request body is the raw file content. The host opens the native save
+    dialog first (it starts in the project root) and sends only the path the
+    dialog returned; a page never names a destination itself.
+    """
+    try:
+        context = get_panel_contexts(request.app.state.runtime).get(context_id)
+        if "save" not in context.provides()[1]:
+            raise PanelError(400, "unsupported", "This context does not provide save")
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > PANEL_SAVE_LIMIT:
+            raise PanelError(413, "size_limit", f"Save exceeds the {PANEL_SAVE_LIMIT} byte limit")
+        data = await request.body()
+        if len(data) > PANEL_SAVE_LIMIT:
+            raise PanelError(413, "size_limit", f"Save exceeds the {PANEL_SAVE_LIMIT} byte limit")
+        written = await asyncio.to_thread(_write_panel_save, path, data)
+        return {"saved": True, "destination": "file", "path": written}
+    except PanelError as exc:
+        raise _failure(exc) from exc
+
+
 @router.post("/contexts/{context_id}/renew", response_model=ContextResponse, responses=_ERRORS)
 def renew_context(context_id: str, request: Request) -> dict[str, Any]:
     try:

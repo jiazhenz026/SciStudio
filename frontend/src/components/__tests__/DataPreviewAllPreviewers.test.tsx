@@ -111,6 +111,31 @@ describe("All Previewers (FR-033)", () => {
     expect(screen.getByTestId("all-previewers-open")).toBeInTheDocument();
   });
 
+  it("yields to another block being selected", async () => {
+    const view = renderPreview();
+    fireEvent.click(screen.getByTestId("all-previewers-open"));
+    await screen.findByTestId("all-previewers-back");
+
+    view.rerender(
+      <DataPreview blockOutputs={{}} selectedNodeId="histogram" selectedNodeLabel="Histogram" />,
+    );
+
+    expect(screen.queryByTestId("all-previewers-back")).toBeNull();
+    expect(screen.getByTestId("all-previewers-open")).toBeInTheDocument();
+  });
+
+  it("yields to a fresh plot result", async () => {
+    renderPreview();
+    fireEvent.click(screen.getByTestId("all-previewers-open"));
+    await screen.findByTestId("all-previewers-back");
+
+    act(() => {
+      useAppStore.getState().setPlotPreviewTarget({ kind: "plot_artifact", ref: "plot-1" });
+    });
+
+    expect(screen.queryByTestId("all-previewers-back")).toBeNull();
+  });
+
   it("does not rescan the previewer registries on every open", async () => {
     // #2151's mount rescan is right for a section switch and wrong for a
     // control the user toggles: re-mounting the pane on each open would POST a
@@ -143,6 +168,22 @@ describe("All Previewers (FR-033)", () => {
 
     expect(await screen.findByTestId("all-previewers-pane")).toBeInTheDocument();
     expect(screen.getByTestId("previewer-palette-content")).toBeInTheDocument();
+  });
+
+  it("does not replay an earlier request when the column mounts again", async () => {
+    // A tutorial opened the list in one project; the column of the next
+    // project must start on the preview.
+    const first = renderPreview();
+    act(() => {
+      openAllPreviewers();
+    });
+    expect(await screen.findByTestId("all-previewers-pane")).toBeInTheDocument();
+    first.unmount();
+
+    renderPreview();
+    await act(async () => {});
+    expect(screen.queryByTestId("all-previewers-pane")).toBeNull();
+    expect(screen.getByTestId("all-previewers-open")).toBeInTheDocument();
   });
 
   it("expands a collapsed column before showing the list (FR-033)", () => {

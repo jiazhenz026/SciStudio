@@ -197,7 +197,24 @@ export function PanelFrame(props: PanelFrameProps) {
           throw error;
         }
       },
-      save: savePanelBytes,
+      save: async (payload) => {
+        const result = await savePanelBytes(payload, context.context_id);
+        /*
+         * ADR-053 FR-052 — `plot_exported`, reported once the file is written
+         * and only for a plot, as the compiled plot viewer did. A tutorial step
+         * that asks the reader to keep the figure waits on it; a cancelled
+         * dialog reports nothing. Imported lazily for the same reason
+         * `PanelPreview` does: the store pulls in every slice.
+         */
+        if (result.saved && context.input.kind === "plot_artifact") {
+          void import("../store")
+            .then(({ useAppStore }) =>
+              useAppStore.getState().reportTutorialUiEvent("plot_exported"),
+            )
+            .catch(() => {});
+        }
+        return result;
+      },
       viewState: (state) => callbacks.current.onViewState?.(state, context),
       resize: setHeight,
       highlightRect: (request, rect) => {

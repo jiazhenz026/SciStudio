@@ -163,6 +163,12 @@
       },
       "type": "array"
      },
+     "dropin_failures": {
+      "items": {
+       "$ref": "#/components/schemas/DropinFailureResponse"
+      },
+      "type": "array"
+     },
      "reloaded": {
       "type": "integer"
      },
@@ -2683,6 +2689,26 @@
      "id",
      "api_version",
      "name"
+    ],
+    "type": "object"
+   },
+   "PanelSaveResult": {
+    "properties": {
+     "destination": {
+      "const": "file",
+      "default": "file",
+      "type": "string"
+     },
+     "path": {
+      "type": "string"
+     },
+     "saved": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "saved",
+     "path"
     ],
     "type": "object"
    },
@@ -7584,6 +7610,114 @@
       }
      },
      "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     }
+    },
+    "tags": [
+     "panels"
+    ]
+   }
+  },
+  "/api/panels/contexts/{context_id}/save": {
+   "post": {
+    "parameters": [
+     {
+      "in": "path",
+      "name": "context_id",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelSaveResult"
+        }
+       }
+      }
+     },
+     "400": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "403": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "404": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "409": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "413": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "429": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PanelFailureResponse"
+        }
+       }
+      }
+     },
+     "500": {
       "content": {
        "application/json": {
         "schema": {
