@@ -203,6 +203,15 @@ It swaps the snapshot's SPA for an ordinary web page with selectable text and a
 clipboard button. Because the address is copyable it does not need to be
 short — use the real release URL.
 
+**Add `--installer-release vX.Y.Z` so clients can install without leaving the
+app (#2396).** The manifest then names the new installer per platform. A client
+on a loader-era base (0.3.4 or later) applies the patch, relaunches into the
+patch's shell, and the notice page offers "Download and install" instead of the
+copy-address flow. Older clients (0.3.3) still get the copy-address page. The
+release must already be published, not a draft, with all four installers
+(arm64 dmg, x64 dmg, Windows setup exe, AppImage); the script stops otherwise.
+See [desktop-in-app-installer](../specs/desktop-in-app-installer.md).
+
 **`--min-base` is not optional here (#2169).** Without it the value derives
 from the build's own base, which after a bump is the *new* one — so every
 client on the old base evaluates to `incompatible` instead of `patch`, and
