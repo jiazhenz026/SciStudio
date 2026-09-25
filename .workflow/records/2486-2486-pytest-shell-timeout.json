@@ -1,0 +1,65 @@
+{
+  "base_ref": null,
+  "branch": "ci/2486-pytest-shell-timeout",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": [
+      ".github/workflows/ci.yml"
+    ]
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-25T20:16:25.443436Z",
+      "class": "ci-config",
+      "kind": "na",
+      "path": null,
+      "rationale": "the rationale lives in the ci.yml comment beside the value; no user or developer docs describe this limit",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2486,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "bump the Python test job's total shell timeout to 20 minutes",
+  "persona": "implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2486-2486-pytest-shell-timeout",
+  "requested_admin_labels": [],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [],
+  "session_id": "b0e20ead-4c96-43cd-b164-bc4daee17762",
+  "strictness_tier": null,
+  "task_kind": "maintenance",
+  "test_events": [
+    {
+      "at": "2026-09-25T20:16:25.443741Z",
+      "class": "ci-config",
+      "kind": "na",
+      "path": null,
+      "rationale": "raises the CI shell-level wedge guard from 900s to 1200s; no product or tooling code changes, the CI run on this PR exercises it",
+      "verified_in_diff": null
+    }
+  ]
+}
