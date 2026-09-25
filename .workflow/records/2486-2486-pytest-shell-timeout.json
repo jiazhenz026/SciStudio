@@ -1,9 +1,182 @@
 {
   "base_ref": null,
   "branch": "ci/2486-pytest-shell-timeout",
-  "check_events": [],
+  "check_events": [
+    {
+      "at": "2026-09-25T20:16:59.632718Z",
+      "command": "pytest tests/architecture/ -v --no-cov",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "architecture",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:7d20208d45c66fead87ada5c2bb0dc2aa021e2178bfdbd3b5b61e71ef5582077",
+      "name": "architecture_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/architecture_tests.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:01.020012Z",
+      "command": "pre-commit run --all-files --hook-stage manual",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "hygiene",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:fa9db09ead25c28ba1cb859380cd11674335a9eecc03b426b002a8246a0f2031",
+      "name": "commit_hygiene",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/commit_hygiene.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:02.348584Z",
+      "command": "python scripts/deferral_scan.py --check docs/audit/baselines/deferral-baseline.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_deferrals",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:661f89f8e2ab7256f5f05df199c5f8386ef47ff3bf8fa9274ba453ee0c290c98",
+      "name": "deferral_discipline",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/deferral_discipline.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:02.753497Z",
+      "command": "ruff format --check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:d5e8853033c065fad2943aadfb926c6d3be1645790b9d36f02b8a2572ab11ee2",
+      "name": "format_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/format_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-25T20:17:09.277225Z",
+      "command": "python -m scistudio.qa.audit.full_audit --repo-root . --format json --output .audit/full-audit.json",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "governance",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:f52fe598f637ecc239d266d9b14da469bc478cb74303fe7b2c313f5e4928efe1",
+      "name": "full_audit",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/full_audit.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:09.856601Z",
+      "command": "lint-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_imports",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:e13039390bc32fde9b48121a1f4e14d04dd548cafb1e3b2320172c8da26d206d",
+      "name": "import_contracts",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/import_contracts.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:09.920294Z",
+      "command": "ruff check .",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_lint",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:489d1e125683fa9130b691feee48c56dd235e22c091410365ff46a12368462f8",
+      "name": "lint_format",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/lint_format.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {
+        "ruff": "0.15.15"
+      }
+    },
+    {
+      "at": "2026-09-25T20:17:09.920502Z",
+      "command": "python -m scistudio.qa.testing.run_python_tests --timeout=60 --timeout-method=thread --no-cov (no targets; not executed)",
+      "coverage_deferred_to_ci": true,
+      "covered_surface": "python_tests",
+      "deferred_reason": "global test input: .github/workflows/ci.yml",
+      "exit_code": null,
+      "input_fingerprint": "sha256:deb2e667118062b99cc59cf9c8bfb2a7db87e33d017300f5c295f786d78f3390",
+      "name": "python_tests",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": null,
+      "scope": "diff",
+      "status": "pass",
+      "summary": "no local tests selected; full coverage deferred to CI: global test input: .github/workflows/ci.yml",
+      "tool_versions": {}
+    },
+    {
+      "at": "2026-09-25T20:17:18.316433Z",
+      "command": "mypy src/scistudio/ --ignore-missing-imports",
+      "coverage_deferred_to_ci": false,
+      "covered_surface": "python_types",
+      "deferred_reason": null,
+      "exit_code": 0,
+      "input_fingerprint": "sha256:1236be75af011f7d18b6070910e565ff707e6b1a8f261a88be4e51fb50fe88ac",
+      "name": "type_check",
+      "parity_detail": null,
+      "parity_gap": false,
+      "pr_only": false,
+      "raw_log_ref": ".workflow/local/logs/type_check.log",
+      "scope": "repo",
+      "status": "pass",
+      "summary": "clean",
+      "tool_versions": {}
+    }
+  ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": "7a3f0b633419082c28ef99b548443ee3b709c4a7",
+    "shas": [
+      "7a3f0b633419082c28ef99b548443ee3b709c4a7"
+    ],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -22,7 +195,196 @@
     }
   ],
   "governance_touch": true,
-  "guard_events": [],
+  "guard_events": [
+    {
+      "at": "2026-09-25T20:17:18.348254Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.357245Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.365756Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.374262Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.382679Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.391654Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.400084Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.408473Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.416698Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.425541Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.434311Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:18.443932Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.237344Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.246885Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.256070Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.264971Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.274960Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.284479Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.293436Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.302394Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.311725Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.326033Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.336151Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-25T20:17:31.346337Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    }
+  ],
   "issues": [
     {
       "close_in_pr": true,
@@ -32,25 +394,100 @@
     }
   ],
   "observed_admin_labels": [],
-  "observed_diff": null,
+  "observed_diff": {
+    "base": "origin/main",
+    "base_sha": "6c8230ae",
+    "changed_files": [
+      ".github/workflows/ci.yml",
+      ".workflow/records/2486-2486-pytest-shell-timeout.json"
+    ],
+    "diff_fingerprint": "sha256:57ad768df27887e790fabec8f1f2053007c2821772724eee74f5735a0b603aed",
+    "head": "HEAD",
+    "head_sha": "7a3f0b63",
+    "surfaces": {
+      "docs": 0,
+      "frontend": 0,
+      "governance": 1,
+      "governed_docs": 0,
+      "implementation": 1,
+      "packaging": 0,
+      "protected_agent_docs": 0,
+      "protected_architecture": 0,
+      "protected_core": 0,
+      "sentrux": 1,
+      "test": 0,
+      "workflow_ci": 1
+    }
+  },
   "owner_directive": "bump the Python test job's total shell timeout to 20 minutes",
   "persona": "implementer",
-  "pull_request": null,
-  "reconcile_events": [],
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2486
+    ],
+    "number": null,
+    "url": null
+  },
+  "reconcile_events": [
+    {
+      "at": "2026-09-25T20:17:18.443973Z",
+      "diff_fingerprint": "sha256:57ad768df27887e790fabec8f1f2053007c2821772724eee74f5735a0b603aed",
+      "mode": "local",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-25T20:17:31.346365Z",
+      "diff_fingerprint": "sha256:57ad768df27887e790fabec8f1f2053007c2821772724eee74f5735a0b603aed",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    }
+  ],
   "record_id": "2486-2486-pytest-shell-timeout",
   "requested_admin_labels": [],
   "required_obligations": {
     "admin_labels": [],
-    "checks": [],
-    "docs": [],
-    "guards": [],
-    "tests": []
+    "checks": [
+      "architecture_tests",
+      "commit_hygiene",
+      "deferral_discipline",
+      "format_check",
+      "full_audit",
+      "import_contracts",
+      "lint_format",
+      "python_tests",
+      "type_check"
+    ],
+    "docs": [
+      "docs_required_or_na"
+    ],
+    "guards": [
+      "agent_docs_guard",
+      "architecture_doc_guard",
+      "core_change_guard",
+      "docs_landing",
+      "human_bypass_guard",
+      "issue_link",
+      "mod_guard",
+      "persona_policy",
+      "pr_merge_guard",
+      "sentrux_gate",
+      "test_engineer_scope_guard",
+      "weakened_ci_check"
+    ],
+    "tests": [
+      "changed_test_required"
+    ]
   },
   "runtime": "claude",
   "schema_version": 2,
   "scope_events": [],
   "session_id": "b0e20ead-4c96-43cd-b164-bc4daee17762",
-  "strictness_tier": null,
+  "strictness_tier": 1,
   "task_kind": "maintenance",
   "test_events": [
     {
