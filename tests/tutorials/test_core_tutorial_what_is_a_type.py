@@ -305,8 +305,6 @@ def test_the_beat_map_is_the_designed_one(manifest: TutorialManifest) -> None:
         ("run-it-again", ("run_succeeded",)),
         ("look-at-the-numbers", ("ui_event",)),
         ("why-numbers", ("previewer_registered",)),
-        ("look-again", ("ui_event",)),
-        ("open-the-rendered-image", ("ui_event",)),
         ("segment-the-cells", ("file_exists",)),
         ("wired-for-you", ("run_succeeded",)),
         ("look-at-the-labels", ("ui_event",)),
@@ -1291,19 +1289,8 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert "Image" in product.previewer_types, "the panels/ re-scan registered the preview panel live"
     assert _live_step(view).satisfied is True, "registration is all this step asks for"
 
-    _advance("look-again")
-    assert _live_step(runtime.active_session()).satisfied is False, (
-        "the write is not the look; the reader must click the node again"
-    )
-    view = runtime.report_ui_event("node_selected", "load_data")
-    assert _live_step(view).satisfied is True
-
-    # The verdict "there they are" is about a picture the reader has to have
-    # opened, so the click comes first.
-    _advance("open-the-rendered-image")
-    view = runtime.report_ui_event("preview_item_opened", None)
-    assert _live_step(view).satisfied is True
-
+    # The open preview re-routes to the new panel by itself, so the story goes
+    # straight on: no second click on the node, no second open of the file.
     _advance("segment-the-cells")
     view = runtime.trigger_active()
     assert (project / "blocks" / "segment_cells.py").is_file()

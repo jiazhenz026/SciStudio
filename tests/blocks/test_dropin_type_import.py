@@ -1192,3 +1192,63 @@ def test_a_namespace_package_collision_does_not_report_itself_as_built_in(
         assert str(site / "namespace_dep") in failures[0].message
     finally:
         sys.modules.pop("namespace_dep", None)
+
+
+# ---------------------------------------------------------------------------
+# Hot reload: a file that now fails, and a package-shaped type that changed
+# ---------------------------------------------------------------------------
+
+
+def test_hot_reload_drops_the_blocks_of_a_file_that_now_fails(project: Path, home: Path) -> None:
+    """A block file edited into an import error no longer keeps its old spec."""
+    (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+    block_file = project / "blocks" / "uses_spectrum.py"
+    block_file.write_text(USES_SPECTRUM_BLOCK, encoding="utf-8")
+    registry = _scanned_registry(project)
+    assert "test.uses_spectrum" in {spec.type_name for spec in registry.all_specs().values()}
+
+    block_file.write_text("from a_sibling_that_is_not_there import helper\n" + USES_SPECTRUM_BLOCK, encoding="utf-8")
+    stamp = block_file.stat().st_mtime + 5
+    os.utime(block_file, (stamp, stamp))
+    registry.hot_reload()
+
+    assert "test.uses_spectrum" not in {spec.type_name for spec in registry.all_specs().values()}
+    assert [Path(failure.file_path).name for failure in registry.dropin_failures()] == ["uses_spectrum.py"]
+
+
+def test_a_package_shaped_type_is_imported_fresh_after_an_edit(project: Path, home: Path) -> None:
+    """Every submodule of a ``types/<pkg>/`` drop-in is re-read, not only the package."""
+    package = project / "types" / "omics_pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("from omics_pkg._types import BASE\n", encoding="utf-8")
+    (package / "_types.py").write_text("BASE = 'Artifact'\n", encoding="utf-8")
+    block_file = project / "blocks" / "base_probe.py"
+    block_file.write_text(
+        "from typing import ClassVar\n"
+        "from omics_pkg import BASE\n"
+        "from scistudio.blocks.base.block import Block\n"
+        "class BaseProbe(Block):\n"
+        "    type_name: ClassVar[str] = 'test.base_probe'\n"
+        "    name: ClassVar[str] = 'base_probe_' + BASE\n"
+        "    base_category: ClassVar[str] = 'process'\n"
+        "    input_ports: ClassVar = []\n"
+        "    output_ports: ClassVar = []\n"
+        "    def run(self, inputs, config):\n"
+        "        return {}\n",
+        encoding="utf-8",
+    )
+    registry = _scanned_registry(project)
+    assert "base_probe_Artifact" in registry.all_specs()
+
+    try:
+        (package / "_types.py").write_text("BASE = 'CompositeData'\n", encoding="utf-8")
+        stamp = block_file.stat().st_mtime + 5
+        for path in (package / "_types.py", block_file):
+            os.utime(path, (stamp, stamp))
+        registry.hot_reload()
+
+        names = set(registry.all_specs())
+        assert "base_probe_CompositeData" in names
+    finally:
+        for name in [name for name in sys.modules if name == "omics_pkg" or name.startswith("omics_pkg.")]:
+            sys.modules.pop(name, None)

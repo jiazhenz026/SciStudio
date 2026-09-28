@@ -781,11 +781,19 @@ def _installed_origin(stem: str, type_roots: tuple[Path, ...]) -> str | None:
     and turn a real collision into a clean bill of health. Dropping that
     binding first is safe: drop-in types register under synthetic
     ``_scistudio_type_dropin_*`` names, so nothing resolves through the stem,
-    and a drop-in block that imports it gets it back on the next scan.
+    and a drop-in block that imports it gets it back on the next scan. A
+    package-shaped drop-in's submodules are dropped with it.
     """
     bound = sys.modules.get(stem)
     if bound is not None and _is_within(getattr(bound, "__file__", None), type_roots):
-        del sys.modules[stem]
+        # A package-shaped drop-in type (``types/<stem>/``) leaves its
+        # submodules cached too; dropping only the top level would let the next
+        # ``from <stem> import X`` bind a fresh package to stale submodules,
+        # so an edited class body (a changed base class) never took effect.
+        for name in [name for name in sys.modules if name == stem or name.startswith(f"{stem}.")]:
+            module = sys.modules.get(name)
+            if name == stem or _is_within(getattr(module, "__file__", None), type_roots):
+                sys.modules.pop(name, None)
     try:
         found = importlib.util.find_spec(stem)
     except Exception:

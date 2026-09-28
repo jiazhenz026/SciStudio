@@ -174,7 +174,9 @@ def test_the_beat_map_is_the_designed_one(manifest: TutorialManifest) -> None:
         ("write-the-tnbc-note", None),
         ("commit-tnbc", {"ui_event"}),
         ("switch-back", {"git_current_branch"}),
+        ("see-the-er-setting-again", {"ui_event"}),
         ("er-is-back", None),
+        ("the-end", None),
     ]
     actual = [(step.id, step.done_when.terms() if step.done_when else None) for step in manifest.steps]
     assert actual == expected
@@ -949,7 +951,10 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
         product.current_branch = "main"
 
     _waits_then(_switch_back)
+    _advance("see-the-er-setting-again")
+    _waits_then(_event("node_selected", "compare_regions"))
     _advance("er-is-back")
+    _advance("the-end")
     assert runtime.continue_active().status is SessionStatus.COMPLETE
 
     # This is a level, not the milestone: completing it must not offer the work

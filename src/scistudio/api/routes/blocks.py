@@ -11,7 +11,7 @@ from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from scistudio.api._block_source import (
     BlockSourceUnavailableError,
@@ -313,6 +313,9 @@ class BlockReloadResponse(BaseModel):
     reloaded: int
     added: list[str]
     removed: list[str]
+    #: ADR-053 FR-015 — the files this reload refused, so a block that vanished
+    #: has its cause in the same response.
+    dropin_failures: list[DropinFailureResponse] = Field(default_factory=list)
 
 
 @router.post("/reload", response_model=BlockReloadResponse)
@@ -340,7 +343,8 @@ async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
     after = set(runtime.block_registry.all_specs().keys())
     added = sorted(after - before)
     removed = sorted(before - after)
-    logger.info("POST /api/blocks/reload: added=%s removed=%s", added, removed)
+    failures = _dropin_failures(runtime.block_registry)
+    logger.info("POST /api/blocks/reload: added=%s removed=%s failures=%d", added, removed, len(failures))
 
     # Broadcast ``blocks.reloaded`` (already in the WS outbound allow-list — see
     # ``api/ws.py``) so connected GUIs refresh palette + schemas. Best-effort: a
@@ -353,13 +357,19 @@ async def reload_blocks(runtime: RuntimeDep) -> BlockReloadResponse:
             await event_bus.emit(
                 EngineEvent(
                     event_type="blocks.reloaded",
-                    data={"added": added, "removed": removed, "reloaded": sorted(after), "source": "palette"},
+                    data={
+                        "added": added,
+                        "removed": removed,
+                        "reloaded": sorted(after),
+                        "source": "palette",
+                        "dropin_failures": [failure.model_dump() for failure in failures],
+                    },
                 )
             )
         except Exception:
             logger.exception("POST /api/blocks/reload: blocks.reloaded broadcast failed")
 
-    return BlockReloadResponse(reloaded=len(after), added=added, removed=removed)
+    return BlockReloadResponse(reloaded=len(after), added=added, removed=removed, dropin_failures=failures)
 
 
 # ---------------------------------------------------------------------------
