@@ -13,6 +13,7 @@
  *  - FR-020: the preview column collapses and comes back at its old width.
  *  - FR-022: a `panel.files_changed` event reloads the MiniApp on a NEW
  *    context, debounced by 500 ms.
+ *  - #2482: a click inside the active MiniApp collapses the bottom panel.
  */
 import {
   act,
@@ -34,6 +35,7 @@ import { useAppStore } from "../store";
 import type { MiniAppTab as MiniAppTabState } from "../store/types";
 import { TabBar } from "../components/TabBar";
 import {
+  collapseBottomPanelForMiniApp,
   MiniAppTabLayer,
   recordPreviewColumnSize,
   useMiniAppPreviewColumn,
@@ -578,4 +580,123 @@ it("shows the renamed MiniApp's name in the toolbar and the tab strip (#2457)", 
   // Same tab, same pane: no second context was opened for the rename.
   expect(useAppStore.getState().tabs[0].id).toBe(TAB.id);
   useAppStore.setState({ tabs: [], activeTabId: null });
+});
+
+describe("a click inside the active MiniApp collapses the bottom panel (#2482)", () => {
+  const OTHER: MiniAppTabState = {
+    ...TAB,
+    id: "miniapp:lab.other:wf:seg:image",
+    panelId: "lab.other",
+  };
+
+  /** Focus lands in the frame and the host window blurs, as a real click does. */
+  async function clickIntoFrame(frame: HTMLIFrameElement) {
+    act(() => {
+      frame.focus();
+      window.dispatchEvent(new Event("blur"));
+    });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+  }
+
+  it("reports a click in the frame, seen as focus moving into it", async () => {
+    const onSurfaceInteract = vi.fn();
+    render(
+      <MiniAppTabLayer
+        tabs={[TAB]}
+        activeTabId={TAB.id}
+        onConvert={vi.fn()}
+        onSurfaceInteract={onSurfaceInteract}
+      />,
+    );
+    const frame = (await screen.findByTitle("Threshold explorer")) as HTMLIFrameElement;
+    await clickIntoFrame(frame);
+    expect(document.activeElement).toBe(frame);
+    expect(onSurfaceInteract).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a click on the host chrome around the frame", () => {
+    const onSurfaceInteract = vi.fn();
+    render(
+      <MiniAppTabLayer
+        tabs={[TAB]}
+        activeTabId={TAB.id}
+        onConvert={vi.fn()}
+        onSurfaceInteract={onSurfaceInteract}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByTestId("miniapp-tab-pane"));
+    expect(onSurfaceInteract).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a window blur that does not land in the active MiniApp", async () => {
+    const onSurfaceInteract = vi.fn();
+    render(
+      <>
+        <iframe title="elsewhere" />
+        <MiniAppTabLayer
+          tabs={[TAB]}
+          activeTabId={TAB.id}
+          onConvert={vi.fn()}
+          onSurfaceInteract={onSurfaceInteract}
+        />
+      </>,
+    );
+    await clickIntoFrame(screen.getByTitle("elsewhere") as HTMLIFrameElement);
+    expect(onSurfaceInteract).not.toHaveBeenCalled();
+  });
+
+  it("does nothing while the active tab is not a MiniApp", async () => {
+    const onSurfaceInteract = vi.fn();
+    render(
+      <MiniAppTabLayer
+        tabs={[TAB, OTHER]}
+        activeTabId="tab-workflow"
+        onConvert={vi.fn()}
+        onSurfaceInteract={onSurfaceInteract}
+      />,
+    );
+    const frames = await screen.findAllByTitle("Threshold explorer");
+    await clickIntoFrame(frames[0] as HTMLIFrameElement);
+    for (const pane of screen.getAllByTestId("miniapp-tab-pane")) fireEvent.pointerDown(pane);
+    expect(onSurfaceInteract).not.toHaveBeenCalled();
+  });
+
+  it("does not react to a hidden MiniApp behind the active one", async () => {
+    const onSurfaceInteract = vi.fn();
+    render(
+      <MiniAppTabLayer
+        tabs={[TAB, OTHER]}
+        activeTabId={TAB.id}
+        onConvert={vi.fn()}
+        onSurfaceInteract={onSurfaceInteract}
+      />,
+    );
+    const frames = await screen.findAllByTitle("Threshold explorer");
+    expect(frames).toHaveLength(2);
+    const hidden = screen.getByTestId(`miniapp-tab-${OTHER.id}`);
+    fireEvent.pointerDown(hidden.querySelector("[data-testid='miniapp-tab-pane']")!);
+    await clickIntoFrame(hidden.querySelector("iframe")!);
+    expect(onSurfaceInteract).not.toHaveBeenCalled();
+  });
+
+  it("collapses an open bottom panel", () => {
+    const { panel, state } = fakePanel(45);
+    collapseBottomPanelForMiniApp(panel, false);
+    expect(panel.collapse).toHaveBeenCalledTimes(1);
+    expect(state.collapsed).toBe(true);
+  });
+
+  it("leaves an already collapsed bottom panel alone", () => {
+    const { panel } = fakePanel(8, true);
+    collapseBottomPanelForMiniApp(panel, false);
+    expect(panel.collapse).not.toHaveBeenCalled();
+    expect(panel.expand).not.toHaveBeenCalled();
+  });
+
+  it("keeps a pinned bottom panel open, like a click on the empty canvas", () => {
+    const { panel } = fakePanel(45);
+    collapseBottomPanelForMiniApp(panel, true);
+    expect(panel.collapse).not.toHaveBeenCalled();
+    expect(() => collapseBottomPanelForMiniApp(null, false)).not.toThrow();
+  });
 });
