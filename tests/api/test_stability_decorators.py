@@ -34,14 +34,12 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
 )
 
 _BASELINE_SINCE = "0.3.1"
 _PUBLIC_TIERS = {"stable", "provisional"}
 
-# Non-markable public symbols (ADR-052 §15): nine str constants / type-aliases
+# Non-markable public symbols (ADR-052 §15): five str constants / type-aliases
 # that cannot carry a runtime @stable/@provisional marker — get_stability()
 # returns None for them by design. They are public; their tier is carried by the
 # snapshot/expected fixture, not a runtime marker. The per-root tier-assertion
@@ -53,10 +51,6 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
     }
 )
 
@@ -109,8 +103,6 @@ def test_representative_tiers_match_the_contract() -> None:
         ("scistudio.blocks.io", "IOBlock", "stable"),
         ("scistudio.blocks.app", "AppBlock", "provisional"),
         ("scistudio.blocks.code", "CodeBlock", "provisional"),
-        ("scistudio.previewers.models", "PreviewerSpec", "provisional"),
-        ("scistudio.previewers.data_access", "PreviewDataAccess", "provisional"),
     ]
     wrong: list[str] = []
     for root, symbol, expected_tier in cases:
@@ -124,7 +116,7 @@ def test_representative_tiers_match_the_contract() -> None:
 
 def test_composite_slots_keeps_its_marker_and_the_private_helper_has_none() -> None:
     """A private helper inserted above a public method must not steal its marker (#2442)."""
-    from scistudio.previewers.data_access import PreviewDataAccess
+    from scistudio.panels.data_access import PreviewDataAccess
 
     info = get_stability(PreviewDataAccess.composite_slots)
     assert info is not None, "PreviewDataAccess.composite_slots lost its stability marker"

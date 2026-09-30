@@ -38,7 +38,6 @@ from scistudio.core.entry_points import (
     BLOCKS_ENTRY_POINT_GROUP,
     LIVE_ENTRY_POINT_GROUPS,
     METADATA_ONLY_GROUPS,
-    PREVIEWERS_ENTRY_POINT_GROUP,
     STAGE_ENUMERATE,
     STAGE_INVOKE,
     STAGE_LOAD,
@@ -507,18 +506,17 @@ def test_the_metadata_only_exemption_is_the_tutorial_group_alone() -> None:
 
 #: Which scan reads which group.
 #:
-#: ``scistudio.tutorials`` is a row like the other three, and deliberately not
+#: ``scistudio.tutorials`` is a row like the others, and deliberately not
 #: a *registry* row: the Learning Center catalogue is recomputed on every
 #: listing and cached nowhere, so there is no registry object to rebuild and
 #: nothing that can go stale (ADR-053 FR-031). What the three assertions below
-#: check is the part that is common to all four — that a scan contains an
+#: check is the part that is common to all of them — that a scan contains an
 #: enumeration failure, records a load failure as a diagnostic, and stays quiet
 #: when nothing is wrong — and that part does not depend on a group holding
 #: state.
 _REGISTRY_SCANS: dict[str, str] = {
     BLOCKS_ENTRY_POINT_GROUP: "blocks",
     TYPES_ENTRY_POINT_GROUP: "types",
-    PREVIEWERS_ENTRY_POINT_GROUP: "previewers",
     TUTORIALS_ENTRY_POINT_GROUP: "tutorials",
 }
 
@@ -554,13 +552,8 @@ def _scan_registry(kind: str) -> list[str]:
         type_registry = TypeRegistry()
         type_registry._scan_entrypoint_types()
         return type_registry.diagnostics
-    if kind == "tutorials":
-        return _scan_tutorials()
-    from scistudio.previewers.registry import PreviewerRegistry
-
-    previewer_registry = PreviewerRegistry()
-    previewer_registry._scan_entry_points()
-    return previewer_registry.diagnostics
+    assert kind == "tutorials", kind
+    return _scan_tutorials()
 
 
 def _scan_tutorials() -> list[str]:
@@ -593,9 +586,9 @@ def test_no_registry_propagates_an_enumeration_failure(
 ) -> None:
     """FR-026 where it actually bit: the scan itself.
 
-    ``TypeRegistry._scan_entrypoint_types`` used to let this out. The other two
-    absorbed it. All four absorb it now, and all four say so afterwards — the
-    tutorial catalogue included, which is the point of writing the fourth group
+    ``TypeRegistry._scan_entrypoint_types`` used to let this out. The others
+    absorbed it. Every scan absorbs it now, and says so afterwards — the
+    tutorial catalogue included, which is the point of writing that group
     against a settled contract rather than retrofitting it onto one.
     """
     monkeypatch.setattr(importlib.metadata, "entry_points", _exploding_entry_points)
@@ -614,7 +607,7 @@ def test_every_registry_records_a_load_failure_as_a_diagnostic(
 ) -> None:
     """FR-028 at the registry level, in the one shape all three expose.
 
-    Before this, only the previewer registry kept a diagnostic list, so a
+    Before this, only the (since removed) previewer registry kept a diagnostic list, so a
     package whose ``scistudio.blocks`` or ``scistudio.types`` hook failed to
     import installed cleanly and contributed nothing, with no way for the user
     to tell that apart from a package that had nothing to contribute.

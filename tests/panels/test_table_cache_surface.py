@@ -1,8 +1,8 @@
-"""Contract tests for the previewer-owned DataFrame table cache.
+"""Contract tests for the panel read layer's DataFrame table cache.
 
 ADR-048 / issue #1598 moved the table-paging LRU cache down out of
 ``scistudio.api.runtime._preview_cache`` into
-``scistudio.previewers._table_cache`` so the previewer subsystem no longer
+``scistudio.panels._reads.table_cache`` so the previewer subsystem no longer
 imports up into the API layer. These tests pin the two behaviours the previous
 ``tests/api/test_runtime_import_surface.py`` guarded, now at the new location:
 
@@ -23,7 +23,7 @@ from typing import Any
 
 from _pytest.monkeypatch import MonkeyPatch
 
-from scistudio.previewers import _table_cache
+from scistudio.panels._reads import table_cache as _table_cache
 
 
 def test_table_cache_objects_are_module_level_singletons() -> None:

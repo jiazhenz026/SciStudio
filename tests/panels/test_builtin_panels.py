@@ -1,9 +1,9 @@
 """Discovery, descriptor, and routing-shadow coverage for the core-tier panels.
 
-These panels (ADR-054 Phase B, T-014 / FR-040) rewrite the nine compiled core
-previewers as core-tier HTML panels. Discovery must find them, they must carry
-the same ids as the legacy ``core_previewer_specs`` so they shadow them in one
-namespace (FR-007), and each must reference only local assets (FR-042).
+These panels (ADR-054 Phase B, T-014 / FR-040) are the nine core previews as
+core-tier HTML panels. Discovery must find them, they are the only core routing
+candidates now that the compiled core previewers are gone (#2493), and each must
+reference only local assets (FR-042).
 """
 
 from __future__ import annotations
@@ -15,10 +15,8 @@ import pytest
 
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.files import validate_external_references
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.registry import discover_panels
-from scistudio.previewers.fallbacks import core_previewer_specs
-from scistudio.previewers.models import OwnerKind
-from scistudio.previewers.registry import PreviewerRegistry
 
 BUILTIN_ROOT = Path(__file__).resolve().parents[2] / "src" / "scistudio" / "panels" / "builtin"
 
@@ -176,22 +174,16 @@ def test_block_manifests_resolve_to_the_registered_interactive_panels() -> None:
         validate_interactive_panel(PanelManifest(panel_id=pid), registry)
 
 
-def test_panels_shadow_the_legacy_core_previewers() -> None:
-    # FR-007: a panel and a legacy previewer sharing an id at the same tier resolve
-    # to the panel; the legacy spec is shadowed.
-    legacy_ids = {spec.previewer_id for spec in core_previewer_specs()}
-    assert REGISTRY_DISCOVERABLE.issubset(legacy_ids)
-
+def test_the_core_panels_are_the_core_routing_candidates() -> None:
+    # FR-007 / #2493: every core preview routes to its built-in panel.
     from scistudio.panels.router import merge_candidates
 
-    preview = PreviewerRegistry()
-    preview.load_core()
     panels = discover_panels()
-    merged = merge_candidates(panels=panels.panels, shadowed_panels=panels.shadowed, legacy_specs=preview.all_specs())
+    merged = merge_candidates(panels=panels.panels, shadowed_panels=panels.shadowed)
     for pid in REGISTRY_DISCOVERABLE:
         winners = [s for s in merged.routable if s.previewer_id == pid]
         assert winners, f"{pid} not routable"
-        assert all(getattr(s, "panel", None) for s in winners), f"{pid} legacy spec not shadowed by panel"
+        assert all(s.panel is not None and s.owner_kind is OwnerKind.CORE for s in winners)
 
 
 def test_core_previews_share_the_public_presentation_components() -> None:

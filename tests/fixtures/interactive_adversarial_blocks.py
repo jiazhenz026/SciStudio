@@ -63,7 +63,6 @@ class EchoPanelBlock(InteractiveMixin, ProcessBlock):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="test.interactive.echo_panel",
-        version="1",
     )
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="items", accepted_types=[], is_collection=False, required=False),
@@ -102,7 +101,7 @@ class ListPanelBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.list_panel", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.list_panel")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
     ]
@@ -129,7 +128,7 @@ class NonePromptBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.none_prompt", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.none_prompt")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
     ]
@@ -158,7 +157,7 @@ class NanPanelBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.nan_panel", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.nan_panel")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
     ]
@@ -185,7 +184,7 @@ class CrashingPromptBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.crashing_prompt", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.crashing_prompt")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
     ]
@@ -210,9 +209,7 @@ class CrashingComputeBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
-        panel_id="test.interactive.crashing_compute", version="1"
-    )
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.crashing_compute")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
     ]
@@ -244,7 +241,7 @@ class ScratchPromptBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.scratch_prompt", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.scratch_prompt")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
         OutputPort(name="scratch_content", accepted_types=[], is_collection=False),
@@ -285,7 +282,7 @@ class PidRecordingBlock(InteractiveMixin, ProcessBlock):
     subcategory: ClassVar[str] = "testing"
 
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.pid_recording", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.interactive.pid_recording")
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
         OutputPort(name="compute_pid", accepted_types=[], is_collection=False),

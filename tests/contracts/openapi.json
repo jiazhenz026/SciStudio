@@ -3135,16 +3135,6 @@
        }
       ]
      },
-     "frontend_manifest": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/PreviewFrontendManifestModel"
-       },
-       {
-        "type": "null"
-       }
-      ]
-     },
      "kind": {
       "type": "string"
      },
@@ -3170,13 +3160,6 @@
      "previewer_id": {
       "type": "string"
      },
-     "resources": {
-      "items": {
-       "additionalProperties": true,
-       "type": "object"
-      },
-      "type": "array"
-     },
      "session_id": {
       "anyOf": [
        {
@@ -3195,39 +3178,6 @@
     "required": [
      "previewer_id",
      "kind"
-    ],
-    "type": "object"
-   },
-   "PreviewFrontendManifestModel": {
-    "properties": {
-     "api_version": {
-      "default": "1",
-      "type": "string"
-     },
-     "css": {
-      "items": {
-       "type": "string"
-      },
-      "type": "array"
-     },
-     "export_name": {
-      "default": "default",
-      "type": "string"
-     },
-     "module_url": {
-      "type": "string"
-     },
-     "previewer_id": {
-      "type": "string"
-     },
-     "version": {
-      "default": "0",
-      "type": "string"
-     }
-    },
-    "required": [
-     "previewer_id",
-     "module_url"
     ],
     "type": "object"
    },
@@ -3458,34 +3408,14 @@
    "PreviewerSpecModel": {
     "properties": {
      "api_version": {
-      "default": "1",
+      "default": "1.0",
       "type": "string"
-     },
-     "backend_provider": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ]
      },
      "capabilities": {
       "items": {
        "type": "string"
       },
       "type": "array"
-     },
-     "frontend_manifest": {
-      "anyOf": [
-       {
-        "$ref": "#/components/schemas/PreviewFrontendManifestModel"
-       },
-       {
-        "type": "null"
-       }
-      ]
      },
      "owner_kind": {
       "type": "string"
@@ -3510,10 +3440,6 @@
      "priority": {
       "default": 0,
       "type": "integer"
-     },
-     "renderer": {
-      "default": "legacy",
-      "type": "string"
      },
      "shadowed": {
       "default": false,
@@ -4471,7 +4397,6 @@
       "enum": [
        "blocks",
        "types",
-       "previewers",
        "panels"
       ],
       "type": "string"
@@ -4511,7 +4436,6 @@
       "enum": [
        "blocks",
        "types",
-       "previewers",
        "panels"
       ],
       "type": "string"
@@ -4596,7 +4520,6 @@
       "enum": [
        "blocks",
        "types",
-       "previewers",
        "panels"
       ],
       "type": "string"
@@ -5175,49 +5098,6 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/BlockListResponse"
-        }
-       }
-      }
-     }
-    },
-    "tags": [
-     "blocks"
-    ]
-   }
-  },
-  "/api/blocks/panels/{panel_id}/{asset_path}": {
-   "get": {
-    "parameters": [
-     {
-      "in": "path",
-      "name": "panel_id",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "asset_path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      }
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
         }
        }
       }
@@ -8691,49 +8571,6 @@
     ]
    }
   },
-  "/api/previews/assets/{previewer_id}/{asset_path}": {
-   "get": {
-    "parameters": [
-     {
-      "in": "path",
-      "name": "previewer_id",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     },
-     {
-      "in": "path",
-      "name": "asset_path",
-      "required": true,
-      "schema": {
-       "type": "string"
-      }
-     }
-    ],
-    "responses": {
-     "200": {
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      }
-     },
-     "422": {
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    },
-    "tags": [
-     "previews"
-    ]
-   }
-  },
   "/api/previews/choices": {
    "get": {
     "responses": {
@@ -10435,7 +10272,6 @@
        "enum": [
         "blocks",
         "types",
-        "previewers",
         "panels"
        ],
        "type": "string"
@@ -10497,7 +10333,6 @@
        "enum": [
         "blocks",
         "types",
-        "previewers",
         "panels"
        ],
        "type": "string"
@@ -10547,7 +10382,6 @@
        "enum": [
         "blocks",
         "types",
-        "previewers",
         "panels"
        ],
        "type": "string"

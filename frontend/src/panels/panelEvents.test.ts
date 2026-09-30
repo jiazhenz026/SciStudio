@@ -2,8 +2,7 @@
  * #2465 — which open previews a panel-service signal re-routes.
  *
  * Only previews whose data type (type chain and collection-ness) the changed
- * claims or the changed choice concern re-route; legacy-rendered previews
- * re-route when the legacy previewers were reloaded.
+ * claims or the changed choice concern re-route.
  */
 import { describe, expect, it } from "vitest";
 

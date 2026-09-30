@@ -837,7 +837,7 @@ def test_the_review_block_is_refused_without_its_panel(assets: dict[str, ModuleT
 def test_the_review_panel_is_a_panel_folder_for_the_interactive_context() -> None:
     """``panel.json`` claims the interactive context under the id the block names, and no legacy module remains."""
     from scistudio.panels.descriptor import parse_descriptor
-    from scistudio.previewers.models import OwnerKind
+    from scistudio.panels.models import OwnerKind
 
     folder = ASSETS / "panels" / "review_labels"
     descriptor, warnings = parse_descriptor(
@@ -948,7 +948,7 @@ def test_an_unreviewed_run_keeps_every_label(assets: dict[str, ModuleType]) -> N
 def test_the_preview_panel_claims_image_for_the_preview_context() -> None:
     """``panel.json`` is the whole connection: a preview panel for exactly the Image type."""
     from scistudio.panels.descriptor import parse_descriptor
-    from scistudio.previewers.models import OwnerKind
+    from scistudio.panels.models import OwnerKind
 
     folder = ASSETS / "panels" / "image_preview"
     descriptor, warnings = parse_descriptor(

@@ -4,7 +4,7 @@ Two commands create a project workspace -- ``ApiRuntime.create_project`` behind
 the GUI's "New project", and ``scistudio init`` on the CLI -- and they each used
 to carry a hand-written directory list. The lists had drifted: the CLI omitted
 ``data/processed`` while a comment above it claimed symmetry with the API, and
-neither created the previewer or tutorial drop-in directories even though both
+neither created the extension or tutorial drop-in directories even though both
 tiers are discovered from a project.
 
 These tests pin the shared definition and, more importantly, pin the *agreement*
@@ -25,12 +25,13 @@ from scistudio.api.project_layout import DATA_SUBDIRS, DROPIN_SUBDIRS, PROJECT_S
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
     PANELS_DIR_NAME,
-    PREVIEWERS_DIR_NAME,
     TUTORIALS_DIR_NAME,
     TYPES_DIR_NAME,
     panel_scan_dirs,
-    previewer_scan_dirs,
 )
+
+#: The removed legacy previewer drop-in tier (ADR-054 §8, #2493).
+LEGACY_PREVIEWERS_DIR = "previewers"
 
 
 def test_dropin_dirs_are_named_by_the_module_that_scans_them() -> None:
@@ -60,15 +61,16 @@ def test_panels_dir_name_is_the_one_panel_discovery_scans(tmp_path: Path) -> Non
     assert panel_scan_dirs(tmp_path)[0] == tmp_path / PANELS_DIR_NAME
 
 
-def test_deprecated_previewers_dir_is_not_scaffolded() -> None:
-    """ADR-054 §8 deprecates Python previewer drop-ins, so new projects omit them (#2411)."""
-    assert PREVIEWERS_DIR_NAME not in PROJECT_SUBDIRS
+def test_removed_previewers_dir_is_not_scaffolded() -> None:
+    """The Python previewer drop-in tier was removed (ADR-054 §8, #2493)."""
+    assert LEGACY_PREVIEWERS_DIR not in PROJECT_SUBDIRS
 
 
-def test_existing_previewers_dir_is_still_scanned(tmp_path: Path) -> None:
-    """Dropping the scaffold must not drop the scan: old projects keep working until 0.3.6."""
-    (tmp_path / PREVIEWERS_DIR_NAME).mkdir()
-    assert previewer_scan_dirs(tmp_path)[0] == tmp_path / PREVIEWERS_DIR_NAME
+def test_the_previewer_drop_in_tier_is_gone() -> None:
+    import scistudio.core.dropins as dropins
+
+    for name in ("PREVIEWERS_DIR_NAME", "previewer_scan_dirs", "previewer_import_roots", "user_previewers_dir"):
+        assert not hasattr(dropins, name), name
 
 
 def test_data_subdirs_include_the_user_facing_pair_and_the_runtime_stores() -> None:
@@ -95,7 +97,7 @@ def test_api_create_project_creates_every_scaffold_directory(client: TestClient,
     missing = [d for d in PROJECT_SUBDIRS if not (project_path / d).is_dir()]
     assert not missing, f"API scaffold did not create: {missing}"
     assert (project_path / PANELS_DIR_NAME).is_dir()
-    assert not (project_path / PREVIEWERS_DIR_NAME).exists()
+    assert not (project_path / LEGACY_PREVIEWERS_DIR).exists()
 
 
 def test_cli_init_creates_the_same_directories_as_the_api(tmp_path: Path) -> None:
@@ -128,4 +130,4 @@ def test_cli_init_creates_the_same_directories_as_the_api(tmp_path: Path) -> Non
     missing = [d for d in PROJECT_SUBDIRS if not (project_path / d).is_dir()]
     assert not missing, f"CLI scaffold did not create: {missing}"
     assert (project_path / PANELS_DIR_NAME).is_dir()
-    assert not (project_path / PREVIEWERS_DIR_NAME).exists()
+    assert not (project_path / LEGACY_PREVIEWERS_DIR).exists()

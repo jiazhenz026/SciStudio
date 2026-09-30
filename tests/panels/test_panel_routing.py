@@ -1,21 +1,19 @@
-"""Panel and legacy candidates share one ADR-048 ladder and one namespace (#2465)."""
+"""Panel candidates share one ADR-048 ladder and one namespace (#2465, #2493)."""
 
 from dataclasses import replace
 
 import pytest
+from tests.panels.conftest import core_panels
 
-from scistudio.panels.registry import PanelRegistry
-from scistudio.panels.router import PanelRouter, merge_candidates, specificity_chain
-from scistudio.previewers.fallbacks import core_previewer_specs
-from scistudio.previewers.models import (
+from scistudio.panels.models import (
     OwnerKind,
-    PreviewerSpec,
     PreviewTarget,
     RoutingAmbiguityError,
     TargetKind,
     UnknownPreviewerError,
 )
-from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.panels.registry import PanelRegistry
+from scistudio.panels.router import PanelRouter, merge_candidates, specificity_chain
 
 IMAGE = PreviewTarget(
     kind=TargetKind.DATA_REF, ref="r", recorded_type="Image", type_chain=("DataObject", "Array", "Image")
@@ -29,71 +27,58 @@ def _panel(runtime, panel_id="lab.text", **fields):
     return replace(runtime.get_panel_service().panel("lab.text"), id=panel_id, **fields)
 
 
-def _router(panels, *legacy, choices=None, core=False):
-    registry = PreviewerRegistry()
-    if core:
-        registry.load_core()
-    for spec in legacy:
-        registry.register(spec)
+def _router(panels, *, choices=None, core=False):
+    registry = core_panels() if core else PanelRegistry()
+    for panel in panels:
+        registry.register(panel)
     merged = merge_candidates(
-        panels={panel.id: panel for panel in panels},
-        legacy_specs=registry.all_specs(),
-        legacy_shadowed=registry.shadowed_specs(),
+        panels=registry.panels, shadowed_panels=registry.shadowed, panel_diagnostics=registry.diagnostics
     )
-    return PanelRouter(merged.routable, choices=choices, project_default=registry.project_default_for), merged
+    return PanelRouter(merged.routable, choices=choices), merged
 
 
-def test_same_tier_panel_shadows_legacy_and_multi_claims_route(panel_runtime):
+def test_a_multi_claim_panel_routes_every_claim(panel_runtime):
     runtime, _ = panel_runtime
     panel = _panel(runtime, types=("Text", "Collection[Image]"))
-    legacy = PreviewerSpec("lab.text", OwnerKind.PROJECT, "project", "Text")
-    router, merged = _router([panel], legacy)
-    assert (legacy, True) in merged.catalog_specs()
+    router, merged = _router([panel])
+    assert merged.panels == {"lab.text": panel}
     spec = router.resolve(IMAGES)
     assert spec.panel is not None and spec.target_type == "Image"
     chosen, _ = _router([panel], choices={"Image": "lab.text"})
     assert chosen.resolve(IMAGES) == spec
 
 
-def test_higher_tier_legacy_shadows_a_panel_with_the_same_id(panel_runtime):
+def test_a_higher_tier_panel_shadows_the_same_id(panel_runtime):
     runtime, _ = panel_runtime
-    panel = _panel(runtime, owner_kind=OwnerKind.USER)
-    legacy = PreviewerSpec("lab.text", OwnerKind.PROJECT, "project", "Text")
-    router, merged = _router([panel], legacy)
-    assert merged.panels == {}
-    assert merged.shadowed_panels == (panel,)
+    user = _panel(runtime, owner_kind=OwnerKind.USER)
+    project = _panel(runtime, owner_kind=OwnerKind.PROJECT)
+    router, merged = _router([user, project])
+    assert merged.panels == {"lab.text": project}
+    assert merged.shadowed_panels == (user,)
+    assert (merged.by_id["lab.text"], False) in merged.catalog_specs()
+    assert any(shadowed and spec.owner_kind is OwnerKind.USER for spec, shadowed in merged.catalog_specs())
     target = PreviewTarget(kind=TargetKind.DATA_REF, ref="t", recorded_type="Text", type_chain=("DataObject", "Text"))
-    assert router.resolve(target) is legacy
+    assert router.resolve(target).owner_kind is OwnerKind.PROJECT
 
 
-def test_legacy_exact_type_beats_a_panel_parent_type(panel_runtime):
+def test_an_exact_type_beats_a_parent_type_across_tiers(panel_runtime):
     runtime, _ = panel_runtime
-    panel = _panel(runtime, types=("Array",))
-    router, _ = _router([panel], PreviewerSpec("pkg.image", OwnerKind.PACKAGE, "pkg", "Image"))
+    parent = _panel(runtime, "project.array", types=("Array",), owner_kind=OwnerKind.PROJECT)
+    exact = _panel(runtime, "pkg.image", types=("Image",), owner_kind=OwnerKind.PACKAGE)
+    router, _ = _router([parent, exact])
     assert router.resolve(IMAGE).previewer_id == "pkg.image"
-    tied, _ = _router(
-        [panel],
-        PreviewerSpec("pkg.image", OwnerKind.PACKAGE, "pkg", "Image"),
-        PreviewerSpec("pkg.other", OwnerKind.PACKAGE, "pkg", "Image"),
-    )
+    other = _panel(runtime, "pkg.other", types=("Image",), owner_kind=OwnerKind.PACKAGE)
+    tied, _ = _router([parent, exact, other])
     with pytest.raises(RoutingAmbiguityError):
         tied.resolve(IMAGE)
 
 
-def test_a_panel_exact_type_beats_a_legacy_parent_type(panel_runtime):
-    runtime, _ = panel_runtime
-    panel = _panel(runtime, types=("Image",), owner_kind=OwnerKind.PACKAGE)
-    router, _ = _router([panel], PreviewerSpec("project.array", OwnerKind.PROJECT, "project", "Array"))
-    assert router.resolve(IMAGE).previewer_id == "lab.text"
-
-
 @pytest.mark.parametrize("chosen", ["lab.text", "pkg.image"])
-def test_a_choice_names_a_panel_or_a_legacy_previewer(panel_runtime, chosen):
+def test_a_choice_names_any_panel(panel_runtime, chosen):
     runtime, _ = panel_runtime
-    panel = _panel(runtime, types=("Image",), owner_kind=OwnerKind.PROJECT, priority=50)
-    router, _ = _router(
-        [panel], PreviewerSpec("pkg.image", OwnerKind.PACKAGE, "pkg", "Image"), choices={"Image": chosen}
-    )
+    project = _panel(runtime, types=("Image",), owner_kind=OwnerKind.PROJECT, priority=50)
+    package = _panel(runtime, "pkg.image", types=("Image",), owner_kind=OwnerKind.PACKAGE)
+    router, _ = _router([project, package], choices={"Image": chosen})
     assert router.resolve(IMAGE).previewer_id == chosen
 
 
@@ -131,13 +116,12 @@ def test_preview_envelope_dispatch_never_calls_python(panel_runtime):
     assert envelope.kind.value == "panel"
     assert envelope.to_dict()["panel"] == {"id": "lab.text", "api_version": "1.0"}
     assert service.sessions.owns(envelope.session_id)
-    assert not service.legacy.owns(envelope.session_id)
     assert service.read_session(envelope.session_id).session_id == envelope.session_id
     core = service.route(target, {"core_only": True})
     assert core.owner_kind is OwnerKind.CORE
 
 
-def test_a_legacy_winner_renders_through_the_legacy_manager(panel_runtime):
+def test_without_a_project_panel_the_core_panel_serves_the_type(panel_runtime):
     runtime, _ = panel_runtime
     service = runtime.get_panel_service()
     runtime.test_panels[0] = PanelRegistry()
@@ -145,14 +129,13 @@ def test_a_legacy_winner_renders_through_the_legacy_manager(panel_runtime):
     target = runtime.resolve_session_target(PreviewTarget(kind=TargetKind.DATA_REF, ref="data-a"))
     envelope = service.create_preview_session(target)
     assert envelope.previewer_id == "core.text.basic"
-    assert envelope.kind.value != "panel"
-    assert service.legacy.owns(envelope.session_id)
+    assert envelope.kind.value == "panel"
     assert service.patch_session(envelope.session_id, {"page": 1}).session_id == envelope.session_id
 
 
-def test_a_legacy_collection_child_routes_back_to_a_panel(panel_runtime):
-    # A legacy collection preview opens its item through the one router, so the
-    # item lands in the panel that claims its type.
+def test_a_collection_child_routes_to_the_panel_claiming_its_type(panel_runtime):
+    # A collection preview opens its item through the one router, so the item
+    # lands in the panel that claims its type.
     from scistudio.panels.targets import register_collection
 
     runtime, _ = panel_runtime
@@ -160,15 +143,14 @@ def test_a_legacy_collection_child_routes_back_to_a_panel(panel_runtime):
     group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
     target = PreviewTarget(kind=TargetKind.COLLECTION_REF, ref=group["collection_ref"], collection_item_type="Text")
     envelope = service.create_preview_session(target, {"_collection_items": group["items"], "_collection_count": 1})
-    assert service.legacy.owns(envelope.session_id)
+    assert envelope.previewer_id == "core.collection.basic"
     child = service.read_resource(envelope.session_id, "item:0", {"ref": "data-a", "type_name": "Text"})
     assert child["kind"] == "panel" and child["panel"]["id"] == "lab.text"
 
 
-def test_legacy_python_previewers_are_deprecated_fallbacks_only():
-    # The legacy registry holds no panels and knows nothing about them.
-    registry = PreviewerRegistry()
-    for spec in core_previewer_specs():
-        registry.register(spec)
-    assert not hasattr(registry, "install_panels")
-    assert all(spec.panel is None for spec in registry.all_specs())
+def test_every_routing_candidate_is_a_panel_claim(panel_runtime):
+    runtime, _ = panel_runtime
+    candidates = runtime.get_panel_service().all_specs()
+    assert candidates
+    assert all(spec.panel is not None for spec in candidates)
+    assert {"core.text.basic", "core.collection.basic", "lab.text"} <= {spec.previewer_id for spec in candidates}

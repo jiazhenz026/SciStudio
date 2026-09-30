@@ -13,7 +13,7 @@ import pytest
 
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.files import validate_external_references
-from scistudio.previewers.models import OwnerKind
+from scistudio.panels.models import OwnerKind
 
 _HARNESS = r"""
 const fs = require('node:fs');

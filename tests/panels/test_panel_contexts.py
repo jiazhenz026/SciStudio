@@ -73,7 +73,7 @@ def waiting(runtime, store):
         block_id="block",
         data={
             "workflow_id": "wf",
-            "panel_manifest": {"panel_id": "lab.text", "module_url": ""},
+            "panel_manifest": {"panel_id": "lab.text", "api_version": "1.0"},
             "panel_payload": {"answer": 42},
         },
     )
@@ -110,14 +110,14 @@ def test_cancel_event_revokes_interactive_context(panel_runtime):
         store.by_token(ctx.token)
 
 
-@pytest.mark.parametrize("change", ["project", "legacy_reload", "data"])
+@pytest.mark.parametrize("change", ["project", "data"])
 @pytest.mark.parametrize("operation", ["read", "patch", "resource"])
 def test_independent_child_session_validates_every_followup(panel_runtime, change, operation):
     from dataclasses import replace
 
+    from scistudio.panels.models import UnknownPreviewerError
     from scistudio.panels.registry import PanelRegistry
     from scistudio.panels.targets import register_collection
-    from scistudio.previewers.models import UnknownPreviewerError
 
     runtime, store = panel_runtime
     service = runtime.get_panel_service()
@@ -128,16 +128,13 @@ def test_independent_child_session_validates_every_followup(panel_runtime, chang
     group = register_collection(runtime, {"count": 1, "item_type": "Text", "items": [{"data_ref": "data-a"}]})
     parent = store.create({"kind": "preview", "target": {"ref": group["collection_ref"]}})
     envelope = store.open_child(parent.context_id, "data-a")
-    # The child routes to the legacy core text previewer: no panel claims Text now.
-    sessions = service.legacy.sessions
+    # The child routes to the core text panel: no project panel claims Text now.
+    assert envelope.previewer_id == "core.text.basic"
+    sessions = service.sessions
     assert sessions.owns(envelope.session_id)
     store.close(parent.context_id)
     if change == "project":
         runtime.active_project = SimpleNamespace(id="other", path="other")
-    elif change == "legacy_reload":
-        # #2465 Q5-b: reloading the legacy previewers ends their sessions; the
-        # host recreates them.
-        service.refresh()
     else:
         runtime.data_catalog["data-a"].metadata["changed"] = True
     with pytest.raises(UnknownPreviewerError):
@@ -147,18 +144,20 @@ def test_independent_child_session_validates_every_followup(panel_runtime, chang
             service.patch_session(envelope.session_id, {"page": 2})
         else:
             service.read_resource(envelope.session_id, "tile")
-    assert envelope.session_id not in sessions._session_guards or change == "legacy_reload"
-    assert envelope.session_id not in sessions._session_authorities or change == "legacy_reload"
+    assert envelope.session_id not in sessions._session_guards
+    assert envelope.session_id not in sessions._session_authorities
 
 
 def test_child_session_eviction_cleans_authority(panel_runtime):
     from scistudio.panels.targets import freeze_target
 
     runtime, _ = panel_runtime
-    sessions = runtime.get_preview_service().sessions
+    service = runtime.get_panel_service()
+    sessions = service.sessions
     sessions._max_sessions = 1
     root = freeze_target(runtime, "data-a")
-    first = sessions.create_session(root.target, guard=lambda: None, authority=root)
-    sessions.create_session(root.target)
+    spec = service.route(root.target)
+    first = sessions.create_session(spec, root.target, guard=lambda: None, authority=root)
+    sessions.create_session(spec, root.target)
     assert first.session_id not in sessions._session_guards
     assert first.session_id not in sessions._session_authorities

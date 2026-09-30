@@ -23,10 +23,10 @@ from scistudio.engine.runners.process_handle import ProcessRegistry
 from scistudio.panels import process as process_mod
 from scistudio.panels.contexts import PanelContexts
 from scistudio.panels.descriptor import parse_descriptor
+from scistudio.panels.models import OwnerKind, PreviewTarget
 from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.service import get_panel_contexts
 from scistudio.panels.targets import PanelError
-from scistudio.previewers.models import OwnerKind, PreviewTarget
 
 pytestmark = pytest.mark.serial
 

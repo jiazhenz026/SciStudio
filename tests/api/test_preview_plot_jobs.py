@@ -6,8 +6,8 @@ Verifies:
   * a failed rerun records the failure state in ``current.json``;
   * a plot run does NOT mutate workflow YAML, scheduler state, lineage, or any
     downstream collection (FR-025);
-  * the produced SVG artifact is consumable by the core ``PlotPreviewer``
-    (``core.plot.basic``) — SC-010.
+  * the produced SVG artifact is consumable by the core plot panel
+    (``core.plot.basic``) through the panel read layer — SC-010.
 """
 
 from __future__ import annotations
@@ -279,7 +279,7 @@ def test_plot_run_does_not_mutate_workflow_or_scheduler_or_lineage(
 
 
 # ---------------------------------------------------------------------------
-# SC-010: artifact consumable by core.plot.basic PlotPreviewer.
+# SC-010: artifact consumable by the core.plot.basic panel's read layer.
 # ---------------------------------------------------------------------------
 
 
@@ -289,39 +289,20 @@ def test_artifact_consumable_by_plot_previewer(setup: tuple[Path, _StubRuntime, 
     assert res.status == "succeeded", res.errors
     svg_path = res.artifact_paths[0]
 
-    from scistudio.previewers.data_access import PreviewDataAccess
-    from scistudio.previewers.fallbacks import plot_previewer
-    from scistudio.previewers.models import (
-        EnvelopeKind,
-        OwnerKind,
-        PreviewerSpec,
-        PreviewLimits,
-        PreviewRequest,
-        PreviewTarget,
-        TargetKind,
-    )
+    from scistudio.core.storage.ref import StorageReference
+    from scistudio.panels._reads.plot_formats import available_formats
+    from scistudio.panels.data_access import PreviewDataAccess
+    from scistudio.panels.svg import sanitize_svg
 
-    spec = PreviewerSpec(
-        previewer_id="core.plot.basic",
-        owner_kind=OwnerKind.CORE,
-        owner_name="scistudio",
-        target_type="PlotArtifact",
-        backend_provider=plot_previewer,
-    )
-    target = PreviewTarget(kind=TargetKind.PLOT_ARTIFACT, ref=svg_path, recorded_type="PlotArtifact")
-    request = PreviewRequest(
-        target=target,
-        spec=spec,
-        query={"_storage": {"backend": "filesystem", "path": svg_path, "format": "svg"}},
-        data_access=PreviewDataAccess(),
-        limits=PreviewLimits(),
-    )
-    envelope = plot_previewer(request)
-    assert envelope.kind == EnvelopeKind.PLOT, envelope
-    assert envelope.payload.get("format") == "svg"
-    # SVG path goes through the sanitizer and is embedded inline.
-    assert "svg" in envelope.payload
-    assert envelope.payload.get("sandboxed") is True
+    # The panel's ``artifact.info`` / ``artifact.file`` reads resolve the file
+    # through the data access and report the formats it was rendered in.
+    ref = StorageReference(backend="filesystem", path=svg_path, format="svg")
+    resolved = PreviewDataAccess().artifact_file(ref)
+    assert resolved == Path(svg_path).resolve()
+    assert "svg" in available_formats(resolved)
+    # An exported SVG goes through the sanitizer before it leaves the host.
+    clean, _removed = sanitize_svg(resolved.read_text(encoding="utf-8"))
+    assert "<svg" in clean
 
 
 # ---------------------------------------------------------------------------

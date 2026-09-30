@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.panels.descriptor import parse_descriptor
-from scistudio.previewers.models import OwnerKind
+from scistudio.panels.models import OwnerKind
 
 _TYPES = {"Image", "Text", "DataFrame"}
 

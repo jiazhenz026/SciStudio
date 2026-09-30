@@ -59,8 +59,6 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
     "scistudio.tutorials",
     # ADR-055 identity seam (#2304): the surface the enterprise edition
     # composes on, provisional since 0.3.5.
@@ -73,7 +71,7 @@ CANONICAL_ROOTS: tuple[str, ...] = (
 _SNAPSHOT_PATH = Path(__file__).parent / "public_surface.snapshot.json"
 
 # ---------------------------------------------------------------------------
-# Non-markable public symbols (ADR-052 §15). These thirteen are ``str`` constants,
+# Non-markable public symbols (ADR-052 §15). These nine are ``str`` constants,
 # ``frozenset`` constants, or ``Literal`` / ``Callable`` / union type-aliases that
 # cannot carry a runtime
 # ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
@@ -91,10 +89,6 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
         ("scistudio.tutorials", "Action"),
         ("scistudio.tutorials", "VOCABULARY"),
         ("scistudio.api.seam", "AUDIENCE_EXTERNAL_TAG"),
@@ -425,11 +419,9 @@ def test_deprecated_symbols_keep_a_public_tier() -> None:
     assert not bad, "deprecation metadata inconsistent with ADR-052 §5:\n  " + "\n  ".join(bad)
 
 
-def test_every_previewer_root_symbol_is_deprecated() -> None:
-    """ADR-054 §8: the whole public previewer surface is deprecated, removed in 0.3.6."""
-    for root in ("scistudio.previewers.models", "scistudio.previewers.data_access"):
-        module = _import_root(root)
-        deprecations = _live_deprecations_for(root)
-        missing = sorted(set(module.__all__) - set(deprecations))
-        assert not missing, f"{root}: public symbols not deprecated: {missing}"
-        assert {d["removed_in"] for d in deprecations.values()} == {"0.3.6"}
+def test_the_previewer_roots_are_removed_and_owner_kind_is_a_panels_symbol() -> None:
+    """ADR-054 §8 / #2493: the deprecated previewer roots are gone; ``OwnerKind`` moved to ``scistudio.panels``."""
+    import importlib.util
+
+    assert importlib.util.find_spec("scistudio.previewers") is None
+    assert "OwnerKind" in _import_root("scistudio.panels").__all__

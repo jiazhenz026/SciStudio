@@ -57,7 +57,6 @@ class SelectOptionBlock(InteractiveMixin, ProcessBlock):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="test.interactive.select_option",
-        version="1",
     )
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),
@@ -123,7 +122,6 @@ class SelectFromInputBlock(InteractiveMixin, ProcessBlock):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="test.interactive.select_from_input",
-        version="1",
     )
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="numbers", accepted_types=[], is_collection=False),
@@ -192,7 +190,6 @@ class NonJsonPanelBlock(InteractiveMixin, ProcessBlock):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="test.interactive.non_json_panel",
-        version="1",
     )
     output_ports: ClassVar[list[OutputPort]] = [
         OutputPort(name="selected", accepted_types=[], is_collection=False),

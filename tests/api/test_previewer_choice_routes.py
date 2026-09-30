@@ -1,6 +1,6 @@
 """The previewer-choice API (#2049).
 
-Routing behaviour lives in `tests/previewers/test_previewer_choice.py`. What
+Routing behaviour lives in `tests/panels/test_previewer_choices.py`. What
 these tests own is the surface: which layer a write lands in, what the listing
 reports about provenance and staleness, what is refused, and — the point of the
 feature — that a recorded choice actually changes what a preview session
@@ -17,34 +17,25 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 
-PROJECT_PREVIEWER = """\
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
 
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id="choice.project",
-            owner_kind=OwnerKind.PROJECT,
-            owner_name="probe",
-            target_type="DataFrame",
-            priority=90,
-        ),
-        PreviewerSpec(
-            previewer_id="choice.alternate",
-            owner_kind=OwnerKind.PROJECT,
-            owner_name="probe",
-            target_type="DataFrame",
-            priority=10,
-        ),
-    ]
-"""
+def _write_panel(project: Path, panel_id: str, priority: int) -> Path:
+    directory = project / "panels" / panel_id
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = {
+        "id": panel_id,
+        "api_version": "1.0",
+        "contexts": ["preview"],
+        "types": ["DataFrame"],
+        "priority": priority,
+    }
+    (directory / "panel.json").write_text(json.dumps(descriptor), encoding="utf-8")
+    (directory / "index.html").write_text("<p>choice</p>", encoding="utf-8")
+    return directory
 
 
 def _install_previewers(project: Path, client: TestClient) -> None:
-    previewers = project / "previewers"
-    previewers.mkdir(parents=True, exist_ok=True)
-    (previewers / "choice_probe.py").write_text(PROJECT_PREVIEWER, encoding="utf-8")
+    _write_panel(project, "choice.project", 90)
+    _write_panel(project, "choice.alternate", 10)
     assert client.post("/api/blocks/reload").status_code == 200
 
 
@@ -105,9 +96,9 @@ def test_a_choice_whose_previewer_is_gone_reads_as_unavailable(client: TestClien
     _install_previewers(opened_project, client)
     client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "user"})
 
-    (opened_project / "previewers" / "choice_probe.py").unlink()
-    # /api/blocks/reload rather than the previewer-owned endpoint (#2095): this
-    # branch must merge in either order, so it depends only on what main has.
+    import shutil
+
+    shutil.rmtree(opened_project / "panels" / "choice.alternate")
     assert client.post("/api/blocks/reload").status_code == 200
 
     entry = _choices(client)["DataFrame"]
@@ -174,7 +165,7 @@ def test_choice_writes_rebuild_nothing_and_announce_the_type(
         await original_emit(event)
 
     monkeypatch.setattr(runtime.event_bus, "emit", capture)
-    legacy_before = runtime.get_preview_service()
+    generation_before = runtime.get_panel_service().generation
 
     response = client.put(
         "/api/previews/choices/DataFrame",
@@ -189,7 +180,8 @@ def test_choice_writes_rebuild_nothing_and_announce_the_type(
             break
         asyncio.run(asyncio.sleep(0.01))
     assert refreshes == 0
-    assert runtime.get_preview_service() is legacy_before
+    # Each choice write swaps only the choices; the catalog is not rediscovered.
+    assert runtime.get_panel_service().generation == generation_before + 2
     assert announced == [{"type": "DataFrame"}, {"type": "DataFrame"}]
 
 
@@ -205,10 +197,9 @@ def test_a_project_scoped_choice_lands_in_the_project(client: TestClient, opened
     assert json.loads(path.read_text(encoding="utf-8"))["choices"] == {"DataFrame": "choice.alternate"}
 
 
-def test_the_author_declared_manifest_is_a_separate_file(client: TestClient, opened_project: Path) -> None:
-    """FR-005's ``previewers.json`` is an author's declaration about a project;
-    a choice is a person's preference about their own view. Writing a choice
-    must not touch the manifest."""
+def test_a_choice_never_writes_a_project_default_file(client: TestClient, opened_project: Path) -> None:
+    """The FR-005 ``previewers.json`` project default was dropped (#2493); a choice
+    is the person's preference and lives only in ``previewer-choices.json``."""
     _install_previewers(opened_project, client)
     client.put("/api/previews/choices/DataFrame", json={"previewer_id": "choice.alternate", "scope": "project"})
 

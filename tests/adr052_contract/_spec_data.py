@@ -43,11 +43,11 @@ def module_all(module) -> set[str]:
 with open(os.path.join(_HERE, "expected_surface.json"), encoding="utf-8") as _fh:
     EXPECTED_SURFACE: dict = json.load(_fh)
 
-#: The nine canonical public roots (manager-defined freeze contract).
+#: The canonical public roots of this fixture (manager-defined freeze contract).
 ROOTS: tuple[str, ...] = tuple(k for k in EXPECTED_SURFACE if not k.startswith("_"))
 
 # --------------------------------------------------------------------------- #
-# Non-markable public symbols (ADR-052 §15). These nine are ``str`` constants or
+# Non-markable public symbols (ADR-052 §15). These are ``str`` constants or
 # ``Literal`` / ``Callable`` type-aliases that cannot carry a runtime
 # ``@stable`` / ``@provisional`` marker, so ``get_stability()`` returns ``None``
 # for them BY DESIGN (the stability module's docstring calls this "the honest
@@ -63,10 +63,6 @@ NON_MARKABLE_PUBLIC_SYMBOLS: frozenset[tuple[str, str]] = frozenset(
         ("scistudio.blocks.io", "CapabilityDirection"),
         ("scistudio.blocks.io", "MetadataFidelityLevel"),
         ("scistudio.blocks.code", "InterpreterFamily"),
-        ("scistudio.previewers.models", "PREVIEWER_API_VERSION"),
-        ("scistudio.previewers.models", "PreviewProvider"),
-        ("scistudio.previewers.models", "PreviewResourceProvider"),
-        ("scistudio.previewers.models", "PreviewerSpecList"),
     }
 )
 
@@ -114,25 +110,6 @@ DEMOTIONS: dict[str, tuple[str, ...]] = {
         "SaveData",
         "normalize_extension",
         "normalize_extensions",
-    ),
-    # spec §8.1: the 7 runtime-owned model internals dropped from models.__all__.
-    "scistudio.previewers.models": (
-        "PreviewSession",
-        "RoutingAmbiguityError",
-        "UnknownPreviewerError",
-        "UnknownTargetError",
-        "MissingBundleError",
-        "InvalidSpecError",
-        "DuplicatePreviewerIdError",
-    ),
-    # spec §8.2: legacy method + runtime budget constants are not public exports.
-    "scistudio.previewers.data_access": (
-        "png_data_uri",
-        "DEFAULT_MAX_ROWS",
-        "DEFAULT_MAX_BYTES",
-        "DEFAULT_MAX_ITEMS",
-        "DEFAULT_MAX_TILE",
-        "DEFAULT_MAX_DIM",
     ),
 }
 

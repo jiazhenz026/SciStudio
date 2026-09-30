@@ -4,9 +4,8 @@ from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.registry import discover_panels
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
-from scistudio.previewers.registry import PreviewerRegistry
 
 
 def folder(root: Path, panel_id: str = "lab.view", **fields):
@@ -53,13 +52,9 @@ def test_nonpreview_panel_reserves_namespace_and_never_routes(panel_runtime):
     panel = replace(runtime.get_panel_service().panel("lab.text"), contexts=("interactive",), types=())
     panels = PanelRegistry()
     panels.register(panel)
-    registry = PreviewerRegistry()
-    registry.register(PreviewerSpec("lab.text", OwnerKind.USER, "user", "Text"))
-    merged = merge_candidates(panels=panels.panels, legacy_specs=registry.all_specs())
+    merged = merge_candidates(panels=panels.panels)
     assert merged.by_id["lab.text"].panel is not None
     assert merged.routable == ()
-    # The legacy registry itself never holds a panel (#2465).
-    assert registry.get("lab.text").panel is None
 
 
 def test_panel_roots_share_tutorial_library_substitution(tmp_path, monkeypatch):
@@ -71,9 +66,9 @@ def test_panel_roots_share_tutorial_library_substitution(tmp_path, monkeypatch):
 
 
 def test_shared_catalog_keeps_shadowed_panel_cards_out_of_routing(tmp_path):
+    from scistudio.panels.models import PreviewTarget, TargetKind
     from scistudio.panels.registry import PanelRegistry
     from scistudio.panels.router import PanelRouter, merge_candidates
-    from scistudio.previewers.models import PreviewTarget, TargetKind
 
     project = folder(tmp_path / "project", priority=5, types=["Text", "Collection[Text]"])
     user = folder(tmp_path / "user", priority=99, types=["Text"], contexts=["preview", "interactive"])

@@ -144,7 +144,7 @@ def test_a_prompt_of_an_earlier_run_is_not_waiting_for_the_current_run(tmp_path:
             data={
                 "workflow_id": "wf",
                 "run_id": run_id,
-                "panel_manifest": {"panel_id": "lab.text", "module_url": ""},
+                "panel_manifest": {"panel_id": "lab.text", "api_version": "1.0"},
                 "panel_payload": {"answer": 42},
             },
         )

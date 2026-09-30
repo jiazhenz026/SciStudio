@@ -19,8 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from scistudio.panels.router import PanelRouter
-from scistudio.previewers.choices import (
+from scistudio.panels.choices import (
     clear_choice,
     load_choices,
     project_choices_path,
@@ -28,8 +27,25 @@ from scistudio.previewers.choices import (
     user_choices_path,
     write_choice,
 )
-from scistudio.previewers.models import OwnerKind, PreviewerSpec, PreviewTarget, TargetKind
-from scistudio.previewers.registry import PreviewerRegistry
+from scistudio.panels.models import OwnerKind, PreviewerSpec, PreviewTarget, TargetKind
+from scistudio.panels.router import PanelRouter
+
+
+class _Candidates:
+    """Routing candidates plus the person's choices, as the panel service holds them."""
+
+    def __init__(self) -> None:
+        self.specs: list[PreviewerSpec] = []
+        self.choices: dict[str, str] = {}
+
+    def register(self, spec: PreviewerSpec) -> None:
+        self.specs.append(spec)
+
+    def set_previewer_choices(self, choices: dict[str, str]) -> None:
+        self.choices = dict(choices)
+
+    def router(self) -> PanelRouter:
+        return PanelRouter(self.specs, choices=self.choices)
 
 
 def _spec(
@@ -47,6 +63,7 @@ def _spec(
         target_type=target_type,
         supports_collection=supports_collection,
         priority=priority,
+        panel={"id": previewer_id, "api_version": "1.0"},
     )
 
 
@@ -66,9 +83,9 @@ COLLECTION = PreviewTarget(
 
 
 @pytest.fixture()
-def registry() -> PreviewerRegistry:
-    """A registry with one previewer per tier, all claiming ``Probe``."""
-    reg = PreviewerRegistry()
+def registry() -> _Candidates:
+    """One candidate per tier, all claiming ``Probe``."""
+    reg = _Candidates()
     reg.register(_spec("probe.project", OwnerKind.PROJECT))
     reg.register(_spec("probe.user", OwnerKind.USER))
     reg.register(_spec("probe.package", OwnerKind.PACKAGE))
@@ -185,30 +202,30 @@ def test_one_malformed_entry_does_not_cost_the_others(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_ladder_is_untouched_when_nothing_is_chosen(registry: PreviewerRegistry) -> None:
+def test_the_ladder_is_untouched_when_nothing_is_chosen(registry: _Candidates) -> None:
     """The guard on "purely additive". If this fails, #2049 changed FR-003."""
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
 @pytest.mark.parametrize("chosen", ["probe.user", "probe.package"])
-def test_a_choice_wins_over_the_whole_ladder(registry: PreviewerRegistry, chosen: str) -> None:
+def test_a_choice_wins_over_the_whole_ladder(registry: _Candidates, chosen: str) -> None:
     """Including over the project tier, which the ladder would otherwise pick."""
     registry.set_previewer_choices({"Probe": chosen})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == chosen
+    assert registry.router().resolve(ITEM).previewer_id == chosen
 
 
-def test_choosing_what_the_ladder_would_have_picked_changes_nothing(registry: PreviewerRegistry) -> None:
+def test_choosing_what_the_ladder_would_have_picked_changes_nothing(registry: _Candidates) -> None:
     registry.set_previewer_choices({"Probe": "probe.project"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
-def test_a_choice_on_one_type_does_not_govern_another(registry: PreviewerRegistry) -> None:
+def test_a_choice_on_one_type_does_not_govern_another(registry: _Candidates) -> None:
     registry.set_previewer_choices({"Image": "probe.package"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
 def test_a_choice_does_not_reach_types_that_merely_descend_from_the_chosen_one(
-    registry: PreviewerRegistry,
+    registry: _Candidates,
 ) -> None:
     """Keyed on the exact type name, so a ``Series`` choice leaves ``Probe`` alone.
 
@@ -218,7 +235,7 @@ def test_a_choice_does_not_reach_types_that_merely_descend_from_the_chosen_one(
     """
     registry.register(_spec("series.core", OwnerKind.CORE, target_type="Series"))
     registry.set_previewer_choices({"Series": "series.core"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
 # ---------------------------------------------------------------------------
@@ -226,27 +243,27 @@ def test_a_choice_does_not_reach_types_that_merely_descend_from_the_chosen_one(
 # ---------------------------------------------------------------------------
 
 
-def test_a_choice_naming_an_unregistered_previewer_falls_back(registry: PreviewerRegistry) -> None:
+def test_a_choice_naming_an_unregistered_previewer_falls_back(registry: _Candidates) -> None:
     """The realistic case: the package that provided it was uninstalled."""
     registry.set_previewer_choices({"Probe": "gone.after.uninstall"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
-def test_a_choice_for_an_unrelated_type_falls_back(registry: PreviewerRegistry) -> None:
+def test_a_choice_for_an_unrelated_type_falls_back(registry: _Candidates) -> None:
     """Bounded to the target's type chain, so a choice reorders the ladder's
     candidates but can never widen them to a previewer that claims something
     else entirely."""
     registry.register(_spec("image.viewer", OwnerKind.PACKAGE, target_type="Image"))
     registry.set_previewer_choices({"Probe": "image.viewer"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.project"
+    assert registry.router().resolve(ITEM).previewer_id == "probe.project"
 
 
-def test_choosing_an_ancestors_previewer_is_honoured(registry: PreviewerRegistry) -> None:
+def test_choosing_an_ancestors_previewer_is_honoured(registry: _Candidates) -> None:
     """Picking core's plain ``Series`` view for a ``Probe`` is a real preference,
     not a mistake, so the chain bound admits it."""
     registry.register(_spec("series.core", OwnerKind.CORE, target_type="Series"))
     registry.set_previewer_choices({"Probe": "series.core"})
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "series.core"
+    assert registry.router().resolve(ITEM).previewer_id == "series.core"
 
 
 def test_a_single_item_choice_is_not_used_for_a_collection() -> None:
@@ -256,48 +273,39 @@ def test_a_single_item_choice_is_not_used_for_a_collection() -> None:
     The registry here deliberately has a *different* collection-capable
     previewer, so falling back is visible rather than coincidentally identical.
     """
-    reg = PreviewerRegistry()
+    reg = _Candidates()
     reg.register(_spec("probe.single", OwnerKind.PACKAGE, supports_collection=False, priority=90))
     reg.register(_spec("probe.batch", OwnerKind.PROJECT, supports_collection=True, priority=10))
     reg.set_previewer_choices({"Probe": "probe.single"})
 
-    assert PanelRouter.over_registry(reg).resolve(COLLECTION).previewer_id == "probe.batch"
+    assert reg.router().resolve(COLLECTION).previewer_id == "probe.batch"
     # ...and the same choice still applies to a single item.
-    assert PanelRouter.over_registry(reg).resolve(ITEM).previewer_id == "probe.single"
+    assert reg.router().resolve(ITEM).previewer_id == "probe.single"
 
 
 def test_a_collection_capable_choice_is_honoured_for_a_collection() -> None:
-    reg = PreviewerRegistry()
+    reg = _Candidates()
     reg.register(_spec("probe.batch.chosen", OwnerKind.PACKAGE, supports_collection=True, priority=1))
     reg.register(_spec("probe.batch.other", OwnerKind.PROJECT, supports_collection=True, priority=99))
     reg.set_previewer_choices({"Probe": "probe.batch.chosen"})
 
-    assert PanelRouter.over_registry(reg).resolve(COLLECTION).previewer_id == "probe.batch.chosen"
+    assert reg.router().resolve(COLLECTION).previewer_id == "probe.batch.chosen"
 
 
 # ---------------------------------------------------------------------------
-# Routing: FR-005 is untouched
+# Routing: a choice is the only tie-break (#2493 dropped the FR-005 default)
 # ---------------------------------------------------------------------------
 
 
-def test_the_project_default_still_only_breaks_a_same_tier_tie() -> None:
-    """#2049 is additive: FR-005 keeps the narrow role it was specified with.
+def test_an_equal_priority_tie_is_ambiguous_until_the_person_chooses() -> None:
+    """Two package panels tie on priority; only a recorded choice picks one."""
+    from scistudio.panels.models import RoutingAmbiguityError
 
-    Two package previewers tie on priority; the project default picks one. That
-    is the only thing it has ever done, and adding the choice layer above it
-    must not have widened it into a general default.
-    """
-    reg = PreviewerRegistry()
+    reg = _Candidates()
     reg.register(_spec("probe.a", OwnerKind.PACKAGE, priority=50))
     reg.register(_spec("probe.b", OwnerKind.PACKAGE, priority=50))
-    reg.set_project_default("Probe", "probe.b")
+    with pytest.raises(RoutingAmbiguityError):
+        reg.router().resolve(ITEM)
 
-    assert PanelRouter.over_registry(reg).resolve(ITEM).previewer_id == "probe.b"
-
-
-def test_a_choice_and_a_project_default_do_not_meet(registry: PreviewerRegistry) -> None:
-    """When a choice applies, the ladder does not run, so FR-005 never arbitrates."""
-    registry.set_project_default("Probe", "probe.project")
-    registry.set_previewer_choices({"Probe": "probe.package"})
-
-    assert PanelRouter.over_registry(registry).resolve(ITEM).previewer_id == "probe.package"
+    reg.set_previewer_choices({"Probe": "probe.b"})
+    assert reg.router().resolve(ITEM).previewer_id == "probe.b"

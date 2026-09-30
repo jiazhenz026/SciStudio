@@ -1,60 +1,47 @@
-"""Previewer listing and reload endpoints (#2095).
+"""Previewer listing and reload endpoints (#2095), over panel folders (#2493).
 
-The previewer tier gained a project and a user tier in #2017/#2044 without the
-surface blocks and types already had around theirs: nothing enumerated the
-registered previewers, and the previewer side had no reload entry point of its
-own.
+The listing enumerates every routing candidate with the tier it came from, and
+the previewer side has its own reload entry point onto the one registry
+rebuild. Since #2493 a previewer is a preview panel: a folder under
+``<project>/panels`` with a ``panel.json`` and a page.
 
-Note what is *not* claimed here. ``refresh_all_registries()`` has rebuilt the
-previewer registry since #2021, so ``POST /api/blocks/reload`` already picked up
-a drop-in previewer edit before this change; ``test_blocks_reload_also_rebuilds_previewers``
-pins that pre-existing behaviour so the new endpoint cannot be mistaken for the
-thing that made reloading work. What is new is a previewer-owned surface onto
-that one implementation (FR-027's argument, applied one tier over).
+``test_blocks_reload_also_rebuilds_previewers`` pins that
+``POST /api/blocks/reload`` reaches the same rebuild, so the previewer endpoint
+cannot be mistaken for the thing that made reloading work (FR-027's argument,
+applied one tier over).
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-DROPIN = """\
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
 
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id={previewer_id!r},
-            owner_kind=OwnerKind.PROJECT,
-            owner_name="probe",
-            target_type={target_type!r},
-            priority={priority},
-            capabilities=("probe",),
-        ),
-    ]
-"""
-
-
-def _write_dropin(
-    project: Path, filename: str, *, previewer_id: str, target_type: str = "Array", priority: int = 50
+def _write_panel(
+    project: Path, panel_id: str, *, target_type: str = "Array", priority: int = 50, **fields: object
 ) -> Path:
-    previewers = project / "previewers"
-    previewers.mkdir(parents=True, exist_ok=True)
-    path = previewers / filename
-    path.write_text(
-        DROPIN.format(previewer_id=previewer_id, target_type=target_type, priority=priority),
-        encoding="utf-8",
-    )
-    return path
+    directory = project / "panels" / panel_id
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = {
+        "id": panel_id,
+        "api_version": "1.0",
+        "contexts": ["preview"],
+        "types": [target_type],
+        "priority": priority,
+        **fields,
+    }
+    (directory / "panel.json").write_text(json.dumps(descriptor), encoding="utf-8")
+    (directory / "index.html").write_text("<p>probe</p>", encoding="utf-8")
+    return directory
 
 
 # -- listing ----------------------------------------------------------------
 
 
-def test_list_previewers_returns_the_core_fallbacks(client: TestClient) -> None:
-    """Core specs load unconditionally, so the listing is never empty."""
+def test_list_previewers_returns_the_core_panels(client: TestClient) -> None:
+    """The built-in core panels load unconditionally, so the listing is never empty."""
     response = client.get("/api/previews/previewers")
     assert response.status_code == 200
     body = response.json()
@@ -62,18 +49,20 @@ def test_list_previewers_returns_the_core_fallbacks(client: TestClient) -> None:
     assert "core.series.basic" in ids
     assert "core.dataframe.basic" in ids
     assert all(p["owner_kind"] == "core" for p in body["previewers"])
+    assert all(p["panel"] is not None for p in body["previewers"])
 
 
-def test_list_previewers_reports_the_tier_a_dropin_came_from(client: TestClient, opened_project: Path) -> None:
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.project")
+def test_list_previewers_reports_the_tier_a_panel_came_from(client: TestClient, opened_project: Path) -> None:
+    _write_panel(opened_project, "probe.project")
     assert client.post("/api/previews/reload").status_code == 200
 
     body = client.get("/api/previews/previewers").json()
     entry = next(p for p in body["previewers"] if p["previewer_id"] == "probe.project")
     assert entry["owner_kind"] == "project"
-    assert entry["owner_name"] == "probe"
     assert entry["target_type"] == "Array"
-    assert entry["capabilities"] == ["probe"]
+    assert entry["panel"]["types"] == ["Array"]
+    assert set(entry) >= {"previewer_id", "owner_kind", "owner_name", "priority", "panel", "api_version"}
+    assert not {"renderer", "backend_provider", "frontend_manifest"} & set(entry)
 
 
 def test_list_previewers_orders_by_routing_precedence(client: TestClient, opened_project: Path) -> None:
@@ -83,7 +72,7 @@ def test_list_previewers_orders_by_routing_precedence(client: TestClient, opened
     it presents them in the order the router considers them rather than in
     registration order.
     """
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.project")
+    _write_panel(opened_project, "probe.project")
     assert client.post("/api/previews/reload").status_code == 200
 
     body = client.get("/api/previews/previewers").json()
@@ -97,19 +86,19 @@ def test_list_previewers_orders_by_routing_precedence(client: TestClient, opened
 def test_list_previewers_filters_by_exact_target_type(client: TestClient, opened_project: Path) -> None:
     """The filter is an exact match, not the router's specificity walk.
 
-    A caller asking what claims ``Spectrum`` wants the previewers written for
-    ``Spectrum``, not every ancestor previewer that would also render one.
+    A caller asking what claims ``Array`` wants the previewers written for
+    ``Array``, not every ancestor previewer that would also render one.
     """
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.spectrum", target_type="Spectrum")
+    _write_panel(opened_project, "probe.array", target_type="Array")
     assert client.post("/api/previews/reload").status_code == 200
 
-    body = client.get("/api/previews/previewers", params={"target_type": "Spectrum"}).json()
-    assert [p["previewer_id"] for p in body["previewers"]] == ["probe.spectrum"]
+    body = client.get("/api/previews/previewers", params={"target_type": "Array"}).json()
+    assert {p["previewer_id"] for p in body["previewers"]} == {"probe.array", "core.array.basic"}
 
-    # ``Series`` is Spectrum's parent in the router's walk, but it is not this
-    # spec's declared target, so the exact filter must not return it.
-    series = client.get("/api/previews/previewers", params={"target_type": "Series"}).json()
-    assert "probe.spectrum" not in {p["previewer_id"] for p in series["previewers"]}
+    # ``DataObject`` is Array's parent in the router's walk, but it is not this
+    # panel's declared type, so the exact filter must not return it.
+    parent = client.get("/api/previews/previewers", params={"target_type": "DataObject"}).json()
+    assert "probe.array" not in {p["previewer_id"] for p in parent["previewers"]}
 
 
 def test_list_previewers_filter_with_no_match_is_empty_not_an_error(client: TestClient) -> None:
@@ -117,39 +106,30 @@ def test_list_previewers_filter_with_no_match_is_empty_not_an_error(client: Test
     assert body["previewers"] == []
 
 
-def test_list_previewers_surfaces_a_refused_dropin(client: TestClient, opened_project: Path) -> None:
-    """A drop-in refused by the FR-016 collision guard was previously silent.
+def test_list_previewers_surfaces_a_refused_panel_folder(client: TestClient, opened_project: Path) -> None:
+    """A panel folder refused by validation was previously silent.
 
-    It was recorded on the registry diagnostics and then only logged, so from
-    the product it looked like a previewer that simply never appeared.
+    It was recorded on the catalog diagnostics and then only logged, so from the
+    product it looked like a previewer that simply never appeared.
     """
-    previewers = opened_project / "previewers"
-    previewers.mkdir(parents=True, exist_ok=True)
-    (previewers / "json.py").write_text("def get_previewers():\n    return []\n", encoding="utf-8")
+    _write_panel(opened_project, "probe.bad", id="probe.mismatch")
     assert client.post("/api/previews/reload").status_code == 200
 
     body = client.get("/api/previews/previewers").json()
-    assert any("json.py" in d for d in body["diagnostics"]), body["diagnostics"]
+    assert any("probe.bad" in d for d in body["diagnostics"]), body["diagnostics"]
 
 
 # -- reload ------------------------------------------------------------------
 
 
-def test_reload_picks_up_a_new_dropin_previewer(client: TestClient, opened_project: Path) -> None:
-    # The listing is a discovery surface and the count is a registry fact, and
-    # since every core previewer became a panel (ADR-054 Phase B) the two are no
-    # longer the same number: each core id appears in the listing twice, as the
-    # panel that won the id and as the legacy spec it shadowed, and panels with
-    # no legacy candidate at all still hold their id. So the baseline for the
-    # count comes from a reload of the unchanged tree, which is the only reading
-    # that isolates what adding one drop-in does.
+def test_reload_picks_up_a_new_preview_panel(client: TestClient, opened_project: Path) -> None:
     baseline = client.post("/api/previews/reload")
     assert baseline.status_code == 200
     before_count = baseline.json()["reloaded"]
     before = client.get("/api/previews/previewers").json()
     assert "probe.added" not in {p["previewer_id"] for p in before["previewers"]}
 
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.added")
+    _write_panel(opened_project, "probe.added")
     response = client.post("/api/previews/reload")
     assert response.status_code == 200
     body = response.json()
@@ -158,49 +138,42 @@ def test_reload_picks_up_a_new_dropin_previewer(client: TestClient, opened_proje
     assert body["reloaded"] == before_count + 1
 
     after = client.get("/api/previews/previewers").json()
-    assert "probe.added" in {p["previewer_id"] for p in after["previewers"]}
-    # The drop-in is a live previewer, not a candidate something else shadowed.
     entry = next(p for p in after["previewers"] if p["previewer_id"] == "probe.added")
     assert entry["shadowed"] is False
 
 
-def test_reload_reports_a_removed_dropin(client: TestClient, opened_project: Path) -> None:
-    path = _write_dropin(opened_project, "probe.py", previewer_id="probe.transient")
+def test_reload_reports_a_removed_panel(client: TestClient, opened_project: Path) -> None:
+    import shutil
+
+    directory = _write_panel(opened_project, "probe.transient")
     assert client.post("/api/previews/reload").status_code == 200
 
-    path.unlink()
+    shutil.rmtree(directory)
     body = client.post("/api/previews/reload").json()
     assert body["removed"] == ["probe.transient"]
     assert body["added"] == []
 
 
-def test_reload_picks_up_an_edit_to_an_existing_dropin(client: TestClient, opened_project: Path) -> None:
-    """The registry caches the module, so an edit needs the rebuild.
-
-    This is the loop a previewer author lives in, and the reason the surface
-    needs its own endpoint rather than borrowing the block one.
-    """
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.edited", priority=10)
+def test_reload_picks_up_an_edit_to_an_existing_panel(client: TestClient, opened_project: Path) -> None:
+    """This is the loop a previewer author lives in."""
+    _write_panel(opened_project, "probe.edited", priority=10)
     assert client.post("/api/previews/reload").status_code == 200
     body = client.get("/api/previews/previewers", params={"target_type": "Array"}).json()
     assert next(p for p in body["previewers"] if p["previewer_id"] == "probe.edited")["priority"] == 10
 
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.edited", priority=77)
+    _write_panel(opened_project, "probe.edited", priority=77)
     assert client.post("/api/previews/reload").status_code == 200
     body = client.get("/api/previews/previewers", params={"target_type": "Array"}).json()
     assert next(p for p in body["previewers"] if p["previewer_id"] == "probe.edited")["priority"] == 77
 
 
 def test_blocks_reload_also_rebuilds_previewers(client: TestClient, opened_project: Path) -> None:
-    """Pre-existing behaviour from #2021, pinned so the new endpoint is not
-    mistaken for what made previewer reloading work.
-
-    ``refresh_all_registries()`` rebuilds types, blocks, and previewers, and
-    every reload endpoint reaches that one implementation. If this ever stops
-    holding, the three endpoints have drifted apart again — the exact decay
-    ADR-053 §10.3/§10.4 consolidated away.
+    """``refresh_all_registries()`` rebuilds types, blocks, and panels, and every
+    reload endpoint reaches that one implementation. If this ever stops holding,
+    the endpoints have drifted apart again — the exact decay ADR-053
+    §10.3/§10.4 consolidated away.
     """
-    _write_dropin(opened_project, "probe.py", previewer_id="probe.via.blocks")
+    _write_panel(opened_project, "probe.via.blocks")
     assert client.post("/api/blocks/reload").status_code == 200
 
     body = client.get("/api/previews/previewers").json()

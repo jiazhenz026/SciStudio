@@ -616,8 +616,8 @@ def test_the_landed_artifacts_register_into_the_project(tmp_path: Path, monkeypa
     from scistudio.blocks.registry import BlockRegistry
     from scistudio.core import dropins
     from scistudio.core.types.registry import TypeRegistry
+    from scistudio.panels.models import OwnerKind
     from scistudio.panels.registry import discover_panels
-    from scistudio.previewers.models import OwnerKind
 
     fake_home = tmp_path / "home"
     fake_home.mkdir()

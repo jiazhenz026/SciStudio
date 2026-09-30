@@ -338,7 +338,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 class GoodDropinInteractive(InteractiveMixin, ProcessBlock):
     name: ClassVar[str] = "Good Dropin Interactive"
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.dropin.good", version="1")
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="test.dropin.good")
     output_ports: ClassVar[list[OutputPort]] = [OutputPort(name="out", accepted_types=[], is_collection=False)]
 
     def prepare_prompt(self, inputs: dict[str, Any], config: BlockConfig) -> InteractivePrompt:

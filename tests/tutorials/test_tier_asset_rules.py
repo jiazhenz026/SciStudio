@@ -38,7 +38,9 @@ def test_the_two_restricted_sets_are_the_ones_fr_020a_names() -> None:
     # execute — the same reason EXECUTED_PROJECT_PATHS lists the project
     # directory of that name.
     assert set(EXECUTABLE_ASSET_DIRS) == {"code", "panels", "replay", "workflows"}
-    assert set(EXECUTED_PROJECT_PATHS) >= {"blocks", "types", "previewers", "plots"}
+    assert set(EXECUTED_PROJECT_PATHS) >= {"blocks", "types", "plots"}
+    # #2493: the legacy previewer drop-in tier is no longer imported or executed.
+    assert "previewers" not in EXECUTED_PROJECT_PATHS
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +141,9 @@ def test_a_replay_action_is_accepted_for_core_and_packages(kind: TutorialSourceK
 # EXECUTED_PROJECT_PATHS later fails loudly here instead of quietly shrinking
 # what is enforced.
 
-REGISTRY_PATHS = ["blocks", "types", "previewers", "plots"]
+# ``previewers`` left with the legacy previewer drop-in tier (#2493): nothing
+# imports or executes that directory any more.
+REGISTRY_PATHS = ["blocks", "types", "plots"]
 PRODUCT_CONFIG_PATHS = ["workflows", "tutorials"]
 AGENT_SURFACE_PATHS = [".claude", ".codex", ".agents", ".qoder", ".kimi-code", ".scistudio", ".git"]
 AGENT_ROOT_FILES = [".mcp.json", "CLAUDE.md", "AGENTS.md"]

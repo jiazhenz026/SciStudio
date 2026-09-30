@@ -200,7 +200,7 @@ describe("promotablePreviewPanel — a preview panel card in All Previewers", ()
     }
   });
 
-  it("has nothing to offer for a legacy previewer or an interactive-only panel", () => {
+  it("has nothing to offer for a card without a panel or an interactive-only panel", () => {
     expect(promotablePreviewPanel({ owner_kind: "project" })).toBeNull();
     expect(
       promotablePreviewPanel({

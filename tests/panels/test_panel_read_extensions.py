@@ -12,7 +12,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers.data_access import CollectionSample, PreviewDataAccess, SeriesPoints, TextChunk
+from scistudio.panels.data_access import CollectionSample, PreviewDataAccess, TextChunk
 
 
 class SlicedArray:
@@ -142,8 +142,6 @@ def test_series_pages_return_every_exact_row_in_source_order(tmp_path: Path) -> 
     ref = StorageReference(backend="arrow", path=str(path))
     access = PreviewDataAccess()
     meta = {"index_name": "time", "value_name": "signal"}
-    legacy = access.series_points(ref, meta)
-    assert len(legacy.points) == 9999 and not legacy.truncated
     pages, offset = [], 0
     while offset is not None:
         page = access.panel_series_points(ref, meta, offset=offset, limit=1024)
@@ -232,12 +230,10 @@ def test_large_artifact_access_does_not_read_inline_bytes(tmp_path: Path, monkey
     ref = StorageReference(backend="filesystem", path=str(path))
     monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail("large file must not load inline"))
     access = PreviewDataAccess(max_bytes=64)
-    assert access.artifact_metadata(ref).data_uri is None
     assert access.artifact_file(ref) == path.resolve()
 
 
-def test_legacy_result_positional_construction_is_unchanged() -> None:
-    assert SeriesPoints([], 0, False, 2).nonnumeric == 2
+def test_result_positional_construction_is_unchanged() -> None:
     assert TextChunk("text", False, 4, "txt").language == "txt"
     assert CollectionSample(0, None, [], False).next_cursor is None
 
@@ -285,7 +281,7 @@ def test_plane_extrema_preserve_large_integer_precision(monkeypatch: pytest.Monk
 
 def test_numeric_read_conveys_all_three_nonfinite_kinds_distinctly() -> None:
     """#1886 E: NaN / +inf / -inf are three distinct sentinels, never one null."""
-    from scistudio.previewers._read_arrays import numeric_read
+    from scistudio.panels._reads.arrays import numeric_read
 
     values = np.array([[np.nan, np.inf, -np.inf, 1.5]], dtype="<f8")
     encoded = numeric_read(values, {}, max_bytes=1024).to_json()["values"]
@@ -327,26 +323,11 @@ def test_collection_page_paging_reaches_every_item_beyond_first_page() -> None:
         access.collection_sample(count=250, item_type=None, items=items, page=0)
 
 
-def test_series_and_table_nonfinite_positions_surface_gaps(tmp_path: Path) -> None:
-    """#1886 D: dropped non-finite points report *where* they were, not just how many."""
-    access = PreviewDataAccess()
-    ref = StorageReference(backend="filesystem", path="/nonexistent")
-    series = access.series_points(ref, {"values": [1.0, float("nan"), 3.0, float("inf"), 5.0]})
-    assert series.nonnumeric == 2
-    assert series.nonfinite_positions == [1, 3]
-
-    path = tmp_path / "xy.parquet"
-    pq.write_table(pa.table({"x": [0.0, 1.0, float("nan"), 3.0], "y": [10.0, float("inf"), 12.0, 13.0]}), path)
-    xy = access.table_xy_points(StorageReference(backend="arrow", path=str(path)), x_column="x", y_column="y")
-    assert xy.nonnumeric == 2
-    assert xy.nonfinite_positions == [1, 2]
-
-
 def test_read_budget_is_20_mib_and_refuses_oversized_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """#1886 G: the transport budget is 20 MiB and an unfittable read is refused, not degraded."""
     from scistudio.panels.contexts import READ_BYTES
-    from scistudio.previewers.data_access import DEFAULT_MAX_BYTES
-    from scistudio.previewers.models import PreviewLimits
+    from scistudio.panels.data_access import DEFAULT_MAX_BYTES
+    from scistudio.panels.models import PreviewLimits
 
     assert DEFAULT_MAX_BYTES == 20 * 1024 * 1024
     assert READ_BYTES == 20 * 1024 * 1024
