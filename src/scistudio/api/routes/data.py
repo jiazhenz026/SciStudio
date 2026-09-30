@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes.filesystem import _resolve_safe_path
@@ -110,14 +109,14 @@ async def upload_data(
     the size check, so an oversized upload (accidental or hostile) could
     exhaust process memory before the 413 ever fired.
 
-    ADR-055 identity seam (#2328): an edition's upload listeners
+    An edition's upload listeners
     (``scistudio.api.seam.add_upload_listener``) hear ``started`` when the
     upload is staged, and then ``completed`` or ``discarded``. FastAPI has
     already received the whole request body by then, so an upload the client
     cancels mid-transfer never reaches this handler and produces no event. A
     failing listener never changes this answer.
     """
-    # Development references: #1526.
+    # Development references: #1526; upload listeners: ADR-055 identity seam, #2328.
     destination, staged_path = runtime.stage_upload_file(file.filename or "upload.bin")
     # Relative to the project the upload was staged into, even if the active
     # project changes before it ends (#2322 audit P3-3).

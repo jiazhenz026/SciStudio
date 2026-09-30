@@ -526,10 +526,11 @@ async def write_project_file(
     Raises :class:`FileWriteConflictError` for a refused precondition and
     :class:`ProjectFileWriteError` when the disk operation fails.
 
-    *content* may be ``bytes`` (the identity seam's ``write_project_file``,
-    #2328): it is written as given, and only UTF-8 text can trigger the
-    lint-gated registry reload.
+    *content* may be ``bytes`` (the identity seam's ``write_project_file``):
+    it is written as given, and only UTF-8 text can trigger the lint-gated
+    registry reload.
     """
+    # Development references: bytes content for the identity seam, #2328.
     encoded = content if isinstance(content, bytes) else content.encode("utf-8")
     if isinstance(content, str):
         text: str | None = content

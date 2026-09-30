@@ -631,10 +631,10 @@ def active_project_root(app: FastAPI) -> Path | None:
 class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an edition codes against
     """Raise inside an MCP tool to refuse the call with a message the agent can act on.
 
-    It carries the fields of the Spec 2 refusal the workspace tools return:
+    It carries the fields of the refusal the workspace tools return:
     ``code`` is a machine-readable reason, ``message`` the explanation, and
     ``alternatives`` the tools that own the refused operation. The call then
-    returns a Spec 1 error result instead of failing. The result carries
+    returns an MCP error result instead of failing. The result carries
     ``isError: true``, the message as its text content, and the workspace
     tools' structured content
     ``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
@@ -650,6 +650,8 @@ class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an 
     the Pydantic model of the structured refusal the result carries.
     """
 
+    # Development references: the Spec 2 refusal fields and the Spec 1 error result, #2328.
+
     def __init__(self, *, code: str, message: str, alternatives: list[str] | None = None) -> None:
         if not isinstance(code, str) or not code.strip():
             raise ValueError("ToolRefusal needs a machine-readable code")
@@ -662,7 +664,8 @@ class ToolRefusal(ToolError):  # noqa: N818 - the name is the #2328 contract an 
 
 
 def _refusal_result(refusal: ToolRefusal) -> ToolResult:
-    """The Spec 1 error result for a refusal, built from the workspace tools' own types."""
+    """The MCP error result for a refusal, built from the workspace tools' own types."""
+    # Development references: ADR-055 Spec 1 error result.
     from scistudio.ai.agent.mcp.tools_workspace import FlaggedToolResult
     from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal as RefusalDetail
 
@@ -704,7 +707,7 @@ def _resolve_in_project(project_root: Path, rel_path: str) -> Path:
     """The one resolver behind :func:`check_author_path` and :func:`write_project_file`.
 
     Both run exactly this, so a check followed by a write can never name
-    different files (#2322 no-context audit P2-3). ``rel_path`` is taken
+    different files. ``rel_path`` is taken
     literally: it is joined onto the root before the author tools' resolver
     sees it, so a leading ``~`` is a directory name, never the home
     directory. Control characters (NUL included) never name a file, and on
@@ -712,6 +715,7 @@ def _resolve_in_project(project_root: Path, rel_path: str) -> Path:
     drive-relative path, which would slip past the blacklist
     (``workflows/new.yaml::$DATA`` creates ``workflows/new.yaml``). Internal.
     """
+    # Development references: #2322 no-context audit P2-3.
     from scistudio.ai.agent.mcp.tools_workspace import _RefusedError, _resolve_author_path
 
     if not isinstance(rel_path, str) or not rel_path.strip():
@@ -743,12 +747,13 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
     ``rel_path`` is taken literally (``~`` is not expanded) and resolved
     against ``project_root``; an absolute path must lie inside it. It must
     stay inside the project after links are followed, and it is checked
-    against the Spec 2 author blacklist: ``data/`` and ``workflows/*.yaml``
+    against the author-tool blacklist: ``data/`` and ``workflows/*.yaml``
     belong to the tools that own them. Returns the resolved path. Otherwise it
     raises :class:`ToolRefusal` with the author tools' own refusal code, or
     ``invalid_path`` for control characters and, on Windows, a stream suffix
     such as ``::$DATA`` or a drive-relative path.
     """
+    # Development references: ADR-055 Spec 2 author blacklist.
     return _resolve_in_project(Path(project_root), rel_path)
 
 
@@ -756,7 +761,7 @@ def check_author_path(project_root: Path | str, rel_path: str) -> Path:
 async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, changed_by: str = "edition") -> Path:
     """Write ``data`` to a project file through the shared write path, and return its path.
 
-    The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
+    The editor's own write path: an atomic write, the
     file's state version advanced, ``file.changed`` sent so the open UI
     updates, and a registry reload when the file is a lint-clean drop-in
     module. ``changed_by`` names the writer in that ``file.changed`` event.
@@ -772,6 +777,7 @@ async def write_project_file(app: FastAPI, rel_path: str, data: bytes, *, change
     :class:`TypeError` for data that is not bytes. A disk failure raises as it
     does for the editor.
     """
+    # Development references: ADR-055 Spec 2 FR-005.
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("write_project_file writes bytes; encode text before writing it")
     root = active_project_root(app)
@@ -845,8 +851,9 @@ def upload_relative_path(app: FastAPI, destination: Path) -> str:
 
     The upload route calls this once, when the upload is staged, so every
     notification for that upload names the same path even if another project
-    opens meanwhile (#2322 audit P3-3).
+    opens meanwhile.
     """
+    # Development references: #2322 audit P3-3.
     root = active_project_root(app)
     if root is None:
         return destination.name

@@ -84,6 +84,7 @@ def spawned(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         provider: str,
         project_dir: Path,
         dangerous: bool,
+        auto: bool = False,
         cols: int = 120,
         rows: int = 30,
         extra_env: dict[str, str] | None = None,
@@ -263,8 +264,9 @@ def test_pre_spawned_tabs_start_as_before_without_the_capability(project_dir: Pa
             opening_message="Read the brief.",
             permission_mode="safe",
         )
-    assert spawned == ["codex"]
-    assert tab_id in ai_pty._active_ptys
+        # Shutdown ends every terminal session, so check while the app runs.
+        assert spawned == ["codex"]
+        assert tab_id in ai_pty._active_ptys
 
 
 # ---------------------------------------------------------------------------

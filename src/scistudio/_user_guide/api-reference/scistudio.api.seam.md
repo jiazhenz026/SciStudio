@@ -146,10 +146,10 @@ ToolRefusal(*, code: 'str', message: 'str', alternatives: 'list[str] | None' = N
 
 Raise inside an MCP tool to refuse the call with a message the agent can act on.
 
-It carries the fields of the Spec 2 refusal the workspace tools return:
+It carries the fields of the refusal the workspace tools return:
 ``code`` is a machine-readable reason, ``message`` the explanation, and
 ``alternatives`` the tools that own the refused operation. The call then
-returns a Spec 1 error result instead of failing. The result carries
+returns an MCP error result instead of failing. The result carries
 ``isError: true``, the message as its text content, and the workspace
 tools' structured content
 ``{"status": "refused", "refusal": {"code", "message", "use_instead"}}``,
@@ -274,7 +274,7 @@ Resolve a path an agent wants to change, under the author tools' rules.
 ``rel_path`` is taken literally (``~`` is not expanded) and resolved
 against ``project_root``; an absolute path must lie inside it. It must
 stay inside the project after links are followed, and it is checked
-against the Spec 2 author blacklist: ``data/`` and ``workflows/*.yaml``
+against the author-tool blacklist: ``data/`` and ``workflows/*.yaml``
 belong to the tools that own them. Returns the resolved path. Otherwise it
 raises `ToolRefusal` with the author tools' own refusal code, or
 ``invalid_path`` for control characters and, on Windows, a stream suffix
@@ -376,7 +376,7 @@ write_project_file(app: 'FastAPI', rel_path: 'str', data: 'bytes', *, changed_by
 
 Write ``data`` to a project file through the shared write path, and return its path.
 
-The editor's own write path (ADR-055 Spec 2 FR-005): an atomic write, the
+The editor's own write path: an atomic write, the
 file's state version advanced, ``file.changed`` sent so the open UI
 updates, and a registry reload when the file is a lint-clean drop-in
 module. ``changed_by`` names the writer in that ``file.changed`` event.

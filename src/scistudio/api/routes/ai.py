@@ -125,10 +125,11 @@ async def provider_status() -> dict[str, Any]:
 async def _status_rows() -> list[dict[str, Any]]:
     """Probe every registered agent provider concurrently, in registry order.
 
-    ADR-055 Spec 4 FR-006: while ``ai_chat_disabled`` refuses agent sessions,
-    no agent binary is run (no ``--version``, no auth-status command). Each
-    such provider is reported unavailable with ``disabled: true``.
+    While ``ai_chat_disabled`` refuses agent sessions, no agent binary is run
+    (no ``--version``, no auth-status command). Each such provider is
+    reported unavailable with ``disabled: true``.
     """
+    # Development references: ADR-055 Spec 4 FR-006.
     descriptors = agent_descriptors()
     probed = [d for d in descriptors if _pty_state.agent_session_refusal(d.key) is None]
     rows = await asyncio.gather(*(asyncio.to_thread(_probe_provider, d) for d in probed))
