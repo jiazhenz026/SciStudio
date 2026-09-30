@@ -66,6 +66,11 @@ governs:
     - src/scistudio/core/types/collection.py
     - src/scistudio/core/types/composite.py
     - src/scistudio/core/types/registry.py
+    - src/scistudio/core/user_code/__init__.py
+    - src/scistudio/core/user_code/import_path.py
+    - src/scistudio/core/user_code/loader.py
+    - src/scistudio/core/user_code/names.py
+    - src/scistudio/core/user_code/reset.py
     - src/scistudio/desktop/paths.py
     - src/scistudio/engine/runners/local.py
     - src/scistudio/engine/runners/process_handle.py
@@ -88,7 +93,12 @@ governs:
     - tests/blocks/test_dropin_type_import.py
     - tests/blocks/test_registry_version_strict.py
     - tests/blocks/test_tier1_dropin_subprocess.py
+    - tests/core/user_code/__init__.py
+    - tests/core/user_code/test_import_path.py
+    - tests/core/user_code/test_names.py
+    - tests/core/user_code/test_reset.py
     - tests/engine/test_local_runner.py
+    - tests/integration/test_user_code_identity.py
     - tests/panels/test_miniapp_context.py
     - tests/tutorials/test_core_tutorial_what_is_a_type.py
     - tests/tutorials/test_scoped_library.py
@@ -99,23 +109,13 @@ planned_governs:
   entry_points: []
   files:
     - docs/user/user-code.md
-    - src/scistudio/core/user_code/__init__.py
     - src/scistudio/core/user_code/discovery.py
     - src/scistudio/core/user_code/events.py
     - src/scistudio/core/user_code/failures.py
     - src/scistudio/core/user_code/identity.py
-    - src/scistudio/core/user_code/import_path.py
-    - src/scistudio/core/user_code/loader.py
-    - src/scistudio/core/user_code/names.py
     - src/scistudio/core/user_code/precedence.py
-    - src/scistudio/core/user_code/reset.py
-    - tests/core/user_code/__init__.py
     - tests/core/user_code/test_discovery_precedence.py
     - tests/core/user_code/test_failures_and_events.py
-    - tests/core/user_code/test_import_path.py
-    - tests/core/user_code/test_names.py
-    - tests/core/user_code/test_reset.py
-    - tests/integration/test_user_code_identity.py
   excludes: []
 tests:
   - tests/blocks/test_dropin_type_import.py
