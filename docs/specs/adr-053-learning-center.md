@@ -62,7 +62,6 @@ governs:
     - src/scistudio/api/runtime/models.py
     - src/scistudio/blocks/registry/_scan.py
     - src/scistudio/core/types/registry.py
-    - src/scistudio/previewers/registry.py
     - src/scistudio/core/dropins.py
     - src/scistudio/core/entry_points.py
     - src/scistudio/tutorials/__init__.py

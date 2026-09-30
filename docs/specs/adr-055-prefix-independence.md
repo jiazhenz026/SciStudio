@@ -45,8 +45,6 @@ governs:
     - frontend/src/components/CodeEditor.parts/useLintMarkers.ts
     - frontend/src/components/LearningCenter.parts/ProviderIntro.tsx
     - frontend/src/lib/logger.ts
-    - frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts
-    - frontend/src/components/DataPreview.parts/dynamicPreviewer.ts
     - frontend/src/lib/api/base-path.ts
   excludes: []
 planned_governs:
