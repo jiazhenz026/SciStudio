@@ -39,8 +39,8 @@ from watchdog.observers import Observer
 
 from scistudio.engine.events import EngineEvent
 from scistudio.panels.files import ASSET_SUFFIXES
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.registry import PANEL_DESCRIPTOR_FILES, SKIPPED_PANEL_PARTS, is_ignored_panel_file
-from scistudio.previewers.models import OwnerKind
 
 logger = logging.getLogger(__name__)
 

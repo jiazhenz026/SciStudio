@@ -3,12 +3,11 @@
 # Data upload, metadata, and preview endpoints.
 #
 # ADR-048 SPEC 1 (no-compat, #1604): previews are served exclusively through the
-# routed previewer *session* API (``/api/previews/...``), delegating to the
-# ``scistudio.previewers`` subsystem owned by the runtime. The legacy one-shot
-# ``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604;
-# the frontend ``TableViewer`` paginates/sorts through the session PATCH like the
-# ``ArrayViewer`` slice selector.
-# Development references: #1604, ADR-048, FR-008, SPEC 1.
+# routed preview *session* API (``/api/previews/...``), delegating to the panel
+# service owned by the runtime (ADR-054). The legacy one-shot
+# ``GET /api/data/{data_ref}/preview`` adapter (FR-008) was removed under #1604,
+# and the legacy previewer asset route under #2493.
+# Development references: #1604, #2493, ADR-048, ADR-054, FR-008, SPEC 1.
 
 from __future__ import annotations
 
@@ -20,7 +19,6 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
-from fastapi.responses import FileResponse
 
 from scistudio.api.deps import get_runtime
 from scistudio.api.routes.filesystem import _resolve_safe_path
@@ -52,22 +50,22 @@ from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.origins import CUSTOM_ORIGIN, PACKAGE_ORIGIN, PROJECT_ORIGIN, USER_ORIGIN
 from scistudio.core.storage.ref import StorageReference
 from scistudio.core.types.artifact import Artifact
-from scistudio.previewers import (
+from scistudio.panels.choices import (
+    load_choices,
+    project_choices_path,
+    read_choice_layer,
+    user_choices_path,
+)
+from scistudio.panels.models import (
+    OwnerKind,
+    PreviewError,
     PreviewSource,
     PreviewTarget,
     TargetKind,
     UnknownPreviewerError,
     UnknownTargetError,
 )
-from scistudio.previewers.assets import resolve_asset, validate_manifest
-from scistudio.previewers.choices import (
-    load_choices,
-    project_choices_path,
-    read_choice_layer,
-    user_choices_path,
-)
-from scistudio.previewers.models import MissingBundleError, OwnerKind, PreviewError
-from scistudio.previewers.open_as import (
+from scistudio.panels.open_as import (
     clear_open_as,
     normalize_extension,
     read_open_as,
@@ -461,11 +459,9 @@ _TIER_ORDER = {
 def _spec_model(spec: Any) -> PreviewerSpecModel:
     """Adapt a :class:`PreviewerSpec` to its wire shape."""
     data = spec.to_dict()
-    # ``to_dict`` also carries ``resource_provider``, which the wire model does
-    # not declare; naming the fields explicitly keeps the two from drifting
-    # silently if either side gains a key.
+    # Naming the fields explicitly keeps the two from drifting silently if
+    # either side gains a key.
     return PreviewerSpecModel(
-        renderer=data.get("renderer", "legacy"),
         panel=data.get("panel"),
         previewer_id=data["previewer_id"],
         owner_kind=data["owner_kind"],
@@ -474,8 +470,6 @@ def _spec_model(spec: Any) -> PreviewerSpecModel:
         supports_collection=data["supports_collection"],
         priority=data["priority"],
         capabilities=data["capabilities"],
-        backend_provider=data["backend_provider"],
-        frontend_manifest=data["frontend_manifest"],
         api_version=data["api_version"],
     )
 
@@ -494,10 +488,10 @@ async def list_previewers(
     be picked for a concrete target, open a preview session and read the
     ``previewer_id`` the router returned.
 
-    Registry diagnostics ride along because nothing else surfaces them. A
-    drop-in refused for a module-name collision, a duplicate previewer id, a
-    broken entry point -- all were recorded and then only logged, so from the
-    product they looked like a previewer that simply never appeared.
+    Catalog diagnostics ride along because nothing else surfaces them. A panel
+    folder refused by validation, a shadowed panel id, a broken entry point --
+    all were recorded and then only logged, so from the product they looked like
+    a preview that simply never appeared.
     """
     specs, diagnostics = runtime.get_panel_service().previewer_catalog()
     if target_type is not None:
@@ -517,7 +511,7 @@ async def list_previewers(
 
 @previews_router.post("/reload", response_model=PreviewerReloadResponse)
 async def reload_previewers(runtime: RuntimeDep) -> PreviewerReloadResponse:
-    """Re-scan the drop-in previewer directories and broadcast the change.
+    """Re-scan the panel folders and broadcast the change.
 
     This is a second surface onto one implementation, not a second reload.
     ``refresh_all_registries()`` has rebuilt the previewer registry alongside
@@ -803,25 +797,3 @@ async def save_preview_resource(
     except (UnknownTargetError, PreviewError) as exc:
         raise HTTPException(status_code=400, detail=getattr(exc, "message", str(exc))) from exc
     return PreviewResourceSaveResponse(**result)
-
-
-@previews_router.get("/assets/{previewer_id}/{asset_path:path}")
-async def serve_preview_asset(previewer_id: str, asset_path: str, runtime: RuntimeDep) -> FileResponse:
-    """Serve a validated, path-confined same-origin previewer asset.
-
-    Only previewers with a validated frontend manifest and a declared
-    ``asset_root`` may serve assets; remote URLs and out-of-root paths are
-    rejected with a 404 so the server never leaks arbitrary filesystem reads.
-    """
-    # Development references: FR-022, FR-024.
-    spec = runtime.get_panel_service().previewer(previewer_id)
-    if spec is None or spec.frontend_manifest is None:
-        raise HTTPException(status_code=404, detail=f"no servable manifest for previewer {previewer_id!r}")
-    validation = validate_manifest(spec.frontend_manifest)
-    if not validation.valid:
-        raise HTTPException(status_code=404, detail="; ".join(validation.diagnostics) or "invalid manifest")
-    try:
-        served = resolve_asset(spec.frontend_manifest, asset_path)
-    except MissingBundleError as exc:
-        raise HTTPException(status_code=404, detail=exc.message) from exc
-    return FileResponse(path=Path(served.path), media_type=served.media_type)

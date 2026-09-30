@@ -176,7 +176,7 @@ def read_context(store: PanelContexts, context: PanelContext, ref: str, op: str,
         _only(options, op)
         import mimetypes
 
-        from scistudio.previewers._plot_formats import available_formats
+        from scistudio.panels._reads.plot_formats import available_formats
 
         primary = access.artifact_file(storage)
         # A plot is rendered once per allowed format, and the reader picks between

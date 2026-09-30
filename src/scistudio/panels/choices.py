@@ -1,4 +1,4 @@
-"""A user's chosen previewer per type."""
+"""A person's chosen panel per preview type."""
 # Maintainer context (kept outside generated API documentation):
 # A user's chosen previewer per type (#2049).
 #
@@ -9,12 +9,10 @@
 # spectrum plot over a project-local experiment, or the plain core table over
 # either.
 #
-# This module stores that preference. It is deliberately *not* the FR-005
-# project-default mechanism, which stays exactly as specified: a tie-breaker
-# between same-tier previewers of equal priority, declared by whoever authored
-# the project. That is an author's declaration about a project; this is a
-# person's choice about their own view. Keeping them in separate files keeps the
-# two from being mistaken for each other, and keeps FR-005's semantics untouched.
+# This module stores that preference. It is also the only tie-break: two
+# same-tier candidates of equal priority are resolved by the person's choice or
+# reported as a routing ambiguity (the FR-005 project default declaration was
+# dropped with the legacy previewers, #2493).
 #
 # **Two layers, project over user.** A choice recorded against the open project
 # wins over the same person's global choice, mirroring the tier model blocks,

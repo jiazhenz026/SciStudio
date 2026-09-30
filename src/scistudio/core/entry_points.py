@@ -3,23 +3,13 @@
 # One answer to "how does a ``scistudio.*`` entry-point group get read?".
 #
 # ADR-053 / ``docs/specs/adr-053-learning-center.md`` §3 "Entry-point symmetry"
-# (FR-025 to FR-035). Three registries read entry points and, before this module,
-# no two of them agreed:
-#
-# ============================  =====================  ======================  =====================
-# Concern                       ``scistudio.blocks``   ``scistudio.types``     ``scistudio.previewers``
-# ============================  =====================  ======================  =====================
-# Enumeration failure           caught, empty group    **propagated**          caught, empty group
-# Load failure                  logged                 logged                  logged + diagnostic
-# Payload shape                 class or callable      callable -> sequence    callable -> sequence
-# ``sys.path`` preparation      no                     no                      yes
-# ============================  =====================  ======================  =====================
-#
-# Adding a fourth group to three that disagree would make the disagreement the
-# convention, so this module states the contract once and all four groups use it.
-# Each registry keeps its own *registration* logic — what a block spec is, what a
-# ``Meta`` must declare, which previewer id wins a duplicate — and keeps none of
-# its own enumeration, error containment, or diagnostic reporting (FR-025).
+# (FR-025 to FR-035). Several registries read entry points and, before this
+# module, no two of them agreed on enumeration failure, load failure, payload
+# shape, or ``sys.path`` preparation. This module states the contract once and
+# every live group uses it. Each registry keeps its own *registration* logic —
+# what a block spec is, what a ``Meta`` must declare — and keeps none of its own
+# enumeration, error containment, or diagnostic reporting (FR-025). The
+# ``scistudio.previewers`` group left with the legacy previewers (#2493).
 #
 # **The live group set (FR-034).** :data:`LIVE_ENTRY_POINT_GROUPS` is the one
 # place the set of live groups is written down. A fifth group is added by editing
@@ -75,29 +65,20 @@
 #
 # **Import roots (FR-030).** :func:`prepared_plugin_import_roots` activates the
 # user-installed plugin import roots for the duration of a scan. This used to be
-# done by the previewer registry alone, which made the same installed package
-# resolve for previewers and fail for blocks: the plugin's ``site-packages``
+# done by the legacy previewer registry alone, which made the same installed
+# package resolve for previewers and fail for blocks: the plugin's ``site-packages``
 # carries its ``dist-info``, so with the roots off ``sys.path`` the canonical
 # entry-point path finds nothing (#1752). If the preparation is needed for one
 # group it is needed for all of them, so it is applied here rather than per
 # registry.
 #
-# **The one permitted asymmetry (FR-032).** The previewer registry also scans the
-# ``scistudio.blocks`` and ``scistudio.types`` groups for a conventional
-# ``get_previewers()`` when a package declares no ``scistudio.previewers`` group.
-# That fallback stays where it lives, in
-# :mod:`scistudio.previewers.registry`, with its reason recorded there: it
-# compensates for installed metadata that predates the previewer group, which is
-# a history rather than a design. It is not a pattern to copy and is not extended
-# to ``scistudio.tutorials``.
-#
 # This module lives under ``core/`` for the reasons ``core/dropins.py`` does: it
-# is imported by the block, type, and previewer registries and must sit where all
-# three reach it without a cycle, and the import-linter contract forbidding
+# is imported by the block, type, panel, and tutorial registries and must sit
+# where all of them reach it without a cycle, and the import-linter contract forbidding
 # ``scistudio.core`` from importing ``blocks``/``engine``/``api``/``ai``/
 # ``workflow`` is satisfied because it needs none of them. It deliberately knows
 # nothing about ``PackageInfo``, ``BlockSpec``, ``TypeSpec``, or
-# ``PreviewerSpec``: interpreting a payload into registrations is each registry's
+# ``PanelDescriptor``: interpreting a payload into registrations is each registry's
 # own job.
 # Development references: #1752, ADR-053, FR-018, FR-025, FR-026, FR-027, FR-028, FR-029, FR-029a, FR-030,
 # FR-032, FR-034, FR-035, docs/specs/adr-053-learning-center.md.
@@ -118,7 +99,6 @@ logger = logging.getLogger(__name__)
 
 BLOCKS_ENTRY_POINT_GROUP = "scistudio.blocks"
 TYPES_ENTRY_POINT_GROUP = "scistudio.types"
-PREVIEWERS_ENTRY_POINT_GROUP = "scistudio.previewers"
 TUTORIALS_ENTRY_POINT_GROUP = "scistudio.tutorials"
 
 #: Every live ``scistudio.*`` entry-point group (FR-034).
@@ -136,7 +116,6 @@ TUTORIALS_ENTRY_POINT_GROUP = "scistudio.tutorials"
 LIVE_ENTRY_POINT_GROUPS: tuple[str, ...] = (
     BLOCKS_ENTRY_POINT_GROUP,
     TYPES_ENTRY_POINT_GROUP,
-    PREVIEWERS_ENTRY_POINT_GROUP,
     TUTORIALS_ENTRY_POINT_GROUP,
 )
 
@@ -182,9 +161,9 @@ class EntryPointDiagnostic:
     def __str__(self) -> str:
         """Render as the one-line string the registries' surfaces carry.
 
-        The registries expose ``list[str]`` because the previewer registry
-        already did and other code reads that shape; this keeps all three
-        equally surfaceable without changing it.
+        The registries expose ``list[str]`` because other code reads that
+        shape; this keeps every registry equally surfaceable without changing
+        it.
         """
         if self.entry_point:
             return f"{self.group}: entry point '{self.entry_point}' {self.stage} failed: {self.message}"
@@ -301,7 +280,7 @@ def resolve_payload(
     The contract is one callable returning the contributed objects, so *loaded*
     is invoked and its return value handed back untouched. What that value is
     allowed to contain — a list of block classes, a ``(PackageInfo, list)``
-    pair, a list of previewer specs — is each registry's own business and is
+    pair, a list of panel folders — is each registry's own business and is
     deliberately not decided here.
 
     ``allow_bare_class=True`` accepts a class as the payload itself instead of
@@ -374,7 +353,7 @@ def plugin_import_roots() -> tuple[Path, ...]:
 def prepared_plugin_import_roots() -> Iterator[None]:
     """Activate the plugin import roots for the duration of a scan.
 
-    Wrap every entry-point scan in this, not only the previewer one. A plugin's
+    Wrap every entry-point scan in this. A plugin's
     ``site-packages`` carries the ``dist-info`` that makes its entry points
     visible at all, so a group scanned without the roots active reports the
     package as absent rather than as broken.
@@ -494,7 +473,6 @@ __all__ = [
     "BLOCKS_ENTRY_POINT_GROUP",
     "LIVE_ENTRY_POINT_GROUPS",
     "METADATA_ONLY_GROUPS",
-    "PREVIEWERS_ENTRY_POINT_GROUP",
     "STAGE_ENUMERATE",
     "STAGE_INVOKE",
     "STAGE_LOAD",

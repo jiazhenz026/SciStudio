@@ -3,10 +3,10 @@
 A plot run promotes one ``<stem>.<suffix>`` file per allowed format beside the
 preferred-format primary, so a reader can save the figure as SVG, PDF, PNG, or
 JPEG without anything re-rendering it. Two surfaces need to agree about that
-set: the compiled previewer, which globs it into its payload, and the panel read
-layer, which has to offer the same choice from inside a sandboxed frame. This
-module is the one place that knows the answer, so the two cannot drift into
-offering different menus for the same figure.
+set: the panel read layer, which offers the choice from inside a sandboxed
+frame, and the session export route, which serves the chosen file. This module
+is the one place that knows the answer, so the two cannot drift into offering
+different menus for the same figure.
 """
 # Development references: #1918 ("approach B"), #2294, ADR-054.
 

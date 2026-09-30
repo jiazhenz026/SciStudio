@@ -76,39 +76,19 @@ INTERACTIVE_MEMORY_KEY = "interactive_memory"
 @provisional(since="0.3.1")
 @dataclass(frozen=True)
 class PanelManifest:
-    """Describes the frontend window component a block opens for interaction.
+    """Names the panel a block opens for interaction.
 
-    An interactive block declares one of these as its ``interactive_panel`` to
-    name the window the user sees. A built-in (core) panel is resolved by
-    :attr:`panel_id` against the frontend's built-in registry; a package-provided
-    panel is loaded by importing :attr:`module_url` from the backend (same-origin
-    only — remote URLs are rejected). Core panels leave ``module_url`` empty
-    because they ship with the app.
+    An interactive block declares one of these as its ``interactive_panel``.
+    :attr:`panel_id` names an HTML panel that opens in the ``interactive``
+    context: a built-in core panel, or a panel shipped by a package, the user
+    library, or the project.
 
     Example:
         >>> manifest = PanelManifest(panel_id="core.interactive.data_router")
     """
 
     panel_id: str
-    """Stable id of the window component (e.g. ``"core.interactive.data_router"``).
-
-    For a core panel this is the frontend's resolution key.
-    """
-
-    module_url: str = ""
-    """Backend-relative URL (``/api/...``) to import a package panel module from.
-
-    Remote URLs are rejected. Left empty for built-in core panels.
-    """
-
-    export_name: str = "default"
-    """Named export inside the module to mount as the panel component."""
-
-    css: tuple[str, ...] = ()
-    """Optional backend-relative URLs of CSS assets the panel needs."""
-
-    version: str = "0"
-    """Panel bundle version (a fingerprint or semver string)."""
+    """Id of the panel to open (e.g. ``"core.interactive.data_router"``)."""
 
     api_version: str = PANEL_API_VERSION
     """Panel API compatibility version; its major must match :data:`PANEL_API_VERSION`."""
@@ -120,29 +100,17 @@ class PanelManifest:
     enforced by the runtime.
     """
 
-    asset_root: str | None = None
-    """Filesystem directory a package confines its panel assets under.
-
-    Never sent to the frontend; used only by a backend validator to keep asset
-    paths confined to the package.
-    """
-
     @provisional(since="0.3.1")
     def to_dict(self) -> dict[str, Any]:
         """Return the JSON-safe wire form of this manifest sent to the frontend.
 
-        :attr:`asset_root` is intentionally omitted (it is a backend-only path),
-        and :attr:`response_schema` is included only when it is set.
+        :attr:`response_schema` is included only when it is set.
 
         Returns:
             A dict with the manifest's frontend-facing fields.
         """
         data: dict[str, Any] = {
             "panel_id": self.panel_id,
-            "module_url": self.module_url,
-            "export_name": self.export_name,
-            "css": list(self.css),
-            "version": self.version,
             "api_version": self.api_version,
         }
         if self.response_schema is not None:

@@ -1,20 +1,15 @@
-"""DataFrame preview paging + LRU cache (previewers-owned)."""
+"""DataFrame preview paging + LRU cache for the panel table reads."""
 # Maintainer context (kept outside generated API documentation):
-# DataFrame preview paging + LRU cache (previewers-owned).
+# ADR-048 / issue #1598: this table-paging cache is consumed by the panel read
+# layer (``panels.data_access``). It previously lived under
+# ``scistudio.api.runtime._preview_cache``, which forced the lower read layer to
+# import *up* into the API layer; it moved down with the previewer subsystem and
+# then into ``scistudio.panels._reads`` when that subsystem was removed (#2493).
 #
-# ADR-048 / issue #1598: this table-paging cache is consumed only by the
-# previewer subsystem (``previewers.data_access``). It previously lived under
-# ``scistudio.api.runtime._preview_cache``, which forced the lower previewer
-# layer to import *up* into the API layer (an inverted dependency, unguarded by
-# the layer-dependency test). It now lives here so ``previewers`` is
-# self-contained and ``api.runtime`` imports *down* from it where the legacy
-# preview route still needs it.
-#
-# Behavior is unchanged from the pre-move implementation. Tests that pin the
-# monkeypatch contract (``_read_preview_table_from_disk`` is observed by
-# ``_get_preview_table``) target this module directly; because both functions are
-# co-located here, ``_get_preview_table`` resolves the disk reader via this
-# module's own namespace, so ``monkeypatch.setattr(_table_cache,
+# Tests that pin the monkeypatch contract (``_read_preview_table_from_disk`` is
+# observed by ``_get_preview_table``) target this module directly; because both
+# functions are co-located here, ``_get_preview_table`` resolves the disk reader
+# via this module's own namespace, so ``monkeypatch.setattr(table_cache,
 # "_read_preview_table_from_disk", ...)`` is seen without any cross-package
 # indirection.
 # Development references: #1598, ADR-048.
@@ -72,7 +67,7 @@ def _get_preview_table(path: Path, sort_by: str | None, sort_dir: str) -> Any:
 
     ``_read_preview_table_from_disk`` is referenced by its module-global name so
     a ``monkeypatch.setattr`` on this module (the LRU-cache test in
-    ``test_data.py`` and the indirection test under ``tests/previewers/``)
+    ``test_data.py`` and the indirection test under ``tests/panels/``)
     rebinds the disk reader that this getter actually calls.
     """
     try:

@@ -1,14 +1,9 @@
-"""The one data-to-panel routing ladder, over panels and legacy previewers alike."""
+"""The one data-to-panel routing ladder."""
 # Maintainer context (kept outside generated API documentation):
-# ADR-054 §2 / FR-006 / FR-007 and ADR-048 §3 / FR-003..FR-005. This module is
-# the only implementation of the routing ladder. Panel descriptors and the
-# deprecated Python previewers compete as one candidate set: a panel claim is
-# adapted into a :class:`PreviewerSpec` (``PanelDescriptor.candidates``) and a
-# legacy previewer is its own spec, so "a project Image previewer beats a
-# package Image panel" and "a same-tier panel shadows a same-id legacy
-# previewer" are both answered here, once. When a legacy candidate wins, the
-# panel service hands the session to the legacy renderer; the ladder does not
-# care which renderer a candidate uses.
+# ADR-054 §2 / FR-006 / FR-007 and ADR-048 §3 / FR-003..FR-004. This module is
+# the only implementation of the routing ladder. Each panel claim is adapted
+# into a :class:`PreviewerSpec` (``PanelDescriptor.candidates``) and the ladder
+# picks one candidate for a target.
 #
 # Precedence (highest first):
 #
@@ -19,21 +14,20 @@
 # 11. core base: closest type in the chain, then the ``DataObject`` sentinel
 # 12. unknown target
 #
-# Within one bucket the highest priority wins; a tie is broken by the project
-# default declaration (FR-005) or raised as ambiguity (FR-004). A collection
-# target only ever resolves to a collection-capable candidate.
-# Development references: #2017, #2049, #2465, ADR-048, ADR-054.
+# Within one bucket the highest priority wins; an equal-priority tie is raised
+# as ambiguity (FR-004), which the person resolves by recording a choice. A
+# collection target only ever resolves to a collection-capable candidate.
+# Development references: #2017, #2049, #2465, #2493, ADR-048, ADR-054.
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from scistudio.panels.descriptor import PanelDescriptor
-from scistudio.panels.registry import TIER_ORDER
-from scistudio.previewers.models import (
+from scistudio.panels.models import (
     OwnerKind,
     PreviewerSpec,
     PreviewTarget,
@@ -81,28 +75,25 @@ def panel_catalog_spec(panel: PanelDescriptor) -> PreviewerSpec:
 @internal()
 @dataclass(frozen=True)
 class CandidateSet:
-    """Panels and legacy previewers merged into one namespace.
+    """The routing candidates and catalog cards of one panel catalog.
 
     ``routable`` holds every candidate the ladder considers. ``by_id`` holds the
-    namespace winner of each id (a panel card or a legacy spec). ``panels`` holds
-    the panels that won their id, which are the only panels a context may open;
-    ``shadowed_panels`` and ``shadowed_specs`` hold the losers for the catalogs.
+    catalog card of each winning panel id. ``panels`` holds the winning panels,
+    which are the only panels a context may open; ``shadowed_panels`` holds the
+    losers for the catalogs.
     """
 
     routable: tuple[PreviewerSpec, ...] = ()
     by_id: Mapping[str, PreviewerSpec] = field(default_factory=dict)
     panels: Mapping[str, PanelDescriptor] = field(default_factory=dict)
     shadowed_panels: tuple[PanelDescriptor, ...] = ()
-    shadowed_specs: tuple[PreviewerSpec, ...] = ()
     diagnostics: tuple[str, ...] = ()
 
     def catalog_specs(self) -> list[tuple[PreviewerSpec, bool]]:
         """Every card, winners first, with whether it is shadowed."""
-        return (
-            [(spec, False) for spec in self.by_id.values()]
-            + [(spec, True) for spec in self.shadowed_specs]
-            + [(panel_catalog_spec(panel), True) for panel in self.shadowed_panels]
-        )
+        return [(spec, False) for spec in self.by_id.values()] + [
+            (panel_catalog_spec(panel), True) for panel in self.shadowed_panels
+        ]
 
 
 def merge_candidates(
@@ -110,46 +101,18 @@ def merge_candidates(
     panels: Mapping[str, PanelDescriptor],
     shadowed_panels: Iterable[PanelDescriptor] = (),
     panel_diagnostics: Iterable[str] = (),
-    legacy_specs: Iterable[PreviewerSpec] = (),
-    legacy_shadowed: Iterable[PreviewerSpec] = (),
-    legacy_diagnostics: Iterable[str] = (),
 ) -> CandidateSet:
-    """Merge panel winners with legacy winners into one namespace.
-
-    A panel and a legacy previewer with the same id: the higher tier wins, and
-    at the same tier the panel wins. Neither input is mutated.
-    """
-    by_id: dict[str, PreviewerSpec] = {spec.previewer_id: spec for spec in legacy_specs}
-    legacy_winner_ids = set(by_id)
-    shadowed_specs = list(legacy_shadowed)
-    lost_panels: list[PanelDescriptor] = list(shadowed_panels)
-    diagnostics = [*legacy_diagnostics, *panel_diagnostics]
-    winners: dict[str, PanelDescriptor] = {}
-    for panel in panels.values():
-        previous = by_id.get(panel.id) if panel.id in legacy_winner_ids else None
-        if previous is not None and TIER_ORDER[previous.owner_kind] < TIER_ORDER[panel.owner_kind]:
-            lost_panels.append(panel)
-            diagnostics.append(f"panel {panel.id!r} shadowed by legacy {previous.owner_kind.value}")
-            continue
-        if previous is not None:
-            shadowed_specs.append(previous)
-            legacy_winner_ids.discard(panel.id)
-            diagnostics.append(f"legacy previewer {panel.id!r} shadowed by panel {panel.owner_kind.value}")
-        winners[panel.id] = panel
-        by_id[panel.id] = panel_catalog_spec(panel)
+    """Build the candidate set of one panel catalog. The inputs are not mutated."""
+    winners = dict(panels)
     routable: list[PreviewerSpec] = []
-    for previewer_id, spec in by_id.items():
-        if previewer_id in winners:
-            routable.extend(winners[previewer_id].candidates())
-        else:
-            routable.append(spec)
+    for panel in winners.values():
+        routable.extend(panel.candidates())
     return CandidateSet(
         routable=tuple(routable),
-        by_id=by_id,
+        by_id={panel_id: panel_catalog_spec(panel) for panel_id, panel in winners.items()},
         panels=winners,
-        shadowed_panels=tuple(lost_panels),
-        shadowed_specs=tuple(shadowed_specs),
-        diagnostics=tuple(diagnostics),
+        shadowed_panels=tuple(shadowed_panels),
+        diagnostics=tuple(panel_diagnostics),
     )
 
 
@@ -162,20 +125,9 @@ class PanelRouter:
         candidates: Sequence[PreviewerSpec],
         *,
         choices: Mapping[str, str] | None = None,
-        project_default: Callable[[str], str | None] | None = None,
     ) -> None:
         self._candidates = tuple(candidates)
         self._choices = dict(choices or {})
-        self._project_default = project_default or (lambda _type: None)
-
-    @classmethod
-    def over_registry(cls, registry: Any) -> PanelRouter:
-        """A router over a legacy previewer registry's own specs and choices."""
-        return cls(
-            registry.all_specs(),
-            choices=registry.previewer_choices(),
-            project_default=registry.project_default_for,
-        )
 
     @property
     def candidates(self) -> tuple[PreviewerSpec, ...]:
@@ -202,7 +154,7 @@ class PanelRouter:
             # ``Collection`` sentinel is not an item type; it serves any collection.
             if spec.target_type in chain or (target.is_collection and spec.target_type == "Collection"):
                 return spec
-        raise UnknownPreviewerError(f"Previewer {previewer_id!r} does not serve this target")
+        raise UnknownPreviewerError(f"Panel {previewer_id!r} does not serve this target")
 
     def resolve(self, target: PreviewTarget) -> PreviewerSpec:
         """Return the single best candidate for *target* or raise a routing error."""
@@ -236,7 +188,7 @@ class PanelRouter:
             if winner is not None:
                 return winner
         raise UnknownTargetError(
-            f"No previewer matched target type {most_specific or target.recorded_type or '<unknown>'!r}",
+            f"No panel matched target type {most_specific or target.recorded_type or '<unknown>'!r}",
             detail={"target": target.to_dict()},
         )
 
@@ -256,7 +208,7 @@ class PanelRouter:
                 and bool(spec.supports_collection) == want_collection
             ):
                 return spec
-        logger.debug("chosen previewer %r for %r cannot serve this target; falling back", previewer_id, type_name)
+        logger.debug("chosen panel %r for %r cannot serve this target; falling back", previewer_id, type_name)
         return None
 
     def _pick(
@@ -285,12 +237,8 @@ class PanelRouter:
         top = [spec for spec in candidates if spec.priority == candidates[0].priority]
         if len(top) == 1:
             return top[0]
-        default_id = self._project_default(type_name)
-        for spec in top:
-            if default_id is not None and spec.previewer_id == default_id:
-                return spec
         raise RoutingAmbiguityError(
-            f"{len(top)} previewers tie for {owner_kind.value} type {type_name!r} at priority {top[0].priority}",
+            f"{len(top)} panels tie for {owner_kind.value} type {type_name!r} at priority {top[0].priority}",
             detail={
                 "type": type_name,
                 "owner_kind": owner_kind.value,

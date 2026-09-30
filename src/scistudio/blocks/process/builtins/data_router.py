@@ -72,7 +72,6 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     # the built-in panel registry (core panel; no wheel-served module_url).
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.data_router",
-        version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""
 

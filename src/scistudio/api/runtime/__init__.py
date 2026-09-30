@@ -56,10 +56,10 @@ from . import _data, _projects, _run_lifetime, _runs, _stop_request, _workflows
 from ._file_writes import ProjectFileService
 from ._helpers import _now_iso, _rmtree_force, _safe_parent_dir, _slugify
 
-# ADR-048 / #1598: the DataFrame table cache and the raster preview pipeline
-# moved down into ``scistudio.previewers`` (``_table_cache`` / ``_raster``) so the
-# previewer subsystem no longer imports up into the API layer. Only the
-# API-specific ``_infer_type_name_from_ref`` remains here.
+# ADR-048 / #1598: the DataFrame table cache moved down into the panel read
+# layer (``scistudio.panels._reads.table_cache``) so it no longer imports up
+# into the API layer. Only the API-specific ``_infer_type_name_from_ref``
+# remains here.
 from ._preview_image import _infer_type_name_from_ref
 
 # #1597 / round-4 no-cycles: the plain data records live in the ``models``
@@ -841,16 +841,15 @@ class ApiRuntime:
 
     # Data catalog + preview (_data)
     register_data_ref = _data.register_data_ref
-    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so the routed
-    # PreviewService can reach the core PlotPreviewer at runtime.
+    # ADR-048 SPEC 2 / #1606: register a produced plot artifact so a routed
+    # preview can reach the core plot panel at runtime.
     register_plot_artifact = _data.register_plot_artifact
     register_output_payload = _data.register_output_payload
     get_data_record = _data.get_data_record
     describe_ref = _data.describe_ref
     _resolve_record_class = _data._resolve_record_class
-    # ADR-054 (#2465): the panel subsystem, and its deprecated previewer fallback.
+    # ADR-054 (#2465): the panel subsystem.
     get_panel_service = _data.get_panel_service
-    get_preview_service = _data.get_preview_service
     enrich_preview_query = _data.enrich_preview_query
     resolve_session_target = _data.resolve_session_target
     resolve_child_preview_context = _data.resolve_child_preview_context

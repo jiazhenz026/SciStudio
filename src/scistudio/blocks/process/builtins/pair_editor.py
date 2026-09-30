@@ -73,7 +73,6 @@ class PairEditor(InteractiveMixin, ProcessBlock):
     # ADR-051: the block-owned window, resolved from the built-in panel registry.
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.pair_editor",
-        version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""
 

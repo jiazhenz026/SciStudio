@@ -20,6 +20,8 @@ package's own tests:
 * :func:`validate_interactive_panel` checks that an interactive block's panel
   declaration resolves to a panel that opens in the interactive context.
 * :data:`PANEL_API_VERSION` is the descriptor ``api_version`` the host serves.
+* :class:`OwnerKind` is the tier a panel was discovered under
+  (:attr:`PanelDescriptor.owner_kind`).
 
 Every symbol here is **provisional**: usable, and it may change in a minor
 release with a changelog note. Import from ``scistudio.panels``; the modules
@@ -41,12 +43,9 @@ inside this package carry no promise.
 # first; an eager import of discovery would pull the type registry and the entry
 # point machinery into every resident panel process.
 #
-# TODO(#2288): PanelDescriptor.owner_kind and parse_descriptor(owner_kind=...)
-#   still use OwnerKind from the deprecated scistudio.previewers.models root.
-#   Out of scope per #2426 (marking only); the tier enum needs a non-deprecated
-#   home before the previewer surface is removed in 0.3.6.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2288
-# Development references: ADR-052, ADR-054, #2426.
+# ``OwnerKind`` joined the root when the previewer models it lived in were
+# removed (#2493): it annotates ``PanelDescriptor.owner_kind``.
+# Development references: ADR-052, ADR-054, #2426, #2493.
 
 from __future__ import annotations
 
@@ -56,10 +55,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from scistudio.panels.descriptor import PANEL_API_VERSION, PanelDescriptor, parse_descriptor
     from scistudio.panels.files import validate_external_references
+    from scistudio.panels.models import OwnerKind
     from scistudio.panels.registry import PanelRegistry, discover_panels
     from scistudio.panels.validation import validate_interactive_panel
 
 _EXPORTS: dict[str, str] = {
+    "OwnerKind": "scistudio.panels.models",
     "PANEL_API_VERSION": "scistudio.panels.descriptor",
     "PanelDescriptor": "scistudio.panels.descriptor",
     "PanelRegistry": "scistudio.panels.registry",
@@ -71,6 +72,7 @@ _EXPORTS: dict[str, str] = {
 
 __all__ = [
     "PANEL_API_VERSION",
+    "OwnerKind",
     "PanelDescriptor",
     "PanelRegistry",
     "discover_panels",

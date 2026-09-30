@@ -328,12 +328,6 @@ class BlockSpec:
 
     Present only when :attr:`execution_mode` is ``"interactive"``.
     """
-    panel_asset_root: str | None = None
-    """Server-side folder an interactive panel's files are served from, or ``None``.
-
-    Used to confine panel asset serving to one directory; it is never sent to
-    the browser. ``None`` for built-in panels and non-interactive blocks.
-    """
 
 
 class BlockRegistry:

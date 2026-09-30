@@ -186,8 +186,8 @@ def refresh_all_registries(self: ApiRuntime) -> None:
     entry point to call after a user library write.
 
     The order is the one the project-switch path already used: types, then
-    blocks, then the panel service, which rescans the deprecated previewers and
-    then applies the panel catalog incrementally: only contexts on a panel that
+    blocks, then the panel service, which applies the panel catalog
+    incrementally: only contexts on a panel that
     changed are revoked, and a project switch re-arms its watches.
     """
     # Development references: #2009, #2465, ADR-053, ADR-054, FR-010, FR-062, FR-065.
@@ -536,9 +536,8 @@ def open_project(self: ApiRuntime, project_id_or_path: str) -> KnownProject:
         # windows already showing its outputs still address them, and a panel
         # target is only ever resolved through this catalog.
         self.data_catalog = {}
-    # ADR-053 FR-062: a project switch invalidates all three registries —
-    # blocks and types from ``<project>/`` and, per ADR-048 SPEC 1 FR-002,
-    # project-local previewers and their default declarations.
+    # ADR-053 FR-062: a project switch invalidates every registry — blocks
+    # and types from ``<project>/`` and the project's panels.
     self.refresh_all_registries()
     self._init_metadata_store(Path(candidate.path))
     self._init_lineage_store(Path(candidate.path))

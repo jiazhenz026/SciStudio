@@ -20,8 +20,7 @@ def test_factories_expose_expected_shape() -> None:
     types = pkg.get_types()
     assert {t.__name__ for t in types} == {"Image", "Mask", "Label"}
 
-    specs = pkg.get_previewers()
-    assert {s.previewer_id for s in specs} == {"fixture.image.viewer", "fixture.label.viewer"}
+    assert not hasattr(pkg, "get_previewers"), "the scistudio.previewers group was removed (#2493)"
 
 
 def test_image_constructs_from_ndim() -> None:

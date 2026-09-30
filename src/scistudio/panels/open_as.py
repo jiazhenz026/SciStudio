@@ -20,11 +20,12 @@
 # lost preference must never be able to stop a file from opening, only to make
 # the picker ask again.
 #
-# Sibling to :mod:`scistudio.previewers.choices` on purpose: both store a
+# Sibling to :mod:`scistudio.panels.choices` on purpose: both store a
 # person's preference about what they see, in one file each under the same
 # project library dir, and both are read by the data routes rather than by the
 # previewer machinery itself. Keeping them together keeps the two from drifting
-# into different conventions for the same kind of file.
+# into different conventions for the same kind of file. Both moved here from
+# the removed ``scistudio.previewers`` package (#2493).
 # Development references: #2112.
 
 from __future__ import annotations

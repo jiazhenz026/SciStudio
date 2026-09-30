@@ -204,18 +204,13 @@ def iter_source_package_modules(import_root: str | Path) -> Iterator[str]:
 
 def iter_source_package_module_candidates(
     package_dirs: Iterable[str | Path],
-    *,
-    module_suffixes: Iterable[str] = (),
 ) -> Iterator[tuple[str, str, tuple[Path, ...]]]:
     """Yield importable source-package module candidates for package dirs.
 
-    Returns ``(root_module, candidate_module, import_roots)``. For example,
-    with ``module_suffixes=("previewers",)`` an imaging package yields
-    ``("scistudio_blocks_imaging", "scistudio_blocks_imaging", roots)`` and
-    then ``("scistudio_blocks_imaging", "scistudio_blocks_imaging.previewers",
-    roots)``.
+    Returns ``(root_module, candidate_module, import_roots)``; the candidate is
+    the package's top-level module, e.g. ``("scistudio_blocks_imaging",
+    "scistudio_blocks_imaging", roots)``.
     """
-    suffixes = tuple(s.strip(".") for s in module_suffixes if s)
     seen_roots: set[str] = set()
     seen_candidates: set[str] = set()
     for package_dir in package_dirs:
@@ -233,11 +228,10 @@ def iter_source_package_module_candidates(
                 }
             )
             for root_module in root_modules:
-                for candidate in (root_module, *(f"{root_module}.{suffix}" for suffix in suffixes)):
-                    if candidate in seen_candidates:
-                        continue
-                    seen_candidates.add(candidate)
-                    yield root_module, candidate, import_roots
+                if root_module in seen_candidates:
+                    continue
+                seen_candidates.add(root_module)
+                yield root_module, root_module, import_roots
 
 
 @contextlib.contextmanager

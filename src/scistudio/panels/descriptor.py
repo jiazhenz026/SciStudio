@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
+from scistudio.panels.models import OwnerKind, PreviewerSpec
 from scistudio.stability import internal, provisional
 
 #: The panel descriptor ``api_version`` the host serves. A descriptor must declare
@@ -25,15 +25,11 @@ PANEL_CONTEXTS = ("preview", "interactive", "miniapp")
 DESCRIPTOR_MAX_BYTES = 65536
 # Core-reserved type names that are not TypeRegistry entries: the catch-all
 # sentinels (``DataObject``/``Collection``) and the synthetic catalog record
-# types the built-in previewers serve (``PlotArtifact``; see
-# ``previewers.fallbacks.core_previewer_specs``). Only CORE-owned panels may
-# claim these; user panels must claim registered types.
+# type the built-in plot panel serves (``PlotArtifact``). Only CORE-owned panels
+# may claim these; user panels must claim registered types.
 _CORE_SENTINEL_TYPES = ("DataObject", "Collection", "PlotArtifact")
 
 
-# TODO(#2288): owner_kind uses OwnerKind from the deprecated previewer models root.
-#   Out of scope per #2426; the enum needs a non-deprecated home before 0.3.6.
-#   Followup: https://github.com/jiazhenz026/SciStudio/issues/2288
 @provisional(since="0.3.5")
 @dataclass(frozen=True)
 class PanelDescriptor:

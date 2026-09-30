@@ -374,10 +374,10 @@ async def _announce_registry_refresh(runtime: Any, op: str) -> None:
 
 
 def _refresh_registries_after_worktree_write(runtime: Any, op: str) -> None:
-    """Refresh block, type, and previewer registries after a git operation.
+    """Refresh block, type, and panel registries after a git operation.
 
     A rewritten working tree can change definitions under ``blocks/``, ``types/``,
-    and ``previewers/``. Refresh after the git operation succeeds and before
+    and ``panels/``. Refresh after the git operation succeeds and before
     emitting ``workflow.changed``, so clients read the recovered definitions.
 
     Failures are logged without undoing the completed git operation. A failed

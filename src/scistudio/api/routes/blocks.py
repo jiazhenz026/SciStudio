@@ -6,11 +6,9 @@ import importlib.resources as importlib_resources
 import logging
 from dataclasses import asdict
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from scistudio.api._block_source import (
@@ -36,8 +34,6 @@ from scistudio.api.schemas import (
 from scistudio.blocks._templates import TEMPLATE_KINDS
 from scistudio.blocks.base.ports import InputPort, OutputPort, validate_connection
 from scistudio.blocks.io._config_enrichment import enrich_io_config_schema, io_capable_type_names
-from scistudio.previewers.assets import resolve_asset
-from scistudio.previewers.models import MissingBundleError
 
 logger = logging.getLogger(__name__)
 
@@ -513,42 +509,6 @@ async def get_block_source(
     except BlockSourceUnavailableError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return BlockSourceResponse(block_type=block_type, **resolved)
-
-
-@router.get("/panels/{panel_id}/{asset_path:path}")
-async def serve_panel_asset(
-    panel_id: str,
-    asset_path: str,
-    registry: BlockRegistryDep,
-) -> FileResponse:
-    """Serve a validated, path-confined same-origin interactive panel asset.
-
-    A package interactive block declares a ``PanelManifest`` with an
-    ``asset_root``; this route serves that panel's frontend module/assets,
-    path-confined under the root with the same suffix allowlist uses, so
-    the server never leaks arbitrary filesystem reads. Core panels are bundled
-    (no ``asset_root``) and resolve from the frontend registry, not this route.
-    """
-    # Development references: ADR-048, ADR-051.
-    asset_root: str | None = None
-    for spec in registry.all_specs().values():
-        manifest = getattr(spec, "panel_manifest", None)
-        if isinstance(manifest, dict) and manifest.get("panel_id") == panel_id:
-            asset_root = getattr(spec, "panel_asset_root", None)
-            break
-    if not asset_root:
-        raise HTTPException(status_code=404, detail=f"no servable panel asset_root for panel {panel_id!r}")
-    # ``resolve_asset`` reads ``asset_root`` for path confinement + the suffix
-    # allowlist, and ``previewer_id`` for its diagnostics; a lightweight
-    # namespace carrying both satisfies that contract.
-    try:
-        served = resolve_asset(
-            cast(Any, SimpleNamespace(asset_root=asset_root, previewer_id=panel_id)),
-            asset_path,
-        )
-    except MissingBundleError as exc:
-        raise HTTPException(status_code=404, detail=exc.message) from exc
-    return FileResponse(path=Path(served.path), media_type=served.media_type)
 
 
 def _resolve_effective_port(

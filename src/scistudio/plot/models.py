@@ -8,7 +8,7 @@ hand-edited manifest with an unexpected field is rejected with a clear error fro
 :mod:`validation` rather than running with the typo silently ignored.
 
 Importing this module is cheap and has no side effects: nothing here imports
-``scistudio.blocks`` / ``scistudio.previewers`` at load time.
+``scistudio.blocks`` / ``scistudio.panels`` at load time.
 """
 
 from __future__ import annotations
