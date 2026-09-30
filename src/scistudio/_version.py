@@ -17,7 +17,7 @@
 from __future__ import annotations
 
 #: Base semantic version ``a.b.c`` (no channel/build suffix).
-BASE_VERSION = "0.3.4"
+BASE_VERSION = "0.3.5"
 
 #: Release channel. One of ``"alpha"``, ``"beta"``, ``"stable"``.
 CHANNEL = "alpha"

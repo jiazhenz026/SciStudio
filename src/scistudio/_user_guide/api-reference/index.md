@@ -2,7 +2,7 @@
 
 # SciStudio API reference
 
-**Version:** `0.3.4a0` (reference for this release).
+**Version:** `0.3.5a0` (reference for this release).
 
 The public API you may rely on, generated from the code's docstrings and `scistudio.stability` decorators. Only the public surface (each canonical root's `__all__`) appears; `internal` symbols are excluded. Import from the canonical root shown on each page, never a deeper module path.
 
