@@ -22,8 +22,8 @@ from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.composite_store import CompositeStore
 from scistudio.core.storage.ref import StorageReference
 from scistudio.panels.descriptor import parse_descriptor
-from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.models import OwnerKind
+from scistudio.panels.registry import PanelRegistry
 
 
 def build_runtime(temporary: Path) -> object:
