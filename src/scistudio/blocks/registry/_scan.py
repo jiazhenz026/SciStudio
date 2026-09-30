@@ -172,8 +172,9 @@ def _reported_dirs(scan_dirs: list[Path]) -> set[Path]:
 
     The block scan directories and the ``types/`` directory of each one's
     tier: the block listing is the surface a user sees, so a refused type file
-    of the same tier is reported there too, as it always was (ADR-053 FR-015).
+    of the same tier is reported there too, as it always was.
     """
+    # Development references: ADR-053, FR-015.
     from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
 
     reported: set[Path] = set()
@@ -193,7 +194,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
     server process. Only files from trusted project- or user-controlled
     directories should be registered via :meth:`BlockRegistry.add_scan_dir`.
 
-    ADR-056 Section 4.2. The directories join the user import path
+    The directories join the user import path
     (:func:`scistudio.core.user_code.ensure_user_import_path`) if they are not
     on it already, and every ``*.py`` file not starting with ``_`` is imported
     with ``importlib.import_module(<stem>)`` through
@@ -204,7 +205,7 @@ def _scan_tier1(registry: BlockRegistry) -> None:
 
     Per file:
 
-    - A file the name check refuses (FR-008) is not imported and is recorded as
+    - A file the name check refuses is not imported and is recorded as
       a :class:`~scistudio.blocks.registry.DropinFailure`. Refused type files of
       the same tier are recorded here too.
     - A stem that resolves to a file in an earlier user directory (a project
@@ -530,9 +531,10 @@ def _scan_source_package_module(
     """Import one ``scistudio_blocks_*`` package and register its block classes.
 
     The ``sys.path`` window here serves installed-package loading, not user
-    code (ADR-056 keeps plugin roots with :mod:`scistudio.desktop.paths`), and
-    so does the eviction of the package's previously imported modules.
+    code (plugin roots stay with :mod:`scistudio.desktop.paths`), and so does
+    the eviction of the package's previously imported modules.
     """
+    # Development references: ADR-056.
     try:
         with prepended_sys_paths(import_roots):
             stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]

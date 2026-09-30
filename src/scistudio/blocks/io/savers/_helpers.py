@@ -103,11 +103,11 @@ def _check_pickle_gate(path: Path, config: BlockConfig) -> bool:
 def _matches_target_type(obj: object, target_cls: type[DataObject]) -> bool:
     """Whether *obj* is a *target_cls* instance.
 
-    A user data type is one class per process (ADR-056 FR-003), so
-    ``isinstance`` is the whole check; the by-path identity fallback of #1950 is
-    gone with the by-path imports that needed it.
+    A user data type is one class per process, so ``isinstance`` is the whole
+    check; the by-path identity fallback is gone with the by-path imports that
+    needed it.
     """
-    # Development references: #1950, ADR-056.
+    # Development references: #1950, ADR-056, FR-003.
     return isinstance(obj, target_cls)
 
 

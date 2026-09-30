@@ -152,14 +152,14 @@ class DropinFailure:
     ``GET /api/blocks/`` returns them alongside the palette, which is the
     response the palette already fetches.
 
-    Name-check refusals share the record (ADR-056 FR-008): a user file whose
+    Name-check refusals share the record: a user file whose
     stem is a standard-library or installed module name, or is used twice in one
     tier, is rejected the same way, with :attr:`error_type` naming the refusal
     (``"UserModuleNameCollision"`` / ``"UserModuleNameConflict"``) instead of a
     Python exception.
     """
 
-    # Development references: ADR-053, FR-015, FR-016.
+    # Development references: ADR-053, ADR-056, FR-008, FR-015, FR-016.
 
     file_path: str
     """Absolute path of the drop-in file that was refused."""
@@ -492,7 +492,7 @@ class BlockRegistry:
         given configuration. A drop-in block's module is the one the scan
         imported, so the class is the registered class and its data types are
         the type registry's classes; an edit takes effect after the next
-        refresh forgets the user modules (ADR-056).
+        refresh forgets the user modules.
 
         Args:
             name: The block's display name or type name (see :meth:`get_spec`).

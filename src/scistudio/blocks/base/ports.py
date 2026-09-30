@@ -99,10 +99,10 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     is transparent to the port system.  Callers should pass the Collection
     instance directly (not ``type(collection)``).
 
-    A user data type is one class per process (ADR-056 FR-003), so the check
-    is plain ``issubclass``.
+    A user data type is one class per process, so the check is plain
+    ``issubclass``.
     """
-    # Development references: ADR-020-Add6, ADR-056.
+    # Development references: ADR-020-Add6, ADR-056, FR-003.
     if not port.accepted_types:
         return True
 

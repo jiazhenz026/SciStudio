@@ -161,7 +161,7 @@ def ensure_user_import_path(dirs: Iterable[str | Path]) -> tuple[Path, ...]:
 
     For a caller that was handed directories rather than a project, such as a
     registry built with explicit scan directories. A ``types/`` or ``blocks/``
-    directory brings its tier sibling with it, in the FR-001 order (``types``
+    directory brings its tier sibling with it, in the path order (``types``
     before ``blocks``), so two registries built separately for one project
     produce the same path. Directories already installed keep their position.
     Returns the installed path.
@@ -225,8 +225,9 @@ def user_import_path_from_env(environ: Mapping[str, str] | None = None) -> tuple
 def install_user_import_path_from_env(environ: Mapping[str, str] | None = None) -> tuple[Path, ...]:
     """Install the user import path passed in the environment, if any.
 
-    A child process calls this before it imports any user module (FR-012).
+    A child process calls this before it imports any user module.
     """
+    # Development references: FR-012.
     dirs = user_import_path_from_env(environ)
     if not dirs:
         return installed_user_import_path()

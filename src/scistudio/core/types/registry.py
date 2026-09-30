@@ -168,7 +168,7 @@ class TypeSpec:
 
     The one thing :func:`scistudio.api._block_source.resolve_origin` cannot
     infer for a type from its module name: a drop-in is imported under its own
-    file stem (ADR-056), which reads like any installed top-level module. The
+    file stem, which reads like any installed top-level module. The
     drop-in pass sets it; every other pass leaves it ``False``.
     """
 
@@ -721,7 +721,7 @@ class TypeRegistry:
         type edit behave the way a block edit already does.
 
         Clearing is necessary and not sufficient. User type modules keep their
-        own names (ADR-056), so a re-import would return the cached module.
+        own names, so a re-import would return the cached module.
         With ``forget=True`` (the default) the user modules are forgotten first
         (:func:`scistudio.core.user_code.forget_user_modules`), which also
         deletes their cached bytecode, so the re-scan runs the files on disk. A
@@ -800,7 +800,7 @@ class TypeRegistry:
     def _scan_filesystem_dirs(self) -> None:
         """Import each registered scan directory's type files by name and register their types.
 
-        ADR-056 Section 4.2. The directories join the user import path
+        The directories join the user import path
         (:func:`scistudio.core.user_code.ensure_user_import_path`) if they are
         not on it already, and every ``*.py`` file not starting with ``_`` is
         imported with ``importlib.import_module(<stem>)``. A module a block
@@ -809,7 +809,7 @@ class TypeRegistry:
 
         Per file:
 
-        - A file the name check refuses (FR-008: a standard-library stem, a stem
+        - A file the name check refuses (a standard-library stem, a stem
           an installed module owns, a stem used twice in one tier) is not
           imported and registers nothing.
         - A stem that resolves to a file in an earlier user directory (a

@@ -348,13 +348,14 @@ def _validate_interactive_capability(cls: type) -> None:
 def _import_block_module(spec: BlockSpec) -> Any:
     """Import the module *spec* names, by name, for every origin.
 
-    ADR-056: a drop-in block's module was imported by the scan under its own
+    A drop-in block's module was imported by the scan under its own
     stem and is returned from ``sys.modules`` as it is — the file is never
     executed again, so the class is the registered class. An installed block's
     module resolves through the package's own roots and the shared user
     dependency site; that ``sys.path`` window serves installed-package loading
     only (:func:`scistudio.desktop.paths.installed_import_roots_for_module`).
     """
+    # Maintainer context: ADR-056 keeps installed-package windows; see _scan.py.
     # Development references: ADR-056, FR-002, #1772.
     if spec.source in ("builtin", "tier1"):
         return importlib.import_module(spec.module_path)

@@ -11,7 +11,7 @@
 #
 # No function here takes a file path to execute and none invents a module name.
 # A module already in ``sys.modules`` is returned as it is; making it current is
-# the forget step's job (``reset.py``).
+# what the forget step (``reset.py``) does.
 #
 # :func:`load_user_module` returns the classes a module *defines*
 # (``cls.__module__ == module.__name__``), so a registry registers a class only

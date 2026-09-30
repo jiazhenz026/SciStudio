@@ -536,11 +536,12 @@ def _log_path(project_dir: Path, context_id: str) -> Path:
 def panel_user_import_path(panel_dir: Path | str, project_dir: Path | str | None) -> tuple[Path, ...]:
     """The user import path of a panel process: the panel folder, then the tiers.
 
-    ADR-056 FR-001: the panel folder is the entry folder, followed by the
+    The panel folder is the entry folder, followed by the
     project and library ``types/`` and ``blocks/`` directories, so ``panel.py``
     imports a helper beside it, a project type or a block file by name, as a
     block worker does.
     """
+    # Development references: ADR-056, FR-001.
     from scistudio.core.user_code import build_user_import_path
 
     return build_user_import_path(project_dir, entry_folder=panel_dir)

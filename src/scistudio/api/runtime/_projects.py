@@ -141,10 +141,11 @@ def _active_project_dir(self: ApiRuntime) -> Path | None:
 def install_active_user_import_path(self: ApiRuntime) -> None:
     """Install the user import path of the active project, or the library alone.
 
-    ADR-056 Section 4.1: the backend installs the path at startup (library tier
-    only, before any project opens) and :func:`refresh_all_registries` replaces
-    it whenever the project changes.
+    The backend installs the path at startup (library tier only, before any
+    project opens) and :func:`refresh_all_registries` replaces it whenever the
+    project changes.
     """
+    # Development references: ADR-056.
     install_user_import_path(build_user_import_path(_active_project_dir(self)))
 
 

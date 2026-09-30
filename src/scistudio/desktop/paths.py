@@ -282,7 +282,7 @@ def installed_import_roots_for_module(module_name: str) -> tuple[Path, ...]:
     the shared user dependency site (:func:`user_python_import_roots`). A
     process derives this from the module name alone, so the block worker and
     the in-process instantiation agree without the registry stamping roots on
-    a spec or the engine passing them in the worker payload (ADR-056 MIG-004).
+    a spec or the engine passing them in the worker payload.
     User directories are never part of the answer: those travel as the user
     import path (:mod:`scistudio.core.user_code`).
     """

@@ -214,7 +214,7 @@ def build_worker_payload(
 
     The block is named by ``module.qualname`` for every origin: a drop-in
     block's module is its file stem, which the worker imports through the user
-    import path it receives in its environment (ADR-056 FR-012), so the payload
+    import path it receives in its environment, so the payload
     carries no file path and no import roots.
 
     Parameters

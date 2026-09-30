@@ -171,12 +171,13 @@ def _pythonpath_entry_key(entry: str, *, parent_cwd: Path) -> str:
 
 
 def _worker_user_import_path(project_dir: str | None) -> tuple[Path, ...]:
-    """Return the user import path a worker receives (ADR-056 FR-012).
+    """Return the user import path a worker receives.
 
     The path this process installed, so the worker imports a drop-in block from
     the very directories the registry imported it from; a process that
     installed none (a CLI run, a test) derives it from *project_dir*.
     """
+    # Development references: ADR-056, FR-012.
     from scistudio.core.user_code import build_user_import_path, installed_user_import_path
 
     installed = installed_user_import_path()

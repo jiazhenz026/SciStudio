@@ -207,7 +207,7 @@ def resolve_origin(
         is_dropin: Whether the registry classified this as a drop-in even
             though no usable file path came with it. Such an item is ``custom``
             rather than ``package``: a drop-in is imported under its own file
-            stem (ADR-056), which is not a distribution.
+            stem, which is not a distribution.
         project_dir: Active project root, or ``None`` when no project is open —
             in which case nothing can resolve to :data:`PROJECT_ORIGIN`.
 
@@ -241,7 +241,7 @@ def spec_source_file(spec: Any) -> Path | None:
 
     A :class:`~scistudio.core.types.registry.TypeSpec` carries its file as
     ``file_path``. A drop-in :class:`~scistudio.blocks.registry.BlockSpec`
-    (``source == "tier1"``) carries none since ADR-056: its ``module_path`` is
+    (``source == "tier1"``) carries none: its ``module_path`` is
     the file's own stem, and the file is where that module resolves. Installed
     blocks return ``None``; callers that want their file import the module.
     """

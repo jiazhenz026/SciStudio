@@ -103,7 +103,7 @@ def _prepend_installed_import_roots(roots: Any) -> tuple[str, ...]:
     which ``_worker_env`` strips from the inherited ``PYTHONPATH`` so core and
     native dependencies load first. They stay for the process's lifetime, which
     is one block run. User directories are never passed here: those arrive as
-    the user import path and are appended, not prepended (ADR-056 FR-001).
+    the user import path and are appended, not prepended.
     """
     # Development references: #1772, ADR-056.
     resolved: list[str] = []

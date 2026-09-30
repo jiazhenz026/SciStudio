@@ -53,7 +53,7 @@ def _reserve_channel() -> tuple[BinaryIO, BinaryIO]:
 def _import_panel() -> ModuleType:
     """Import ``panel.py`` from the panel directory as the module named ``panel``.
 
-    ADR-056: the panel directory is the entry folder, the first entry of the
+    The panel directory is the entry folder, the first entry of the
     user import path this process installed from its environment, so
     ``import panel`` finds ``panel.py`` there and a helper module beside it or
     a project type is importable by name as well. The user import path sits
@@ -61,6 +61,7 @@ def _import_panel() -> ModuleType:
     them provides would win; that is refused with a clear error rather than
     running the wrong code.
     """
+    # Development references: ADR-056.
     from pathlib import Path
 
     from scistudio.core.user_code import module_owner_dir
