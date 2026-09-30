@@ -8,7 +8,7 @@ table (ADR-052 §7).
 
 What this script does:
 
-1. Imports the **thirteen canonical public roots** (ADR-052 §3/§4; the SciStudio
+1. Imports the **eleven canonical public roots** (ADR-052 §3/§4; the SciStudio
    freeze contract) and, for each, reads its declared ``__all__`` — the public
    surface. Symbols outside ``__all__`` (and ``internal``-tier class members) are
    excluded even if they have docstrings.
@@ -72,11 +72,11 @@ if str(SRC) not in sys.path:
 
 from scistudio.stability import DeprecationInfo, get_deprecation, get_stability  # noqa: E402
 
-#: The thirteen canonical public roots. Public surface = each root's ``__all__``
+#: The eleven canonical public roots. Public surface = each root's ``__all__``
 #: (ADR-052 §3/§4; identical to the SciStudio freeze contract). ``api.app`` and
 #: ``api.seam`` are the ADR-055 identity seam an edition composes on (#2304);
 #: ``panels`` is the ADR-054 panels surface (#2426). The two ``previewers`` roots
-#: are deprecated as a whole and removed in 0.3.6 (ADR-054 §8, #2288).
+#: were removed with the legacy previewer forms (ADR-054 §8, #2493).
 CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.core.types",
     "scistudio.core.meta",
@@ -85,8 +85,6 @@ CANONICAL_ROOTS: tuple[str, ...] = (
     "scistudio.blocks.io",
     "scistudio.blocks.app",
     "scistudio.blocks.code",
-    "scistudio.previewers.models",
-    "scistudio.previewers.data_access",
     "scistudio.tutorials",
     "scistudio.api.app",
     "scistudio.api.seam",

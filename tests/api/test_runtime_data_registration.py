@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import pytest
 
 from scistudio.api.runtime._data import describe_ref, register_data_ref, register_output_payload
-from scistudio.previewers.models import PreviewTarget
+from scistudio.panels.models import PreviewTarget
 
 
 def make_runtime(project_root):

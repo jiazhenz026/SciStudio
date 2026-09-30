@@ -2,20 +2,18 @@
 
 Issue #1606 (P0): the original SPEC 2 implementation left the plot-preview path
 DEAD-WIRED. ``run_plot_job`` wrote a display artifact to the preview cache, but
-NOTHING registered that artifact so the routed
-:class:`~scistudio.previewers.PreviewService` could reach the core
-``PlotPreviewer`` (``core.plot.basic``) at runtime — there was no API route, no
+NOTHING registered that artifact so a routed preview could reach the core plot
+panel (``core.plot.basic``) at runtime — there was no API route, no
 catalog registration, and no UI trigger. The pre-existing unit test
-(``test_preview_plot_jobs.test_artifact_consumable_by_plot_previewer``) called
-``plot_previewer`` DIRECTLY with a hand-built request, proving only that the
-viewer *can* render a file — exactly the gap that let the dead-wire ship.
+(``test_preview_plot_jobs.test_artifact_consumable_by_plot_previewer``) read the
+file DIRECTLY, proving only that the viewer *can* render a file — exactly the gap that let the dead-wire ship.
 
 These tests exercise the REAL wiring with NO mocks of the wiring itself:
 
     run_plot_job (producer)
       -> POST /api/plots/run  (the new route)
         -> ApiRuntime.register_plot_artifact  (catalog registration)
-          -> POST /api/previews/sessions  (routed PreviewService)
+          -> POST /api/previews/sessions  (routed panel service)
             -> PreviewRouter resolves core.plot.basic
               -> the mounted plot panel reads the artifact  (the consumer)
 
@@ -800,7 +798,7 @@ def test_registered_plot_artifact_classifies_as_plot_target(
     routed query is enriched with the artifact's ``_storage``.
     """
     from scistudio.api.runtime._data import _target_kind_for_record
-    from scistudio.previewers import TargetKind
+    from scistudio.panels.models import TargetKind
 
     svg = opened_project / "out.svg"
     svg.write_text("<svg><rect width='1' height='1'/></svg>", encoding="utf-8")

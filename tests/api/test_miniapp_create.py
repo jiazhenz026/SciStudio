@@ -28,8 +28,8 @@ from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
 from scistudio.engine.events import EventBus
 from scistudio.engine.runners.process_handle import ProcessRegistry
+from scistudio.panels.models import OwnerKind, PreviewTarget
 from scistudio.panels.registry import PanelRegistry
-from scistudio.previewers.models import OwnerKind, PreviewTarget
 from tests.panels.conftest import install_panel_service
 
 # One test opens a real MiniApp context, which starts a real subprocess.

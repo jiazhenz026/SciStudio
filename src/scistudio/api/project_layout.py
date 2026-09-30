@@ -7,9 +7,9 @@
 # they each carried their own hand-written list. They had already drifted: the
 # CLI omitted ``data/processed`` while claiming in a comment to be "Symmetric
 # with ``api/runtime.py::create_project``", and neither created the drop-in
-# directories for previewers or tutorials even though both tiers are discovered
-# from a project (:mod:`scistudio.core.dropins`). #2411 replaced the scaffolded
-# ``previewers/`` with ``panels/`` (ADR-054).
+# directories for extensions or tutorials even though those tiers are
+# discovered from a project (:mod:`scistudio.core.dropins`). #2411 scaffolded
+# ``panels/`` (ADR-054).
 #
 # The drop-in directory names are imported from :mod:`scistudio.core.dropins`
 # rather than respelled here, so the folder a project offers and the folder the
@@ -56,10 +56,8 @@ DATA_SUBDIRS: tuple[str, ...] = (
 #: Project-tier drop-in directories, named by :mod:`scistudio.core.dropins` so
 #: the scaffold and the scanners share one spelling.
 #:
-#: ``panels/`` is the current extension folder (ADR-054). ``previewers/`` is not
-#: created for new projects: Python previewer drop-ins are deprecated since
-#: 0.3.5 and removed in 0.3.6 (ADR-054 §8). An existing project's ``previewers/``
-#: is still scanned by :func:`scistudio.core.dropins.previewer_scan_dirs` (#2411).
+#: ``panels/`` is the extension folder for previews, interactive windows and
+#: MiniApps (ADR-054).
 DROPIN_SUBDIRS: tuple[str, ...] = (
     BLOCKS_DIR_NAME,
     TYPES_DIR_NAME,

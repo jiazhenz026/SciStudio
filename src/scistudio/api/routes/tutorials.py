@@ -64,9 +64,8 @@ from scistudio.api.ws import BLOCKS_RELOADED
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
     PANELS_DIR_NAME,
-    PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
-    previewer_scan_dirs,
+    panel_scan_dirs,
     tutorial_library_dir,
 )
 from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
@@ -803,15 +802,14 @@ class _ApiProductState:
         library, which is the definition of the library holding it.
 
         All three kinds can appear: ``scoped_library_dirs`` creates
-        ``blocks/``, ``types/``, ``previewers/``, and ``panels/``; a preview
-        panel in ``panels/`` counts as a previewer, because its routing
-        candidates are previewer specs like any other.
+        ``blocks/``, ``types/``, and ``panels/``; a preview panel in ``panels/``
+        counts as a previewer.
         Previewer membership is decided differently, because a
-        :class:`~scistudio.previewers.models.PreviewerSpec` carries no source
+        :class:`~scistudio.panels.models.PreviewerSpec` carries no source
         file path to test. The swap itself is the answer: while a tutorial
         project is open, its user tier *is* the scoped library
-        (:func:`scistudio.core.dropins.previewer_scan_dirs`), so every
-        user-tier previewer spec came from it — and when the open project
+        (:func:`scistudio.core.dropins.panel_scan_dirs`), so every
+        user-tier panel candidate came from it — and when the open project
         resolves its user tier elsewhere the scoped library is not scanned at
         all, which is the same empty answer the file test gives for blocks and
         types then.
@@ -834,8 +832,8 @@ class _ApiProductState:
         for name, spec in type_specs.items():
             if _is_under(getattr(spec, "file_path", None), types_dir):
                 entries.add(("type", str(name)))
-        if previewer_scan_dirs(self.project_dir)[-1] == library / PREVIEWERS_DIR_NAME:
-            from scistudio.previewers.models import OwnerKind
+        if panel_scan_dirs(self.project_dir)[-1] == library / PANELS_DIR_NAME:
+            from scistudio.panels.models import OwnerKind
 
             previewer_specs: list[Any] = _read_or(lambda: self.runtime.get_panel_service().all_specs(), [])
             for spec in previewer_specs:
@@ -1059,15 +1057,10 @@ class _TutorialWiring:
 #:
 #: Named from ``scistudio.core.dropins`` rather than spelled here, so a tier
 #: that gains a directory does not need this list edited to keep working.
-#: ``previewers/`` joined with #2086: a tutorial step that writes
-#: ``previewers/*.py`` and then says "expand the preview" needs the previewer
-#: registered before the step's text is readable, exactly as blocks and types
-#: already settle — ``refresh_all_registries`` rebuilds the preview service too.
-#: ``panels/`` joined with #2411, beside ``previewers/`` rather than replacing it:
-#: new projects scaffold ``panels/``, and tutorials still write previewer drop-ins.
-_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset(
-    {BLOCKS_DIR_NAME, TYPES_DIR_NAME, PREVIEWERS_DIR_NAME, PANELS_DIR_NAME}
-)
+#: ``panels/`` joined with #2411: a tutorial step that writes a panel and then
+#: says "expand the preview" needs the panel catalog current before the step's
+#: text is readable, exactly as blocks and types already settle.
+_SCANNED_PROJECT_DIRS: frozenset[str] = frozenset({BLOCKS_DIR_NAME, TYPES_DIR_NAME, PANELS_DIR_NAME})
 
 
 #: The project subdirectory holding workflow YAML, which the open canvas renders.

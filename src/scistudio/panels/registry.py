@@ -1,4 +1,4 @@
-"""Four-tier discovery and a single namespace shared with legacy previewers."""
+"""Four-tier panel discovery and the diff between two panel catalogs."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from scistudio.core.entry_points import (
     prepared_plugin_import_roots,
 )
 from scistudio.panels.descriptor import PanelDescriptor, parse_descriptor
-from scistudio.previewers.models import OwnerKind
+from scistudio.panels.models import OwnerKind
 from scistudio.stability import internal, provisional
 
 TIER_ORDER = {OwnerKind.PROJECT: 0, OwnerKind.USER: 1, OwnerKind.PACKAGE: 2, OwnerKind.CORE: 3}
@@ -227,7 +227,6 @@ class RegistryDiff:
     preview_types: frozenset[str] = frozenset()
     miniapps_changed: bool = False
     catalog_changed: bool = False
-    legacy_reloaded: bool = False
 
     @property
     def invalidated(self) -> frozenset[str]:
@@ -236,7 +235,7 @@ class RegistryDiff:
 
     @property
     def preview_candidates_changed(self) -> bool:
-        return bool(self.preview_types) or self.legacy_reloaded
+        return bool(self.preview_types)
 
     @property
     def empty(self) -> bool:
@@ -247,7 +246,6 @@ class RegistryDiff:
             or self.preview_types
             or self.miniapps_changed
             or self.catalog_changed
-            or self.legacy_reloaded
         )
 
     def to_event_data(self) -> dict[str, object]:
@@ -264,7 +262,6 @@ class RegistryDiff:
             "miniapps_changed": self.miniapps_changed,
             "preview_candidates_changed": self.preview_candidates_changed,
             "preview_types": sorted(self.preview_types),
-            "legacy_reloaded": self.legacy_reloaded,
         }
 
 
@@ -275,7 +272,6 @@ def diff_panels(
     old_candidates: Iterable[tuple[object, ...]] = (),
     new_candidates: Iterable[tuple[object, ...]] = (),
     catalog_changed: bool = False,
-    legacy_reloaded: bool = False,
 ) -> RegistryDiff:
     """Compare two catalogs of winning panels by fingerprint.
 
@@ -306,5 +302,4 @@ def diff_panels(
         preview_types=preview_types,
         miniapps_changed=miniapps_changed,
         catalog_changed=catalog_changed,
-        legacy_reloaded=legacy_reloaded,
     )

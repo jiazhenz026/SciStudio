@@ -23,26 +23,11 @@ import { extractRefEntries, type RefEntry } from "./DataPreview.parts/refEntries
 export { extractRefEntries } from "./DataPreview.parts/refEntries";
 export type { RefEntry } from "./DataPreview.parts/refEntries";
 
-// ADR-048 SPEC 1 — the routed PreviewHost container and core fallback viewers.
-// As of #1592 the live DataPreview mounts PreviewHost directly: every selected
+// ADR-048 SPEC 1 / ADR-054 — the routed PreviewHost container. Every selected
 // output ref creates a routed preview session (POST /api/previews/sessions) and
-// renders either a validated dynamic previewer (package/project) or the core
-// fallback viewer for the envelope kind. The legacy one-shot `previewCache`
-// path is gone.
+// renders the routed panel, or the typed error of an `error` envelope.
 export { PreviewHost } from "./DataPreview.parts/PreviewHost";
 export type { PreviewHostProps } from "./DataPreview.parts/PreviewHost";
-export {
-  PREVIEWER_HOST_API_VERSION,
-  isApiVersionCompatible,
-  isPreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
-export type {
-  PreviewHostApi,
-  PreviewProviderIdentity,
-  PreviewExportRequest,
-  PreviewerInstance,
-  PreviewerModule,
-} from "./DataPreview.parts/previewerHostApi";
 
 // ADR-054 FR-033 — All Previewers.
 //

@@ -118,7 +118,7 @@ for (const mode of ["early", "later"]) {
   });
 }
 
-test("composite opens legacy renderer, returns, and maximizes a panel child independently", async ({
+test("composite opens a core child panel, returns, and maximizes a panel child independently", async ({
   page,
   baseURL,
 }) => {
@@ -133,13 +133,17 @@ test("composite opens legacy renderer, returns, and maximizes a panel child inde
   });
   await page.goto(`${baseURL}__panel_test__/host?host=preview&panel=navigator&target=comp`);
   await expect(page.frameLocator("iframe").locator("#status")).toHaveText("navigator ready");
-  await page.frameLocator("iframe").getByRole("button", { name: "Open legacy" }).click();
-  await expect(page.getByText("legacy child text", { exact: true })).toBeVisible();
+  // The Text slot routes to the built-in core text panel (#2493: every preview
+  // is a panel; no compiled viewer draws it).
+  await page.frameLocator("iframe").getByRole("button", { name: "Open notes" }).click();
+  await expect(
+    page.frameLocator('iframe[title="Text"]').getByText("notes child text", { exact: false }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "← Back", exact: true }).click();
   await page.frameLocator("iframe").getByRole("button", { name: "Open table" }).click();
   const child = page.frameLocator('iframe[title="browser.table"]');
   await expect(child.locator("#status")).toContainText('"total_rows":2');
-  expect(mounts).toHaveLength(2);
+  expect(mounts).toHaveLength(3);
   const parentClose = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" && response.url().endsWith(mounts[0].context_id),
@@ -153,6 +157,6 @@ test("composite opens legacy renderer, returns, and maximizes a panel child inde
   );
   await child.getByRole("button", { name: "Read again" }).click();
   expect((await read).status()).toBe(200);
-  expect(mounts).toHaveLength(3);
-  expect(new Set(mounts.map((mount) => mount.context_id)).size).toBe(3);
+  expect(mounts).toHaveLength(4);
+  expect(new Set(mounts.map((mount) => mount.context_id)).size).toBe(4);
 });

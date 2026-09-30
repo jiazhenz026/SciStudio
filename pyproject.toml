@@ -62,7 +62,7 @@ dev = [
     "setuptools>=68.0",
     "build>=1.2",
     # The in-repo test fixture package (tests/fixtures/scistudio-blocks-fixture)
-    # performs minimal real TIFF round-trips so core IO/previewer machinery
+    # performs minimal real TIFF round-trips so core IO machinery
     # tests can exercise a package-owned capability. Keep this test-only helper
     # out of the core runtime dependency set.
     "tifffile>=2024.8",
@@ -410,7 +410,7 @@ forbidden_modules = [
     "scistudio.workflow",
     "scistudio.ai",
     "scistudio.api",
-    "scistudio.previewers",
+    "scistudio.panels",
 ]
 # #1729: ``utils.axis_iter`` (ADR-027 D3 ``iterate_over_axes``) is documented
 # public API consumed by the imaging plugin, so it stays in ``utils`` for now
@@ -443,9 +443,18 @@ source_modules = ["scistudio.ai"]
 forbidden_modules = ["scistudio.api"]
 
 [[tool.importlinter.contracts]]
-name = "Previewers must not depend on engine, blocks, workflow, ai, or api"
+name = "Panel models and reads must not depend on engine, blocks, workflow, ai, or api"
 type = "forbidden"
-source_modules = ["scistudio.previewers"]
+# #2493: the models and bounded reads relocated from the removed
+# ``scistudio.previewers`` package keep that package's layer contract.
+source_modules = [
+    "scistudio.panels.models",
+    "scistudio.panels.data_access",
+    "scistudio.panels._reads",
+    "scistudio.panels.svg",
+    "scistudio.panels.choices",
+    "scistudio.panels.open_as",
+]
 forbidden_modules = [
     "scistudio.engine",
     "scistudio.blocks",

@@ -1,17 +1,14 @@
 """Preview sessions: bounded, guarded query state behind every preview envelope."""
 # Maintainer context (kept outside generated API documentation):
 # ADR-048 FR-007/FR-009 and ADR-054 §2. A preview session remembers what one
-# preview shows (its routed candidate, target and query) so the host can page,
-# slice, open a child and export without resending the target. Two renderers
-# keep sessions: panels (this module's :class:`PreviewSessions`, whose envelope
-# is a ``kind: panel`` handle the host mounts a panel context on) and the
-# deprecated Python previewers (``scistudio.previewers.session``). Both share
-# :class:`SessionStore`, which owns what does not depend on the renderer: the
-# LRU bound, the backend-owned guard and authority of a panel-opened child,
-# array tiles, plot export and composite/collection child routing. Child
-# routing goes back through the caller's router, so a child of a legacy preview
-# can open in a panel and the reverse.
-# Development references: #1837, #1918, #2465, ADR-048, ADR-054.
+# preview shows (its routed panel, target and query) so the host can page,
+# slice, open a child and export without resending the target. The envelope of
+# a session is a ``kind: panel`` handle the host mounts a panel context on.
+# :class:`SessionStore` owns the LRU bound, the backend-owned guard and
+# authority of a panel-opened child, array tiles, plot export and
+# composite/collection child routing; child routing goes back through the
+# panel service's router.
+# Development references: #1837, #1918, #2465, #2493, ADR-048, ADR-054.
 
 from __future__ import annotations
 
@@ -28,9 +25,9 @@ from typing import Any
 from urllib.parse import unquote_to_bytes
 from uuid import uuid4
 
-from scistudio.previewers._plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
-from scistudio.previewers.data_access import PreviewDataAccess
-from scistudio.previewers.models import (
+from scistudio.panels._reads.plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
+from scistudio.panels.data_access import PreviewDataAccess
+from scistudio.panels.models import (
     EnvelopeKind,
     PreviewEnvelope,
     PreviewError,
@@ -69,7 +66,7 @@ ChildSessionFactory = Callable[[PreviewTarget, dict[str, Any]], PreviewEnvelope]
 
 @internal()
 class SessionStore:
-    """Thread-safe LRU of preview sessions plus the renderer-independent resources."""
+    """Thread-safe LRU of preview sessions plus their follow-up resources."""
 
     def __init__(
         self,
@@ -199,7 +196,7 @@ class SessionStore:
 
         ``tile`` reads an array tile, ``slot:<name>`` / ``item:<idx>`` open a
         child preview through the router, ``export`` returns a rendered plot
-        format. Anything else is the renderer's own resource.
+        format. Any other resource id is unknown.
         """
         session = self._get_session(session_id)
         merged: dict[str, Any] = dict(session.query)
@@ -229,7 +226,10 @@ class SessionStore:
             return self._open_child(child_target, child_query).to_dict()
         if resource_id == "export":
             return export_plot_resource(session, merged)
-        return self._renderer_resource(session, resource_id, merged, access, params or {})
+        raise ProviderError(
+            f"unknown resource id {resource_id!r} for session {session.session_id}",
+            detail={"resource_id": resource_id},
+        )
 
     def save_resource(
         self,
@@ -263,19 +263,6 @@ class SessionStore:
         if self._child_session is None:
             raise ProviderError("child previews are not routable here", detail={"ref": target.ref})
         return self._child_session(target, query)
-
-    def _renderer_resource(
-        self,
-        session: PreviewSession,
-        resource_id: str,
-        merged: dict[str, Any],
-        access: PreviewDataAccess,
-        params: dict[str, Any],
-    ) -> dict[str, Any]:
-        raise ProviderError(
-            f"unknown resource id {resource_id!r} for session {session.session_id}",
-            detail={"resource_id": resource_id},
-        )
 
 
 @internal()
@@ -417,7 +404,7 @@ def sibling_for_format(primary: Path, fmt: str) -> Path:
 
 
 def export_plot_resource(session: PreviewSession, params: dict[str, Any]) -> dict[str, Any]:
-    from scistudio.previewers.helpers import sanitize_svg
+    from scistudio.panels.svg import sanitize_svg
 
     if session.target.kind is not TargetKind.PLOT_ARTIFACT and session.previewer_id != "core.plot.basic":
         raise ProviderError(

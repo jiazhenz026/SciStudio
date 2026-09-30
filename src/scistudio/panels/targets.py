@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers.models import PreviewTarget, TargetKind
+from scistudio.panels.models import PreviewTarget, TargetKind
 
 
 class PanelError(Exception):
@@ -165,7 +165,7 @@ def child_targets(
         return {**page, "items": items, "truncated": more, "complete": not more}
     if parent.storage is None:
         raise PanelError(400, "unsupported", "This target has no composite slots")
-    from scistudio.previewers._read_chunks import collection_offset, next_collection_cursor
+    from scistudio.panels._reads.chunks import collection_offset, next_collection_cursor
 
     slots = access.composite_slots(parent.metadata).slots
     # A composite with more slots than one read carries is paged like a
@@ -227,7 +227,7 @@ def plot_variant_target(parent: FrozenTarget, fmt: str) -> FrozenTarget:
     panel cannot widen that.
     """
     # Development references: #1918, #2294, ADR-054 FR-040.
-    from scistudio.previewers._plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
+    from scistudio.panels._reads.plot_formats import EXPORT_FORMAT_ORDER, canonical_format, sibling_for
 
     if parent.storage is None:
         raise PanelError(400, "unsupported", "This target has no artifact file")

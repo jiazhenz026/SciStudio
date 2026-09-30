@@ -185,16 +185,12 @@ export interface FormatCapabilityResponse {
 
 /**
  * ADR-051: the serialized interactive panel manifest surfaced on block metadata
- * (the wire shape of the backend ``PanelManifest.to_dict()``; the server-only
- * ``asset_root`` is intentionally absent). Mirrors {@link PanelManifestDescriptor}
- * in the store, which carries the same shape for the live prompt flow.
+ * (the wire shape of the backend ``PanelManifest.to_dict()``). Mirrors
+ * {@link PanelManifestDescriptor} in the store, which carries the same shape for
+ * the live prompt flow.
  */
 export interface PanelManifest {
   panel_id: string;
-  module_url: string;
-  export_name: string;
-  css: string[];
-  version: string;
   api_version: string;
   response_schema?: Record<string, unknown> | null;
 }
@@ -350,15 +346,15 @@ export interface TypeSourceResponse {
  * ADR-053 FR-006 — which user library directory a write or read addresses.
  *
  * Named by the caller and never inferred from file content: `blocks` is
- * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `previewers`
- * is `~/.scistudio/previewers/` (Learning Center #2086). Inside a tutorial
+ * `~/.scistudio/blocks/`, `types` is `~/.scistudio/types/`, and `panels` is
+ * `~/.scistudio/panels/`. Inside a tutorial
  * project the backend swaps the library root for the tutorial-scoped one; the
  * target names the tier, never the root.
  */
 // ADR-054 FR-039 — `panels` is the one directory target: a MiniApp is a
 // directory, not a file, and it is promoted through
-// `POST /api/user-library/directory`, not the file route the other three use.
-export type UserLibraryTarget = "blocks" | "types" | "previewers" | "panels";
+// `POST /api/user-library/directory`, not the file route the other two use.
+export type UserLibraryTarget = "blocks" | "types" | "panels";
 
 /** Response body of `GET /api/user-library/file` (ADR-053 FR-031). */
 export interface UserLibraryFileResponse {
@@ -569,26 +565,16 @@ export interface DataOpenAsListResponse {
 // ---------------------------------------------------------------------------
 // ADR-048 SPEC 1 — routed previewer session API wire types (FR-020 .. FR-024).
 //
-// These mirror `scistudio.api.schemas` Pydantic models / the canonical
-// `scistudio.previewers.models` dataclasses on the wire. The legacy
+// These mirror `scistudio.api.schemas` Pydantic models / the
+// `scistudio.panels.models` dataclasses on the wire. The legacy
 // `DataPreviewResponse` / `DataPreviewQuery` REST-preview wire types and the
 // `GET /api/data/{ref}/preview` adapter were removed under ADR-048 no-compat
 // (#1604); pagination/sort now flows through the routed session API below.
 // ---------------------------------------------------------------------------
 
-/** Canonical fallback kinds carried by a {@link PreviewEnvelope} (backend
- *  `EnvelopeKind`). The frontend routes core fallback viewers by this value
- *  when no validated previewer manifest is present. */
-export type EnvelopeKind =
-  | "dataframe"
-  | "array"
-  | "series"
-  | "text"
-  | "artifact"
-  | "composite"
-  | "collection"
-  | "plot"
-  | "error";
+/** The kind of a {@link PreviewEnvelope} (backend `EnvelopeKind`): a routed
+ *  panel, or a failed preview. */
+export type EnvelopeKind = "panel" | "error";
 
 /** What a {@link PreviewTarget} points at (backend `TargetKind`). */
 export type PreviewTargetKind = "data_ref" | "collection_ref" | "artifact" | "plot_artifact";
@@ -611,40 +597,9 @@ export interface PreviewTarget {
   source?: PreviewSource | null;
 }
 
-/** Same-origin descriptor for a dynamically loaded previewer ESM module
- *  (backend `FrontendManifest.to_dict()` — note: NO `asset_root`). A package
- *  or project previewer surfaces this in `envelope.metadata.frontend_manifest`
- *  so {@link PreviewHost} can validate + import + mount it (FR-022/FR-024). */
-export interface PreviewerManifest {
-  previewer_id: string;
-  /** Backend-relative URL the host imports the ESM module from, e.g.
-   *  `/api/previews/assets/<previewer_id>/<path>`. Remote (http/https/`//`)
-   *  URLs are rejected by the frontend same-origin validator (FR-022). */
-  module_url: string;
-  /** Named export inside the module to mount. */
-  export_name: string;
-  /** Optional backend-relative CSS asset URLs. */
-  css?: string[];
-  /** Previewer bundle version (fingerprint or semver). */
-  version?: string;
-  /** Previewer API compatibility version; must match the host
-   *  {@link PREVIEWER_HOST_API_VERSION} to mount without a diagnostic. */
-  api_version?: string;
-}
-
-/** Descriptor for a bounded follow-up resource read (backend `PreviewResource`). */
-export interface PreviewResource {
-  resource_id: string;
-  kind: string;
-  media_type?: string | null;
-  description?: string;
-  params?: Record<string, unknown>;
-}
-
 /** Display + state metadata on every envelope (backend `PreviewMetadata`).
- *  The six boolean flags are mandatory (FR-011); previewer-owned shape/type/
- *  axis metadata and the optional `frontend_manifest` ride alongside them
- *  (the backend spreads `extra` into this object on the wire). */
+ *  The six boolean flags are mandatory (FR-011); extra metadata rides
+ *  alongside them (the backend spreads `extra` into this object on the wire). */
 export interface PreviewMetadata {
   sampled?: boolean;
   truncated?: boolean;
@@ -652,10 +607,7 @@ export interface PreviewMetadata {
   derived?: boolean;
   complete?: boolean;
   failed?: boolean;
-  /** Same-origin manifest a package/project previewer asks the host to mount.
-   *  Absent for core fallbacks → the host renders the core viewer for `kind`. */
-  frontend_manifest?: PreviewerManifest;
-  /** Previewer-owned extra metadata (shape, dtype, axes, total_rows, ...). */
+  /** Extra metadata. */
   [key: string]: unknown;
 }
 
@@ -664,10 +616,7 @@ export type PreviewErrorCode =
   | "routing_ambiguity"
   | "unknown_previewer"
   | "unknown_target"
-  | "missing_bundle"
   | "provider_exception"
-  | "invalid_spec"
-  | "duplicate_previewer_id"
   | "budget_exceeded";
 
 /** Typed error payload embedded in a failed envelope (backend `PreviewErrorInfo`). */
@@ -685,16 +634,11 @@ export interface PreviewEnvelope {
   session_id: string | null;
   previewer_id: string;
   target: PreviewTarget;
-  kind: EnvelopeKind | "panel";
+  kind: EnvelopeKind;
   payload: Record<string, unknown>;
-  resources: PreviewResource[];
   metadata: PreviewMetadata;
   diagnostics: string[];
   error: PreviewErrorInfo | null;
-  /** First-class same-origin previewer manifest, framework-stamped by the
-   *  session manager from the resolved PreviewerSpec (ADR-048 §4 / #1579).
-   *  Absent for core fallbacks. Prefer this over `metadata.frontend_manifest`. */
-  frontend_manifest?: PreviewerManifest | null;
 }
 
 /** Request body for `POST /api/previews/sessions`. */
@@ -739,9 +683,8 @@ export interface PreviewResourceSaveResponse {
  *  FR-003 routing precedence project → user → package → core). */
 export type PreviewerOwnerKind = "project" | "user" | "package" | "core";
 
-/** One registered previewer (backend `PreviewerSpecModel`). */
+/** One routing candidate of a panel (backend `PreviewerSpecModel`). */
 export interface PreviewerSpecSummary {
-  renderer?: "panel" | "legacy";
   panel?: {
     id: string;
     api_version: string;
@@ -758,16 +701,14 @@ export interface PreviewerSpecSummary {
   supports_collection: boolean;
   priority: number;
   capabilities: string[];
-  backend_provider: string | null;
-  frontend_manifest: PreviewerManifest | null;
   api_version: string;
 }
 
 /** `GET /api/previews/previewers` response (#2095). */
 export interface PreviewerListResponse {
   previewers: PreviewerSpecSummary[];
-  /** Discovery problems recorded during the scan (duplicate ids, refused
-   *  drop-ins, broken entry points). */
+  /** Discovery problems recorded during the scan (refused panel folders,
+   *  shadowed ids, broken entry points). */
   diagnostics: string[];
 }
 

@@ -5,11 +5,9 @@
 # and never rebuilt. It owns:
 #
 # * the panel catalog: a :class:`~scistudio.panels.registry.PanelRegistry` from
-#   :func:`~scistudio.panels.registry.discover_panels`, merged with the
-#   deprecated previewers into one namespace (FR-007);
+#   :func:`~scistudio.panels.registry.discover_panels` (FR-007);
 # * routing: :class:`~scistudio.panels.router.PanelRouter`, the only ladder;
-# * preview sessions routed to a panel, and the call path into the legacy
-#   renderer when a legacy previewer wins (:mod:`scistudio.panels.legacy`);
+# * preview sessions routed to a panel;
 # * panel contexts and their ``panel.py`` processes;
 # * change watching: the panel tiers (rescan) and every open panel's page
 #   (``panel.files_changed``);
@@ -25,7 +23,7 @@
 # Locking: state is an immutable snapshot swapped under ``_lock``; readers
 # (routing, lookups, contexts) never take ``_lock``. Contexts are revoked and
 # events emitted after ``_lock`` is released.
-# Development references: #2421, #2428, #2455, #2465, ADR-048, ADR-054.
+# Development references: #2421, #2428, #2455, #2465, #2493, ADR-048, ADR-054.
 
 from __future__ import annotations
 
@@ -41,7 +39,12 @@ from typing import Any
 from scistudio.engine.events import EngineEvent
 from scistudio.panels.contexts import PANEL_EVENTS, PanelContexts, project_key
 from scistudio.panels.descriptor import PanelDescriptor
-from scistudio.panels.legacy import LegacyFactory, LegacyPreviewers, build_legacy_service
+from scistudio.panels.models import (
+    PreviewEnvelope,
+    PreviewError,
+    PreviewerSpec,
+    PreviewTarget,
+)
 from scistudio.panels.registry import (
     PanelRegistry,
     PanelSourcesFingerprint,
@@ -54,13 +57,6 @@ from scistudio.panels.registry import (
 from scistudio.panels.router import CandidateSet, PanelRouter, merge_candidates, spec_claim
 from scistudio.panels.sessions import PreviewSessions, routing_error_envelope
 from scistudio.panels.watcher import PanelFileWatches, PanelSourceWatcher
-from scistudio.previewers.models import (
-    PreviewEnvelope,
-    PreviewError,
-    PreviewerSpec,
-    PreviewTarget,
-    UnknownPreviewerError,
-)
 from scistudio.stability import internal
 
 logger = logging.getLogger(__name__)
@@ -81,7 +77,7 @@ def _default_discover(project_dir: Path | None, registered_types: Any) -> PanelR
 
 
 def _default_choices(project_dir: Path | None) -> dict[str, str]:
-    from scistudio.previewers.choices import load_choices
+    from scistudio.panels.choices import load_choices
 
     return load_choices(project_dir)
 
@@ -105,7 +101,6 @@ class PanelService:
         runtime: Any,
         *,
         discover: Discover = _default_discover,
-        legacy_factory: LegacyFactory = build_legacy_service,
         choices_loader: ChoicesLoader = _default_choices,
     ) -> None:
         self.runtime = runtime
@@ -118,12 +113,6 @@ class PanelService:
         self._loaded = False
         self._tasks: set[asyncio.Task[None]] = set()
         resolver = getattr(runtime, "resolve_child_preview_context", None)
-        self.legacy = LegacyPreviewers(
-            factory=legacy_factory,
-            child_context_resolver=resolver,
-            child_session=self._child_session,
-            resolver=self.route,
-        )
         self.sessions = PreviewSessions(child_context_resolver=resolver, child_session=self._child_session)
         self.file_watches = PanelFileWatches(event_bus=self.event_bus)
         self.contexts = PanelContexts(runtime, self)
@@ -182,7 +171,6 @@ class PanelService:
             if self._loaded:
                 return
             project_dir = self.project_dir
-            self.legacy.rebuild(project_dir)
             sources = panel_sources_fingerprint(project_dir)
             self._state = self._compose(
                 self._discover(project_dir, self._registered_types()),
@@ -201,7 +189,7 @@ class PanelService:
         return closed
 
     def refresh(self) -> RegistryDiff:
-        """Every registry was rebuilt: rescan the legacy previewers, then the panels.
+        """Every registry was rebuilt: rescan the panels.
 
         When the open project changed since the last load this is a project
         switch: contexts of the old project end, the choices are re-read and the
@@ -214,7 +202,7 @@ class PanelService:
         switching = self._state.project != project_key(self.runtime)
         if switching:
             self.close_project()
-        diff = self.rescan(force=True, legacy=True, reload_choices=switching)
+        diff = self.rescan(force=True, reload_choices=switching)
         if switching and self._watching:
             self._arm_source_watch()
         return diff
@@ -224,22 +212,19 @@ class PanelService:
         # Development references: #2421.
         return self.rescan()
 
-    def rescan(self, *, force: bool = False, legacy: bool = False, reload_choices: bool = False) -> RegistryDiff:
+    def rescan(self, *, force: bool = False, reload_choices: bool = False) -> RegistryDiff:
         """Rediscover the panels and apply the difference incrementally.
 
         Without ``force`` nothing is rediscovered while the panel folders look
-        unchanged (stats and listings only). ``legacy`` rescans the deprecated
-        previewers first.
+        unchanged (stats and listings only).
         """
         self.ensure_loaded()
         with self._lock:
             project_dir = self.project_dir
             sources = panel_sources_fingerprint(project_dir)
             old = self._state
-            if not (force or legacy or reload_choices) and sources == old.sources:
+            if not (force or reload_choices) and sources == old.sources:
                 return RegistryDiff()
-            if legacy:
-                self.legacy.rebuild(project_dir)
             choices = self._choices_loader(project_dir) if reload_choices else old.choices
             new = self._compose(
                 self._discover(project_dir, self._registered_types()),
@@ -253,7 +238,6 @@ class PanelService:
                 old_candidates=_candidate_keys(old.candidates),
                 new_candidates=_candidate_keys(new.candidates),
                 catalog_changed=_catalog_summary(old.candidates) != _catalog_summary(new.candidates),
-                legacy_reloaded=legacy,
             )
             self._state = new
         self._apply(diff, new.candidates.panels, reason="panel_changed")
@@ -276,12 +260,11 @@ class PanelService:
                 )
         if not diff.empty:
             logger.info(
-                "panel catalog: added=%s removed=%s changed=%s preview_types=%s legacy_reloaded=%s",
+                "panel catalog: added=%s removed=%s changed=%s preview_types=%s",
                 sorted(diff.added),
                 sorted(diff.removed),
                 sorted(diff.changed),
                 sorted(diff.preview_types),
-                diff.legacy_reloaded,
             )
             self._emit(REGISTRIES_CHANGED, diff.to_event_data())
 
@@ -297,9 +280,6 @@ class PanelService:
             panels=panels.panels,
             shadowed_panels=panels.shadowed,
             panel_diagnostics=panels.diagnostics,
-            legacy_specs=self.legacy.specs(),
-            legacy_shadowed=self.legacy.shadowed(),
-            legacy_diagnostics=self.legacy.diagnostics(),
         )
         return _State(
             panels=panels,
@@ -377,12 +357,12 @@ class PanelService:
         }
 
     def all_specs(self) -> list[PreviewerSpec]:
-        """Every routing candidate, panels and legacy previewers alike."""
+        """Every routing candidate of the current catalog."""
         self.ensure_loaded()
         return list(self._state.candidates.routable)
 
     def previewer(self, previewer_id: str) -> PreviewerSpec | None:
-        """The namespace winner for *previewer_id* (a panel card or a legacy spec)."""
+        """The catalog card of the winning panel *previewer_id*."""
         self.ensure_loaded()
         return self._state.candidates.by_id.get(previewer_id)
 
@@ -392,11 +372,6 @@ class PanelService:
         candidates = self._state.candidates
         return candidates.catalog_specs(), list(candidates.diagnostics)
 
-    def legacy_service(self) -> Any:
-        """The deprecated previewers' ``PreviewService`` (registry + sessions)."""
-        self.ensure_loaded()
-        return self.legacy.service
-
     # -- choices --------------------------------------------------------------
 
     def choices(self) -> dict[str, str]:
@@ -405,14 +380,14 @@ class PanelService:
 
     def set_choice(self, path: Path, target_type: str, previewer_id: str) -> None:
         """Persist a choice at the layer *path* and re-route previews of *target_type*."""
-        from scistudio.previewers.choices import write_choice
+        from scistudio.panels.choices import write_choice
 
         write_choice(path, target_type, previewer_id)
         self._choices_changed(target_type)
 
     def clear_choice(self, path: Path, target_type: str) -> None:
         """Remove the choice at the layer *path* and re-route previews of *target_type*."""
-        from scistudio.previewers.choices import clear_choice
+        from scistudio.panels.choices import clear_choice
 
         clear_choice(path, target_type)
         self._choices_changed(target_type)
@@ -437,11 +412,7 @@ class PanelService:
     def router(self) -> PanelRouter:
         self.ensure_loaded()
         state = self._state
-        return PanelRouter(
-            state.candidates.routable,
-            choices=state.choices,
-            project_default=self.legacy.project_default_for,
-        )
+        return PanelRouter(state.candidates.routable, choices=state.choices)
 
     def route(self, target: PreviewTarget, query: Mapping[str, Any] | None = None) -> PreviewerSpec:
         """The candidate that previews *target* (``core_only`` / ``panel_id`` honoured)."""
@@ -456,7 +427,7 @@ class PanelService:
         authority: Any = None,
         fresh: bool = False,
     ) -> PreviewEnvelope:
-        """Route *target* and open a session on the renderer of the winner."""
+        """Route *target* and open a session on the winning panel."""
         if fresh:
             self.ensure_fresh()
         query = dict(query or {})
@@ -466,9 +437,7 @@ class PanelService:
             spec = self.route(target, query)
         except PreviewError as exc:
             return routing_error_envelope(target, exc)
-        if spec.panel is not None:
-            return self.sessions.create_session(spec, target, query, guard=guard, authority=authority)
-        return self.legacy.create_session(spec, target, query, guard=guard, authority=authority)  # type: ignore[no-any-return]
+        return self.sessions.create_session(spec, target, query, guard=guard, authority=authority)
 
     def _child_session(self, target: PreviewTarget, query: dict[str, Any]) -> PreviewEnvelope:
         return self.create_preview_session(target, query)
@@ -477,42 +446,25 @@ class PanelService:
         panel = self._state.candidates.panels.get(panel_id)
         return None if panel is None else panel.api_version
 
-    def _legacy_sessions(self, session_id: str) -> Any:
-        if self.sessions.owns(session_id):
-            return None
-        if self.legacy.owns(session_id):
-            return self.legacy.sessions
-        raise UnknownPreviewerError(f"Unknown preview session: {session_id}", detail={"session_id": session_id})
-
     def read_session(self, session_id: str) -> PreviewEnvelope:
-        legacy = self._legacy_sessions(session_id)
-        if legacy is None:
-            return self.sessions.read_session(session_id, self._api_version)
-        return legacy.read_session(session_id)  # type: ignore[no-any-return]
+        return self.sessions.read_session(session_id, self._api_version)
 
     def patch_session(self, session_id: str, query_patch: dict[str, Any]) -> PreviewEnvelope:
-        legacy = self._legacy_sessions(session_id)
-        if legacy is None:
-            return self.sessions.patch_session(session_id, query_patch, self._api_version)
-        return legacy.patch_session(session_id, query_patch)  # type: ignore[no-any-return]
+        return self.sessions.patch_session(session_id, query_patch, self._api_version)
 
     def read_resource(self, session_id: str, resource_id: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        store = self._legacy_sessions(session_id) or self.sessions
-        return store.read_resource(session_id, resource_id, params)  # type: ignore[no-any-return]
+        return self.sessions.read_resource(session_id, resource_id, params)
 
     def save_resource(
         self, session_id: str, resource_id: str, destination: Path, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        store = self._legacy_sessions(session_id) or self.sessions
-        return store.save_resource(session_id, resource_id, destination, params)  # type: ignore[no-any-return]
+        return self.sessions.save_resource(session_id, resource_id, destination, params)
 
     def frozen_session(self, session_id: str) -> Any:
-        store = self._legacy_sessions(session_id) or self.sessions
-        return store.frozen_session(session_id)
+        return self.sessions.frozen_session(session_id)
 
     def session_authority(self, session_id: str) -> Any:
-        store = self._legacy_sessions(session_id) or self.sessions
-        return store.session_authority(session_id)
+        return self.sessions.session_authority(session_id)
 
     # -- contexts -------------------------------------------------------------
 

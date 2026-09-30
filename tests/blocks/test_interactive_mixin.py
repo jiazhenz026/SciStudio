@@ -1,6 +1,6 @@
 """ADR-051: unit tests for the interaction capability contract module.
 
-Covers :class:`PanelManifest` (wire shape; ``asset_root`` never serialized),
+Covers :class:`PanelManifest` (wire shape; the legacy module fields are gone, #2493),
 :class:`InteractivePrompt`, :func:`coerce_prompt`, the storage-reference
 serialization helpers, and :func:`load_intermediate`.
 """
@@ -170,28 +170,18 @@ class TestRemapSavedDecisionDefault:
 
 class TestPanelManifest:
     def test_to_dict_wire_shape(self) -> None:
-        m = PanelManifest(panel_id="core.interactive.data_router", module_url="/api/x/y.js", version="2")
+        m = PanelManifest(panel_id="core.interactive.data_router")
         wire = m.to_dict()
-        assert wire == {
-            "panel_id": "core.interactive.data_router",
-            "module_url": "/api/x/y.js",
-            "export_name": "default",
-            "css": [],
-            "version": "2",
-            "api_version": PANEL_API_VERSION,
-        }
-
-    def test_asset_root_never_serialized(self) -> None:
-        m = PanelManifest(panel_id="p", asset_root="/secret/filesystem/path")
-        assert "asset_root" not in m.to_dict()
+        assert wire == {"panel_id": "core.interactive.data_router", "api_version": PANEL_API_VERSION}
 
     def test_response_schema_included_when_set(self) -> None:
         m = PanelManifest(panel_id="p", response_schema={"type": "object"})
         assert m.to_dict()["response_schema"] == {"type": "object"}
 
-    def test_core_panel_defaults_module_url_empty(self) -> None:
+    def test_the_legacy_module_fields_are_gone(self) -> None:
         m = PanelManifest(panel_id="core.interactive.pair_editor")
-        assert m.module_url == ""
+        for name in ("module_url", "export_name", "css", "version", "asset_root"):
+            assert not hasattr(m, name), name
 
 
 class TestInteractivePrompt:

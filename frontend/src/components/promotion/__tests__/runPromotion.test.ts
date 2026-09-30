@@ -100,17 +100,17 @@ describe("runPromotion — which outcomes the user is told about", () => {
     expect(revealInLibrary).toHaveBeenCalledWith("blocks");
   });
 
-  it("confirms a promoted previewer without a reveal — it has no palette tab", async () => {
+  it("confirms a promoted preview panel without a reveal — it has no palette tab", async () => {
     // Learning Center #2086: previewers have no left-panel section, and
     // switching to the Blocks tab would teach the wrong location. The inline
     // confirmation still runs.
     const { runPromotion } = await import("../runPromotion");
     const previewerItem: PromotableItem = {
-      target: "previewers",
+      target: "panels",
       kind: "previewer",
       label: "image_viewer",
       origin: "project",
-      source: { from: "projectFile", path: "previewers/image_viewer.py" },
+      source: { from: "panelDirectory", panelId: "image_viewer" },
     };
     promote.mockResolvedValue({ ...outcome("promoted"), item: previewerItem });
 

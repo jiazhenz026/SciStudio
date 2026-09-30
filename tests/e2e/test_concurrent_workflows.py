@@ -137,7 +137,6 @@ CONFIRM_BLOCK = '''"""An interactive block: show the markers, wait for a decisio
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, ClassVar
 
 import pyarrow as pa
@@ -162,12 +161,8 @@ class ConfirmMarkerBlock(InteractiveMixin, ProcessBlock):
     type_name: ClassVar[str] = "e2e_confirm_marker"
     description: ClassVar[str] = "Ask a person to confirm the marker."
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
-    interactive_panel: ClassVar[PanelManifest] = PanelManifest(
-        panel_id="e2e.confirm_marker",
-        module_url="/api/blocks/panels/e2e.confirm_marker/panel.mjs",
-        version="1",
-        asset_root=str(Path(__file__).resolve().parent / "e2e_confirm_marker_panel"),
-    )
+    # The window is the project panel ``panels/e2e.confirm_marker`` (#2493).
+    interactive_panel: ClassVar[PanelManifest] = PanelManifest(panel_id="e2e.confirm_marker")
     input_ports: ClassVar[list[InputPort]] = [
         InputPort(name="table", accepted_types=[DataFrame], description="Marker table"),
     ]
@@ -190,7 +185,9 @@ class ConfirmMarkerBlock(InteractiveMixin, ProcessBlock):
         return {"table": Collection(items=[DataFrame(data=table)], item_type=DataFrame)}
 '''
 
-CONFIRM_PANEL = "export default function mount(root) { root.textContent = 'confirm'; }\n"
+#: The interactive panel the confirm block opens: a project panel folder.
+CONFIRM_PANEL_DESCRIPTOR = '{"id": "e2e.confirm_marker", "api_version": "1.0", "contexts": ["interactive"]}\n'
+CONFIRM_PANEL_PAGE = "<!doctype html><p>confirm</p>\n"
 
 #: A real AI block whose agent is a stand-in: instead of opening a terminal, the
 #: "agent" reads the manifest the block wrote, the way a real agent is told to,
@@ -277,9 +274,10 @@ def make_project(backend: Backend, parent: Path, name: str) -> Project:
     (blocks / "e2e_barrier.py").write_text(BARRIER_BLOCK, encoding="utf-8")
     (blocks / "e2e_confirm_marker.py").write_text(CONFIRM_BLOCK, encoding="utf-8")
     (blocks / "e2e_fake_agent.py").write_text(FAKE_AGENT_BLOCK, encoding="utf-8")
-    panel = blocks / "e2e_confirm_marker_panel"
-    panel.mkdir(exist_ok=True)
-    (panel / "panel.mjs").write_text(CONFIRM_PANEL, encoding="utf-8")
+    panel = project.path / "panels" / "e2e.confirm_marker"
+    panel.mkdir(parents=True, exist_ok=True)
+    (panel / "panel.json").write_text(CONFIRM_PANEL_DESCRIPTOR, encoding="utf-8")
+    (panel / "index.html").write_text(CONFIRM_PANEL_PAGE, encoding="utf-8")
     backend.reload_registries()
     return project
 
@@ -729,13 +727,33 @@ def test_a_prompt_waiting_in_one_workflow_is_answered_only_by_that_workflow(
     assert live_runs(backend) == {"asks": run_a}
     assert backend.run(run_a)["run"]["status"] == "running"
 
+    # A panel window writes back through the context the host opened for this
+    # waiting block, and the backend refuses a decision that names none
+    # (ADR-054 §2; the context-free module_url window was removed in #2493).
+    context = backend.call(
+        "POST",
+        "/api/panels/contexts",
+        json={"kind": "interactive", "panel_id": "e2e.confirm_marker", "workflow_id": "asks", "block_id": "hold"},
+    )
     # A decision addressed to the other workflow's node of the same id does not answer this prompt.
     events.send(
-        {"type": "interactive_complete", "workflow_id": "flows", "block_id": "hold", "data": {"decision": "from-flows"}}
+        {
+            "type": "interactive_complete",
+            "workflow_id": "flows",
+            "block_id": "hold",
+            "context_id": context["context_id"],
+            "data": {"decision": "from-flows"},
+        }
     )
     drain(events)
     events.send(
-        {"type": "interactive_complete", "workflow_id": "asks", "block_id": "hold", "data": {"decision": "from-asks"}}
+        {
+            "type": "interactive_complete",
+            "workflow_id": "asks",
+            "block_id": "hold",
+            "context_id": context["context_id"],
+            "data": {"decision": "from-asks"},
+        }
     )
     record_a = backend.wait_for_run(run_a)
     assert record_a["run"]["status"] == "completed", record_a["run"]

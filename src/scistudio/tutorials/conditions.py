@@ -343,12 +343,8 @@ waiting on a run to succeed, because the claim is the conditions themselves.
 LIBRARY_KINDS: frozenset[str] = frozenset({"block", "type", "previewer"})
 """The three kinds ``library_contains`` judges, all satisfiable.
 
-``previewer`` spent its first months **specified but not satisfiable**: the
-Scoped library created ``blocks/`` and ``types/`` only, and the previewer
-registry did not scan it, so the kind sat in
-:data:`UNSATISFIABLE_LIBRARY_KINDS` with its reason. The scoped library now has a
-library a ``previewers/`` tier riding the user-tier slot the previewer
-registry gained with, so the kind is judgeable like the other two.
+A ``previewer`` is a preview panel saved into the scoped library's ``panels/``
+tier, which rides the user-tier slot panel discovery gives it.
 """
 # Development references: #2017, #2086, FR-047.
 
@@ -356,7 +352,7 @@ UNSATISFIABLE_LIBRARY_KINDS: Mapping[str, str] = MappingProxyType({})
 """Library kinds the vocabulary declares but the product cannot yet satisfy.
 
 Empty today: ``previewer``, the one entry this mapping was built for, left it
-When the tutorial-scoped library grew a ``previewers/`` tier. The
+when the tutorial-scoped library grew a tier for it. The
 mechanism stays, and deliberately: the API's shape — a spec written against a
 product that does not fully exist yet — can recur, and when it does the kind
 belongs here with its reason and tracking issue rather than being silently

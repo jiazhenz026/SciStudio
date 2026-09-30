@@ -2,43 +2,60 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+import scistudio.panels
 from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
 from scistudio.engine.events import EventBus
 from scistudio.panels.descriptor import parse_descriptor
+from scistudio.panels.models import OwnerKind, PreviewTarget
 from scistudio.panels.registry import PanelRegistry
 from scistudio.panels.service import PanelService, get_panel_contexts
-from scistudio.previewers import PreviewService
-from scistudio.previewers.models import OwnerKind, PreviewTarget
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.session import PreviewSessionManager
+
+#: The registered types the built-in core panels claim.
+CORE_PANEL_TYPES = frozenset({"Array", "Artifact", "CompositeData", "DataFrame", "Series", "Text"})
+BUILTIN_PANELS = Path(scistudio.panels.__file__).parent / "builtin"
 
 
-def install_panel_service(runtime, panels, legacy_registry=None, *, choices=None):
-    """Give a runtime double a real panel service over fixed registries.
+def core_panels() -> PanelRegistry:
+    """The built-in core panels, as discovery loads them (``panels/builtin``)."""
+    registry = PanelRegistry()
+    for child in sorted(BUILTIN_PANELS.iterdir()):
+        if child.is_dir() and not child.name.startswith("."):
+            registry.load(child, OwnerKind.CORE, CORE_PANEL_TYPES)
+    assert not registry.diagnostics, registry.diagnostics
+    return registry
+
+
+def with_core_panels(panels: PanelRegistry) -> PanelRegistry:
+    """*panels* over the built-in core panels, the tiers resolved as discovery does."""
+    merged = core_panels()
+    for panel in panels.panels.values():
+        merged.register(panel)
+    merged.shadowed.extend(panels.shadowed)
+    merged.diagnostics.extend(panels.diagnostics)
+    return merged
+
+
+def install_panel_service(runtime, panels, *, choices=None, core=True):
+    """Give a runtime double a real panel service over a fixed catalog.
 
     ``panels`` is a :class:`PanelRegistry` or a zero-argument callable returning
-    the registry the next discovery finds, so a test can change the catalog.
+    the registry the next discovery finds, so a test can change the catalog. The
+    built-in core panels are added under it unless ``core`` is false.
     """
-    if legacy_registry is None:
-        legacy_registry = PreviewerRegistry()
-        legacy_registry.load_core()
     discover = panels if callable(panels) else (lambda: panels)
     service = PanelService(
         runtime,
-        discover=lambda _project, _types: discover(),
-        legacy_factory=lambda _project, _resolver: PreviewService(
-            registry=legacy_registry, sessions=PreviewSessionManager(legacy_registry)
-        ),
+        discover=lambda _project, _types: with_core_panels(discover()) if core else discover(),
         choices_loader=lambda _project: dict(choices or {}),
     )
     runtime._panel_service = service
     runtime.get_panel_service = lambda: service
-    runtime.get_preview_service = service.legacy_service
     return service
 
 

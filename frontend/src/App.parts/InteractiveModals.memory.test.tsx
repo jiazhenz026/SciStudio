@@ -13,8 +13,8 @@ import { resetAppStore } from "../testUtils";
 import { InteractiveModals } from "./InteractiveModals";
 
 vi.mock("../hooks/useWebSocket", () => ({ sendWebSocketMessage: vi.fn() }));
-vi.mock("./InteractiveModals.parts/DynamicPanel", () => ({
-  DynamicPanel: (props: { onConfirm: (data: Record<string, unknown>) => void }) => (
+vi.mock("../panels/InteractivePanel", () => ({
+  InteractivePanel: (props: { onConfirm: (data: Record<string, unknown>) => void }) => (
     <button type="button" onClick={() => props.onConfirm({ routes: ["choice"] })}>
       confirm
     </button>
@@ -28,11 +28,7 @@ function seedPrompt(blockId: string) {
     blockId,
     blockType: "pkg.router",
     workflowId: "main",
-    panelManifest: {
-      panel_id: "pkg.router",
-      module_url: "/api/blocks/panels/pkg/x.js",
-      api_version: "1.0",
-    },
+    panelManifest: { panel_id: "pkg.router", api_version: "1.0" },
     panelPayload: {},
     inputSignature: { in: ["a.tif", "b.tif"] },
     data: {},

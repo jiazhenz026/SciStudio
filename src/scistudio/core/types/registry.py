@@ -315,8 +315,7 @@ class TypeRegistry:
         """Return what the most recent ``scistudio.types`` entry-point scan refused.
 
         Same shape and same reason as
-        :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics` and
-        :attr:`scistudio.previewers.registry.PreviewerRegistry.diagnostics`: a
+        :attr:`scistudio.blocks.registry.BlockRegistry.diagnostics`: a
         package that contributed nothing has to be distinguishable from a
         package that had nothing to contribute, and a log line the user never
         sees does not distinguish them.

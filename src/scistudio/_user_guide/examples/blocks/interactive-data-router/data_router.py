@@ -105,10 +105,9 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     """Marks the block as interactive: it pauses for user input mid-run."""
 
     # The block-owned window: the panel host resolves this built-in panel id
-    # when the block pauses (core panel; no module_url needed).
+    # when the block pauses (the core interactive panel).
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.data_router",
-        version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""
 

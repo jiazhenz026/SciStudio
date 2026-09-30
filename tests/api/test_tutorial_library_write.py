@@ -60,20 +60,8 @@ class TeachingProbeType(DataObject):
     """Type saved to My Library during a tutorial."""
 '''
 
-TEACHING_PREVIEWER = """\
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
-
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id="test.teaching.viewer",
-            owner_kind=OwnerKind.USER,
-            owner_name="tutorial-library",
-            target_type="TeachingProbeType",
-        )
-    ]
-"""
+#: A preview panel the scenario saves to the library (#2493: every previewer is a panel).
+TEACHING_PREVIEWER_ID = "test.teaching.viewer"
 
 WELCOME = TutorialKey.core("welcome-to-scistudio")
 
@@ -83,6 +71,21 @@ def _put(client: TestClient, *, target: str, filename: str, content: str) -> htt
         "/api/user-library/file",
         params={"target": target, "filename": filename},
         json={"content": content},
+    )
+
+
+def _promote_preview_panel(client: TestClient, project: Path, panel_id: str = TEACHING_PREVIEWER_ID) -> httpx.Response:
+    """Write a preview panel into *project* and promote it to the library, as the scenario does."""
+    import json
+
+    directory = project / "panels" / panel_id
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = {"id": panel_id, "api_version": "1.0", "contexts": ["preview"], "types": ["Text"]}
+    (directory / "panel.json").write_text(json.dumps(descriptor), encoding="utf-8")
+    (directory / "index.html").write_text("<p>teaching</p>", encoding="utf-8")
+    return client.post(
+        f"/api/user-library/directory?target=panels&name={panel_id}",
+        json={"project_dir": str(project)},
     )
 
 
@@ -150,17 +153,17 @@ def test_a_type_save_from_a_tutorial_lands_in_the_scoped_library(client: TestCli
 def test_a_previewer_save_from_a_tutorial_lands_in_the_scoped_library(
     client: TestClient, tutorial_project: Path
 ) -> None:
-    """The third tier swaps too (#2086) — the scenario saves a *previewer*.
+    """The panel tier swaps too (#2086) — the scenario saves a *previewer*.
 
     Tutorial 3 reuses tutorial 2's previewer through the scoped library; a save
-    that landed in ``~/.scistudio/previewers`` would both pollute the user's
-    real library and leave the next tutorial project unable to find it.
+    that landed in ``~/.scistudio/panels`` would both pollute the user's real
+    library and leave the next tutorial project unable to find it.
     """
-    response = _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER)
+    response = _promote_preview_panel(client, tutorial_project)
 
     assert response.status_code == 200, response.text
-    assert (dropins.tutorial_library_dir() / "previewers" / "teaching_viewer.py").is_file()
-    assert not (dropins.user_previewers_dir() / "teaching_viewer.py").exists()
+    assert (dropins.tutorial_library_dir() / "panels" / TEACHING_PREVIEWER_ID / "panel.json").is_file()
+    assert not (dropins.user_library_dir() / "panels" / TEACHING_PREVIEWER_ID).exists()
 
 
 def test_a_save_from_a_real_project_still_lands_in_the_real_library(client: TestClient, real_project: Path) -> None:
@@ -192,13 +195,16 @@ def test_the_write_root_is_the_directory_the_registry_scans(
     for project, target, scan_dirs, source, filename in (
         (real_project, "blocks", dropins.block_scan_dirs, TEACHING_BLOCK, "from_real.py"),
         (tutorial_project, "blocks", dropins.block_scan_dirs, TEACHING_BLOCK, "from_tutorial.py"),
-        (real_project, "previewers", dropins.previewer_scan_dirs, TEACHING_PREVIEWER, "viewer_from_real.py"),
-        (tutorial_project, "previewers", dropins.previewer_scan_dirs, TEACHING_PREVIEWER, "viewer_from_tutorial.py"),
     ):
         assert client.get(f"/api/projects/{project}").status_code == 200
         response = _put(client, target=target, filename=filename, content=source)
         assert response.status_code == 200, response.text
         assert Path(response.json()["path"]).parent == scan_dirs(project)[-1]
+    for project, panel_id in ((real_project, "viewer.from_real"), (tutorial_project, "viewer.from_tutorial")):
+        assert client.get(f"/api/projects/{project}").status_code == 200
+        response = _promote_preview_panel(client, project, panel_id)
+        assert response.status_code == 200, response.text
+        assert Path(response.json()["path"]).parent == dropins.panel_scan_dirs(project)[-1]
 
 
 # ---------------------------------------------------------------------------
@@ -303,18 +309,16 @@ def test_library_contains_sees_a_previewer_saved_during_a_tutorial(
     """The kind #2086 made judgeable, proved end to end.
 
     The save goes through the HTTP endpoint and the judgement through the real
-    product state. A previewer spec carries no source file path, so membership
-    rides the swap itself: while the tutorial project is open, its user tier
-    *is* the scoped library, and the saved previewer registers as the user
-    tier — matched by its id and by its target type, mirroring the two names a
-    block answers to.
+    product state. A routing candidate carries no source file path, so
+    membership rides the swap itself: while the tutorial project is open, its
+    user tier *is* the scoped library, and the saved preview panel registers as
+    the user tier — matched by its id and by its type, mirroring the two names
+    a block answers to.
     """
     from scistudio.api.routes.tutorials import _ApiProductState, _RecordedSignals
     from scistudio.tutorials.conditions import evaluate, parse_condition
 
-    assert (
-        _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER).status_code == 200
-    )
+    assert _promote_preview_panel(client, tutorial_project).status_code == 200
 
     state = _ApiProductState(
         runtime=runtime,
@@ -324,9 +328,9 @@ def test_library_contains_sees_a_previewer_saved_during_a_tutorial(
     )
 
     assert ("previewer", "test.teaching.viewer") in state.library_entries()
-    assert ("previewer", "TeachingProbeType") in state.library_entries()
+    assert ("previewer", "Text") in state.library_entries()
     assert evaluate(parse_condition({"library_contains": {"kind": "previewer", "name": "test.teaching.viewer"}}), state)
-    assert evaluate(parse_condition({"library_contains": {"kind": "previewer", "name": "TeachingProbeType"}}), state)
+    assert evaluate(parse_condition({"library_contains": {"kind": "previewer", "name": "Text"}}), state)
     # And a name nobody saved stays false, so the term is judging rather than
     # answering true for everything.
     assert not evaluate(parse_condition({"library_contains": {"kind": "previewer", "name": "test.absent"}}), state)
@@ -361,7 +365,7 @@ def test_library_contains_previewer_stays_false_for_a_save_from_a_real_project(
 ) -> None:
     """FR-071 for the previewer kind.
 
-    A previewer saved to the user's real library registers as the user tier
+    A preview panel saved to the user's real library registers as the user tier
     too — that is #2017's behaviour and it must keep working — but it is not
     *in the scoped library*, so the condition stays false while a real project
     is open. The owner-kind test alone would get this wrong, which is why
@@ -371,10 +375,8 @@ def test_library_contains_previewer_stays_false_for_a_save_from_a_real_project(
     from scistudio.api.routes.tutorials import _ApiProductState, _RecordedSignals
     from scistudio.tutorials.conditions import evaluate, parse_condition
 
-    assert (
-        _put(client, target="previewers", filename="teaching_viewer.py", content=TEACHING_PREVIEWER).status_code == 200
-    )
-    assert (dropins.user_previewers_dir() / "teaching_viewer.py").is_file()
+    assert _promote_preview_panel(client, real_project).status_code == 200
+    assert (dropins.user_library_dir() / "panels" / TEACHING_PREVIEWER_ID / "panel.json").is_file()
 
     state = _ApiProductState(
         runtime=runtime,

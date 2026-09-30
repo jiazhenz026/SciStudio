@@ -19,13 +19,13 @@ function envelope(ref: string, panel = true): PreviewEnvelope {
   return {
     session_id: `pv-${ref}`,
     target: { kind: "data_ref", ref },
-    previewer_id: panel ? `lab.${ref}` : "core.text.basic",
-    kind: panel ? "panel" : "text",
+    previewer_id: panel ? `lab.${ref}` : "",
+    kind: panel ? "panel" : "error",
     ...(panel ? { panel: { id: `lab.${ref}`, api_version: "1.0" } } : {}),
-    payload: panel ? {} : { content: `Text ${ref}` },
-    resources: [],
+    payload: {},
     diagnostics: [],
-    error: null,
+    // A child that is not a panel is a failed preview: its typed error shows.
+    error: panel ? null : { code: "unknown_target", message: `Text ${ref}` },
     metadata: {
       sampled: false,
       truncated: false,
@@ -100,7 +100,7 @@ async function mountPanel(ref: string) {
   await message(port, "ready", null);
   return { frame, port };
 }
-it("opens panel and legacy children through authorized sessions and restores each parent on Back", async () => {
+it("opens panel and failed children through authorized sessions and restores each parent on Back", async () => {
   install({ child: envelope("child"), leaf: envelope("leaf", false) });
   const snapshot = vi.fn();
   render(
@@ -141,24 +141,6 @@ it("opens panel and legacy children through authorized sessions and restores eac
     viewState: { zoom: 4 },
   });
   expect(child.port.close).toHaveBeenCalledOnce();
-});
-it("keeps Back visible when a legacy composite drills down to a panel", async () => {
-  const legacy = {
-    ...envelope("composite", false),
-    kind: "composite" as const,
-    payload: { slots: { part: "Text" } },
-    resources: [{ resource_id: "slot:part", kind: "preview", params: { slot: "part" } }],
-  };
-  install({ composite: legacy }, envelope("part"));
-  render(<PreviewHost target={envelope("root").target} initialEnvelope={envelope("root")} />);
-  const root = await mountPanel("root");
-  await message(root.port, "open", { ref: "composite" });
-  fireEvent.click(await screen.findByTestId("composite-slot-part"));
-  await mountPanel("part");
-  fireEvent.click(screen.getByTestId("preview-host-back"));
-  expect(screen.getByTestId("composite-slot-part")).toBeInTheDocument();
-  fireEvent.click(screen.getByText("← Back"));
-  expect(screen.getByTitle("root")).toBe(root.frame);
 });
 it.each([true, false])(
   "maximizes a composite-local child after parent disposal (panel=%s)",
@@ -206,7 +188,7 @@ it("re-opens an open child when a routing change concerns its type", async () =>
     ...envelope("item", false),
     session_id: session,
     target: { kind: "data_ref", ref: "item", type_chain: ["DataObject", "Array", "Image"] },
-    payload: { content: text },
+    error: { code: "unknown_target", message: text },
   });
   const children = { item: item("Text as numbers", "pv-item-1") };
   install(children);

@@ -27,13 +27,10 @@ from scistudio.api.app import create_app
 from scistudio.api.runtime.models import DataRecord
 from scistudio.core.storage.ref import StorageReference
 from scistudio.engine.events import EventBus
+from scistudio.panels.models import PreviewTarget, TargetKind
 from scistudio.panels.registry import panel_sources_fingerprint
 from scistudio.panels.service import PanelService
 from scistudio.panels.watcher import PanelSourceWatcher, _SourceHandler, is_panel_source_change
-from scistudio.previewers import PreviewService
-from scistudio.previewers.models import PreviewTarget, TargetKind
-from scistudio.previewers.registry import PreviewerRegistry
-from scistudio.previewers.session import PreviewSessionManager
 
 PAGE = "<!doctype html><html><body><div id='app'></div></body></html>"
 TYPES = ("DataFrame", "Text")
@@ -75,12 +72,6 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return project_dir
 
 
-def _core_legacy(_project: Any, _resolver: Any) -> PreviewService:
-    registry = PreviewerRegistry()
-    registry.load_core()
-    return PreviewService(registry=registry, sessions=PreviewSessionManager(registry))
-
-
 def _runtime(project: Path, bus: EventBus | None = None, **extra: Any) -> Any:
     runtime = SimpleNamespace(
         active_project=SimpleNamespace(id="p", path=str(project)),
@@ -103,10 +94,9 @@ def _runtime(project: Path, bus: EventBus | None = None, **extra: Any) -> Any:
     )
     runtime.is_recent_first_party_entity_write = lambda *args, **kwargs: True
     runtime.is_recent_workflow_first_party_write = lambda *args, **kwargs: True
-    service = PanelService(runtime, legacy_factory=_core_legacy, choices_loader=lambda _project: {})
+    service = PanelService(runtime, choices_loader=lambda _project: {})
     runtime._panel_service = service
     runtime.get_panel_service = lambda: service
-    runtime.get_preview_service = service.legacy_service
     return runtime
 
 
@@ -244,11 +234,11 @@ def test_choices_change_rebuilds_nothing_and_announces_the_type(project: Path, t
     _write_panel(project, "lab.text", contexts=["preview"], types=["Text"], priority=5)
     service.rescan()
     context = service.contexts.create({"kind": "preview", "target": {"ref": "data-text"}})
-    legacy = service.legacy_service()
+    generation = service.generation
     target = runtime.resolve_session_target(PreviewTarget(kind=TargetKind.DATA_REF, ref="data-text"))
     assert service.route(target).previewer_id == "lab.text"
 
-    from scistudio.previewers import choices as choices_module
+    from scistudio.panels import choices as choices_module
 
     original = choices_module.write_choice
     choices_module.write_choice = lambda path, type_name, previewer_id: path.write_text(
@@ -259,45 +249,31 @@ def test_choices_change_rebuilds_nothing_and_announces_the_type(project: Path, t
     finally:
         choices_module.write_choice = original
     assert service.route(target).previewer_id == "core.text.basic"
-    assert service.legacy_service() is legacy
+    assert service.generation == generation + 1
     assert service.contexts.get(context.context_id) is context
     assert runtime.event_bus.of("panel.choices_changed") == [{"type": "Text"}]
 
 
-def test_a_legacy_reload_ends_only_legacy_sessions(project: Path, tmp_path: Path) -> None:
-    from scistudio.previewers.fallbacks import text_previewer
-    from scistudio.previewers.models import OwnerKind, PreviewerSpec
-
+def test_a_refresh_with_nothing_changed_keeps_every_session(project: Path, tmp_path: Path) -> None:
     runtime = _runtime(project)
     service = runtime.get_panel_service()
-
-    def legacy_with_a_package_text_viewer(_project: Any, _resolver: Any) -> PreviewService:
-        built = _core_legacy(_project, _resolver)
-        built.registry.register(
-            PreviewerSpec("pkg.text", OwnerKind.PACKAGE, "pkg", "Text", backend_provider=text_previewer)
-        )
-        return built
-
-    service.legacy._factory = legacy_with_a_package_text_viewer
     _text_record(runtime, tmp_path)
     _write_panel(project, "lab.table", contexts=["preview"], types=["DataFrame"])
     service.rescan()
     text = runtime.resolve_session_target(PreviewTarget(kind=TargetKind.DATA_REF, ref="data-text"))
-    legacy_session = service.create_preview_session(text)
-    assert service.legacy.owns(legacy_session.session_id)
+    core_session = service.create_preview_session(text)
+    assert core_session.previewer_id == "core.text.basic" and core_session.kind.value == "panel"
     table = PreviewTarget(kind=TargetKind.DATA_REF, ref="t", recorded_type="DataFrame", type_chain=("DataFrame",))
     panel_session = service.create_preview_session(table)
-    assert panel_session.kind.value == "panel"
+    assert panel_session.previewer_id == "lab.table"
     runtime.event_bus.events.clear()
 
     diff = service.refresh()
-    assert diff.legacy_reloaded and not diff.invalidated
-    assert runtime.event_bus.of("blocks.reloaded")[-1]["legacy_reloaded"] is True
-    assert service.read_session(panel_session.session_id).session_id == panel_session.session_id
-    from scistudio.previewers.models import UnknownPreviewerError
-
-    with pytest.raises(UnknownPreviewerError):
-        service.read_session(legacy_session.session_id)
+    assert diff.empty and not diff.invalidated
+    assert "legacy_reloaded" not in diff.to_event_data()
+    assert runtime.event_bus.of("blocks.reloaded") == []
+    for session in (core_session, panel_session):
+        assert service.read_session(session.session_id).session_id == session.session_id
 
 
 def test_a_project_switch_closes_every_context_and_rearms(project: Path, tmp_path: Path) -> None:
@@ -488,7 +464,7 @@ def test_a_descriptor_edit_keeps_the_session_a_revoked_preview_reopens_on(projec
 
     shutil.rmtree(project / "panels" / "lab.text")
     assert service.rescan().removed == {"lab.text"}
-    from scistudio.previewers.models import UnknownPreviewerError
+    from scistudio.panels.models import UnknownPreviewerError
 
     with pytest.raises(UnknownPreviewerError):
         service.read_session(envelope.session_id)
@@ -510,9 +486,9 @@ def test_the_panel_browser_backend_builds_its_fixture_runtime(tmp_path: Path) ->
         assert service.panel(f"browser.{name}") is not None
     context = service.open_context({"kind": "preview", "panel_id": "browser.reader", "target": {"ref": "data-a"}})
     assert context.panel.id == "browser.reader"
-    # The composite's text slot has no panel, so it renders through the legacy core viewer.
-    from scistudio.previewers.models import PreviewTarget as Target
+    # The composite's text slot has no fixture panel, so the built-in core text panel serves it.
+    from scistudio.panels.models import PreviewTarget as Target
 
     slot = Target(kind=TargetKind.DATA_REF, ref="comp#notes", recorded_type="Text", type_chain=("Text",))
     assert service.route(slot).previewer_id == "core.text.basic"
-    assert service.route(slot).panel is None
+    assert service.route(slot).panel is not None

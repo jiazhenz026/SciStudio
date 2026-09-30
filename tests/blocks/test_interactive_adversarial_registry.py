@@ -7,17 +7,14 @@ NO-IMPLEMENTATION-CONTEXT design driven by the contract:
   (the malformed blocks must not register; the good one must), and a precise
   unit call into the scan-time validator for the exact error wording.
 * §4.2 / FR-007 — ``execution_mode`` and the serialized ``panel_manifest`` are
-  surfaced on block metadata (the registry ``BlockSpec``), with the server-only
-  ``asset_root`` kept off the wire.
-* §4.1 / FR-007 (ADR-048 reuse) — the package panel asset route is path-confined:
-  it rejects ``../`` escape, disallowed suffixes, unknown panels, missing files,
-  and remote URLs, and serves a confined asset.
+  surfaced on block metadata (the registry ``BlockSpec``). Since #2493 the
+  manifest names the panel only; the legacy module fields and the package panel
+  asset route are gone.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -31,8 +28,6 @@ from scistudio.blocks.base.state import ExecutionMode
 from scistudio.blocks.process.process_block import ProcessBlock
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.blocks.registry._spec import _spec_from_class
-from scistudio.previewers.assets import resolve_asset
-from scistudio.previewers.models import MissingBundleError
 from tests.fixtures.interactive_blocks import EmitNumbersBlock, SelectOptionBlock
 from tests.fixtures.interactive_blocks import registered_test_panels as registered_test_panels
 
@@ -49,7 +44,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 class GoodPanelDropin(InteractiveMixin, ProcessBlock):
     name = "GoodPanelDropin"
     execution_mode = ExecutionMode.INTERACTIVE
-    interactive_panel = PanelManifest(panel_id="dropin.good", version="1")
+    interactive_panel = PanelManifest(panel_id="dropin.good")
 
     def prepare_prompt(self, inputs, config):
         return InteractivePrompt(panel_payload={"ok": True})
@@ -78,7 +73,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 
 class BadMixinNoMode(InteractiveMixin, ProcessBlock):
     name = "BadMixinNoMode"
-    interactive_panel = PanelManifest(panel_id="dropin.badmode", version="1")
+    interactive_panel = PanelManifest(panel_id="dropin.badmode")
 
     def prepare_prompt(self, inputs, config):
         return InteractivePrompt(panel_payload={"ok": True})
@@ -96,7 +91,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 class BadMissingPrompt(InteractiveMixin, ProcessBlock):
     name = "BadMissingPrompt"
     execution_mode = ExecutionMode.INTERACTIVE
-    interactive_panel = PanelManifest(panel_id="dropin.badprompt", version="1")
+    interactive_panel = PanelManifest(panel_id="dropin.badprompt")
 
     def run(self, inputs, config):
         return {}
@@ -128,7 +123,7 @@ from scistudio.blocks.process.process_block import ProcessBlock
 class BadEmptyPanelId(InteractiveMixin, ProcessBlock):
     name = "BadEmptyPanelId"
     execution_mode = ExecutionMode.INTERACTIVE
-    interactive_panel = PanelManifest(panel_id="", version="1")
+    interactive_panel = PanelManifest(panel_id="")
 
     def prepare_prompt(self, inputs, config):
         return InteractivePrompt(panel_payload={"ok": True})
@@ -250,9 +245,8 @@ def test_interactive_block_spec_surfaces_mode_and_manifest() -> None:
     assert spec.execution_mode == "interactive"
     assert isinstance(spec.panel_manifest, dict)
     assert spec.panel_manifest["panel_id"] == "test.interactive.select_option"
-    # Core panel: bundled, so module_url is empty and there is no asset_root.
-    assert spec.panel_manifest.get("module_url") == ""
-    assert spec.panel_asset_root is None
+    # #2493: the manifest names the panel and nothing else about loading it.
+    assert set(spec.panel_manifest) <= {"panel_id", "api_version", "response_schema"}
 
 
 def test_non_interactive_block_spec_has_no_manifest() -> None:
@@ -260,98 +254,13 @@ def test_non_interactive_block_spec_has_no_manifest() -> None:
     spec = _spec_from_class(EmitNumbersBlock)
     assert spec.execution_mode == "auto"
     assert spec.panel_manifest is None
-    assert spec.panel_asset_root is None
 
 
-class _PackagePanelBlock(InteractiveMixin, ProcessBlock):
-    """Package-style interactive block whose panel is wheel-served (has asset_root)."""
+def test_the_legacy_module_fields_are_gone_from_the_manifest() -> None:
+    """#2493: ``module_url``, ``export_name``, ``css``, ``version`` and ``asset_root`` were removed."""
+    import dataclasses
 
-    name = "PackagePanelBlock"
-    execution_mode = ExecutionMode.INTERACTIVE
-    interactive_panel = PanelManifest(
-        panel_id="pkg.interactive.demo",
-        module_url="/api/blocks/panels/pkg.interactive.demo/index.js",
-        asset_root="/server/only/secret/root",
-        version="2",
-    )
-
-    def prepare_prompt(self, inputs: dict[str, Any], config: Any) -> InteractivePrompt:
-        return InteractivePrompt(panel_payload={})
-
-    def run(self, inputs: dict[str, Any], config: Any) -> dict[str, Any]:  # type: ignore[override]
-        return {}
-
-
-def test_package_panel_asset_root_kept_off_the_wire() -> None:
-    """§4.2: asset_root is server-only — it must never appear in the serialized manifest."""
-    with pytest.warns(DeprecationWarning, match="module_url is deprecated"):
-        spec = _spec_from_class(_PackagePanelBlock)
-    assert spec.panel_manifest is not None
-    assert "asset_root" not in spec.panel_manifest, "asset_root leaked onto the wire"
-    assert spec.panel_manifest["module_url"].startswith("/api/")
-    # The server-side confinement root is captured separately on the spec.
-    assert spec.panel_asset_root == "/server/only/secret/root"
-
-
-# ===========================================================================
-# I. Package panel asset route — path confinement (ADR-048 reuse).
-# ===========================================================================
-
-
-def _manifest_for(root: Path) -> SimpleNamespace:
-    # Mirrors what api/routes/blocks.serve_panel_asset hands to resolve_asset.
-    return SimpleNamespace(asset_root=str(root), previewer_id="pkg.interactive.demo")
-
-
-def test_panel_asset_route_serves_confined_asset(tmp_path: Path) -> None:
-    """A valid, confined, allowed-suffix asset is served with the right media type."""
-    root = tmp_path / "assets"
-    root.mkdir()
-    (root / "index.js").write_text("export default {}", encoding="utf-8")
-
-    served = resolve_asset(_manifest_for(root), "index.js")  # type: ignore[arg-type]
-    assert served.path == (root / "index.js").resolve()
-    assert served.media_type == "text/javascript"
-
-
-def test_panel_asset_route_rejects_parent_escape(tmp_path: Path) -> None:
-    """``../`` traversal that escapes the confinement root is rejected."""
-    root = tmp_path / "assets"
-    root.mkdir()
-    (tmp_path / "secret.js").write_text("stolen", encoding="utf-8")
-
-    with pytest.raises(MissingBundleError):
-        resolve_asset(_manifest_for(root), "../secret.js")  # type: ignore[arg-type]
-
-
-def test_panel_asset_route_rejects_disallowed_suffix(tmp_path: Path) -> None:
-    """A disallowed suffix (e.g. .exe) is rejected even if confined and present."""
-    root = tmp_path / "assets"
-    root.mkdir()
-    (root / "payload.exe").write_text("MZ", encoding="utf-8")
-
-    with pytest.raises(MissingBundleError):
-        resolve_asset(_manifest_for(root), "payload.exe")  # type: ignore[arg-type]
-
-
-def test_panel_asset_route_rejects_missing_file(tmp_path: Path) -> None:
-    """A confined, allowed-suffix path that does not exist on disk is rejected."""
-    root = tmp_path / "assets"
-    root.mkdir()
-    with pytest.raises(MissingBundleError):
-        resolve_asset(_manifest_for(root), "does_not_exist.js")  # type: ignore[arg-type]
-
-
-def test_panel_asset_route_rejects_remote_url(tmp_path: Path) -> None:
-    """A remote (off-origin) URL must never be served."""
-    root = tmp_path / "assets"
-    root.mkdir()
-    with pytest.raises(MissingBundleError):
-        resolve_asset(_manifest_for(root), "https://evil.example/x.js")  # type: ignore[arg-type]
-
-
-def test_panel_asset_route_rejects_when_no_asset_root() -> None:
-    """A core panel (no asset_root) is not servable via the package asset route."""
-    manifest = SimpleNamespace(asset_root=None, previewer_id="core.panel")
-    with pytest.raises(MissingBundleError):
-        resolve_asset(manifest, "index.js")  # type: ignore[arg-type]
+    fields = {field.name for field in dataclasses.fields(PanelManifest)}
+    assert fields == {"panel_id", "api_version", "response_schema"}
+    with pytest.raises(TypeError):
+        PanelManifest(panel_id="pkg.interactive.demo", module_url="/api/blocks/panels/x/index.js")  # type: ignore[call-arg]

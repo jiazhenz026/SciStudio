@@ -41,11 +41,10 @@ def test_public_symbols_importable() -> None:
         "Path",
         "logger",
         # Private helpers external callers depend on.
-        # NB: the DataFrame table cache (``_get_preview_table`` & co.) and the
-        # raster pipeline (``_downsample_matrix`` / ``_image_data_uri_from_matrix``
-        # / ``_load_preview_matrix``) moved down into ``scistudio.previewers``
-        # (ADR-048 / #1598) and are deliberately NO LONGER part of the api.runtime
-        # surface — see tests/previewers/test_table_cache_surface.py.
+        # NB: the DataFrame table cache (``_get_preview_table`` & co.) moved down
+        # into ``scistudio.panels._reads.table_cache`` (ADR-048 / #1598, #2493)
+        # and is deliberately NO LONGER part of the api.runtime surface — see
+        # tests/panels/test_table_cache_surface.py.
         "_infer_type_name_from_ref",
         "_now_iso",
         "_rmtree_force",

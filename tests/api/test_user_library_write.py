@@ -29,7 +29,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
-from scistudio.core.dropins import user_blocks_dir, user_previewers_dir, user_types_dir
+from scistudio.core.dropins import user_blocks_dir, user_library_dir, user_types_dir
 from tests.helpers import link_to_directory
 
 PROBE_BLOCK = '''\
@@ -60,21 +60,6 @@ from scistudio.core.types.base import DataObject
 class WrittenProbeType(DataObject):
     """Type written through the user library endpoint."""
 '''
-
-PROBE_PREVIEWER = """\
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
-
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id="test.written.viewer",
-            owner_kind=OwnerKind.USER,
-            owner_name="user-library",
-            target_type="WrittenProbeType",
-        )
-    ]
-"""
 
 
 def _put(
@@ -125,14 +110,11 @@ def test_write_lands_in_the_user_types_directory(client: TestClient) -> None:
     assert not (user_blocks_dir() / "my_type.py").exists()
 
 
-def test_write_lands_in_the_user_previewers_directory(client: TestClient) -> None:
-    """The third target (#2086): a previewer promotes through the same door."""
-    response = _put(client, target="previewers", filename="my_viewer.py", content=PROBE_PREVIEWER)
-    assert response.status_code == 200, response.text
-    assert response.json()["target"] == "previewers"
-    assert Path(response.json()["path"]) == user_previewers_dir() / "my_viewer.py"
-    assert not (user_blocks_dir() / "my_viewer.py").exists()
-    assert not (user_types_dir() / "my_viewer.py").exists()
+def test_the_removed_previewers_target_is_refused(client: TestClient) -> None:
+    """The previewer drop-in tier was removed (#2493); a preview panel promotes as a directory."""
+    response = _put(client, target="previewers", filename="my_viewer.py", content="x = 1\n")
+    assert response.status_code == 422, response.text
+    assert not (user_library_dir() / "previewers").exists()
 
 
 def test_the_target_is_never_inferred_from_content(client: TestClient) -> None:
@@ -576,19 +558,6 @@ def test_a_written_type_is_discoverable_without_a_restart(client: TestClient, ru
     assert "WrittenProbeType" not in runtime.type_registry.all_types()
     assert _put(client, target="types", filename="written_probe_type.py", content=PROBE_TYPE).status_code == 200
     assert "WrittenProbeType" in runtime.type_registry.all_types()
-
-
-def test_a_written_previewer_is_discoverable_without_a_restart(client: TestClient, runtime: ApiRuntime) -> None:
-    """FR-010 for the third target (#2086): the refresh reaches the preview service."""
-
-    def _previewer_ids() -> set[str]:
-        return {spec.previewer_id for spec in runtime.get_preview_service().registry.all_specs()}
-
-    assert "test.written.viewer" not in _previewer_ids()
-    response = _put(client, target="previewers", filename="written_viewer.py", content=PROBE_PREVIEWER)
-    assert response.status_code == 200, response.text
-    assert response.json()["registries_refreshed"] is True
-    assert "test.written.viewer" in _previewer_ids()
 
 
 # ---------------------------------------------------------------------------

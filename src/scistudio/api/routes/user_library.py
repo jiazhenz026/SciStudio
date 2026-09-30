@@ -26,7 +26,7 @@
 # not:
 #
 # 1. **The caller names the tier.** ``target`` is a
-#    ``Literal["blocks", "types", "previewers"]`` and the roots come from
+#    ``Literal["blocks", "types", "panels"]`` and the roots come from
 #    :mod:`scistudio.core.dropins`, so the destination is never inferred from
 #    file content (FR-006) and this module never spells out ``~/.scistudio``
 #    itself (FR-058).
@@ -100,7 +100,6 @@ from scistudio.api.schemas import (
 )
 from scistudio.core.dropins import (
     BLOCKS_DIR_NAME,
-    PREVIEWERS_DIR_NAME,
     TYPES_DIR_NAME,
     library_root_for_project,
 )
@@ -120,9 +119,6 @@ RuntimeDep = Annotated[ApiRuntime, Depends(get_runtime)]
 _TARGET_DIR_NAMES = {
     "blocks": BLOCKS_DIR_NAME,
     "types": TYPES_DIR_NAME,
-    # Learning Center FR-070 / #2086: the previewer tier promotes through the
-    # same door, and the same library-root swap, as blocks and types.
-    "previewers": PREVIEWERS_DIR_NAME,
     # ADR-054 MiniApp FR-039: the panel tier. Reached only by the directory
     # route below — ``_validate_filename`` refuses everything a panel is made
     # of, which is why a panel could not be promoted through the file route.

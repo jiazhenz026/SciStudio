@@ -20,6 +20,7 @@ from scistudio.stability import get_stability
 
 _PUBLIC = {
     "PANEL_API_VERSION",
+    "OwnerKind",
     "PanelDescriptor",
     "PanelRegistry",
     "discover_panels",
@@ -34,9 +35,10 @@ def test_root_all_is_the_author_surface() -> None:
 
 
 def test_reexports_are_the_defining_objects() -> None:
-    from scistudio.panels import descriptor, files, registry, validation
+    from scistudio.panels import descriptor, files, models, registry, validation
 
     assert panels.PanelDescriptor is descriptor.PanelDescriptor
+    assert panels.OwnerKind is models.OwnerKind
     assert panels.parse_descriptor is descriptor.parse_descriptor
     assert panels.PANEL_API_VERSION == descriptor.PANEL_API_VERSION
     assert panels.PanelRegistry is registry.PanelRegistry
@@ -87,7 +89,7 @@ def test_importing_the_root_stays_light() -> None:
 
 
 def test_parse_descriptor_through_the_root(tmp_path: Path) -> None:
-    from scistudio.previewers.models import OwnerKind
+    from scistudio.panels.models import OwnerKind
 
     folder = tmp_path / "demo.text"
     folder.mkdir()

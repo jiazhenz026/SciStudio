@@ -24,7 +24,7 @@ from scistudio.api.routes.data import _open_as_candidates
 from scistudio.api.runtime._data import _type_chain_from_registry
 from scistudio.api.runtime._preview_image import _infer_type_name_from_ref
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers.open_as import (
+from scistudio.panels.open_as import (
     clear_open_as,
     normalize_extension,
     open_as_path,

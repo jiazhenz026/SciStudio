@@ -27,11 +27,5 @@ fixture = "scistudio_blocks_fixture:get_block_package"
 [project.entry-points."scistudio.types"]
 fixture = "scistudio_blocks_fixture:get_types"
 
-[project.entry-points."scistudio.previewers"]
-fixture = "scistudio_blocks_fixture.previewers:get_previewers"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/scistudio_blocks_fixture"]
-artifacts = [
-    "src/scistudio_blocks_fixture/previewers/assets/*.js",
-]

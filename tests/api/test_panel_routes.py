@@ -171,8 +171,8 @@ def test_canonical_entry_bootstraps_at_nested_and_prefixed_urls(panel_client, en
     from pathlib import PurePosixPath
 
     from scistudio.panels.descriptor import parse_descriptor
+    from scistudio.panels.models import OwnerKind
     from scistudio.panels.registry import PanelRegistry
-    from scistudio.previewers.models import OwnerKind
 
     client, prefix, runtime, _, _ = panel_client
     root = runtime.get_panel_service().panel("lab.text").root
@@ -239,7 +239,7 @@ def test_entry_modified_after_discovery_has_bounded_source_read(panel_client, mo
     assert read_sizes == [MAX_SOURCE_BYTES + 1]  # Concurrent growth is still capped.
 
 
-def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tampering(panel_client):
+def test_open_collection_child_uses_a_real_session_and_rejects_query_tampering(panel_client):
     from dataclasses import replace
 
     from scistudio.panels.registry import PanelRegistry
@@ -259,17 +259,17 @@ def test_open_collection_child_uses_real_legacy_session_and_rejects_query_tamper
     assert opened.status_code == 200, opened.text
     envelope = opened.json()
     assert envelope["previewer_id"] == "core.text.basic"
-    assert "hello panel" in opened.text
+    assert envelope["kind"] == "panel" and envelope["panel"]["id"] == "core.text.basic"
     assert "_storage" not in opened.text and str(runtime.active_project.path) not in opened.text
     session_url = prefix + "/api/previews/sessions/" + envelope["session_id"]
     client.delete(prefix + "/api/panels/contexts/" + parent.context_id)
     assert client.get(session_url).status_code == 200
     tampered = client.patch(session_url, json={"query": {"_storage": {"path": "/etc/passwd"}}})
     assert tampered.status_code == 422
-    assert "hello panel" in client.get(session_url).text
+    assert client.get(session_url).json()["session_id"] == envelope["session_id"]
     runtime.data_catalog["data-a"].metadata["changed"] = True
     assert client.get(session_url).status_code == 404
-    assert envelope["session_id"] not in service.legacy.sessions._session_guards
+    assert envelope["session_id"] not in service.sessions._session_guards
 
 
 def test_composite_child_panel_maximizes_independently_after_parent_close(panel_client, tmp_path):
@@ -454,8 +454,8 @@ def test_lifespan_unsubscribes_original_bus_after_runtime_replacement(tmp_path):
 
 @pytest.mark.parametrize("user_contexts,user_types", [(["preview", "interactive"], ["Text"]), (["interactive"], [])])
 def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path, user_contexts, user_types):
+    from scistudio.panels.models import OwnerKind
     from scistudio.panels.registry import PanelRegistry
-    from scistudio.previewers.models import OwnerKind
     from tests.panels.test_panel_registry import folder
 
     client, prefix, runtime, _, _ = panel_client
@@ -469,7 +469,7 @@ def test_preview_catalog_includes_shadowed_panel_metadata(panel_client, tmp_path
     assert response.status_code == 200, response.text
     cards = [card for card in response.json()["previewers"] if card["previewer_id"] == "lab.shaded"]
     assert [(card["owner_kind"], card["shadowed"]) for card in cards] == [("project", False), ("user", True)]
-    assert all(card["renderer"] == "panel" for card in cards)
+    assert all("renderer" not in card for card in cards)
     assert cards[0]["panel"]["types"] == ["Text", "Collection[Text]"]
     assert cards[1]["panel"]["types"] == user_types
     assert cards[1]["panel"]["contexts"] == user_contexts

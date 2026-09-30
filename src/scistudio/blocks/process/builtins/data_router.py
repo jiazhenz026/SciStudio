@@ -68,11 +68,10 @@ class DataRouter(InteractiveMixin, ProcessBlock):
     execution_mode: ClassVar[ExecutionMode] = ExecutionMode.INTERACTIVE
     """Marks the block as interactive: it pauses for user input mid-run."""
 
-    # ADR-051: the block-owned window. Resolved by the frontend panel host from
-    # the built-in panel registry (core panel; no wheel-served module_url).
+    # ADR-051: the block-owned window, the core interactive panel of this id
+    # (ADR-054), opened by the frontend panel host when the block pauses.
     interactive_panel: ClassVar[PanelManifest] = PanelManifest(
         panel_id="core.interactive.data_router",
-        version="1",
     )
     """Identifies the built-in UI panel the frontend opens when this block pauses."""
 

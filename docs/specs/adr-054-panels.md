@@ -41,7 +41,6 @@ governs:
   modules:
     - scistudio.panels
     - scistudio.api.routes.panels
-    - scistudio.previewers
     - scistudio.blocks.base.interactive
     - scistudio.blocks.registry
     - scistudio.api.routes.data
@@ -49,9 +48,8 @@ governs:
     - scistudio.api.app
     - scistudio.core.dropins
   contracts:
-    - scistudio.previewers.models.PreviewerSpec
-    - scistudio.previewers.models.FrontendManifest
-    - scistudio.previewers.data_access.PreviewDataAccess
+    - scistudio.panels.models.PreviewerSpec
+    - scistudio.panels.data_access.PreviewDataAccess
     - scistudio.blocks.base.interactive.PanelManifest
     - scistudio.blocks.base.interactive.InteractiveMixin
   entry_points:
@@ -71,13 +69,8 @@ governs:
     - docs/package-development/architecture.md
     - docs/package-development/blocks.md
     - docs/package-development/publishing.md
-    - src/scistudio/previewers/registry.py
-    - src/scistudio/previewers/router.py
-    - src/scistudio/previewers/choices.py
-    - src/scistudio/previewers/project.py
-    - src/scistudio/previewers/data_access.py
-    - src/scistudio/previewers/assets.py
-    - src/scistudio/previewers/fallbacks.py
+    - src/scistudio/panels/choices.py
+    - src/scistudio/panels/data_access.py
     - src/scistudio/core/dropins.py
     - src/scistudio/blocks/base/interactive.py
     - src/scistudio/blocks/registry/_capability.py
@@ -98,14 +91,7 @@ governs:
     - scripts/audit/check_package_contract_tables.py
     - frontend/src/components/DataPreview.tsx
     - frontend/src/components/DataPreview.parts/PreviewHost.tsx
-    - frontend/src/components/DataPreview.parts/dynamicPreviewer.ts
-    - frontend/src/components/DataPreview.parts/previewerHostApi.ts
-    - frontend/src/components/DataPreview.parts/coreViewers.tsx
-    - frontend/src/components/DataPreview.parts/TableViewer.tsx
-    - frontend/src/components/DataPreview.parts/PlotViewer.tsx
     - frontend/src/App.parts/InteractiveModals.tsx
-    - frontend/src/App.parts/InteractiveModals.parts/DynamicPanel.tsx
-    - frontend/src/App.parts/InteractiveModals.parts/panelModuleLoader.ts
     - frontend/src/App.parts/ProjectWorkspace.tsx
     - frontend/src/store/tabSlice.parts/previewTabActions.ts
     - frontend/src/components/DataRouterModal.tsx

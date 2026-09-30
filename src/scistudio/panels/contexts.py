@@ -13,10 +13,10 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+from scistudio.panels.data_access import PreviewDataAccess
 from scistudio.panels.descriptor import PanelDescriptor
+from scistudio.panels.models import PreviewEnvelope
 from scistudio.panels.targets import FrozenTarget, PanelError, child_targets, freeze_target
-from scistudio.previewers.data_access import PreviewDataAccess
-from scistudio.previewers.models import PreviewEnvelope
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +309,7 @@ class PanelContexts:
                 workflow_id, block_id = payload.get("workflow_id"), payload.get("block_id")
                 prompt = self._waiting(workflow_id, block_id)
                 manifest = prompt.get("panel_manifest") or {}
-                if manifest.get("panel_id") != panel_id or manifest.get("module_url"):
+                if manifest.get("panel_id") != panel_id:
                     raise PanelError(403, "panel_mismatch", "Panel id does not match the waiting block's panel")
                 input_value = deepcopy(prompt.get("panel_payload") or {})
             panel = service.panel(panel_id) if panel_id else None
@@ -625,7 +625,7 @@ class PanelContexts:
             prompt = self.prompts.get((workflow_id, block_id))
             manifest = (prompt or {}).get("panel_manifest") or {}
             if not context_id:
-                if manifest and not manifest.get("module_url"):
+                if manifest:
                     raise PanelError(403, "missing_context", "Panel writeback requires its waiting context")
                 return
             context = self.get(context_id)

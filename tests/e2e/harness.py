@@ -176,7 +176,7 @@ class Backend:
         return project
 
     def reload_registries(self) -> dict[str, Any]:
-        """Re-scan the project's drop-in types, blocks, and previewers."""
+        """Re-scan the project's drop-in types, blocks, and panels."""
         result: dict[str, Any] = self.call("POST", "/api/blocks/reload")
         return result
 
@@ -235,7 +235,7 @@ class Backend:
     def open_panel(self, ref: str, kind: str = "data_ref") -> str:
         """Open the panel context a mounted panel reads through, as the GUI does.
 
-        A core previewer is a panel now, so what the session envelope used to
+        Every previewer is a panel, so what the session envelope used to
         carry in its payload is fetched by the panel itself. A test asking
         whether an output is previewable has to follow the same path the frame
         does, or it is asserting against a shape nothing produces.
@@ -331,7 +331,7 @@ def build_tutorial_project(
     ``copies`` mirrors the tutorial's own ``copy: {source, destination}`` steps:
     ``source`` is relative to ``src/scistudio/tutorials/core/<tutorial>/`` and
     ``destination`` to the project root. The registries are re-scanned
-    afterwards so drop-in types, blocks, and previewers are live.
+    afterwards so drop-in types, blocks, and panels are live.
     """
     tutorial_dir = CORE_TUTORIALS / tutorial
     created = backend.create_project(name, parent)

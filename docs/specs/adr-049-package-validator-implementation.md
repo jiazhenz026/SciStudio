@@ -30,14 +30,12 @@ governs:
     - scistudio.blocks.registry
     - scistudio.blocks.io.capabilities
     - scistudio.core.types.registry
-    - scistudio.previewers
   contracts:
     - scistudio.blocks.base.package_info.PackageInfo
     - scistudio.blocks.registry.BlockRegistry
     - scistudio.blocks.io.capabilities.FormatCapability
     - scistudio.core.types.registry.TypeRegistry
-    - scistudio.previewers.registry.PreviewerRegistry
-    - scistudio.previewers.models.PreviewerSpec
+    - scistudio.panels.models.PreviewerSpec
   entry_points:
     - scistudio.blocks
     - scistudio.types

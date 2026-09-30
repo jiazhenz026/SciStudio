@@ -72,10 +72,10 @@ from scistudio.ai.agent.mcp.server import mcp
 from scistudio.core.dropins import panel_scan_dirs
 from scistudio.panels.descriptor import PANEL_CONTEXTS, PanelDescriptor, parse_descriptor
 from scistudio.panels.files import validate_external_references
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.questionnaire import ANSWERS_FILE, QUESTIONNAIRE_FILE, check_questionnaire
 from scistudio.panels.registry import PanelRegistry, discover_panels
 from scistudio.panels.targets import type_chain
-from scistudio.previewers.models import OwnerKind
 
 logger = logging.getLogger(__name__)
 

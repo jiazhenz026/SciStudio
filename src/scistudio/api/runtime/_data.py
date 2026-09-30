@@ -29,12 +29,7 @@ import pyarrow.parquet as pq
 
 from scistudio.core.meta._display_name import resolve_display_name
 from scistudio.core.storage.ref import StorageReference
-from scistudio.previewers import (
-    PreviewService,
-    PreviewSource,
-    PreviewTarget,
-    TargetKind,
-)
+from scistudio.panels.models import PreviewSource, PreviewTarget, TargetKind
 
 from ._preview_image import _infer_type_name_from_ref
 
@@ -134,16 +129,15 @@ def register_plot_artifact(
 
     This is the producer -> consumer link the original implementation
     left dead-wired: ``run_plot_job`` writes a display artifact to the
-    preview cache but nothing registered it so the routed
-    :class:`~scistudio.previewers.PreviewService` could reach the core
-    ``PlotPreviewer`` (``core.plot.basic``) at runtime.
+    preview cache but nothing registered it so a routed preview could reach
+    the core plot panel (``core.plot.basic``) at runtime.
 
     The record is stamped with ``metadata["plot_artifact"]`` and
     ``type_name="PlotArtifact"`` so :func:`_target_kind_for_record` classifies
     the routed target as :attr:`TargetKind.PLOT_ARTIFACT` and
-    :func:`enrich_preview_query` supplies the ``_storage`` ref the
-    ``PlotPreviewer`` reads. The optional workflow/node/output identity is
-    stored as display-only :class:`~scistudio.previewers.PreviewSource`
+    :func:`enrich_preview_query` supplies the ``_storage`` ref the plot panel
+    reads. The optional workflow/node/output identity is stored as
+    display-only :class:`~scistudio.panels.models.PreviewSource`
     metadata (it carries no workflow truth — a plot job never registers a DAG
     node or lineage).
 
@@ -325,24 +319,13 @@ def _resolve_record_class(self: ApiRuntime, record: DataRecord) -> type | None:
 def get_panel_service(self: ApiRuntime) -> Any:
     """Return this runtime's panel service, built on first use and never rebuilt.
 
-    The panel service owns the panel catalog, routing over panels and the
-    deprecated previewers, preview sessions, panel contexts and their processes.
+    The panel service owns the panel catalog, routing, preview sessions, panel
+    contexts and their processes.
     """
     # Development references: #2465, ADR-054.
     from scistudio.panels.service import get_panel_service as _get
 
     return _get(self)
-
-
-def get_preview_service(self: ApiRuntime) -> PreviewService:
-    """Return the deprecated previewers' service (legacy registry + sessions).
-
-    Only the legacy fallback: routing, panels and every preview session go
-    through :meth:`get_panel_service`. Kept for callers that inspect the legacy
-    registry itself.
-    """
-    # Development references: ADR-048, ADR-054, #2465.
-    return self.get_panel_service().legacy_service()  # type: ignore[no-any-return]
 
 
 def _target_kind_for_record(record: DataRecord, resolved_cls: type | None) -> TargetKind:

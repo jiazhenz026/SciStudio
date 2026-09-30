@@ -4,7 +4,22 @@
 
 Canonical import root: `from scistudio.panels import ...`
 
-Self-contained public-API reference — 7 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
+Self-contained public-API reference — 8 symbols from this module's `__all__`, with signatures and docstrings inlined. Generated; do not hand-edit.
+
+## `OwnerKind` — _enum_
+
+**Stability:** `provisional` · Since `0.3.5`
+
+```python
+class OwnerKind(StrEnum)
+```
+
+Where a panel came from; sets how strongly it wins when routing.
+
+When more than one panel could handle a target, provenance decides
+precedence: a project panel beats a user-library panel, which beats a
+package panel, which beats a built-in core panel. The string values appear
+verbatim in the REST and session API payloads.
 
 ## `PANEL_API_VERSION` — _constant_
 
@@ -118,8 +133,6 @@ validate_interactive_panel(manifest: 'object', registry: 'PanelRegistry | None' 
 
 Check that an interactive block's panel declaration can open.
 
-``manifest`` is the block's panel declaration (its ``panel_id`` and
-``module_url``). The panel must resolve, in ``registry`` or in a fresh
-discovery, to a panel whose contexts include ``interactive``; otherwise
-``ValueError`` is raised. A declaration that still names a legacy
-``module_url`` emits a ``DeprecationWarning`` and is not checked further.
+``manifest`` is the block's panel declaration (its ``panel_id``). The
+panel must resolve, in ``registry`` or in a fresh discovery, to a panel
+whose contexts include ``interactive``; otherwise ``ValueError`` is raised.

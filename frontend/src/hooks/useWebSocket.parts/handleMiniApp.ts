@@ -184,9 +184,8 @@ export function handlePanelContextsRevoked(
  *
  *  - A MiniApp was added, changed or removed: re-read the MiniApp catalog.
  *  - Preview candidates changed: re-read the Previewers listing, and re-route
- *    only the open previews whose type the changed claims concern (Q3-y), plus
- *    every legacy-rendered preview when the legacy previewers were reloaded
- *    (Q5-b). Nothing else remounts.
+ *    only the open previews whose type the changed claims concern (Q3-y).
+ *    Nothing else remounts.
  */
 export function handlePanelCatalogChanged(
   payload: WorkflowEventMessage,
@@ -199,10 +198,7 @@ export function handlePanelCatalogChanged(
   if (data.miniapps_changed === true) deps.bumpBlockCatalogRefresh();
   if (data.preview_candidates_changed !== true) return;
   deps.invalidatePreviewerCatalog();
-  deps.requestPreviewReroute({
-    types: strings(data.preview_types),
-    legacy: data.legacy_reloaded === true,
-  });
+  deps.requestPreviewReroute({ types: strings(data.preview_types) });
 }
 
 /** #2465 Q6-b — a previewer choice changed; only previews of that type re-route. */

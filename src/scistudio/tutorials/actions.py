@@ -123,7 +123,6 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
         # -- Imported or executed as code by the registries --------------------
         "blocks",  # drop-in scan imports every *.py; also joins sys.path
         "types",  # drop-in scan imports every *.py; <project>/types joins sys.path
-        "previewers",  # sys.path insert, then every *.py is exec_module'd
         "plots",  # plots/<id>/plot.yaml names a render script that is executed
         # -- Configuration the product itself acts on to execute something -----
         "workflows",  # a workflow YAML names a code block's script_path and cwd
@@ -134,7 +133,7 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
         ".agents",  # skills/*/SKILL.md, provisioned and read as agent instructions
         ".qoder",  # settings.json in Claude's format, read by both Qoder channels
         ".kimi-code",  # mcp.json is merge-preserving, so a planted server survives
-        ".scistudio",  # mcp.json spawns a command; previewers.json steers resolution
+        ".scistudio",  # mcp.json spawns a command
         ".git",  # commits run with cwd=project and no --no-verify, so hooks fire
         # -- Root files, same reasoning, matched as a first segment ------------
         ".mcp.json",  # fallback MCP discovery for Claude, Qoder, and Kimi
@@ -144,7 +143,7 @@ EXECUTED_PROJECT_PATHS: frozenset[str] = frozenset(
 )
 """Project paths that contain executable code or execution configuration.
 
-Includes block, type, previewer, plot, and provisioned agent directories.
+Includes block, type, plot, and provisioned agent directories.
 Match the destination's first path segment, regardless of file extension,
 so configuration files and scripts receive the same protection.
 

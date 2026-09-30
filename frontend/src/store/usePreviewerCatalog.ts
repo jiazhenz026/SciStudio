@@ -9,7 +9,7 @@
 // Re-routing open previews is not this module's job any more (#2465). The
 // panel service names what changed — the type claims whose candidates moved
 // (`blocks.reloaded` from the panel registry), the one type whose choice moved
-// (`panel.choices_changed`), or a legacy previewer reload — and only the open
+// (`panel.choices_changed`) — and only the open
 // previews of those types re-create their session (`panels/panelEvents`). A
 // choice write applies the effective choices it returned; the re-route follows
 // the backend's `panel.choices_changed`.

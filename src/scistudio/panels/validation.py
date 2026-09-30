@@ -19,22 +19,13 @@ from scistudio.stability import provisional
 def validate_interactive_panel(manifest: object, registry: PanelRegistry | None = None) -> None:
     """Check that an interactive block's panel declaration can open.
 
-    ``manifest`` is the block's panel declaration (its ``panel_id`` and
-    ``module_url``). The panel must resolve, in ``registry`` or in a fresh
-    discovery, to a panel whose contexts include ``interactive``; otherwise
-    ``ValueError`` is raised. A declaration that still names a legacy
-    ``module_url`` emits a ``DeprecationWarning`` and is not checked further.
+    ``manifest`` is the block's panel declaration (its ``panel_id``). The
+    panel must resolve, in ``registry`` or in a fresh discovery, to a panel
+    whose contexts include ``interactive``; otherwise ``ValueError`` is raised.
     """
-    import warnings
-
     from scistudio.panels.registry import discover_panels
 
     panel_id = getattr(manifest, "panel_id", "")
-    if getattr(manifest, "module_url", ""):
-        warnings.warn(
-            f"Panel {panel_id!r} module_url is deprecated; replace with an HTML panel", DeprecationWarning, stacklevel=2
-        )
-        return
     panels = registry or _SCAN_PANELS.get() or discover_panels()
     panel = panels.get(panel_id)
     if panel is None or "interactive" not in panel.contexts:

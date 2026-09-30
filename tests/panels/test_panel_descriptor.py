@@ -7,8 +7,8 @@ import pytest
 from scistudio.blocks.base.interactive import PanelManifest
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.files import resolve_panel_file
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.validation import validate_external_references, validate_interactive_panel
-from scistudio.previewers.models import OwnerKind
 
 
 def parse(tmp_path, **fields):
@@ -115,8 +115,11 @@ def test_external_reference_allowlist_and_pin_diagnostic(tmp_path):
 
 
 def test_interactive_validation_requires_a_registered_interactive_panel(panel_runtime):
+    from scistudio.panels.registry import PanelRegistry
+
     runtime, _ = panel_runtime
-    registry = runtime.get_panel_service().registry()
+    registry = PanelRegistry()
+    registry.register(runtime.get_panel_service().panel("lab.text"))
     validate_interactive_panel(PanelManifest(panel_id="lab.text"), registry)
     # ADR-054 Phase B removed the compiled-core allowlist: core.interactive.* is
     # no longer specially tolerated when absent; it must be a registered

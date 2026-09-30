@@ -33,7 +33,7 @@ export async function runPromotion(item: PromotableItem): Promise<PromotionOutco
     },
   });
 
-  if (outcome.status === "promoted" && item.target !== "previewers" && item.target !== "panels") {
+  if (outcome.status === "promoted" && item.target !== "panels") {
     // FR-020 — land the user looking at `My Library`, the section this whole
     // feature exists to teach. It brings that section into view; it does not
     // filter the palette down to the item, which read as the palette breaking.

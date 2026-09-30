@@ -504,7 +504,7 @@ class DataOpenAsListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # ADR-048 SPEC 1: routed previewer session API schemas.
 #
-# These mirror the canonical ``scistudio.previewers`` models on the wire. The
+# These mirror the ``scistudio.panels.models`` models on the wire. The
 # legacy one-shot ``DataPreviewResponse`` REST-preview body and its
 # ``GET /api/data/{ref}/preview`` route were removed under ADR-048 no-compat
 # (#1604); previews now flow exclusively through the session API below.
@@ -512,7 +512,7 @@ class DataOpenAsListResponse(BaseModel):
 
 
 class PreviewTargetModel(BaseModel):
-    """Wire shape of a previewer :class:`PreviewTarget`."""
+    """Wire shape of a :class:`PreviewTarget`."""
 
     kind: str = Field(description="data_ref / collection_ref / artifact / plot_artifact.")
     ref: str = Field(description="Data, collection, or artifact reference (catalog id or path).")
@@ -535,17 +535,6 @@ class PreviewSessionPatch(BaseModel):
     query: dict[str, Any] = Field(default_factory=dict, description="Query state to merge (slice/page/sort/slot/item).")
 
 
-class PreviewFrontendManifestModel(BaseModel):
-    """Wire shape of a previewer :class:`FrontendManifest` (same-origin only)."""
-
-    previewer_id: str
-    module_url: str
-    export_name: str = "default"
-    css: list[str] = Field(default_factory=list)
-    version: str = "0"
-    api_version: str = "1"
-
-
 class PreviewEnvelopeModel(BaseModel):
     """Wire shape of a canonical :class:`PreviewEnvelope`."""
 
@@ -553,13 +542,11 @@ class PreviewEnvelopeModel(BaseModel):
     session_id: str | None = None
     previewer_id: str
     target: dict[str, Any] = Field(default_factory=dict)
-    kind: str = Field(description="dataframe/array/series/text/artifact/composite/collection/plot/error.")
+    kind: str = Field(description="panel / error.")
     payload: dict[str, Any] = Field(default_factory=dict)
-    resources: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     diagnostics: list[str] = Field(default_factory=list)
     error: dict[str, Any] | None = None
-    frontend_manifest: PreviewFrontendManifestModel | None = None
 
 
 class PreviewerChoiceModel(BaseModel):
@@ -601,9 +588,8 @@ class PreviewerChoiceRequest(BaseModel):
 
 
 class PreviewerSpecModel(BaseModel):
-    """Wire shape of a :class:`PreviewerSpec` for capability discovery."""
+    """Wire shape of a :class:`PreviewerSpec` (a panel's routing candidate)."""
 
-    renderer: str = "legacy"
     panel: dict[str, Any] | None = None
     shadowed: bool = False
     previewer_id: str
@@ -613,9 +599,7 @@ class PreviewerSpecModel(BaseModel):
     supports_collection: bool = False
     priority: int = 0
     capabilities: list[str] = Field(default_factory=list)
-    backend_provider: str | None = None
-    frontend_manifest: PreviewFrontendManifestModel | None = None
-    api_version: str = "1"
+    api_version: str = "1.0"
 
 
 class PreviewerListResponse(BaseModel):
@@ -631,9 +615,9 @@ class PreviewerListResponse(BaseModel):
     previewers: list[PreviewerSpecModel] = Field(default_factory=list)
     """Registered specs, ordered project -> user -> package -> core, then by id."""
     diagnostics: list[str] = Field(default_factory=list)
-    """Discovery problems recorded during the scan: a duplicate previewer id, a
-    drop-in refused for a module-name collision, an entry point that failed to
-    import. Nothing surfaced these before, so a refused drop-in was silent."""
+    """Discovery problems recorded during the scan: a panel folder refused by
+    validation, a shadowed panel id, an entry point that failed to import.
+    Nothing surfaced these before, so a refused panel was silent."""
 
 
 class PreviewerReloadResponse(BaseModel):
@@ -944,18 +928,16 @@ class ErrorResponse(BaseModel):
 # rather than the only line of defence.
 # ---------------------------------------------------------------------------
 
-#: FR-006: the three user-library targets, chosen by the caller and never
+#: FR-006: the user-library targets, chosen by the caller and never
 #: inferred. The values are the drop-in child directory names from
-#: :mod:`scistudio.core.dropins`. ``previewers`` joined when the
-#: tutorial-scoped library grew its previewer tier (Learning Center FR-070,
-#: #2086), so promoting a project previewer resolves through the same route —
-#: and the same library-root swap — as blocks and types.
+#: :mod:`scistudio.core.dropins`. The ``previewers`` target left with the
+#: legacy previewer drop-ins (#2493).
 #: ADR-054 MiniApp FR-039: ``panels`` joined as the first **directory** target.
 #: A panel is a directory of a page, its assets, and optionally ``panel.py``,
 #: so it promotes through ``POST /api/user-library/directory`` rather than the
 #: single-file ``PUT /api/user-library/file`` — which accepts one bare ``.py``
 #: filename and can express no tree at all.
-UserLibraryTarget = Literal["blocks", "types", "previewers", "panels"]
+UserLibraryTarget = Literal["blocks", "types", "panels"]
 
 
 class MoveSourceRef(BaseModel):

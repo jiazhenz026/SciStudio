@@ -22,6 +22,7 @@ import pytest
 from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileMovedEvent
 
 from scistudio.engine.events import EngineEvent, EventBus
+from scistudio.panels.models import OwnerKind
 from scistudio.panels.watcher import (
     DEBOUNCE_SECONDS,
     PANEL_FILES_CHANGED,
@@ -30,7 +31,6 @@ from scistudio.panels.watcher import (
     counts,
     watches,
 )
-from scistudio.previewers.models import OwnerKind
 
 
 def _bus() -> tuple[EventBus, list[EngineEvent]]:

@@ -20,11 +20,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from scistudio.api.schemas import PreviewEnvelopeModel
 from scistudio.panels.contexts import READ_BYTES, PanelContext
 from scistudio.panels.files import MAX_SOURCE_BYTES, bootstrap_entry, content_policy, media_type, resolve_panel_file
+from scistudio.panels.models import PreviewError
 from scistudio.panels.process_config import max_result_bytes
 from scistudio.panels.reads import read_context
 from scistudio.panels.service import get_panel_contexts, get_panel_service
 from scistudio.panels.targets import PanelError
-from scistudio.previewers.models import PreviewError
 
 logger = logging.getLogger(__name__)
 
@@ -1086,7 +1086,7 @@ def panel_artifact(token: str, grant_id: str, request: Request) -> Response:
             # happen here or that protection would have been dropped in the
             # move to panels. Display is unaffected: what this strips is scripts,
             # event handlers, and remote references.
-            from scistudio.previewers.helpers import sanitize_svg
+            from scistudio.panels.svg import sanitize_svg
 
             sanitized, _removed = sanitize_svg(path.read_text(encoding="utf-8", errors="replace"))
             response: Response = Response(sanitized.encode("utf-8"), media_type="image/svg+xml")

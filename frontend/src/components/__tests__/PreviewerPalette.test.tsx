@@ -34,6 +34,8 @@ vi.mock("../../lib/api/data", async (importOriginal) => {
 });
 
 function makePreviewer(overrides: Partial<PreviewerSpecSummary> = {}): PreviewerSpecSummary {
+  const previewerId = overrides.previewer_id ?? "core.table";
+  const targetType = overrides.target_type ?? "DataObject";
   return {
     previewer_id: "core.table",
     owner_kind: "core",
@@ -42,9 +44,9 @@ function makePreviewer(overrides: Partial<PreviewerSpecSummary> = {}): Previewer
     supports_collection: false,
     priority: 0,
     capabilities: [],
-    backend_provider: null,
-    frontend_manifest: null,
-    api_version: "1",
+    api_version: "1.0",
+    // Every routing candidate is a panel's claim (#2493).
+    panel: { id: previewerId, api_version: "1.0", contexts: ["preview"], types: [targetType] },
     ...overrides,
   };
 }

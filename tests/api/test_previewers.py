@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib.metadata
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -13,19 +12,6 @@ from fastapi.testclient import TestClient
 
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.storage.ref import StorageReference
-
-
-def _prefer_fixture_package(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure the in-repo fixture previewer package is the discovered plugin.
-
-    Issue #1770: the real imaging package was decoupled out of core. These
-    API tests exercise *core* previewer routing / asset serving against the
-    fixture stand-in package, whose ``src`` is already on ``sys.path`` via
-    ``tests/conftest.py``. The fixture's entry points are injected per-test
-    via ``monkeypatch`` in each caller.
-    """
-    package_src = Path(__file__).resolve().parents[2] / "tests/fixtures/scistudio-blocks-fixture/src"
-    monkeypatch.syspath_prepend(str(package_src))
 
 
 def _install_fake_zarr(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,27 +83,11 @@ def test_adr048_viewer_category_sweep(
     """Every ADR-048 viewer category reaches the routed session API.
 
     This is a compact e2e-style sweep for the PR-readiness question: each row
-    goes through ``POST /api/previews/sessions`` and asserts the selected viewer
-    ID/kind, including Image/Label discovered through an installed-mode
-    ``scistudio.previewers`` entry point (the fixture stand-in package).
+    goes through ``POST /api/previews/sessions`` and asserts the selected panel.
+    Image and Label have no panel of their own here, so they route to their
+    parent type's core panel (#2493: every preview is a panel).
     """
     _install_fake_zarr(monkeypatch)
-    _prefer_fixture_package(monkeypatch)
-    fixture_ep = importlib.metadata.EntryPoint(
-        name="fixture",
-        value="scistudio_blocks_fixture.previewers:get_previewers",
-        group="scistudio.previewers",
-    )
-    real_entry_points = importlib.metadata.entry_points
-
-    def _entry_points(*args: object, **kwargs: object) -> object:
-        if kwargs.get("group") == "scistudio.previewers":
-            return (fixture_ep,)
-        return real_entry_points(*args, **kwargs)
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
-        runtime.get_panel_service().rescan(legacy=True)
 
     def _record(
         name: str,
@@ -214,11 +184,8 @@ def test_adr048_viewer_category_sweep(
         ),
     }
 
-    # Every core previewer is a panel now (ADR-054 Phase B), so its envelope is
-    # a `panel` one naming the panel to mount rather than a per-type payload the
-    # frontend switches on. A package previewer that is still a compiled module
-    # keeps the category it always had, which is what the two fixture viewers
-    # here are for: this sweep is the one place both kinds are checked together.
+    # Every previewer is a panel (ADR-054; #2493), so every envelope is a
+    # `panel` one naming the panel to mount.
     cases = [
         ("dataframe", "data_ref", "DataFrame", ["DataObject", "DataFrame"], "core.dataframe.basic", "panel"),
         ("array", "data_ref", "Array", ["DataObject", "Array"], "core.array.basic", "panel"),
@@ -233,14 +200,14 @@ def test_adr048_viewer_category_sweep(
             "core.composite.basic",
             "panel",
         ),
-        ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "fixture.image.viewer", "array"),
+        ("image", "data_ref", "Image", ["DataObject", "Array", "Image"], "core.array.basic", "panel"),
         (
             "label",
             "data_ref",
             "Label",
             ["DataObject", "CompositeData", "Label"],
-            "fixture.label.viewer",
-            "composite",
+            "core.composite.basic",
+            "panel",
         ),
         ("plot", "plot_artifact", "PlotArtifact", ["DataObject", "PlotArtifact"], "core.plot.basic", "panel"),
     ]
@@ -260,12 +227,10 @@ def test_adr048_viewer_category_sweep(
         assert body["previewer_id"] == previewer_id
         assert body["kind"] == envelope_kind
         assert body["session_id"]
-        if name in {"image", "label"}:
-            assert body["frontend_manifest"]["module_url"] == f"/api/previews/assets/{previewer_id}/viewer.js"
-        if envelope_kind == "panel":
-            # The envelope's job is now to name the panel and the session it may
-            # read through; the data itself arrives through the panel's reads.
-            assert body["panel"]["id"] == previewer_id
+        # The envelope names the panel and the session it may read through; the
+        # data itself arrives through the panel's reads.
+        assert body["panel"]["id"] == previewer_id
+        assert "frontend_manifest" not in body
         # The plot's SVG is no longer inlined in a payload, so there is no
         # payload to scrub here. That the served bytes are scrubbed is pinned
         # against the route that serves them, in
@@ -278,8 +243,8 @@ def test_adr048_viewer_category_sweep(
         "text": ("core.text.basic", "panel"),
         "artifact": ("core.artifact.basic", "panel"),
         "composite": ("core.composite.basic", "panel"),
-        "image": ("fixture.image.viewer", "array"),
-        "label": ("fixture.label.viewer", "composite"),
+        "image": ("core.array.basic", "panel"),
+        "label": ("core.composite.basic", "panel"),
         "plot": ("core.plot.basic", "panel"),
     }
 
@@ -301,8 +266,8 @@ def test_create_session_for_dataframe(client: TestClient, opened_project: Path) 
     # FR-011: metadata carries the mandatory display flags.
     for flag in ("sampled", "truncated", "cached", "derived", "complete", "failed"):
         assert flag in body["metadata"]
-    # #1579: a core fallback has no compiled frontend module → the field is null.
-    assert body["frontend_manifest"] is None
+    # #2493: there is no compiled frontend module to name any more.
+    assert "frontend_manifest" not in body
 
     context = _panel_context(client, ref=ref)
     page = _panel_read(client, context, ref, "table.page").json()
@@ -410,7 +375,7 @@ def test_create_session_unknown_target_returns_error_envelope(client: TestClient
     # accepts the target and reports the missing file when it reads, so the
     # degraded answer is a panel envelope rather than an error payload — the
     # failure surfaces where the read happens, not before it is attempted.
-    assert body["kind"] in {"error", "artifact", "panel"}
+    assert body["kind"] in {"error", "panel"}
     assert body["metadata"]["failed"] in {True, False}
 
 
@@ -469,81 +434,6 @@ def test_array_session_resource_tile(
     # sized against a real array in tests/panels.)
     assert body["height"] == 2 and body["width"] == 2
     assert body["values"]
-
-
-def test_image_session_serializes_first_class_frontend_manifest(
-    client: TestClient,
-    runtime: ApiRuntime,
-    opened_project: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """#1579: a package-routed session JSON carries the manifest first-class.
-
-    Issue #1770: discovery is entry-point only. Injecting the fixture
-    package's ``scistudio.previewers`` entry point routes an ``Image`` target
-    to ``fixture.image.viewer``; the session manager then stamps that spec's
-    manifest onto the top-level ``frontend_manifest`` field.
-    """
-    import sys
-    import types
-
-    import numpy as np
-
-    _prefer_fixture_package(monkeypatch)
-    fixture_ep = importlib.metadata.EntryPoint(
-        name="fixture",
-        value="scistudio_blocks_fixture.previewers:get_previewers",
-        group="scistudio.previewers",
-    )
-    real_entry_points = importlib.metadata.entry_points
-
-    def _entry_points(*args: object, **kwargs: object) -> object:
-        if kwargs.get("group") == "scistudio.previewers":
-            return (fixture_ep,)
-        return real_entry_points(*args, **kwargs)
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    # Rebuild the preview service so the fixture previewers are registered.
-    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
-        runtime.get_panel_service().rescan(legacy=True)
-
-    matrix = np.arange(16 * 16, dtype=np.uint16).reshape(16, 16)
-
-    class _FakeArray:
-        shape = (3, 16, 16)
-        dtype = "uint16"
-
-        def __getitem__(self, key: object) -> np.ndarray:
-            return matrix
-
-    fake_zarr = types.ModuleType("zarr")
-    fake_zarr.Array = _FakeArray  # type: ignore[attr-defined]
-    fake_zarr.open = lambda path, mode="r": _FakeArray()  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "zarr", fake_zarr)
-
-    zarr_path = opened_project / "data" / "zarr" / "img.zarr"
-    zarr_path.mkdir(parents=True)
-    record = runtime.register_data_ref(
-        StorageReference(
-            backend="zarr",
-            path=str(zarr_path),
-            format="zarr",
-            metadata={"type_chain": ["DataObject", "Array", "Image"], "axes": ["z", "y", "x"]},
-        ),
-        type_name="Image",
-    )
-    created = _create_session(
-        client, ref=record.id, recorded_type="Image", type_chain=["DataObject", "Array", "Image"]
-    ).json()
-
-    assert created["previewer_id"] == "fixture.image.viewer"
-    # First-class manifest in the wire body (#1579).
-    assert created["frontend_manifest"]["previewer_id"] == "fixture.image.viewer"
-    assert created["frontend_manifest"]["module_url"] == "/api/previews/assets/fixture.image.viewer/viewer.js"
-    # The backend-only asset_root is never serialized.
-    assert "asset_root" not in created["frontend_manifest"]
-    # Old flattened metadata channel is no longer populated by the provider.
-    assert "frontend_manifest" not in created["metadata"]
 
 
 def test_resource_unknown_session_returns_404(client: TestClient, opened_project: Path) -> None:
@@ -674,26 +564,9 @@ def test_collection_image_child_resource_uses_catalog_storage(
     opened_project: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Collection item previews must route through the catalog-backed Image previewer."""
+    """Collection item previews route on the member's own catalog type."""
     import numpy as np
     import tifffile
-
-    _prefer_fixture_package(monkeypatch)
-    fixture_ep = importlib.metadata.EntryPoint(
-        name="fixture",
-        value="scistudio_blocks_fixture.previewers:get_previewers",
-        group="scistudio.previewers",
-    )
-    real_entry_points = importlib.metadata.entry_points
-
-    def _entry_points(*args: object, **kwargs: object) -> object:
-        if kwargs.get("group") == "scistudio.previewers":
-            return (fixture_ep,)
-        return real_entry_points(*args, **kwargs)
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
-        runtime.get_panel_service().rescan(legacy=True)
 
     image_path = opened_project / "images" / "child.tif"
     image_path.parent.mkdir(parents=True, exist_ok=True)
@@ -730,52 +603,11 @@ def test_collection_image_child_resource_uses_catalog_storage(
     child = opened.json()
     # The member routes on its own recorded type, through the catalog storage
     # the backend froze — not through anything the collection listing carried.
-    assert child["previewer_id"] == "fixture.image.viewer"
-    assert child["kind"] == "array"
+    assert child["previewer_id"] == "core.array.basic"
+    assert child["kind"] == "panel"
     assert child["target"]["ref"] == record.id
     assert child["target"]["recorded_type"] == "Image"
     assert child["target"]["type_chain"] == ["DataObject", "Array", "Image"]
-    assert child["payload"]["shape"] == [8, 8]
-    assert str(child["payload"]["src"]).startswith("data:image/png;base64,")
-
-
-def test_imaging_previewer_asset_served_from_companion_package_entry_point(
-    client: TestClient,
-    runtime: ApiRuntime,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Imaging viewer assets remain available when previewer entry-point metadata is stale."""
-    _prefer_fixture_package(monkeypatch)
-    block_ep = importlib.metadata.EntryPoint(
-        name="fixture",
-        value="scistudio_blocks_fixture:get_block_package",
-        group="scistudio.blocks",
-    )
-    real_entry_points = importlib.metadata.entry_points
-
-    def _entry_points(*args: object, **kwargs: object) -> object:
-        group = kwargs.get("group")
-        if group == "scistudio.previewers":
-            return ()
-        if group == "scistudio.blocks":
-            return (block_ep,)
-        if group == "scistudio.types":
-            return ()
-        return real_entry_points(*args, **kwargs)
-
-    monkeypatch.setattr(importlib.metadata, "entry_points", _entry_points)
-    with pytest.warns(DeprecationWarning, match="is deprecated and removed in 0.3.6"):
-        runtime.get_panel_service().rescan(legacy=True)
-
-    spec = runtime.get_preview_service().registry.get("fixture.image.viewer")
-    assert spec is not None
-    assert spec.frontend_manifest is not None
-
-    resp = client.get("/api/previews/assets/fixture.image.viewer/viewer.js")
-
-    assert resp.status_code == 200
-    assert "text/javascript" in resp.headers["content-type"]
-    assert b"mount" in resp.content
 
 
 def test_composite_panel_lists_and_opens_a_slot(

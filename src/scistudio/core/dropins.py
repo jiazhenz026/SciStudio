@@ -130,16 +130,10 @@
 # them sets ``SCISTUDIO_PROJECT_DIR`` for the API server, but all four register
 # their scan directories through this module.
 #
-# Previewers are the third consumer (#2044 / #2017). ``<project>/previewers``
-# and ``~/.scistudio/previewers`` are the same user-writable claim on the
-# top-level module namespace as the types directories, so the tier definition
-# (:func:`previewer_scan_dirs`, :func:`previewer_import_roots`), the collision
-# guard (:func:`guard_dropin_roots`, one implementation shared with
-# the types guard), and :func:`evict_cached_bytecode` all live here rather than
-# as a fourth copy of the rule in ``scistudio.previewers.project``. The user
-# previewer tier exists at all because FR-060's rule — user-tier discovery is
-# unconditional, project-tier requires a project — applies to previewers
-# exactly as it does to types.
+# The previewer drop-in tier (``<project>/previewers``, #2044 / #2017) was a
+# third consumer until the legacy previewers were removed (#2493); panels are
+# folders discovered by :mod:`scistudio.panels.registry` and never imported, so
+# they need no import roots or collision guard, only :func:`panel_scan_dirs`.
 #
 # **The Learning Center adds a third kind and a second user-tier root**
 # (``docs/specs/adr-053-learning-center.md`` FR-016, FR-031, FR-070 to FR-073).
@@ -184,7 +178,6 @@ from scistudio.desktop.paths import user_python_import_roots
 __all__ = [
     "BLOCKS_DIR_NAME",
     "PANELS_DIR_NAME",
-    "PREVIEWERS_DIR_NAME",
     "PROJECT_DIR_ENV_VAR",
     "TUTORIALS_DIR_NAME",
     "TUTORIAL_LIBRARY_DIR_NAME",
@@ -203,11 +196,8 @@ __all__ = [
     "is_tutorial_location",
     "library_root_for_project",
     "panel_scan_dirs",
-    "previewer_import_roots",
-    "previewer_scan_dirs",
     "project_blocks_dir",
     "project_dir_from_env",
-    "project_previewers_dir",
     "project_tutorials_dir",
     "project_types_dir",
     "register_block_scan_dirs",
@@ -219,7 +209,6 @@ __all__ = [
     "type_scan_dirs",
     "user_blocks_dir",
     "user_library_dir",
-    "user_previewers_dir",
     "user_tutorials_dir",
     "user_types_dir",
 ]
@@ -233,15 +222,9 @@ BLOCKS_DIR_NAME = "blocks"
 #: Child directory holding drop-in ``DataObject`` files, in both tiers.
 TYPES_DIR_NAME = "types"
 
-#: Child directory holding drop-in previewer files, in both tiers.
-#: Previewers are this module's third consumer (#2044/#2017): the same tier
-#: definition, collision guard, and bytecode eviction that blocks and types
-#: use, applied to ``<project>/previewers`` and ``~/.scistudio/previewers``.
-PREVIEWERS_DIR_NAME = "previewers"
-
 #: Child directory holding panel folders, one ``panels/<panel-id>/`` per panel
 #: or MiniApp, in both tiers (ADR-054). New projects are scaffolded with this
-#: directory; ``previewers/`` is still scanned but no longer created (#2411).
+#: directory (#2411).
 PANELS_DIR_NAME = "panels"
 
 #: Child directory holding drop-in tutorial directories, in both tiers
@@ -297,11 +280,6 @@ def user_types_dir() -> Path:
     return user_library_dir() / TYPES_DIR_NAME
 
 
-def user_previewers_dir() -> Path:
-    """Return the user-tier drop-in previewer dir, ``~/.scistudio/previewers``."""
-    return user_library_dir() / PREVIEWERS_DIR_NAME
-
-
 def project_blocks_dir(project_dir: str | Path) -> Path:
     """Return the project-tier drop-in block dir, ``<project>/blocks``."""
     return Path(project_dir) / BLOCKS_DIR_NAME
@@ -310,11 +288,6 @@ def project_blocks_dir(project_dir: str | Path) -> Path:
 def project_types_dir(project_dir: str | Path) -> Path:
     """Return the project-tier drop-in type dir, ``<project>/types``."""
     return Path(project_dir) / TYPES_DIR_NAME
-
-
-def project_previewers_dir(project_dir: str | Path) -> Path:
-    """Return the project-tier drop-in previewer dir, ``<project>/previewers``."""
-    return Path(project_dir) / PREVIEWERS_DIR_NAME
 
 
 def project_dir_from_env() -> Path | None:
@@ -372,9 +345,9 @@ def library_root_for_project(project_dir: str | Path | None) -> Path:
     :func:`tutorial_library_dir` for a project under the tutorial parent and
     :func:`user_library_dir` for every other project, including the no-project
     case. The tier *shape* is unchanged — ``<root>/blocks``, ``<root>/types``,
-    and ``<root>/previewers`` either way — so the swap is one root rather than
+    and ``<root>/panels`` either way — so the swap is one root rather than
     a fourth tier, which is what keeps :func:`block_scan_dirs`,
-    :func:`type_scan_dirs`, :func:`previewer_scan_dirs`,
+    :func:`type_scan_dirs`, :func:`panel_scan_dirs`,
     :func:`dropin_import_roots`, and :func:`dropin_type_roots_for_block_dirs`
     correct for tutorial projects without any of them learning what a tutorial
     is.
@@ -455,24 +428,15 @@ def tutorial_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...
 
 
 def panel_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
-    """Panel tiers with the same tutorial-library substitution as previewers."""
-    return _tier_dirs(PANELS_DIR_NAME, project_dir, library_root_for_project(project_dir))
+    """Return the panel folder tiers for *project_dir*'s context.
 
-
-def previewer_scan_dirs(project_dir: str | Path | None = None) -> tuple[Path, ...]:
-    """Return the drop-in previewer scan dirs for *project_dir*'s context.
-
-    Same tier definition as :func:`type_scan_dirs`: the project tier
-    when a project context exists, then the user tier unconditionally.
-
-    A tutorial project's user tier is the tutorial-scoped library
-    (:func:`library_root_for_project`) — the same one-root swap
-    blocks and types make, extended to previewers by so a previewer saved
-    during one tutorial travels to the next tutorial project and never into
-    ``~/.scistudio/previewers``.
+    The project tier when a project context exists, then the user tier. A
+    tutorial project's user tier is the tutorial-scoped library
+    (:func:`library_root_for_project`), so a panel saved during one tutorial
+    travels to the next tutorial project and never into ``~/.scistudio/panels``.
     """
     # Development references: #2086, FR-058, FR-060, FR-070, FR-071.
-    return _tier_dirs(PREVIEWERS_DIR_NAME, project_dir, library_root_for_project(project_dir))
+    return _tier_dirs(PANELS_DIR_NAME, project_dir, library_root_for_project(project_dir))
 
 
 def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
@@ -502,17 +466,6 @@ def dropin_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ..
     """
     # Development references: ADR-053, FR-016, FR-020a, FR-057, FR-071.
     return (*type_scan_dirs(project_dir), *user_python_import_roots())
-
-
-def previewer_import_roots(project_dir: str | Path | None = None) -> tuple[Path, ...]:
-    """Return the import roots to put on ``sys.path`` when running a drop-in previewer.
-
-    Mirrors :func:`dropin_import_roots` for the previewer tier: the previewer
-    scan dirs in :func:`previewer_scan_dirs` order, then the shared user
-    dependency site, so a drop-in previewer's sibling imports and
-    user-installed dependencies resolve the same way a drop-in type's do.
-    """
-    return (*previewer_scan_dirs(project_dir), *user_python_import_roots())
 
 
 def dropin_type_roots_for_block_dirs(block_dirs: Iterable[str | Path]) -> tuple[Path, ...]:
@@ -708,7 +661,7 @@ class DropinTypeCollision:
     directory when the entry is a package. ``stem`` is the top-level module
     name the entry would claim, and ``origin`` is where the module it collides
     with actually lives. ``dir_label`` names the drop-in directory kind in the
-    user-facing message (``"types"`` or ``"previewers"``).
+    user-facing message (``"types"``).
     """
 
     path: Path
@@ -889,7 +842,7 @@ def guard_dropin_roots(
 
     The single definition of both the rule and its mitigation, shared by every
     drop-in kind; *dir_name* picks which drop-in roots are examined
-    (:data:`TYPES_DIR_NAME` or :data:`PREVIEWERS_DIR_NAME`). Call it from every
+    (:data:`TYPES_DIR_NAME`). Call it from every
     site that puts drop-in roots of that kind on ``sys.path``, before it does
     so. Binding is once per process per name, so a ``tensorflow.py`` collision
     does not re-import TensorFlow on every palette refresh. Pass ``bind=False``

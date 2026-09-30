@@ -73,10 +73,8 @@ PUBLIC_CONTRACT_SYMBOLS = {
     "MetadataFidelity": "06_io_format_capability",
     "PanelDescriptor": "09_previewer_contracts",
     "PanelRegistry": "09_previewer_contracts",
-    "PreviewerRegistry": "09_previewer_contracts",
-    "PreviewRouter": "09_previewer_contracts",
+    "PanelRouter": "09_previewer_contracts",
     "PreviewerSpec": "09_previewer_contracts",
-    "FrontendManifest": "09_previewer_contracts",
     "PreviewDataAccess": "10_preview_provider_behavior",
 }
 VALIDATOR_FUNCTIONS = {
@@ -98,8 +96,6 @@ VALIDATOR_FUNCTIONS = {
     "validate_interactive_panel": "09_previewer_contracts",
     "validate_external_references": "12_security_isolation",
     "resolve_panel_file": "12_security_isolation",
-    "validate_manifest": "09_previewer_contracts",
-    "resolve_asset": "09_previewer_contracts",
     "is_remote_url": "12_security_isolation",
     "load_packages": "13_cross_surface_registry_consistency",
     "_scan_entry_points": "13_cross_surface_registry_consistency",
@@ -293,12 +289,10 @@ def parse_py_file(path: Path, root: Path, items: list[InventoryItem]) -> None:
                     required=True,
                     reason="validator or registry function that encodes package contract behavior",
                 )
-            if node.name in {"get_blocks", "get_block_package", "get_types", "get_previewers"}:
+            if node.name in {"get_blocks", "get_block_package", "get_types"}:
                 section = "02_entry_points"
                 if node.name == "get_types":
                     section = "03_type_contracts"
-                elif node.name == "get_previewers":
-                    section = "09_previewer_contracts"
                 add_item(
                     items,
                     section=section,
@@ -347,17 +341,6 @@ def parse_py_file(path: Path, root: Path, items: list[InventoryItem]) -> None:
                     required=False,
                     reason="concrete PreviewerSpec declaration",
                 )
-            elif call_name == "FrontendManifest":
-                add_item(
-                    items,
-                    section="09_previewer_contracts",
-                    kind="frontend_manifest_call",
-                    path=rel,
-                    line=node.lineno,
-                    symbol="FrontendManifest",
-                    required=False,
-                    reason="frontend preview manifest declaration",
-                )
 
 
 def parse_pyproject(path: Path, root: Path, items: list[InventoryItem]) -> None:
@@ -373,7 +356,7 @@ def parse_pyproject(path: Path, root: Path, items: list[InventoryItem]) -> None:
             section = "02_entry_points"
             if group == "scistudio.types":
                 section = "03_type_contracts"
-            elif group == "scistudio.previewers":
+            elif group == "scistudio.panels":
                 section = "09_previewer_contracts"
             elif group == "scistudio.adapters":
                 section = "02_entry_points"
@@ -415,25 +398,20 @@ def parse_pyproject(path: Path, root: Path, items: list[InventoryItem]) -> None:
 
 def add_known_file_items(root: Path, items: list[InventoryItem]) -> None:
     known = {
-        "src/scistudio/previewers/data_access.py": (
+        "src/scistudio/panels/data_access.py": (
             "10_preview_provider_behavior",
             "preview_data_access_module",
             "PreviewDataAccess bounded data access surface",
         ),
-        "src/scistudio/previewers/session.py": (
+        "src/scistudio/panels/sessions.py": (
             "10_preview_provider_behavior",
-            "preview_session_provider_invocation",
-            "Preview provider invocation and exception handling",
+            "preview_session_store",
+            "Preview session store and follow-up resource reads",
         ),
         "src/scistudio/api/preview_plot_jobs.py": (
             "11_plot_jobs",
             "plot_job_api",
             "Plot job API contract",
-        ),
-        "src/scistudio/previewers/assets.py": (
-            "12_security_isolation",
-            "preview_asset_security",
-            "Same-origin/path-confined preview asset serving",
         ),
         "src/scistudio/engine/worker.py": (
             "12_security_isolation",
@@ -450,10 +428,10 @@ def add_known_file_items(root: Path, items: list[InventoryItem]) -> None:
             "type_registry_scan",
             "Type package registry scan behavior",
         ),
-        "src/scistudio/previewers/registry.py": (
+        "src/scistudio/panels/registry.py": (
             "13_cross_surface_registry_consistency",
-            "previewer_registry_scan",
-            "Previewer package registry scan behavior",
+            "panel_registry_scan",
+            "Panel package registry scan behavior",
         ),
     }
     for rel, (section, kind, reason) in known.items():

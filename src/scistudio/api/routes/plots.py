@@ -4,10 +4,9 @@
 #
 # This route is the producer -> consumer link the original SPEC 2 implementation
 # left dead-wired (#1606). ``run_plot_job`` writes a display-only artifact to the
-# preview cache, but nothing registered that artifact so the routed
-# :class:`~scistudio.previewers.PreviewService` could reach the core
-# ``PlotPreviewer`` (``core.plot.basic``) at runtime, and no API surface let the
-# GUI trigger a plot run and open the preview.
+# preview cache, but nothing registered that artifact so a routed preview could
+# reach the core plot panel (``core.plot.basic``) at runtime, and no API surface
+# let the GUI trigger a plot run and open the preview.
 #
 # ``POST /api/plots/run``:
 #

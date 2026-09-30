@@ -1,13 +1,14 @@
 """Reload symmetry — every invalidating event refreshes every registry.
 
 ADR-053 ``docs/specs/adr-053-personal-tool-library.md`` §10.4 (FR-062 to FR-065),
-issue #2021, plus issue #2009 for the previewer half.
+issue #2021, plus issue #2009 for the previewer half (since #2493 the panel
+catalog, where every previewer lives).
 
 ``refresh_block_registry`` used to be called alone from five sites — the
 branch-switch route and the four package install/update/rollback/delete routes —
 while the type registry and the previewer registry were rebuilt only on project
 switch and at startup. A package that shipped types or previewers, and a branch
-that changed ``<project>/types/`` or ``<project>/previewers/``, produced no
+that changed ``<project>/types/`` or its previewers, produced no
 error and no hint: the new items simply were not there until the user happened
 to switch projects.
 
@@ -32,6 +33,7 @@ structurally could not see ``registry.hot_reload()``.
 from __future__ import annotations
 
 import importlib.metadata
+import json
 import sys
 import types
 from pathlib import Path
@@ -44,7 +46,6 @@ from scistudio.api.routes import packages as package_routes
 from scistudio.api.runtime import ApiRuntime
 from scistudio.core.types.base import DataObject
 from scistudio.desktop.package_installer import LocalPackageInstallResult
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
 
 PROBE_MODULE = "scistudio_reload_probe"
 PROBE_PREVIEWER_ID = "probe.package.viewer"
@@ -58,20 +59,15 @@ class BranchOnlyType(DataObject):
     """Project-tier drop-in type that exists only on the feature branch."""
 '''
 
-_PROJECT_PREVIEWER_MODULE = f'''
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
 
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id="{PROJECT_PREVIEWER_ID}",
-            owner_kind=OwnerKind.PROJECT,
-            owner_name="probe-project",
-            target_type="BranchOnlyType",
-        )
-    ]
-'''
+def _write_preview_panel(root: Path, panel_id: str, type_name: str) -> Path:
+    """A preview panel folder claiming *type_name* (every previewer is a panel, #2493)."""
+    directory = root / panel_id
+    directory.mkdir(parents=True, exist_ok=True)
+    descriptor = {"id": panel_id, "api_version": "1.0", "contexts": ["preview"], "types": [type_name]}
+    (directory / "panel.json").write_text(json.dumps(descriptor), encoding="utf-8")
+    (directory / "index.html").write_text("<p>probe</p>", encoding="utf-8")
+    return directory
 
 
 class PackageProbeType(DataObject):
@@ -83,32 +79,26 @@ def _type_names(runtime: ApiRuntime) -> set[str]:
 
 
 def _previewer_ids(runtime: ApiRuntime) -> set[str]:
-    return {spec.previewer_id for spec in runtime.get_preview_service().registry.all_specs()}
+    return {spec.previewer_id for spec in runtime.get_panel_service().all_specs()}
 
 
-def _install_package_entry_points(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Publish a fake installed package shipping one type and one previewer.
+def _install_package_entry_points(monkeypatch: pytest.MonkeyPatch, panel_root: Path) -> None:
+    """Publish a fake installed package shipping one type and one preview panel.
 
     Entry points are how a package ships both, so injecting them is the
     package tier as the registries actually see it. The injection happens
     after the fixtures' startup scan, which is what makes "discoverable
     without a project switch" a real assertion rather than a tautology.
     """
+    panel = _write_preview_panel(panel_root, PROBE_PREVIEWER_ID, PackageProbeType.__name__)
     module = types.ModuleType(PROBE_MODULE)
     module.get_types = lambda: [PackageProbeType]  # type: ignore[attr-defined]
-    module.get_previewers = lambda: [  # type: ignore[attr-defined]
-        PreviewerSpec(
-            previewer_id=PROBE_PREVIEWER_ID,
-            owner_kind=OwnerKind.PACKAGE,
-            owner_name=PROBE_MODULE,
-            target_type=PackageProbeType.__name__,
-        )
-    ]
+    module.get_panels = lambda: [str(panel)]  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, PROBE_MODULE, module)
 
     injected = {
         group: (importlib.metadata.EntryPoint(name="probe", value=f"{PROBE_MODULE}:{attr}", group=group),)
-        for group, attr in (("scistudio.types", "get_types"), ("scistudio.previewers", "get_previewers"))
+        for group, attr in (("scistudio.types", "get_types"), ("scistudio.panels", "get_panels"))
     }
     real_entry_points = importlib.metadata.entry_points
 
@@ -137,13 +127,10 @@ def _fake_local_install(monkeypatch: pytest.MonkeyPatch, install_path: Path) -> 
 
 
 def _write_project_dropins(project_dir: Path) -> None:
-    for child, name, body in (
-        ("types", "branch_only_type.py", _PROJECT_TYPE_MODULE),
-        ("previewers", "branch_only_previewer.py", _PROJECT_PREVIEWER_MODULE),
-    ):
-        target = project_dir / child
-        target.mkdir(parents=True, exist_ok=True)
-        (target / name).write_text(body, encoding="utf-8")
+    target = project_dir / "types"
+    target.mkdir(parents=True, exist_ok=True)
+    (target / "branch_only_type.py").write_text(_PROJECT_TYPE_MODULE, encoding="utf-8")
+    _write_preview_panel(project_dir / "panels", PROJECT_PREVIEWER_ID, "BranchOnlyType")
 
 
 def _commit(client: TestClient, message: str) -> None:
@@ -313,7 +300,7 @@ def test_package_install_refreshes_type_and_previewer_registries(
     """
     monkeypatch.setenv("SCISTUDIO_BUNDLED", "1")
     _fake_local_install(monkeypatch, tmp_path / "installed" / "probe-0.1.0")
-    _install_package_entry_points(monkeypatch)
+    _install_package_entry_points(monkeypatch, tmp_path / "package-panels")
 
     assert PackageProbeType.__name__ not in _type_names(runtime)
     assert PROBE_PREVIEWER_ID not in _previewer_ids(runtime)
@@ -338,6 +325,7 @@ def test_package_lifecycle_routes_refresh_every_registry(
     runtime: ApiRuntime,
     opened_project: Path,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
     method: str,
     url: str,
     manager_attr: str,
@@ -357,7 +345,7 @@ def test_package_lifecycle_routes_refresh_every_registry(
             package_name=name, version="1.0.0", action="probe", previous_version="0.9.0"
         ),
     )
-    _install_package_entry_points(monkeypatch)
+    _install_package_entry_points(monkeypatch, tmp_path / "package-panels")
 
     assert PackageProbeType.__name__ not in _type_names(runtime)
     assert PROBE_PREVIEWER_ID not in _previewer_ids(runtime)
@@ -378,7 +366,7 @@ def test_branch_switch_refreshes_project_types_and_previewers(
     runtime: ApiRuntime,
     opened_project: Path,
 ) -> None:
-    """A branch that changes ``types/`` or ``previewers/`` is picked up.
+    """A branch that changes ``types/`` or ``panels/`` is picked up.
 
     FR-064 and #2009: a branch rewrites those directories exactly as it
     rewrites ``blocks/``, and until now only the blocks half was rebuilt.
@@ -400,21 +388,6 @@ def test_branch_switch_refreshes_project_types_and_previewers(
 
 SCOPED_PREVIEWER_ID = "probe.scoped.viewer"
 
-_SCOPED_PREVIEWER_MODULE = f'''
-from scistudio.previewers.models import OwnerKind, PreviewerSpec
-
-
-def get_previewers():
-    return [
-        PreviewerSpec(
-            previewer_id="{SCOPED_PREVIEWER_ID}",
-            owner_kind=OwnerKind.USER,
-            owner_name="tutorial-library",
-            target_type="TeachingType",
-        )
-    ]
-'''
-
 
 def test_project_switch_swaps_the_scoped_library_previewer_tier(
     client: TestClient,
@@ -423,19 +396,17 @@ def test_project_switch_swaps_the_scoped_library_previewer_tier(
 ) -> None:
     """Learning Center FR-070/FR-071 through the refresh path (#2086).
 
-    The previewer registry is rebuilt on project switch, and *which* library
-    answers as its user tier follows the project being opened: a scoped-library
-    previewer is registered while a tutorial project is open and gone the
-    moment a real project is — the isolation blocks and types already hold,
-    now symmetric for the third registry.
+    The panel catalog is rebuilt on project switch, and *which* library answers
+    as its user tier follows the project being opened: a scoped-library preview
+    panel is registered while a tutorial project is open and gone the moment a
+    real project is — the isolation blocks and types already hold, symmetric
+    for the panel catalog.
     """
     from scistudio.core import dropins
     from scistudio.tutorials import projects as tutorial_projects
     from scistudio.tutorials.projects import TutorialKey
 
-    scoped_previewers = dropins.tutorial_library_dir() / "previewers"
-    scoped_previewers.mkdir(parents=True, exist_ok=True)
-    (scoped_previewers / "scoped_viewer.py").write_text(_SCOPED_PREVIEWER_MODULE, encoding="utf-8")
+    _write_preview_panel(dropins.tutorial_library_dir() / "panels", SCOPED_PREVIEWER_ID, "Text")
 
     key = TutorialKey.core("welcome-to-scistudio")
     plan = tutorial_projects.plan_tutorial_project(key, "Welcome To SciStudio")
@@ -476,7 +447,7 @@ def test_project_switch_swaps_the_scoped_library_previewer_tier(
 #: cannot quietly sit outside the refresh path.
 #:
 #: ``scistudio.tutorials`` has no row, and that is the design rather than a gap.
-#: The other three groups each populate a registry object that is built once and
+#: The other groups each populate a registry object that is built once and
 #: then has to be rebuilt when something invalidates it — which is what a
 #: refresh site *is*. Tutorial discovery holds nothing:
 #: :meth:`scistudio.tutorials.session.TutorialRuntime.discover` recomputes the
@@ -487,12 +458,11 @@ def test_project_switch_swaps_the_scoped_library_previewer_tier(
 #: is nothing that can go stale between the two.
 #:
 #: So do not add a cached catalogue to ``ApiRuntime`` in order to give this map
-#: a fourth row. It would introduce the staleness the row exists to guard
+#: another row. It would introduce the staleness the row exists to guard
 #: against, in a group that currently cannot have it.
 _GROUP_REFRESH_SITES: dict[str, str] = {
     "scistudio.blocks": "block_registry",
     "scistudio.types": "type_registry",
-    "scistudio.previewers": "preview_service",
 }
 
 
@@ -578,11 +548,11 @@ def test_refresh_all_registries_rebuilds_the_registry_behind_every_group(
     happens to ship a package for that group.
     """
     attribute = _GROUP_REFRESH_SITES[group]
-    before = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+    before = getattr(runtime, attribute)
 
     runtime.refresh_all_registries()
 
-    after = getattr(runtime, attribute) if attribute != "preview_service" else runtime.get_preview_service()
+    after = getattr(runtime, attribute)
     assert after is not before, f"{group} was not rebuilt by refresh_all_registries()"
 
 
