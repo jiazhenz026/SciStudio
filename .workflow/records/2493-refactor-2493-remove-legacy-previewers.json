@@ -1,0 +1,281 @@
+{
+  "base_ref": null,
+  "branch": "refactor/2493-remove-legacy-previewers",
+  "check_events": [],
+  "check_na": [],
+  "commit": null,
+  "declared_scope": {
+    "exclude": [],
+    "include": []
+  },
+  "directive_events": [],
+  "docs_events": [
+    {
+      "at": "2026-09-30T17:00:02.562556Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/adr/ADR-054.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562731Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/specs/adr-054-panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562733Z",
+      "class": null,
+      "kind": "path",
+      "path": "src/scistudio/_user_guide/api-reference/scistudio.panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562734Z",
+      "class": null,
+      "kind": "path",
+      "path": "docs/user/reference/scistudio.panels.md",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562743Z",
+      "class": "changelog",
+      "kind": "na",
+      "path": null,
+      "rationale": "Owner edits CHANGELOG.md and ADR/spec body text during the doc overhaul; this PR edits only governs frontmatter and generated references, and reports the stale mentions",
+      "verified_in_diff": null
+    }
+  ],
+  "governance_touch": true,
+  "guard_events": [],
+  "issues": [
+    {
+      "close_in_pr": true,
+      "followup_rationale": null,
+      "number": 2493,
+      "url": null
+    }
+  ],
+  "observed_admin_labels": [],
+  "observed_diff": null,
+  "owner_directive": "First ADR-056 PR: remove the legacy previewer forms completely (ADR-054 \u00a78, option A) ahead of 0.3.6. imaging/spectroscopy/LCMS packages may break. Shared pieces of scistudio.previewers used by panels move under scistudio.panels and the previewers package is deleted. FR-005 project default (previewers.json) is dropped; ties use user choice only. PanelManifest legacy fields (module_url, export_name, css, version, asset_root) are removed. Owner authorizes editing ADR/spec frontmatter governs lists only, to drop entries for deleted files; no body text.",
+  "persona": "live_implementer",
+  "pull_request": null,
+  "reconcile_events": [],
+  "record_id": "2493-refactor-2493-remove-legacy-previewers",
+  "requested_admin_labels": [
+    {
+      "actor_permission": null,
+      "applied_at": null,
+      "applied_by": null,
+      "name": "admin-approved:core-change"
+    }
+  ],
+  "required_obligations": {
+    "admin_labels": [],
+    "checks": [],
+    "docs": [],
+    "guards": [],
+    "tests": []
+  },
+  "runtime": "claude",
+  "schema_version": 2,
+  "scope_events": [
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101590Z",
+      "pattern": "src/scistudio/previewers/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101786Z",
+      "pattern": "src/scistudio/panels/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101789Z",
+      "pattern": "src/scistudio/api/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101791Z",
+      "pattern": "src/scistudio/blocks/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101792Z",
+      "pattern": "src/scistudio/core/dropins.py",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101793Z",
+      "pattern": "src/scistudio/core/entry_points.py",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101794Z",
+      "pattern": "src/scistudio/tutorials/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101796Z",
+      "pattern": "src/scistudio/ai/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101797Z",
+      "pattern": "src/scistudio/desktop/paths.py",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101798Z",
+      "pattern": "src/scistudio/_user_guide/api-reference/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101799Z",
+      "pattern": "docs/user/reference/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101800Z",
+      "pattern": "frontend/src/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101801Z",
+      "pattern": "frontend/e2e/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101802Z",
+      "pattern": "tests/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101803Z",
+      "pattern": "pyproject.toml",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101804Z",
+      "pattern": "mkdocs.yml",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101805Z",
+      "pattern": "scripts/docs/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101806Z",
+      "pattern": "scripts/audit/**",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101807Z",
+      "pattern": "docs/adr/*.md",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T15:56:19.101808Z",
+      "pattern": "docs/specs/*.md",
+      "reason": "Declared scope for the legacy previewer removal, from the removal-surface survey"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T16:13:03.229495Z",
+      "pattern": "src/scistudio/core/types/registry.py",
+      "reason": "Stale references to deleted previewer modules: a TypeRegistry docstring cross-reference, a plot.models import-light note, and the interactive data-router user-guide example that passed the removed PanelManifest version field (it would raise TypeError)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T16:13:03.229630Z",
+      "pattern": "src/scistudio/plot/models.py",
+      "reason": "Stale references to deleted previewer modules: a TypeRegistry docstring cross-reference, a plot.models import-light note, and the interactive data-router user-guide example that passed the removed PanelManifest version field (it would raise TypeError)"
+    },
+    {
+      "action": "add-include",
+      "at": "2026-09-30T16:13:03.229634Z",
+      "pattern": "src/scistudio/_user_guide/examples/blocks/interactive-data-router/data_router.py",
+      "reason": "Stale references to deleted previewer modules: a TypeRegistry docstring cross-reference, a plot.models import-light note, and the interactive data-router user-guide example that passed the removed PanelManifest version field (it would raise TypeError)"
+    }
+  ],
+  "session_id": "91449093-1510-4529-a4e0-bd1241e12923",
+  "strictness_tier": null,
+  "task_kind": "guided",
+  "test_events": [
+    {
+      "at": "2026-09-30T17:00:02.562747Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_routing_ladder.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562750Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_routing.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562757Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/panels/test_panel_service.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562758Z",
+      "class": null,
+      "kind": "path",
+      "path": "tests/api/test_previewer_discovery.py",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562760Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/components/DataPreview.parts/PreviewHost.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    },
+    {
+      "at": "2026-09-30T17:00:02.562761Z",
+      "class": null,
+      "kind": "path",
+      "path": "frontend/src/App.parts/InteractiveModals.test.tsx",
+      "rationale": null,
+      "verified_in_diff": null
+    }
+  ]
+}
