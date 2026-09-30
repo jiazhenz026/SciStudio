@@ -169,3 +169,21 @@ def tmp_project_dir(tmp_path: pytest.TempPathFactory) -> "Path":
     project_dir: Path = tmp_path / "test_project"  # type: ignore[operator]
     project_dir.mkdir()
     return project_dir
+
+
+@pytest.fixture(autouse=True)
+def _isolate_user_import_path() -> Iterator[None]:
+    """Give each test an empty user import path and no leftover user modules (ADR-056).
+
+    User files are imported by their own module names and the user import path
+    stays on ``sys.path``, so a test that scans ``<tmp>/blocks/my_block.py``
+    would otherwise leave ``my_block`` cached for the next test's different
+    ``my_block.py``. After each test every user module is forgotten and the
+    path uninstalled, as a project switch does in the product.
+    """
+    from scistudio.core.user_code import forget_user_modules, install_user_import_path
+
+    yield
+    forget_user_modules()
+    install_user_import_path(())
+    forget_user_modules()
