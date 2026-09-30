@@ -63,4 +63,3 @@ def sanitize_svg(svg_text: str) -> tuple[str, bool]:
     sanitized, n_hrefs = _SVG_EXTERNAL_HREF_RE.subn("", sanitized)
     removed = sanitized != svg_text or n_events > 0 or n_hrefs > 0
     return sanitized, removed
-
