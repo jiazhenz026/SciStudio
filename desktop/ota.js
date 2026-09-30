@@ -36,6 +36,30 @@ function compareBase(a, b) {
   return 0;
 }
 
+// #2396: each installer base reads its own manifest ("board") in the channel's
+// release, so publishing for one base never overwrites what another base's
+// clients are told -- above all a reinstall notice, which old-base clients must
+// keep seeing however long they wait to launch. Bases up to this one shipped
+// reading the shared `manifest.json` and keep reading it; every later base reads
+// `manifest-<base>.json`. Mirrored by LEGACY_MANIFEST_LAST_BASE in
+// scripts/ota_publish.py.
+const LEGACY_MANIFEST_LAST_BASE = "0.3.4";
+const SHARED_MANIFEST_NAME = "manifest.json";
+
+function manifestNameForBase(base) {
+  return compareBase(base, LEGACY_MANIFEST_LAST_BASE) <= 0 ? SHARED_MANIFEST_NAME : `manifest-${base}.json`;
+}
+
+// The configured URL (ota-config.json) names the channel's shared manifest;
+// point it at this base's board. A URL that does not end in the shared name
+// (a hand-set test URL, say) is left alone.
+function manifestUrlForBase(configuredUrl, base) {
+  if (typeof configuredUrl !== "string" || !base || !configuredUrl.endsWith(`/${SHARED_MANIFEST_NAME}`)) {
+    return configuredUrl;
+  }
+  return configuredUrl.slice(0, -SHARED_MANIFEST_NAME.length) + manifestNameForBase(base);
+}
+
 function patchDirName(build) {
   return `build${build}`;
 }
@@ -228,6 +252,9 @@ module.exports = {
   VERSION_RE,
   parseVersion,
   compareBase,
+  LEGACY_MANIFEST_LAST_BASE,
+  manifestNameForBase,
+  manifestUrlForBase,
   patchDirName,
   isMandatoryUpdate,
   evaluateUpdate,

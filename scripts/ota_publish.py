@@ -4,15 +4,16 @@
 A patch is a *full snapshot* of the staged backend source tree
 (``desktop/resources/backend/src``, which already embeds the built frontend at
 ``scistudio/api/static``). It is uploaded as an asset on a rolling, per-channel
-GitHub pre-release together with a ``manifest.json`` that the desktop client
-(``desktop/main.js``) reads at launch.
+GitHub pre-release together with a manifest that the desktop client
+(``desktop/main.js``) reads at launch. #2396: each installer base reads its own
+manifest in that release (``manifest_name_for_base``).
 
 Design (issue #1775):
 
 * Patches are full snapshots, never deltas. A client several builds behind
   downloads the latest snapshot and replaces its source tree in one step.
-* The build number is the patch sequence. Its source of truth is the published
-  manifest, not any local counter: the next build is
+* The build number is the patch sequence. Its source of truth is the patches
+  published on the channel, not any local counter: the next build is
   ``max(latest_published_build, installer_baseline_build) + 1`` so it is always
   strictly greater than what any shipped installer reports. ``--build`` names a
   number outright, for the one case the sequence cannot express (#2206): a
@@ -198,6 +199,57 @@ def asset_url(repo: str, tag: str, name: str) -> str:
 
 def channel_tag(channel: str) -> str:
     return f"ota-{channel}"
+
+
+# #2396: one manifest "board" per installer base inside the channel release, so
+# a publish for one base never overwrites what another base's clients read --
+# above all the reinstall notice an old base must keep showing however late its
+# users launch. Every base up to LEGACY_MANIFEST_LAST_BASE shipped reading the
+# shared file and keeps it; later bases read manifest-<base>.json. Mirrors
+# LEGACY_MANIFEST_LAST_BASE and manifestNameForBase in desktop/ota.js.
+LEGACY_MANIFEST_LAST_BASE = "0.3.4"
+SHARED_MANIFEST_NAME = "manifest.json"
+_BOARD_RE = re.compile(r"^manifest-(\d+\.\d+\.\d+)\.json$")
+_PATCH_ASSET_RE = re.compile(r"^backend-build(\d+)\.tar\.gz$")
+
+
+def _base_key(base: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in base.split("."))
+
+
+def manifest_name_for_base(base: str) -> str:
+    if _base_key(base) <= _base_key(LEGACY_MANIFEST_LAST_BASE):
+        return SHARED_MANIFEST_NAME
+    return f"manifest-{base}.json"
+
+
+def latest_published_build(asset_names: list[str]) -> int | None:
+    """The highest patch build ever uploaded to the channel, whichever board named it."""
+    builds = [int(m.group(1)) for m in map(_PATCH_ASSET_RE.match, asset_names) if m]
+    return max(builds) if builds else None
+
+
+def target_manifest_names(base: str, min_base: str | None, asset_names: list[str]) -> list[str]:
+    """The boards this publish writes, given the channel's current assets.
+
+    An ordinary patch (no ``--min-base``, or one at this base) writes only this
+    base's board. A publish aimed at older bases -- the reinstall notice -- writes
+    every board that serves a base in ``[min_base, base)``: the shared file when
+    the range reaches the legacy bases, and each existing ``manifest-<X>.json``.
+    From 0.3.5 on this base's own board is never among them, so its clients keep
+    their SPA; only bases that share the legacy file still need the #2206 window.
+    """
+    if min_base is None or _base_key(min_base) >= _base_key(base):
+        return [manifest_name_for_base(base)]
+    names: set[str] = set()
+    if _base_key(min_base) <= _base_key(LEGACY_MANIFEST_LAST_BASE):
+        names.add(SHARED_MANIFEST_NAME)
+    for match in map(_BOARD_RE.match, asset_names):
+        if match and _base_key(min_base) <= _base_key(match.group(1)) < _base_key(base):
+            names.add(match.group(0))
+    if not names:
+        raise ValueError(f"--min-base {min_base} reaches no published board below base {base}.")
+    return sorted(names)
 
 
 def build_manifest(
@@ -538,31 +590,17 @@ def _run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
 
 
-def fetch_latest_build(repo: str, tag: str) -> int | None:
-    """Return the build number of the currently published manifest, or None."""
-    with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp) / "manifest.json"
-        result = _run(
-            [
-                "gh",
-                "release",
-                "download",
-                tag,
-                "--repo",
-                repo,
-                "--pattern",
-                "manifest.json",
-                "--output",
-                str(out),
-                "--clobber",
-            ]
-        )
-        if result.returncode != 0 or not out.exists():
-            return None
-        try:
-            return int(json.loads(out.read_text())["build"])
-        except (ValueError, KeyError, json.JSONDecodeError):
-            return None
+def fetch_channel_assets(repo: str, tag: str) -> list[str] | None:
+    """Names of the assets on the channel release, or None when it does not exist yet.
+
+    #2396: the build sequence and the boards a notice reaches are both read from
+    here, since no single manifest describes the whole channel any more.
+    """
+    try:
+        release = fetch_release(repo, tag)
+    except RuntimeError:
+        return None
+    return [str(asset.get("name", "")) for asset in release.get("assets", [])]
 
 
 def ensure_release(repo: str, tag: str, channel: str) -> None:
@@ -802,10 +840,14 @@ def main(argv: list[str] | None = None) -> int:
     # A dry run normally skips the network and reports a meaningless build. With
     # an explicit --build the number is the thing under review, and the guard that
     # accepts it reads the latest published build -- so fetch it either way, or the
-    # rehearsal would not exercise the check the real publish makes.
-    latest = fetch_latest_build(args.repo, tag) if args.build is not None or not args.dry_run else None
+    # rehearsal would not exercise the check the real publish makes. #2396: the
+    # same goes for --min-base, whose target boards are read from the channel.
+    needs_channel = args.build is not None or args.min_base is not None or not args.dry_run
+    channel_assets = fetch_channel_assets(args.repo, tag) if needs_channel else None
+    latest = latest_published_build(channel_assets) if channel_assets is not None else None
     try:
         build = resolve_build_number(args.build, latest, baseline["build"], args.min_base)
+        boards = target_manifest_names(baseline["base"], args.min_base, channel_assets or [])
     except ValueError as error:
         parser.error(str(error))
     name = asset_name(build)
@@ -845,8 +887,10 @@ def main(argv: list[str] | None = None) -> int:
         min_base=args.min_base,
         installer=installer,
     )
-    manifest_path = workdir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_text = json.dumps(manifest, indent=2) + "\n"
+    manifest_paths = [workdir / board for board in boards]
+    for manifest_path in manifest_paths:
+        manifest_path.write_text(manifest_text)
 
     print(
         f"\nchannel={channel} base={baseline['base']} build={build} "
@@ -856,6 +900,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  asset : {name} ({size} bytes)")
     print(f"  sha256: {digest}")
     print(f"  url   : {manifest['url']}")
+    print(f"  boards: {', '.join(boards)}")
 
     pypi_args = {
         "repo": args.repo,
@@ -870,7 +915,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print(f"\n[dry-run] artifacts left in {workdir}")
-        print(f"[dry-run] manifest:\n{manifest_path.read_text()}")
+        print(f"[dry-run] manifest:\n{manifest_text}")
         trigger_pypi_publish(dry_run=True, **pypi_args)
         return 0
 
@@ -881,7 +926,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     ensure_release(args.repo, tag, channel)
-    upload_assets(args.repo, tag, [tarball, manifest_path])
+    upload_assets(args.repo, tag, [tarball, *manifest_paths])
     print(f"\nPublished OTA build {build} to {args.repo} release {tag}.")
     # #2307: only after the upload succeeded. The OTA build is live either way;
     # a PyPI problem is printed, never raised.

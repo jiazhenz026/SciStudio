@@ -376,7 +376,8 @@ function loadOtaConfig() {
   if (!cfg || typeof cfg !== "object") {
     return { enabled: false, channel: "dev", manifestUrl: null };
   }
-  return cfg;
+  // #2396: read this installer base's own board, not the channel-wide file.
+  return { ...cfg, manifestUrl: ota.manifestUrlForBase(cfg.manifestUrl, baselineVersion().base) };
 }
 
 function patchesRoot() {

@@ -885,7 +885,7 @@ def _publish_side(mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     work.mkdir()
     monkeypatch.setattr(mod.tempfile, "mkdtemp", lambda prefix="": str(work))
     monkeypatch.setattr(mod, "make_snapshot", lambda src_dir, out, **kwargs: out.write_bytes(b"snapshot"))
-    monkeypatch.setattr(mod, "fetch_latest_build", lambda repo, tag: 28)
+    monkeypatch.setattr(mod, "fetch_channel_assets", lambda repo, tag: ["manifest.json", "backend-build28.tar.gz"])
     monkeypatch.setattr(mod, "ensure_release", lambda repo, tag, channel: events.append("ensure"))
     monkeypatch.setattr(mod, "upload_assets", lambda repo, tag, files: events.append("upload"))
     monkeypatch.setattr(mod, "version_on_pypi", lambda version: False)
@@ -1071,7 +1071,8 @@ def test_main_installer_release_lands_in_the_manifest(
     assert mod.main(["--channel", "alpha", "--src", str(src), "--dry-run", "--installer-release", "v0.3.5-beta"]) == 0
 
     assert asked == [(mod.DEFAULT_REPO, "v0.3.5-beta")]
-    manifest = json.loads((tmp_path / "work" / "manifest.json").read_text())
+    (board,) = (tmp_path / "work").glob("manifest*.json")
+    manifest = json.loads(board.read_text())
     assert manifest["installer"]["version"] == "0.3.5-beta-build0035"
     assert "Manifest names installer 0.3.5-beta-build0035" in capsys.readouterr().out
 
@@ -1135,3 +1136,70 @@ def test_the_desktop_build_names_its_installers_the_way_the_publisher_matches(mo
     for key, name in produced.items():
         matching = [k for k, pattern in mod.INSTALLER_ASSET_PATTERNS.items() if pattern.match(name)]
         assert matching == [key], f"{name} matched {matching}, expected [{key}]"
+
+
+# --------------------------------------------------------------------------- #
+# #2396: one manifest board per installer base
+# --------------------------------------------------------------------------- #
+def test_manifest_name_for_base_keeps_shipped_bases_on_the_shared_file(mod: ModuleType) -> None:
+    assert mod.LEGACY_MANIFEST_LAST_BASE == "0.3.4"
+    assert mod.manifest_name_for_base("0.3.3") == "manifest.json"
+    assert mod.manifest_name_for_base("0.3.4") == "manifest.json"
+    assert mod.manifest_name_for_base("0.3.5") == "manifest-0.3.5.json"
+    assert mod.manifest_name_for_base("0.10.0") == "manifest-0.10.0.json"
+
+
+def test_manifest_name_for_base_matches_the_desktop_client(mod: ModuleType) -> None:
+    ota_js = (_SCRIPT_PATH.parents[1] / "desktop" / "ota.js").read_text()
+    assert f'const LEGACY_MANIFEST_LAST_BASE = "{mod.LEGACY_MANIFEST_LAST_BASE}";' in ota_js
+
+
+def test_latest_published_build_reads_every_patch_on_the_channel(mod: ModuleType) -> None:
+    names = ["manifest.json", "backend-build28.tar.gz", "backend-build31.tar.gz", "manifest-0.3.5.json"]
+    assert mod.latest_published_build(names) == 31
+    assert mod.latest_published_build(["manifest.json"]) is None
+
+
+def test_target_manifest_names_ordinary_patch_writes_its_own_board(mod: ModuleType) -> None:
+    assets = ["manifest.json", "manifest-0.3.5.json"]
+    assert mod.target_manifest_names("0.3.5", None, assets) == ["manifest-0.3.5.json"]
+    assert mod.target_manifest_names("0.3.5", "0.3.5", assets) == ["manifest-0.3.5.json"]
+    assert mod.target_manifest_names("0.3.4", None, assets) == ["manifest.json"]
+
+
+def test_target_manifest_names_notice_reaches_older_boards_only(mod: ModuleType) -> None:
+    assets = ["manifest.json", "manifest-0.3.5.json", "manifest-0.3.6.json", "backend-build40.tar.gz"]
+    assert mod.target_manifest_names("0.3.5", "0.3.3", assets) == ["manifest.json"]
+    assert mod.target_manifest_names("0.3.7", "0.3.3", assets) == [
+        "manifest-0.3.5.json",
+        "manifest-0.3.6.json",
+        "manifest.json",
+    ]
+    assert mod.target_manifest_names("0.3.7", "0.3.6", assets) == ["manifest-0.3.6.json"]
+
+
+def test_target_manifest_names_refuses_a_notice_nobody_reads(mod: ModuleType) -> None:
+    with pytest.raises(ValueError, match="reaches no published board"):
+        mod.target_manifest_names("0.3.7", "0.3.6", ["manifest.json"])
+
+
+def test_main_notice_writes_the_old_boards_and_never_its_own(
+    mod: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    events: list[str] = []
+    src = _publish_side(mod, monkeypatch, tmp_path, events)
+    monkeypatch.setattr(mod, "_run", _FakeRun())
+    monkeypatch.setattr(mod, "DESKTOP_PACKAGE_JSON", tmp_path / "package.json")
+    (tmp_path / "package.json").write_text(json.dumps({"version": "0.3.5-alpha-build0033"}))
+    assets = ["manifest.json", "backend-build31.tar.gz"]
+    monkeypatch.setattr(mod, "fetch_channel_assets", lambda repo, tag: assets)
+    uploaded: list[list[str]] = []
+    monkeypatch.setattr(mod, "upload_assets", lambda repo, tag, files: uploaded.append([f.name for f in files]))
+
+    argv = ["--channel", "alpha", "--src", str(src), "--yes", "--no-pypi", "--min-base", "0.3.3", "--min-build", "34"]
+    assert mod.main([*argv, "--reinstall-notice", "https://example.com/v0.3.5"]) == 0
+
+    assert uploaded == [["backend-build34.tar.gz", "manifest.json"]]
+    manifest = json.loads((tmp_path / "work" / "manifest.json").read_text())
+    assert manifest["build"] == 34
+    assert manifest["requires"] == {"min_base": "0.3.3", "min_build": 34}
