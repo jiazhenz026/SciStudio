@@ -190,8 +190,14 @@ class StandaloneMCPRuntime:
         if current == self._dropin_revision:
             return False
         self._dropin_revision = current
-        self._block_registry.hot_reload()
-        self._type_registry.rescan()
+        # ADR-056: forget the user modules once, then rebuild both registries
+        # from one import, so the block classes and the type classes they
+        # reference are the same objects the type registry holds.
+        from scistudio.core.user_code import forget_user_modules
+
+        forget_user_modules()
+        self._block_registry.hot_reload(forget=False)
+        self._type_registry.rescan(forget=False)
         logger.info("StandaloneMCPRuntime: drop-in change detected; registries rebuilt (FR-065)")
         return True
 
@@ -269,7 +275,11 @@ def make_mcp_runtime(project_dir: Path | None) -> StandaloneMCPRuntime:
     """
     # Development references: ADR-053, FR-057, FR-059, FR-060.
     from scistudio.core.dropins import block_scan_dirs, type_scan_dirs
+    from scistudio.core.user_code import build_user_import_path, install_user_import_path
 
+    # ADR-056 Section 4.1: the bridge is a process of its own and installs the
+    # project's user import path before its registries import user files.
+    install_user_import_path(build_user_import_path(project_dir))
     block_registry = _build_block_registry(project_dir)
     type_registry = _build_type_registry(project_dir)
     return StandaloneMCPRuntime(

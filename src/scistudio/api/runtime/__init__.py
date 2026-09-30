@@ -471,6 +471,9 @@ class ApiRuntime:
         self._workflow_runs = registry
 
     def _configure_static_registries(self) -> None:
+        # ADR-056: the user import path is on ``sys.path`` before the first
+        # scan imports a user file by name.
+        self.install_active_user_import_path()
         self.refresh_type_registry()
         self.refresh_block_registry()
         self._start_background_package_repair()
@@ -794,6 +797,7 @@ class ApiRuntime:
     # Project lifecycle (_projects)
     _load_known_projects = _projects._load_known_projects
     _save_known_projects = _projects._save_known_projects
+    install_active_user_import_path = _projects.install_active_user_import_path
     refresh_block_registry = _projects.refresh_block_registry
     refresh_type_registry = _projects.refresh_type_registry
     # ADR-053 FR-062: the one entry point every registry-invalidating event

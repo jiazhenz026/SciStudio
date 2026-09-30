@@ -30,6 +30,7 @@ from scistudio.api.project_layout import PROJECT_SUBDIRS
 from scistudio.blocks.registry import BlockRegistry
 from scistudio.core.dropins import register_block_scan_dirs, register_type_scan_dirs
 from scistudio.core.types.registry import TypeRegistry
+from scistudio.core.user_code import build_user_import_path, forget_user_modules, install_user_import_path
 from scistudio.workflow.definition import WorkflowDefinition
 from scistudio.workflow.serializer import save_yaml
 
@@ -133,6 +134,20 @@ def _save_known_projects(self: ApiRuntime) -> None:
     self.known_projects_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def _active_project_dir(self: ApiRuntime) -> Path | None:
+    return None if self.active_project is None else Path(self.active_project.path)
+
+
+def install_active_user_import_path(self: ApiRuntime) -> None:
+    """Install the user import path of the active project, or the library alone.
+
+    ADR-056 Section 4.1: the backend installs the path at startup (library tier
+    only, before any project opens) and :func:`refresh_all_registries` replaces
+    it whenever the project changes.
+    """
+    install_user_import_path(build_user_import_path(_active_project_dir(self)))
+
+
 def refresh_block_registry(self: ApiRuntime) -> None:
     """Rebuild the BlockRegistry for the active project.
 
@@ -190,7 +205,15 @@ def refresh_all_registries(self: ApiRuntime) -> None:
     incrementally: only contexts on a panel that
     changed are revoked, and a project switch re-arms its watches.
     """
-    # Development references: #2009, #2465, ADR-053, ADR-054, FR-010, FR-062, FR-065.
+    # Development references: #2009, #2465, ADR-053, ADR-054, ADR-056, FR-009, FR-010, FR-062, FR-065.
+    # ADR-056: user modules keep their own names, so an edit, a branch switch
+    # or a project switch takes effect only once they are forgotten. Forget
+    # every user module of the current and the previous user import path, then
+    # install the active project's path (a project switch replaces the
+    # previous project's entries), then rebuild every registry holding user
+    # classes from one fresh import.
+    forget_user_modules()
+    install_user_import_path(build_user_import_path(_active_project_dir(self)))
     self.refresh_type_registry()
     self.refresh_block_registry()
     self.get_panel_service().refresh()

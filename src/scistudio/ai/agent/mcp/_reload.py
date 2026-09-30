@@ -49,8 +49,13 @@ def refresh_context_registries(ctx: Any) -> tuple[list[str], list[str]]:
     # after the rebuild and report nothing. Read the registry it wraps.
     registry = getattr(ctx, "_block_registry", None) or ctx.block_registry
     before = _block_type_names(registry)
-    ctx.block_registry.hot_reload()
-    ctx.type_registry.rescan()
+    # ADR-056: forget the user modules once, then rebuild both registries from
+    # one import, so a block's type classes are the type registry's classes.
+    from scistudio.core.user_code import forget_user_modules
+
+    forget_user_modules()
+    ctx.block_registry.hot_reload(forget=False)
+    ctx.type_registry.rescan(forget=False)
     after = _block_type_names(ctx.block_registry)
     return sorted(after - before), sorted(before - after)
 
