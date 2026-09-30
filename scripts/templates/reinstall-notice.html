@@ -16,7 +16,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SciStudio needs to be reinstalled</title>
+    <title>SciStudio 0.3.5 is here</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -70,10 +70,6 @@
         padding-top: 1.5rem;
         border-top: 1px solid var(--line);
       }
-      /* `why` now introduces the page, so it carries no separator. The rule
-         moved onto `lede`, which is where the action block ends and the
-         release summary begins. */
-      .why { margin: 0 0 1.5rem; font-size: 0.95rem; }
       .row { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
       input {
         flex: 1 1 20rem;
@@ -115,14 +111,10 @@
   </head>
   <body>
     <div class="card">
-      <h1>SciStudio 0.3.4 is here</h1>
-
-      <p class="why">
-        This release changes how the app starts, which is the one part an update
-        cannot replace, so it needs installing once.
-      </p>
+      <h1>SciStudio 0.3.5 is here</h1>
 
       <div class="install" id="install" hidden>
+        <p class="how">Click the button to install. SciStudio restarts when it is done.</p>
         <div class="row">
           <button id="install-action" type="button">Download and install</button>
           <button id="install-page" class="secondary" type="button" hidden>Open download page</button>
@@ -133,7 +125,7 @@
 
       <div class="copy-flow" id="copy-flow">
         <p class="how">
-          Copy this address into a browser to download the latest SciStudio.
+          Copy this address into a browser to download and install SciStudio 0.3.5.
         </p>
 
         <div class="row">
@@ -143,45 +135,18 @@
         <div class="status" id="status" role="status"></div>
       </div>
 
-      <p class="lede">A major update. Here is what is new since your last update.</p>
+      <p class="lede">What's new</p>
 
       <section>
-        <h2>Learning</h2>
         <ul>
-          <li><b>Learning Center</b> — six core tutorials that are real, runnable
-            projects: your first workflow, what a type is, multimodal analysis
-            with git branches, what AI can and cannot do, a tour of SciStudio,
-            and starting a project of your own</li>
-          <li><b>Mio</b>, the built-in assistant, now guides you through them in
-            dialogue</li>
-          <li>The <b>Reading</b> tab opens the shipped user guide and API
-            reference in the app, instead of sending you to a browser</li>
-          <li>Packages can ship their own tutorials</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>Left sidebar</h2>
-        <ul>
-          <li>Rebuilt as a VS Code-style icon rail. Click the active icon or
-            press <kbd>Ctrl</kbd>+<kbd>B</kbd> to collapse it</li>
-          <li>New <b>Workflows</b> section — every workflow in the project, with
-            its description, one click to open</li>
-          <li>New <b>Previewers</b> section — every registered previewer grouped
-            by where it came from, and you can choose which one renders a type,
-            per project or everywhere</li>
-          <li><b>Data types</b> and <b>Blocks</b> reload when you switch to them</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2>Fixes</h2>
-        <ul>
-          <li>The Learning Center no longer reopens itself every launch</li>
-          <li>A project registry written by a newer build no longer blocks
-            startup</li>
-          <li>Re-running a block that writes an array no longer fails on
-            Windows</li>
+          <li><b>MiniApps</b>: small interactive apps that open next to your
+            workflow, such as a questionnaire that collects your input during a
+            run</li>
+          <li><b>SciStudio now runs in your own AI apps, like ChatGPT.</b> To try
+            it, switch SciStudio to background mode and paste its link into the
+            browser inside the ChatGPT desktop app.</li>
+          <li><b>Two new tutorials</b> in the Learning Center: working with AI,
+            and a multimodal analysis of real breast-cancer data</li>
         </ul>
       </section>
 

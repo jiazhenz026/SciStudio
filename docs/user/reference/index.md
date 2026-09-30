@@ -2,7 +2,7 @@
 
 # SciStudio API Reference
 
-**Version:** `0.3.4a0` — reference for this release.
+**Version:** `0.3.5a0` — reference for this release.
 
 This reference is **generated** from the public API's docstrings and the `scistudio.stability` decorators. It contains only the public surface — the symbols declared in each canonical root's `__all__`; `internal` symbols are excluded. Do not hand-edit; regenerate with `scripts/docs/build_reference.py`.
 
