@@ -493,6 +493,6 @@ steps:
     say:
       - "success: **IC50 = 29.3 µM**, over 78 wells in ten dose groups — and one box per dose, so you can see the spread the number came out of."
       - "success: Congratulations! Today's tutorial is over. We walked you through what SciStudio's AI agent can do."
-      - "explain: **Tip 1** — the AI can write your workflows, your blocks, your previewers, your plots, your types, and every other kind of SciStudio component."
+      - "explain: **Tip 1** — the AI can write your workflows, your blocks, your preview panels, your plots, your types, and every other kind of SciStudio component."
       - "explain: **Tip 2** — whenever you do not know something, just ask the AI. They already know SciStudio well enough."
       - "curious: If you have not installed an AI tool yet, [the installation guide is right here](doc:ai-assistant.md)."

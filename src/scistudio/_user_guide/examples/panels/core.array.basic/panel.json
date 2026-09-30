@@ -1,0 +1,10 @@
+{
+  "id": "core.array.basic",
+  "api_version": "1.0",
+  "contexts": ["preview"],
+  "types": ["Array"],
+  "name": "Array",
+  "description": "Native-resolution numeric heatmap of an N-D array's real values (core preview).",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

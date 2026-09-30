@@ -351,7 +351,7 @@ steps:
       node:
         block_type: normalize_fluorescence
     say:
-      - "success: We made it! Let's take a look at the output. **Click the block** to view its output in the previewer."
+      - "success: We made it! Let's take a look at the output. **Click the block** to view its output in the preview panel."
     done_when:
       ui_event:
         name: node_selected
@@ -365,18 +365,18 @@ steps:
   # left-panel tab until ADR-054 FR-040 moved it into the preview column; the
   # step's `route_to` and `highlight` did not change.)
   - id: what-a-previewer-is
-    title: Previewers
+    title: Preview panels
     highlight: data_preview
     say:
-      - "explain: Previewers let you preview the data every intermediate block puts out, and you can customize your own previewer as you need."
+      - "explain: Preview panels let you preview the data every intermediate block puts out, and you can customize your own preview panel as you need."
 
   - id: where-previewers-live
-    title: Previewers
+    title: Preview panels
     compact: true
     route_to: previewers
     highlight: previewer_palette
     say:
-      - Every previewer available to you lives here.
+      - Every preview panel available to you lives here.
 
   # 这里一句话：画图是数据分析的关键步骤。SciStudio提供画图卡片来进行科学制图。（引导用户到画图界面）
   # 下一步让我们一起创建一个bar plot来展示细胞活性数据.

@@ -34,6 +34,9 @@
 - **Return a dict of Collections.** `run` returns `dict[str, Collection]` keyed by
   output port name, and every port carries a `Collection` even for one value.
   `process_item` returns one data object.
+- **By default, no extra batch handling is needed.** When you write an IO
+  block, inherit SimpleLoader/SimpleSaver and handle the read or write as a
+  single-file operation; the core automatically fans in and fans out.
 - **Read and build data through the type.** Read values with `to_memory()`,
   `to_pandas()`, or `to_numpy()`, and build outputs with the type's `data=`
   constructor. Never reach into private storage attributes.

@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { panelsApi } from "../lib/api/panels";
 import type { PreviewEnvelope, PreviewTarget } from "../types/api";
 import { PanelFrame } from "./PanelFrame";
+import { previewIsAffected, subscribePreviewReroute } from "./panelEvents";
 import type { PanelContext, PanelCreateRequest, PanelSnapshot } from "./types";
 
 export interface PanelPreviewProps {
@@ -28,6 +29,12 @@ export function PanelPreview({
 }: PanelPreviewProps) {
   const [child, setChild] = useState<PreviewEnvelope | null>(null);
   const busy = useRef(false);
+  // How the open child was reached, so a routing change that concerns it can
+  // open it again through the parent context. The child envelope is frozen at
+  // open time: re-routing it in place would only hand back the same envelope.
+  const childSource = useRef<{ ref: string; contextId: string } | null>(null);
+  const childRef = useRef<PreviewEnvelope | null>(null);
+  childRef.current = child;
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -35,6 +42,23 @@ export function PanelPreview({
       mounted.current = false;
     };
   }, []);
+  useEffect(
+    () =>
+      subscribePreviewReroute((signal) => {
+        const current = childRef.current;
+        const source = childSource.current;
+        if (!current || !source || !previewIsAffected(current, signal)) return;
+        void panelsApi
+          .open(source.contextId, source.ref)
+          .then((envelope) => {
+            if (mounted.current && childRef.current === current) setChild(envelope);
+          })
+          .catch((err: unknown) => {
+            console.warn("[panel preview] could not re-open the child after a routing change", err);
+          });
+      }),
+    [],
+  );
   const rootSnapshot = useRef<PanelSnapshot>();
   const root: PanelCreateRequest = {
     kind: "preview",
@@ -79,6 +103,7 @@ export function PanelPreview({
           className="self-start"
           type="button"
           onClick={() => {
+            childSource.current = null;
             setChild(null);
             if (rootSnapshot.current) onSnapshot?.(rootSnapshot.current);
           }}
@@ -102,7 +127,10 @@ export function PanelPreview({
               // The backend authorizes the child through the parent and freezes an
               // independent preview session, including composite-local slot refs.
               const envelope = await panelsApi.open(contextId, ref);
-              if (mounted.current) setChild(envelope);
+              if (mounted.current) {
+                childSource.current = { ref, contextId };
+                setChild(envelope);
+              }
               /*
                * ADR-053 FR-052 — `preview_item_opened`, in the closed
                * `UI_EVENT_NAMES` set. The compiled collection/composite viewers
@@ -133,11 +161,14 @@ export function PanelPreview({
           }}
         />
       </div>
-      {child
-        ? renderChild(child, (snapshot) => {
+      {child ? (
+        // Keyed by session: a re-opened child is a new session and mounts fresh.
+        <Fragment key={child.session_id ?? ""}>
+          {renderChild(child, (snapshot) => {
             if (snapshot) onSnapshot?.(snapshot);
-          })
-        : null}
+          })}
+        </Fragment>
+      ) : null}
     </div>
   );
 }

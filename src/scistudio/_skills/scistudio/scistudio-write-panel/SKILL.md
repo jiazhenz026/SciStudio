@@ -215,6 +215,8 @@ available, finish the checks you can and state exactly what remains unverified.
 
 - Interactive block declarations, `prepare_prompt`, and `interactive_response`:
   `.scistudio/agent-reference/block-contract.md`.
+- For more worked examples (a preview panel, an interactive panel):
+  `.scistudio/agent-reference/worked-examples.md`.
 
 **Related skills.**
 

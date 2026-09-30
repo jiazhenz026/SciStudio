@@ -630,7 +630,8 @@ def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_
     resp = client.post("/api/blocks/reload")
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body) == {"reloaded", "added", "removed"}
+    assert set(body) == {"reloaded", "added", "removed", "dropin_failures"}
+    assert body["dropin_failures"] == []
     assert body["reloaded"] >= 1
     assert body["removed"] == []
     assert any(added == "Reload Probe" or "reload_probe" in added for added in body["added"])
@@ -639,3 +640,22 @@ def test_reload_blocks_endpoint_triggers_backend_rescan(client: TestClient, tmp_
     after = client.get("/api/blocks/")
     probe = next(b for b in after.json()["blocks"] if b["type_name"] == "reload_probe")
     assert probe["base_category"] == "process"
+
+
+def test_reload_blocks_endpoint_reports_the_files_it_refused(client: TestClient, tmp_path: Path) -> None:
+    """ADR-053 FR-015 on the reload path: a vanished block has its cause in the response.
+
+    A drop-in that raises on import contributes no blocks. ``GET /api/blocks/``
+    listed the failure, but the reload a user or agent presses to pick up an
+    edit did not, so the block was simply gone with ``removed: []``.
+    """
+    drop_dir = tmp_path / "home" / ".scistudio" / "blocks"
+    drop_dir.mkdir(parents=True, exist_ok=True)
+    broken = drop_dir / "needs_sibling.py"
+    broken.write_text("from not_a_module_anywhere import helper\n", encoding="utf-8")
+
+    body = client.post("/api/blocks/reload").json()
+
+    [failure] = [item for item in body["dropin_failures"] if item["file_path"].endswith("needs_sibling.py")]
+    assert failure["error_type"] == "ModuleNotFoundError"
+    assert "not_a_module_anywhere" in failure["message"]

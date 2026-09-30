@@ -192,7 +192,8 @@ class SpecFrontmatter(BaseModel):
     spec_id: str = Field(min_length=3)
     title: str = Field(min_length=4, max_length=160)
     status: Literal["Draft", "Clarifying", "Planned", "Implemented", "Deprecated"]
-    feature_branch: str
+    spec_standard: Literal[2] | None = None
+    feature_branch: str | None = None
     created: date
     input: str
     owners: list[str] = Field(min_length=1)
@@ -202,8 +203,26 @@ class SpecFrontmatter(BaseModel):
     governs: GovernedSurfaces
     planned_governs: GovernedSurfaces = Field(default_factory=GovernedSurfaces)
     tests: list[str]
-    acceptance_source: Literal["speckit", "issue", "adr", "manual"]
+    acceptance_source: Literal["speckit", "issue", "adr", "manual"] | None = None
     language_source: Literal["en"] = "en"
+
+    @model_validator(mode="after")
+    def _speckit_fields_required_without_spec_standard(self) -> SpecFrontmatter:
+        # ADR-042 document standards 3.7.1: a spec carrying spec_standard: 2 follows
+        # Section 3.7 and drops the two SpecKit-shaped fields. Every other spec keeps
+        # the Section 3.4 contract, where both are required.
+        if self.spec_standard is None:
+            missing = [
+                name
+                for name, value in (
+                    ("feature_branch", self.feature_branch),
+                    ("acceptance_source", self.acceptance_source),
+                )
+                if value is None
+            ]
+            if missing:
+                raise ValueError(f"spec frontmatter is missing required field(s): {', '.join(missing)}")
+        return self
 
     @field_validator("owners")
     @classmethod

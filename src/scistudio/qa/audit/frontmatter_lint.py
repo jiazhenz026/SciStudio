@@ -17,7 +17,13 @@ from scistudio.qa.audit._util import (
     normalise_path,
     parse_yaml_frontmatter,
 )
-from scistudio.qa.schemas.frontmatter import ADRAddendumFrontmatter, ADRFrontmatter, ArchitectureFrontmatter
+from scistudio.qa.audit.spec_standard import check_spec
+from scistudio.qa.schemas.frontmatter import (
+    ADRAddendumFrontmatter,
+    ADRFrontmatter,
+    ArchitectureFrontmatter,
+    SpecFrontmatter,
+)
 from scistudio.qa.schemas.report import AuditReport, AuditStatus, Finding, Severity
 
 _HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
@@ -206,19 +212,30 @@ def _check_adr_body(path: Path, fm: ADRFrontmatter | ADRAddendumFrontmatter, bod
     return findings
 
 
-def _check_spec_body(path: Path, body: str) -> list[Finding]:
+def _spec_repo_root(path: Path) -> Path | None:
+    for parent in path.resolve().parents:
+        if (parent / "docs" / "specs").is_dir():
+            return parent
+    return None
+
+
+def _check_spec_body(path: Path, fm: SpecFrontmatter, body: str) -> list[Finding]:
     headings = _headings(body)
     h2s = [heading for heading in headings if heading[0] == 2]
-    if h2s and h2s[0][1] == "1. Change Summary":
-        return []
-    return [
-        _finding(
-            path,
-            "frontmatter.spec-first-h2",
-            "first spec H2 must be '## 1. Change Summary'",
-            line=h2s[0][2] if h2s else None,
+    findings: list[Finding] = []
+    if not h2s or h2s[0][1] != "1. Change Summary":
+        findings.append(
+            _finding(
+                path,
+                "frontmatter.spec-first-h2",
+                "first spec H2 must be '## 1. Change Summary'",
+                line=h2s[0][2] if h2s else None,
+            )
         )
-    ]
+    # ADR-042 document standards 3.7: a spec declaring spec_standard: 2 is also
+    # checked against the revision-2 section and table contract.
+    findings.extend(check_spec(path, fm, body, repo_root=_spec_repo_root(path)))
+    return findings
 
 
 def _check_architecture_body(path: Path, fm: ArchitectureFrontmatter, body: str) -> list[Finding]:
@@ -258,7 +275,7 @@ def lint_file(path: Path) -> list[Finding]:
         spec_fm, body, findings = load_spec_frontmatter(path)
         if spec_fm is None:
             return findings
-        return findings + _check_spec_body(path, body)
+        return findings + _check_spec_body(path, spec_fm, body)
 
     if _is_architecture(path):
         architecture_fm, body, findings = load_architecture_frontmatter(path)

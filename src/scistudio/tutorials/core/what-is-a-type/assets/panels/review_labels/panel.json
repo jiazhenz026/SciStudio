@@ -1,0 +1,9 @@
+{
+  "id": "review_labels",
+  "api_version": "1.0",
+  "contexts": ["interactive"],
+  "name": "Review Labels",
+  "description": "Walk a batch of label maps and mark the labels that are not cells.",
+  "version": "1.0.0",
+  "entry": "index.html"
+}

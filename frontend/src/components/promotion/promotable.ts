@@ -231,3 +231,37 @@ export function promotableMiniApp(miniapp: PromotableMiniApp): PromotableItem {
     source: { from: "panelDirectory", panelId: miniapp.panel_id },
   };
 }
+
+/**
+ * The fields a preview panel card in All Previewers has to carry to be promotable.
+ *
+ * Structurally the relevant half of `PreviewerSpecSummary`, declared here for
+ * the same reason as {@link PromotableMiniApp}.
+ */
+export interface PromotablePreviewPanel {
+  owner_kind: "project" | "user" | "package" | "core";
+  panel?: { id: string; contexts: string[]; name?: string };
+}
+
+/**
+ * The promotable record for a preview panel card in All Previewers, or `null`.
+ *
+ * A preview panel is a directory like a MiniApp, so it moves through the same
+ * directory promotion; only the kind differs, which is what the confirmation
+ * names it as. `null` for a legacy previewer and for a panel that is not
+ * written for the preview context: the first is a file this entry point never
+ * addresses, and the second is not something All Previewers lists as a
+ * preview. The owner kind is the resolved origin, as the MiniApp tier is, so
+ * FR-019 still hides the action for anything outside the project.
+ */
+export function promotablePreviewPanel(previewer: PromotablePreviewPanel): PromotableItem | null {
+  const panel = previewer.panel;
+  if (!panel || !panel.contexts.includes("preview")) return null;
+  return {
+    target: "panels",
+    kind: "previewer",
+    label: panel.name || panel.id,
+    origin: previewer.owner_kind,
+    source: { from: "panelDirectory", panelId: panel.id },
+  };
+}

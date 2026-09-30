@@ -73,6 +73,9 @@ export type {
 // at once.
 
 let allPreviewersToken = 0;
+// The last request a mounted column acted on. A request is one-shot: a column
+// mounted later (the next project, the next tutorial) must not replay it.
+let allPreviewersHandled = 0;
 const allPreviewersListeners = new Set<() => void>();
 
 /**
@@ -106,6 +109,7 @@ function subscribeAllPreviewers(listener: () => void): () => void {
 /** Test seam — forget any pending request so each test starts clean. */
 export function resetAllPreviewersRequests(): void {
   allPreviewersToken = 0;
+  allPreviewersHandled = 0;
   for (const listener of allPreviewersListeners) listener();
 }
 
@@ -203,8 +207,16 @@ export function DataPreview({
     setListMounted(true);
     setShowPreviewerList(true);
   };
+  // The list yields to anything new to preview: another block, a fresh plot
+  // result, or a different output of this block. Declared before the open
+  // request below, so a request pending at mount still opens the list.
+  const shownTargetRef = (plotPreviewTarget ?? activeEntry?.target)?.ref;
   useEffect(() => {
-    if (openRequest === 0) return;
+    setShowPreviewerList(false);
+  }, [selectedNodeId, plotPreviewTarget, shownTargetRef]);
+  useEffect(() => {
+    if (openRequest <= allPreviewersHandled) return;
+    allPreviewersHandled = openRequest;
     setListMounted(true);
     setShowPreviewerList(true);
   }, [openRequest]);

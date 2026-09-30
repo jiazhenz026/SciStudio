@@ -803,7 +803,9 @@ class _ApiProductState:
         library, which is the definition of the library holding it.
 
         All three kinds can appear: ``scoped_library_dirs`` creates
-        ``blocks/``, ``types/``, and ``previewers/``.
+        ``blocks/``, ``types/``, ``previewers/``, and ``panels/``; a preview
+        panel in ``panels/`` counts as a previewer, because its routing
+        candidates are previewer specs like any other.
         Previewer membership is decided differently, because a
         :class:`~scistudio.previewers.models.PreviewerSpec` carries no source
         file path to test. The swap itself is the answer: while a tutorial

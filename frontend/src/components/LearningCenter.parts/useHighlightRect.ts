@@ -90,9 +90,25 @@ function union(a: HighlightRect, b: HighlightRect): HighlightRect {
   };
 }
 
-function measure(highlight: TutorialHighlightView | null, owner: symbol): HighlightRect | null {
+/**
+ * Measure *highlight*, asking panel frames for it under *owner*.
+ *
+ * `owner` is `null` for the first measurement, which runs during render: a
+ * request made there belongs to a render React may throw away (StrictMode runs
+ * it twice, and an interrupted render never commits), and nothing would ever
+ * withdraw it. Such an orphan sat first in the request queue and every later
+ * step pointing into a panel was never forwarded. Requests are made only from
+ * the effect, which owns their cleanup.
+ */
+function measure(
+  highlight: TutorialHighlightView | null,
+  owner: symbol | null,
+): HighlightRect | null {
+  const ask = (request: { target: string; key: string | null } | null) => {
+    if (owner !== null) requestPanelHighlight(owner, request);
+  };
   if (!highlight) {
-    requestPanelHighlight(owner, null);
+    ask(null);
     return null;
   }
   const element = findTutorialTarget(highlight.target, highlight.args);
@@ -110,10 +126,10 @@ function measure(highlight: TutorialHighlightView | null, owner: symbol): Highli
    */
   if (!element) {
     const key = tutorialTargetKey(highlight.target, highlight.args);
-    requestPanelHighlight(owner, { target: highlight.target, key });
+    ask({ target: highlight.target, key });
     return panelHighlightRect(highlight.target, key);
   }
-  requestPanelHighlight(owner, null);
+  ask(null);
   const box = boxOf(element);
   if (!box) return null;
   const panel = expandedPanelOf(element);
@@ -144,7 +160,7 @@ export function useHighlightRect(highlight: TutorialHighlightView | null): Highl
   const owner = useRef<symbol>();
   if (owner.current === undefined) owner.current = Symbol("highlight-tracker");
   const self = owner.current;
-  const [rect, setRect] = useState<HighlightRect | null>(() => measure(highlight, self));
+  const [rect, setRect] = useState<HighlightRect | null>(() => measure(highlight, null));
   const current = useRef<HighlightRect | null>(rect);
 
   const target = highlight?.target ?? null;

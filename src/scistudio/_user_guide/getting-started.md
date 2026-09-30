@@ -95,11 +95,13 @@ several variants of a pipeline side by side. See
 | You want to… | Read |
 |---|---|
 | Learn the canvas, running, and previews in depth | [using-the-gui.md](using-the-gui.md) |
+| Learn SciStudio hands-on, step by step | [learning-center.md](learning-center.md) |
 | See every built-in block and what it does | [built-in-blocks.md](built-in-blocks.md) |
 | Go back to past work; keep pipeline variants on branches | [history-and-branches.md](history-and-branches.md) |
 | Get the AI assistant to do the work | [ai-assistant.md](ai-assistant.md) |
 | Connect from an AI app's built-in browser | [using-with-ai-apps.md](using-with-ai-apps.md) |
 | Make a quick plot of a result | [writing-plots.md](writing-plots.md) |
+| Explore data interactively | [miniapps.md](miniapps.md) |
 | Write your own block | [writing-blocks.md](writing-blocks.md) |
 | Make your own data type | [custom-types.md](custom-types.md) |
 

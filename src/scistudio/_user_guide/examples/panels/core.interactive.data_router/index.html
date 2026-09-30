@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Data Router</title>
+    <link rel="stylesheet" href="../../sdk/1/panel.css" />
+    <style>
+      .router-head { padding: 2px 2px 4px; }
+      .router-title { font-weight: 600; }
+      .router-hint { margin-top: 2px; color: rgb(var(--ink) / 0.6); }
+      .router-body { display: flex; gap: 12px; align-items: stretch; }
+      .router-col { display: flex; flex: 1; flex-direction: column; gap: 8px; min-width: 0; }
+      .router-caption {
+        text-transform: uppercase; letter-spacing: 0.06em; font-size: 10px;
+        color: rgb(var(--ink) / 0.45);
+      }
+      .router-arrow { display: flex; align-items: center; color: rgb(var(--ink) / 0.3); font-size: 18px; }
+      .router-port {
+        border: 1px solid rgb(var(--ink) / 0.1); border-radius: 8px;
+        background: rgb(var(--ink) / 0.04); padding: 8px;
+      }
+      .router-drop { border-style: dashed; border-width: 2px; min-height: 52px; }
+      .router-over { border-color: rgb(var(--ember)); }
+      .router-port-name { font-weight: 500; margin-bottom: 6px; color: rgb(var(--ink) / 0.75); }
+      .router-count { color: rgb(var(--ink) / 0.45); }
+      .router-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .router-chip {
+        display: inline-flex; align-items: center; gap: 6px; cursor: grab;
+        border: 1px solid rgb(var(--ink) / 0.12); border-radius: 6px; padding: 4px 8px;
+        background: var(--surface);
+      }
+      .router-chip-name {
+        font-weight: 500; max-width: 160px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .router-chip-type { font-size: 10px; color: rgb(var(--ink) / 0.45); }
+      .router-empty { font-size: 10px; font-style: italic; color: rgb(var(--ink) / 0.45); }
+      .router-foot { padding-top: 4px; }
+      .router-done { color: rgb(var(--pine)); }
+      .router-todo { color: #b3600e; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="../../sdk/1/scistudio-panel.js"></script>
+    <script type="module" src="panel.js"></script>
+  </body>
+</html>

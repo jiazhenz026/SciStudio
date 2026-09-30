@@ -37,6 +37,15 @@ Load, save, code, app, and agent boundaries convert files.
 `Spectrum` extends `Series`, and `PeakTable` extends `DataFrame`. The registry
 uses these relationships for port validation.
 
+## 4.5. Lineage and Reproducibility
+
+| Surface | Role |
+|---|---|
+| Lineage record | Connects the workflow snapshot, parameters, block executions, inputs, outputs, environment, and status |
+| Run history | Shows how a result was produced and which steps ran, failed, or skipped |
+| Restore | Returns the project to a recorded run's state, after reporting any input or environment drift since |
+| Git branches | Keep parallel workflow variants for different batches, instruments, cohorts, or experiments |
+
 ## 5. Block System
 
 Blocks declare typed ports, configuration, and execution:
@@ -52,15 +61,6 @@ Blocks declare typed ports, configuration, and execution:
 
 Custom blocks extend these forms at project, user, or package scope.
 
-## 6. Lineage and Reproducibility
-
-| Surface | Role |
-|---|---|
-| Lineage record | Connects the workflow snapshot, parameters, block executions, inputs, outputs, environment, and status |
-| Run history | Shows how a result was produced and which steps ran, failed, or skipped |
-| Restore | Returns the project to a recorded run's state, after reporting any input or environment drift since |
-| Git branches | Keep parallel workflow variants for different batches, instruments, cohorts, or experiments |
-
 ## 7. AI Agents
 
 Four project agent surfaces:
@@ -68,7 +68,7 @@ Four project agent surfaces:
 | Surface | Role |
 |---|---|
 | Agent session | Interactive project help in any supported agent CLI: Claude Code, Codex, Kimi Code, or either Qoder channel |
-| MCP server | 35 tools for blocks, types, workflows, runs, data, lineage, plots, project information, and opening the live GUI in a browser |
+| MCP server | 55 tools for blocks, types, workflows, runs, data, lineage, plots, panels and MiniApps, project information, and opening the live GUI in a browser |
 | Skills | Task guidance for workflows, block authoring, debugging, data inspection, and project QA |
 | `AIBlock` | Bounded graph node with typed inputs, outputs, and completion. Runs on the same agent CLIs except Kimi Code, which is chat-only |
 
@@ -76,7 +76,22 @@ All four share project context and backend contracts. The agent CLI is
 user-installed and chosen per session or per block — see
 [ai-assistant.md](ai-assistant.md).
 
-## 10. Plot System
+## 10. Panels and MiniApps
+
+Panels are how SciStudio shows data and lets you act on it. One mechanism
+serves three forms, each for a different moment in an analysis:
+
+| Form | Moment | What it does |
+|---|---|---|
+| **Preview panel** | Looking at data | Shows one data object read-only, in the preview column or a preview tab |
+| **Interactive panel** | A workflow step needs your decision | Shows the view an interactive block prepared and hands back one decision while the workflow waits |
+| **MiniApp** | Exploring data before the next step is known | Runs as an application on a block output, with its own Python for computation, for as long as you keep it open |
+
+**MiniApps** are interactive data explorers built on the panel host: you create
+one with the AI assistant, reuse it on other data, and convert it back into a
+workflow block. See [miniapps.md](miniapps.md).
+
+## 11. Plot System
 
 Plot cards turn workflow results into figures for exploration and communication.
 
@@ -90,7 +105,7 @@ Plot cards turn workflow results into figures for exploration and communication.
 
 Workflows focus on producing data. Plot cards support fast visual exploration.
 
-## 12. Extensibility
+## 13. Extensibility
 
 Domain extension surfaces:
 
@@ -98,6 +113,6 @@ Domain extension surfaces:
 |---|---|---|
 | Blocks | Workflow steps | Project, user, or package |
 | Data types and formats | Data contracts and boundary conversions | Project, user, or package |
-| Previewers | Type-specific views | Project or package |
+| Panels | Type-specific and interactive views | Project, user, or package |
 
 Extensions use shared registries and the public API.

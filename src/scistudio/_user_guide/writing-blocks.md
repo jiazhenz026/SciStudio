@@ -130,7 +130,7 @@ number of images does not change. `ProcessBlock` loops over the incoming batch
 for you and calls `process_item` **once per item**, so you only write the
 single-item logic. (For full control over the whole batch — filtering, merging,
 splitting — subclass `Block` and write `run()` instead; see
-[the process example](examples/process-scale-array/) and the API reference.)
+[the process example](examples/blocks/process-segment-cells/) and the API reference.)
 
 Two things every body does:
 

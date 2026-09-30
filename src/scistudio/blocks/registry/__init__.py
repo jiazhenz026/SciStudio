@@ -574,8 +574,8 @@ class BlockRegistry:
         """Re-scan the drop-in block directories and apply any changes.
 
         Detects edited files by their last-modified time: new drop-in files
-        are added, changed ones are re-read, and files that were deleted are
-        removed from the registry. Built-in and installed blocks are left
+        are added, changed ones are re-read, and files that were deleted or now
+        fail to import are removed from the registry. Built-in and installed blocks are left
         untouched. Use this to pick up edits to file-based blocks without
         rebuilding the whole catalogue.
         """
@@ -592,6 +592,15 @@ class BlockRegistry:
 
         # Re-scan Tier 1 only.
         _scan_tier1(self)
+
+        # A file that now fails to import contributes no blocks. Its specs from
+        # the previous pass describe code that no longer loads, so they go too;
+        # the failure itself is in ``dropin_failures``.
+        failed = {failure.file_path for failure in self._dropin_failures}
+        for name in [
+            name for name, spec in self._registry.items() if spec.source == "tier1" and spec.file_path in failed
+        ]:
+            del self._registry[name]
 
     def packages(self) -> dict[str, PackageInfo]:
         """Return metadata for the plugin packages that provided blocks.

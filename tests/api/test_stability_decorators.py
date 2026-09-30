@@ -122,6 +122,16 @@ def test_representative_tiers_match_the_contract() -> None:
     assert not wrong, "contract tier mismatches (ADR-052 §5):\n  " + "\n  ".join(wrong)
 
 
+def test_composite_slots_keeps_its_marker_and_the_private_helper_has_none() -> None:
+    """A private helper inserted above a public method must not steal its marker (#2442)."""
+    from scistudio.previewers.data_access import PreviewDataAccess
+
+    info = get_stability(PreviewDataAccess.composite_slots)
+    assert info is not None, "PreviewDataAccess.composite_slots lost its stability marker"
+    assert (info.tier, info.since) == ("provisional", _BASELINE_SINCE)
+    assert get_stability(PreviewDataAccess._slot_type_name) is None
+
+
 def test_decorators_are_no_ops_on_the_live_surface() -> None:
     """The markers change no behaviour: decorated public symbols still work."""
     from scistudio.core.types import Array, DataObject

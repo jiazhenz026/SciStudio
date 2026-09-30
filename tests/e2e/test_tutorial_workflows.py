@@ -68,16 +68,17 @@ AI_TUTORIAL_BLOCKS = [
 
 TYPE_TUTORIAL_BLOCKS = [
     ("assets/data", "data/raw"),
-    # The type first: the blocks and the previewer import it.
+    # The type first: the blocks import it, and the preview panel claims it.
     ("assets/code/image.py", "types/image.py"),
     ("assets/code/load_tiff_image.py", "blocks/load_tiff_image.py"),
-    ("assets/code/image_preview.py", "previewers/image_preview.py"),
+    ("assets/panels/image_preview", "panels/image_preview"),
     ("assets/code/segment_cells.py", "blocks/segment_cells.py"),
 ]
 
 REVIEW_BLOCK = [
+    # The panel before the block: a block whose panel is missing is refused.
+    ("assets/panels/review_labels", "panels/review_labels"),
     ("assets/code/review_labels.py", "blocks/review_labels.py"),
-    ("assets/panels/review_labels", "blocks/review_labels_panel"),
     ("assets/workflows/with-review.yaml", "workflows/main.yaml"),
 ]
 
@@ -228,32 +229,46 @@ def test_type_tutorial_segments_both_micrographs_and_previews_the_labels(
     assert labels["item_type"] == "Image"
     for item in labels["items"]:
         assert item["type_name"] == "Image", item
+        # The project's preview panel is what an Image routes to, and it reads
+        # the pixels itself through the panel context.
         envelope = backend.open_preview(item["data_ref"])
-        assert envelope["payload"], envelope
+        assert envelope["kind"] == "panel", envelope
+        assert envelope["panel"]["id"] == "image_preview", envelope
+        context = backend.open_panel(item["data_ref"])
+        tile = backend.panel_read(context, item["data_ref"], "array.tile", {"y0": 0, "x0": 0, "height": 8, "width": 8})
+        assert tile["values"], tile
 
 
 def test_interactive_review_keeps_every_label_but_the_one_the_user_removed(
     backend: Backend, events: EventStream, projects_dir: Path
 ) -> None:
     project = review_project(backend, projects_dir, "review-labels")
-    panel = backend.http.get("/api/blocks/panels/tutorial.review_labels/panel.mjs")
-    assert panel.status_code == 200, panel.text[:500]
-
     run_id = backend.execute("main")
     prompt = events.wait_for_event("interactive_prompt", "review")
 
-    assert prompt["data"]["panel_manifest"]["panel_id"] == "tutorial.review_labels"
+    assert prompt["data"]["panel_manifest"]["panel_id"] == "review_labels"
     slides = prompt["data"]["panel_payload"]["slides"]
     assert len(slides) == 2
     first = [row["id"] for row in slides[0]["labels"]]
     second = [row["id"] for row in slides[1]["labels"]]
     assert first and second
     removed = first[0]
+    # A panel window writes back through the context the host opened for this
+    # waiting block, and the backend refuses a decision that names none
+    # (ADR-054 §2). So the test opens it the way the GUI does and sends the
+    # decision under its id.
+    context = backend.call(
+        "POST",
+        "/api/panels/contexts",
+        json={"kind": "interactive", "panel_id": "review_labels", "workflow_id": "main", "block_id": "review"},
+    )
+    assert context["input"]["slides"] == slides, "the panel is handed the view prepare_prompt built"
     events.send(
         {
             "type": "interactive_complete",
             "block_id": "review",
             "workflow_id": "main",
+            "context_id": context["context_id"],
             "data": {"removed": [[removed], []]},
         }
     )

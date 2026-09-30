@@ -1,0 +1,26 @@
+# A plot manifest — a plots/<plot_id>/ example.
+#
+# A plot is two files: this manifest, which records the output port the plot is
+# bound to and how it renders, and render.py beside it, which defines
+# render(collection). The figure shows in the Plots tab of the GUI; it is
+# preview-only — never a workflow node, never lineage.
+#
+# The plot binds to the node id and output port, never to the node's display
+# label, so two nodes with the same label stay distinct. In the GUI you would
+# scaffold this with the scaffold_plot tool, which writes plot.yaml for you;
+# this file shows what it writes.
+schema_version: 1
+id: cell_size_histogram
+title: Cell size distribution
+target:
+  # The workflow this plot reads from, and the node/port inside it. Paths are
+  # project-relative; a run executes with the project root as its working
+  # directory.
+  workflow_path: workflows/main.yaml
+  workflow_id: main
+  node_id: segment
+  output_port: areas
+  display_label: Measure Cells
+script:
+  language: python
+  path: render.py

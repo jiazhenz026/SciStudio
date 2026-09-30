@@ -27,7 +27,7 @@ answer it and load the skill for the task.
 
 | Question type | For example | Where to look |
 |---|---|---|
-| **Using SciStudio**: what something is, how a feature works, how to do something in the GUI | "What is a MiniApp?", "How do branches work?", "How do I use this from a desktop AI app?" | `user-guide/` (start at `user-guide/README.md`) |
+| **Using SciStudio**: what something is, how a feature works, how to do something in the GUI | "What is a MiniApp?", "How do branches work?", "How do I use this from a desktop AI app?", "Can I batch-process my data?" | `user-guide/` (start at `user-guide/README.md`) |
 | **Built-in blocks**: what a core block does | "What does the Code Block do?" | `user-guide/built-in-blocks.md` |
 | **Installed packages**: what a package provides and how to use it | "What does this package I installed add?" | `list_blocks` (each block names its package) and `list_types` (each type's `module_path` shows where it comes from); when the package ships docs, `.scistudio/agent-reference/package-index.md` |
 | **Contracts**: what may be imported, how stable it is, the rules a block, type, or plot follows | "Can I import this class?", "What must a plot script return?" | `.scistudio/agent-reference/` (start at `README.md`) |

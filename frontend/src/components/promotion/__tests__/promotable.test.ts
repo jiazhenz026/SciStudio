@@ -8,6 +8,7 @@ import {
   promotableBlock,
   promotableFileTab,
   promotableMiniApp,
+  promotablePreviewPanel,
   promotableType,
 } from "../promotable";
 import { makeBlock, makeType } from "./fixtures";
@@ -182,5 +183,36 @@ describe("promotableMiniApp — ADR-054 FR-039", () => {
     // A MiniApp only works whole; promoting one file out of its directory
     // would put a broken half in the library.
     expect(promotableFileTab(fileTab({ filePath: "panels/explorer/panel.py" }), [])).toBeNull();
+  });
+});
+
+describe("promotablePreviewPanel — a preview panel card in All Previewers", () => {
+  const panel = { id: "image_preview", contexts: ["preview"], name: "Image" };
+
+  it("moves the panel directory and names it as a previewer", () => {
+    expect(promotablePreviewPanel({ owner_kind: "project", panel })).toEqual({
+      target: "panels",
+      kind: "previewer",
+      label: "Image",
+      origin: "project",
+      source: { from: "panelDirectory", panelId: "image_preview" },
+    });
+  });
+
+  it("offers only a project preview panel", () => {
+    expect(isPromotable(promotablePreviewPanel({ owner_kind: "project", panel }))).toBe(true);
+    for (const owner_kind of ["user", "package", "core"] as const) {
+      expect(isPromotable(promotablePreviewPanel({ owner_kind, panel }))).toBe(false);
+    }
+  });
+
+  it("has nothing to offer for a legacy previewer or an interactive-only panel", () => {
+    expect(promotablePreviewPanel({ owner_kind: "project" })).toBeNull();
+    expect(
+      promotablePreviewPanel({
+        owner_kind: "project",
+        panel: { id: "review_labels", contexts: ["interactive"] },
+      }),
+    ).toBeNull();
   });
 });

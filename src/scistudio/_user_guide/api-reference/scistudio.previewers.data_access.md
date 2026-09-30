@@ -137,7 +137,7 @@ Example:
 - `series_points(self, ref: 'StorageReference', metadata: 'dict[str, Any]') -> 'SeriesPoints'` — `provisional` · Since `0.3.1` — Return the complete set of chart points for a Series.
 - `text_chunk(self, ref: 'StorageReference', *, offset: 'int' = 0, length: 'int | None' = None) -> 'TextChunk'` — `provisional` · Since `0.3.1` — Return a bounded chunk of text plus a truncation marker.
 - `artifact_metadata(self, ref: 'StorageReference', *, mime_type: 'str | None' = None) -> 'ArtifactInfo'` — `provisional` · Since `0.3.1` — Return bounded artifact metadata, inlining a small image as a data URI.
-- `composite_slots(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'` — _unmarked — no runtime stability marker_ — Return a composite's slot inventory without rendering any child.
+- `composite_slots(self, metadata: 'dict[str, Any]') -> 'CompositeSlots'` — `provisional` · Since `0.3.1` — Return a composite's slot inventory without rendering any child.
 - `composite_slot_ref(self, ref: 'StorageReference', slot_name: 'str') -> 'StorageReference | None'` — `provisional` · Since `0.3.1` — Resolve the storage reference for one slot of a composite target.
 - `composite_raster_slot(self, ref: 'StorageReference', slot_name: 'str' = 'raster') -> 'ArrayPlane | None'` — `provisional` · Since `0.3.1` — Bounded read of a composite's raster slot subdirectory, if present.
 - `artifact_file(self, ref: 'StorageReference') -> 'Path'` — `provisional` · Since `0.3.5` — Resolve an existing artifact for the host's streaming file response.
