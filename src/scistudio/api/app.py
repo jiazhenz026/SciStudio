@@ -233,6 +233,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # raises aborts startup: the hooks already entered are exited and the core
     # teardown still runs. No hooks by default (create_app sets the tuple).
     hooks: tuple[LifespanHook, ...] = tuple(getattr(app.state, "lifespan_hooks", ()))
+    # ADR-055 Spec 4 FR-006: the `ai_chat_disabled` capability reaches every
+    # PTY spawn path — the /api/ai WebSocket, AI Block and Bring In My Work
+    # tabs — so they refuse agent-kind providers. Reset on teardown.
+    from scistudio.api.routes.ai_pty import _set_agent_sessions_disabled
+
+    declared: Capabilities | None = getattr(app.state, "capabilities", None)
+    _set_agent_sessions_disabled(declared is not None and declared.ai_chat_disabled)
     try:
         async with AsyncExitStack() as hook_stack:
             await hook_stack.enter_async_context(panel_routes.panels_lifespan(app))
@@ -240,6 +247,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 await hook_stack.enter_async_context(hook(app))
             yield
     finally:
+        _set_agent_sessions_disabled(False)
         # Stop the FS watcher first so its observer thread does not race
         # against the rest of the teardown.
         try:
@@ -405,16 +413,21 @@ def create_app(
     A sketch of the enterprise edition's launch path::
 
         from scistudio.api.app import create_app
-        from scistudio.api.seam import Capabilities, IdentityCapability, mcp
+        from scistudio.api.seam import Capabilities, IdentityCapability, TransferCapability, mcp
 
         app = create_app(
             guard=hub_guard,  # (app, GuardContext) -> ASGI app
             lifespan_hooks=[validate_callback, report_activity],
             capabilities=Capabilities(
-                # The edition's own logout route: it ends the SciStudio
-                # session, then returns where the browser goes next.
-                identity=IdentityCapability(user=hub_user, logout_url="/api/session/logout"),
-                transfer=True,
+                # The edition's own routes, as route paths without the
+                # service prefix: logout ends the SciStudio session, then
+                # returns where the browser goes next.
+                identity=IdentityCapability(user=hub_user, logout_url="/api/enterprise/session/logout"),
+                transfer=TransferCapability(
+                    inline_max_bytes=8 * 1024 * 1024,
+                    download_url_template="/api/enterprise/transfer/download?path={path}",
+                ),
+                ai_chat_disabled=True,
             ),
             routers=[transfer_router],
         )

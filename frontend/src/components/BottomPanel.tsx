@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getCapabilities } from "../lib/capabilities";
 import { usePresentation } from "../lib/presentation";
 import type { BlockSchemaResponse, LogEntry, WorkflowEdge, WorkflowNode } from "../types/api";
 import type { BottomTab } from "../types/ui";
@@ -70,13 +71,22 @@ export function BottomPanel({
   onTogglePin,
 }: BottomPanelProps) {
   const isAi = usePresentation() === "ai";
-  const activeTab = isAi && requestedTab === "ai" ? "config" : requestedTab;
+  // ADR-055 Spec 4 FR-006: an edition's `ai_chat_disabled` capability hides the
+  // AI Chat surface for the page's lifetime; the backend refuses agent-kind
+  // PTY sessions to match. The Terminal tab is never gated.
+  // TODO(#2337): a tutorial replay is filed under the AI Chat surface
+  //   (TerminalTabs files it by `source`), so it cannot be seen while that
+  //   surface is hidden. Out of scope per the #2322 audit (P2-3) and manager.
+  //   Followup: https://github.com/jiazhenz026/SciStudio/issues/2337
+  const aiChatDisabled = getCapabilities().aiChatDisabled;
+  const hideAiChat = isAi || aiChatDisabled;
+  const activeTab = hideAiChat && requestedTab === "ai" ? "config" : requestedTab;
   // Keep an already-mounted chat session alive when changing presentation.
   // Direct AI entry never mounts the chat surface or its setup effects.
-  const [chatMounted, setChatMounted] = useState(!isAi);
+  const [chatMounted, setChatMounted] = useState(!hideAiChat);
   useEffect(() => {
-    if (!isAi) setChatMounted(true);
-  }, [isAi]);
+    if (!hideAiChat) setChatMounted(true);
+  }, [hideAiChat]);
 
   // ADR-039 §3.5 — MergeFlow modal is mounted at App.tsx level (NOT
   // here) so it survives BOTH bottom-tab switches AND project close
@@ -88,7 +98,7 @@ export function BottomPanel({
   return (
     <section className="flex h-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(238,231,219,0.98))]">
       <TabBar
-        showAiChat={!isAi}
+        showAiChat={!hideAiChat}
         activeTab={activeTab}
         onTabChange={onTabChange}
         unreadLogsCount={unreadLogsCount}

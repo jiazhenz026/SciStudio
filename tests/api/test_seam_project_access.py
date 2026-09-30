@@ -1,0 +1,520 @@
+"""ADR-055 identity seam — project access for an edition (issue #2328).
+
+``scistudio.api.seam`` gives an edition's routes and MCP tools a public way to
+reach the project, as thin wrappers over the internals the workspace tools
+already use:
+
+* ``active_project_root(app)`` — the open project's root, or ``None``;
+* ``ToolRefusal(code=, message=, alternatives=)`` — raised inside a tool, it
+  becomes a Spec 1 ``isError`` result carrying the workspace tools' refusal
+  shape, also across the WebMCP bridge, which withholds other exceptions'
+  text;
+* ``check_author_path`` — project confinement plus the Spec 2 author
+  blacklist, refusing with the author tools' own codes;
+* ``write_project_file`` — bytes through the editor's shared write path,
+  confined to the project;
+* ``add_upload_listener`` — ``callback(path, size, status)`` when a staged
+  upload starts, completes, or is discarded; a failing listener never breaks
+  the upload, and the returned function removes the listener.
+
+Each is exercised at the root mount and under ``/user/alice/scistudio``.
+Route paths are neutral fixtures (``/api/test-edition/...``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
+from fastmcp.exceptions import ToolError
+from mcp.types import CallToolResult
+
+from scistudio.api import app as app_module
+from scistudio.api.app import create_app
+from scistudio.api.routes import data as data_routes
+from scistudio.api.seam import (
+    ToolRefusal,
+    active_project_root,
+    add_upload_listener,
+    check_author_path,
+    mcp,
+    write_project_file,
+)
+from tests.api.seam_contract import PREFIXED_MOUNT
+
+MOUNTS = pytest.mark.parametrize("mount_prefix", ["", PREFIXED_MOUNT], ids=["root-mount", "prefixed-mount"])
+TOKEN_HEADER = "X-SciStudio-WebMCP-Token"
+REFUSE_TOOL = "seam_fixture_refuse"
+AUTHOR_TOOL = "seam_fixture_author_check"
+REFUSAL_MESSAGE = "The edition refused this call."
+
+
+# ---------------------------------------------------------------------------
+# Fixtures and helpers.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def projects_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An isolated home; returns the directory new projects are created in."""
+    from scistudio.api import runtime as runtime_module
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(runtime_module.Path, "home", classmethod(lambda cls: home))
+    monkeypatch.delenv("SCISTUDIO_ROOT_PATH", raising=False)
+    monkeypatch.setattr(app_module, "_resolve_spa_static_dir", lambda: None)
+    parent = tmp_path / "projects"
+    parent.mkdir()
+    return parent
+
+
+def _open_project(client: TestClient, mount_prefix: str, parent: Path) -> Path:
+    response = client.post(
+        f"{mount_prefix}/api/projects/",
+        json={"name": "Seam Project", "description": "", "path": str(parent)},
+    )
+    assert response.status_code == 200, response.text
+    return Path(os.path.realpath(response.json()["path"]))
+
+
+def _edition_router() -> APIRouter:
+    """An edition route that writes the request body through the seam."""
+    router = APIRouter()
+
+    @router.post("/api/test-edition/write")
+    async def write(path: str, request: Request) -> JSONResponse:
+        try:
+            written = await write_project_file(request.app, path, await request.body())
+        except ToolRefusal as refusal:
+            return JSONResponse({"code": refusal.code, "message": refusal.message}, status_code=409)
+        return JSONResponse({"path": str(written)})
+
+    return router
+
+
+@pytest.fixture()
+def seam_tools() -> Iterator[dict[str, Any]]:
+    """Register fixture tools on the shared registry, then remove them.
+
+    The registry must return to its baseline afterwards: other suites assert
+    the exact tool count.
+    """
+    state: dict[str, Any] = {}
+
+    @mcp.tool(name=REFUSE_TOOL, tags={"category:testing", "read"})
+    def _refuse() -> dict[str, Any]:
+        raise ToolRefusal(code="fixture_refused", message=REFUSAL_MESSAGE, alternatives=["other_tool"])
+
+    @mcp.tool(name=AUTHOR_TOOL, tags={"category:testing", "read"})
+    def _author_check(path: str) -> dict[str, Any]:
+        root = active_project_root(state["app"])
+        assert root is not None
+        return {"path": str(check_author_path(root, path))}
+
+    try:
+        yield state
+    finally:
+        mcp.local_provider.remove_tool(REFUSE_TOOL)
+        mcp.local_provider.remove_tool(AUTHOR_TOOL)
+
+
+def _bridge_call(client: TestClient, mount_prefix: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    token = client.app.state.webmcp_session_token  # type: ignore[attr-defined]
+    response = client.post(
+        f"{mount_prefix}/api/webmcp/call",
+        headers={TOKEN_HEADER: token},
+        json={"name": name, "arguments": arguments},
+    )
+    assert response.status_code == 200, response.text
+    body: dict[str, Any] = response.json()
+    return body
+
+
+class _Heard:
+    """Records upload-listener calls as ``(listener, path, size, status)``."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, int, str]] = []
+
+    def plain(self, name: str) -> Any:
+        def listener(path: str, size: int, status: str) -> None:
+            self.calls.append((name, path, size, status))
+
+        return listener
+
+    def coroutine(self, name: str) -> Any:
+        async def listener(path: str, size: int, status: str) -> None:
+            await asyncio.sleep(0)
+            self.calls.append((name, path, size, status))
+
+        return listener
+
+    def statuses(self, name: str) -> list[tuple[str, str]]:
+        return [(path, status) for who, path, _size, status in self.calls if who == name]
+
+
+# ---------------------------------------------------------------------------
+# active_project_root.
+# ---------------------------------------------------------------------------
+
+
+def test_active_project_root_is_none_before_startup() -> None:
+    assert active_project_root(FastAPI()) is None
+
+
+@MOUNTS
+def test_active_project_root_follows_the_open_project(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    with TestClient(app, root_path=mount_prefix) as client:
+        assert active_project_root(app) is None
+        project = _open_project(client, mount_prefix, projects_dir)
+        assert active_project_root(app) == project
+
+
+# ---------------------------------------------------------------------------
+# check_author_path.
+# ---------------------------------------------------------------------------
+
+
+def test_check_author_path_returns_the_resolved_path(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    expected = Path(os.path.realpath(root)) / "scripts" / "analyze.py"
+    assert check_author_path(root, "scripts/analyze.py") == expected
+    assert check_author_path(str(root), "scripts/../scripts/analyze.py") == expected
+    assert check_author_path(root, str(expected)) == expected
+
+
+@pytest.mark.parametrize(
+    ("rel_path", "code"),
+    [
+        ("../escape.txt", "outside_project"),
+        ("data/raw/scan.csv", "protected_data_dir"),
+        ("DATA/raw/scan.csv", "protected_data_dir"),
+        ("workflows/main.yaml", "protected_workflow_yaml"),
+        ("workflows/nested/other.yml", "protected_workflow_yaml"),
+        ("", "empty_path"),
+        (".", "project_root"),
+        # Taken literally: "~" is not expanded, so this is data/x.csv (no-context audit P2-3).
+        ("~/../data/x.csv", "protected_data_dir"),
+        # NUL and other control characters never name a file (no-context audit P3-4).
+        ("notes/a\x00b.txt", "invalid_path"),
+        ("notes/bell\x07.txt", "invalid_path"),
+    ],
+)
+def test_check_author_path_refuses_with_the_author_tools_codes(tmp_path: Path, rel_path: str, code: str) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    with pytest.raises(ToolRefusal) as refused:
+        check_author_path(root, rel_path)
+    assert refused.value.code == code
+    assert refused.value.message
+
+
+def test_check_author_path_refuses_an_absolute_path_elsewhere(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    with pytest.raises(ToolRefusal) as refused:
+        check_author_path(root, str(tmp_path / "elsewhere.txt"))
+    assert refused.value.code == "outside_project"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="NTFS alternate data streams exist only on Windows")
+@pytest.mark.parametrize(
+    "rel_path",
+    ["workflows/new.yaml::$DATA", "workflows/new.yaml:stream", "notes/a.txt:hidden", "C:notes.txt"],
+)
+def test_check_author_path_refuses_windows_stream_and_drive_relative_syntax(tmp_path: Path, rel_path: str) -> None:
+    """``new.yaml::$DATA`` would create ``new.yaml`` past the blacklist (no-context audit P2-2)."""
+    root = tmp_path / "project"
+    (root / "workflows").mkdir(parents=True)
+    with pytest.raises(ToolRefusal) as refused:
+        check_author_path(root, rel_path)
+    assert refused.value.code == "invalid_path"
+    assert not (root / "workflows" / "new.yaml").exists()
+
+
+def test_a_data_refusal_names_the_tool_that_owns_the_surface(tmp_path: Path) -> None:
+    with pytest.raises(ToolRefusal) as refused:
+        check_author_path(tmp_path, "data/raw/scan.csv")
+    assert refused.value.alternatives == ["run_workflow"]
+
+
+def test_tool_refusal_takes_the_spec_2_refusal_fields() -> None:
+    refusal = ToolRefusal(code="nope", message="No.", alternatives=["x"])
+    assert isinstance(refusal, ToolError)
+    assert (str(refusal), refusal.code, refusal.message, refusal.alternatives) == ("No.", "nope", "No.", ["x"])
+    assert ToolRefusal(code="nope", message="No.").alternatives == []
+    untyped: Any = ToolRefusal
+    with pytest.raises(TypeError):
+        untyped("No.")  # the fields are keyword-only
+    with pytest.raises(ValueError):
+        ToolRefusal(code="nope", message="  ")
+    with pytest.raises(ValueError):
+        ToolRefusal(code="", message="No.")
+
+
+# ---------------------------------------------------------------------------
+# ToolRefusal inside a tool.
+# ---------------------------------------------------------------------------
+
+
+def test_a_refusal_is_an_error_result_on_the_local_transport(seam_tools: dict[str, Any]) -> None:
+    result = asyncio.run(mcp.call_tool(REFUSE_TOOL, {}))
+    wire = result.to_mcp_result()
+    assert isinstance(wire, CallToolResult)
+    # The wire (alias) keys read the same on MCP SDK 1.x and 2.x.
+    dumped = wire.model_dump(by_alias=True)
+    assert dumped["isError"] is True
+    assert dumped["structuredContent"] == {
+        "status": "refused",
+        "refusal": {"code": "fixture_refused", "message": REFUSAL_MESSAGE, "use_instead": ["other_tool"]},
+    }
+
+
+@MOUNTS
+def test_refusals_cross_the_webmcp_bridge_as_error_results(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, seam_tools: dict[str, Any], mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    seam_tools["app"] = app
+    with TestClient(app, root_path=mount_prefix) as client:
+        _open_project(client, mount_prefix, projects_dir)
+
+        refused = _bridge_call(client, mount_prefix, REFUSE_TOOL, {})
+        assert refused["isError"] is True
+        # The message crosses the bridge, unlike an ordinary exception's text.
+        assert refused["content"] == [{"type": "text", "text": REFUSAL_MESSAGE}]
+        assert refused["structuredContent"]["refusal"] == {
+            "code": "fixture_refused",
+            "message": REFUSAL_MESSAGE,
+            "use_instead": ["other_tool"],
+        }
+
+        blacklisted = _bridge_call(client, mount_prefix, AUTHOR_TOOL, {"path": "data/raw/scan.csv"})
+        assert blacklisted["isError"] is True
+        assert blacklisted["structuredContent"]["status"] == "refused"
+        assert blacklisted["structuredContent"]["refusal"]["code"] == "protected_data_dir"
+
+        escaped = _bridge_call(client, mount_prefix, AUTHOR_TOOL, {"path": "../escape.txt"})
+        assert escaped["isError"] is True
+        assert escaped["structuredContent"]["refusal"]["code"] == "outside_project"
+
+        allowed = _bridge_call(client, mount_prefix, AUTHOR_TOOL, {"path": "notes/plan.md"})
+        assert allowed["isError"] is False
+
+
+# ---------------------------------------------------------------------------
+# write_project_file.
+# ---------------------------------------------------------------------------
+
+
+@MOUNTS
+def test_write_project_file_uses_the_shared_write_path(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app(routers=[_edition_router()])
+    payload = b"\x00\xff binary, not UTF-8 \xfe"
+    with TestClient(app, root_path=mount_prefix) as client:
+        project = _open_project(client, mount_prefix, projects_dir)
+        url = f"{mount_prefix}/api/test-edition/write"
+
+        first = client.post(url, params={"path": "results/new/scan.bin"}, content=payload)
+        assert first.status_code == 200, first.text
+        written = Path(first.json()["path"])
+        assert written == project / "results" / "new" / "scan.bin"
+        assert written.read_bytes() == payload
+        # The editor's write path tracks the file's state version.
+        files = app.state.runtime.project_files
+        version = files.state_version(written)
+        assert isinstance(version, int)
+
+        assert client.post(url, params={"path": "results/new/scan.bin"}, content=b"again").status_code == 200
+        assert written.read_bytes() == b"again"
+        assert files.state_version(written) > version
+
+        # The write re-runs the author rules itself, so check-then-write cannot
+        # diverge (#2322 no-context audit P2-3): data/ stays protected.
+        refused = client.post(url, params={"path": "data/raw/uploaded.csv"}, content=b"a,b\n")
+        assert refused.status_code == 409
+        assert refused.json()["code"] == "protected_data_dir"
+
+
+@MOUNTS
+def test_write_project_file_refusals(projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app(routers=[_edition_router()])
+    with TestClient(app, root_path=mount_prefix) as client:
+        url = f"{mount_prefix}/api/test-edition/write"
+        closed = client.post(url, params={"path": "notes/a.txt"}, content=b"x")
+        assert closed.status_code == 409
+        assert closed.json()["code"] == "no_active_project"
+
+        project = _open_project(client, mount_prefix, projects_dir)
+        escaped = client.post(url, params={"path": "../escape.bin"}, content=b"x")
+        assert escaped.status_code == 409
+        assert escaped.json()["code"] == "outside_project"
+        assert not (project.parent / "escape.bin").exists()
+
+        # The exploit string the check and the write used to read differently.
+        tilde = client.post(url, params={"path": "~/../data/x.csv"}, content=b"x")
+        assert tilde.status_code == 409
+        assert tilde.json()["code"] == "protected_data_dir"
+        assert not (project / "data" / "x.csv").exists()
+
+        (project / "a-directory").mkdir()
+        directory = client.post(url, params={"path": "a-directory"}, content=b"x")
+        assert directory.status_code == 409
+        assert directory.json()["code"] == "is_directory"
+
+
+def test_write_project_file_takes_bytes_only() -> None:
+    with pytest.raises(TypeError):
+        asyncio.run(write_project_file(FastAPI(), "notes/a.txt", "text"))  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# add_upload_listener.
+# ---------------------------------------------------------------------------
+
+
+@MOUNTS
+def test_upload_listeners_hear_an_upload_start_and_complete(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    heard = _Heard()
+
+    def failing(path: str, size: int, status: str) -> None:
+        raise RuntimeError("a broken listener")
+
+    add_upload_listener(app, failing)
+    add_upload_listener(app, heard.plain("plain"))
+    add_upload_listener(app, heard.coroutine("coroutine"))
+    body = b"a,b\n1,2\n"
+    with TestClient(app, root_path=mount_prefix) as client:
+        project = _open_project(client, mount_prefix, projects_dir)
+        response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("sample.csv", body, "text/csv")})
+    assert response.status_code == 200, response.text
+    expected = [("data/raw/sample.csv", "started"), ("data/raw/sample.csv", "completed")]
+    # A failing listener stops no other listener, and plain and async ones both run.
+    assert heard.statuses("plain") == expected
+    assert heard.statuses("coroutine") == expected
+    sizes = {status: size for who, _path, size, status in heard.calls if who == "plain"}
+    assert sizes["started"] in (0, len(body)), "the size known at the start, or 0"
+    assert sizes["completed"] == len(body)
+    assert (project / "data" / "raw" / "sample.csv").read_bytes() == body
+
+
+@MOUNTS
+def test_the_started_event_fires_before_the_file_is_placed(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    """``started`` marks an upload in flight: the destination does not exist yet."""
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    placed_at_start: list[bool] = []
+
+    def on_upload(path: str, size: int, status: str) -> None:
+        if status == "started":
+            root = active_project_root(app)
+            assert root is not None
+            placed_at_start.append((root / path).exists())
+
+    add_upload_listener(app, on_upload)
+    with TestClient(app, root_path=mount_prefix) as client:
+        _open_project(client, mount_prefix, projects_dir)
+        response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("scan.csv", b"x,y\n", "text/csv")})
+    assert response.status_code == 200
+    assert placed_at_start == [False]
+
+
+@MOUNTS
+def test_upload_listeners_hear_a_discarded_upload(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    monkeypatch.setattr(data_routes, "MAX_UPLOAD_SIZE", 4)
+    app = create_app()
+    heard = _Heard()
+    add_upload_listener(app, heard.plain("plain"))
+    with TestClient(app, root_path=mount_prefix) as client:
+        project = _open_project(client, mount_prefix, projects_dir)
+        response = client.post(
+            f"{mount_prefix}/api/data/upload", files={"file": ("big.csv", b"0123456789", "text/csv")}
+        )
+    assert response.status_code == 413
+    assert heard.statuses("plain") == [("data/raw/big.csv", "started"), ("data/raw/big.csv", "discarded")]
+    discarded_size = next(size for _who, _path, size, status in heard.calls if status == "discarded")
+    assert discarded_size > 4
+    assert not (project / "data" / "raw" / "big.csv").exists()
+
+
+def test_the_returned_function_removes_the_listener(projects_dir: Path) -> None:
+    app = create_app()
+    heard = _Heard()
+    kept = add_upload_listener(app, heard.plain("kept"))
+    remove = add_upload_listener(app, heard.plain("removed"))
+    with TestClient(app) as client:
+        _open_project(client, "", projects_dir)
+        assert client.post("/api/data/upload", files={"file": ("one.csv", b"a\n", "text/csv")}).status_code == 200
+        remove()
+        remove()  # removing twice is harmless
+        assert client.post("/api/data/upload", files={"file": ("two.csv", b"b\n", "text/csv")}).status_code == 200
+        kept()
+        assert client.post("/api/data/upload", files={"file": ("three.csv", b"c\n", "text/csv")}).status_code == 200
+    assert heard.statuses("removed") == [("data/raw/one.csv", "started"), ("data/raw/one.csv", "completed")]
+    assert heard.statuses("kept") == [
+        ("data/raw/one.csv", "started"),
+        ("data/raw/one.csv", "completed"),
+        ("data/raw/two.csv", "started"),
+        ("data/raw/two.csv", "completed"),
+    ]
+
+
+@MOUNTS
+def test_upload_paths_stay_relative_to_the_project_the_upload_was_staged_in(
+    projects_dir: Path, monkeypatch: pytest.MonkeyPatch, mount_prefix: str
+) -> None:
+    """Another project opening mid-upload does not change the reported path (#2322 audit P3-3)."""
+    monkeypatch.setenv("SCISTUDIO_ROOT_PATH", mount_prefix)
+    app = create_app()
+    heard = _Heard()
+    add_upload_listener(app, heard.plain("plain"))
+    other_parent = projects_dir / "other"
+    other_parent.mkdir()
+    with TestClient(app, root_path=mount_prefix) as client:
+        runtime = app.state.runtime
+        _open_project(client, mount_prefix, other_parent)
+        project_b = runtime.active_project
+        project_a = _open_project(client, mount_prefix, projects_dir)
+
+        def open_another_project(path: str, size: int, status: str) -> None:
+            if status == "started":
+                runtime.active_project = project_b
+
+        add_upload_listener(app, open_another_project)
+        response = client.post(f"{mount_prefix}/api/data/upload", files={"file": ("sample.csv", b"a,b\n", "text/csv")})
+    assert response.status_code == 200, response.text
+    assert heard.statuses("plain") == [("data/raw/sample.csv", "started"), ("data/raw/sample.csv", "completed")]
+    assert (project_a / "data" / "raw" / "sample.csv").exists()
+
+
+def test_add_upload_listener_takes_a_callable() -> None:
+    with pytest.raises(TypeError):
+        add_upload_listener(FastAPI(), "not callable")  # type: ignore[arg-type]

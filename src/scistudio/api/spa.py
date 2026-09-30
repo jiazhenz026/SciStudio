@@ -25,9 +25,12 @@
 # 2d) adds the capability declaration (``window.__SCISTUDIO_CAPABILITIES__``)
 # an edition passes to ``create_app``. It is emitted only when at least one
 # capability is on, so the open-source shell is unchanged; the frontend reads
-# it through ``frontend/src/lib/capabilities.ts``.
-# Development references: ADR-055, FR-002, FR-003, FR-006, Spec 0, Spec 1, docs/specs/adr-055-identity-
-# seam.md.
+# it through ``frontend/src/lib/capabilities.ts``. The declaration is versioned
+# and carries one key per capability that is on (ADR-055 Spec 4,
+# ``docs/specs/adr-055-enterprise-support.md``); the route paths inside it are
+# serialized script-safe like every other value.
+# Development references: ADR-055, FR-002, FR-003, FR-006, Spec 0, Spec 1, Spec 4, docs/specs/adr-055-identity-
+# seam.md, docs/specs/adr-055-enterprise-support.md.
 
 from __future__ import annotations
 
@@ -162,8 +165,9 @@ def _templated_index_response(
       configured) — the per-launch WebMCP bridge session token, injected on
       every mount including the default root mount.
     * ``window.__SCISTUDIO_CAPABILITIES__`` (only when an edition turned a
-      capability on) — the capability declaration of the identity seam,
-      already serialized by :func:`_script_safe_json`.
+      capability on) — the versioned capability declaration of the identity
+      seam, already serialized by :func:`_script_safe_json`, so no user name
+      or route path in it can close the script element.
 
     ``json.dumps`` keeps each JS value a safely quoted string literal;
     ``html.escape`` does the same for the attribute context.
@@ -179,10 +183,13 @@ def _templated_index_response(
         base_href = escape(f"{base_path}/", quote=True)
         injection += f'<base href="{base_href}">'
     assignments = ""
+    # Every value goes through the same script-safe serialization, so an
+    # operator-configured prefix containing ``</script>`` cannot close the
+    # element either (#2322 no-context audit P3-2).
     if base_path:
-        assignments += f"window.__SCISTUDIO_BASE_PATH__ = {json.dumps(base_path)};"
+        assignments += f"window.__SCISTUDIO_BASE_PATH__ = {_script_safe_json(base_path)};"
     if webmcp_session_token:
-        assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {json.dumps(webmcp_session_token)};"
+        assignments += f"window.__SCISTUDIO_WEBMCP_TOKEN__ = {_script_safe_json(webmcp_session_token)};"
     if capabilities_json:
         assignments += f"window.__SCISTUDIO_CAPABILITIES__ = {capabilities_json};"
     injection += f"<script>{assignments}</script>"
