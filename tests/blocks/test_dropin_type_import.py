@@ -24,6 +24,14 @@ type still registered in the ``TypeRegistry`` and still loaded, and the worker
 — which never runs the block scan — got the drop-in file. Both are pinned
 below against the surfaces that failed, a real ``TypeRegistry`` and a real
 worker subprocess.
+
+ADR-056 rewrote the mechanism under these scenarios (spec CHANGE-042): user
+files are imported by their own module names from a user import path appended
+to ``sys.path``, and the name check (FR-008) refuses a colliding file before
+anything is imported. The refusing ``sys.meta_path`` finder, its warrants and
+the ``sys.path`` windows are gone, so the scenarios that pinned them now pin
+the plain-import answer: the installed module resolves because it comes first
+on ``sys.path``, and a refusal lasts exactly as long as the file does.
 """
 
 from __future__ import annotations
@@ -43,18 +51,21 @@ from fastapi.testclient import TestClient
 from scistudio.api.deps import get_block_registry
 from scistudio.api.routes.blocks import router as blocks_router
 from scistudio.blocks.registry import BlockRegistry
-from scistudio.core import dropins as dropins_module
 from scistudio.core.dropins import (
     block_scan_dirs,
-    dropin_type_roots_for_block_dirs,
-    guard_dropin_type_roots,
     register_block_scan_dirs,
     register_type_scan_dirs,
     type_scan_dirs,
 )
 from scistudio.core.types.registry import TypeRegistry
+from scistudio.core.user_code import build_user_import_path, check_user_import_path, install_user_import_path
 from scistudio.desktop.paths import prepended_sys_paths
+from scistudio.engine.runners.local import _worker_env
 from scistudio.engine.runners.process_handle import build_worker_payload
+
+#: ``error_type`` of a name-check refusal for a standard-library or installed
+#: stem (ADR-056 FR-008).
+COLLISION = "UserModuleNameCollision"
 
 # ---------------------------------------------------------------------------
 # Drop-in sources
@@ -227,15 +238,6 @@ def _drop_dropin_modules() -> Iterator[None]:
     yield
     for name in _DROPIN_MODULE_NAMES:
         sys.modules.pop(name, None)
-    # An FR-016 refusal is process-wide by design — it has to outlive the scan
-    # that discovered it — so a test that provokes one must not leave it
-    # standing for the rest of the session. Its warrants go with it: a warrant
-    # naming a ``tmp_path`` root this test is about to lose would otherwise keep
-    # a refusal alive that no directory can any longer justify.
-    dropins_module._REFUSED_NAMES.reasons.clear()
-    dropins_module._REFUSED_NAMES.warrants.clear()
-    if dropins_module._REFUSED_NAMES in sys.meta_path:
-        sys.meta_path.remove(dropins_module._REFUSED_NAMES)
 
 
 @pytest.fixture
@@ -257,7 +259,11 @@ def project(tmp_path: Path) -> Path:
 
 
 def _scanned_registry(project_dir: Path) -> BlockRegistry:
-    """Scan the way :func:`refresh_block_registry` does (ADR-053 FR-057)."""
+    """Scan the way :func:`refresh_block_registry` does (ADR-053 FR-057).
+
+    The backend installs the project's user import path first (ADR-056).
+    """
+    install_user_import_path(build_user_import_path(project_dir))
     registry = BlockRegistry()
     register_block_scan_dirs(registry, project_dir)
     registry.scan()
@@ -312,25 +318,38 @@ class TestDropInBlockImportsDropInType:
 
 
 class TestWorkerParity:
-    def test_spec_records_the_type_roots_for_the_worker(self, home: Path, project: Path) -> None:
-        """The roots the parent used are stamped on the spec, project tier first."""
+    def test_spec_names_the_block_by_its_own_module_and_one_type_class(self, home: Path, project: Path) -> None:
+        """ADR-056: the spec's module is the file stem; the port type is the registry's class."""
         (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
         (project / "blocks" / "uses_spectrum.py").write_text(USES_SPECTRUM_BLOCK, encoding="utf-8")
 
         spec = _scanned_registry(project).get_spec("uses_spectrum")
+        types = TypeRegistry()
+        register_type_scan_dirs(types, project)
+        types.scan_all()
 
         assert spec is not None
-        roots = spec.runtime_import_roots
-        assert roots[0] == str(project / "types"), "FR-014: the project tier must resolve first"
-        assert str(home / ".scistudio" / "types") in roots
+        assert spec.module_path == "uses_spectrum"
+        assert not hasattr(spec, "runtime_import_roots") and not hasattr(spec, "file_path")
+        assert spec.input_ports[0].accepted_types[0] is types.load_class("SpectrumData")
+
+    def test_the_user_import_path_puts_the_project_tier_first(self, home: Path, project: Path) -> None:
+        """FR-014 / ADR-056 FR-001: project types and blocks, then the library's."""
+        library = home / ".scistudio"
+        assert build_user_import_path(project) == (
+            (project / "types").resolve(),
+            (project / "blocks").resolve(),
+            (library / "types").resolve(),
+            (library / "blocks").resolve(),
+        )
 
     def test_dropin_block_runs_in_a_fresh_worker(self, home: Path, project: Path) -> None:
         """FR-013: registering is not enough — the worker must run the block.
 
         Spawns a real ``python -m scistudio.engine.runners.worker``, which
-        re-imports the drop-in file from disk in a fresh interpreter. Without
-        the recorded roots the worker reproduces the original
-        ``ModuleNotFoundError: No module named 'spectrum'``.
+        imports the block by module name through the user import path it
+        receives in its environment. Without it the worker reproduces the
+        original ``ModuleNotFoundError: No module named 'spectrum'``.
         """
         (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
         (project / "blocks" / "uses_spectrum.py").write_text(USES_SPECTRUM_BLOCK, encoding="utf-8")
@@ -343,14 +362,13 @@ class TestWorkerParity:
             inputs_refs={},
             config={},
             output_dir=None,
-            block_file_path=spec.file_path,
-            runtime_import_roots=spec.runtime_import_roots,
         )
         proc = subprocess.run(
             [sys.executable, "-m", "scistudio.engine.runners.worker"],
             input=payload,
             capture_output=True,
             timeout=120,
+            env=_worker_env(worker_cwd=None, project_dir=str(project)),
         )
 
         stdout = proc.stdout.decode("utf-8", errors="replace")
@@ -556,7 +574,7 @@ class TestTypeNameCollisionIsRejected:
         failures = registry.dropin_failures()
         assert len(failures) == 1
         assert failures[0].file_path == str(project / "types" / "sample_dep.py")
-        assert failures[0].error_type == "DropinTypeNameCollision"
+        assert failures[0].error_type == COLLISION
         assert "sample_dep" in failures[0].message
 
     def test_the_real_module_still_imports_from_a_dropin_block(
@@ -576,7 +594,7 @@ class TestTypeNameCollisionIsRejected:
 
         payload = _palette_client(_scanned_registry(project)).get("/api/blocks/").json()
 
-        assert [entry["error_type"] for entry in payload["dropin_failures"]] == ["DropinTypeNameCollision"]
+        assert [entry["error_type"] for entry in payload["dropin_failures"]] == [COLLISION]
 
     def test_a_rejected_neighbour_does_not_block_a_valid_type(
         self, home: Path, project: Path, installed_dep: Path
@@ -588,7 +606,7 @@ class TestTypeNameCollisionIsRejected:
         registry = _scanned_registry(project)
 
         assert registry.get_spec("uses_spectrum") is not None
-        assert [failure.error_type for failure in registry.dropin_failures()] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in registry.dropin_failures()] == [COLLISION]
 
     def test_a_type_file_never_reports_itself_as_a_collision(self, home: Path, project: Path) -> None:
         """The lookup runs with the type dirs stripped, so ``spectrum.py`` is fine.
@@ -629,7 +647,7 @@ class TestTypeNameCollisionIsRejected:
 
         failures = _scanned_registry(project).dropin_failures()
 
-        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in failures] == [COLLISION]
         assert failures[0].file_path == str(project / "types" / "_sample_dep.py")
         assert "_sample_dep" in failures[0].message
 
@@ -646,7 +664,7 @@ class TestTypeNameCollisionIsRejected:
 
         failures = _scanned_registry(project).dropin_failures()
 
-        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in failures] == [COLLISION]
         assert "_strptime" in failures[0].message
 
     def test_an_underscore_prefixed_package_that_takes_a_taken_name_is_refused(
@@ -659,7 +677,7 @@ class TestTypeNameCollisionIsRejected:
 
         failures = _scanned_registry(project).dropin_failures()
 
-        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in failures] == [COLLISION]
         assert failures[0].file_path == str(package_dir)
 
     def test_a_private_helper_whose_name_is_free_is_not_refused(
@@ -700,12 +718,12 @@ class TestTypeNameCollisionIsRejected:
     ) -> None:
         """FR-016 in the process that never runs the palette scan.
 
-        The worker puts the stamped type roots on ``sys.path`` itself and
-        reconstructs the block from its file, so a guard that lived only in
-        ``_scan_tier1`` left the installed module winning in the API process and
-        the type file winning here — the scan-time-versus-run-time divergence
-        FR-013 exists to eliminate. Registration is deliberately not the
-        assertion: the block reports its answer from ``run()``.
+        The worker appends the user import path it receives after everything
+        else on ``sys.path`` (ADR-056 FR-001), so the installed module wins
+        there exactly as it does in the API process — the
+        scan-time-versus-run-time divergence FR-013 exists to eliminate cannot
+        arise. Registration is deliberately not the assertion: the block reports
+        its answer from ``run()``.
         """
         (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
         (project / "blocks" / "worker_collision_probe.py").write_text(WORKER_COLLISION_BLOCK, encoding="utf-8")
@@ -718,10 +736,8 @@ class TestTypeNameCollisionIsRejected:
             inputs_refs={},
             config={},
             output_dir=None,
-            block_file_path=spec.file_path,
-            runtime_import_roots=spec.runtime_import_roots,
         )
-        env = dict(os.environ)
+        env = _worker_env(worker_cwd=None, project_dir=str(project)) or dict(os.environ)
         # The installed module has to be importable in the subprocess for the
         # question to mean anything; the fixture only put it on this process's
         # sys.path.
@@ -777,9 +793,7 @@ class TestTypeNameCollisionIsRejected:
         types.scan_all()
 
         assert "SpectrumData" in types.all_types()
-        assert [failure.error_type for failure in _scanned_registry(project).dropin_failures()] == [
-            "DropinTypeNameCollision"
-        ]
+        assert [failure.error_type for failure in _scanned_registry(project).dropin_failures()] == [COLLISION]
 
     # -- #2022 P3-1: a package directory shadows just as effectively ----------
 
@@ -793,7 +807,7 @@ class TestTypeNameCollisionIsRejected:
         registry = _scanned_registry(project)
 
         failures = registry.dropin_failures()
-        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in failures] == [COLLISION]
         assert failures[0].file_path == str(package_dir)
         assert registry.get_spec("collision_probe_installed") is not None
 
@@ -814,77 +828,64 @@ class TestTypeNameCollisionIsRejected:
         assert registry.dropin_failures() == []
         assert registry.get_spec("collision_probe_installed") is not None
 
-    # -- #2022 P3-2: bind the shadowed module once, not once per scan ---------
+    # -- #2022 P3-2: the check binds nothing ----------------------------------
 
-    def test_the_shadowed_module_is_bound_once_per_process(
-        self, home: Path, project: Path, installed_dep: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """A ``numpy.py`` collision must not re-import numpy on every refresh."""
+    def test_the_name_check_imports_nothing(self, home: Path, project: Path, installed_dep: Path) -> None:
+        """A ``numpy.py`` collision must not import numpy on every refresh.
+
+        The old guard bound the shadowed module once per process to keep it
+        winning; with user directories after the installed packages on
+        ``sys.path`` there is nothing to bind (ADR-056 FR-008).
+        """
         (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
 
         registry = _scanned_registry(project)
-        assert sys.modules["sample_dep"].__file__ == str(installed_dep / "sample_dep.py")
-
-        imported: list[str] = []
-        real_import_module = importlib.import_module
-
-        def _spy(name: str, package: str | None = None):  # type: ignore[no-untyped-def]
-            imported.append(name)
-            return real_import_module(name, package)
-
-        monkeypatch.setattr(dropins_module.importlib, "import_module", _spy)
         registry.hot_reload()
 
-        assert "sample_dep" not in imported
-        assert [failure.error_type for failure in registry.dropin_failures()] == ["DropinTypeNameCollision"]
+        assert "sample_dep" not in sys.modules
+        assert [failure.error_type for failure in registry.dropin_failures()] == [COLLISION]
 
-    # -- Codex P1 on PR #2035: the mitigation has to fail closed -------------
+    # -- Codex P1 on PR #2035: a collision whose module raises -------------------
 
     #: An installed module with a perfectly good spec that raises on import —
     #: the shape a missing native dependency takes.
     _UNIMPORTABLE_DEP = 'raise ImportError("libsample.so: cannot open shared object file")\n'
 
-    def test_a_collision_whose_module_raises_refuses_the_name(
+    def test_a_collision_whose_module_raises_never_resolves_to_the_dropin(
         self, home: Path, project: Path, installed_dep: Path
     ) -> None:
         """FR-016 must not depend on the collided package importing cleanly.
 
-        The guard's mitigation is to bind the installed module so it keeps
-        winning. When that module raises there is nothing to bind, and
-        swallowing the failure left the name free while the caller went on to
-        prepend the types root — so the next ``import sample_dep`` resolved the
-        drop-in file the guard had just refused. The refusal has to be
-        effective, not only announced (§13 OQ-1).
+        The installed module comes first on ``sys.path``, so ``import
+        sample_dep`` finds it and fails with the module's own error; the drop-in
+        file behind it is never reached. The name check still reports the file.
         """
         (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
         (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        install_user_import_path(build_user_import_path(project))
 
-        collisions = guard_dropin_type_roots(type_scan_dirs(project))
-        assert [collision.stem for collision in collisions] == ["sample_dep"]
-
-        with prepended_sys_paths(type_scan_dirs(project)), pytest.raises(ImportError) as raised:
+        refusals = check_user_import_path(type_scan_dirs(project), user_import_path=build_user_import_path(project))
+        assert [refusal.stem for refusal in refusals] == ["sample_dep"]
+        with pytest.raises(ImportError) as raised:
             importlib.import_module("sample_dep")
 
         assert "sample_dep" not in sys.modules
-        assert "libsample.so" in str(raised.value), "the refusal names the failure it stands in for"
+        assert "libsample.so" in str(raised.value), "the module's own failure is what the user sees"
 
-    def test_the_collision_is_still_reported_after_a_refusal(
+    def test_the_collision_is_still_reported_on_a_second_pass(
         self, home: Path, project: Path, installed_dep: Path
     ) -> None:
-        """A refusal must not make the guard's own question answer "no module".
-
-        The finder lives on ``sys.meta_path``, which is where FR-015's lookup
-        also asks — so a second scan would see the refusal's ``ImportError``,
-        read it as "nothing installed owns this name", and stop reporting the
-        collision it is enforcing.
-        """
+        """A failed import must not make the next check answer "no module"."""
         (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
         (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        install_user_import_path(build_user_import_path(project))
 
-        guard_dropin_type_roots(type_scan_dirs(project))
-        second = guard_dropin_type_roots(type_scan_dirs(project))
+        check_user_import_path(type_scan_dirs(project))
+        with pytest.raises(ImportError):
+            importlib.import_module("sample_dep")
+        second = check_user_import_path(type_scan_dirs(project))
 
-        assert [collision.stem for collision in second] == ["sample_dep"]
+        assert [refusal.stem for refusal in second] == ["sample_dep"]
 
     def test_the_dropin_does_not_win_the_name_through_the_block_scan(
         self, home: Path, project: Path, installed_dep: Path
@@ -897,182 +898,96 @@ class TestTypeNameCollisionIsRejected:
         registry = _scanned_registry(project)
 
         assert registry.get_spec("collision_probe_shadowed") is None
-        assert "DropinTypeNameCollision" in {failure.error_type for failure in registry.dropin_failures()}
+        assert COLLISION in {failure.error_type for failure in registry.dropin_failures()}
 
-    # -- #2022: a refusal ends when the entry that warrants it does ------------
+    # -- #2022: a refusal lasts exactly as long as the file ---------------------
 
-    def _refuse_sample_dep(self, project: Path, installed_dep: Path) -> None:
-        """Provoke the fail-closed refusal of ``sample_dep`` and confirm it took."""
-        (installed_dep / "sample_dep.py").write_text(self._UNIMPORTABLE_DEP, encoding="utf-8")
+    def test_removing_the_colliding_file_ends_the_refusal(self, home: Path, project: Path, installed_dep: Path) -> None:
+        """The report asks the user to rename or remove the file; doing it must work.
+
+        There is no process-wide refusal to release any more: the check reads
+        the directory on every pass, so the next scan simply finds nothing, and
+        the installed module was never displaced in the first place.
+        """
         (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
-
-        guard_dropin_type_roots(type_scan_dirs(project))
-
-        assert "sample_dep" in dropins_module._REFUSED_NAMES.reasons, "precondition: the name is refused"
-
-    @staticmethod
-    def _import_error(stem: str) -> str:
-        """Return the message ``import stem`` fails with, or ``""`` if it does not."""
-        try:
-            importlib.import_module(stem)
-        except ImportError as exc:
-            return str(exc)
-        return ""
-
-    def test_removing_the_colliding_file_releases_the_refusal(
-        self, home: Path, project: Path, installed_dep: Path
-    ) -> None:
-        """The refusal has to end when its cause does, or it is a worse defect.
-
-        The refusal tells the user to rename or remove the file. Nothing acted
-        on their doing it: the name stayed dead for the life of the process, so
-        an installed package the product was never asked to touch was left
-        unusable with no recovery short of restarting the app — in answer to the
-        user doing exactly what they were asked.
-
-        The assertion is on *which* failure the name produces, not on whether it
-        produces one, because this installed module is broken on its own account
-        and still raises once the guard steps aside. That is the correct
-        outcome: the un-shadowed process raises here too, and restoring the
-        un-shadowed answer is all the guard ever claimed to do.
-        """
-        self._refuse_sample_dep(project, installed_dep)
+        registry = _scanned_registry(project)
+        assert [failure.error_type for failure in registry.dropin_failures()] == [COLLISION]
 
         (project / "types" / "sample_dep.py").unlink()
-        guard_dropin_type_roots(type_scan_dirs(project))
+        registry.hot_reload()
 
-        assert "sample_dep" not in dropins_module._REFUSED_NAMES.reasons
-        assert dropins_module._REFUSED_NAMES not in sys.meta_path, (
-            "with nothing refused the finder must stop answering every import in the process"
-        )
-        message = self._import_error("sample_dep")
-        assert "is rejected" not in message, "the guard must be out of the way"
-        assert "libsample.so" in message, "and the module's own failure is what the user sees"
-
-    def test_the_name_works_again_once_both_the_file_and_the_module_are_fixed(
-        self, home: Path, project: Path, installed_dep: Path
-    ) -> None:
-        """The whole point, stated as the user experiences it.
-
-        The user removes the drop-in the report named and repairs the dependency
-        the guard could not import. Nothing about the process is wrong any more,
-        so ``import sample_dep`` must simply work — and before this fix it could
-        not, because the release was never wired to anything.
-        """
-        self._refuse_sample_dep(project, installed_dep)
-
-        (project / "types" / "sample_dep.py").unlink()
-        (installed_dep / "sample_dep.py").write_text('ORIGIN = "installed"\nREPAIRED = True\n', encoding="utf-8")
-        guard_dropin_type_roots(type_scan_dirs(project))
-
+        assert registry.dropin_failures() == []
         assert importlib.import_module("sample_dep").ORIGIN == "installed"
 
-    def test_a_still_warranted_refusal_survives_a_rescan(self, home: Path, project: Path, installed_dep: Path) -> None:
-        """Releasing eagerly reopens FR-016, which is the direction that matters.
-
-        The file is still there and the module still cannot be bound, so the
-        drop-in would still take the name the moment the refusal lifted.
-        """
-        self._refuse_sample_dep(project, installed_dep)
-
-        guard_dropin_type_roots(type_scan_dirs(project))
-
-        assert "is rejected" in self._import_error("sample_dep")
-
-    def test_a_pass_does_not_release_a_refusal_warranted_by_a_root_it_was_not_given(
+    def test_a_file_still_present_is_still_refused_after_a_rescan(
         self, home: Path, project: Path, installed_dep: Path
     ) -> None:
-        """The bound on the release, and the reason it is per root.
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
+        registry = _scanned_registry(project)
 
-        A pass is handed specific roots and knows the collision set for those
-        alone. Both tiers claim ``sample_dep`` here; removing the project-tier
-        file and rescanning **only the project root** proves nothing about the
-        user-tier file, which is still sitting on a ``sys.path`` entry waiting
-        to claim the name. A release that ignored the difference would lift the
-        refusal on the strength of not having looked.
-        """
-        (home / ".scistudio" / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
-        self._refuse_sample_dep(project, installed_dep)
+        registry.hot_reload()
 
-        (project / "types" / "sample_dep.py").unlink()
-        guard_dropin_type_roots([project / "types"])
+        assert [failure.error_type for failure in registry.dropin_failures()] == [COLLISION]
 
-        assert "is rejected" in self._import_error("sample_dep")
-
-    def test_the_same_name_colliding_in_two_tiers_is_reported_and_warranted_for_both(
+    def test_the_same_name_colliding_in_two_tiers_is_reported_for_both(
         self, home: Path, project: Path, installed_dep: Path
     ) -> None:
-        """Both tiers must be seen in one pass, or the release is built on sand.
-
-        The refusal used to install its finder the instant it was recorded, in
-        the middle of the very pass that recorded it — so the *second* tier's
-        collision check asked ``find_spec`` about a name this module had just
-        refused, got its own ``ImportError`` back, and read it as "no installed
-        module owns this name". The user-tier file was never reported, and once
-        refusals carry warrants it would also have recorded none, so removing
-        the project-tier file would release a refusal the user-tier file still
-        warrants. Both halves are asserted here because the second is only
-        reachable through the first.
-        """
+        """Both tiers are seen in one pass; cross-tier order does not hide a collision."""
         (home / ".scistudio" / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
-        self._refuse_sample_dep(project, installed_dep)
+        (project / "types" / "sample_dep.py").write_text(SHADOWED_TYPE, encoding="utf-8")
 
-        collisions = guard_dropin_type_roots(type_scan_dirs(project))
+        refusals = check_user_import_path(build_user_import_path(project))
 
-        assert [collision.path for collision in collisions] == [
-            project / "types" / "sample_dep.py",
-            home / ".scistudio" / "types" / "sample_dep.py",
+        assert [refusal.path for refusal in refusals] == [
+            (project / "types" / "sample_dep.py").resolve(),
+            (home / ".scistudio" / "types" / "sample_dep.py").resolve(),
         ]
-        assert dropins_module._REFUSED_NAMES.warrants["sample_dep"] == {
-            str((project / "types").resolve()),
-            str((home / ".scistudio" / "types").resolve()),
-        }
 
-    def test_a_root_that_cannot_be_listed_does_not_release_its_refusal(
+    def test_a_directory_that_cannot_be_listed_does_not_stop_the_scan(
         self, home: Path, project: Path, installed_dep: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """No listing is no evidence, and no evidence must not read as "gone".
-
-        An empty answer from a directory that could not be read looks exactly
-        like an empty directory, and treating the two alike would release a
-        refusal on an I/O error — failing open on the one path that exists to
-        fail closed.
-        """
-        self._refuse_sample_dep(project, installed_dep)
+        (project / "types" / "spectrum.py").write_text(SPECTRUM_TYPE, encoding="utf-8")
+        (project / "blocks" / "uses_spectrum.py").write_text(USES_SPECTRUM_BLOCK, encoding="utf-8")
         real_iterdir = Path.iterdir
 
         def _unreadable(self: Path) -> Iterator[Path]:
-            if self == project / "types":
+            if self.name == "types" and self.parent == home / ".scistudio":
                 raise OSError("directory temporarily unreadable")
             return real_iterdir(self)
 
         monkeypatch.setattr(Path, "iterdir", _unreadable)
-        guard_dropin_type_roots(type_scan_dirs(project))
+        registry = _scanned_registry(project)
 
-        assert "is rejected" in self._import_error("sample_dep")
+        assert registry.get_spec("uses_spectrum") is not None
 
 
 # ---------------------------------------------------------------------------
-# FR-012 / FR-014 — the sibling-``types/`` inference the roots rest on (#2022 P3-3)
+# FR-012 / FR-014 — the tier layout the user import path rests on (#2022 P3-3)
 # ---------------------------------------------------------------------------
 
 
-class TestTypeRootDerivation:
-    """``dropin_type_roots_for_block_dirs`` assumes a tier layout. Pin it.
+class TestUserImportPathTiers:
+    """The user import path is the scan dirs of the same tiers, in FR-001 order.
 
-    The registry is handed block directories and never learns the project root,
-    so it recovers the type roots as ``<block_dir>.parent / "types"``. That is
-    correct only while every block scan dir is ``<tier-root>/blocks``. The
-    assumption is load-bearing for FR-012 in all four processes and was stated
-    only in a docstring; a future tier layout change should fail here rather
-    than silently resolve nothing.
+    A registry is handed block and type directories separately; the path it
+    ensures on ``sys.path`` must be the one the backend installs for the
+    project, or cross-tier shadowing would depend on which registry ran first.
     """
 
-    def test_block_dirs_round_trip_to_the_type_dirs_of_the_same_tiers(self, home: Path, project: Path) -> None:
-        assert dropin_type_roots_for_block_dirs(block_scan_dirs(project)) == type_scan_dirs(project)
+    def test_the_path_is_the_type_and_block_dirs_of_the_same_tiers(self, home: Path, project: Path) -> None:
+        (home / ".scistudio" / "types").mkdir(parents=True, exist_ok=True)
+        expected = tuple(
+            path.resolve()
+            for pair in zip(type_scan_dirs(project), block_scan_dirs(project), strict=True)
+            for path in pair
+        )
+        assert build_user_import_path(project) == expected
 
-    def test_the_round_trip_holds_with_no_project_open(self, home: Path) -> None:
-        assert dropin_type_roots_for_block_dirs(block_scan_dirs(None)) == type_scan_dirs(None)
+    def test_the_path_holds_with_no_project_open(self, home: Path) -> None:
+        expected = tuple(
+            path.resolve() for pair in zip(type_scan_dirs(None), block_scan_dirs(None), strict=True) for path in pair
+        )
+        assert build_user_import_path(None) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -1081,7 +996,10 @@ class TestTypeRootDerivation:
 
 
 class TestSysPathWindowsAreNotSnapshots:
-    """Both windows must undo their own edits, not restore an entry snapshot.
+    """The installed-package window must undo its own edits, not restore a snapshot.
+
+    ``prepended_sys_paths`` survives ADR-056 for installed-package loading only;
+    user code no longer opens a window.
 
     A snapshot is wrong the moment two windows overlap, and both failure modes
     are real: the inner window's exit restores the outer window's ``sys.path``,
@@ -1135,33 +1053,6 @@ class TestSysPathWindowsAreNotSnapshots:
         finally:
             sys.path.remove(added)
 
-    def test_the_guard_window_does_not_clobber_an_enclosing_prepend(self, tmp_path: Path) -> None:
-        """``_sys_path_without`` has the same shape and the same obligation.
-
-        A scan holding its import roots on ``sys.path`` while the FR-016 guard
-        strips the type roots to ask its question must get those roots back —
-        and must not lose the unrelated ones. This nesting is what the product
-        actually does today, so it is a regression pin rather than a
-        reproduction; the failure the rewrite removes needs two windows opened
-        by different threads, which this suite deliberately does not spawn.
-        """
-        types_root = tmp_path / "tier" / "types"
-        types_root.mkdir(parents=True)
-        unrelated = tmp_path / "unrelated"
-        unrelated.mkdir()
-        baseline = list(sys.path)
-
-        outer = prepended_sys_paths([unrelated])
-        outer.__enter__()
-        try:
-            with dropins_module._sys_path_without((types_root,)):
-                assert str(unrelated) in sys.path, "an unrelated window's root must survive"
-            assert str(unrelated) in sys.path
-        finally:
-            outer.__exit__(None, None, None)
-
-        assert sys.path == baseline
-
 
 # ---------------------------------------------------------------------------
 # What the collision report names as the origin (AUDIT-SEC P3-10)
@@ -1186,7 +1077,7 @@ def test_a_namespace_package_collision_does_not_report_itself_as_built_in(
     try:
         failures = _scanned_registry(project).dropin_failures()
 
-        assert [failure.error_type for failure in failures] == ["DropinTypeNameCollision"]
+        assert [failure.error_type for failure in failures] == [COLLISION]
         assert "built-in" not in failures[0].message
         assert "namespace package" in failures[0].message
         assert str(site / "namespace_dep") in failures[0].message

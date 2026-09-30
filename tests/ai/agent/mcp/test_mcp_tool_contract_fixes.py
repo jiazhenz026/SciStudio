@@ -244,13 +244,13 @@ class _ReloadingRegistry:
     def all_specs(self) -> dict[str, _Spec]:
         return dict(self._specs)
 
-    def hot_reload(self) -> None:
+    def hot_reload(self, *, forget: bool = True) -> None:
         self._specs["Scale Activity"] = _Spec("Scale Activity", "scaleactivity_block")
         self._specs.pop("Load Data")
 
 
 class _Types:
-    def rescan(self) -> None:
+    def rescan(self, *, forget: bool = True) -> None:
         return None
 
 

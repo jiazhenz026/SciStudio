@@ -620,3 +620,64 @@ def test_tutorial_tier_follows_the_active_project(
     # The user tier is unconditional and unchanged by the switch, exactly as it
     # is for blocks and types (FR-060).
     assert _active_tutorial_dirs()[1] == Path.home() / ".scistudio" / "tutorials"
+
+
+# ---------------------------------------------------------------------------
+# ADR-056: user modules keep their names, so every refresh forgets them first
+# ---------------------------------------------------------------------------
+
+_EDIT_PROBE = (
+    "from scistudio.core.types.base import DataObject\n\n\nclass EditProbe(DataObject):\n    LABEL = '{label}'\n"
+)
+
+
+def test_reload_runs_a_type_file_edited_within_the_same_second(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """``refresh_all_registries`` forgets user modules before it rebuilds (spec FR-009).
+
+    Without the forget step the stable module name would return the cached
+    module, and an edit of the same size inside one second would even re-run
+    the stale bytecode.
+    """
+    import os
+
+    source = opened_project / "types" / "edit_probe.py"
+    source.parent.mkdir(exist_ok=True)
+    source.write_text(_EDIT_PROBE.format(label="old"), encoding="utf-8")
+    assert client.post("/api/blocks/reload").status_code == 200
+    assert runtime.type_registry.load_class("EditProbe").LABEL == "old"
+    stat = source.stat()
+
+    source.write_text(_EDIT_PROBE.format(label="new"), encoding="utf-8")
+    os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    assert client.post("/api/blocks/reload").status_code == 200
+
+    assert runtime.type_registry.load_class("EditProbe").LABEL == "new"
+
+
+def test_project_switch_leaves_no_module_of_the_previous_project(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+    project_parent: Path,
+) -> None:
+    """Opening another project replaces the user import path and forgets the old modules."""
+    import importlib.util
+
+    (opened_project / "types").mkdir(exist_ok=True)
+    (opened_project / "types" / "switch_only_probe.py").write_text(
+        "from scistudio.core.types.base import DataObject\n\n\nclass SwitchOnlyProbe(DataObject):\n    pass\n",
+        encoding="utf-8",
+    )
+    assert client.post("/api/blocks/reload").status_code == 200
+    assert "switch_only_probe" in sys.modules
+
+    other = client.post("/api/projects/", json={"name": "Other", "description": "", "path": str(project_parent)})
+    assert other.status_code == 200, other.text
+
+    assert "switch_only_probe" not in sys.modules
+    assert importlib.util.find_spec("switch_only_probe") is None
+    assert "SwitchOnlyProbe" not in _type_names(runtime)

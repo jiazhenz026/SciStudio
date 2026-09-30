@@ -305,14 +305,33 @@ def test_panel_py_imports_the_roots_a_block_worker_imports(tmp_path: Path) -> No
         store.close(context.context_id)
 
 
-def test_the_context_carries_the_runtime_import_roots(tmp_path: Path) -> None:
-    from scistudio.core.dropins import dropin_import_roots
+def test_the_panel_process_receives_the_user_import_path_with_its_folder_first(tmp_path: Path) -> None:
+    # ADR-056 FR-001/FR-012: the panel folder is the entry folder, followed by
+    # the project and library tiers; the variable replaces
+    # ``SCISTUDIO_PANEL_IMPORT_ROOTS``.
+    from scistudio.core.user_code import USER_IMPORT_PATH_ENV_VAR, parse_user_import_path
+    from scistudio.panels.process import _process_env
 
-    _runtime, store, registry, _ = _make(tmp_path, with_python=False)
+    (tmp_path / "types").mkdir()
+    (tmp_path / "blocks").mkdir()
+    panel_dir = tmp_path / "lab.explorer"
+    panel_dir.mkdir()
+
+    env = _process_env(panel_dir, tmp_path)
+
+    path = parse_user_import_path(env[USER_IMPORT_PATH_ENV_VAR])
+    assert path[:3] == (panel_dir.resolve(), (tmp_path / "types").resolve(), (tmp_path / "blocks").resolve())
+    assert "SCISTUDIO_PANEL_IMPORT_ROOTS" not in env
+
+
+def test_panel_py_imports_a_helper_beside_it(tmp_path: Path) -> None:
+    body = "from panel_helper_probe import VALUE\ndef setup(data):\n    pass\ndef probe():\n    return VALUE\n"
+    _runtime, store, registry, panel_dir = _make(tmp_path, panel_py=body)
+    (panel_dir / "panel_helper_probe.py").write_text("VALUE = 'beside'\n", encoding="utf-8")
     context = store.create(dict(_SOURCE), process_registry=registry)
     try:
-        expected = [str(path) for path in dropin_import_roots(str(tmp_path))]
-        assert [root for root in context.import_roots if root in expected] == expected
+        assert _await_running(context.process) == process_mod.RUNNING
+        assert context.process.call("probe", {}).header["result"] == "beside"
     finally:
         store.close(context.context_id)
 

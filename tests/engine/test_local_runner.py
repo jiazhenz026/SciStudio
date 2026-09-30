@@ -789,30 +789,64 @@ class TestLocalRunnerWorkerCwd:
         assert str(safe_site) in pythonpath
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
-    def test_runtime_import_roots_are_sent_in_worker_payload(
+    def test_worker_payload_carries_no_file_path_or_import_roots(
         self,
         mock_create_sub: AsyncMock,
         tmp_path: Path,
     ) -> None:
+        """ADR-056 MIG-004: the block is named by module; roots travel in the environment."""
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=206)
-        runtime_root = tmp_path / "plugin-root"
-        runtime_root.mkdir()
         runner = LocalRunner()
 
         class PluginBlock:
             pass
 
-        PluginBlock._scistudio_runtime_import_roots = (str(runtime_root),)  # type: ignore[attr-defined]
-
         asyncio.run(runner.run(PluginBlock(), {}, {}))
 
         payload = json.loads(mock_create_sub.return_value.communicate.call_args.kwargs["input"].decode())
-        assert payload["runtime_import_roots"] == [str(runtime_root)]
+        assert "runtime_import_roots" not in payload
+        assert "block_file_path" not in payload
 
     @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
-    def test_worker_env_is_none_when_no_active_project(self, mock_create_sub: AsyncMock) -> None:
-        """When no project is active (CLI standalone runs), env is None so
-        the worker inherits the parent env unchanged."""
+    def test_worker_env_carries_the_installed_user_import_path(
+        self,
+        mock_create_sub: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """ADR-056 FR-012: the worker receives the path the parent imported user code from."""
+        from scistudio.core.user_code import (
+            USER_IMPORT_PATH_ENV_VAR,
+            build_user_import_path,
+            install_user_import_path,
+            parse_user_import_path,
+        )
+
+        mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=207)
+        project_dir = tmp_path / "project-root"
+        (project_dir / "types").mkdir(parents=True)
+        (project_dir / "blocks").mkdir()
+        installed = install_user_import_path(build_user_import_path(project_dir))
+        runner = LocalRunner()
+
+        class FakeBlock:
+            pass
+
+        asyncio.run(runner.run(FakeBlock(), {}, {"project_dir": str(project_dir)}))
+
+        env = mock_create_sub.call_args.kwargs.get("env")
+        assert env is not None
+        assert parse_user_import_path(env[USER_IMPORT_PATH_ENV_VAR]) == installed
+
+    @patch("scistudio.engine.runners.local.asyncio.create_subprocess_exec")
+    def test_worker_env_is_none_when_no_active_project(
+        self, mock_create_sub: AsyncMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When no project is active (CLI standalone runs) and no user library
+        directory exists, env is None so the worker inherits the parent env
+        unchanged."""
+        empty_home = tmp_path / "home"
+        empty_home.mkdir()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: empty_home))
         mock_create_sub.return_value = self._make_async_proc(b"{}", b"", 0, pid=204)
         runner = LocalRunner()
 

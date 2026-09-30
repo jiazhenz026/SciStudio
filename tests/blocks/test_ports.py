@@ -88,18 +88,14 @@ class TestPortAcceptsType:
         assert port_accepts_type(port, DataFrame)
         assert port_accepts_type(port, Spectrum)
 
-    def test_same_registered_name_different_identity_accepted(self) -> None:
-        """#1950: a by-path import yields a distinct class object with the same
-        ``__name__``; the runtime check treats it as the same registered type,
-        matching what the static workflow validator accepts."""
-        # ``type(...)`` fabricates a class whose ``__name__`` collides with the
-        # module-level ``Image`` fixture but whose identity differs — exactly the
-        # shape a by-path import produces at run time.
-        by_path_image = type("Image", (Array,), {})
-        assert by_path_image is not Image
-        assert not issubclass(by_path_image, Image)
+    def test_same_name_different_class_is_rejected(self) -> None:
+        """ADR-056 FR-003: a user type is one class per process, so the #1950
+        same-name fallback is gone and a distinct class of the same name is a
+        different type."""
+        other_image = type("Image", (Array,), {})
+        assert other_image is not Image
         port = InputPort(name="in", accepted_types=[Image])
-        assert port_accepts_type(port, by_path_image)
+        assert not port_accepts_type(port, other_image)
 
     def test_different_name_still_rejected(self) -> None:
         """The name fallback must not blanket-accept unrelated types: a class
@@ -108,15 +104,14 @@ class TestPortAcceptsType:
         port = InputPort(name="in", accepted_types=[Image])
         assert not port_accepts_type(port, by_path_spectrum)
 
-    def test_same_registered_name_collection_item_accepted(self) -> None:
-        """#1950: the Collection ``item_type`` branch applies the same
-        same-registered-name tolerance."""
+    def test_same_name_collection_item_is_rejected(self) -> None:
+        """The Collection ``item_type`` branch follows the same identity rule."""
         from scistudio.core.types.collection import Collection
 
-        by_path_image = type("Image", (Array,), {})
-        coll = Collection([], item_type=by_path_image)
+        other_image = type("Image", (Array,), {})
+        coll = Collection([], item_type=other_image)
         port = InputPort(name="in", accepted_types=[Image])
-        assert port_accepts_type(port, coll)
+        assert not port_accepts_type(port, coll)
 
 
 class TestPortAcceptsSignature:

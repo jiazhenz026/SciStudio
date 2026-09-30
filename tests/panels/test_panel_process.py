@@ -497,10 +497,11 @@ def test_close_during_inflight_call_kills_tree_within_ten_seconds(tmp_path: Path
         process.stop()
 
 
-def test_plugin_numpy_does_not_replace_worker_core_numpy(tmp_path: Path) -> None:
-    root = tmp_path / "plugin"
-    root.mkdir()
-    (root / "numpy.py").write_text("raise RuntimeError('wrong native architecture')\n")
+def test_a_user_numpy_file_does_not_replace_core_numpy(tmp_path: Path) -> None:
+    # ADR-056 FR-001: the user import path is appended after the installed
+    # packages, so a ``numpy.py`` in a user directory never shadows numpy.
+    (tmp_path / "types").mkdir()
+    (tmp_path / "types" / "numpy.py").write_text("raise RuntimeError('wrong native architecture')\n")
     panel = _panel(tmp_path, "import numpy as np\ndef ping():\n    return int(np.arange(3).sum())\n")
     registry = ProcessRegistry()
     process = start_panel_process(
@@ -509,7 +510,6 @@ def test_plugin_numpy_does_not_replace_worker_core_numpy(tmp_path: Path) -> None
         project_dir=tmp_path,
         registry=registry,
         setup_payload=None,
-        import_roots=(str(root),),
     )
     try:
         assert _await_state(process, RUNNING) == RUNNING, process.status()

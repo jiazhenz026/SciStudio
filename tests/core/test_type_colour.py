@@ -236,10 +236,10 @@ def test_one_bad_colour_does_not_affect_the_other(caplog: pytest.LogCaptureFixtu
 def test_a_dropin_type_carries_its_colour_file_and_tier_flag(tmp_path: Path) -> None:
     """A colour declared in a drop-in file arrives on the spec (FR-050).
 
-    The drop-in is also where ``is_dropin`` earns its keep: the file is loaded
-    by path under a synthetic module name, which is not an import path, so the
-    flag is the only thing that can tell the origin resolver this is a drop-in
-    and not a plugin distribution.
+    The drop-in is also where ``is_dropin`` earns its keep: the file is
+    imported under its own stem (ADR-056), which reads like any installed
+    top-level module, so the flag is the only thing that can tell the origin
+    resolver this is a drop-in and not a plugin distribution.
     """
     scan_dir = tmp_path / "types"
     scan_dir.mkdir()
@@ -253,8 +253,8 @@ def test_a_dropin_type_carries_its_colour_file_and_tier_flag(tmp_path: Path) -> 
     spec = registry.resolve("PaintedDropin")
     assert spec.ui_color == "#0a7d55"
     assert spec.is_dropin is True
-    assert Path(spec.file_path) == target
-    assert spec.module_path.startswith("_scistudio_type_dropin_")
+    assert Path(spec.file_path) == target.resolve()
+    assert spec.module_path == "painted_dropin"
 
 
 def test_a_dropin_with_a_broken_colour_still_registers(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:

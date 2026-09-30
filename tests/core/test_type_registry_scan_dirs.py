@@ -204,10 +204,11 @@ class TestAddScanDir:
         registry.add_scan_dir(scan_dir)
         registry.scan_all()
 
-        # The spec is stored under the synthetic module name; that name
-        # MUST be present in sys.modules so importlib can find it.
+        # ADR-056: the spec names the file's own module, which the scan
+        # imported by name and left in sys.modules.
         spec = registry.all_types()["CustomDropInType"]
-        assert spec.module_path.startswith("_scistudio_type_dropin_round_trip_type_")
+        assert spec.module_path == "round_trip_type"
+        assert spec.is_dropin is True
         assert spec.module_path in sys.modules
 
         # Legacy str path: load_class must return the concrete class, not
@@ -250,60 +251,25 @@ class TestAddScanDir:
         registry.scan_all()
 
         # The built-in DataObject is the registered class, not the
-        # shadow defined under ``_scistudio_type_dropin_*``.
+        # shadow defined in the drop-in module.
         spec = registry.all_types()["DataObject"]
         assert spec.module_path == "scistudio.core.types.base"
 
-    def test_module_name_unique_across_scan_dirs_same_stem_and_mtime(self, tmp_path: Path) -> None:
-        """Regression for #1374: same-stem files in two scan dirs must not collide.
+    def test_same_stem_in_two_tiers_registers_the_first_tier_only(self, tmp_path: Path) -> None:
+        """Regression for #1374, under ADR-056's import-by-name rules.
 
-        Before #1374, the synthetic module name was built from
-        ``stem + int(mtime)`` only. Two files with the same stem from
-        different scan dirs would get the same synthetic name, so the second
-        file's module would silently overwrite the first in sys.modules and
-        its classes would be registered under the wrong TypeSpec.
-
-        The fix adds a per-path hash component so the names are always unique
-        regardless of stem and mtime.
+        #1374 was two same-stem files overwriting each other's generated module.
+        A file is now the module named by its stem, so the question is which
+        file owns the stem: across tiers the earlier directory on the user
+        import path wins, and the later file is shadowed rather than registered
+        under the wrong module.
         """
         import sys
 
-        # Create two scan dirs each containing a file named "custom_type.py"
-        # that defines a *differently-named* class. Use identical mtimes to
-        # maximise the chance of a collision under the old scheme.
-        dir_a = tmp_path / "dir_a"
-        dir_b = tmp_path / "dir_b"
-
-        _write_module(
-            dir_a,
-            "custom_type.py",
-            """
-from scistudio.core.types.base import DataObject
-
-
-class TypeFromDirA(DataObject):
-    \"\"\"Drop-in from dir_a.\"\"\"
-""",
-        )
-        _write_module(
-            dir_b,
-            "custom_type.py",
-            """
-from scistudio.core.types.base import DataObject
-
-
-class TypeFromDirB(DataObject):
-    \"\"\"Drop-in from dir_b.\"\"\"
-""",
-        )
-
-        # Force both files to the same mtime to reproduce the #1374 collision.
-        import os
-
-        fixed_mtime = 1_700_000_000.0
-        for d in (dir_a, dir_b):
-            p = d / "custom_type.py"
-            os.utime(p, (fixed_mtime, fixed_mtime))
+        dir_a = tmp_path / "project" / "types"
+        dir_b = tmp_path / "library" / "types"
+        _write_module(dir_a, "custom_type.py", _class_module("TypeFromDirA"))
+        _write_module(dir_b, "custom_type.py", _class_module("TypeFromDirB"))
 
         registry = TypeRegistry()
         registry.add_scan_dir(dir_a)
@@ -311,27 +277,33 @@ class TypeFromDirB(DataObject):
         registry.scan_all()
 
         all_types = registry.all_types()
-        # Both classes must be registered.
-        assert "TypeFromDirA" in all_types, "TypeFromDirA should be registered"
-        assert "TypeFromDirB" in all_types, "TypeFromDirB should be registered"
+        assert "TypeFromDirA" in all_types
+        assert "TypeFromDirB" not in all_types
+        assert all_types["TypeFromDirA"].module_path == "custom_type"
+        assert sys.modules["custom_type"].__file__ == str((dir_a / "custom_type.py").resolve())
+        assert registry.load_class("TypeFromDirA").__name__ == "TypeFromDirA"
 
-        # Their module paths must differ (path-hash disambiguates them).
-        spec_a = all_types["TypeFromDirA"]
-        spec_b = all_types["TypeFromDirB"]
-        assert spec_a.module_path != spec_b.module_path, (
-            f"Module paths collided: {spec_a.module_path!r} == {spec_b.module_path!r}"
-        )
+    def test_same_stem_twice_in_one_tier_refuses_both(self, tmp_path: Path) -> None:
+        """ADR-056 FR-008: a stem in two directories of one tier is a conflict."""
+        _write_module(tmp_path / "tier" / "types", "custom_type.py", _class_module("TypeFromTypes"))
+        _write_module(tmp_path / "tier" / "blocks", "custom_type.py", _class_module("TypeFromBlocks"))
 
-        # Both must be loadable (present in sys.modules).
-        assert spec_a.module_path in sys.modules, f"{spec_a.module_path!r} missing from sys.modules"
-        assert spec_b.module_path in sys.modules, f"{spec_b.module_path!r} missing from sys.modules"
+        registry = TypeRegistry()
+        registry.add_scan_dir(tmp_path / "tier" / "types")
+        registry.scan_all()
 
-        # load_class must return the correct class from each module.
-        cls_a = registry.load_class("TypeFromDirA")
-        cls_b = registry.load_class("TypeFromDirB")
-        assert cls_a.__name__ == "TypeFromDirA"
-        assert cls_b.__name__ == "TypeFromDirB"
-        assert cls_a is not cls_b
+        assert "TypeFromTypes" not in registry.all_types()
+        assert any("UserModuleNameConflict" in line and "custom_type.py" in line for line in registry.diagnostics)
+
+
+def _class_module(class_name: str) -> str:
+    return f"""
+from scistudio.core.types.base import DataObject
+
+
+class {class_name}(DataObject):
+    \"\"\"Drop-in {class_name}.\"\"\"
+"""
 
 
 # ---------------------------------------------------------------------------

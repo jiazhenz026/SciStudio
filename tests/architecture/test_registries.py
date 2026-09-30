@@ -42,11 +42,16 @@ def test_block_spec_has_descriptor_fields() -> None:
     assert required.issubset(actual), f"BlockSpec is missing fields: {required - actual}"
 
 
-def test_block_spec_has_reload_metadata() -> None:
-    """``BlockSpec`` must carry file_path and file_mtime for hot-reload detection."""
-    spec = BlockSpec(name="t", file_path="/some/path.py", file_mtime=1234567890.0)
-    assert spec.file_path == "/some/path.py"
-    assert spec.file_mtime == 1234567890.0
+def test_block_spec_locates_a_block_by_module_name_only() -> None:
+    """``BlockSpec`` names a block by importable module and class (ADR-056 API-007).
+
+    The drop-in file path and mtime, and the worker import roots, are gone: a
+    drop-in's module is its file stem, importable wherever the user import path
+    is installed.
+    """
+    names = {f.name for f in fields(BlockSpec)}
+    assert {"module_path", "class_name"} <= names
+    assert names.isdisjoint({"file_path", "file_mtime", "runtime_import_roots"})
 
 
 # ---------------------------------------------------------------------------

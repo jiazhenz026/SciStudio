@@ -133,7 +133,7 @@ def test_path_outside_both_roots_falls_back_to_custom(tmp_path: Path, monkeypatc
 def test_absent_file_path_on_a_dropin_falls_back_to_custom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A tier-1 spec with no usable path is ``custom``, never ``package`` (FR-002)."""
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path / "home"))
-    spec = _Spec(module_path="_scistudio_dropin_probe_1234", source="tier1")
+    spec = _Spec(module_path="scistudio_origin_probe_absent", source="tier1")
     assert map_block_origin(spec, project_dir=tmp_path / "proj") == "custom"
 
 
@@ -201,7 +201,7 @@ def test_one_resolver_serves_the_type_surface(tmp_path: Path, monkeypatch: pytes
     assert type_origin(file_path=str(tmp_path / "elsewhere" / "x.py")) == "custom"
     assert type_origin(module_path="scistudio.core.types.array") == "core"
     assert type_origin(module_path="scistudio_blocks_imaging.types") == "package"
-    assert type_origin(module_path="_scistudio_type_dropin_x_1_2", is_dropin=True) == "custom"
+    assert type_origin(module_path="scistudio_origin_x_absent", is_dropin=True) == "custom"
 
 
 def test_the_two_surfaces_carry_the_expected_labels_and_directories() -> None:
@@ -331,9 +331,35 @@ def test_a_promoted_block_reads_as_user_afterwards(
 
     promoted = user_blocks_dir()
     promoted.mkdir(parents=True, exist_ok=True)
-    (promoted / "tier_promote_probe.py").write_text(
+    # ADR-056: a file is a module named by its stem, and the project tier comes
+    # first on the user import path, so a library copy under the *same* file
+    # name is shadowed while the project file exists. The promoted copy is
+    # therefore written under its own stem.
+    (promoted / "tier_promoted_probe.py").write_text(
         project_copy.read_text(encoding="utf-8").replace("tier_promote_probe", "tier_promoted_probe"),
         encoding="utf-8",
     )
     runtime.refresh_all_registries()
     assert _origins(client)["test.tier_promoted_probe"] == "user"
+
+
+def test_a_library_file_with_the_project_files_stem_is_shadowed(
+    client: TestClient,
+    runtime: ApiRuntime,
+    opened_project: Path,
+) -> None:
+    """ADR-056 FR-001/FR-008: across tiers the project file wins by path order; no refusal."""
+    project_copy = _write_block(opened_project / "blocks", "tier_shadow_probe")
+    library = user_blocks_dir()
+    library.mkdir(parents=True, exist_ok=True)
+    (library / "tier_shadow_probe.py").write_text(
+        project_copy.read_text(encoding="utf-8").replace("tier_shadow_probe", "tier_shadowed_library_probe"),
+        encoding="utf-8",
+    )
+
+    runtime.refresh_all_registries()
+
+    origins = _origins(client)
+    assert origins["test.tier_shadow_probe"] == "project"
+    assert "test.tier_shadowed_library_probe" not in origins
+    assert runtime.block_registry.dropin_failures() == []

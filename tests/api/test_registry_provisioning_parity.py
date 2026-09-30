@@ -27,6 +27,7 @@ from typing import Any, ClassVar
 import pytest
 
 from scistudio.core import dropins
+from scistudio.core.user_code import build_user_import_path
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -229,28 +230,27 @@ def test_blocks_and_types_share_one_user_tier_definition(home: Path, project: Pa
     assert dropins.project_types_dir(project) == project / "types"
 
 
-def test_dropin_import_roots_are_one_answer_for_every_site(
-    home: Path,
-    project: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """FR-057: no call site decides which roots go on ``sys.path``.
+def test_the_user_import_path_is_one_answer_for_every_site(home: Path, project: Path) -> None:
+    """FR-057 / ADR-056 FR-001: no call site decides which user dirs go on ``sys.path``.
 
-    The roots are the project types dir, the user types dir, and the shared
-    user dependency site — in that order, so a project type shadows a
-    user-library type of the same module name.
+    The path is the project types and blocks dirs, then the user library's —
+    in that order, so a project module shadows a user-library module of the
+    same name. The user dependency site is not on it: that is an installed
+    root, which ``scistudio.desktop.paths`` owns.
     """
-    user_site = home / "user-site"
-    monkeypatch.setattr(dropins, "user_python_import_roots", lambda: [user_site])
+    (home / ".scistudio" / "types").mkdir(parents=True)
+    (home / ".scistudio" / "blocks").mkdir(parents=True)
 
-    assert list(dropins.dropin_import_roots(project)) == [
-        project / "types",
-        home / ".scistudio" / "types",
-        user_site,
+    assert list(build_user_import_path(project)) == [
+        (project / "types").resolve(),
+        (project / "blocks").resolve(),
+        (home / ".scistudio" / "types").resolve(),
+        (home / ".scistudio" / "blocks").resolve(),
     ]
-    # The type scan dirs are a prefix of the import roots: the same tier
+    # The type scan dirs are the type entries of the path: the same tier
     # definition drives discovery and import resolution.
-    assert list(dropins.dropin_import_roots(project))[:2] == list(dropins.type_scan_dirs(project))
+    types_on_path = [path for path in build_user_import_path(project) if path.name == dropins.TYPES_DIR_NAME]
+    assert types_on_path == [path.resolve() for path in dropins.type_scan_dirs(project)]
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +281,8 @@ def test_project_tier_requires_a_project(home: Path) -> None:
     """FR-060: project-tier discovery still needs a project directory."""
     assert list(dropins.block_scan_dirs(None)) == [dropins.user_blocks_dir()]
     assert list(dropins.type_scan_dirs(None)) == [dropins.user_types_dir()]
-    assert list(dropins.dropin_import_roots(None))[:1] == [dropins.user_types_dir()]
+    dropins.user_types_dir().mkdir(parents=True)
+    assert list(build_user_import_path(None)) == [dropins.user_types_dir().resolve()]
 
 
 def test_project_dir_from_env_declares_the_project_context(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -562,7 +563,7 @@ def test_plugin_import_roots_are_one_answer_for_every_group() -> None:
     """FR-030: no registry keeps its own copy of the resolution.
 
     The drop-in half of this file makes the same claim about
-    :func:`scistudio.core.dropins.dropin_import_roots`; this is the
+    :func:`scistudio.core.user_code.build_user_import_path`; this is the
     entry-point half, and the two are deliberately separate answers because
     they cover different directories.
     """
@@ -617,23 +618,28 @@ def test_tutorial_tier_resolves_the_same_two_tiers_as_blocks_and_types(home: Pat
     assert dropins.project_tutorials_dir(project) == project / dropins.TUTORIALS_DIR_NAME
 
 
-def test_tutorial_tier_is_deliberately_not_an_import_root(
-    home: Path, project: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_tutorial_tier_is_deliberately_not_on_the_user_import_path(home: Path, project: Path) -> None:
     """FR-020a: a tutorial directory claims no top-level module name.
 
-    ``dropin_import_roots`` carries the *types* tiers onto ``sys.path``. A
-    tutorial directory holds a manifest and an assets tree, so it has nothing to
-    contribute there — and adding it would make any ``.py`` beside a manifest an
-    importable module, which is the exposure the tier grading exists to close.
+    The user import path carries the *types* and *blocks* tiers onto
+    ``sys.path``. A tutorial directory holds a manifest and an assets tree, so
+    it has nothing to contribute there — and adding it would make any ``.py``
+    beside a manifest an importable module, which is the exposure the tier
+    grading exists to close.
     """
-    monkeypatch.setattr(dropins, "user_python_import_roots", tuple)
+    (project / dropins.TUTORIALS_DIR_NAME).mkdir()
+    dropins.user_tutorials_dir().mkdir(parents=True)
+    (home / ".scistudio" / "types").mkdir(parents=True, exist_ok=True)
 
-    roots = set(dropins.dropin_import_roots(project))
+    roots = set(build_user_import_path(project))
 
-    assert roots == {project / "types", home / ".scistudio" / "types"}
-    assert project / dropins.TUTORIALS_DIR_NAME not in roots
-    assert dropins.user_tutorials_dir() not in roots
+    assert roots == {
+        (project / "types").resolve(),
+        (project / "blocks").resolve(),
+        (home / ".scistudio" / "types").resolve(),
+    }
+    assert (project / dropins.TUTORIALS_DIR_NAME).resolve() not in roots
+    assert dropins.user_tutorials_dir().resolve() not in roots
 
 
 def test_a_tutorial_project_swaps_its_user_tier_at_every_registration_point(

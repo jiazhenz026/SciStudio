@@ -41,11 +41,18 @@ class TestStrictVersionResolution:
         cls = _make_block_with_module("scistudio.blocks.io.loaders.load_data")
         assert _resolve_distribution_version(cls) == str(scistudio_version)
 
-    def test_dropin_synthetic_module_returns_scistudio_version(self) -> None:
+    def test_dropin_module_returns_scistudio_version(self) -> None:
+        """ADR-056: a drop-in is imported under its own stem, which names no distribution."""
         from scistudio import __version__ as scistudio_version
 
-        cls = _make_block_with_module("_scistudio_dropin_my_block_1234567890")
-        assert _resolve_distribution_version(cls) == str(scistudio_version)
+        cls = _make_block_with_module("my_block")
+        assert _resolve_distribution_version(cls, dropin=True) == str(scistudio_version)
+
+    def test_a_dropin_stem_is_not_looked_up_as_a_distribution(self) -> None:
+        """Without the drop-in flag the same stem is an unknown distribution."""
+        cls = _make_block_with_module("my_block")
+        with pytest.raises(BlockRegistrationError):
+            _resolve_distribution_version(cls)
 
     def test_unknown_module_raises_block_registration_error(self) -> None:
         """ADR §3.3: removing the ``"unknown"`` default — raise loudly."""

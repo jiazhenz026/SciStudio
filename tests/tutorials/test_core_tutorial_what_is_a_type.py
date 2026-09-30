@@ -34,7 +34,8 @@ should be read as a request to change it.
 from __future__ import annotations
 
 import ast
-import importlib.util
+import contextlib
+import importlib
 import sys
 from pathlib import Path, PurePosixPath
 from types import ModuleType
@@ -189,30 +190,26 @@ def manifest() -> TutorialManifest:
 def assets(request: pytest.FixtureRequest) -> dict[str, ModuleType]:
     """The shipped code assets, imported the way the drop-in scans import them.
 
-    ``image.py`` must land in ``sys.modules`` under its bare stem first,
-    because the three blocks open with ``from image import Image`` — the exact
-    import they perform in a project, where the types directory joins
-    ``sys.path``. The fixture removes every name it bound.
+    ADR-056: every file is imported by its own stem from a directory on
+    ``sys.path``, so the three blocks' ``from image import Image`` binds the
+    same ``image`` module the fixture imported — one ``Image`` class. The
+    fixture removes the directory and every name it bound.
     """
-    bound: list[str] = []
-
-    def load(name: str, filename: str) -> ModuleType:
-        spec = importlib.util.spec_from_file_location(name, ASSETS / "code" / filename)
-        assert spec is not None and spec.loader is not None
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[name] = module
-        bound.append(name)
-        spec.loader.exec_module(module)
-        return module
-
-    modules = {"image": load("image", "image.py")}
-    modules["loader"] = load("_scistudio_dropin_test_t2_loader", "load_tiff_image.py")
-    modules["segment"] = load("_scistudio_dropin_test_t2_segment", "segment_cells.py")
-    modules["review"] = load("_scistudio_dropin_test_t2_review", "review_labels.py")
+    code_dir = str(ASSETS / "code")
+    sys.path.append(code_dir)
+    bound = ["image", "load_tiff_image", "segment_cells", "review_labels"]
+    modules = {
+        "image": importlib.import_module("image"),
+        "loader": importlib.import_module("load_tiff_image"),
+        "segment": importlib.import_module("segment_cells"),
+        "review": importlib.import_module("review_labels"),
+    }
 
     def cleanup() -> None:
         for name in bound:
             sys.modules.pop(name, None)
+        with contextlib.suppress(ValueError):
+            sys.path.remove(code_dir)
 
     request.addfinalizer(cleanup)
     return modules
@@ -623,14 +620,10 @@ def test_the_capability_the_step_asks_for_is_the_one_the_loader_mints(
     """``set-the-capability`` judges an id nobody types by hand; it must be the real one.
 
     SimpleLoader mints a capability id out of four facts — the module the block
-    lives in, its class name, the direction, and the format id. Three of those
-    are stable; the module is not. A drop-in block is imported under a synthetic
-    name the scanner invents from the file's stem *and its modification time*
-    (``_scistudio_dropin_load_tiff_image_1787593641``), so the id differs on
-    every machine and changes again every time the file is rewritten. A literal
-    in the manifest could therefore never match, and the step would refuse to
-    advance while the reader stared at the right entry selected in the format
-    dropdown.
+    lives in, its class name, the direction, and the format id. Before ADR-056
+    the module was a synthetic name carrying the file's modification time, so
+    the step matches a glob over the stable tail; the module is now the file's
+    own stem, which the glob matches as well.
 
     So the step matches a glob over the stable tail, and this test holds that
     glob against an id the loader really mints — the class, the direction, and
@@ -815,7 +808,7 @@ def test_the_review_block_is_a_real_interactive_block(assets: dict[str, ModuleTy
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
         with panel_scan_scope([project / "blocks"]):
-            spec = _spec_from_class(cls, source="custom")
+            spec = _spec_from_class(cls, source="tier1")
     assert spec.type_name == "review_labels"
     assert spec.execution_mode == "interactive"
     assert spec.panel_manifest is not None
@@ -1261,10 +1254,8 @@ def test_the_whole_tutorial_walks_through_the_real_runtime(tmp_path: Path, monke
     assert _live_step(runtime.active_session()).satisfied is False, (
         "the loader exists; the Load block has not been pointed at it yet"
     )
-    # The shape a drop-in block really mints, mtime segment and all.
-    _configure_node(
-        project, "load_data", capability_id="_scistudio_dropin_load_tiff_image_1787593641.loadtiffimage.load.tiff"
-    )
+    # The id a drop-in block mints: its file stem is its module (ADR-056).
+    _configure_node(project, "load_data", capability_id="load_tiff_image.loadtiffimage.load.tiff")
     assert _live_step(runtime.evaluate_active()).satisfied is True
 
     _advance("run-it-again")

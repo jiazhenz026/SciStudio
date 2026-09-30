@@ -233,14 +233,14 @@ def test_the_origin_adapter_delegates_the_whole_vocabulary() -> None:
     """
     assert _type_origin(_Spec(module_path="scistudio.core.types.array"), None) == "core"
     assert _type_origin(_Spec(module_path="scistudio_blocks_imaging.types"), None) == "package"
-    assert _type_origin(_Spec(module_path="_scistudio_type_dropin_x_1_2", is_dropin=True), None) == "custom"
+    assert _type_origin(_Spec(module_path="scistudio_origin_x_absent", is_dropin=True), None) == "custom"
 
 
 def test_a_dropin_outside_both_tiers_falls_back_to_custom(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A path under neither root degrades to ``custom`` rather than breaking (FR-002)."""
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path / "home"))
     stray = _write_type(tmp_path / "elsewhere", "stray_probe")
-    spec = _Spec(file_path=str(stray), module_path="_scistudio_type_dropin_stray_1_2", is_dropin=True)
+    spec = _Spec(file_path=str(stray), module_path="stray", is_dropin=True)
     assert _type_origin(spec, tmp_path / "proj") == "custom"
 
 

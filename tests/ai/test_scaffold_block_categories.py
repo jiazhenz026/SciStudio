@@ -251,7 +251,7 @@ def test_dropin_type_is_imported_by_file_stem(ctx: _StubRuntime) -> None:
         "SpectrumData",
         TypeSpec(
             name="SpectrumData",
-            module_path="_scistudio_type_dropin_spectrum_1_abc",
+            module_path="spectrum",
             class_name="SpectrumData",
             file_path="/project/types/spectrum.py",
             is_dropin=True,

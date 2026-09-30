@@ -152,7 +152,9 @@ def test_add_package_src_dir_accepts_flat_installed_package(tmp_path: Path) -> N
     assert spec.package_name == "Flat Probe"
 
 
-def test_scan_imports_source_package_with_per_package_runtime_dependencies(tmp_path: Path) -> None:
+def test_scan_imports_source_package_with_per_package_runtime_dependencies(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     packages_dir = tmp_path / "installed-packages"
     package_root = packages_dir / "scistudio-blocks-runtimeprobe-0.1.0"
     module_dir = package_root / "src" / "scistudio_blocks_runtimeprobe"
@@ -187,21 +189,24 @@ def test_scan_imports_source_package_with_per_package_runtime_dependencies(tmp_p
         encoding="utf-8",
     )
 
+    monkeypatch.setenv("SCISTUDIO_PLUGIN_PACKAGE_DIRS", str(packages_dir))
     registry = BlockRegistry()
-    registry.add_package_src_dir(packages_dir)
     registry.scan()
 
     spec = registry.get_spec("RuntimeProbeBlock")
     assert spec is not None
     assert spec.description == "runtime-ok"
     assert spec.source == "package_src"
-    assert str(module_dir.parent.resolve()) in spec.runtime_import_roots
-    assert str(runtime_dir.resolve()) in spec.runtime_import_roots
+    # ADR-056 MIG-004: the spec carries no roots; the worker derives them from
+    # the module name.
+    roots = desktop_paths.installed_import_roots_for_module(spec.module_path)
+    assert module_dir.parent.resolve() in roots
+    assert runtime_dir.resolve() in roots
     assert str(module_dir.parent) not in sys.path
     assert str(runtime_dir) not in sys.path
 
 
-def test_scan_source_package_includes_shared_user_site_in_runtime_import_roots(
+def test_installed_roots_for_a_package_module_include_the_shared_user_site(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """#1772: installed plugin blocks must surface shared user-site deps
@@ -220,17 +225,17 @@ def test_scan_source_package_includes_shared_user_site_in_runtime_import_roots(
         package_name="Shared Probe",
     )
 
+    monkeypatch.setenv("SCISTUDIO_PLUGIN_PACKAGE_DIRS", str(packages_dir))
     registry = BlockRegistry()
-    registry.add_package_src_dir(packages_dir)
     registry.scan()
 
     spec = registry.get_spec("SharedProbeBlock")
     assert spec is not None
-    roots = spec.runtime_import_roots
-    assert str(shared_site.resolve()) in roots
-    assert str(src_dir.resolve()) in roots
+    roots = desktop_paths.installed_import_roots_for_module(spec.module_path)
+    assert shared_site.resolve() in roots
+    assert src_dir.resolve() in roots
     # Per-package roots are ordered before the shared site.
-    assert roots.index(str(src_dir.resolve())) < roots.index(str(shared_site.resolve()))
+    assert roots.index(src_dir.resolve()) < roots.index(shared_site.resolve())
     # Shared site is not leaked into the parent interpreter's sys.path.
     assert str(shared_site) not in sys.path
 
@@ -281,7 +286,7 @@ def test_scan_does_not_leak_package_dependencies_to_global_pythonpath(
     spec = registry.get_spec("EnvIsolationBlock")
     assert spec is not None
     assert spec.description == "runtime-ok"
-    assert str(runtime_dir.resolve()) in spec.runtime_import_roots
+    assert str(runtime_dir.resolve()) not in sys.path
     assert os.environ["PYTHONPATH"] == "/core-only"
 
 

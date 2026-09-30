@@ -21,6 +21,7 @@ from pathlib import Path
 import pytest
 
 from scistudio.core import dropins
+from scistudio.core.user_code import build_user_import_path, check_user_import_path
 from scistudio.tutorials import projects as tutorial_projects
 
 _TEACHING_TYPE_SOURCE = """from scistudio.core.types.base import DataObject
@@ -227,40 +228,39 @@ def test_a_scoped_library_previewer_rides_the_user_tier_and_the_project_tier_sti
     assert router.resolve(target).previewer_id == "project.image.viewer"
 
 
-def test_import_roots_carry_the_swap(home: Path, tutorial_project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_user_import_path_carries_the_swap(home: Path, tutorial_project: Path) -> None:
     """FR-071 holds for module resolution, not only for registration.
 
     A teaching type has to be importable by a drop-in block inside the tutorial
-    and by nothing outside it, so the ``sys.path`` roots swap with the scan dirs
-    rather than staying pinned to ``~/.scistudio``.
+    and by nothing outside it, so the tutorial-scoped library is the fourth and
+    fifth entry of the user import path (ADR-056 FR-001, spec CHANGE-054).
     """
-    monkeypatch.setattr(dropins, "user_python_import_roots", tuple)
+    library = dropins.tutorial_library_dir()
+    (library / "types").mkdir(parents=True)
+    (library / "blocks").mkdir(parents=True)
+    (home / ".scistudio" / "types").mkdir(parents=True)
 
-    assert list(dropins.dropin_import_roots(tutorial_project)) == [
-        tutorial_project / "types",
-        dropins.tutorial_library_dir() / "types",
+    assert list(build_user_import_path(tutorial_project)) == [
+        (tutorial_project / "types").resolve(),
+        (tutorial_project / "blocks").resolve(),
+        (library / "types").resolve(),
+        (library / "blocks").resolve(),
     ]
-    # And the same answer when the caller holds block dirs instead.
-    assert list(dropins.dropin_type_roots_for_block_dirs(dropins.block_scan_dirs(tutorial_project))) == [
-        tutorial_project / "types",
-        dropins.tutorial_library_dir() / "types",
-    ]
 
 
-def test_the_scoped_library_is_still_guarded_against_shadowing(home: Path, tutorial_project: Path) -> None:
-    """FR-016 does not lapse inside a tutorial.
+def test_the_scoped_library_is_still_checked_for_shadowing_names(home: Path, tutorial_project: Path) -> None:
+    """FR-016 / ADR-056 FR-008 does not lapse inside a tutorial.
 
-    ``guard_dropin_type_roots`` selects roots by the ``types`` directory name,
-    and the scoped library keeps the tier shape, so a teaching type called
+    The scoped library keeps the tier shape, so a teaching type called
     ``json`` is refused there exactly as it would be in the user's own library.
     """
     library_types = dropins.tutorial_library_dir() / "types"
     library_types.mkdir(parents=True)
     (library_types / "json.py").write_text("X = 1\n", encoding="utf-8")
 
-    collisions = dropins.guard_dropin_type_roots(dropins.type_scan_dirs(tutorial_project), bind=False)
+    refusals = check_user_import_path(build_user_import_path(tutorial_project))
 
-    assert [collision.stem for collision in collisions] == ["json"]
+    assert [refusal.stem for refusal in refusals] == ["json"]
 
 
 # ---------------------------------------------------------------------------
@@ -291,19 +291,20 @@ def test_tutorial_tier_keeps_the_user_tutorials_dir_inside_a_tutorial(home: Path
     ]
 
 
-def test_tutorial_tier_is_not_an_import_root(home: Path, real_project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tutorial_tier_is_not_on_the_user_import_path(home: Path, real_project: Path) -> None:
     """FR-020a: a tutorial directory claims no top-level module name.
 
     A ``.py`` beside a manifest in ``{project}/tutorials`` would be importable
     if the tier joined ``sys.path``, which is exactly the exposure the tier
     grading closes. Discovery reads those directories as files instead.
     """
-    monkeypatch.setattr(dropins, "user_python_import_roots", tuple)
+    (real_project / "tutorials").mkdir()
+    dropins.user_tutorials_dir().mkdir(parents=True)
 
-    roots = set(dropins.dropin_import_roots(real_project))
+    roots = set(build_user_import_path(real_project))
 
-    assert real_project / "tutorials" not in roots
-    assert dropins.user_tutorials_dir() not in roots
+    assert (real_project / "tutorials").resolve() not in roots
+    assert dropins.user_tutorials_dir().resolve() not in roots
 
 
 # ---------------------------------------------------------------------------
