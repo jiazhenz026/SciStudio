@@ -4,7 +4,20 @@
 
 Canonical import root: `from scistudio.panels import ...`
 
-Public surface — every symbol below is declared in this module's `__all__` (7 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators.
+Public surface — every symbol below is declared in this module's `__all__` (8 symbols). Stability tier and `Since` are read from the `scistudio.stability` decorators.
+
+## `OwnerKind` — _enum_
+
+> **Stability:** `provisional` · **Since:** `0.3.5`
+
+::: scistudio.panels.OwnerKind
+    options:
+      show_root_heading: false
+      show_root_toc_entry: false
+      show_source: false
+      heading_level: 4
+      members_order: source
+      filters: ["!^_"]
 
 ## `PANEL_API_VERSION` — _constant_
 

@@ -291,17 +291,15 @@ Example:
 
 ```python
 class PanelManifest
-PanelManifest(panel_id: 'str', module_url: 'str' = '', export_name: 'str' = 'default', css: 'tuple[str, ...]' = (), version: 'str' = '0', api_version: 'str' = '1', response_schema: 'dict[str, Any] | None' = None, asset_root: 'str | None' = None) -> None
+PanelManifest(panel_id: 'str', api_version: 'str' = '1', response_schema: 'dict[str, Any] | None' = None) -> None
 ```
 
-Describes the frontend window component a block opens for interaction.
+Names the panel a block opens for interaction.
 
-An interactive block declares one of these as its ``interactive_panel`` to
-name the window the user sees. A built-in (core) panel is resolved by
-`panel_id` against the frontend's built-in registry; a package-provided
-panel is loaded by importing `module_url` from the backend (same-origin
-only — remote URLs are rejected). Core panels leave ``module_url`` empty
-because they ship with the app.
+An interactive block declares one of these as its ``interactive_panel``.
+`panel_id` names an HTML panel that opens in the ``interactive``
+context: a built-in core panel, or a panel shipped by a package, the user
+library, or the project.
 
 Example:
     >>> manifest = PanelManifest(panel_id="core.interactive.data_router")
