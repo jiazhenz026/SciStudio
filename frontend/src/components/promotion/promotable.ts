@@ -125,17 +125,12 @@ export function promotableType(type: TypeSummary): PromotableItem | null {
 const DROPIN_DIRS: ReadonlyArray<{ prefix: string; target: UserLibraryTarget }> = [
   { prefix: "blocks/", target: "blocks" },
   { prefix: "types/", target: "types" },
-  // Learning Center #2086: a project previewer promotes through the same
-  // door as blocks and types. The editor tab is its one entry point — a
-  // previewer has no palette card and no canvas node to hang E2/E5 on.
-  { prefix: "previewers/", target: "previewers" },
 ];
 
 /** The item kind each target's files register as. */
 const KIND_FOR_TARGET: Record<UserLibraryTarget, PromotableItem["kind"]> = {
   blocks: "block",
   types: "type",
-  previewers: "previewer",
   // ADR-054 FR-039 — `panels` has no `DROPIN_DIRS` entry on purpose: a MiniApp
   // is promoted from its card, never from an open editor tab, and treating
   // `panels/<id>/panel.py` as a promotable drop-in would promote one file out
@@ -248,11 +243,10 @@ export interface PromotablePreviewPanel {
  *
  * A preview panel is a directory like a MiniApp, so it moves through the same
  * directory promotion; only the kind differs, which is what the confirmation
- * names it as. `null` for a legacy previewer and for a panel that is not
- * written for the preview context: the first is a file this entry point never
- * addresses, and the second is not something All Previewers lists as a
- * preview. The owner kind is the resolved origin, as the MiniApp tier is, so
- * FR-019 still hides the action for anything outside the project.
+ * names it as. `null` for a panel that is not written for the preview
+ * context, which is not something All Previewers lists as a preview. The
+ * owner kind is the resolved origin, as the MiniApp tier is, so FR-019 still
+ * hides the action for anything outside the project.
  */
 export function promotablePreviewPanel(previewer: PromotablePreviewPanel): PromotableItem | null {
   const panel = previewer.panel;

@@ -22,9 +22,8 @@ import { BlockPalette } from "../BlockPalette";
 import { BottomPanel } from "../BottomPanel";
 import { ConfigPanel } from "../BottomPanel.parts/ConfigPanel";
 import { PlotsTab } from "../BottomPanel.parts/PlotsTab";
-import { CollectionViewer } from "../DataPreview.parts/coreViewers";
-import { PlotViewer } from "../DataPreview.parts/PlotViewer";
 import { DataPreview } from "../DataPreview";
+import { mountBuiltinPanel } from "../../panels/rendererTestModules";
 import { GitTab } from "../Git/GitTab";
 import { PermissionModePicker } from "../AIChat/SetupScreen.parts/PermissionModePicker";
 import { ProviderPicker } from "../AIChat/SetupScreen.parts/ProviderPicker";
@@ -374,56 +373,70 @@ const RENDERERS: Record<HighlightTarget, TargetCase> = {
 
   preview_item: {
     args: { index: "0" },
-    render: () => {
-      // One card per item of a collection preview, keyed by position.
-      render(
-        <CollectionViewer
-          envelope={
-            {
-              previewer_id: "core.collection",
-              target: { kind: "block_output", ref: "out://x" },
-              kind: "collection",
-              payload: {
-                count: 2,
-                item_type: "Image",
-                items: [
-                  { data_ref: "a", display_name: "cells_01.tif", type_name: "Image" },
-                  { data_ref: "b", display_name: "cells_02.tif", type_name: "Image" },
-                ],
-              },
-              metadata: {},
-              resources: [
-                { resource_id: "item:0", params: {} },
-                { resource_id: "item:1", params: {} },
-              ],
-            } as never
-          }
-          onOpenResource={vi.fn()}
-        />,
+    render: async () => {
+      // One card per item of a collection preview, keyed by position. The
+      // cards live in the core collection panel's frame (ADR-054), so the real
+      // panel module is mounted; the frame's highlight bridge reports the
+      // card's box to the host.
+      const api = {
+        input: {
+          ref: "c",
+          kind: "collection_ref",
+          count: 2,
+          item_type: "Image",
+          items: [
+            { data_ref: "a", display_name: "cells_01.tif", type_name: "Image" },
+            { data_ref: "b", display_name: "cells_02.tif", type_name: "Image" },
+          ],
+        },
+        viewState: undefined,
+        ready: () => Promise.resolve(api),
+        read: () => Promise.reject(Object.assign(new Error("no read"), { code: "not_found" })),
+        setViewState: vi.fn(),
+        reportError: vi.fn(() => Promise.resolve(null)),
+        open: vi.fn(() => Promise.resolve(null)),
+        save: vi.fn(() => Promise.resolve(null)),
+      };
+      await mountBuiltinPanel("core.collection.basic", api);
+      await vi.waitFor(() =>
+        expect(document.querySelector('[data-testid="collection-item-0"]')).not.toBeNull(),
       );
     },
   },
 
   plot_export_button: {
     args: {},
-    render: () => {
-      // The Save button lives in the plot previewer, so the target only exists
-      // once a figure is on screen — which is the only state a step pointing at
-      // it can be reached in.
-      render(
-        <PlotViewer
-          envelope={
-            {
-              previewer_id: "core.plot",
-              target: { kind: "plot_artifact", ref: "plot://x" },
-              kind: "plot",
-              payload: { src: "data:image/png;base64,AA==", path: "figure.png" },
-              metadata: {},
-              resources: [{ resource_id: "export", params: { format: "png" } }],
-            } as never
-          }
-          onExport={vi.fn()}
-        />,
+    render: async () => {
+      // The Save button lives in the core plot panel's frame (ADR-054), so the
+      // target only exists once a figure is on screen — which is the only
+      // state a step pointing at it can be reached in.
+      const api = {
+        input: { ref: "p", kind: "plot_artifact" },
+        viewState: {},
+        libBaseUrl: "",
+        ready: () => Promise.resolve(api),
+        read: (op: string) =>
+          op === "artifact.info"
+            ? Promise.resolve({
+                name: "figure.png",
+                path: "/runs/figure.png",
+                mime_type: "image/png",
+                size: 128,
+                formats: ["png"],
+              })
+            : Promise.resolve({
+                name: "figure.png",
+                mime_type: "image/png",
+                data: new ArrayBuffer(8),
+                url: "blob:primary",
+              }),
+        save: vi.fn(() => Promise.resolve(null)),
+        setViewState: vi.fn(),
+        reportError: vi.fn(() => Promise.resolve(null)),
+      };
+      await mountBuiltinPanel("core.plot.basic", api);
+      await vi.waitFor(() =>
+        expect(document.querySelector('[data-testid="plot-export-button"]')).not.toBeNull(),
       );
     },
   },
@@ -599,6 +612,8 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // A mounted built-in panel renders into its own `#root`, outside React's tree.
+  document.body.innerHTML = "";
 });
 
 describe("tutorial highlight targets resolve to rendered elements", () => {

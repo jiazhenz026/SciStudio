@@ -268,10 +268,6 @@ export interface WorkflowSlice {
 /** ADR-051: descriptor for a block-owned interactive panel component. */
 export interface PanelManifestDescriptor {
   panel_id: string;
-  module_url?: string;
-  export_name?: string;
-  css?: string[];
-  version?: string;
   api_version?: string;
 }
 

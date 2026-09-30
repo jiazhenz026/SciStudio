@@ -25,11 +25,11 @@ import type { PreviewerChoice, PreviewerSpecSummary } from "../../types/api";
 /** A Previewers tab section — the previewer specialisation of the shared model. */
 export type PreviewerSection = Section<PreviewerSpecSummary>;
 
-/** Stable id for the project-local section (`{project}/previewers/`). */
+/** Stable id for the project-local section (`{project}/panels/`). */
 export const PROJECT_SECTION_ID = "__this_project__";
-/** Stable id for the user-wide library section (`~/.scistudio/previewers/`). */
+/** Stable id for the user-wide library section (`~/.scistudio/panels/`). */
 export const USER_LIBRARY_SECTION_ID = "__user_library__";
-/** Stable id for the core section (built-in fallbacks). */
+/** Stable id for the core section (built-in panels). */
 export const CORE_SECTION_ID = "__core__";
 /**
  * Fallback section for a package-tier previewer whose distribution has no

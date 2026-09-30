@@ -15,8 +15,8 @@
  *    contexts (their panel was removed, changed or shadowed, or the project
  *    was left). Only the mounts holding them remount.
  *  - preview re-route — the candidates for some type claims changed (a panel
- *    added, changed or removed), a choice changed for one type, or the legacy
- *    previewers were reloaded. Only previews the signal names re-route.
+ *    added, changed or removed), or a choice changed for one type. Only
+ *    previews the signal names re-route.
  */
 import type { PreviewEnvelope, PreviewTarget } from "../types/api";
 
@@ -70,13 +70,11 @@ export interface PreviewRerouteSignal {
   types?: readonly string[];
   /** A previewer choice changed for exactly this type. */
   choiceType?: string;
-  /** The legacy previewers were reloaded: legacy-rendered previews recreate their session. */
-  legacy?: boolean;
 }
 
 /** Ask the open previews the signal concerns to re-route. */
 export function requestPreviewReroute(signal: PreviewRerouteSignal): void {
-  if (!signal.legacy && !signal.choiceType && !(signal.types && signal.types.length > 0)) return;
+  if (!signal.choiceType && !(signal.types && signal.types.length > 0)) return;
   previewReroute.emit(signal);
 }
 
@@ -108,14 +106,12 @@ function claimAffects(claim: string, chain: readonly string[], collection: boole
 /**
  * Whether a preview showing `envelope` must re-route for `signal`: its data
  * type (type chain and collection-ness) is one the changed claims or the
- * changed choice concern, or it is rendered by a legacy previewer and those
- * were reloaded.
+ * changed choice concern.
  */
 export function previewIsAffected(
   envelope: PreviewEnvelope,
   signal: PreviewRerouteSignal,
 ): boolean {
-  if (signal.legacy && envelope.kind !== "panel") return true;
   const { chain, collection } = targetTypes(envelope.target);
   if (signal.choiceType && chain[0] === signal.choiceType) return true;
   return (signal.types ?? []).some((claim) => claimAffects(claim, chain, collection));

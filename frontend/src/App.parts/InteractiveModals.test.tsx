@@ -3,14 +3,13 @@ import { bootstrapFrame } from "../panels/testUtils";
 /**
  * #2195 — the host must always offer a way out of an interactive block.
  *
- * These cover the manifest-resolution fork in `<InteractiveModals>`. Since
- * ADR-054 Phase B (#2294) there is no compiled `PANEL_REGISTRY`: a core panel
- * (empty `module_url`) and any package block that forgot `module_url` both route
- * through the sandboxed `<InteractivePanel>` host, while a package panel with a
- * `module_url` goes to `<DynamicPanel>`. The #2195 bug — a manifest carrying a
- * `panel_id` but no `module_url` resolving to a silent `null` — stays fixed:
- * that block registers, runs, and pauses, and must always get a visible window
- * with Cancel rather than a PAUSED run with only a `console.warn`.
+ * These cover panel resolution in `<InteractiveModals>`. Every interactive
+ * window — core or not — routes through the sandboxed `<InteractivePanel>`
+ * host; the legacy `module_url` module form was removed (ADR-054 §8, #2493).
+ * The #2195 bug — a manifest whose panel does not resolve rendering a silent
+ * `null` — stays fixed: that block registers, runs, and pauses, and must always
+ * get a visible window with Cancel rather than a PAUSED run with only a
+ * `console.warn`.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -77,9 +76,9 @@ afterEach(() => {
 });
 
 describe("<InteractiveModals> panel resolution", () => {
-  it("renders a visible error surface with a working Cancel for a manifest with no module_url", async () => {
-    // The exact shape the issue describes: a block author wrote
-    // `PanelManifest(panel_id="myproj.foo")` and forgot `module_url`.
+  it("renders a visible error surface with a working Cancel for a panel that does not resolve", async () => {
+    // A block author wrote `PanelManifest(panel_id="myproj.foo")` and no panel
+    // folder of that id exists.
     seedPrompt({ panel_id: "myproj.foo", api_version: "1" });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -157,11 +156,10 @@ describe("<InteractiveModals> panel resolution", () => {
     warn.mockRestore();
   });
 
-  it("routes a core panel (empty module_url) through the sandboxed panel host", () => {
+  it("routes a core panel through the sandboxed panel host", () => {
     // ADR-054 Phase B (#2294): a core interactive window is a core-tier HTML
-    // panel with an empty module_url, so it opens through <InteractivePanel> /
-    // <PanelFrame> like every other core panel — not a compiled modal and not
-    // the package dynamic-panel host.
+    // panel, so it opens through <InteractivePanel> / <PanelFrame> like every
+    // other panel — not a compiled modal.
     seedPrompt(
       { panel_id: "core.interactive.data_router" },
       {
@@ -172,23 +170,16 @@ describe("<InteractiveModals> panel resolution", () => {
 
     render(<InteractiveModals />);
 
-    // The sandboxed panel host mounts; the package dynamic-panel host does not.
     expect(screen.getByTestId("panel-host")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toHaveTextContent("data_router");
-    expect(screen.queryByTestId("dynamic-panel")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("dynamic-panel-titlebar")).not.toBeInTheDocument();
   });
 
-  it("routes a package manifest with a module_url to the dynamic panel host", () => {
-    seedPrompt({
-      panel_id: "myproj.foo",
-      module_url: "/api/blocks/panels/myproj.foo/index.js",
-      api_version: "1",
-    });
+  it("routes a package panel through the same sandboxed panel host", () => {
+    seedPrompt({ panel_id: "myproj.foo", api_version: "1" });
 
     render(<InteractiveModals />);
 
-    expect(screen.getByTestId("dynamic-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-host")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toHaveTextContent("myproj.foo");
   });
 

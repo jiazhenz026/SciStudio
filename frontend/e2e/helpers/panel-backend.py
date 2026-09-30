@@ -23,17 +23,17 @@ from scistudio.core.storage.composite_store import CompositeStore
 from scistudio.core.storage.ref import StorageReference
 from scistudio.panels.descriptor import parse_descriptor
 from scistudio.panels.registry import PanelRegistry
-from scistudio.previewers.models import OwnerKind
+from scistudio.panels.models import OwnerKind
 
 
 def build_runtime(temporary: Path) -> object:
-    """The fixture runtime: core legacy previewers plus the browser fixture panels."""
+    """The fixture runtime: the built-in core panels plus the browser fixture panels."""
     runtime, _store = make_runtime(temporary)
     runtime.enrich_preview_query = lambda ref, query: enrich_preview_query(runtime, ref, query)
     runtime.data_catalog["data-a"].type_name = "BrowserText"
     runtime.data_catalog["data-a"].type_chain.append("BrowserText")
     storage = CompositeStore().write(
-        {"index": ("arrow", pa.table({"a": [1, 2]})), "notes": ("filesystem", "legacy child text")},
+        {"index": ("arrow", pa.table({"a": [1, 2]})), "notes": ("filesystem", "notes child text")},
         StorageReference(backend="composite", path=str(temporary / "composite")),
     )
     runtime.data_catalog["comp"] = DataRecord(
@@ -56,8 +56,8 @@ def build_runtime(temporary: Path) -> object:
                 registered_types={"BrowserText", "Composite", "DataFrame"},
             )[0]
         )
-    # The runtime's panel service serves these panels over the core legacy
-    # previewers make_runtime installed (#2465).
+    # The runtime's panel service serves these panels over the built-in core
+    # panels make_runtime installed (#2465, #2493).
     use_panels(runtime, panels)
     return runtime
 

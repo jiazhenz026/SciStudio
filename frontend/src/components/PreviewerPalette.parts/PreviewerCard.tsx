@@ -98,7 +98,7 @@ export function PreviewerCard({
       <p className="break-all text-sm font-medium text-ink">{previewer.previewer_id}</p>
 
       <p className="mt-1 text-[11px] text-stone-500">
-        {previewer.renderer === "panel" && !previewer.panel?.contexts.includes("preview") ? (
+        {!previewer.panel?.contexts.includes("preview") ? (
           "Interactive block panel"
         ) : (
           <>
@@ -115,17 +115,12 @@ export function PreviewerCard({
         {previewer.owner_kind === "package" && previewer.owner_name
           ? ` · ${previewer.owner_name}`
           : ""}
-        {previewer.frontend_manifest ? " · custom UI" : ""}
       </p>
 
-      {previewer.renderer === "panel" ? (
-        <p className="text-[11px] text-stone-500">
-          Contexts: {previewer.panel?.contexts.join(", ")} · Priority: {previewer.priority}
-          {previewer.shadowed ? " · Shadowed" : ""}
-        </p>
-      ) : (
-        <p className="text-[11px] text-stone-500">Legacy previewer (deprecated)</p>
-      )}
+      <p className="text-[11px] text-stone-500">
+        Contexts: {previewer.panel?.contexts.join(", ")} · Priority: {previewer.priority}
+        {previewer.shadowed ? " · Shadowed" : ""}
+      </p>
 
       {choiceHeldElsewhere ? (
         <p className="mt-1 text-[11px] text-stone-500" data-testid="previewer-current-choice">
@@ -134,8 +129,7 @@ export function PreviewerCard({
         </p>
       ) : null}
 
-      {previewer.renderer !== "panel" ||
-      (previewer.panel?.contexts.includes("preview") && !previewer.shadowed) ? (
+      {previewer.panel?.contexts.includes("preview") && !previewer.shadowed ? (
         <div
           aria-label={`Previewer choice for ${previewer.target_type}`}
           className="mt-2 inline-flex overflow-hidden rounded-full border border-stone-300 bg-white shadow-sm"
@@ -168,7 +162,7 @@ export function PreviewerCard({
         </div>
       ) : null}
 
-      {previewer.renderer === "panel" && !previewer.shadowed ? (
+      {!previewer.shadowed ? (
         // ADR-053 FR-025 — the same promotion control every other entry point
         // renders. It hides itself for anything outside the project (FR-019),
         // so only a project preview panel shows it.

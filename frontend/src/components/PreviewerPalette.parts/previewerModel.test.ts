@@ -31,8 +31,6 @@ function makePreviewer(overrides: Partial<PreviewerSpecSummary> = {}): Previewer
     supports_collection: false,
     priority: 0,
     capabilities: [],
-    backend_provider: null,
-    frontend_manifest: null,
     api_version: "1",
     ...overrides,
   };

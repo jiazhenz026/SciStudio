@@ -5,13 +5,11 @@
 //
 // ADR-051 / ADR-054 Phase B: the panel is resolved from the block's panel
 // manifest (`panel_manifest.panel_id`), NOT a hardcoded `blockType` branch
-// (SC-006). Since Phase B (#2294) there is no compiled built-in panel registry:
-// a core interactive window (`core.interactive.data_router`,
-// `core.interactive.pair_editor`) is itself a core-tier HTML panel with an
-// empty `module_url`, so it routes through the same sandboxed <InteractivePanel>
-// host every other core panel uses. A package-provided panel loads via the
-// ADR-048 same-origin dynamic-import path (`panel_manifest.module_url`) through
-// <DynamicPanel> (FR-007).
+// (SC-006). Every interactive window — a core one (`core.interactive.data_router`,
+// `core.interactive.pair_editor`) or one a package, the user library or the
+// project ships — is an HTML panel opened in the sandboxed <InteractivePanel>
+// host. The legacy same-origin module form (`panel_manifest.module_url`) was
+// removed (ADR-054 §8, #2493).
 
 import { useRef } from "react";
 
@@ -31,7 +29,6 @@ import {
 } from "../store/executionSlice.parts/interactivePrompts";
 
 import { InteractivePanel } from "../panels/InteractivePanel";
-import { DynamicPanel } from "./InteractiveModals.parts/DynamicPanel";
 
 export function InteractiveModals() {
   // #2395: prompts are held per (workflow, block). The window shows one at a
@@ -138,41 +135,24 @@ export function InteractiveModals() {
 
   const manifest = interactivePrompt.panelManifest;
 
-  // A manifest with an empty `module_url` — every core interactive panel
-  // (`core.interactive.*`) and any package block that forgot `module_url` —
-  // routes through the sandboxed <InteractivePanel> host, which opens the
-  // block's interactive panel context and mounts the panel's HTML entry.
+  // The manifest's panel routes through the sandboxed <InteractivePanel> host,
+  // which opens the block's interactive panel context and mounts the panel's
+  // HTML entry.
   //
-  // #2195 — a block that forgets `module_url` still gets a visible window with
-  // Cancel here rather than a silent PAUSED run: the host surfaces the panel's
+  // #2195 — a block whose panel does not resolve still gets a visible window
+  // with Cancel rather than a silent PAUSED run: the host surfaces the panel's
   // load/registration failure with a Cancel + Remount surface, so the run is
-  // never trapped. A non-empty, backend-relative `module_url` loads a
-  // package-provided window via the ADR-048 same-origin dynamic-import path
-  // through <DynamicPanel>. `onConfirm`/`onCancel` are passed unchanged in both
-  // cases, so the run-scoped `interactive_complete` / `cancel_block` frames are
-  // sent identically.
+  // never trapped. `onConfirm`/`onCancel` send the run-scoped
+  // `interactive_complete` / `cancel_block` frames.
   if (manifest) {
-    if (!manifest.module_url) {
-      return (
-        <InteractivePanel
-          // #2395: a different pending prompt is a different window — remount.
-          key={promptKey}
-          panelId={manifest.panel_id}
-          workflowId={promptWorkflowId}
-          blockId={interactivePrompt.blockId}
-          blockName={interactivePrompt.blockType}
-          onConfirm={onConfirm}
-          onCancel={onCancel}
-        />
-      );
-    }
     return (
-      <DynamicPanel
+      <InteractivePanel
+        // #2395: a different pending prompt is a different window — remount.
         key={promptKey}
-        manifest={manifest}
+        panelId={manifest.panel_id}
+        workflowId={promptWorkflowId}
         blockId={interactivePrompt.blockId}
         blockName={interactivePrompt.blockType}
-        panelPayload={interactivePrompt.panelPayload}
         onConfirm={onConfirm}
         onCancel={onCancel}
       />

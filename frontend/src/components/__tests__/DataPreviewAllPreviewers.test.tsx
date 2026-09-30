@@ -23,9 +23,8 @@ const coreViewer: PreviewerSpecSummary = {
   supports_collection: false,
   priority: 0,
   capabilities: [],
-  backend_provider: null,
-  frontend_manifest: null,
-  api_version: "1",
+  api_version: "1.0",
+  panel: { id: "core.table", api_version: "1.0", contexts: ["preview"], types: ["DataObject"] },
 };
 
 function renderPreview() {

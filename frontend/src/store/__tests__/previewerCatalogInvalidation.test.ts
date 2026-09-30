@@ -60,7 +60,6 @@ function panelCatalog(data: Record<string, unknown>): WorkflowEventMessage {
     miniapps_changed: false,
     preview_candidates_changed: false,
     preview_types: [],
-    legacy_reloaded: false,
     ...data,
   });
 }
@@ -129,12 +128,11 @@ describe("the previewer catalogue is invalidated, not cached forever", () => {
       panelCatalog({
         preview_candidates_changed: true,
         preview_types: ["Collection[Image]"],
-        legacy_reloaded: true,
       }),
       DEPS,
     );
 
-    expect(reroutes).toEqual([{ types: ["Collection[Image]"], legacy: true }]);
+    expect(reroutes).toEqual([{ types: ["Collection[Image]"] }]);
     stop();
   });
 

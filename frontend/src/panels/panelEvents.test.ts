@@ -27,7 +27,6 @@ function envelope(
     previewer_id: "lab.view",
     kind: "panel",
     payload: {},
-    resources: [],
     metadata: {
       sampled: false,
       truncated: false,
@@ -59,7 +58,6 @@ const IMAGES = envelope({
   },
 });
 const TABLE = envelope({
-  kind: "dataframe",
   previewer_id: "pkg.table",
   target: {
     kind: "data_ref",
@@ -91,9 +89,9 @@ describe("previewIsAffected", () => {
     expect(previewIsAffected(IMAGES, { choiceType: "Image" })).toBe(true);
   });
 
-  it("re-routes only legacy-rendered previews on a legacy reload", () => {
-    expect(previewIsAffected(TABLE, { legacy: true })).toBe(true);
-    expect(previewIsAffected(IMAGE, { legacy: true })).toBe(false);
+  it("ignores an empty signal", () => {
+    expect(previewIsAffected(TABLE, {})).toBe(false);
+    expect(previewIsAffected(IMAGE, { types: [] })).toBe(false);
   });
 });
 
