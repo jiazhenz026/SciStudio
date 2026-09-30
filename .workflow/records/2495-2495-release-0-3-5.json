@@ -206,7 +206,11 @@
     }
   ],
   "check_na": [],
-  "commit": null,
+  "commit": {
+    "sha": null,
+    "shas": [],
+    "trailers": []
+  },
   "declared_scope": {
     "exclude": [],
     "include": [
@@ -567,6 +571,194 @@
       "findings": [],
       "guard": "weakened_ci_check",
       "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.528432Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.538331Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.548402Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.558700Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.568335Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.577784Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.587561Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.597231Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.606613Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.617048Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.626640Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:41.636278Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.839003Z",
+      "findings": [],
+      "guard": "agent_docs_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.848936Z",
+      "findings": [],
+      "guard": "architecture_doc_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.859074Z",
+      "findings": [],
+      "guard": "core_change_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.869128Z",
+      "findings": [],
+      "guard": "docs_landing",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.878573Z",
+      "findings": [],
+      "guard": "human_bypass_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.888005Z",
+      "findings": [],
+      "guard": "issue_link",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.897324Z",
+      "findings": [],
+      "guard": "mod_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.906896Z",
+      "findings": [],
+      "guard": "persona_policy",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.916701Z",
+      "findings": [],
+      "guard": "pr_merge_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.926710Z",
+      "findings": [
+        {
+          "actual": null,
+          "drift_class": null,
+          "evidence": {},
+          "expected": null,
+          "file": "",
+          "finding_class": "sentrux",
+          "git_evidence": null,
+          "id": "sentrux.free_tier.advisory-missing-evidence",
+          "line": null,
+          "message": "Sentrux evidence is recommended for source/workflow/architecture changes (advisory, opt-in).",
+          "path": "",
+          "related_findings": [],
+          "remediation": null,
+          "rule_id": "sentrux.free_tier.advisory-missing-evidence",
+          "severity": "info",
+          "subject": null,
+          "suggested_fix": null,
+          "symbol": null,
+          "tool": null
+        }
+      ],
+      "guard": "sentrux_gate",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.936438Z",
+      "findings": [],
+      "guard": "test_engineer_scope_guard",
+      "status": "pass"
+    },
+    {
+      "at": "2026-09-30T17:18:49.946375Z",
+      "findings": [],
+      "guard": "weakened_ci_check",
+      "status": "pass"
     }
   ],
   "issues": [
@@ -582,6 +774,7 @@
     "base": "cae4afb2fc6b5b811179ec61a2f6ef320cedc209",
     "base_sha": "cae4afb2",
     "changed_files": [
+      ".workflow/records/2495-2495-release-0-3-5.json",
       "desktop/package-lock.json",
       "desktop/package.json",
       "docs/user/reference/index.md",
@@ -592,9 +785,9 @@
       "src/scistudio/_user_guide/api-reference/index.md",
       "src/scistudio/_version.py"
     ],
-    "diff_fingerprint": "sha256:300e77acbd6d7a945fdcde861774b2dcafcdffc0ba083c4d0169408a834d32d2",
+    "diff_fingerprint": "sha256:f959bc0a70789b8164b66d0c30233523ec9de2d5ac89184504a8d186f0f5a44e",
     "head": "HEAD",
-    "head_sha": "38e984e5",
+    "head_sha": "37e21a4e",
     "surfaces": {
       "docs": 1,
       "frontend": 2,
@@ -612,7 +805,14 @@
   },
   "owner_directive": "Release SciStudio 0.3.5: bump BASE_VERSION to 0.3.5 and rewrite the reinstall notice with the owner-approved copy (install button line, copy-address line, three what's-new items: MiniApps, runs in AI apps like ChatGPT via background mode, two new tutorials).",
   "persona": "implementer",
-  "pull_request": null,
+  "pull_request": {
+    "body_closes_issues": [],
+    "closes": [
+      2495
+    ],
+    "number": 2496,
+    "url": null
+  },
   "reconcile_events": [
     {
       "at": "2026-09-30T17:17:57.317999Z",
@@ -638,6 +838,22 @@
     {
       "at": "2026-09-30T17:18:28.710403Z",
       "diff_fingerprint": "sha256:300e77acbd6d7a945fdcde861774b2dcafcdffc0ba083c4d0169408a834d32d2",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-30T17:18:41.636308Z",
+      "diff_fingerprint": "sha256:f959bc0a70789b8164b66d0c30233523ec9de2d5ac89184504a8d186f0f5a44e",
+      "mode": "pre-pr",
+      "result": "pass",
+      "tier": 1,
+      "unsatisfied": []
+    },
+    {
+      "at": "2026-09-30T17:18:49.946399Z",
+      "diff_fingerprint": "sha256:f959bc0a70789b8164b66d0c30233523ec9de2d5ac89184504a8d186f0f5a44e",
       "mode": "pre-pr",
       "result": "pass",
       "tier": 1,
