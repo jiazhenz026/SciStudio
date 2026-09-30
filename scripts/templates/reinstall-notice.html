@@ -100,6 +100,16 @@
          refers to must not be separated by anything the eye has to cross. */
       .how { margin: 0 0 0.75rem; color: var(--fg); font-size: 0.95rem; }
       .status { height: 1.5rem; margin-top: 0.75rem; font-size: 0.9rem; color: var(--ok); }
+      /* #2396: the in-app install block. Hidden until the shell proves it can
+         install; a shell without the bridge keeps the copy-address flow. */
+      .install { margin: 0 0 1.75rem; }
+      .install[hidden], .copy-flow[hidden] { display: none; }
+      .install .secondary { color: var(--fg); background: transparent; border: 1px solid var(--line); }
+      .install .secondary:hover { background: var(--field); }
+      button:disabled { opacity: 0.6; cursor: default; }
+      progress { width: 100%; max-width: 24rem; height: 0.5rem; margin-top: 0.9rem; accent-color: var(--accent); }
+      .install-status { min-height: 1.5rem; margin-top: 0.5rem; font-size: 0.9rem; color: var(--muted); }
+      .install-status.error { color: #ff8787; }
       .version { margin-top: 2rem; font-size: 0.8rem; color: var(--faint); }
     </style>
   </head>
@@ -112,15 +122,26 @@
         cannot replace, so it needs installing once.
       </p>
 
-      <p class="how">
-        Copy this address into a browser to download the latest SciStudio.
-      </p>
-
-      <div class="row">
-        <input id="url" value="__DOWNLOAD_URL__" readonly aria-label="Download address" />
-        <button id="copy" type="button">Copy</button>
+      <div class="install" id="install" hidden>
+        <div class="row">
+          <button id="install-action" type="button">Download and install</button>
+          <button id="install-page" class="secondary" type="button" hidden>Open download page</button>
+        </div>
+        <progress id="install-progress" max="100" value="0" hidden></progress>
+        <div class="install-status" id="install-status" role="status"></div>
       </div>
-      <div class="status" id="status" role="status"></div>
+
+      <div class="copy-flow" id="copy-flow">
+        <p class="how">
+          Copy this address into a browser to download the latest SciStudio.
+        </p>
+
+        <div class="row">
+          <input id="url" value="__DOWNLOAD_URL__" readonly aria-label="Download address" />
+          <button id="copy" type="button">Copy</button>
+        </div>
+        <div class="status" id="status" role="status"></div>
+      </div>
 
       <p class="lede">A major update. Here is what is new since your last update.</p>
 
@@ -188,6 +209,97 @@
             field.select();
             try { document.execCommand("copy"); done(); } catch (e) { /* leave it selected */ }
             field.setAttribute("readonly", "");
+          }
+        });
+      })();
+
+      // #2396: in-app install. Only a shell that ships the installer bridge
+      // (desktop/preload.js) exposes window.scistudioDesktop.installer; every
+      // older shell keeps the copy-address flow above, untouched.
+      (function () {
+        var desktop = window.scistudioDesktop;
+        var bridge = desktop && desktop.installer;
+        if (!bridge || typeof bridge.getOffer !== "function") {
+          return;
+        }
+        var block = document.getElementById("install");
+        var action = document.getElementById("install-action");
+        var page = document.getElementById("install-page");
+        var progress = document.getElementById("install-progress");
+        var status = document.getElementById("install-status");
+        var copyFlow = document.getElementById("copy-flow");
+        var downloaded = false;
+
+        function say(message, isError) {
+          status.textContent = message;
+          status.className = isError ? "install-status error" : "install-status";
+        }
+
+        function megabytes(bytes) {
+          return Math.max(1, Math.round(bytes / (1024 * 1024))) + " MB";
+        }
+
+        bridge.getOffer().then(function (offer) {
+          if (!offer || !offer.available) {
+            return;
+          }
+          block.hidden = false;
+          if (offer.releasePage) {
+            page.hidden = false;
+            page.addEventListener("click", function () { bridge.openReleasePage(); });
+          }
+          if (!offer.canInstall) {
+            // The app cannot replace itself here (for example it runs from the
+            // disk image, or its folder is not writable): download by hand.
+            action.hidden = true;
+            copyFlow.hidden = false;
+            say("SciStudio cannot install this update in its current location. Download it and install it by hand.", false);
+            return;
+          }
+          copyFlow.hidden = true;
+          action.textContent = "Download and install SciStudio " + offer.displayVersion + " (" + megabytes(offer.size) + ")";
+          bridge.onProgress(function (update) {
+            var total = update.total || offer.size;
+            progress.value = total > 0 ? Math.floor((update.received / total) * 100) : 0;
+          });
+          action.addEventListener("click", function () {
+            action.disabled = true;
+            if (downloaded) {
+              install();
+              return;
+            }
+            progress.hidden = false;
+            say("Downloading…", false);
+            bridge.download().then(function (outcome) {
+              if (!outcome || !outcome.ok) {
+                action.disabled = false;
+                progress.hidden = true;
+                copyFlow.hidden = false;
+                say("The download failed: " + ((outcome && outcome.error) || "unknown error") + ". Try again, or download it by hand.", true);
+                return;
+              }
+              downloaded = true;
+              progress.value = 100;
+              action.textContent = "Install and restart";
+              install();
+            });
+          });
+
+          function install() {
+            say("Waiting for your confirmation…", false);
+            bridge.install().then(function (outcome) {
+              if (outcome && outcome.ok) {
+                say("Installing. SciStudio will open again when it is done.", false);
+                return;
+              }
+              action.disabled = false;
+              if (outcome && outcome.cancelled) {
+                say("Downloaded. Install when you are ready.", false);
+                return;
+              }
+              copyFlow.hidden = false;
+              say("SciStudio could not install the update: " + ((outcome && outcome.error) || "unknown error") + ".", true);
+            });
           }
         });
       })();

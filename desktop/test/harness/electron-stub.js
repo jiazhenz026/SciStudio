@@ -14,6 +14,7 @@
 //                         its first `get-state` (connection.html does, on load)
 //   mainPreloadError      the main window's preload throws (#2179)
 //   dialogResponse        button index every message box answers with
+//                         (every message box's options are kept in `dialogs`)
 //   backendAliveProbe     called at app.relaunch() to record backend liveness
 
 const { EventEmitter } = require("events");
@@ -30,6 +31,7 @@ const state = {
   mainPreloadError: false,
   dialogResponse: 0,
   dialogCalls: 0,
+  dialogs: [],
   jsCalls: [],
   relaunches: [],
   externals: [],
@@ -158,6 +160,10 @@ class BrowserWindow extends EventEmitter {
   static getAllWindows() {
     return BrowserWindow.all.filter((w) => !w.destroyed);
   }
+  // Nothing has focus in a headless run.
+  static getFocusedWindow() {
+    return null;
+  }
   get preloadPath() {
     return String((this.opts.webPreferences || {}).preload || "");
   }
@@ -269,8 +275,9 @@ const clipboard = {
 };
 
 const dialog = {
-  async showMessageBox() {
+  async showMessageBox(...args) {
     state.dialogCalls += 1;
+    state.dialogs.push(args[args.length - 1]);
     return { response: state.dialogResponse };
   }
 };

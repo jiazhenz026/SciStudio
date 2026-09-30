@@ -34,6 +34,32 @@ test("patchDirName", () => {
   assert.equal(ota.patchDirName(7), "build7");
 });
 
+// #2396: one manifest board per installer base, with every base that already
+// shipped (<= 0.3.4) kept on the shared file its installer reads.
+test("manifestNameForBase: shipped bases keep the shared manifest", () => {
+  assert.equal(ota.LEGACY_MANIFEST_LAST_BASE, "0.3.4");
+  assert.equal(ota.manifestNameForBase("0.3.3"), "manifest.json");
+  assert.equal(ota.manifestNameForBase("0.3.4"), "manifest.json");
+  assert.equal(ota.manifestNameForBase("0.3.5"), "manifest-0.3.5.json");
+  assert.equal(ota.manifestNameForBase("0.10.0"), "manifest-0.10.0.json");
+});
+
+test("manifestUrlForBase: points the channel URL at the base's board", () => {
+  const url = "https://github.com/o/r/releases/download/ota-alpha/manifest.json";
+  assert.equal(ota.manifestUrlForBase(url, "0.3.4"), url);
+  assert.equal(
+    ota.manifestUrlForBase(url, "0.3.5"),
+    "https://github.com/o/r/releases/download/ota-alpha/manifest-0.3.5.json"
+  );
+});
+
+test("manifestUrlForBase: leaves other URLs and missing input alone", () => {
+  assert.equal(ota.manifestUrlForBase("http://127.0.0.1:8765/custom.json", "0.3.5"), "http://127.0.0.1:8765/custom.json");
+  assert.equal(ota.manifestUrlForBase("https://x/not-manifest.json", "0.3.5"), "https://x/not-manifest.json");
+  assert.equal(ota.manifestUrlForBase(null, "0.3.5"), null);
+  assert.equal(ota.manifestUrlForBase("https://x/manifest.json", ""), "https://x/manifest.json");
+});
+
 const CONFIG = { enabled: true, channel: "alpha", manifestUrl: "https://x/m.json" };
 const BASELINE = { base: "0.2.1", channel: "alpha", build: 6 };
 

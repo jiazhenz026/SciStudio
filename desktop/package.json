@@ -42,6 +42,7 @@
       "ota.js",
       "runtime-port.js",
       "background-mode.js",
+      "installer.js",
       "gui-capture.js",
       "preload.js",
       "connection-preload.js",
@@ -73,6 +74,7 @@
       "icon": "icon.ico"
     },
     "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,

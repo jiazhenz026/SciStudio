@@ -4,15 +4,16 @@
 A patch is a *full snapshot* of the staged backend source tree
 (``desktop/resources/backend/src``, which already embeds the built frontend at
 ``scistudio/api/static``). It is uploaded as an asset on a rolling, per-channel
-GitHub pre-release together with a ``manifest.json`` that the desktop client
-(``desktop/main.js``) reads at launch.
+GitHub pre-release together with a manifest that the desktop client
+(``desktop/main.js``) reads at launch. #2396: each installer base reads its own
+manifest in that release (``manifest_name_for_base``).
 
 Design (issue #1775):
 
 * Patches are full snapshots, never deltas. A client several builds behind
   downloads the latest snapshot and replaces its source tree in one step.
-* The build number is the patch sequence. Its source of truth is the published
-  manifest, not any local counter: the next build is
+* The build number is the patch sequence. Its source of truth is the patches
+  published on the channel, not any local counter: the next build is
   ``max(latest_published_build, installer_baseline_build) + 1`` so it is always
   strictly greater than what any shipped installer reports. ``--build`` names a
   number outright, for the one case the sequence cannot express (#2206): a
@@ -80,6 +81,8 @@ SHELL_FILES = (
     "runtime-port.js",
     # #2280: required by main.js and menu.js; a patch without it cannot load.
     "background-mode.js",
+    # #2396: required by main.js; the in-app installer's decisions and helper scripts.
+    "installer.js",
     "gui-capture.js",
     "preload.js",
     # #2280: the external-AI connection window and its sandboxed preload.
@@ -198,6 +201,57 @@ def channel_tag(channel: str) -> str:
     return f"ota-{channel}"
 
 
+# #2396: one manifest "board" per installer base inside the channel release, so
+# a publish for one base never overwrites what another base's clients read --
+# above all the reinstall notice an old base must keep showing however late its
+# users launch. Every base up to LEGACY_MANIFEST_LAST_BASE shipped reading the
+# shared file and keeps it; later bases read manifest-<base>.json. Mirrors
+# LEGACY_MANIFEST_LAST_BASE and manifestNameForBase in desktop/ota.js.
+LEGACY_MANIFEST_LAST_BASE = "0.3.4"
+SHARED_MANIFEST_NAME = "manifest.json"
+_BOARD_RE = re.compile(r"^manifest-(\d+\.\d+\.\d+)\.json$")
+_PATCH_ASSET_RE = re.compile(r"^backend-build(\d+)\.tar\.gz$")
+
+
+def _base_key(base: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in base.split("."))
+
+
+def manifest_name_for_base(base: str) -> str:
+    if _base_key(base) <= _base_key(LEGACY_MANIFEST_LAST_BASE):
+        return SHARED_MANIFEST_NAME
+    return f"manifest-{base}.json"
+
+
+def latest_published_build(asset_names: list[str]) -> int | None:
+    """The highest patch build ever uploaded to the channel, whichever board named it."""
+    builds = [int(m.group(1)) for m in map(_PATCH_ASSET_RE.match, asset_names) if m]
+    return max(builds) if builds else None
+
+
+def target_manifest_names(base: str, min_base: str | None, asset_names: list[str]) -> list[str]:
+    """The boards this publish writes, given the channel's current assets.
+
+    An ordinary patch (no ``--min-base``, or one at this base) writes only this
+    base's board. A publish aimed at older bases -- the reinstall notice -- writes
+    every board that serves a base in ``[min_base, base)``: the shared file when
+    the range reaches the legacy bases, and each existing ``manifest-<X>.json``.
+    From 0.3.5 on this base's own board is never among them, so its clients keep
+    their SPA; only bases that share the legacy file still need the #2206 window.
+    """
+    if min_base is None or _base_key(min_base) >= _base_key(base):
+        return [manifest_name_for_base(base)]
+    names: set[str] = set()
+    if _base_key(min_base) <= _base_key(LEGACY_MANIFEST_LAST_BASE):
+        names.add(SHARED_MANIFEST_NAME)
+    for match in map(_BOARD_RE.match, asset_names):
+        if match and _base_key(min_base) <= _base_key(match.group(1)) < _base_key(base):
+            names.add(match.group(0))
+    if not names:
+        raise ValueError(f"--min-base {min_base} reaches no published board below base {base}.")
+    return sorted(names)
+
+
 def build_manifest(
     *,
     channel: str,
@@ -210,6 +264,7 @@ def build_manifest(
     published_at: str,
     min_build: int | None = None,
     min_base: str | None = None,
+    installer: dict | None = None,
 ) -> dict:
     """Assemble the manifest document the desktop client compares against.
 
@@ -224,11 +279,15 @@ def build_manifest(
     incompatible branch never downloads anything, so the notice page is never
     fetched and the user gets the plain native dialog the notice was written to
     avoid. Pass ``min_base`` at or below the target clients' base to reach them.
+
+    #2396: ``installer`` (from ``installer_from_release``) names the next
+    installer per platform. A shell that knows the field offers to download and
+    install it; older shells ignore it.
     """
     requires: dict[str, object] = {"min_base": min_base or base}
     if min_build is not None:
         requires["min_build"] = min_build
-    return {
+    manifest: dict[str, object] = {
         "channel": channel,
         "base": base,
         "build": build,
@@ -239,6 +298,72 @@ def build_manifest(
         "notes": notes,
         "published_at": published_at,
     }
+    if installer is not None:
+        manifest["installer"] = installer
+    return manifest
+
+
+# #2396: the installer asset each platform key maps to, by the file names the
+# desktop builds emit (electron-builder artifactName settings in
+# desktop/package.json). Every key must be present: the owner scoped the in-app
+# installer to all three platforms, and a manifest that names an installer some
+# users cannot download strands them.
+#
+# The Windows name also accepts electron-builder's default "SciStudio Setup
+# <version>.exe", and the dots GitHub substitutes for its spaces on upload, so a
+# release built before nsis.artifactName was pinned still maps. The AppImage
+# accepts the "-x86_64" suffix a forced arch would add.
+_INSTALLER_VERSION = r"(?P<version>\d+\.\d+\.\d+(?:-[0-9A-Za-z]+-build\d+)?)"
+INSTALLER_ASSET_PATTERNS: dict[str, re.Pattern[str]] = {
+    "darwin-arm64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}-arm64\.dmg$"),
+    "darwin-x64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}-x64\.dmg$"),
+    "win32-x64": re.compile(rf"^SciStudio[-. ]Setup[-. ]{_INSTALLER_VERSION}\.exe$"),
+    "linux-x64": re.compile(rf"^SciStudio-{_INSTALLER_VERSION}(?:-x86_64)?\.AppImage$"),
+}
+
+
+def installer_from_release(release: dict[str, Any]) -> dict[str, Any]:
+    """Build the manifest ``installer`` field from a GitHub release (#2396).
+
+    *release* is the ``gh api repos/<repo>/releases/tags/<tag>`` document. Each
+    platform's asset is matched by name; its URL, size and GitHub-computed
+    ``sha256`` digest go into the field, so nothing is downloaded here. Raises
+    ``ValueError`` when the release is a draft (its assets are not public), when
+    a platform has no asset, when an asset has no digest, or when the assets
+    disagree about the version.
+    """
+    tag = release.get("tag_name")
+    if release.get("draft"):
+        raise ValueError(f"release {tag} is a draft; its assets are not downloadable")
+    assets: dict[str, dict[str, Any]] = {}
+    versions: set[str] = set()
+    for key, pattern in INSTALLER_ASSET_PATTERNS.items():
+        matches = [
+            (asset, match)
+            for asset in release.get("assets", [])
+            if (match := pattern.match(str(asset.get("name", "")))) is not None
+        ]
+        if len(matches) != 1:
+            found = "no asset" if not matches else f"{len(matches)} assets"
+            raise ValueError(f"release {tag}: {found} for {key} ({pattern.pattern})")
+        asset, match = matches[0]
+        versions.add(match.group("version"))
+        digest = str(asset.get("digest") or "")
+        if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+            raise ValueError(f"asset {asset['name']} has no sha256 digest")
+        url = str(asset.get("browser_download_url") or "")
+        if not url.startswith("https://"):
+            raise ValueError(f"asset {asset['name']} has no https download URL")
+        assets[key] = {"url": url, "sha256": digest.split(":", 1)[1], "size": int(asset["size"])}
+    if len(versions) != 1:
+        raise ValueError(f"release {tag}: installer assets disagree on the version: {sorted(versions)}")
+    version = versions.pop()
+    parse_version(version)
+    installer: dict[str, Any] = {"version": version, "assets": assets}
+    page = str(release.get("html_url") or "")
+    if page.startswith("https://"):
+        installer["release_page"] = page
+    return installer
 
 
 def sha256_file(path: Path) -> str:
@@ -465,31 +590,17 @@ def _run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, text=True, capture_output=True, **kwargs)
 
 
-def fetch_latest_build(repo: str, tag: str) -> int | None:
-    """Return the build number of the currently published manifest, or None."""
-    with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp) / "manifest.json"
-        result = _run(
-            [
-                "gh",
-                "release",
-                "download",
-                tag,
-                "--repo",
-                repo,
-                "--pattern",
-                "manifest.json",
-                "--output",
-                str(out),
-                "--clobber",
-            ]
-        )
-        if result.returncode != 0 or not out.exists():
-            return None
-        try:
-            return int(json.loads(out.read_text())["build"])
-        except (ValueError, KeyError, json.JSONDecodeError):
-            return None
+def fetch_channel_assets(repo: str, tag: str) -> list[str] | None:
+    """Names of the assets on the channel release, or None when it does not exist yet.
+
+    #2396: the build sequence and the boards a notice reaches are both read from
+    here, since no single manifest describes the whole channel any more.
+    """
+    try:
+        release = fetch_release(repo, tag)
+    except RuntimeError:
+        return None
+    return [str(asset.get("name", "")) for asset in release.get("assets", [])]
 
 
 def ensure_release(repo: str, tag: str, channel: str) -> None:
@@ -514,6 +625,14 @@ def ensure_release(repo: str, tag: str, channel: str) -> None:
     )
     if result.returncode != 0:
         raise RuntimeError(f"Failed to create release {tag}: {result.stderr.strip()}")
+
+
+def fetch_release(repo: str, tag: str) -> dict[str, Any]:
+    """The GitHub release document for *tag* (#2396). Raises when it cannot be read."""
+    result = _run(["gh", "api", f"repos/{repo}/releases/tags/{tag}"])
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not read release {tag}: {result.stderr.strip()}")
+    return dict(json.loads(result.stdout))
 
 
 def upload_assets(repo: str, tag: str, files: list[Path]) -> None:
@@ -692,6 +811,17 @@ def main(argv: list[str] | None = None) -> int:
             "that is not on origin/main."
         ),
     )
+    parser.add_argument(
+        "--installer-release",
+        metavar="TAG",
+        default=None,
+        help=(
+            "#2396: name the next installer in the manifest, from the GitHub release TAG "
+            "(e.g. v0.3.5-beta). Shells that know the field offer to download and install it. "
+            "The release must be published with a dmg for arm64 and x64, a Windows setup exe "
+            "and an AppImage."
+        ),
+    )
     parser.add_argument("--yes", action="store_true", help="Skip the confirmation prompt before uploading.")
     args = parser.parse_args(argv)
 
@@ -710,10 +840,14 @@ def main(argv: list[str] | None = None) -> int:
     # A dry run normally skips the network and reports a meaningless build. With
     # an explicit --build the number is the thing under review, and the guard that
     # accepts it reads the latest published build -- so fetch it either way, or the
-    # rehearsal would not exercise the check the real publish makes.
-    latest = fetch_latest_build(args.repo, tag) if args.build is not None or not args.dry_run else None
+    # rehearsal would not exercise the check the real publish makes. #2396: the
+    # same goes for --min-base, whose target boards are read from the channel.
+    needs_channel = args.build is not None or args.min_base is not None or not args.dry_run
+    channel_assets = fetch_channel_assets(args.repo, tag) if needs_channel else None
+    latest = latest_published_build(channel_assets) if channel_assets is not None else None
     try:
         build = resolve_build_number(args.build, latest, baseline["build"], args.min_base)
+        boards = target_manifest_names(baseline["base"], args.min_base, channel_assets or [])
     except ValueError as error:
         parser.error(str(error))
     name = asset_name(build)
@@ -726,6 +860,14 @@ def main(argv: list[str] | None = None) -> int:
             args.reinstall_notice, notice_version_line(args.min_base, baseline["base"], build)
         )
         print(f"Snapshot SPA replaced with the reinstall notice -> {args.reinstall_notice}")
+
+    installer = None
+    if args.installer_release:
+        try:
+            installer = installer_from_release(fetch_release(args.repo, args.installer_release))
+        except (RuntimeError, ValueError) as error:
+            parser.error(f"--installer-release: {error}")
+        print(f"Manifest names installer {installer['version']} from {args.installer_release}")
 
     print(f"Packing snapshot of {src_dir} -> {tarball.name} ...")
     make_snapshot(src_dir, tarball, reinstall_notice=notice)
@@ -743,9 +885,12 @@ def main(argv: list[str] | None = None) -> int:
         published_at=_utc_now_iso(),
         min_build=args.min_build,
         min_base=args.min_base,
+        installer=installer,
     )
-    manifest_path = workdir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_text = json.dumps(manifest, indent=2) + "\n"
+    manifest_paths = [workdir / board for board in boards]
+    for manifest_path in manifest_paths:
+        manifest_path.write_text(manifest_text)
 
     print(
         f"\nchannel={channel} base={baseline['base']} build={build} "
@@ -755,6 +900,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  asset : {name} ({size} bytes)")
     print(f"  sha256: {digest}")
     print(f"  url   : {manifest['url']}")
+    print(f"  boards: {', '.join(boards)}")
 
     pypi_args = {
         "repo": args.repo,
@@ -769,7 +915,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print(f"\n[dry-run] artifacts left in {workdir}")
-        print(f"[dry-run] manifest:\n{manifest_path.read_text()}")
+        print(f"[dry-run] manifest:\n{manifest_text}")
         trigger_pypi_publish(dry_run=True, **pypi_args)
         return 0
 
@@ -780,7 +926,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
     ensure_release(args.repo, tag, channel)
-    upload_assets(args.repo, tag, [tarball, manifest_path])
+    upload_assets(args.repo, tag, [tarball, *manifest_paths])
     print(f"\nPublished OTA build {build} to {args.repo} release {tag}.")
     # #2307: only after the upload succeeded. The OTA build is live either way;
     # a PyPI problem is printed, never raised.
