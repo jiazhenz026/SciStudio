@@ -19,6 +19,7 @@ import inspect
 import os
 import sys
 import traceback
+from pathlib import Path
 from types import ModuleType
 from typing import Any, BinaryIO
 
@@ -53,27 +54,47 @@ def _reserve_channel() -> tuple[BinaryIO, BinaryIO]:
 def _import_panel() -> ModuleType:
     """Import ``panel.py`` from the panel directory as the module named ``panel``.
 
-    The panel directory is the entry folder, the first entry of the
-    user import path this process installed from its environment, so
-    ``import panel`` finds ``panel.py`` there and a helper module beside it or
-    a project type is importable by name as well. The user import path sits
-    after the installed packages, so a module named ``panel`` that one of
-    them provides would win; that is refused with a clear error rather than
-    running the wrong code.
+    The panel directory is the entry folder. Unlike the rest of the user import
+    path, which stays at the end of ``sys.path``, it goes to the front in the
+    panel process, so ``import panel`` always finds this panel's ``panel.py``
+    even when an installed package is named ``panel`` (HoloViz Panel, which a
+    MiniApp therefore cannot use). A helper module beside ``panel.py`` is
+    importable by name too, and a project type through the rest of the path.
+
+    Because the folder now sits ahead of the installed packages, every other
+    module in it must not take a standard-library or installed name: such a
+    helper would replace that library for the whole process. The panel refuses
+    to start and names the files to rename.
     """
-    # Development references: ADR-056.
-    from pathlib import Path
-
-    from scistudio.core.user_code import module_owner_dir
-
+    # Development references: ADR-056, FR-008.
     panel_dir = Path(os.environ["SCISTUDIO_PANEL_DIR"]).resolve()
-    owner = module_owner_dir("panel")
-    if owner is not None and owner != panel_dir:
-        raise ImportError(
-            f"panel.py in {panel_dir} is hidden by another module named 'panel' ({owner}); "
-            "uninstall or rename that module so the panel can load."
-        )
+    _refuse_shadowing_helpers(panel_dir)
+    entry = str(panel_dir)
+    while entry in sys.path:
+        sys.path.remove(entry)
+    sys.path.insert(0, entry)
+    importlib.invalidate_caches()
+    cached = sys.modules.get("panel")
+    if cached is not None and Path(getattr(cached, "__file__", "") or "").resolve().parent != panel_dir:
+        del sys.modules["panel"]
     return importlib.import_module("panel")
+
+
+def _refuse_shadowing_helpers(panel_dir: Path) -> None:
+    """Raise when a helper in *panel_dir* takes a standard-library or installed name.
+
+    ``panel`` itself is exempt: the panel folder is put first on purpose so its
+    ``panel.py`` wins over an installed ``panel`` package.
+    """
+    from scistudio.core.user_code import check_user_import_path, installed_user_import_path
+
+    refusals = [
+        refusal
+        for refusal in check_user_import_path([panel_dir], user_import_path=installed_user_import_path())
+        if refusal.stem != "panel"
+    ]
+    if refusals:
+        raise ImportError(" ".join(refusal.message for refusal in refusals))
 
 
 def _collect_callables(module: ModuleType) -> dict[str, Any]:
@@ -226,9 +247,10 @@ def main() -> None:
     module: ModuleType | None = None
     callables: dict[str, Any] = {}
     try:
-        # ADR-056 FR-012: the user import path (panel folder first) arrives in
-        # the environment and is appended to ``sys.path``; the installed
-        # packages a block worker can import go in front, as for a worker.
+        # ADR-056 FR-012: the user import path arrives in the environment and
+        # is appended to ``sys.path``; the installed packages a block worker
+        # can import go in front, as for a worker. ``_import_panel`` then moves
+        # the panel folder alone to the very front (owner decision, #2497).
         from scistudio.core.user_code import install_user_import_path_from_env
         from scistudio.desktop.paths import installed_package_import_roots
         from scistudio.engine.runners.worker import _prepend_installed_import_roots

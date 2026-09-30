@@ -548,3 +548,45 @@ def test_old_launch_cleanup_cannot_kill_or_deregister_a_restart(tmp_path: Path) 
         assert registry.get_handle("panel-context", second.handle.block_id) is second.handle
     finally:
         second.stop()
+
+
+def test_panel_py_wins_over_an_installed_package_named_panel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # ADR-056, owner decision on #2497: the panel folder alone goes to the front
+    # of ``sys.path`` in the panel process, so ``import panel`` is this
+    # MiniApp's panel.py even when a ``panel`` package (HoloViz Panel) is
+    # installed ahead of the user import path.
+    import os
+
+    site = tmp_path / "site"
+    (site / "panel").mkdir(parents=True)
+    (site / "panel" / "__init__.py").write_text("WHO = 'installed'\n", encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(site), os.environ.get("PYTHONPATH", "")])))
+    process, _registry, _project = _launch(
+        tmp_path, "WHO = 'mine'\ndef who():\n    import panel\n    return panel.WHO\n"
+    )
+    try:
+        assert _await_state(process, RUNNING, START_FAILED) == RUNNING, process.status()
+        assert process.call("who", {}).header["result"] == "mine"
+    finally:
+        process.stop()
+
+
+def test_a_panel_helper_with_a_library_name_is_refused(tmp_path: Path) -> None:
+    # The panel folder sits ahead of the installed packages, so a helper named
+    # like a standard-library module would replace it for the whole process.
+    panel_dir = _panel(tmp_path, "def ping():\n    return 'pong'\n")
+    (panel_dir / "json.py").write_text("VALUE = 1\n", encoding="utf-8")
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    process = start_panel_process(
+        context_id="c" + "1" * 31,
+        panel_dir=panel_dir,
+        project_dir=project_dir,
+        registry=ProcessRegistry(),
+        setup_payload=None,
+    )
+    try:
+        assert _await_state(process, START_FAILED) == START_FAILED
+        assert "json.py is refused" in process.status()["error"]["message"]
+    finally:
+        process.stop()
