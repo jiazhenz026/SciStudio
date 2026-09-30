@@ -25,9 +25,10 @@ from __future__ import annotations
 #                                  {"ok": false, "error": "<message>"}
 
 PYTHON_HARNESS = r'''"""Auto-generated plot harness (ADR-048). Do not edit; regenerated each run."""
-import importlib.util
+import importlib
 import json
 import math
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -37,12 +38,42 @@ from types import MappingProxyType
 SUPPORTED_TYPES = {"Array", "DataFrame", "Series", "Text", "Artifact", "CompositeData"}
 
 
+USER_IMPORT_PATH_ENV_VAR = "SCISTUDIO_USER_IMPORT_PATH"
+
+
+def _install_user_import_path(script_name):
+    """Append the user import path (ADR-056) to sys.path; return the entry folder.
+
+    The runtime passes the path in the environment as a JSON array whose first
+    entry is the folder holding the render script, followed by the project and
+    library types/ and blocks/ directories. Without it, the script's own folder
+    is the whole path.
+    """
+    try:
+        entries = json.loads(os.environ.get(USER_IMPORT_PATH_ENV_VAR) or "[]")
+    except ValueError:
+        entries = []
+    entries = [entry for entry in entries if isinstance(entry, str) and entry] if isinstance(entries, list) else []
+    if not entries:
+        entries = [os.path.dirname(os.path.abspath(script_name))]
+    for entry in entries:
+        while entry in sys.path:
+            sys.path.remove(entry)
+        sys.path.append(entry)
+    importlib.invalidate_caches()
+    return os.path.realpath(entries[0])
+
+
 def _load_render(script_name, entrypoint):
-    spec = importlib.util.spec_from_file_location("scistudio_plot_render", script_name)
-    if spec is None or spec.loader is None:
-        raise ImportError("could not load render script: " + script_name)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    entry_folder = _install_user_import_path(script_name)
+    module_name = Path(script_name).stem
+    module = importlib.import_module(module_name)
+    location = os.path.realpath(getattr(module, "__file__", "") or "")
+    if os.path.dirname(location) != entry_folder:
+        raise ImportError(
+            "render script " + Path(script_name).name + " is hidden by another module named '"
+            + module_name + "' (" + (location or "built-in") + "); rename the script"
+        )
     fn = getattr(module, entrypoint, None)
     if fn is None or not callable(fn):
         raise AttributeError("render script has no callable '" + entrypoint + "'")

@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -203,8 +204,6 @@ def build_worker_payload(
     inputs_refs: dict[str, Any],
     config: dict[str, Any],
     output_dir: str | None = None,
-    block_file_path: str | None = None,
-    runtime_import_roots: list[str] | tuple[str, ...] | None = None,
     phase: str = "compute",
 ) -> bytes:
     """Build the JSON payload sent to the worker subprocess via stdin.
@@ -213,27 +212,20 @@ def build_worker_payload(
     ``asyncio.create_subprocess_exec`` while reusing the same serialization
     logic.
 
+    The block is named by ``module.qualname`` for every origin: a drop-in
+    block's module is its file stem, which the worker imports through the user
+    import path it receives in its environment (ADR-056 FR-012), so the payload
+    carries no file path and no import roots.
+
     Parameters
     ----------
-    block_file_path:
-        Optional absolute path to the ``.py`` file that defines the block
-        class. Used for Tier-1 drop-in blocks whose module name only exists
-        in the parent process's ``sys.modules``. When provided,
-        the worker reloads the module via
-        ``importlib.util.spec_from_file_location`` before resolving the
-        class. When ``None`` (Tier-2 entry-point blocks / builtins), the
-        worker uses the standard ``importlib.import_module`` path.
-    runtime_import_roots:
-        Optional block-local import roots. These are applied inside the
-        worker after core startup so plugin dependencies do not shadow core
-        dependencies while the worker imports SciStudio itself.
     phase:
         two-phase marker. ``"compute"`` (default) runs the block's
         ``run`` and is byte-identical to the legacy single-phase payload
         (the key is omitted entirely). ``"prompt"`` runs the interactive
         block's ``prepare_prompt`` to build the panel view and exits.
     """
-    # Development references: #483, #706, ADR-051.
+    # Development references: #483, #706, ADR-051, ADR-056.
     if isinstance(block_class, str):
         block_class_path = block_class
     else:
@@ -245,12 +237,6 @@ def build_worker_payload(
         "config": config,
         "output_dir": output_dir,
     }
-    # #706: only include block_file_path when present, to keep the payload
-    # schema unchanged for the common Tier-2 / builtin case.
-    if block_file_path is not None:
-        payload_dict["block_file_path"] = block_file_path
-    if runtime_import_roots:
-        payload_dict["runtime_import_roots"] = list(runtime_import_roots)
     # ADR-051: only stamp the phase when it is the new prompt phase, so the
     # wire schema for the existing single-phase compute path is unchanged.
     if phase != "compute":
@@ -313,8 +299,6 @@ def spawn_block_process(
     resource_request: Any | None = None,
     output_dir: str | None = None,
     job_handle: Any | None = None,
-    block_file_path: str | None = None,
-    runtime_import_roots: list[str] | tuple[str, ...] | None = None,
     workflow_id: str = "",
 ) -> ProcessHandle:
     """Single entry point for ALL subprocess creation.
@@ -342,26 +326,27 @@ def spawn_block_process(
         block_class_path = f"{block_class.__module__}.{block_class.__qualname__}"
 
     # Build payload for the worker subprocess.
-    # #706: include block_file_path only when set so the worker can reload
-    # Tier-1 drop-in modules whose synthetic name is parent-process-local.
     payload_dict: dict[str, Any] = {
         "block_class": block_class_path,
         "inputs": inputs_refs,
         "config": config,
         "output_dir": output_dir,
     }
-    if block_file_path is not None:
-        payload_dict["block_file_path"] = block_file_path
-    if runtime_import_roots:
-        payload_dict["runtime_import_roots"] = list(runtime_import_roots)
     payload = json.dumps(payload_dict)
 
-    # Configure Popen kwargs with platform-specific process group
+    # Configure Popen kwargs with platform-specific process group. The worker
+    # imports a drop-in block by module name, so it receives this process's
+    # user import path in its environment (ADR-056 FR-012).
+    from scistudio.core.user_code import installed_user_import_path, user_import_path_env
+
     popen_kwargs: dict[str, Any] = {
         "stdin": subprocess.PIPE,
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
     }
+    user_import_path = installed_user_import_path()
+    if user_import_path:
+        popen_kwargs["env"] = {**os.environ, **user_import_path_env(user_import_path)}
     popen_kwargs = platform_ops.create_process_group(popen_kwargs)
 
     # Launch the worker subprocess

@@ -32,9 +32,6 @@ file-format lookup fails: :class:`BlockRegistrationError`,
 
 from __future__ import annotations
 
-import contextlib
-import importlib
-import importlib.util
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -155,9 +152,11 @@ class DropinFailure:
     ``GET /api/blocks/`` returns them alongside the palette, which is the
     response the palette already fetches.
 
-    refusals share the record: a drop-in *type* file whose stem would
-    shadow an installed top-level module is rejected the same way, with
-    :attr:`error_type` naming the collision instead of a Python exception.
+    Name-check refusals share the record (ADR-056 FR-008): a user file whose
+    stem is a standard-library or installed module name, or is used twice in one
+    tier, is rejected the same way, with :attr:`error_type` naming the refusal
+    (``"UserModuleNameCollision"`` / ``"UserModuleNameConflict"``) instead of a
+    Python exception.
     """
 
     # Development references: ADR-053, FR-015, FR-016.
@@ -165,8 +164,8 @@ class DropinFailure:
     file_path: str
     """Absolute path of the drop-in file that was refused."""
     error_type: str
-    """Exception class name, or ``"DropinTypeNameCollision"`` ."""
-    # Development references: FR-016.
+    """Exception class name, or the name-check refusal kind."""
+    # Development references: ADR-056, FR-008.
     message: str
     """One-line explanation, safe to show to the user."""
 
@@ -206,17 +205,13 @@ class BlockSpec:
     to an exact build.
     """
     module_path: str = ""
-    """Importable module path of the block class (e.g. ``"my_pkg.blocks"``)."""
+    """Importable module path of the block class (e.g. ``"my_pkg.blocks"``).
+
+    For a drop-in block this is the file's own stem (``blocks/analyze.py`` ->
+    ``"analyze"``), importable wherever the user import path is installed.
+    """
     class_name: str = ""
     """Name of the block class within :attr:`module_path`."""
-    file_path: str | None = None
-    """Source file of a drop-in block, or ``None`` for installed blocks.
-
-    Set only for blocks discovered as loose ``.py`` files; it lets the
-    registry re-import the file when it changes.
-    """
-    file_mtime: float | None = None
-    """Last-modified time of :attr:`file_path`, used to detect edited drop-in files."""
     base_category: str = ""
     """Broad block family.
 
@@ -306,14 +301,6 @@ class BlockSpec:
 
     Each entry pairs a data type and file format with the handler that does
     the work; the registry searches these when resolving a loader or saver.
-    """
-    # Extra import roots a packaged block needs at run time; deliberately not
-    # added to the core process's global import path.
-    runtime_import_roots: list[str] = field(default_factory=list)
-    """Extra import directories a packaged block needs when it runs.
-
-    These are made available to the worker that runs the block instead of
-    being added to the main process's import path.
     """
     # Execution mode + interactive panel metadata copied from the block class
     # (ADR-051) so consumers can inspect a block without instantiating it.
@@ -501,10 +488,11 @@ class BlockRegistry:
     def instantiate(self, name: str, config: dict[str, Any] | None = None) -> Any:
         """Build a ready-to-run block instance by name.
 
-        Imports the block class from where its descriptor says it lives and
-        constructs it with the given configuration. For drop-in file blocks
-        the file is re-imported each time, so edits are picked up without a
-        restart.
+        Resolves the block class by its module name and constructs it with the
+        given configuration. A drop-in block's module is the one the scan
+        imported, so the class is the registered class and its data types are
+        the type registry's classes; an edit takes effect after the next
+        refresh forgets the user modules (ADR-056).
 
         Args:
             name: The block's display name or type name (see :meth:`get_spec`).
@@ -516,7 +504,7 @@ class BlockRegistry:
 
         Raises:
             KeyError: If no block is registered under *name*.
-            ImportError: If the block's source file cannot be loaded.
+            ImportError: If the block's module cannot be imported.
 
         Example:
             >>> registry = BlockRegistry()
@@ -527,74 +515,36 @@ class BlockRegistry:
         if spec is None:
             raise KeyError(f"Block '{name}' is not registered.")
 
-        from scistudio.core.dropins import guard_dropin_type_roots
-        from scistudio.desktop.paths import prepended_sys_paths
+        from scistudio.blocks.registry._capability import _import_block_module
 
-        runtime_import_roots = [Path(root) for root in spec.runtime_import_roots]
-        # ADR-053 FR-016: this is a second door onto the same sys.path as the
-        # palette scan — an in-process instantiation, long after the scan that
-        # stamped these roots. The guard runs at every such door or it protects
-        # none of them.
-        guard_dropin_type_roots(runtime_import_roots)
-        with prepended_sys_paths(runtime_import_roots):
-            # For Tier 1 (file-based), re-import with mtime.
-            if spec.file_path:
-                path = Path(spec.file_path)
-                mtime = path.stat().st_mtime
-                mod_name = f"_scistudio_dropin_{path.stem}_{int(mtime)}"
-                mod_spec = importlib.util.spec_from_file_location(mod_name, path)
-                if mod_spec is None or mod_spec.loader is None:
-                    raise ImportError(f"Cannot load block from {spec.file_path}")
-                module = importlib.util.module_from_spec(mod_spec)
-                mod_spec.loader.exec_module(module)
-            else:
-                # For Tier 2, standard import.
-                module = importlib.import_module(spec.module_path)
-
+        module = _import_block_module(spec)
         cls = getattr(module, spec.class_name)
-        # #706: this is a *fresh* class object (re-imported from the file) so
-        # the stamp set during _scan_tier1 is on the prior class object. Re-
-        # stamp here so LocalRunner can read _scistudio_file_path from the class
-        # of the instance it is about to dispatch.
-        if spec.file_path:
-            with contextlib.suppress(AttributeError, TypeError):
-                cls._scistudio_file_path = spec.file_path
-        if spec.runtime_import_roots:
-            with contextlib.suppress(AttributeError, TypeError):
-                cls._scistudio_runtime_import_roots = tuple(spec.runtime_import_roots)
         return cls(config=config)
 
-    def hot_reload(self) -> None:
-        """Re-scan the drop-in block directories and apply any changes.
+    def hot_reload(self, *, forget: bool = True) -> None:
+        """Re-import the drop-in block directories and apply any changes.
 
-        Detects edited files by their last-modified time: new drop-in files
-        are added, changed ones are re-read, and files that were deleted or now
-        fail to import are removed from the registry. Built-in and installed blocks are left
-        untouched. Use this to pick up edits to file-based blocks without
-        rebuilding the whole catalogue.
+        Drop-in specs are rebuilt from the files as they are on disk: new files
+        are added, edited ones re-read, and files that were deleted or now fail
+        to import contribute nothing. Built-in and installed blocks are left
+        untouched.
+
+        With ``forget=True`` (the default) every user module is forgotten first
+        (:func:`scistudio.core.user_code.forget_user_modules`); drop-in modules
+        keep stable names, so without that a re-import would return the cached
+        module. A caller that rebuilds the type registry in the same step
+        forgets once itself and passes ``forget=False`` to both.
         """
+        # Development references: ADR-056, FR-009.
         from scistudio.blocks.registry._scan import _scan_tier1
 
-        # Remove stale Tier 1 entries.
-        stale = [
-            name
-            for name, spec in self._registry.items()
-            if spec.source == "tier1" and spec.file_path and not Path(spec.file_path).exists()
-        ]
-        for name in stale:
-            del self._registry[name]
+        if forget:
+            from scistudio.core.user_code import forget_user_modules
 
-        # Re-scan Tier 1 only.
+            forget_user_modules()
+        for name in [name for name, spec in self._registry.items() if spec.source == "tier1"]:
+            del self._registry[name]
         _scan_tier1(self)
-
-        # A file that now fails to import contributes no blocks. Its specs from
-        # the previous pass describe code that no longer loads, so they go too;
-        # the failure itself is in ``dropin_failures``.
-        failed = {failure.file_path for failure in self._dropin_failures}
-        for name in [
-            name for name, spec in self._registry.items() if spec.source == "tier1" and spec.file_path in failed
-        ]:
-            del self._registry[name]
 
     def packages(self) -> dict[str, PackageInfo]:
         """Return metadata for the plugin packages that provided blocks.

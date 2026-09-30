@@ -68,6 +68,7 @@ from scistudio.core.dropins import (
     panel_scan_dirs,
     tutorial_library_dir,
 )
+from scistudio.core.origins import spec_source_file
 from scistudio.engine.events import INTERACTIVE_COMPLETE, WORKFLOW_CHANGED, EngineEvent
 from scistudio.plot.runtime import safe_cache_segment
 from scistudio.tutorials.conditions import (
@@ -824,7 +825,7 @@ class _ApiProductState:
         block_specs: dict[str, Any] = _read_or(self.runtime.block_registry.all_specs, {})
         type_specs: dict[str, Any] = _read_or(self.runtime.type_registry.all_types, {})
         for name, spec in block_specs.items():
-            if _is_under(getattr(spec, "file_path", None), blocks_dir):
+            if _is_under(spec_source_file(spec), blocks_dir):
                 # Both names, for the reason ``block_type_names`` reports both.
                 entries.add(("block", str(name)))
                 if getattr(spec, "type_name", ""):

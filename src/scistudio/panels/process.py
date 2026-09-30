@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import logging
 import os
 import queue
@@ -534,51 +533,31 @@ def _log_path(project_dir: Path, context_id: str) -> Path:
     return directory / f"{context_id}.log"
 
 
-def runtime_import_roots(project_dir: Path | str | None) -> tuple[str, ...]:
-    """The import roots a block worker receives, for a panel process."""
-    # The import roots a block worker receives, for a panel process (FR-006).
-    #
-    # A block worker's roots are stamped on its block class at registry-scan time
-    # and are, in every tier, the drop-in import roots of the project and user
-    # tiers plus the shared user dependency site
-    # (:func:`scistudio.core.dropins.dropin_import_roots`), and — for a block that
-    # came from a desktop-installed package — that package's own roots
-    # (:func:`scistudio.desktop.paths.installed_package_import_roots`). A panel has
-    # no block class to read them from, so they are assembled here from the same
-    # two sources, in the same order, so a module a block worker can import is a
-    # module ``panel.py`` can import.
-    #
-    # Order matters: the drop-in tiers come first, so a project type shadows a
-    # user-library type of the same module name as it does everywhere else.
-    roots: list[str] = []
-    try:
-        from scistudio.core.dropins import dropin_import_roots
+def panel_user_import_path(panel_dir: Path | str, project_dir: Path | str | None) -> tuple[Path, ...]:
+    """The user import path of a panel process: the panel folder, then the tiers.
 
-        roots.extend(str(path) for path in dropin_import_roots(project_dir))
-    except Exception:  # discovery must never keep a MiniApp from starting
-        logger.warning("panel import roots: drop-in roots unavailable", exc_info=True)
-    try:
-        from scistudio.desktop.paths import installed_package_import_roots
+    ADR-056 FR-001: the panel folder is the entry folder, followed by the
+    project and library ``types/`` and ``blocks/`` directories, so ``panel.py``
+    imports a helper beside it, a project type or a block file by name, as a
+    block worker does.
+    """
+    from scistudio.core.user_code import build_user_import_path
 
-        roots.extend(str(path) for path in installed_package_import_roots())
-    except Exception:
-        logger.warning("panel import roots: installed package roots unavailable", exc_info=True)
-    return tuple(dict.fromkeys(root for root in roots if root))
+    return build_user_import_path(project_dir, entry_folder=panel_dir)
 
 
-def _process_env(panel_dir: Path, project_dir: Path, import_roots: tuple[str, ...]) -> dict[str, str]:
-    """The block-worker import surface plus the panel directory and no bytecode."""
-    # The block-worker import surface plus the panel directory and no bytecode.
-    #
-    # FR-006: the runtime import roots blocks receive, the panel directory on the
-    # import path, ``PYTHONDONTWRITEBYTECODE=1`` so importing ``panel.py`` writes
-    # nothing into the panel directory, and ``SCISTUDIO_PROJECT_DIR`` as workers
-    # receive it.
+def _process_env(panel_dir: Path, project_dir: Path) -> dict[str, str]:
+    """The block-worker environment plus the panel's user import path and no bytecode."""
+    # FR-006: the environment a block worker receives, the user import path
+    # with the panel directory first (ADR-056 FR-012), ``PYTHONDONTWRITEBYTECODE=1``
+    # so importing ``panel.py`` writes nothing into the panel directory, and
+    # ``SCISTUDIO_PROJECT_DIR`` as workers receive it.
+    from scistudio.core.user_code import user_import_path_env
     from scistudio.engine.runners.local import _worker_env
 
     # Match block workers: core/native dependencies load before plugin roots.
     env = _worker_env(worker_cwd=str(project_dir), project_dir=str(project_dir)) or dict(os.environ)
-    env["SCISTUDIO_PANEL_IMPORT_ROOTS"] = json.dumps(import_roots)
+    env.update(user_import_path_env(panel_user_import_path(panel_dir, project_dir)))
     env["SCISTUDIO_PANEL_DIR"] = str(panel_dir.resolve())
     env["SCISTUDIO_PROJECT_DIR"] = str(project_dir.resolve())
     env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -594,7 +573,6 @@ def start_panel_process(
     project_dir: Path,
     registry: ProcessRegistry,
     setup_payload: Any,
-    import_roots: tuple[str, ...] = (),
     python_executable: str | None = None,
 ) -> PanelProcess:
     """Launch the panel subprocess and register its handle."""
@@ -610,7 +588,7 @@ def start_panel_process(
         # log; the control channel is the redirected stdin/stdout (bootstrap).
         "stderr": log_path.open("ab"),
         "cwd": str(project_dir),
-        "env": _process_env(panel_dir, project_dir, import_roots),
+        "env": _process_env(panel_dir, project_dir),
     }
     popen_kwargs = platform_ops.create_process_group(popen_kwargs)
     job_object = platform_ops.create_job_object() if sys.platform == "win32" else None
@@ -670,6 +648,6 @@ __all__ = [
     "PanelCallError",
     "PanelProcess",
     "PanelProcessHandle",
-    "runtime_import_roots",
+    "panel_user_import_path",
     "start_panel_process",
 ]

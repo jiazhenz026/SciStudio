@@ -720,8 +720,21 @@ def run_plot_job(
         (work_dir / _PYTHON_HARNESS_NAME).write_text(PYTHON_HARNESS, encoding="utf-8")
     else:
         (work_dir / _R_HARNESS_NAME).write_text(R_HARNESS, encoding="utf-8")
-    user_script_name = Path(manifest.script.path).name
-    shutil.copy2(loaded.script_path, work_dir / user_script_name)
+    # ADR-056: a Python render script is imported by its module name from its
+    # own folder, the entry folder of the user import path the harness receives
+    # in its environment, so it can import a helper beside it or a project
+    # type. It is not copied into the confined working directory: a copy there
+    # would sit first on the harness's ``sys.path`` and shadow the folder. The
+    # R harness still reads a copy by path.
+    env_delta: dict[str, str] = {}
+    if manifest.script.language == "python":
+        from scistudio.core.user_code import build_user_import_path, user_import_path_env
+
+        user_script_name = str(loaded.script_path)
+        env_delta = user_import_path_env(build_user_import_path(root, entry_folder=loaded.script_path.parent))
+    else:
+        user_script_name = Path(manifest.script.path).name
+        shutil.copy2(loaded.script_path, work_dir / user_script_name)
     envelope = _input_envelope(resolved.refs, type_registry=getattr(ctx, "type_registry", None))
     if manifest.script.language == "r":
         # The R harness cannot read parquet (needs `arrow`) or npy/npz/zarr at
@@ -749,7 +762,7 @@ def run_plot_job(
     artifacts: list[PlotArtifact] = []
 
     try:
-        proc = run_codeblock_process(argv=argv, cwd=work_dir, env_delta={}, timeout_seconds=timeout)
+        proc = run_codeblock_process(argv=argv, cwd=work_dir, env_delta=env_delta, timeout_seconds=timeout)
         returncode = proc.returncode
         stdout = _truncate(proc.stdout)
         stderr = _sanitize_error(proc.stderr or "", root)

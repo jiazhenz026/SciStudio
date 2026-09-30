@@ -41,6 +41,7 @@ from scistudio.ai.agent.mcp.server import mcp
 from scistudio.ai.agent.mcp.tools_workflow.read import list_blocks_called
 from scistudio.ai.agent.mcp.tools_workspace import ToolRefusal, list_blocks_refusal
 from scistudio.blocks._templates.render import PortStub, StarterSpec, render_starter
+from scistudio.core.origins import spec_source_file
 
 logger = logging.getLogger(__name__)
 
@@ -180,8 +181,9 @@ async def read_block_source(
     if spec is None:
         raise KeyError(f"Block type '{type_name}' is not registered")
 
-    if getattr(spec, "file_path", None):
-        path = Path(str(spec.file_path))
+    source_file = spec_source_file(spec)
+    if source_file is not None:
+        path = source_file
     else:
         try:
             module = ctx.block_registry.instantiate(type_name).__class__.__module__

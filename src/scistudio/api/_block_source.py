@@ -45,6 +45,7 @@ from scistudio.core.origins import (
     OriginSurface,
     map_block_origin,
     resolve_origin,
+    spec_source_file,
 )
 
 __all__ = [
@@ -144,13 +145,12 @@ def resolve_spec_source_path(spec: Any) -> Path | None:
     thing lives. ``spec`` is read structurally, so it does not matter which
     registry it came from.
     """
-    # Drop-in blocks and every drop-in type carry the concrete file path.
-    file_path = getattr(spec, "file_path", None)
-    if file_path:
-        return Path(str(file_path))
-    # Core and package blocks — and core types — resolve through their
-    # import module. A drop-in type's ``module_path`` is synthetic and never
-    # reached here, because its ``file_path`` is set.
+    # Every type carries its file; a drop-in block resolves it from its
+    # importable module name (ADR-056).
+    file_path = spec_source_file(spec)
+    if file_path is not None:
+        return file_path
+    # Core and package blocks resolve through their import module.
     module_path = getattr(spec, "module_path", "") or ""
     if module_path:
         try:

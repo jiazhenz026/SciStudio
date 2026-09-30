@@ -38,7 +38,6 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import json
 import logging
 import os
@@ -96,22 +95,20 @@ def _emit_envelope(payload: dict[str, Any]) -> None:
     stream.flush()
 
 
-def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
-    """Prepend block-local import roots after worker core startup.
+def _prepend_installed_import_roots(roots: Any) -> tuple[str, ...]:
+    """Put installed-package import roots at the front of ``sys.path`` for this process.
 
-    Drop-in type directories remain on ``sys.path`` for this worker's lifetime.
-    Reject name collisions before adding them so the API process and worker
-    resolve a module name to the same source.
+    The roots of desktop-installed packages and the shared user dependency
+    site (:func:`scistudio.desktop.paths.installed_import_roots_for_module`),
+    which ``_worker_env`` strips from the inherited ``PYTHONPATH`` so core and
+    native dependencies load first. They stay for the process's lifetime, which
+    is one block run. User directories are never passed here: those arrive as
+    the user import path and are appended, not prepended (ADR-056 FR-001).
     """
-    # Development references: ADR-053, FR-013, FR-016.
-    if not isinstance(raw_roots, list):
-        return ()
-
+    # Development references: #1772, ADR-056.
     resolved: list[str] = []
     seen: set[str] = set()
-    for raw_root in raw_roots:
-        if not isinstance(raw_root, str) or not raw_root:
-            continue
+    for raw_root in roots or ():
         root = Path(raw_root).expanduser()
         if not root.is_dir():
             continue
@@ -120,11 +117,6 @@ def _prepend_runtime_import_roots(raw_roots: Any) -> tuple[str, ...]:
             continue
         seen.add(key)
         resolved.append(key)
-
-    from scistudio.core.dropins import guard_dropin_type_roots
-
-    guard_dropin_type_roots(resolved)
-
     for path in reversed(resolved):
         if path in sys.path:
             sys.path.remove(path)
@@ -506,7 +498,17 @@ def main() -> None:
     try:
         raw = sys.stdin.read()
         payload = json.loads(raw)
-        _prepend_runtime_import_roots(payload.get("runtime_import_roots"))
+        block_class_path: str = payload["block_class"]
+        module_path, class_name = block_class_path.rsplit(".", 1)
+
+        # ADR-056 FR-012: the user import path arrives in the environment and
+        # is appended to ``sys.path`` before any user module is imported; the
+        # installed-package roots this block's module needs go in front.
+        from scistudio.core.user_code import install_user_import_path_from_env
+        from scistudio.desktop.paths import installed_import_roots_for_module
+
+        install_user_import_path_from_env()
+        _prepend_installed_import_roots(installed_import_roots_for_module(module_path))
 
         # ADR-027 D11: warm the TypeRegistry singleton so plugin-provided
         # DataObject subtypes can be resolved during reconstruct_inputs.
@@ -516,35 +518,18 @@ def main() -> None:
 
         _get_type_registry()
 
-        block_class_path: str = payload["block_class"]
         config: dict[str, Any] = payload.get("config", {})
         block_id = str(config.get("block_id") or block_class_path)
         output_dir: str = payload.get("output_dir", "")
         # ADR-051: two-phase marker. "prompt" runs prepare_prompt and exits;
         # absent / "compute" is the existing single-phase run path.
         phase: str = payload.get("phase", "compute")
-        # #706: For Tier-1 drop-in blocks, the parent registry passes the
-        # absolute path of the source ``.py`` file. The synthetic module
-        # name (``_scistudio_dropin_<stem>_<mtime>``) only exists in the
-        # parent's ``sys.modules`` and is not importable here via
-        # ``importlib.import_module``. Reload it via spec_from_file_location
-        # and register under the same name so the class resolves.
-        block_file_path: str | None = payload.get("block_file_path")
 
-        # Import block class.
-        module_path, class_name = block_class_path.rsplit(".", 1)
-        if block_file_path is not None:
-            spec = importlib.util.spec_from_file_location(module_path, block_file_path)
-            if spec is None or spec.loader is None:
-                raise ImportError(f"Cannot create module spec for {module_path!r} from file {block_file_path!r}")
-            module = importlib.util.module_from_spec(spec)
-            # Register before exec so any intra-module imports of the same
-            # name resolve to the in-flight module (matches importlib's
-            # standard import protocol).
-            sys.modules[module_path] = module
-            spec.loader.exec_module(module)
-        else:
-            module = importlib.import_module(module_path)
+        # Import the block class by module and class name for every origin
+        # (ADR-056, #706): a drop-in block's module is its file stem, found on
+        # the user import path, and is the same module the type registry and
+        # the block's own ``from <type file> import ...`` resolve.
+        module = importlib.import_module(module_path)
         block_cls = getattr(module, class_name)
 
         # Set output_dir BEFORE block.run() so IOBlock.run() can resolve it

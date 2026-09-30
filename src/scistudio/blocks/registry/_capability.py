@@ -15,8 +15,9 @@
 # - ``_find_format_capability`` — shared core for the two finders.
 # - ``_capability_satisfies_query`` — capability-id verification helper.
 # - ``_resolve_capability_class`` / ``_resolve_first_capability_class`` —
-#   reach the block class behind a capability (mtime-aware re-import).
-# - ``_resolve_class`` — generic spec → class re-import.
+#   reach the block class behind a capability.
+# - ``_import_block_module`` / ``_resolve_class`` — spec → module / class, by
+#   module name for every origin (ADR-056).
 # - ``_validate_dynamic_ports`` — ADR-028 Addendum 1 shape check.
 #
 # Note: ``_format_capabilities_from_class`` was relocated to
@@ -37,10 +38,8 @@
 from __future__ import annotations
 
 import importlib
-import importlib.util
 import logging
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.io.capabilities import CapabilityDirection, FormatCapability, normalize_extension
 from scistudio.core.types.base import DataObject, TypeSignature
@@ -346,28 +345,36 @@ def _validate_interactive_capability(cls: type) -> None:
     validate_interactive_panel(panel)
 
 
+def _import_block_module(spec: BlockSpec) -> Any:
+    """Import the module *spec* names, by name, for every origin.
+
+    ADR-056: a drop-in block's module was imported by the scan under its own
+    stem and is returned from ``sys.modules`` as it is — the file is never
+    executed again, so the class is the registered class. An installed block's
+    module resolves through the package's own roots and the shared user
+    dependency site; that ``sys.path`` window serves installed-package loading
+    only (:func:`scistudio.desktop.paths.installed_import_roots_for_module`).
+    """
+    # Development references: ADR-056, FR-002, #1772.
+    if spec.source in ("builtin", "tier1"):
+        return importlib.import_module(spec.module_path)
+    from scistudio.desktop.paths import installed_import_roots_for_module, prepended_sys_paths
+
+    with prepended_sys_paths(installed_import_roots_for_module(spec.module_path)):
+        return importlib.import_module(spec.module_path)
+
+
 def _resolve_class(spec: BlockSpec) -> type | None:
     """Load the class referenced by *spec*. Returns ``None`` on import failure.
 
-    Mirrors :meth:`BlockRegistry.instantiate`'s import path (mtime-keyed
-    reload for Tier-1 drop-ins, normal ``import_module`` otherwise) but
-    does **not** instantiate the class — query methods only need the
-    ClassVars (``supported_extensions``, ports). On any import or
-    attribute error the method returns ``None`` so a single bad
+    The same import as :meth:`BlockRegistry.instantiate`
+    (:func:`_import_block_module`) without instantiating the class — query
+    methods only need the ClassVars (``supported_extensions``, ports). On any
+    import or attribute error the method returns ``None`` so a single bad
     plugin does not break dispatch for the rest.
     """
     try:
-        if spec.file_path:
-            path = Path(spec.file_path)
-            mtime = path.stat().st_mtime
-            mod_name = f"_scistudio_dropin_{path.stem}_{int(mtime)}"
-            mod_spec = importlib.util.spec_from_file_location(mod_name, path)
-            if mod_spec is None or mod_spec.loader is None:
-                return None
-            module = importlib.util.module_from_spec(mod_spec)
-            mod_spec.loader.exec_module(module)
-        else:
-            module = importlib.import_module(spec.module_path)
+        module = _import_block_module(spec)
         cls = getattr(module, spec.class_name, None)
         return cls if isinstance(cls, type) else None
     except Exception:

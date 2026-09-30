@@ -278,8 +278,8 @@ def _activated_package_import_roots() -> Iterator[None]:
 
     The engine worker that runs a *core* ``Load`` / ``Save`` block does not carry
     the delegated package's import roots: ``engine/runners/local.py`` ``_worker_env``
-    strips plugin paths from ``PYTHONPATH`` and the core block's
-    ``runtime_import_roots`` are empty. The package *module* is importable only
+    strips plugin paths from ``PYTHONPATH`` and the worker adds only the roots of
+    the core block's own module. The package *module* is importable only
     because block discovery cached it in ``sys.modules`` under a scoped
     ``prepended_sys_paths`` that is then reverted — so any *lazy* third-party
     import inside the package loader/saver (e.g. the ``tifffile`` import in the

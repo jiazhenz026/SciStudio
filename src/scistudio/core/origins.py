@@ -77,6 +77,7 @@ __all__ = [
     "OriginSurface",
     "map_block_origin",
     "resolve_origin",
+    "spec_source_file",
 ]
 
 #: FR-002 fallback: a drop-in whose file path resolves under neither tier root.
@@ -205,9 +206,8 @@ def resolve_origin(
             file path to classify installed items.
         is_dropin: Whether the registry classified this as a drop-in even
             though no usable file path came with it. Such an item is ``custom``
-            rather than ``package``: a drop-in type registers under a synthetic
-            ``_scistudio_type_dropin_*`` module name, and a block registers
-            under ``tier1``, neither of which is a distribution.
+            rather than ``package``: a drop-in is imported under its own file
+            stem (ADR-056), which is not a distribution.
         project_dir: Active project root, or ``None`` when no project is open —
             in which case nothing can resolve to :data:`PROJECT_ORIGIN`.
 
@@ -236,6 +236,26 @@ def resolve_origin(
     return PACKAGE_ORIGIN if module_path else CUSTOM_ORIGIN
 
 
+def spec_source_file(spec: Any) -> Path | None:
+    """Return the source file of a registry spec, or ``None`` when unknown.
+
+    A :class:`~scistudio.core.types.registry.TypeSpec` carries its file as
+    ``file_path``. A drop-in :class:`~scistudio.blocks.registry.BlockSpec`
+    (``source == "tier1"``) carries none since ADR-056: its ``module_path`` is
+    the file's own stem, and the file is where that module resolves. Installed
+    blocks return ``None``; callers that want their file import the module.
+    """
+    # Development references: ADR-056, API-007.
+    raw = getattr(spec, "file_path", None)
+    if raw:
+        return Path(str(raw))
+    if (getattr(spec, "source", "") or "").strip() == "tier1":
+        from scistudio.core.user_code import module_source_file
+
+        return module_source_file(getattr(spec, "module_path", "") or "")
+    return None
+
+
 def map_block_origin(spec: Any, *, project_dir: str | Path | None = None) -> str:
     """Return the origin tier of a block registry spec.
 
@@ -251,7 +271,7 @@ def map_block_origin(spec: Any, *, project_dir: str | Path | None = None) -> str
     # Development references: FR-001, FR-002, FR-025.
     return resolve_origin(
         BLOCK_SURFACE,
-        file_path=getattr(spec, "file_path", None),
+        file_path=spec_source_file(spec),
         module_path=getattr(spec, "module_path", "") or "",
         is_dropin=(getattr(spec, "source", "") or "").strip() == "tier1",
         project_dir=project_dir,

@@ -30,7 +30,7 @@ from typing import Any
 from scistudio.blocks.base.config import BlockConfig
 from scistudio.core.types.array import Array
 from scistudio.core.types.artifact import Artifact
-from scistudio.core.types.base import DataObject, same_registered_type
+from scistudio.core.types.base import DataObject
 from scistudio.core.types.collection import Collection
 from scistudio.core.types.composite import CompositeData
 from scistudio.core.types.dataframe import DataFrame
@@ -101,17 +101,14 @@ def _check_pickle_gate(path: Path, config: BlockConfig) -> bool:
 
 
 def _matches_target_type(obj: object, target_cls: type[DataObject]) -> bool:
-    """Whether *obj* is a *target_cls* instance, tolerant of by-path identity.
+    """Whether *obj* is a *target_cls* instance.
 
-    ``isinstance`` fails when *obj*'s class was reconstructed under a different
-    class identity than the registry-resolved ``target_cls`` — a by-path import
-    yields a distinct class object with the same ``__name__``.: the save
-    path must accept the same logical types the workflow validator does (see
-    ``port_accepts_type``), so it falls back to :func:`same_registered_type` on
-    the object's class instead of failing right after validation passes.
+    A user data type is one class per process (ADR-056 FR-003), so
+    ``isinstance`` is the whole check; the by-path identity fallback of #1950 is
+    gone with the by-path imports that needed it.
     """
-    # Development references: #1950.
-    return isinstance(obj, target_cls) or same_registered_type(type(obj), target_cls)
+    # Development references: #1950, ADR-056.
+    return isinstance(obj, target_cls)
 
 
 def _unwrap_for_save(

@@ -274,6 +274,30 @@ def prepended_sys_paths(paths: Iterable[str | Path]) -> Iterator[None]:
         importlib.invalidate_caches()
 
 
+def installed_import_roots_for_module(module_name: str) -> tuple[Path, ...]:
+    """Return the installed-package import roots a module needs at run time.
+
+    The source-package roots of the ``scistudio_blocks_*`` package *module_name*
+    belongs to, when it is one of :func:`candidate_package_dirs`, followed by
+    the shared user dependency site (:func:`user_python_import_roots`). A
+    process derives this from the module name alone, so the block worker and
+    the in-process instantiation agree without the registry stamping roots on
+    a spec or the engine passing them in the worker payload (ADR-056 MIG-004).
+    User directories are never part of the answer: those travel as the user
+    import path (:mod:`scistudio.core.user_code`).
+    """
+    # Development references: #1772, ADR-056.
+    top_level = module_name.split(".", 1)[0]
+    roots: list[Path] = []
+    if top_level.startswith("scistudio_blocks_"):
+        for root_module, _candidate, import_roots in iter_source_package_module_candidates(candidate_package_dirs()):
+            if root_module == top_level:
+                roots.extend(import_roots)
+                break
+    roots.extend(user_python_import_roots())
+    return _resolve_existing_dirs(roots)
+
+
 def installed_package_import_roots() -> list[Path]:
     """Return import roots for all user-installed desktop packages."""
     roots: list[Path] = user_python_import_roots()
@@ -297,37 +321,6 @@ def desktop_plugin_import_roots() -> tuple[Path, ...]:
                 if child.is_dir():
                     roots.extend(package_import_roots(child))
     return _resolve_existing_dirs(roots)
-
-
-def activate_pythonpath_entries(
-    entries: Iterable[str | Path],
-    *,
-    update_sys_path: bool = False,
-) -> tuple[Path, ...]:
-    """Add plugin import roots to inherited worker env.
-
-    ``update_sys_path`` is opt-in so registry scans can keep their historical
-    no-leak behavior and use scoped import contexts for in-process imports.
-    """
-    resolved = list(_resolve_existing_dirs(entries))
-    if not resolved:
-        return ()
-
-    if update_sys_path:
-        existing_sys_path = list(sys.path)
-        for path in reversed(resolved):
-            path_str = str(path)
-            if path_str in sys.path:
-                sys.path.remove(path_str)
-            sys.path.insert(0, path_str)
-        sys.path[:] = list(dict.fromkeys(sys.path + existing_sys_path))
-
-    env_parts = [str(path) for path in resolved]
-    for part in os.environ.get("PYTHONPATH", "").split(os.pathsep):
-        if part and part not in env_parts:
-            env_parts.append(part)
-    os.environ["PYTHONPATH"] = os.pathsep.join(env_parts)
-    return tuple(resolved)
 
 
 def ensure_user_python_environment(python_executable: str | Path | None = None) -> dict[str, Path]:

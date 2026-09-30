@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from scistudio.core.types.base import TypeSignature, same_registered_type
+from scistudio.core.types.base import TypeSignature
 from scistudio.stability import stable
 
 
@@ -99,11 +99,10 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
     is transparent to the port system.  Callers should pass the Collection
     instance directly (not ``type(collection)``).
 
-    A by-path-imported class with a distinct identity but the same registered
-    name is treated as compatible via :func:`same_registered_type`, so runtime
-    validation matches what the static workflow validator accepts.
+    A user data type is one class per process (ADR-056 FR-003), so the check
+    is plain ``issubclass``.
     """
-    # Development references: ADR-020-Add6.
+    # Development references: ADR-020-Add6, ADR-056.
     if not port.accepted_types:
         return True
 
@@ -112,9 +111,9 @@ def port_accepts_type(port: Port, data_type: type | Any) -> bool:
 
     if isinstance(data_type, Collection):
         item_type = data_type.item_type
-        return any(issubclass(item_type, t) or same_registered_type(item_type, t) for t in port.accepted_types)
+        return any(issubclass(item_type, t) for t in port.accepted_types)
 
-    return any(issubclass(data_type, t) or same_registered_type(data_type, t) for t in port.accepted_types)
+    return any(issubclass(data_type, t) for t in port.accepted_types)
 
 
 def port_accepts_signature(port: Port, signature: TypeSignature) -> bool:
@@ -235,25 +234,10 @@ def validate_connection(
         ):
             return True, ""
 
-    # #2134: two blocks in one project that both write ``from image import
-    # Image`` do not hold the same class object. Each drop-in import runs in a
-    # window that evicts what it added from ``sys.modules`` on exit
-    # (``core.dropins.transient_dropin_modules``, which exists to stop a stale
-    # bare-stem binding leaking across tiers, #2017), so the second import
-    # re-executes ``types/image.py`` and binds a fresh class: same name, same
-    # file, no subclass relation either way. ``issubclass`` above therefore
-    # says no, and the product refuses an edge whose two ports print the same
-    # type — nothing the user can act on.
-    #
-    # ``same_registered_type`` is the product's existing answer to exactly this
-    # (its docstring names the by-path import that causes it), and the save
-    # path already uses it. The port check is the surface that had not been
-    # taught it.
-    for src_type in source_port.accepted_types:
-        for tgt_type in target_port.accepted_types:
-            if same_registered_type(src_type, tgt_type):
-                return True, ""
-
+    # #2134 used to need a same-name fallback here, because each drop-in import
+    # re-executed ``types/*.py`` and bound a fresh class. ADR-056 imports every
+    # user file once per process by name, so two blocks importing one type
+    # share its class and ``issubclass`` above is the whole check (FR-003).
     src_names = [t.__name__ for t in source_port.accepted_types]
     tgt_names = [t.__name__ for t in target_port.accepted_types]
     return False, (

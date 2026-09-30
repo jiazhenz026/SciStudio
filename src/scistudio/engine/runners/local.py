@@ -15,7 +15,6 @@ import logging
 import os
 import sys
 import tempfile
-from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -155,23 +154,6 @@ def _derive_output_dir(block: Any, config: dict[str, Any]) -> str:
     return tempfile.mkdtemp(prefix="scistudio-worker-")
 
 
-def _runtime_import_roots_for_block(block: Any) -> tuple[str, ...]:
-    raw = getattr(block.__class__, "_scistudio_runtime_import_roots", ())
-    if not isinstance(raw, Iterable) or isinstance(raw, (str, bytes)):
-        return ()
-    roots: list[str] = []
-    seen: set[str] = set()
-    for entry in raw:
-        if not isinstance(entry, (str, os.PathLike)):
-            continue
-        root = str(entry)
-        if not root or root in seen:
-            continue
-        seen.add(root)
-        roots.append(root)
-    return tuple(roots)
-
-
 def _desktop_plugin_import_root_keys() -> set[str]:
     try:
         from scistudio.desktop.paths import desktop_plugin_import_roots
@@ -188,11 +170,36 @@ def _pythonpath_entry_key(entry: str, *, parent_cwd: Path) -> str:
     return str(path.resolve())
 
 
+def _worker_user_import_path(project_dir: str | None) -> tuple[Path, ...]:
+    """Return the user import path a worker receives (ADR-056 FR-012).
+
+    The path this process installed, so the worker imports a drop-in block from
+    the very directories the registry imported it from; a process that
+    installed none (a CLI run, a test) derives it from *project_dir*.
+    """
+    from scistudio.core.user_code import build_user_import_path, installed_user_import_path
+
+    installed = installed_user_import_path()
+    if installed:
+        return installed
+    return build_user_import_path(project_dir)
+
+
 def _worker_env(
     *,
     worker_cwd: str | None,
     project_dir: str | None,
 ) -> dict[str, str] | None:
+    """Return the environment of a worker (or panel) subprocess, or ``None`` to inherit.
+
+    Desktop plugin roots are stripped from ``PYTHONPATH`` so core and native
+    dependencies load before any plugin's; the worker adds the roots its block
+    needs itself. The user import path travels in
+    :data:`scistudio.core.user_code.USER_IMPORT_PATH_ENV_VAR`.
+    """
+    # Development references: ADR-056, FR-012.
+    from scistudio.core.user_code import USER_IMPORT_PATH_ENV_VAR, serialise_user_import_path
+
     parent_cwd = Path(os.getcwd())
     env = dict(os.environ)
     plugin_root_keys = _desktop_plugin_import_root_keys()
@@ -219,13 +226,17 @@ def _worker_env(
     if project_dir:
         env["SCISTUDIO_PROJECT_DIR"] = str(Path(project_dir).resolve())
 
+    user_import_path = _worker_user_import_path(project_dir)
+    if user_import_path:
+        env[USER_IMPORT_PATH_ENV_VAR] = serialise_user_import_path(user_import_path)
+
     if pythonpath_parts or removed_plugin_path:
         if pythonpath_parts:
             env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(pythonpath_parts))
         else:
             env.pop("PYTHONPATH", None)
 
-    if worker_cwd is None and not project_dir and not removed_plugin_path:
+    if worker_cwd is None and not project_dir and not removed_plugin_path and not user_import_path:
         return None
     return env
 
@@ -286,22 +297,14 @@ class LocalRunner:
         workflow_id = str(config.get("workflow_id") or "")
         output_dir = _derive_output_dir(block, config)
 
-        # #706: For Tier-1 drop-in blocks, the registry stamps the source
-        # ``.py`` file path on the class so the worker can reload the module
-        # (the synthetic ``_scistudio_dropin_*`` module name only exists in the
-        # parent process's ``sys.modules``). Tier-2 / builtin block classes
-        # do not have this attribute and use the normal import path.
-        block_file_path = getattr(block.__class__, "_scistudio_file_path", None)
-        runtime_import_roots = _runtime_import_roots_for_block(block)
-
-        # Build the serialized payload for the worker subprocess.
+        # Build the serialized payload for the worker subprocess. A drop-in
+        # block is named by its file stem, which the worker imports through
+        # the user import path in its environment (ADR-056, #706).
         payload_bytes = build_worker_payload(
             block_class=block_class_path,
             inputs_refs=inputs,
             config=config,
             output_dir=output_dir,
-            block_file_path=block_file_path,
-            runtime_import_roots=runtime_import_roots,
             phase=phase,
         )
 

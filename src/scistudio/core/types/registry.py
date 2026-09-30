@@ -100,19 +100,15 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib
 import importlib.metadata
-import importlib.util
 import inspect
 import logging
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, overload
 
-from scistudio.core.dropins import evict_cached_bytecode, guard_dropin_type_roots
 from scistudio.core.entry_points import (
     STAGE_REGISTER,
     TYPES_ENTRY_POINT_GROUP,
@@ -128,21 +124,13 @@ from scistudio.desktop.paths import (
     candidate_package_dirs,
     iter_source_package_module_candidates,
     prepended_sys_paths,
+    user_python_import_roots,
 )
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-
-#: Module-name prefix the drop-in pass registers file-loaded type modules
-#: under. It is also the marker that identifies a drop-in :class:`TypeSpec`
-#: afterwards: a drop-in belongs to no distribution, so a spec carrying this
-#: prefix must resolve to the ADR-053 FR-002 ``custom`` fallback rather than to
-#: ``package``. Named here because the same string is written by
-#: :meth:`TypeRegistry._scan_filesystem_dirs` and read back by
-#: :func:`_spec_for_class`.
-DROPIN_MODULE_PREFIX = "_scistudio_type_dropin_"
 
 #: The CSS hex forms ADR-053 FR-049 accepts for a declared colour: ``#RGB``,
 #: ``#RGBA``, ``#RRGGBB``, ``#RRGGBBAA``. Short forms are expanded on
@@ -179,9 +167,9 @@ class TypeSpec:
     """Whether this type came from a drop-in file rather than an installed one.
 
     The one thing :func:`scistudio.api._block_source.resolve_origin` cannot
-    infer for a type: a drop-in registers under a synthetic
-    :data:`DROPIN_MODULE_PREFIX` module name, which is not an import path and
-    so would otherwise read as a plugin distribution.
+    infer for a type from its module name: a drop-in is imported under its own
+    file stem (ADR-056), which reads like any installed top-level module. The
+    drop-in pass sets it; every other pass leaves it ``False``.
     """
 
     ui_color: str | None = None
@@ -257,7 +245,7 @@ def _declared_colour(cls: type, attribute: str) -> str | None:
 _entrypoint_module = entry_point_module
 
 
-def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
+def _spec_for_class(cls: type, *, package_root: str = "", is_dropin: bool = False) -> TypeSpec:
     """Describe *cls* as a :class:`TypeSpec`.
 
     The single construction site. Every discovery pass — builtins,
@@ -268,7 +256,8 @@ def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
     ``package_root`` is the one fact this function cannot read off the class:
     which distribution's discovery pass delivered it. A pass that knows it
     hands it in; the rest leave it empty and the type belongs to no
-    distribution.
+    distribution. ``is_dropin`` is the other: only the drop-in pass knows it
+    imported the class from a user directory.
     """
     module_path = getattr(cls, "__module__", "") or ""
     return TypeSpec(
@@ -278,7 +267,7 @@ def _spec_for_class(cls: type, *, package_root: str = "") -> TypeSpec:
         base_type=cls.__mro__[1].__name__ if len(cls.__mro__) > 2 else "",
         description=cls.__doc__.split("\n")[0] if cls.__doc__ else "",
         file_path=_class_file(cls),
-        is_dropin=module_path.startswith(DROPIN_MODULE_PREFIX),
+        is_dropin=is_dropin,
         ui_color=_declared_colour(cls, "ui_color"),
         ui_ring_color=_declared_colour(cls, "ui_ring_color"),
         package_root=package_root.split(".")[0],
@@ -309,6 +298,7 @@ class TypeRegistry:
         self._scan_dirs: list[Path] = []
         self._package_src_dirs: list[Path] = []
         self._entry_point_diagnostics: list[str] = []
+        self._dropin_diagnostics: list[str] = []
 
     @property
     def diagnostics(self) -> list[str]:
@@ -320,10 +310,13 @@ class TypeRegistry:
         package that had nothing to contribute, and a log line the user never
         sees does not distinguish them.
 
-        Rebuilt by every :meth:`_scan_entrypoint_types` pass.
+        Rebuilt by every :meth:`_scan_entrypoint_types` pass. Drop-in type
+        files the name check refused or that failed to import follow, one
+        ``"<file>: <error type>: <message>"`` line each, rebuilt by every
+        drop-in pass.
         """
-        # Development references: ADR-053, FR-028.
-        return list(self._entry_point_diagnostics)
+        # Development references: ADR-053, ADR-056, FR-028.
+        return [*self._entry_point_diagnostics, *self._dropin_diagnostics]
 
     def add_scan_dir(self, directory: str | Path) -> None:
         """Add a directory to the filesystem scan path.
@@ -359,7 +352,7 @@ class TypeRegistry:
         """Register *spec* under *name*."""
         self._registry[name] = spec
 
-    def register_class(self, cls: type, *, package_root: str = "") -> None:
+    def register_class(self, cls: type, *, package_root: str = "", is_dropin: bool = False) -> None:
         """Validate *cls* and register it by its ``__name__``.
 
         Convenience helper for callers that already have the class object
@@ -380,10 +373,12 @@ class TypeRegistry:
                 :attr:`TypeSpec.package_root`; the default leaves the type
                 attributed to no distribution, which is correct for every
                 other caller.
+            is_dropin: Whether *cls* came from a user drop-in directory. Only
+                the drop-in pass sets it.
         """
         # Development references: ADR-027, Addendum 1.
         self._validate_meta_class(cls)
-        self.register(cls.__name__, _spec_for_class(cls, package_root=package_root))
+        self.register(cls.__name__, _spec_for_class(cls, package_root=package_root, is_dropin=is_dropin))
 
     # -- resolve: overloaded on argument type -------------------------------
 
@@ -715,7 +710,7 @@ class TypeRegistry:
         self._scan_package_src_dirs()
         self._scan_filesystem_dirs()
 
-    def rescan(self) -> None:
+    def rescan(self, *, forget: bool = True) -> None:
         """Rebuild this registry's contents in place.
 
         The type-side counterpart of
@@ -725,12 +720,14 @@ class TypeRegistry:
         would keep its first definition forever. Clearing first is what makes a
         type edit behave the way a block edit already does.
 
-        Clearing is necessary and not sufficient. The re-scan reloads each file
-        through :meth:`_scan_filesystem_dirs`, which evicts that file's cached
-        bytecode first — otherwise an edit made within one second of the last
-        load, to the same length, is re-executed from the stale ``.pyc`` and
-        this method registers the very definition it just removed, silently.
-        See :func:`scistudio.core.dropins.evict_cached_bytecode`.
+        Clearing is necessary and not sufficient. User type modules keep their
+        own names (ADR-056), so a re-import would return the cached module.
+        With ``forget=True`` (the default) the user modules are forgotten first
+        (:func:`scistudio.core.user_code.forget_user_modules`), which also
+        deletes their cached bytecode, so the re-scan runs the files on disk. A
+        caller that rebuilds the block registry in the same step forgets once
+        itself and passes ``forget=False`` to both, so the block classes and
+        the type classes come from one import.
 
         Holders of an :class:`~scistudio.api.runtime.ApiRuntime` should call
         ``refresh_all_registries()`` instead: it also rebuilds the block and
@@ -740,7 +737,11 @@ class TypeRegistry:
         read-only properties over the live runtime, so refreshing in place is
         the only way it can reach them.
         """
-        # Development references: ADR-053, FR-062.
+        # Development references: ADR-053, ADR-056, FR-009, FR-062.
+        if forget:
+            from scistudio.core.user_code import forget_user_modules
+
+            forget_user_modules()
         self._registry.clear()
         self.scan_all()
 
@@ -797,171 +798,88 @@ class TypeRegistry:
                     )
 
     def _scan_filesystem_dirs(self) -> None:
-        """Walk each registered scan directory and register drop-in types.
+        """Import each registered scan directory's type files by name and register their types.
 
-        Configured scan directories. Mirrors
-        :meth:`BlockRegistry._scan_tier1` for the type-registration path.
+        ADR-056 Section 4.2. The directories join the user import path
+        (:func:`scistudio.core.user_code.ensure_user_import_path`) if they are
+        not on it already, and every ``*.py`` file not starting with ``_`` is
+        imported with ``importlib.import_module(<stem>)``. A module a block
+        imports by the same stem is therefore the same module, so the type has
+        one class in the process.
 
-        For each registered directory (see :meth:`add_scan_dir`):
+        Per file:
 
-        Silently skip if the directory does not exist (the
-          ``<project>/types`` dir is created on project init but a
-          freshly-cloned project or a user without ``~/.scistudio/types``
-          must not crash registry startup).
-        Import every ``.py`` file via
-          :func:`importlib.util.spec_from_file_location`. Files whose
-          names start with ``_`` are skipped (private / dunder modules).
-        Any top-level :class:`DataObject` subclass that is defined in
-          the loaded module (not merely re-exported from another module)
-          is registered under its ``__name__`` via
-          :meth:`register_class`. Names already in the registry (from
-          built-ins, entry-points, or monorepo passes) are left alone —
-          plugin and built-in registrations win on duplicates.
-        Import failures and Meta-validation failures are logged as
-          warnings; the offending file is skipped and scanning
-          continues. A single broken drop-in must never kill the
-          registry.
-        A file rejected for shadowing an installed
-          top-level module is skipped entirely. The collision policy resolves that
-          case as "registration is refused, not merely warned": telling the
-          user the file is rejected and must be renamed while the type it
-          declares keeps resolving and loading leaves the product saying one
-          thing and doing another, and nothing else reconciles the two — the
-          refusal is recorded on the *block* registry and the registration
-          happens here, and ``refresh_all_registries`` builds the two
-          independently. The predicate is
-          :func:`scistudio.core.dropins.guard_dropin_type_roots`, the same one
-          the block scan reports and the worker binds against, so the two sides
-          cannot drift into disagreeing about which files are refused. It is
-          asked with ``bind=False``: this pass loads drop-in types by file path
-          rather than through ``sys.path``, so it needs the verdict and not the
-          mitigation.
+        - A file the name check refuses (FR-008: a standard-library stem, a stem
+          an installed module owns, a stem used twice in one tier) is not
+          imported and registers nothing.
+        - A stem that resolves to a file in an earlier user directory (a
+          project file shadowing a library file of the same stem) is left to
+          that directory's pass, so nothing registers twice or under the wrong
+          tier.
+        - Only :class:`DataObject` subclasses the module *defines* are
+          registered, and a name already registered (built-ins, entry points,
+          source packages, an earlier drop-in) is left alone.
+
+        Refusals and import failures are logged and recorded in
+        :attr:`diagnostics`; a single broken file never stops the scan.
         """
-        # Maintainer context:
-        # ARCHITECTURE.md §10 + §10.5. Mirrors
-        # :meth:`BlockRegistry._scan_tier1` for the type-registration path.
-        # Silently skip if the directory does not exist (the
-        #   ``<project>/types`` dir is created on project init but a
-        #   freshly-cloned project or a user without ``~/.scistudio/types``
-        #   must not crash registry startup).
-        # Import every ``.py`` file via
-        #   :func:`importlib.util.spec_from_file_location`. Files whose
-        #   names start with ``_`` are skipped (private / dunder modules).
-        # Any top-level :class:`DataObject` subclass that is defined in
-        #   the loaded module (not merely re-exported from another module)
-        #   is registered under its ``__name__`` via
-        #   :meth:`register_class`. Names already in the registry (from
-        #   built-ins, entry-points, or monorepo passes) are left alone —
-        #   plugin and built-in registrations win on duplicates.
-        # Import failures and Meta-validation failures are logged as
-        #   warnings; the offending file is skipped and scanning
-        #   continues. A single broken drop-in must never kill the
-        #   registry.
-        # A file rejected for shadowing an installed
-        #   top-level module is skipped entirely. Spec §13 resolved that
-        #   case as "registration is refused, not merely warned": telling the
-        #   user the file is rejected and must be renamed while the type it
-        #   declares keeps resolving and loading leaves the product saying one
-        #   thing and doing another, and nothing else reconciles the two — the
-        #   refusal is recorded on the *block* registry and the registration
-        #   happens here, and ``refresh_all_registries`` builds the two
-        #   independently. The predicate is
-        #   :func:`scistudio.core.dropins.guard_dropin_type_roots`, the same one
-        #   the block scan reports and the worker binds against, so the two sides
-        #   cannot drift into disagreeing about which files are refused. It is
-        #   asked with ``bind=False``: this pass loads drop-in types by file path
-        #   rather than through ``sys.path``, so it needs the verdict and not the
-        #   mitigation.
-        # Development references: #1332, ADR-053, FR-016, OQ-1.
+        # Development references: #1332, ADR-053, ADR-056, FR-008, FR-016.
+        self._dropin_diagnostics = []
         if not self._scan_dirs:
             return
 
         from scistudio.core.types.base import DataObject
+        from scistudio.core.user_code import (
+            check_user_import_path,
+            ensure_user_import_path,
+            load_user_module,
+            module_owner_dir,
+        )
 
-        refused = {collision.path for collision in guard_dropin_type_roots(self._scan_dirs, bind=False)}
+        user_path = ensure_user_import_path(self._scan_dirs)
+        refusals = {refusal.path: refusal for refusal in check_user_import_path(user_path)}
 
         for scan_dir in self._scan_dirs:
             if not scan_dir.is_dir():
                 logger.debug("TypeRegistry: scan dir %s does not exist; skipping", scan_dir)
                 continue
-            for py_file in scan_dir.glob("*.py"):
+            scan_root = scan_dir.resolve()
+            for py_file in sorted(scan_root.glob("*.py")):
                 if py_file.name.startswith("_"):
                     continue
-                if py_file in refused:
-                    logger.warning(
-                        "TypeRegistry: refusing %s — ADR-053 FR-016 name collision with an installed module",
-                        py_file,
-                    )
+                refusal = refusals.get(py_file)
+                if refusal is not None:
+                    logger.warning("TypeRegistry: refusing %s — %s", py_file, refusal.message)
+                    self._dropin_diagnostics.append(f"{py_file}: {refusal.error_type}: {refusal.message}")
                     continue
-                try:
-                    mtime = py_file.stat().st_mtime
-                    # Include a hash of the absolute path to prevent module-name
-                    # collisions when two scan dirs contain files with the same
-                    # stem and the same mtime (issue #1374).
-                    path_hash = hashlib.sha256(str(py_file.resolve()).encode()).hexdigest()[:8]
-                    mod_name = f"{DROPIN_MODULE_PREFIX}{py_file.stem}_{int(mtime)}_{path_hash}"
-                    spec = importlib.util.spec_from_file_location(mod_name, py_file)
-                    if spec is None or spec.loader is None:
-                        continue
-                    module = importlib.util.module_from_spec(spec)
-                    # Register in sys.modules BEFORE exec_module so that the
-                    # synthetic mod_name (``_scistudio_type_dropin_*``) is
-                    # importable later — TypeSpec records ``obj.__module__``
-                    # and downstream :meth:`load_class` / ``resolve(type_chain)``
-                    # do ``importlib.import_module(spec.module_path)``. Without
-                    # this insert every drop-in type is registerable but
-                    # un-loadable (Codex P1 finding on PR #1339).
-                    sys.modules[spec.name] = module
-                    # A fresh module object is not a fresh *definition*: the
-                    # loader would still take the class body from a stale
-                    # ``.pyc``. See
-                    # :func:`scistudio.core.dropins.evict_cached_bytecode`
-                    # (Codex P1 on PR #2035).
-                    evict_cached_bytecode(py_file)
-                    spec.loader.exec_module(module)
-                except KeyboardInterrupt:
-                    # The operator's own signal, not the drop-in's failure.
-                    raise
-                except BaseException:
-                    # ``BaseException`` rather than ``Exception`` for the same
-                    # reason the block scan uses it: a ``sys.exit()`` carried
-                    # over from a script raises ``SystemExit``, which would
-                    # otherwise take the whole type scan down with it
-                    # (``docs/audit/2026-08-07-adr-053-spec1-write-path.md``
-                    # P2-1). ``os._exit()`` and a module that never returns
-                    # from import stay outside this boundary; they need the
-                    # out-of-process sandbox deferred at ``TODO(#1531)``.
+                if module_owner_dir(py_file.stem) != scan_root:
+                    logger.debug("TypeRegistry: %s is shadowed by an earlier user directory", py_file)
+                    continue
+                # #1772: the shared user dependency site, as for a drop-in
+                # block; an installed-package window, not a user-code one.
+                with prepended_sys_paths(user_python_import_roots()):
+                    loaded = load_user_module(py_file.stem)
+                if not loaded.ok:
                     logger.warning(
-                        "TypeRegistry: failed to import type drop-in from %s",
+                        "TypeRegistry: failed to import type drop-in from %s: %s: %s",
                         py_file,
-                        exc_info=True,
+                        loaded.error_type,
+                        loaded.message,
                     )
+                    self._dropin_diagnostics.append(f"{py_file}: {loaded.error_type}: {loaded.message}")
                     continue
 
-                for attr_name in dir(module):
-                    obj = getattr(module, attr_name, None)
-                    if not (
-                        isinstance(obj, type)
-                        and issubclass(obj, DataObject)
-                        and obj is not DataObject
-                        # Skip re-exports — only register classes actually
-                        # defined in this drop-in file. Matches the #706
-                        # guard in :meth:`BlockRegistry._scan_tier1`.
-                        and getattr(obj, "__module__", None) == module.__name__
-                    ):
+                for obj in loaded.classes:
+                    if not (issubclass(obj, DataObject) and obj is not DataObject):
                         continue
                     if obj.__name__ in self._registry:
-                        # Built-ins / entry-points / monorepo plugins win
-                        # on duplicates; the drop-in path is the last
-                        # tier and must not silently shadow them.
+                        # Built-ins / entry-points / source packages win on
+                        # duplicates; the drop-in path is the last tier and
+                        # must not silently shadow them.
                         continue
                     try:
-                        self.register_class(obj)
-                        logger.info(
-                            "TypeRegistry: registered drop-in type %r from %s",
-                            obj.__name__,
-                            py_file,
-                        )
+                        self.register_class(obj, is_dropin=True)
+                        logger.info("TypeRegistry: registered drop-in type %r from %s", obj.__name__, py_file)
                     except Exception:
                         logger.warning(
                             "TypeRegistry: failed to register drop-in type %r from %s",

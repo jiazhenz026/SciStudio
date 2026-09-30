@@ -85,7 +85,6 @@ class PanelContext:
     process: Any = None
     project_dir: Any = None
     setup_payload: Any = None
-    import_roots: tuple[str, ...] = ()
     ws_client_id: str | None = None
     #: The descriptor fingerprint the context was opened on; a catalog change
     #: that alters it revokes the context (#2465).
@@ -346,7 +345,6 @@ class PanelContexts:
     def _create_miniapp(self, payload: dict[str, Any], *, process_registry: Any) -> PanelContext:
         """Open a miniapp context on a block output and start its process."""
         from scistudio.panels.miniapp import build_setup_payload, miniapp_input, resolve_source
-        from scistudio.panels.process import runtime_import_roots
 
         # The MiniApps tab lists from a catalog that follows the panel
         # directories; the service brought it up to date before this call (#2421).
@@ -362,11 +360,11 @@ class PanelContexts:
         if len(self.contexts) >= MAX_CONTEXTS:
             raise PanelError(429, "context_limit", "Close a panel before opening another")
         project_dir = getattr(self.runtime.active_project, "path", None)
+        # FR-006: panel.py imports what a block worker imports — the user
+        # import path, with the panel folder first, and the packages the user
+        # installed through the app — which the process builds at start
+        # (ADR-056, :func:`scistudio.panels.process.panel_user_import_path`).
         setup_payload = build_setup_payload(self.runtime, frozen)
-        # FR-006: panel.py imports what a block worker imports, from the same
-        # roots, so a MiniApp can use the project's drop-in types and the
-        # packages the user installed through the app.
-        import_roots = runtime_import_roots(project_dir)
         context = PanelContext(
             context_id="pc-" + secrets.token_hex(16),
             panel=panel,
@@ -383,7 +381,6 @@ class PanelContexts:
             source={k: source.get(k) for k in ("workflow_id", "block_id", "port")},
             project_dir=project_dir,
             setup_payload=setup_payload,
-            import_roots=import_roots,
             ws_client_id=payload.get("ws_client_id"),
             panel_fingerprint=service.panel_fingerprint(panel),
         )
@@ -415,7 +412,6 @@ class PanelContexts:
             project_dir=context.project_dir,
             registry=process_registry,
             setup_payload=context.setup_payload,
-            import_roots=context.import_roots,
         )
 
     def restart(self, context_id: str, process_registry: Any = None) -> PanelContext:

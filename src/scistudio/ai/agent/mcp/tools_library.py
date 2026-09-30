@@ -68,7 +68,7 @@ from scistudio.ai.agent.mcp._context import _safe_under, get_context
 from scistudio.ai.agent.mcp._reload import broadcast_blocks_reloaded, refresh_context_registries
 from scistudio.ai.agent.mcp.server import mcp
 from scistudio.core.dropins import BLOCKS_DIR_NAME, library_root_for_project
-from scistudio.core.origins import PROJECT_ORIGIN, map_block_origin
+from scistudio.core.origins import PROJECT_ORIGIN, map_block_origin, spec_source_file
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +255,9 @@ async def promote_to_user_library(
     if origin != PROJECT_ORIGIN:
         raise RuntimeError(f"'{block_type}' {_refusal_for(origin)}")
 
-    raw_source = getattr(spec, "file_path", None)
+    raw_source = spec_source_file(spec)
+    if raw_source is None:
+        raise FileNotFoundError(f"Block source file not found for '{block_type}'")
     source = Path(os.path.realpath(str(raw_source)))
     if not source.is_file():
         raise FileNotFoundError(f"Block source file not found: {source}")

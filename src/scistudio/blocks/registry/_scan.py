@@ -10,11 +10,9 @@
 #
 # - ``_scan_builtins`` — register the four core blocks (LoadData, SaveData,
 #   AIBlock, SubWorkflowBlock).
-# - ``_scan_tier1`` — discover blocks from ``.py`` files under configured
-#   scan directories.
-# - ``_reject_shadowing_type_files`` — ADR-053 FR-016 / §13 OQ-1 reporting
-#   adapter over ``scistudio.core.dropins.guard_dropin_type_roots``, which owns
-#   the rule and the mitigation for every process.
+# - ``_scan_tier1`` — import the ``.py`` files under configured scan
+#   directories by module name (ADR-056) and register their blocks; name-check
+#   refusals and import failures become ``DropinFailure`` records.
 # - ``_scan_tier2`` — discover blocks via ``scistudio.blocks`` entry points
 #   (ADR-025 callable protocol).
 # - ``_scan_package_src_dirs`` — Tier 3 scan of hard-installed/bundled
@@ -23,13 +21,12 @@
 #   registry's ``_registry`` + ``_aliases`` dicts.
 # - ``_validate_capability_registration`` — ADR-043 capability-id and
 #   default-conflict cross-spec validation.
-# Development references: ADR-025, ADR-043, ADR-047, ADR-053, FR-016, OQ-1.
+# Development references: ADR-025, ADR-043, ADR-047, ADR-053, ADR-056.
 
 from __future__ import annotations
 
 import importlib
 import importlib.metadata
-import importlib.util
 import inspect
 import logging
 import sys
@@ -38,11 +35,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from scistudio.blocks.io.capabilities import FormatCapability
-from scistudio.core.dropins import (
-    dropin_import_roots_for_block_dirs,
-    evict_cached_bytecode,
-    guard_dropin_type_roots,
-)
 from scistudio.core.entry_points import (
     BLOCKS_ENTRY_POINT_GROUP,
     STAGE_REGISTER,
@@ -175,80 +167,94 @@ def _record_dropin_failure(registry: BlockRegistry, py_file: Path, error_type: s
     registry._dropin_failures.append(DropinFailure(file_path=str(py_file), error_type=error_type, message=message))
 
 
-def _reject_shadowing_type_files(registry: BlockRegistry, import_roots: tuple[Path, ...]) -> None:
-    """Report every collision in *import_roots* on the registry.
+def _reported_dirs(scan_dirs: list[Path]) -> set[Path]:
+    """Return the directories whose refusals the block listing reports.
 
-    Detection and the pre-binding that keeps the installed module resolving are
-    :func:`scistudio.core.dropins.guard_dropin_type_roots`, which the worker and
-    the in-process instantiation path call too. This function is only the block
-    registry's reporting adapter for it.
+    The block scan directories and the ``types/`` directory of each one's
+    tier: the block listing is the surface a user sees, so a refused type file
+    of the same tier is reported there too, as it always was (ADR-053 FR-015).
     """
-    # Development references: FR-015, FR-016.
-    for collision in guard_dropin_type_roots(import_roots):
-        logger.error("ADR-053 FR-016: rejected drop-in type %s — %s", collision.path, collision.message)
-        _record_dropin_failure(registry, collision.path, "DropinTypeNameCollision", collision.message)
+    from scistudio.core.dropins import BLOCKS_DIR_NAME, TYPES_DIR_NAME
+
+    reported: set[Path] = set()
+    for scan_dir in scan_dirs:
+        with suppress(OSError, ValueError):
+            resolved = scan_dir.resolve()
+            reported.add(resolved)
+            if resolved.name == BLOCKS_DIR_NAME:
+                reported.add(resolved.parent / TYPES_DIR_NAME)
+    return reported
 
 
 def _scan_tier1(registry: BlockRegistry) -> None:
-    """Tier 1: scan configured directories for ``.py`` files containing Block subclasses.
+    """Tier 1: import the ``.py`` files of the configured directories by name.
 
-    Security boundary: drop-in files are executed as Python
-    modules in the server process.  Only files from trusted project- or
-    user-controlled directories should be registered via
-    :meth:`BlockRegistry.add_scan_dir`.
+    Security boundary: drop-in files are executed as Python modules in the
+    server process. Only files from trusted project- or user-controlled
+    directories should be registered via :meth:`BlockRegistry.add_scan_dir`.
 
-    **What the try/except below does and does not isolate.** It catches
-    ``BaseException``, not ``Exception``, so a drop-in that raises
-    ``SystemExit`` is recorded as a failure and skipped like any other. That is
-    not an exotic case: a script converted into a block keeps its
-    ``sys.exit(main())`` idiom or its ``argparse`` error path, and under the
-    narrower ``except Exception`` such a file killed the palette refresh on
-    every startup, recorded no ``DropinFailure`` — so the API's "silent
-    disappearance ends" was not met for that class — and left the user no
-    in-product way to find the file, because the palette they would have used
-    to find it is what died.
-    ``KeyboardInterrupt`` is re-raised: it is the operator's own signal, and
-    swallowing it would make the server un-interruptible during a scan.
+    ADR-056 Section 4.2. The directories join the user import path
+    (:func:`scistudio.core.user_code.ensure_user_import_path`) if they are not
+    on it already, and every ``*.py`` file not starting with ``_`` is imported
+    with ``importlib.import_module(<stem>)`` through
+    :func:`scistudio.core.user_code.load_user_module`. The module keeps its own
+    name in ``sys.modules``, so the worker, the in-process instantiation and a
+    pickle all resolve the block class by that name, and a block can import a
+    helper or another block file beside it.
+
+    Per file:
+
+    - A file the name check refuses (FR-008) is not imported and is recorded as
+      a :class:`~scistudio.blocks.registry.DropinFailure`. Refused type files of
+      the same tier are recorded here too.
+    - A stem that resolves to a file in an earlier user directory (a project
+      file shadowing a library file of the same stem) is left to that
+      directory's pass, so a block registers once, from the file that defines
+      it.
+    - A module that raises on import — ``SystemExit`` included — is recorded
+      as a failure and contributes no blocks. ``KeyboardInterrupt`` still
+      propagates.
+    - Only concrete :class:`Block` subclasses the module *defines* register; a
+      class it imported from another file registers from that file.
 
     Two failure modes remain outside this boundary and cannot be brought inside
     it in-process: ``os._exit()``, which no handler can intercept, and a module
-    that never returns from import, which needs a wall clock this process does
-    not control. Both require isolation in a separate process — a thread-based bound would change where every well-behaved
-    drop-in executes, and an asynchronous interrupt would land in whichever
-    thread happens to be the main one. This paragraph states the boundary
-    rather than claiming isolation the code does not provide.
-
-    the drop-in type directories of the same tiers join
-    ``sys.path`` for the duration of drop-in execution, project tier first, so
-    ``from spectrum import SpectrumData`` resolves ``<project>/types/spectrum.py``
-    and a project type shadows a user-library type of the same file name. Which
-    directories those are is decided by :mod:`scistudio.core.dropins`, not here.
-    the same roots are stamped on every Tier-1 spec so the worker
-    subprocess reconstructs the block against an identical import path.
-
-    every refusal — a module that raised on import, and every
-    type-name collision — is recorded on the registry and returned by
-    ``GET /api/blocks/``, so a drop-in block no longer disappears in silence.
-
+    that never returns from import. Both need isolation in a separate process.
     """
     # Maintainer context (kept outside generated API documentation):
     # TODO(#1531): a full subprocess-sandbox for drop-in execution is deferred.
     #   Out of scope per issue #1531 (contained hardening only for this PR).
     #   Followup: https://github.com/zjzcpj/SciStudio/issues/1531
-    # Development references: #1531, ADR-053, FR-012, FR-013, FR-014, FR-015, FR-016, TODO,
-    # adr-053-spec1-write-path.
+    # Development references: #1531, ADR-053, ADR-056, FR-008, FR-012, FR-013, FR-015, TODO.
     from scistudio.blocks.base.block import Block
     from scistudio.blocks.registry._spec import _spec_from_class
+    from scistudio.core.user_code import (
+        check_user_import_path,
+        ensure_user_import_path,
+        load_user_module,
+        module_owner_dir,
+    )
 
     registry._dropin_failures = []
-    import_roots = dropin_import_roots_for_block_dirs(registry._scan_dirs)
-    _reject_shadowing_type_files(registry, import_roots)
+    if not registry._scan_dirs:
+        return
+    user_path = ensure_user_import_path(registry._scan_dirs)
+    refusals = {refusal.path: refusal for refusal in check_user_import_path(user_path)}
+    reported = _reported_dirs(registry._scan_dirs)
+    for path, refusal in refusals.items():
+        if path.parent in reported:
+            logger.error("ADR-056 FR-008: refused user file %s — %s", path, refusal.message)
+            _record_dropin_failure(registry, path, refusal.error_type, refusal.message)
 
     for scan_dir in registry._scan_dirs:
         if not scan_dir.is_dir():
             continue
-        for py_file in scan_dir.glob("*.py"):
-            if py_file.name.startswith("_"):
+        scan_root = scan_dir.resolve()
+        for py_file in sorted(scan_root.glob("*.py")):
+            if py_file.name.startswith("_") or py_file in refusals:
+                continue
+            if module_owner_dir(py_file.stem) != scan_root:
+                logger.debug("Drop-in block file %s is shadowed by an earlier user directory", py_file)
                 continue
             # Issue #1531: emit a security warning before executing any
             # drop-in so operators can audit which files run in-process.
@@ -257,89 +263,30 @@ def _scan_tier1(registry: BlockRegistry) -> None:
                 "Only add trusted directories via BlockRegistry.add_scan_dir.",
                 py_file,
             )
-            try:
-                mtime = py_file.stat().st_mtime
-                mod_name = f"_scistudio_dropin_{py_file.stem}_{int(mtime)}"
-                spec = importlib.util.spec_from_file_location(mod_name, py_file)
-                if spec is None or spec.loader is None:
-                    continue
-                module = importlib.util.module_from_spec(spec)
-                # A fresh module object is not a fresh *definition*: CPython
-                # validates a cached ``.pyc`` on the source's mtime in whole
-                # seconds plus its size, so a block edited within one second to
-                # the same length would hot-reload into the previous class body.
-                # ADR-053 FR-062 requires a rebuild to run the source on disk.
-                evict_cached_bytecode(py_file)
-                # Issue #1531: wrap exec_module in its own try/except so a
-                # failing or hostile drop-in cannot crash the palette refresh.
-                try:
-                    with prepended_sys_paths(import_roots):
-                        spec.loader.exec_module(module)
-                except KeyboardInterrupt:
-                    # The operator's own signal, not the drop-in's failure.
-                    raise
-                except BaseException as exc:
-                    # #1531: skip-don't-crash on a failing/hostile drop-in.
-                    # ``BaseException`` rather than ``Exception`` so a
-                    # ``sys.exit()`` carried over from a script — the common
-                    # accident — is recorded and skipped instead of killing the
-                    # refresh with no trace (P2-1, see the module docstring).
-                    # Keep the historical "Failed to import block from" wording
-                    # (asserted by the registry-logging contract test) so the
-                    # hardening does not change the observable error log.
-                    logger.warning(
-                        "Failed to import block from %s: drop-in module raised "
-                        "during import; skipping (it contributes no blocks).",
-                        py_file,
-                        exc_info=True,
-                    )
-                    _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
-                    continue
-
-                for attr_name in dir(module):
-                    obj = getattr(module, attr_name)
-                    if (
-                        isinstance(obj, type)
-                        and issubclass(obj, Block)
-                        and obj is not Block
-                        and not inspect.isabstract(obj)
-                        # #706 audit: ``dir(module)`` also surfaces Block
-                        # subclasses *imported* from other modules (e.g.
-                        # ``from scistudio.blocks.code import CodeBlock``).
-                        # Stamping or re-registering those would make the
-                        # worker try to spec_from_file_location the wrong
-                        # source. Restrict the loop body to classes that
-                        # are actually defined in this drop-in file.
-                        and getattr(obj, "__module__", None) == module.__name__
-                    ):
-                        # #706: stamp the source-file path on the class so the
-                        # worker subprocess can reload the synthetic module via
-                        # importlib.util.spec_from_file_location (the synthetic
-                        # mod_name only exists in the parent's sys.modules).
-                        # Only Tier-1 drop-in classes get this attribute;
-                        # Tier-2 entry-point blocks remain importable via the
-                        # normal importlib.import_module path.
-                        # Defensive: if the class disallows attribute
-                        # assignment (e.g. __slots__ without the slot),
-                        # fall through; the worker will then fail loudly
-                        # with the original ModuleNotFoundError rather
-                        # than silently mis-dispatching.
-                        with suppress(AttributeError, TypeError):
-                            obj._scistudio_file_path = str(py_file)  # type: ignore[attr-defined]
-                        block_spec = _spec_from_class(obj, source="tier1")
-                        block_spec.file_path = str(py_file)
-                        block_spec.file_mtime = mtime
-                        block_spec.module_path = mod_name
-                        block_spec.runtime_import_roots = [str(path) for path in import_roots]
-                        _register_spec(registry, block_spec)
-            except Exception as exc:
+            # #1772: packages the user installed through the in-app terminal
+            # live in the shared user dependency site. That window serves
+            # installed-package loading, not user code, and stays (ADR-056).
+            with prepended_sys_paths(user_python_import_roots()):
+                loaded = load_user_module(py_file.stem)
+            if not loaded.ok:
+                # Keep the historical "Failed to import block from" wording
+                # (asserted by the registry-logging contract test).
                 logger.warning(
-                    "Failed to import block from %s",
+                    "Failed to import block from %s: drop-in module raised during import; "
+                    "skipping (it contributes no blocks). %s: %s",
                     py_file,
-                    exc_info=True,
+                    loaded.error_type,
+                    loaded.message,
                 )
-                _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
+                _record_dropin_failure(registry, py_file, loaded.error_type or "ImportError", loaded.message or "")
                 continue
+            try:
+                for obj in loaded.classes:
+                    if issubclass(obj, Block) and obj is not Block and not inspect.isabstract(obj):
+                        _register_spec(registry, _spec_from_class(obj, source="tier1"))
+            except Exception as exc:
+                logger.warning("Failed to import block from %s", py_file, exc_info=True)
+                _record_dropin_failure(registry, py_file, type(exc).__name__, str(exc) or type(exc).__name__)
 
 
 def _scan_tier2(registry: BlockRegistry) -> None:
@@ -466,10 +413,6 @@ def _register_entry_point_blocks(
                 block_spec.module_path = cls.__module__
                 block_spec.class_name = cls.__name__
                 block_spec.package_name = pkg_name
-                # #1772: surface shared user-site deps (installed via the
-                # in-app Python terminal) to the worker for entry-point
-                # blocks too, matching the source-package path.
-                block_spec.runtime_import_roots = [str(path) for path in _desktop_user_python_import_roots()]
                 _register_spec(registry, block_spec)
             elif isinstance(cls, type) and issubclass(cls, Block) and inspect.isabstract(cls):
                 message = f"contained abstract Block subclass: {cls}"
@@ -524,18 +467,12 @@ def _desktop_resource_package_dirs() -> list[Path]:
     return candidate_package_dirs()
 
 
-def _desktop_user_python_import_roots() -> list[Path]:
-    """Return shared user dependency roots for trusted drop-in imports."""
-    return list(user_python_import_roots())
-
-
 def _process_package_protocol_result(
     registry: BlockRegistry,
     *,
     module_name: str,
     result: Any,
     source: str,
-    runtime_import_roots: list[Path] | None = None,
 ) -> None:
     """Register block classes returned by a source package protocol hook."""
     from scistudio.blocks.base.block import Block
@@ -574,14 +511,10 @@ def _process_package_protocol_result(
         block_spec.module_path = cls.__module__
         block_spec.class_name = cls.__name__
         block_spec.package_name = pkg_name
-        # #1772: a worker running this block must also resolve dependencies the
-        # user installed through the in-app Python terminal, which land in the
-        # shared user dependency site. Append that site after the package's own
-        # roots so per-package deps keep precedence while shared-site extras
-        # (e.g. ``cellpose``) become importable.
-        block_spec.runtime_import_roots = list(
-            dict.fromkeys(str(path) for path in [*(runtime_import_roots or []), *_desktop_user_python_import_roots()])
-        )
+        # #1772: the worker running this block resolves the package's own
+        # roots and the shared user dependency site from the module name
+        # (:func:`scistudio.desktop.paths.installed_import_roots_for_module`),
+        # so the spec carries no import roots.
         if block_spec.type_name in registry._aliases or block_spec.name in registry._registry:
             continue
         _register_spec(registry, block_spec)
@@ -594,10 +527,14 @@ def _scan_source_package_module(
     module_name: str,
     source: str,
 ) -> None:
-    """Import one ``scistudio_blocks_*`` package and register its block classes."""
+    """Import one ``scistudio_blocks_*`` package and register its block classes.
+
+    The ``sys.path`` window here serves installed-package loading, not user
+    code (ADR-056 keeps plugin roots with :mod:`scistudio.desktop.paths`), and
+    so does the eviction of the package's previously imported modules.
+    """
     try:
-        runtime_import_roots = tuple(import_roots)
-        with prepended_sys_paths(runtime_import_roots):
+        with prepended_sys_paths(import_roots):
             stale_modules = [name for name in sys.modules if name == module_name or name.startswith(f"{module_name}.")]
             for name in stale_modules:
                 # Keep DataObject type modules stable across block-package refreshes.
@@ -618,7 +555,6 @@ def _scan_source_package_module(
                 module_name=module_name,
                 result=result,
                 source=source,
-                runtime_import_roots=list(runtime_import_roots),
             )
     except Exception:
         logger.warning("Failed to import source plugin package '%s' from %s", module_name, import_roots, exc_info=True)

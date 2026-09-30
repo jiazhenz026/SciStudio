@@ -14,9 +14,8 @@
 from __future__ import annotations
 
 import contextlib
-import importlib.util
+import importlib
 import inspect
-import json
 import os
 import sys
 import traceback
@@ -52,18 +51,28 @@ def _reserve_channel() -> tuple[BinaryIO, BinaryIO]:
 
 
 def _import_panel() -> ModuleType:
-    """Import ``panel.py`` from the panel directory as the module named ``panel``."""
-    panel_dir = os.environ["SCISTUDIO_PANEL_DIR"]
-    if panel_dir not in sys.path:
-        sys.path.insert(0, panel_dir)
-    path = os.path.join(panel_dir, "panel.py")
-    spec = importlib.util.spec_from_file_location("panel", path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load panel.py from {panel_dir}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["panel"] = module
-    spec.loader.exec_module(module)
-    return module
+    """Import ``panel.py`` from the panel directory as the module named ``panel``.
+
+    ADR-056: the panel directory is the entry folder, the first entry of the
+    user import path this process installed from its environment, so
+    ``import panel`` finds ``panel.py`` there and a helper module beside it or
+    a project type is importable by name as well. The user import path sits
+    after the installed packages, so a module named ``panel`` that one of
+    them provides would win; that is refused with a clear error rather than
+    running the wrong code.
+    """
+    from pathlib import Path
+
+    from scistudio.core.user_code import module_owner_dir
+
+    panel_dir = Path(os.environ["SCISTUDIO_PANEL_DIR"]).resolve()
+    owner = module_owner_dir("panel")
+    if owner is not None and owner != panel_dir:
+        raise ImportError(
+            f"panel.py in {panel_dir} is hidden by another module named 'panel' ({owner}); "
+            "uninstall or rename that module so the panel can load."
+        )
+    return importlib.import_module("panel")
 
 
 def _collect_callables(module: ModuleType) -> dict[str, Any]:
@@ -216,9 +225,15 @@ def main() -> None:
     module: ModuleType | None = None
     callables: dict[str, Any] = {}
     try:
-        from scistudio.engine.runners.worker import _prepend_runtime_import_roots
+        # ADR-056 FR-012: the user import path (panel folder first) arrives in
+        # the environment and is appended to ``sys.path``; the installed
+        # packages a block worker can import go in front, as for a worker.
+        from scistudio.core.user_code import install_user_import_path_from_env
+        from scistudio.desktop.paths import installed_package_import_roots
+        from scistudio.engine.runners.worker import _prepend_installed_import_roots
 
-        _prepend_runtime_import_roots(json.loads(os.environ.get("SCISTUDIO_PANEL_IMPORT_ROOTS", "[]")))
+        _prepend_installed_import_roots(installed_package_import_roots())
+        install_user_import_path_from_env()
         module = _import_panel()
         data = _reconstruct(header.get("data"))
         callables = _collect_callables(module)

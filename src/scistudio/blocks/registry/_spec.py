@@ -52,7 +52,7 @@ def _packages_distributions_cached() -> dict[str, list[str]]:
     return _PACKAGES_DISTRIBUTIONS_CACHE
 
 
-def _resolve_distribution_version(cls: type) -> str:
+def _resolve_distribution_version(cls: type, *, dropin: bool = False) -> str:
     """Return the PyPI distribution version of the module hosting ``cls``.
 
     : ``block_version``
@@ -109,9 +109,10 @@ def _resolve_distribution_version(cls: type) -> str:
         sv = _scistudio_version()
         if sv is not None:
             return sv
-    # 2. Tier-1 drop-in modules use a synthetic name (``_scistudio_dropin_...``);
-    #    they have no distribution. Use scistudio version as the uniform default.
-    if module_name.startswith("_scistudio_dropin_"):
+    # 2. Tier-1 drop-in modules are imported under their own file stem
+    #    (ADR-056), which names no distribution; the scan says so with
+    #    ``dropin=True``. Use scistudio version as the uniform default.
+    if dropin:
         sv = _scistudio_version()
         if sv is not None:
             return sv
@@ -398,7 +399,7 @@ def _spec_from_class(cls: type, source: str = "") -> BlockSpec:
     return BlockSpec(
         name=getattr(cls, "name", cls.__name__),
         description=getattr(cls, "description", "") or (cls.__doc__ or "").split("\n")[0],
-        version=_resolve_distribution_version(cls),
+        version=_resolve_distribution_version(cls, dropin=source == "tier1"),
         module_path=cls.__module__,
         class_name=cls.__name__,
         base_category=base_cat,
