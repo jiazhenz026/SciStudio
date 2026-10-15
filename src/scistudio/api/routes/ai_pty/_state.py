@@ -107,6 +107,61 @@ _ai_pty_subscribers: set[_AiPtySubscriber] = set()
 _ai_pty_subscribers_lock = threading.Lock()
 
 
+# ---------------------------------------------------------------------------
+# ``ai_chat_disabled`` agent-session policy (ADR-055 Spec 4 FR-006)
+#
+# An edition that declares the ``ai_chat_disabled`` capability hides the AI
+# Chat surface, and the backend must match: every PTY session whose provider is
+# agent-kind in the registry is refused before anything is spawned. The
+# Terminal (``user-terminal``, TERMINAL-kind) is never gated, and neither is a
+# tutorial replay, which spawns nothing and is joined under ``user-terminal``.
+#
+# The policy is process-wide like the rest of this module's state, because the
+# pre-spawned paths (AI Block, Bring In My Work) run without a request or app
+# in hand. The application lifespan sets it from ``app.state.capabilities`` at
+# startup and clears it at teardown. It is a default and an administrator
+# policy, not a security boundary: from the Terminal a user can run any CLI
+# they install in their own account.
+# ---------------------------------------------------------------------------
+
+#: Tab ids the user-launched PTY WebSocket refuses. Each is a literal segment
+#: another route family owns under ``/api/ai/pty/``: ``internal`` is the
+#: self-authenticating worker callback prefix (``internal_routes``), and a tab
+#: with that id would put the terminal route on the prefix's own path (#2322
+#: audit P1-1). Compared case-insensitively.
+RESERVED_TAB_IDS: frozenset[str] = frozenset({"internal"})
+
+_agent_sessions_disabled = False
+
+
+class AgentSessionsDisabledError(RuntimeError):
+    """An agent-kind PTY session was requested while ``ai_chat_disabled`` is set."""
+
+
+def _set_agent_sessions_disabled(disabled: bool) -> None:
+    """Turn the ``ai_chat_disabled`` refusal of agent-kind providers on or off."""
+    global _agent_sessions_disabled
+    _agent_sessions_disabled = bool(disabled)
+
+
+def agent_session_refusal(provider: str) -> str | None:
+    """Return why a session for *provider* is refused, or ``None`` when it may start.
+
+    Refuses only while ``ai_chat_disabled`` is set, and only agent-kind
+    providers. An unknown key returns ``None``: the callers reject it
+    themselves against the registry, with their own message.
+    """
+    if not _agent_sessions_disabled or provider not in REGISTRY:
+        return None
+    descriptor = REGISTRY.get(provider)
+    if descriptor.kind is not ProviderKind.AGENT:
+        return None
+    return (
+        f"AI agent sessions are turned off on this server (ai_chat_disabled), so {descriptor.label} "
+        "was not started. The Terminal still opens a shell."
+    )
+
+
 def _spawn(
     *,
     provider: str,
@@ -121,6 +176,12 @@ def _spawn(
     spawner = _PROVIDER_SPAWNERS.get(provider)
     if spawner is None:
         raise ValueError(f"Unknown provider {provider!r}")
+    # Backstop for the ``ai_chat_disabled`` policy: every spawn path checks it
+    # before reaching here, and the provider dispatch refuses as well, so a
+    # future caller that forgets the check still spawns nothing.
+    refusal = agent_session_refusal(provider)
+    if refusal is not None:
+        raise AgentSessionsDisabledError(refusal)
     return spawner(
         project_dir=project_dir,
         dangerous=dangerous,

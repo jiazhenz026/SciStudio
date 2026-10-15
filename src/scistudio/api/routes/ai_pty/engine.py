@@ -207,6 +207,12 @@ def _open_prespawned_tab(
     except ValueError as exc:
         raise RuntimeError(f"pre-spawned PTY tab: {exc}") from exc
 
+    # ADR-055 Spec 4 FR-006: every pre-spawned tab runs an agent, so with
+    # ``ai_chat_disabled`` set it is refused here, before anything is spawned.
+    refusal = _pkg.agent_session_refusal(provider)
+    if refusal is not None:
+        raise _pkg.AgentSessionsDisabledError(refusal)
+
     # Reclaim first: an orphan from an earlier handoff that never happened
     # holds a slot it will never use, and without this a run of failed
     # handoffs would exhaust the cap and refuse a request that is fine.
