@@ -275,7 +275,7 @@ jobs:
           name: scistudio-dist
           path: dist/
       - name: Publish through trusted publishing
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
 
   github-release:
     name: Attach to the GitHub Release
